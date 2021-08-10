@@ -58,7 +58,7 @@ export default class NotificationItem extends Vue {
     /**
      * Uses for class change for animation.
      */
-    public mounted() {
+    public mounted(): void {
         setTimeout(() => {
             this.isClassActive = true;
         }, 100);

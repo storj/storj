@@ -274,3 +274,445 @@ func TestPiecesEqual(t *testing.T) {
 		require.Equal(t, tt.equal, tt.source.Equal(tt.target))
 	}
 }
+
+func TestPiecesAdd(t *testing.T) {
+	node0 := testrand.NodeID()
+	node1 := testrand.NodeID()
+	node2 := testrand.NodeID()
+	node3 := testrand.NodeID()
+
+	tests := []struct {
+		name        string
+		pieces      metabase.Pieces
+		piecesToAdd metabase.Pieces
+		want        metabase.Pieces
+		wantErr     string
+	}{
+		{
+			name: "piece exists",
+			pieces: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+			piecesToAdd: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+			wantErr: "metabase: piece to add already exists (piece no: 1)",
+			want:    metabase.Pieces{},
+		},
+
+		{
+			name: "pieces added",
+			pieces: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      3,
+					StorageNode: node3,
+				},
+			},
+			piecesToAdd: metabase.Pieces{
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+			wantErr: "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+				metabase.Piece{
+					Number:      3,
+					StorageNode: node3,
+				},
+			},
+		},
+		{
+			name:   "adding new pieces to empty piece",
+			pieces: metabase.Pieces{},
+			piecesToAdd: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+			},
+			wantErr: "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+		},
+		{
+			name: "adding empty piece",
+			pieces: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+			piecesToAdd: metabase.Pieces{},
+			wantErr:     "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+		},
+		{
+			name:        "adding empty piece to empty pieces",
+			pieces:      metabase.Pieces{},
+			piecesToAdd: metabase.Pieces{},
+			wantErr:     "",
+			want:        metabase.Pieces{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NotNil(t, tt.pieces, tt.name)
+			got, err := tt.pieces.Add(tt.piecesToAdd)
+
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr, tt.name)
+			} else {
+				require.NoError(t, err, tt.name)
+			}
+			require.Equal(t, got, tt.want, tt.name)
+		})
+	}
+}
+
+func TestPiecesRemove(t *testing.T) {
+	node0 := testrand.NodeID()
+	node1 := testrand.NodeID()
+	node2 := testrand.NodeID()
+	node3 := testrand.NodeID()
+
+	tests := []struct {
+		name           string
+		pieces         metabase.Pieces
+		piecesToRemove metabase.Pieces
+		want           metabase.Pieces
+		wantErr        string
+	}{
+		{
+			name:   "piece missing",
+			pieces: metabase.Pieces{},
+			piecesToRemove: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+			wantErr: "metabase: invalid request: pieces missing",
+			want:    metabase.Pieces{},
+		},
+		{
+			name: "piecesToRemove struct is empty",
+			pieces: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+			piecesToRemove: metabase.Pieces{},
+			wantErr:        "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+		},
+		{
+			name:           "both pieces and piecesToRemove struct are empty",
+			pieces:         metabase.Pieces{},
+			piecesToRemove: metabase.Pieces{},
+			wantErr:        "metabase: invalid request: pieces missing",
+			want:           metabase.Pieces{},
+		},
+		{
+			name: "pieces removed",
+			pieces: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+				metabase.Piece{
+					Number:      3,
+					StorageNode: node3,
+				},
+			},
+			piecesToRemove: metabase.Pieces{
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+			wantErr: "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      3,
+					StorageNode: node3,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NotNil(t, tt.pieces, tt.name)
+			got, err := tt.pieces.Remove(tt.piecesToRemove)
+
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr, tt.name)
+			} else {
+				require.NoError(t, err, tt.name)
+			}
+			require.Equal(t, got, tt.want, tt.name)
+		})
+	}
+}
+
+func TestPiecesUpdate(t *testing.T) {
+	node0 := testrand.NodeID()
+	node1 := testrand.NodeID()
+	node2 := testrand.NodeID()
+	node3 := testrand.NodeID()
+
+	tests := []struct {
+		name           string
+		pieces         metabase.Pieces
+		piecesToAdd    metabase.Pieces
+		piecesToRemove metabase.Pieces
+		want           metabase.Pieces
+		wantErr        string
+	}{
+		{
+			name: "add and remove pieces",
+			pieces: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+			},
+			piecesToRemove: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+			},
+			piecesToAdd: metabase.Pieces{
+				metabase.Piece{
+					Number:      3,
+					StorageNode: node3,
+				},
+			},
+			wantErr: "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+				metabase.Piece{
+					Number:      3,
+					StorageNode: node3,
+				},
+			},
+		},
+		{
+			name: "add pieces only",
+			pieces: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+			},
+			piecesToRemove: metabase.Pieces{},
+			piecesToAdd: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+			},
+			wantErr: "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node0,
+				},
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+			},
+		},
+		{
+			name: "remove pieces only",
+			pieces: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+			},
+			piecesToRemove: metabase.Pieces{
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+			},
+			piecesToAdd: metabase.Pieces{},
+			wantErr:     "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+		},
+		{
+			name: "both piecesToAdd and piecesToRemove are empty",
+			pieces: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+			},
+			piecesToRemove: metabase.Pieces{},
+			piecesToAdd:    metabase.Pieces{},
+			wantErr:        "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: node2,
+				},
+			},
+		},
+		{
+			name:   "updating empty pieces",
+			pieces: metabase.Pieces{},
+			piecesToRemove: metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: node1,
+				},
+			},
+			piecesToAdd: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node1,
+				},
+			},
+			wantErr: "",
+			want: metabase.Pieces{
+				metabase.Piece{
+					Number:      0,
+					StorageNode: node1,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NotNil(t, tt.pieces, tt.name)
+			got, err := tt.pieces.Update(tt.piecesToAdd, tt.piecesToRemove)
+
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr, tt.name)
+			} else {
+				require.NoError(t, err, tt.name)
+			}
+			require.Equal(t, got, tt.want, tt.name)
+		})
+	}
+}

@@ -9,6 +9,7 @@ import { NodePayoutsSummary } from '@/payouts';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
+
 localVue.use(Vuex);
 
 describe('PayoutsSummaryTable', (): void => {

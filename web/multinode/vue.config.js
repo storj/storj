@@ -5,21 +5,21 @@ const path = require('path');
 const StyleLintPlugin = require('stylelint-webpack-plugin');
 
 module.exports = {
-    publicPath: "/static/dist",
+    publicPath: '/static/dist',
     productionSourceMap: false,
     parallel: true,
     configureWebpack: {
         plugins: [
             new StyleLintPlugin({
                 files: ['**/*.{vue,sss,less,scss,sass}'],
-                ignoreFiles: ["./node_modules/**"],
+                ignoreFiles: ['./node_modules/**'],
                 emitWarning: true,
-            })
+            }),
         ],
     },
     chainWebpack: config => {
-        config.output.chunkFilename(`js/vendors_[hash].js`);
-        config.output.filename(`js/app_[hash].js`);
+        config.output.chunkFilename('js/vendors_[hash].js');
+        config.output.filename('js/app_[hash].js');
 
         config.resolve.alias
             .set('@', path.resolve('src'));
@@ -28,7 +28,8 @@ module.exports = {
             .plugin('html')
             .tap(args => {
                 args[0].template = './index.html';
-                return args
+
+                return args;
             });
 
         const svgRule = config.module.rule('svg');
@@ -41,5 +42,5 @@ module.exports = {
             .end()
             .use('vue-svg-loader')
             .loader('vue-svg-loader');
-    }
+    },
 };

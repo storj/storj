@@ -75,7 +75,7 @@ export default class TokenDepositSelection extends Vue {
      * current selected payment option from default ones.
      */
     public current: PaymentAmountOption;
-    public customAmount: string = '';
+    public customAmount = '';
     /**
      * Indicates if custom amount selection state is active.
      */

@@ -4,7 +4,7 @@
 import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vuex';
 
 import { RootState } from '@/app/store/index';
-import { DiskSpace, DiskSpaceUsage, Stamp } from '@/storage';
+import { DiskSpace, DiskSpaceUsage } from '@/storage';
 import { StorageService } from '@/storage/service';
 
 /**
@@ -32,10 +32,12 @@ export class StorageModule implements Module<StorageState, RootState> {
 
         this.namespaced = true;
         this.state = new StorageState();
+
         this.mutations = {
             setUsage: this.setUsage,
             setDiskSpace: this.setDiskSpace,
         };
+
         this.actions = {
             usage: this.usage.bind(this),
             diskSpace: this.diskSpace.bind(this),

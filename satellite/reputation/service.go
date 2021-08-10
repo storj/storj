@@ -7,21 +7,17 @@ import (
 	"context"
 	"time"
 
-	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
 )
 
-var mon = monkit.Package()
-
 // DB is an interface for storing reputation data.
 type DB interface {
 	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, changed bool, err error)
 	SetNodeStatus(ctx context.Context, id storj.NodeID, status overlay.ReputationStatus) error
 	Get(ctx context.Context, nodeID storj.NodeID) (*Info, error)
-	Init(ctx context.Context, nodeID storj.NodeID) error
 
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
@@ -73,7 +69,7 @@ func NewService(log *zap.Logger, overlay overlay.DB, db DB, config Config) *Serv
 
 // ApplyAudit receives an audit result and applies it to the relevant node in DB.
 func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, result AuditType) (err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	statusUpdate, changed, err := service.db.Update(ctx, UpdateRequest{
 		NodeID:       nodeID,
@@ -102,9 +98,28 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, res
 }
 
 // Get returns a node's reputation info from DB.
+// If a node is not found in the DB, default reputation information is returned.
 func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Info, err error) {
-	mon.Task()(&ctx)(&err)
-	return service.db.Get(ctx, nodeID)
+	defer mon.Task()(&ctx)(&err)
+
+	info, err = service.db.Get(ctx, nodeID)
+	if err != nil {
+		if ErrNodeNotFound.Has(err) {
+			// if there is no audit reputation for the node, that's fine and we
+			// return default reputation values
+			info = &Info{
+				UnknownAuditReputationAlpha: 1,
+				AuditReputationAlpha:        1,
+				OnlineScore:                 1,
+			}
+
+			return info, nil
+		}
+
+		return nil, Error.Wrap(err)
+	}
+
+	return info, nil
 }
 
 // TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.

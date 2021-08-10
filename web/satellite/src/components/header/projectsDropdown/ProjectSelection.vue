@@ -41,7 +41,7 @@ import ProjectDropdown from './ProjectDropdown.vue';
     },
 })
 export default class ProjectSelection extends Vue {
-    private isLoading: boolean = false;
+    private isLoading = false;
 
     /**
      * Indicates if current route is onboarding tour.

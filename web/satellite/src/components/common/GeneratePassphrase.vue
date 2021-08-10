@@ -111,12 +111,12 @@ export default class GeneratePassphrase extends Vue {
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public isGenerateState: boolean = true;
-    public isEnterState: boolean = false;
-    public isChecked: boolean = false;
-    public isError: boolean = false;
-    public passphrase: string = '';
-    public errorMessage: string = '';
+    public isGenerateState = true;
+    public isEnterState = false;
+    public isChecked = false;
+    public isError = false;
+    public passphrase = '';
+    public errorMessage = '';
 
     /**
      * Lifecycle hook after initial render.
@@ -377,7 +377,7 @@ export default class GeneratePassphrase extends Vue {
         color: red;
     }
 
-    /deep/ .label-container {
+    ::v-deep .label-container {
 
         &__main {
             margin-bottom: 10px;

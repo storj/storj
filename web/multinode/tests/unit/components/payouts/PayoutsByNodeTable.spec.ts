@@ -11,14 +11,12 @@ import { Size } from '@/private/memory/size';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
+
 localVue.use(Vuex);
 
-localVue.filter('centsToDollars', (cents: number): string => {
-    return Currency.dollarsFromCents(cents);
-});
-localVue.filter('bytesToBase10String', (amountInBytes: number): string => {
-    return Size.toBase10String(amountInBytes);
-});
+localVue.filter('centsToDollars', (cents: number): string => Currency.dollarsFromCents(cents));
+
+localVue.filter('bytesToBase10String', (amountInBytes: number): string => Size.toBase10String(amountInBytes));
 
 describe('PayoutsByNodeTable', (): void => {
     it('renders correctly', (): void => {

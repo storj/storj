@@ -364,3 +364,63 @@ func (p Pieces) Less(i, j int) bool { return p[i].Number < p[j].Number }
 
 // Swap swaps the pieces with indexes i and j.
 func (p Pieces) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+
+// Add adds the specified pieces and returns the updated Pieces.
+func (p Pieces) Add(piecesToAdd Pieces) (Pieces, error) {
+	return p.Update(piecesToAdd, nil)
+}
+
+// Remove removes the specified pieces from the original pieces
+// and returns the updated Pieces.
+func (p Pieces) Remove(piecesToRemove Pieces) (Pieces, error) {
+	if len(p) == 0 {
+		return Pieces{}, ErrInvalidRequest.New("pieces missing")
+	}
+	return p.Update(nil, piecesToRemove)
+}
+
+// Update adds piecesToAdd pieces and removes piecesToRemove pieces from
+// the original pieces struct and returns the updated Pieces.
+//
+// It removes the piecesToRemove only if all piece number, node id match.
+//
+// When adding a piece, it checks if the piece already exists using the piece Number
+// If a piece already exists, it returns an empty pieces struct and an error.
+func (p Pieces) Update(piecesToAdd, piecesToRemove Pieces) (Pieces, error) {
+	pieceMap := make(map[uint16]Piece)
+	for _, piece := range p {
+		pieceMap[piece.Number] = piece
+	}
+
+	// remove the piecesToRemove from the map
+	// only if all piece number, node id match
+	for _, piece := range piecesToRemove {
+		if piece == (Piece{}) {
+			continue
+		}
+		existing := pieceMap[piece.Number]
+		if existing != (Piece{}) && existing.StorageNode == piece.StorageNode {
+			delete(pieceMap, piece.Number)
+		}
+	}
+
+	// add the piecesToAdd to the map
+	for _, piece := range piecesToAdd {
+		if piece == (Piece{}) {
+			continue
+		}
+		_, exists := pieceMap[piece.Number]
+		if exists {
+			return Pieces{}, Error.New("piece to add already exists (piece no: %d)", piece.Number)
+		}
+		pieceMap[piece.Number] = piece
+	}
+
+	newPieces := make(Pieces, 0, len(pieceMap))
+	for _, piece := range pieceMap {
+		newPieces = append(newPieces, piece)
+	}
+	sort.Sort(newPieces)
+
+	return newPieces, nil
+}

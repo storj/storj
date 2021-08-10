@@ -1247,6 +1247,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		cursor = string(prefix) + cursor
 	}
 
+	includeMetadata := true
+	if req.UseObjectIncludes {
+		includeMetadata = req.ObjectIncludes.Metadata
+	}
+
 	resp = &pb.ObjectListResponse{}
 	// TODO: Replace with IterateObjectsLatestVersion when ready
 	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersionsWithStatus(ctx,
@@ -1258,13 +1263,14 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				Key:     metabase.ObjectKey(cursor),
 				Version: 1, // TODO: set to a the version from the protobuf request when it supports this
 			},
-			Recursive: req.Recursive,
-			BatchSize: limit + 1,
-			Status:    status,
+			Recursive:       req.Recursive,
+			BatchSize:       limit + 1,
+			Status:          status,
+			IncludeMetadata: includeMetadata,
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeMetadata)
 				if err != nil {
 					return err
 				}
@@ -1354,7 +1360,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "")
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", true)
 				if err != nil {
 					return err
 				}
@@ -2278,6 +2284,53 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}, nil
 }
 
+// DeletePart deletes a single part from satellite db and from storage nodes.
+func (endpoint *Endpoint) DeletePart(ctx context.Context, req *pb.PartDeleteRequest) (resp *pb.PartDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	err = endpoint.metainfo.metabaseDB.DeletePart(ctx, metabase.DeletePart{
+		StreamID:   id,
+		PartNumber: uint32(req.PartNumber),
+
+		DeletePieces: func(ctx context.Context, segment metabase.DeletedSegmentInfo) error {
+			endpoint.deleteSegmentPieces(ctx, []metabase.DeletedSegmentInfo{segment})
+			return nil
+		},
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.PartDeleteResponse{}, nil
+}
+
 // sortLimits sorts order limits and fill missing ones with nil values.
 func sortLimits(limits []*pb.AddressedOrderLimit, segment metabase.Segment) []*pb.AddressedOrderLimit {
 	sorted := make([]*pb.AddressedOrderLimit, segment.Redundancy.TotalShares)
@@ -2588,57 +2641,60 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	return result, nil
 }
 
-func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey) (item *pb.ObjectListItem, err error) {
+func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey, includeMetadata bool) (item *pb.ObjectListItem, err error) {
 	expires := time.Time{}
 	if entry.ExpiresAt != nil {
 		expires = *entry.ExpiresAt
 	}
 
-	var nonce storj.Nonce
-	if len(entry.EncryptedMetadataNonce) > 0 {
-		nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+	item = &pb.ObjectListItem{
+		EncryptedPath: []byte(entry.ObjectKey),
+		Version:       int32(entry.Version), // TODO incompatible types
+		Status:        pb.Object_Status(entry.Status),
+		ExpiresAt:     expires,
+		CreatedAt:     entry.CreatedAt,
+		PlainSize:     entry.TotalPlainSize,
+	}
+
+	if includeMetadata {
+		var nonce storj.Nonce
+		if len(entry.EncryptedMetadataNonce) > 0 {
+			nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		streamMeta := &pb.StreamMeta{}
+		err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
 		if err != nil {
 			return nil, err
 		}
-	}
 
-	streamMeta := &pb.StreamMeta{}
-	err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO is this enough to handle old uplinks
-	if streamMeta.EncryptionBlockSize == 0 {
-		streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
-	}
-	if streamMeta.EncryptionType == 0 {
-		streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
-	}
-	if streamMeta.NumberOfSegments == 0 {
-		streamMeta.NumberOfSegments = int64(entry.SegmentCount)
-	}
-	if streamMeta.LastSegmentMeta == nil {
-		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
-			EncryptedKey: entry.EncryptedMetadataEncryptedKey,
-			KeyNonce:     entry.EncryptedMetadataNonce,
+		// TODO is this enough to handle old uplinks
+		if streamMeta.EncryptionBlockSize == 0 {
+			streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
 		}
-	}
+		if streamMeta.EncryptionType == 0 {
+			streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
+		}
+		if streamMeta.NumberOfSegments == 0 {
+			streamMeta.NumberOfSegments = int64(entry.SegmentCount)
+		}
+		if streamMeta.LastSegmentMeta == nil {
+			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+				EncryptedKey: entry.EncryptedMetadataEncryptedKey,
+				KeyNonce:     entry.EncryptedMetadataNonce,
+			}
+		}
 
-	metadataBytes, err := pb.Marshal(streamMeta)
-	if err != nil {
-		return nil, err
-	}
+		metadataBytes, err := pb.Marshal(streamMeta)
+		if err != nil {
+			return nil, err
+		}
 
-	item = &pb.ObjectListItem{
-		EncryptedPath:          []byte(entry.ObjectKey),
-		Version:                int32(entry.Version), // TODO incomatible types
-		Status:                 pb.Object_Status(entry.Status),
-		ExpiresAt:              expires,
-		CreatedAt:              entry.CreatedAt,
-		PlainSize:              entry.TotalPlainSize,
-		EncryptedMetadata:      metadataBytes,
-		EncryptedMetadataNonce: nonce,
+		item.EncryptedMetadata = metadataBytes
+		item.EncryptedMetadataNonce = nonce
 	}
 
 	// Add Stream ID to list items if listing is for pending objects.

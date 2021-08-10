@@ -3,7 +3,7 @@
 
 <template>
     <div>
-        <p @click="goToBuckets" class="back"><- Back to Buckets</p>
+        <p @click="goToBuckets" class="back">&lt;- Back to Buckets</p>
         <div class="file-browser">
             <FileBrowser></FileBrowser>
         </div>

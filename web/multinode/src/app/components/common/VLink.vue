@@ -16,9 +16,9 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component
 export default class VLink extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly uri: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly label: string;
 }
 </script>

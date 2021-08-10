@@ -66,8 +66,8 @@ import { AccessGrant } from '@/types/accessGrants';
     },
 })
 export default class ConfirmDeletePopup extends Vue {
-    private FIRST_PAGE: number = 1;
-    private isLoading: boolean = false;
+    private FIRST_PAGE = 1;
+    private isLoading = false;
 
     /**
      * Deletes selected access grants, fetches updated list and closes popup.

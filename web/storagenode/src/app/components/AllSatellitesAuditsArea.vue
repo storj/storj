@@ -44,7 +44,7 @@ export default class AllSatellitesAuditsArea extends Vue {
     /**
      * Number of score blocks displayed on page.
      */
-    public numberOfItemsOnPage: number = 6;
+    public numberOfItemsOnPage = 6;
     /**
      * Number of blocks added to displayed on page by clocking "Load more".
      */

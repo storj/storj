@@ -17,7 +17,7 @@ export default class VCheckbox extends Vue {
     @Prop({default: false})
     private readonly isCheckboxError: boolean;
 
-    private checked: boolean = false;
+    private checked = false;
 
     /**
      * Emits value to parent component.

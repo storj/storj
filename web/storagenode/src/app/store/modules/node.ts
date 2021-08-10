@@ -37,13 +37,18 @@ const {
     SET_DAILY_DATA,
 } = NODE_MUTATIONS;
 
-const STATUS_TRESHHOLD_MINUTES: number = 120;
+const STATUS_TRESHHOLD_MINUTES = 120;
+
+interface StorageNodeContext {
+    state: StorageNodeState;
+    commit: any;
+}
 
 export function newNodeModule(service: StorageNodeService): StoreModule<StorageNodeState> {
     return {
         state: new StorageNodeState(),
         mutations: {
-            [POPULATE_STORE](state: any, nodeInfo: Dashboard): void {
+            [POPULATE_STORE](state: StorageNodeState, nodeInfo: Dashboard): void {
                 const minutesPassed = Duration.difference(new Date(), new Date(nodeInfo.lastPinged)) / millisecondsInSecond / secondsInMinute;
                 const status = minutesPassed < STATUS_TRESHHOLD_MINUTES ? StatusOnline : StatusOffline;
                 state.info = new Node(
@@ -68,7 +73,7 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
 
                 state.satellites = nodeInfo.satellites;
             },
-            [SELECT_SATELLITE](state: any, satelliteInfo: Satellite): void {
+            [SELECT_SATELLITE](state: StorageNodeState, satelliteInfo: Satellite): void {
                 const selectedSatellite = state.satellites.find(satellite => satelliteInfo.id === satellite.id);
 
                 if (!selectedSatellite) {
@@ -85,7 +90,7 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
 
                 state.audits = satelliteInfo.audits;
             },
-            [SELECT_ALL_SATELLITES](state: any, satelliteInfo: Satellites): void {
+            [SELECT_ALL_SATELLITES](state: StorageNodeState, satelliteInfo: Satellites): void {
                 state.selectedSatellite = new SatelliteInfo(
                     '',
                     '',
@@ -95,7 +100,7 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                 );
                 state.satellitesScores = satelliteInfo.satellitesScores;
             },
-            [SET_DAILY_DATA](state: any, satelliteInfo: Satellite): void {
+            [SET_DAILY_DATA](state: StorageNodeState, satelliteInfo: Satellite): void {
                 state.bandwidthChartData = satelliteInfo.bandwidthDaily;
                 state.egressChartData = satelliteInfo.egressDaily;
                 state.ingressChartData = satelliteInfo.ingressDaily;
@@ -107,12 +112,12 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
             },
         },
         actions: {
-            [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: any): Promise<void> {
+            [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: StorageNodeContext): Promise<void> {
                 const dashboard = await service.dashboard();
 
                 commit(NODE_MUTATIONS.POPULATE_STORE, dashboard);
             },
-            [NODE_ACTIONS.SELECT_SATELLITE]: async function ({commit}, id?: string): Promise<void> {
+            [NODE_ACTIONS.SELECT_SATELLITE]: async function ({commit}: StorageNodeContext, id?: string): Promise<void> {
                 let response: Satellite | Satellites;
                 if (id) {
                     response = await service.satellite(id);

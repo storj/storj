@@ -53,7 +53,7 @@ import { OnPageClickCallback, Page } from '@/app/types/pagination';
 export default class VPagination extends Vue {
     private readonly MAX_PAGES_PER_BLOCK: number = 3;
     private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
-    private currentPageNumber: number = 1;
+    private currentPageNumber = 1;
     public isLoading = false;
     public pagesArray: Page[] = [];
     public firstBlockPages: Page[] = [];
@@ -68,7 +68,7 @@ export default class VPagination extends Vue {
     /**
      * Component initialization.
      */
-    public async mounted() {
+    public async mounted(): Promise<void> {
         await this.populatePagesArray();
     }
 
@@ -112,7 +112,7 @@ export default class VPagination extends Vue {
      * Method after total page count change.
      */
     @Watch('totalPageCount')
-    public onPageCountChange() {
+    public onPageCountChange(): void {
         this.resetPageIndex();
     }
 

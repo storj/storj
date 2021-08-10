@@ -3,7 +3,6 @@
 
 import {
     BandwidthUsed,
-    Checks,
     EgressUsed,
     IngressUsed,
     Node,
@@ -27,10 +26,10 @@ export class StorageNodeState {
     public egressChartData: EgressUsed[] = [];
     public ingressChartData: IngressUsed[] = [];
     public storageChartData: Stamp[] = [];
-    public storageSummary: number = 0;
-    public bandwidthSummary: number = 0;
-    public egressSummary: number = 0;
-    public ingressSummary: number = 0;
+    public storageSummary = 0;
+    public bandwidthSummary = 0;
+    public egressSummary = 0;
+    public ingressSummary = 0;
     public satellitesScores: SatelliteScores[] = [];
     public audits: SatelliteScores = new SatelliteScores();
 }

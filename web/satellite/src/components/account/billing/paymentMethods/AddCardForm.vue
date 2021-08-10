@@ -46,7 +46,7 @@ export default class AddCardForm extends Vue {
      *
      * @param token from Stripe
      */
-    public async addCard(token: string) {
+    public async addCard(token: string): Promise<void> {
         this.$emit('toggleIsLoading');
 
         try {

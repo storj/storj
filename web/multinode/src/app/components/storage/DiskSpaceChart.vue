@@ -20,7 +20,7 @@ import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/common/BaseChart.vue';
 
-import { ChartData, Tooltip, TooltipParams } from '@/app/types/chart';
+import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { Stamp } from '@/storage';
@@ -40,7 +40,6 @@ class StampTooltip {
 
 @Component
 export default class DiskSpaceChart extends BaseChart {
-
     private get allStamps(): Stamp[] {
         return ChartUtils.populateEmptyStamps(this.$store.state.storage.usage.diskSpaceDaily);
     }
@@ -50,9 +49,7 @@ export default class DiskSpaceChart extends BaseChart {
             return 'Bytes';
         }
 
-        return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => {
-            return elem.atRestTotal;
-        }));
+        return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => elem.atRestTotal));
     }
 
     public get chartData(): ChartData {
@@ -69,14 +66,14 @@ export default class DiskSpaceChart extends BaseChart {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public diskSpaceTooltip(tooltipModel): void {
+    public diskSpaceTooltip(tooltipModel: TooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'disk-space-chart', 'disk-space-tooltip', 'disk-space-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            125, 89, 6, 4, `#1f49a3`);
+            125, 89, 6, 4, '#1f49a3');
 
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
+    private tooltipMarkUp(tooltipModel: TooltipModel): string {
         if (!tooltipModel.dataPoints) {
             return '';
         }

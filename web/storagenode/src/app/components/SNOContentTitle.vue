@@ -256,7 +256,7 @@ export default class SNOContentTitle extends Vue {
         color: #ce0000;
     }
 
-    /deep/ .info__message-box {
+    ::v-deep .info__message-box {
         background-image: var(--info-image-arrow-left-path);
         bottom: 100%;
         left: 220%;

@@ -31,9 +31,11 @@ export class BandwidthModule implements Module<BandwidthState, RootState> {
 
         this.namespaced = true;
         this.state = new BandwidthState();
+
         this.mutations = {
             populate: this.populate,
         };
+
         this.actions = {
             fetch: this.fetch.bind(this),
         };

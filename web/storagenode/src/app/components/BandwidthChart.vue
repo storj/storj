@@ -20,8 +20,7 @@ import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/BaseChart.vue';
 
-import { ChartData } from '@/app/types/chartData';
-import { Tooltip, TooltipParams } from '@/app/types/tooltip';
+import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { BandwidthUsed } from '@/storagenode/sno/sno';
@@ -81,7 +80,7 @@ export default class BandwidthChart extends BaseChart {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public bandwidthTooltip(tooltipModel: any): void {
+    public bandwidthTooltip(tooltipModel: TooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'bandwidth-tooltip',
             'bandwidth-tooltip-arrow', 'bandwidth-tooltip-point', this.tooltipMarkUp(tooltipModel),
             303, 125, 35, 24, 6, 4, `#1f49a3`);
@@ -89,7 +88,7 @@ export default class BandwidthChart extends BaseChart {
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
+    private tooltipMarkUp(tooltipModel: TooltipModel): string {
         if (!tooltipModel.dataPoints) {
             return '';
         }

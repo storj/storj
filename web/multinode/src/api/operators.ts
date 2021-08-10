@@ -27,6 +27,7 @@ export class Operators extends APIClient {
         const path = `${this.ROOT_PATH}?limit=${cursor.limit}&page=${cursor.page}`;
 
         const response = await this.http.get(path);
+
         if (!response.ok) {
             await this.handleError(response);
         }
@@ -34,6 +35,7 @@ export class Operators extends APIClient {
         const operatorsPageJson = await response.json();
 
         let operators: Operator[] = [];
+
         if (operatorsPageJson.operators) {
             operators = operatorsPageJson.operators.map(
                 operator => new Operator(

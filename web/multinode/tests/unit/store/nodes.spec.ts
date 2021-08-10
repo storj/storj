@@ -10,9 +10,9 @@ import { createLocalVue } from '@vue/test-utils';
 import store, { nodesService } from '../mock/store';
 
 const node = new Node();
-const nodes = [ node ];
+const nodes = [node];
 const satellite = new NodeURL('testId', '127.0.0.1:test');
-const trustedSatellites = [ satellite ];
+const trustedSatellites = [satellite];
 const nodeToAdd = new CreateNodeFields('newId', 'secret', 'newAddress');
 
 const state = store.state as RootState;
@@ -37,8 +37,9 @@ describe('mutations', () => {
     it('saves selected satellite', () => {
         store.commit('nodes/setSelectedSatellite', satellite.id);
 
-        // @ts-ignore
-        expect(state.nodes.selectedSatellite.address).toBe(satellite.address);
+        const selectedSatellite = state.nodes.selectedSatellite;
+        expect(selectedSatellite).toBeDefined();
+        if(selectedSatellite) expect(selectedSatellite.address).toBe(satellite.address);
     });
 
     it('saves selected node', () => {
@@ -46,8 +47,9 @@ describe('mutations', () => {
 
         store.commit('nodes/setSelectedNode', node.id);
 
-        // @ts-ignore
-        expect(state.nodes.selectedNode.id).toBe(node.id);
+        const selectedNode = state.nodes.selectedNode;
+        expect(selectedNode).toBeDefined();
+        if(selectedNode) expect(selectedNode.id).toBe(node.id);
     });
 });
 
@@ -59,7 +61,7 @@ describe('actions', () => {
         store.commit('nodes/setSelectedSatellite', null);
     });
 
-    it('throws error on failed nodes fetch', async () => {
+    it('throws error on failed nodes fetch', async() => {
         jest.spyOn(nodesService, 'list').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -70,7 +72,7 @@ describe('actions', () => {
         }
     });
 
-    it('success get nodes', async () => {
+    it('success get nodes', async() => {
         jest.spyOn(nodesService, 'list').mockReturnValue(
             Promise.resolve(nodes),
         );
@@ -80,7 +82,7 @@ describe('actions', () => {
         expect(state.nodes.nodes.length).toBe(1);
     });
 
-    it('throws error on failed node addition', async () => {
+    it('throws error on failed node addition', async() => {
         jest.spyOn(nodesService, 'add').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -91,8 +93,9 @@ describe('actions', () => {
         }
     });
 
-    it('success adds node', async () => {
+    it('success adds node', async() => {
         const addSpy = jest.fn();
+
         jest.spyOn(nodesService, 'add').mockImplementation(addSpy);
 
         await store.dispatch('nodes/add', nodeToAdd);
@@ -100,7 +103,7 @@ describe('actions', () => {
         expect(addSpy).toBeCalled();
     });
 
-    it('throws error on failed node deletion', async () => {
+    it('throws error on failed node deletion', async() => {
         jest.spyOn(nodesService, 'delete').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -111,8 +114,9 @@ describe('actions', () => {
         }
     });
 
-    it('success deletes node', async () => {
+    it('success deletes node', async() => {
         const deleteSpy = jest.fn();
+
         jest.spyOn(nodesService, 'delete').mockImplementation(deleteSpy);
 
         await store.dispatch('nodes/delete', node.id);
@@ -120,7 +124,7 @@ describe('actions', () => {
         expect(deleteSpy).toBeCalled();
     });
 
-    it('throws error on failed node name update', async () => {
+    it('throws error on failed node name update', async() => {
         jest.spyOn(nodesService, 'updateName').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -131,8 +135,9 @@ describe('actions', () => {
         }
     });
 
-    it('success updates node name', async () => {
+    it('success updates node name', async() => {
         const updateNameSpy = jest.fn();
+
         jest.spyOn(nodesService, 'updateName').mockImplementation(updateNameSpy);
 
         await store.dispatch('nodes/updateName', nodeToAdd);
@@ -140,7 +145,7 @@ describe('actions', () => {
         expect(updateNameSpy).toBeCalled();
     });
 
-    it('throws error on failed trusted satellites', async () => {
+    it('throws error on failed trusted satellites', async() => {
         jest.spyOn(nodesService, 'trustedSatellites').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -151,7 +156,7 @@ describe('actions', () => {
         }
     });
 
-    it('success get trusted satellites', async () => {
+    it('success get trusted satellites', async() => {
         jest.spyOn(nodesService, 'trustedSatellites').mockReturnValue(
             Promise.resolve(trustedSatellites),
         );
@@ -161,7 +166,7 @@ describe('actions', () => {
         expect(state.nodes.trustedSatellites.length).toBe(1);
     });
 
-    it('throws error on failed satellite selection', async () => {
+    it('throws error on failed satellite selection', async() => {
         jest.spyOn(nodesService, 'list').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -172,7 +177,7 @@ describe('actions', () => {
         }
     });
 
-    it('success get trusted satellites', async () => {
+    it('success get trusted satellites', async() => {
         jest.spyOn(nodesService, 'listBySatellite').mockReturnValue(
             Promise.resolve(nodes),
         );
@@ -181,17 +186,20 @@ describe('actions', () => {
 
         await store.dispatch('nodes/selectSatellite', satellite.id);
 
-        // @ts-ignore
-        expect(state.nodes.selectedSatellite.address).toBe(satellite.address);
+        const selectedSatellite = state.nodes.selectedSatellite;
+        expect(selectedSatellite).toBeDefined();
+        if(selectedSatellite) expect(selectedSatellite.address).toBe(satellite.address);
+
         expect(state.nodes.nodes.length).toBe(1);
     });
 
-    it('success set selected node', async () => {
+    it('success set selected node', async() => {
         store.commit('nodes/populate', nodes);
 
         await store.dispatch('nodes/selectNode', node.id);
 
-        // @ts-ignore
-        expect(state.nodes.selectedNode.id).toBe(node.id);
+        const selectedNode = state.nodes.selectedNode;
+        expect(selectedNode).toBeDefined();
+        if(selectedNode) expect(selectedNode.id).toBe(node.id);
     });
 });

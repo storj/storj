@@ -20,7 +20,7 @@ import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/common/BaseChart.vue';
 
-import { ChartData, Tooltip, TooltipParams } from '@/app/types/chart';
+import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
 import { BandwidthRollup } from '@/bandwidth';
 import { Size } from '@/private/memory/size';
@@ -57,10 +57,8 @@ export default class BandwidthChart extends BaseChart {
             return 'Bytes';
         }
 
-        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
-            return elem.egress.usage + elem.egress.repair + elem.egress.audit
-                + elem.ingress.repair + elem.ingress.usage;
-        }));
+        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => elem.egress.usage + elem.egress.repair + elem.egress.audit
+                + elem.ingress.repair + elem.ingress.usage));
     }
 
     public get chartData(): ChartData {
@@ -71,24 +69,22 @@ export default class BandwidthChart extends BaseChart {
         const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
-            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => {
-                return elem.egress.usage + elem.egress.repair + elem.egress.audit
-                    + elem.ingress.repair + elem.ingress.usage;
-            }));
+            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.egress.usage + elem.egress.repair + elem.egress.audit
+                    + elem.ingress.repair + elem.ingress.usage));
         }
 
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public bandwidthTooltip(tooltipModel: any): void {
+    public bandwidthTooltip(tooltipModel: TooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'bandwidth-tooltip',
             'bandwidth-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            285, 125, 6, 4, `#1f49a3`);
+            285, 125, 6, 4, '#1f49a3');
 
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
+    private tooltipMarkUp(tooltipModel: TooltipModel): string {
         if (!tooltipModel.dataPoints) {
             return '';
         }

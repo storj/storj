@@ -119,13 +119,13 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
     },
 })
 export default class GatewayStep extends Vue {
-    private key: string = '';
-    private restrictedKey: string = '';
-    private access: string = '';
+    private key = '';
+    private restrictedKey = '';
+    private access = '';
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public areKeysVisible: boolean = false;
-    public isLoading: boolean = false;
+    public areKeysVisible = false;
+    public isLoading = false;
 
     /**
      * Lifecycle hook after initial render.
@@ -375,7 +375,7 @@ export default class GatewayStep extends Vue {
         border-radius: 6px;
     }
 
-    /deep/ .info__message-box {
+    ::v-deep .info__message-box {
         background-image: url('../../../../static/images/accessGrants/MessageBox.png');
         background-repeat: no-repeat;
         min-height: 65px;

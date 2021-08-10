@@ -119,11 +119,11 @@ interface AddCardConfirm {
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
 
-    public isLoading: boolean = false;
-    public isLoaded: boolean = false;
-    public isAddCardClicked: boolean = false;
-    public isAddStorjClicked: boolean = false;
-    public areCardsFetching: boolean = true;
+    public isLoading = false;
+    public isLoaded = false;
+    public isAddCardClicked = false;
+    public isAddStorjClicked = false;
+    public areCardsFetching = true;
 
     /**
      * Lifecycle hook after initial render where credit cards are fetched.
@@ -154,12 +154,12 @@ export default class PaymentMethods extends Vue {
      */
     public get functionalAreaClassName(): string {
         switch (true) {
-            case this.isAddCardClicked:
-                return 'reduced';
-            case this.isAddStorjClicked:
-                return 'extended';
-            default:
-                return '';
+        case this.isAddCardClicked:
+            return 'reduced';
+        case this.isAddStorjClicked:
+            return 'extended';
+        default:
+            return '';
         }
     }
 
@@ -175,12 +175,12 @@ export default class PaymentMethods extends Vue {
      */
     public get addingCCButtonLabel(): string {
         switch (true) {
-            case this.isLoading:
-                return 'Adding';
-            case this.isLoaded:
-                return 'Added!';
-            default:
-                return 'Add Card';
+        case this.isLoading:
+            return 'Adding';
+        case this.isLoaded:
+            return 'Added!';
+        default:
+            return 'Add Card';
         }
     }
 

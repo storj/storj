@@ -32,12 +32,12 @@ import VModal from '@/app/components/common/VModal.vue';
     },
 })
 export default class AddNewNode extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public nodeId: string;
 
-    public isModalShown: boolean = false;
+    public isModalShown = false;
 
-    private isLoading: boolean = false;
+    private isLoading = false;
 
     public openModal(): void {
         this.isModalShown = true;
@@ -50,7 +50,7 @@ export default class AddNewNode extends Vue {
     }
 
     public async onDelete(): Promise<void> {
-        if (this.isLoading) return;
+        if (this.isLoading) { return; }
 
         this.isLoading = true;
 

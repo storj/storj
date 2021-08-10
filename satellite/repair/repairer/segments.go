@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sort"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -43,6 +42,7 @@ var (
 type irreparableError struct {
 	piecesAvailable int32
 	piecesRequired  int32
+	errlist         []error
 }
 
 func (ie *irreparableError) Error() string {
@@ -304,6 +304,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 				zap.Uint64("Position", queueSegment.Position.Encode()),
 				zap.Int32("piecesAvailable", irreparableErr.piecesAvailable),
 				zap.Int32("piecesRequired", irreparableErr.piecesRequired),
+				zap.Error(errs.Combine(irreparableErr.errlist...)),
 			)
 			return false, nil
 		}
@@ -383,7 +384,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	// add pieces that failed piece hashes verification to the removal list
 	toRemove = append(toRemove, failedPieces...)
 
-	newPieces, err := updatePieces(segment.Pieces, repairedPieces, toRemove)
+	newPieces, err := segment.Pieces.Update(repairedPieces, toRemove)
 	if err != nil {
 		return false, repairPutError.Wrap(err)
 	}
@@ -402,20 +403,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, metainfoPutError.Wrap(err)
 	}
 
-	createdAt := time.Time{}
-	if segment.CreatedAt != nil {
-		createdAt = *segment.CreatedAt
-	}
 	repairedAt := time.Time{}
 	if segment.RepairedAt != nil {
 		repairedAt = *segment.RepairedAt
 	}
 
 	var segmentAge time.Duration
-	if createdAt.Before(repairedAt) {
+	if segment.CreatedAt.Before(repairedAt) {
 		segmentAge = time.Since(repairedAt)
 	} else {
-		segmentAge = time.Since(createdAt)
+		segmentAge = time.Since(segment.CreatedAt)
 	}
 
 	// TODO what to do with RepairCount
@@ -423,50 +420,11 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	// pointer.RepairCount++
 
 	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //mon:locked
-	stats.segmentTimeUntilRepair.Observe((int64(segmentAge.Seconds())))
+	stats.segmentTimeUntilRepair.Observe(int64(segmentAge.Seconds()))
 	mon.IntVal("segment_repair_count").Observe(repairCount) //mon:locked
 	stats.segmentRepairCount.Observe(repairCount)
 
 	return true, nil
-}
-
-func updatePieces(orignalPieces, toAddPieces, toRemovePieces metabase.Pieces) (metabase.Pieces, error) {
-	pieceMap := make(map[uint16]metabase.Piece)
-	for _, piece := range orignalPieces {
-		pieceMap[piece.Number] = piece
-	}
-
-	// remove the toRemove pieces from the map
-	// only if all piece number, node id match
-	for _, piece := range toRemovePieces {
-		if piece == (metabase.Piece{}) {
-			continue
-		}
-		existing := pieceMap[piece.Number]
-		if existing != (metabase.Piece{}) && existing.StorageNode == piece.StorageNode {
-			delete(pieceMap, piece.Number)
-		}
-	}
-
-	// add the pieces to the map
-	for _, piece := range toAddPieces {
-		if piece == (metabase.Piece{}) {
-			continue
-		}
-		_, exists := pieceMap[piece.Number]
-		if exists {
-			return metabase.Pieces{}, Error.New("piece to add already exists (piece no: %d)", piece.Number)
-		}
-		pieceMap[piece.Number] = piece
-	}
-
-	newPieces := make(metabase.Pieces, 0, len(pieceMap))
-	for _, piece := range pieceMap {
-		newPieces = append(newPieces, piece)
-	}
-	sort.Sort(newPieces)
-
-	return newPieces, nil
 }
 
 func (repairer *SegmentRepairer) getStatsByRS(redundancy *pb.RedundancyScheme) *stats {

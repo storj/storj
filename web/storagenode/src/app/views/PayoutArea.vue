@@ -64,7 +64,6 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { monthNames } from '@/app/types/payout';
 import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
 
 @Component ({
@@ -85,7 +84,7 @@ export default class PayoutArea extends Vue {
      * Lifecycle hook after initial render.
      * Fetches payout information.
      */
-    public async mounted(): Promise<any> {
+    public async mounted(): Promise<void> {
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
 
         try {

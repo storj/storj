@@ -170,10 +170,10 @@ export default class AddPaymentMethodModal extends Vue {
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
-    public isAddModal: boolean = true;
-    public isAddCard: boolean = true;
-    public isLoading: boolean = false;
-    public coinPaymentsCheckoutLink: string = '';
+    public isAddModal = true;
+    public isAddCard = true;
+    public isLoading = false;
+    public coinPaymentsCheckoutLink = '';
 
     public $refs!: {
         stripeCardInput: StripeCardInput & StripeForm;
@@ -206,7 +206,7 @@ export default class AddPaymentMethodModal extends Vue {
      *
      * @param token from Stripe
      */
-    public async addCardToDB(token: string) {
+    public async addCardToDB(token: string): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.ADD_CREDIT_CARD, token);
 
@@ -551,16 +551,16 @@ export default class AddPaymentMethodModal extends Vue {
         border-color: #0068dc;
     }
 
-    /deep/ .selected-container {
+    ::v-deep .selected-container {
         width: calc(100% - 2px);
     }
 
-    /deep/ .custom-input {
+    ::v-deep .custom-input {
         width: calc(100% - 68px);
     }
 
-    /deep/ .options-container,
-    /deep/ .payment-selection-blur {
+    ::v-deep .options-container,
+    ::v-deep .payment-selection-blur {
         width: 100%;
     }
 

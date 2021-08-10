@@ -48,11 +48,7 @@ import SortingHeader from '@/components/project/buckets/SortingHeader.vue';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Bucket } from '@/types/buckets';
 
-const {
-    FETCH,
-    SET_SEARCH,
-    CLEAR,
-} = BUCKET_ACTIONS;
+const {FETCH, SET_SEARCH} = BUCKET_ACTIONS;
 
 @Component({
     components: {
@@ -96,7 +92,7 @@ export default class BucketArea extends Vue {
     /**
      * Returns BucketItem for common list.
      */
-    public get itemComponent() {
+    public get itemComponent(): typeof BucketItem {
         return BucketItem;
     }
 
@@ -218,7 +214,7 @@ export default class BucketArea extends Vue {
         padding-top: 20px;
     }
 
-    /deep/ .pagination-container {
+    ::v-deep .pagination-container {
         padding-left: 0;
     }
 </style>

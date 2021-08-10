@@ -39,6 +39,12 @@ export class ProjectMembersState {
     public selectedProjectMembersEmails: string[] = [];
 }
 
+interface ProjectsContext {
+    state: ProjectMembersState
+    commit: any
+    rootGetters: any
+}
+
 export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<ProjectMembersState> {
     return {
         state: new ProjectMembersState(),
@@ -93,19 +99,19 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             },
         },
         actions: {
-            addProjectMembers: async function ({rootGetters}: any, emails: string[]): Promise<void> {
+            addProjectMembers: async function ({rootGetters}: ProjectsContext, emails: string[]): Promise<void> {
                 const projectId = rootGetters.selectedProject.id;
 
                 await api.add(projectId, emails);
             },
-            deleteProjectMembers: async function ({rootGetters, state, commit}: any): Promise<void> {
+            deleteProjectMembers: async function ({rootGetters, state, commit}: ProjectsContext): Promise<void> {
                 const projectId = rootGetters.selectedProject.id;
 
                 await api.delete(projectId, state.selectedProjectMembersEmails);
 
                 commit(CLEAR_SELECTION);
             },
-            fetchProjectMembers: async function ({commit, rootGetters, state}: any, page: number): Promise<ProjectMembersPage> {
+            fetchProjectMembers: async function ({commit, rootGetters, state}: ProjectsContext, page: number): Promise<ProjectMembersPage> {
                 const projectID = rootGetters.selectedProject.id;
 
                 commit(SET_PAGE, page);
@@ -116,23 +122,23 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
 
                 return projectMembersPage;
             },
-            setProjectMembersSearchQuery: function ({commit}, search: string) {
+            setProjectMembersSearchQuery: function ({commit}: ProjectsContext, search: string) {
                 commit(SET_SEARCH_QUERY, search);
             },
-            setProjectMembersSortingBy: function ({commit}, order: ProjectMemberOrderBy) {
+            setProjectMembersSortingBy: function ({commit}: ProjectsContext, order: ProjectMemberOrderBy) {
                 commit(CHANGE_SORT_ORDER, order);
             },
-            setProjectMembersSortingDirection: function ({commit}, direction: SortDirection) {
+            setProjectMembersSortingDirection: function ({commit}: ProjectsContext, direction: SortDirection) {
                 commit(CHANGE_SORT_ORDER_DIRECTION, direction);
             },
-            clearProjectMembers: function ({commit}) {
+            clearProjectMembers: function ({commit}: ProjectsContext) {
                 commit(CLEAR);
                 commit(CLEAR_SELECTION);
             },
-            toggleProjectMemberSelection: function ({commit}: any, projectMember: ProjectMember) {
+            toggleProjectMemberSelection: function ({commit}: ProjectsContext, projectMember: ProjectMember) {
                 commit(TOGGLE_SELECTION, projectMember);
             },
-            clearProjectMemberSelection: function ({commit}: any) {
+            clearProjectMemberSelection: function ({commit}: ProjectsContext) {
                 commit(CLEAR_SELECTION);
             },
         },

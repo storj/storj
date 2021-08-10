@@ -43,14 +43,14 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class EnterPassphraseStep extends Vue {
-    private key: string = '';
-    private restrictedKey: string = '';
-    private access: string = '';
+    private key = '';
+    private restrictedKey = '';
+    private access = '';
     private worker: Worker;
-    private isLoading: boolean = true;
+    private isLoading = true;
 
-    public passphrase: string = '';
-    public errorMessage: string = '';
+    public passphrase = '';
+    public errorMessage = '';
 
     /**
      * Lifecycle hook after initial render.

@@ -39,7 +39,7 @@ export default class VHeader extends Vue {
         search: VSearch & ClearSearch;
     };
 
-    public clearSearch() {
+    public clearSearch(): void {
         this.$refs.search.clearSearch();
     }
 }

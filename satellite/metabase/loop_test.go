@@ -371,7 +371,7 @@ func TestIterateLoopStreams(t *testing.T) {
 						Position: metabase.SegmentPosition{
 							Index: uint32(i),
 						},
-						CreatedAt:     &now,
+						CreatedAt:     now,
 						ExpiresAt:     object.ExpiresAt,
 						RootPieceID:   storj.PieceID{1},
 						EncryptedSize: 1024,
@@ -385,7 +385,7 @@ func TestIterateLoopStreams(t *testing.T) {
 					expectedRawSegments = append(expectedRawSegments, metabase.RawSegment{
 						StreamID:          segment.StreamID,
 						Position:          segment.Position,
-						CreatedAt:         &now,
+						CreatedAt:         now,
 						ExpiresAt:         object.ExpiresAt,
 						EncryptedSize:     segment.EncryptedSize,
 						Pieces:            segment.Pieces,
@@ -501,7 +501,7 @@ func TestIterateLoopSegments(t *testing.T) {
 			genericLoopEntry := metabase.LoopSegmentEntry{
 				RootPieceID:   storj.PieceID{1},
 				Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				CreatedAt:     &now,
+				CreatedAt:     now,
 				EncryptedSize: 1024,
 				PlainSize:     512,
 				PlainOffset:   0,
@@ -560,7 +560,7 @@ func TestIterateLoopSegments(t *testing.T) {
 					Position:      metabase.SegmentPosition{0, uint32(i)},
 					RootPieceID:   storj.PieceID{1},
 					Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-					CreatedAt:     &now,
+					CreatedAt:     now,
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   int64(i) * 512,

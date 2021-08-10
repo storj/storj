@@ -47,27 +47,27 @@ export class HttpClient {
      * Performs PUT http request with JSON body.
      * @param path
      * @param body serialized JSON
-     * @param auth indicates if authentication is needed
+     * @param _auth indicates if authentication is needed
      */
-    public async put(path: string, body: string | null, auth: boolean = true): Promise<Response> {
+    public async put(path: string, body: string | null, _auth = true): Promise<Response> {
         return this.sendJSON('PUT', path, body);
     }
 
     /**
      * Performs GET http request.
      * @param path
-     * @param auth indicates if authentication is needed
+     * @param _auth indicates if authentication is needed
      */
-    public async get(path: string, auth: boolean = true): Promise<Response> {
+    public async get(path: string, _auth = true): Promise<Response> {
         return this.sendJSON('GET', path, null);
     }
 
     /**
      * Performs DELETE http request.
      * @param path
-     * @param auth indicates if authentication is needed
+     * @param _auth indicates if authentication is needed
      */
-    public async delete(path: string, auth: boolean = true): Promise<Response> {
+    public async delete(path: string, _auth = true): Promise<Response> {
         return this.sendJSON('DELETE', path, null);
     }
 }

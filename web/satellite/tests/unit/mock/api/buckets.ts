@@ -7,11 +7,11 @@ import { BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
  * Mock for BucketsApi
  */
 export class BucketsMock implements BucketsApi {
-    get(projectId: string, before: Date, cursor: BucketCursor): Promise<BucketPage> {
+    get(_projectId: string, _before: Date, _cursor: BucketCursor): Promise<BucketPage> {
         return Promise.resolve(new BucketPage());
     }
 
-    getAllBucketNames(projectId: string): Promise<string[]> {
+    getAllBucketNames(_projectId: string): Promise<string[]> {
         return Promise.resolve(['test']);
     }
 }

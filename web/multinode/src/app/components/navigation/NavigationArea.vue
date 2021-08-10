@@ -20,7 +20,8 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component } from 'vue-property-decorator';
+import Vue, {VueConstructor} from 'vue';
 
 import MyNodesIcon from '@/../static/images/icons/navigation/nodes.svg';
 import NotificationIcon from '@/../static/images/icons/navigation/notifications.svg';
@@ -33,9 +34,9 @@ import { Config as RouterConfig } from '@/app/router';
 
 export class NavigationLink {
     constructor(
-        public name: string = '',
-        public path: string = '',
-        public icon: Vue = new Vue(),
+        public name: string,
+        public path: string,
+        public icon: VueConstructor<Vue>,
     ) {}
 }
 

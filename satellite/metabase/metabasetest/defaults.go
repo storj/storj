@@ -28,13 +28,12 @@ var DefaultEncryption = storj.EncryptionParameters{
 
 // DefaultRawSegment returns default raw segment.
 func DefaultRawSegment(obj metabase.ObjectStream, segmentPosition metabase.SegmentPosition) metabase.RawSegment {
-	now := time.Now()
 	return metabase.RawSegment{
 		StreamID:    obj.StreamID,
 		Position:    segmentPosition,
 		RootPieceID: storj.PieceID{1},
 		Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-		CreatedAt:   &now,
+		CreatedAt:   time.Now(),
 
 		EncryptedKey:      []byte{3},
 		EncryptedKeyNonce: []byte{4},

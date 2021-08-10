@@ -460,22 +460,6 @@ CREATE TABLE graceful_exit_transfer_queue (
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
-CREATE TABLE injuredsegments (
-	path bytea NOT NULL,
-	data bytea NOT NULL,
-	attempted timestamp with time zone,
-	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	segment_health double precision NOT NULL DEFAULT 1,
-	PRIMARY KEY ( path )
-);
-CREATE TABLE irreparabledbs (
-	segmentpath bytea NOT NULL,
-	segmentdetail bytea NOT NULL,
-	pieces_lost_count bigint NOT NULL,
-	seg_damaged_unix_sec bigint NOT NULL,
-	repair_attempt_count bigint NOT NULL,
-	PRIMARY KEY ( segmentpath )
-);
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -546,16 +530,6 @@ CREATE TABLE peer_identities (
 	leaf_serial_number bytea NOT NULL,
 	chain bytea NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
-);
-CREATE TABLE pending_audits (
-	node_id bytea NOT NULL,
-	piece_id bytea NOT NULL,
-	stripe_index bigint NOT NULL,
-	share_size bigint NOT NULL,
-	expected_share_hash bytea NOT NULL,
-	reverify_count bigint NOT NULL,
-	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE projects (
@@ -835,10 +809,6 @@ CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index O
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted ) ;
-CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health ) ;
-CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at ) ;
-CREATE INDEX injuredsegments_num_healthy_pieces_attempted_index ON injuredsegments ( segment_health, attempted ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
@@ -1090,22 +1060,6 @@ CREATE TABLE graceful_exit_transfer_queue (
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
-CREATE TABLE injuredsegments (
-	path bytea NOT NULL,
-	data bytea NOT NULL,
-	attempted timestamp with time zone,
-	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	segment_health double precision NOT NULL DEFAULT 1,
-	PRIMARY KEY ( path )
-);
-CREATE TABLE irreparabledbs (
-	segmentpath bytea NOT NULL,
-	segmentdetail bytea NOT NULL,
-	pieces_lost_count bigint NOT NULL,
-	seg_damaged_unix_sec bigint NOT NULL,
-	repair_attempt_count bigint NOT NULL,
-	PRIMARY KEY ( segmentpath )
-);
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -1176,16 +1130,6 @@ CREATE TABLE peer_identities (
 	leaf_serial_number bytea NOT NULL,
 	chain bytea NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
-);
-CREATE TABLE pending_audits (
-	node_id bytea NOT NULL,
-	piece_id bytea NOT NULL,
-	stripe_index bigint NOT NULL,
-	share_size bigint NOT NULL,
-	expected_share_hash bytea NOT NULL,
-	reverify_count bigint NOT NULL,
-	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE projects (
@@ -1465,10 +1409,6 @@ CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index O
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted ) ;
-CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health ) ;
-CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at ) ;
-CREATE INDEX injuredsegments_num_healthy_pieces_attempted_index ON injuredsegments ( segment_health, attempted ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
@@ -3941,247 +3881,6 @@ func (GracefulExitTransferQueue_OrderLimitSendCount_Field) _Column() string {
 	return "order_limit_send_count"
 }
 
-type Injuredsegment struct {
-	Path          []byte
-	Data          []byte
-	Attempted     *time.Time
-	UpdatedAt     time.Time
-	SegmentHealth float64
-}
-
-func (Injuredsegment) _Table() string { return "injuredsegments" }
-
-type Injuredsegment_Create_Fields struct {
-	Attempted     Injuredsegment_Attempted_Field
-	UpdatedAt     Injuredsegment_UpdatedAt_Field
-	SegmentHealth Injuredsegment_SegmentHealth_Field
-}
-
-type Injuredsegment_Update_Fields struct {
-	Attempted Injuredsegment_Attempted_Field
-	UpdatedAt Injuredsegment_UpdatedAt_Field
-}
-
-type Injuredsegment_Path_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Injuredsegment_Path(v []byte) Injuredsegment_Path_Field {
-	return Injuredsegment_Path_Field{_set: true, _value: v}
-}
-
-func (f Injuredsegment_Path_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_Path_Field) _Column() string { return "path" }
-
-type Injuredsegment_Data_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Injuredsegment_Data(v []byte) Injuredsegment_Data_Field {
-	return Injuredsegment_Data_Field{_set: true, _value: v}
-}
-
-func (f Injuredsegment_Data_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_Data_Field) _Column() string { return "data" }
-
-type Injuredsegment_Attempted_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func Injuredsegment_Attempted(v time.Time) Injuredsegment_Attempted_Field {
-	return Injuredsegment_Attempted_Field{_set: true, _value: &v}
-}
-
-func Injuredsegment_Attempted_Raw(v *time.Time) Injuredsegment_Attempted_Field {
-	if v == nil {
-		return Injuredsegment_Attempted_Null()
-	}
-	return Injuredsegment_Attempted(*v)
-}
-
-func Injuredsegment_Attempted_Null() Injuredsegment_Attempted_Field {
-	return Injuredsegment_Attempted_Field{_set: true, _null: true}
-}
-
-func (f Injuredsegment_Attempted_Field) isnull() bool { return !f._set || f._null || f._value == nil }
-
-func (f Injuredsegment_Attempted_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_Attempted_Field) _Column() string { return "attempted" }
-
-type Injuredsegment_UpdatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func Injuredsegment_UpdatedAt(v time.Time) Injuredsegment_UpdatedAt_Field {
-	return Injuredsegment_UpdatedAt_Field{_set: true, _value: v}
-}
-
-func (f Injuredsegment_UpdatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_UpdatedAt_Field) _Column() string { return "updated_at" }
-
-type Injuredsegment_SegmentHealth_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Injuredsegment_SegmentHealth(v float64) Injuredsegment_SegmentHealth_Field {
-	return Injuredsegment_SegmentHealth_Field{_set: true, _value: v}
-}
-
-func (f Injuredsegment_SegmentHealth_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_SegmentHealth_Field) _Column() string { return "segment_health" }
-
-type Irreparabledb struct {
-	Segmentpath        []byte
-	Segmentdetail      []byte
-	PiecesLostCount    int64
-	SegDamagedUnixSec  int64
-	RepairAttemptCount int64
-}
-
-func (Irreparabledb) _Table() string { return "irreparabledbs" }
-
-type Irreparabledb_Update_Fields struct {
-	Segmentdetail      Irreparabledb_Segmentdetail_Field
-	PiecesLostCount    Irreparabledb_PiecesLostCount_Field
-	SegDamagedUnixSec  Irreparabledb_SegDamagedUnixSec_Field
-	RepairAttemptCount Irreparabledb_RepairAttemptCount_Field
-}
-
-type Irreparabledb_Segmentpath_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Irreparabledb_Segmentpath(v []byte) Irreparabledb_Segmentpath_Field {
-	return Irreparabledb_Segmentpath_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_Segmentpath_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_Segmentpath_Field) _Column() string { return "segmentpath" }
-
-type Irreparabledb_Segmentdetail_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Irreparabledb_Segmentdetail(v []byte) Irreparabledb_Segmentdetail_Field {
-	return Irreparabledb_Segmentdetail_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_Segmentdetail_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_Segmentdetail_Field) _Column() string { return "segmentdetail" }
-
-type Irreparabledb_PiecesLostCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Irreparabledb_PiecesLostCount(v int64) Irreparabledb_PiecesLostCount_Field {
-	return Irreparabledb_PiecesLostCount_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_PiecesLostCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_PiecesLostCount_Field) _Column() string { return "pieces_lost_count" }
-
-type Irreparabledb_SegDamagedUnixSec_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Irreparabledb_SegDamagedUnixSec(v int64) Irreparabledb_SegDamagedUnixSec_Field {
-	return Irreparabledb_SegDamagedUnixSec_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_SegDamagedUnixSec_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_SegDamagedUnixSec_Field) _Column() string { return "seg_damaged_unix_sec" }
-
-type Irreparabledb_RepairAttemptCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Irreparabledb_RepairAttemptCount(v int64) Irreparabledb_RepairAttemptCount_Field {
-	return Irreparabledb_RepairAttemptCount_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_RepairAttemptCount_Field) _Column() string { return "repair_attempt_count" }
-
 type Node struct {
 	Id                          []byte
 	Address                     string
@@ -5682,155 +5381,6 @@ func (f PeerIdentity_UpdatedAt_Field) value() interface{} {
 }
 
 func (PeerIdentity_UpdatedAt_Field) _Column() string { return "updated_at" }
-
-type PendingAudits struct {
-	NodeId            []byte
-	PieceId           []byte
-	StripeIndex       int64
-	ShareSize         int64
-	ExpectedShareHash []byte
-	ReverifyCount     int64
-	Path              []byte
-}
-
-func (PendingAudits) _Table() string { return "pending_audits" }
-
-type PendingAudits_Update_Fields struct {
-	ReverifyCount PendingAudits_ReverifyCount_Field
-}
-
-type PendingAudits_NodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func PendingAudits_NodeId(v []byte) PendingAudits_NodeId_Field {
-	return PendingAudits_NodeId_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_NodeId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_NodeId_Field) _Column() string { return "node_id" }
-
-type PendingAudits_PieceId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func PendingAudits_PieceId(v []byte) PendingAudits_PieceId_Field {
-	return PendingAudits_PieceId_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_PieceId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_PieceId_Field) _Column() string { return "piece_id" }
-
-type PendingAudits_StripeIndex_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func PendingAudits_StripeIndex(v int64) PendingAudits_StripeIndex_Field {
-	return PendingAudits_StripeIndex_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_StripeIndex_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_StripeIndex_Field) _Column() string { return "stripe_index" }
-
-type PendingAudits_ShareSize_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func PendingAudits_ShareSize(v int64) PendingAudits_ShareSize_Field {
-	return PendingAudits_ShareSize_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_ShareSize_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_ShareSize_Field) _Column() string { return "share_size" }
-
-type PendingAudits_ExpectedShareHash_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func PendingAudits_ExpectedShareHash(v []byte) PendingAudits_ExpectedShareHash_Field {
-	return PendingAudits_ExpectedShareHash_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_ExpectedShareHash_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_ExpectedShareHash_Field) _Column() string { return "expected_share_hash" }
-
-type PendingAudits_ReverifyCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func PendingAudits_ReverifyCount(v int64) PendingAudits_ReverifyCount_Field {
-	return PendingAudits_ReverifyCount_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_ReverifyCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_ReverifyCount_Field) _Column() string { return "reverify_count" }
-
-type PendingAudits_Path_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func PendingAudits_Path(v []byte) PendingAudits_Path_Field {
-	return PendingAudits_Path_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_Path_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_Path_Field) _Column() string { return "path" }
 
 type Project struct {
 	Id             []byte
@@ -10890,36 +10440,6 @@ func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) CreateNoReturn_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__segmentpath_val := irreparabledb_segmentpath.value()
-	__segmentdetail_val := irreparabledb_segmentdetail.value()
-	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
-	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
-	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
 func (obj *pgxImpl) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	accounting_timestamps_value AccountingTimestamps_Value_Field) (
@@ -11862,28 +11382,6 @@ func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context
 
 }
 
-func (obj *pgxImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	pending_audits *PendingAudits, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	pending_audits = &PendingAudits{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
-	if err != nil {
-		return (*PendingAudits)(nil), obj.makeErr(err)
-	}
-	return pending_audits, nil
-
-}
-
 func (obj *pgxImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	segment_pending_audits *SegmentPendingAudits, err error) {
@@ -11903,77 +11401,6 @@ func (obj *pgxImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
 		return (*SegmentPendingAudits)(nil), obj.makeErr(err)
 	}
 	return segment_pending_audits, nil
-
-}
-
-func (obj *pgxImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	irreparabledb *Irreparabledb, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	irreparabledb = &Irreparabledb{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-	if err != nil {
-		return (*Irreparabledb)(nil), obj.makeErr(err)
-	}
-	return irreparabledb, nil
-
-}
-
-func (obj *pgxImpl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath > ? ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath_greater.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*Irreparabledb, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				irreparabledb := &Irreparabledb{}
-				err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, irreparabledb)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
 
 }
 
@@ -14478,58 +13905,6 @@ func (obj *pgxImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx c
 
 }
 
-func (obj *pgxImpl) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	update Irreparabledb_Update_Fields) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Segmentdetail._set {
-		__values = append(__values, update.Segmentdetail.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segmentdetail = ?"))
-	}
-
-	if update.PiecesLostCount._set {
-		__values = append(__values, update.PiecesLostCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_lost_count = ?"))
-	}
-
-	if update.SegDamagedUnixSec._set {
-		__values = append(__values, update.SegDamagedUnixSec.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("seg_damaged_unix_sec = ?"))
-	}
-
-	if update.RepairAttemptCount._set {
-		__values = append(__values, update.RepairAttemptCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("repair_attempt_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, irreparabledb_segmentpath.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-}
-
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -14797,6 +14172,224 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.LastNet._set {
+		__values = append(__values, update.LastNet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
+	}
+
+	if update.LastIpPort._set {
+		__values = append(__values, update.LastIpPort.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Type._set {
+		__values = append(__values, update.Type.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.WalletFeatures._set {
+		__values = append(__values, update.WalletFeatures.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.PieceCount._set {
+		__values = append(__values, update.PieceCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
+	}
+
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.Hash._set {
+		__values = append(__values, update.Hash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hash = ?"))
+	}
+
+	if update.Timestamp._set {
+		__values = append(__values, update.Timestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
+	}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
+	}
+
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
+	if update.ExitSuccess._set {
+		__values = append(__values, update.ExitSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *pgxImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -16016,33 +15609,6 @@ func (obj *pgxImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx 
 	return nil
 }
 
-func (obj *pgxImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM pending_audits WHERE pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -16067,60 +15633,6 @@ func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	}
 
 	return __count > 0, nil
-
-}
-
-func (obj *pgxImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *pgxImpl) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
-	injuredsegment_updated_at_less Injuredsegment_UpdatedAt_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.updated_at < ?")
-
-	var __values []interface{}
-	__values = append(__values, injuredsegment_updated_at_less.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
 
 }
 
@@ -16800,16 +16312,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_audits;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM peer_identities;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -16841,26 +16343,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM irreparabledbs;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM injuredsegments;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17032,36 +16514,6 @@ func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return value_attribution, nil
-
-}
-
-func (obj *pgxcockroachImpl) CreateNoReturn_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__segmentpath_val := irreparabledb_segmentpath.value()
-	__segmentdetail_val := irreparabledb_segmentdetail.value()
-	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
-	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
-	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
 
 }
 
@@ -18007,28 +17459,6 @@ func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ct
 
 }
 
-func (obj *pgxcockroachImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	pending_audits *PendingAudits, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	pending_audits = &PendingAudits{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
-	if err != nil {
-		return (*PendingAudits)(nil), obj.makeErr(err)
-	}
-	return pending_audits, nil
-
-}
-
 func (obj *pgxcockroachImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	segment_pending_audits *SegmentPendingAudits, err error) {
@@ -18048,77 +17478,6 @@ func (obj *pgxcockroachImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Cont
 		return (*SegmentPendingAudits)(nil), obj.makeErr(err)
 	}
 	return segment_pending_audits, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	irreparabledb *Irreparabledb, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	irreparabledb = &Irreparabledb{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-	if err != nil {
-		return (*Irreparabledb)(nil), obj.makeErr(err)
-	}
-	return irreparabledb, nil
-
-}
-
-func (obj *pgxcockroachImpl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath > ? ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath_greater.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*Irreparabledb, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				irreparabledb := &Irreparabledb{}
-				err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, irreparabledb)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
 
 }
 
@@ -20623,58 +19982,6 @@ func (obj *pgxcockroachImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEq
 
 }
 
-func (obj *pgxcockroachImpl) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	update Irreparabledb_Update_Fields) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Segmentdetail._set {
-		__values = append(__values, update.Segmentdetail.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segmentdetail = ?"))
-	}
-
-	if update.PiecesLostCount._set {
-		__values = append(__values, update.PiecesLostCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_lost_count = ?"))
-	}
-
-	if update.SegDamagedUnixSec._set {
-		__values = append(__values, update.SegDamagedUnixSec.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("seg_damaged_unix_sec = ?"))
-	}
-
-	if update.RepairAttemptCount._set {
-		__values = append(__values, update.RepairAttemptCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("repair_attempt_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, irreparabledb_segmentpath.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-}
-
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -20942,6 +20249,224 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	var __sets = &__sqlbundle_Hole{}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.LastNet._set {
+		__values = append(__values, update.LastNet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
+	}
+
+	if update.LastIpPort._set {
+		__values = append(__values, update.LastIpPort.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Type._set {
+		__values = append(__values, update.Type.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.WalletFeatures._set {
+		__values = append(__values, update.WalletFeatures.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.PieceCount._set {
+		__values = append(__values, update.PieceCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
+	}
+
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.Hash._set {
+		__values = append(__values, update.Hash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hash = ?"))
+	}
+
+	if update.Timestamp._set {
+		__values = append(__values, update.Timestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
+	}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
+	}
+
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
+	if update.ExitSuccess._set {
+		__values = append(__values, update.ExitSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -22161,33 +21686,6 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_
 	return nil
 }
 
-func (obj *pgxcockroachImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM pending_audits WHERE pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -22212,60 +21710,6 @@ func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.C
 	}
 
 	return __count > 0, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
-	injuredsegment_updated_at_less Injuredsegment_UpdatedAt_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.updated_at < ?")
-
-	var __values []interface{}
-	__values = append(__values, injuredsegment_updated_at_less.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
 
 }
 
@@ -22945,16 +22389,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_audits;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM peer_identities;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -22986,26 +22420,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM irreparabledbs;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM injuredsegments;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -23402,21 +22816,6 @@ func (rx *Rx) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 		return
 	}
 	return tx.CreateNoReturn_AccountingTimestamps(ctx, accounting_timestamps_name, accounting_timestamps_value)
-
-}
-
-func (rx *Rx) CreateNoReturn_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.CreateNoReturn_Irreparabledb(ctx, irreparabledb_segmentpath, irreparabledb_segmentdetail, irreparabledb_pieces_lost_count, irreparabledb_seg_damaged_unix_sec, irreparabledb_repair_attempt_count)
 
 }
 
@@ -23839,37 +23238,6 @@ func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(c
 	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
 }
 
-func (rx *Rx) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
-	injuredsegment_updated_at_less Injuredsegment_UpdatedAt_Field) (
-	count int64, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_Injuredsegment_By_UpdatedAt_Less(ctx, injuredsegment_updated_at_less)
-
-}
-
-func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
-}
-
-func (rx *Rx) Delete_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_PendingAudits_By_NodeId(ctx, pending_audits_node_id)
-}
-
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -24060,16 +23428,6 @@ func (rx *Rx) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx 
 	return tx.Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
 }
 
-func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	irreparabledb *Irreparabledb, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
-}
-
 func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
@@ -24098,16 +23456,6 @@ func (rx *Rx) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
 		return
 	}
 	return tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, peer_identity_node_id)
-}
-
-func (rx *Rx) Get_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	pending_audits *PendingAudits, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_PendingAudits_By_NodeId(ctx, pending_audits_node_id)
 }
 
 func (rx *Rx) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
@@ -24373,17 +23721,6 @@ func (rx *Rx) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_Cr
 	return tx.Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx, coupon_created_at_less_or_equal, coupon_status, limit, offset)
 }
 
-func (rx *Rx) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx, irreparabledb_segmentpath_greater, limit, offset)
-}
-
 func (rx *Rx) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 	project_created_at_less Project_CreatedAt_Field,
 	limit int, offset int64) (
@@ -24601,17 +23938,6 @@ func (rx *Rx) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_Pi
 	return tx.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, update)
 }
 
-func (rx *Rx) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	update Irreparabledb_Update_Fields) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath, update)
-}
-
 func (rx *Rx) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version_less NodeApiVersion_ApiVersion_Field,
@@ -24633,6 +23959,17 @@ func (rx *Rx) UpdateNoReturn_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.UpdateNoReturn_Node_By_Id(ctx, node_id, update)
+}
+
+func (rx *Rx) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx, node_id, update)
 }
 
 func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
@@ -24867,14 +24204,6 @@ type Methods interface {
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
 		err error)
 
-	CreateNoReturn_Irreparabledb(ctx context.Context,
-		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-		irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-		irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-		irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-		irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-		err error)
-
 	CreateNoReturn_PeerIdentity(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field,
 		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
@@ -25083,18 +24412,6 @@ type Methods interface {
 		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 		deleted bool, err error)
 
-	Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
-		injuredsegment_updated_at_less Injuredsegment_UpdatedAt_Field) (
-		count int64, err error)
-
-	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
-		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-		deleted bool, err error)
-
-	Delete_PendingAudits_By_NodeId(ctx context.Context,
-		pending_audits_node_id PendingAudits_NodeId_Field) (
-		deleted bool, err error)
-
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -25176,10 +24493,6 @@ type Methods interface {
 		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
 		graceful_exit_transfer_queue *GracefulExitTransferQueue, err error)
 
-	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
-		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-		irreparabledb *Irreparabledb, err error)
-
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		node *Node, err error)
@@ -25191,10 +24504,6 @@ type Methods interface {
 	Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
 		row *LeafSerialNumber_Row, err error)
-
-	Get_PendingAudits_By_NodeId(ctx context.Context,
-		pending_audits_node_id PendingAudits_NodeId_Field) (
-		pending_audits *PendingAudits, err error)
 
 	Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
@@ -25309,11 +24618,6 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Coupon, err error)
 
-	Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
-		irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
-		limit int, offset int64) (
-		rows []*Irreparabledb, err error)
-
 	Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field,
 		limit int, offset int64) (
@@ -25427,11 +24731,6 @@ type Methods interface {
 		update GracefulExitTransferQueue_Update_Fields) (
 		err error)
 
-	UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
-		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-		update Irreparabledb_Update_Fields) (
-		err error)
-
 	UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,
 		node_api_version_id NodeApiVersion_Id_Field,
 		node_api_version_api_version_less NodeApiVersion_ApiVersion_Field,
@@ -25439,6 +24738,11 @@ type Methods interface {
 		err error)
 
 	UpdateNoReturn_Node_By_Id(ctx context.Context,
+		node_id Node_Id_Field,
+		update Node_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		err error)

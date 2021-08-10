@@ -57,7 +57,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
      */
     public currentDisplayedMonths: MonthButton[] = [];
     public displayedYear: number = this.now.getUTCFullYear();
-    public period: string = '';
+    public period = '';
 
     private displayedMonths: StoredMonthsByYear = {};
     private selectedMonth: MonthButton | null;
@@ -76,8 +76,10 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
      */
     public async submit(): Promise<void> {
         let period: string | null = null;
+
         if (this.selectedMonth) {
-            const month = this.selectedMonth.index < 9 ? '0' + (this.selectedMonth.index + 1) : (this.selectedMonth.index + 1);
+            const month = this.selectedMonth.index < 9 ? `0${this.selectedMonth.index + 1}` : this.selectedMonth.index + 1;
+
             period = `${this.selectedMonth.year}-${month}`;
         }
 
@@ -144,7 +146,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
     public incrementYear(): void {
         const isCurrentYear = this.displayedYear === this.now.getUTCFullYear();
 
-        if (isCurrentYear) return;
+        if (isCurrentYear) { return; }
 
         this.displayedYear += 1;
         this.populateMonths(this.displayedYear);
@@ -156,9 +158,9 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
      */
     public decrementYear(): void {
         // TODO: remove hardcoded value
-        const minYear: number = 2000;
+        const minYear = 2000;
 
-        if (this.displayedYear === minYear) return;
+        if (this.displayedYear === minYear) { return; }
 
         this.displayedYear -= 1;
         this.populateMonths(this.displayedYear);

@@ -15,7 +15,7 @@ const { UPDATE, GET, CLEAR } = USER_ACTIONS;
 
 Vue.use(Vuex);
 
-const store = new Vuex.Store(usersModule);
+const store = new Vuex.Store<typeof usersModule.state>(usersModule);
 
 describe('mutations', () => {
     beforeEach(() => {

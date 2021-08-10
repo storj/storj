@@ -303,7 +303,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  pos01,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID01,
 						EncryptedKey:      encryptedKey01,
@@ -402,7 +402,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  pos01,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						EncryptedKey:      encryptedKey01,
 						EncryptedKeyNonce: encryptedKeyNonce01,
@@ -506,7 +506,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  pos00,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID00,
 						EncryptedKey:      encryptedKey00,
@@ -523,7 +523,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  pos01,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID01,
 						EncryptedKey:      encryptedKey01,
@@ -630,7 +630,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  pos00,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID00,
 						EncryptedKey:      encryptedKey00,
@@ -647,7 +647,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  pos10,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID10,
 						EncryptedKey:      encryptedKey10,
@@ -754,7 +754,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  pos00,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID00,
 						EncryptedKey:      encryptedKey00,
@@ -771,7 +771,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  pos02,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID02,
 						EncryptedKey:      encryptedKey02,

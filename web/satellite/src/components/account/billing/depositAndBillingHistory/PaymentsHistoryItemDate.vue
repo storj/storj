@@ -39,7 +39,7 @@ export default class PaymentsHistoryItemDate extends Vue {
 
     private readonly expirationTimeInSeconds: number;
     private nowInSeconds = Math.trunc(new Date().getTime() / 1000);
-    private intervalID: number;
+    private intervalID: ReturnType<typeof setInterval>;
 
     /**
      * indicates if billing item is expired.
@@ -98,7 +98,7 @@ export default class PaymentsHistoryItemDate extends Vue {
      * Starts expiration timer if item is not expired.
      */
     private ready(): void {
-        this.intervalID = window.setInterval(() => {
+        this.intervalID = setInterval(() => {
             if ((this.expirationTimeInSeconds - this.nowInSeconds) < 0 || this.isTransactionCompleted) {
                 this.isExpired = true;
                 clearInterval(this.intervalID);

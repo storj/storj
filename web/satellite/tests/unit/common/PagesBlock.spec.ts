@@ -6,7 +6,7 @@ import * as sinon from 'sinon';
 import PagesBlock from '@/components/common/PagesBlock.vue';
 
 import { Page } from '@/types/pagination';
-import { mount, shallowMount } from '@vue/test-utils';
+import { shallowMount } from '@vue/test-utils';
 
 describe('Pagination.vue', () => {
     it('renders correctly without props', () => {
@@ -18,7 +18,7 @@ describe('Pagination.vue', () => {
     it('renders correctly with props', () => {
         const callbackSpy = sinon.spy();
         const pagesArray: Page[] = [];
-        const SELECTED_PAGE_INDEX: number = 3;
+        const SELECTED_PAGE_INDEX = 3;
 
         for (let i = 1; i <= 4; i++) {
             pagesArray.push(new Page(i, callbackSpy));

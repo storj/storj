@@ -38,7 +38,7 @@ import { HeldAmountSummary } from '@/payouts';
     },
 })
 export default class HeldHistory extends Vue {
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     public heldHistory: HeldAmountSummary[];
 }
 </script>

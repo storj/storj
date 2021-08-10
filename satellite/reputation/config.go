@@ -6,13 +6,19 @@ package reputation
 import (
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 )
 
-// ErrNodeNotFound is returned if a node does not exist in database.
-var ErrNodeNotFound = errs.Class("node not found")
+var (
+	mon = monkit.Package()
+	// Error is the default reputation errs class.
+	Error = errs.Class("reputation")
+	// ErrNodeNotFound is returned if a node does not exist in database.
+	ErrNodeNotFound = errs.Class("node not found")
+)
 
 // Config contains all config values for the reputation service.
 type Config struct {

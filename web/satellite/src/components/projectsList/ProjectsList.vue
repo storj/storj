@@ -69,10 +69,10 @@ const {
     },
 })
 export default class Projects extends Vue {
-    private currentPageNumber: number = 1;
+    private currentPageNumber = 1;
     private FIRST_PAGE = 1;
 
-    public areProjectsFetching: boolean = true;
+    public areProjectsFetching = true;
 
     /**
      * Lifecycle hook after initial render where list of existing owned projects is fetched.
@@ -103,7 +103,7 @@ export default class Projects extends Vue {
     /**
      * Returns ProjectsList item component.
      */
-    public get itemComponent() {
+    public get itemComponent(): typeof ProjectsListItem {
         return ProjectsListItem;
     }
 

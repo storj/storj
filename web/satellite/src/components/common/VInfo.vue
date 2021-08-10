@@ -19,11 +19,11 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 @Component
 export default class VInfo extends Vue {
     @Prop({default: ''})
-    private readonly text: String;
+    private readonly text: string;
     @Prop({default: ''})
-    private readonly boldText: String;
+    private readonly boldText: string;
 
-    private isVisible: boolean = false;
+    private isVisible = false;
 
     public toggleVisibility(): void {
         this.isVisible = !this.isVisible;
