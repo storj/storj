@@ -77,7 +77,7 @@ pipeline {
                     }
                     post {
                         success {
-                            'STORJ_TEST_SATELLITE_WEB = "built npm"'    
+                            STORJ_TEST_SATELLITE_WEB = 'built npm'    
                         }
                     }
                 }
