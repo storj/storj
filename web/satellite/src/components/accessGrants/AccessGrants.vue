@@ -72,9 +72,7 @@ import { SortDirection } from '@/types/common';
 const {
     FETCH,
     TOGGLE_SELECTION,
-    CLEAR,
     CLEAR_SELECTION,
-    SET_SEARCH_QUERY,
     SET_SORT_BY,
     SET_SORT_DIRECTION,
 } = ACCESS_GRANTS_ACTIONS;
@@ -100,9 +98,9 @@ export default class AccessGrants extends Vue {
     /**
      * Indicates if delete confirmation state should appear.
      */
-    private isDeleteClicked: boolean = false;
+    private isDeleteClicked = false;
 
-    public areGrantsFetching: boolean = true;
+    public areGrantsFetching = true;
 
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
@@ -216,7 +214,7 @@ export default class AccessGrants extends Vue {
     /**
      * Returns AccessGrant item component.
      */
-    public get itemComponent() {
+    public get itemComponent(): typeof AccessGrantsItem {
         return AccessGrantsItem;
     }
 

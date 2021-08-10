@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
@@ -192,7 +194,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 					{
 						StreamID:  objX.StreamID,
 						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       storj.PieceID{1},
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -209,7 +211,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 					{
 						StreamID:  objY.StreamID,
 						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       storj.PieceID{1},
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -230,16 +232,15 @@ func TestDeleteBucketObjects(t *testing.T) {
 		t.Run("object with multiple segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.CreateObject(ctx, t, db, obj1, 104)
+			metabasetest.CreateObject(ctx, t, db, obj1, 37)
 
 			metabasetest.DeleteBucketObjects{
 				Opts: metabase.DeleteBucketObjects{
-					Bucket:                obj1.Location().Bucket(),
-					BatchSize:             2,
-					DeletePiecesBatchSize: 10,
+					Bucket:    obj1.Location().Bucket(),
+					BatchSize: 2,
 					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
-						if len(segments) != 10 && len(segments) != 4 {
-							return errors.New("expected 4 or 10 segments")
+						if len(segments) != 37 {
+							return errors.New("expected 37 segments")
 						}
 						return nil
 					},
@@ -249,5 +250,94 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
+
+		t.Run("multiple objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			root := metabasetest.RandObjectStream()
+			for i := 0; i < 5; i++ {
+				obj := metabasetest.RandObjectStream()
+				obj.ProjectID = root.ProjectID
+				obj.BucketName = root.BucketName
+				metabasetest.CreateObject(ctx, t, db, obj, 5)
+			}
+
+			segmentsDeleted := 0
+			metabasetest.DeleteBucketObjects{
+				Opts: metabase.DeleteBucketObjects{
+					Bucket:    root.Location().Bucket(),
+					BatchSize: 1,
+					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
+						segmentsDeleted += len(segments)
+						return nil
+					},
+				},
+				Deleted: 5,
+			}.Check(ctx, t, db)
+
+			require.Equal(t, 25, segmentsDeleted)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestDeleteBucketObjectsParallel(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+		root := metabasetest.RandObjectStream()
+		for i := 0; i < 5; i++ {
+			obj := metabasetest.RandObjectStream()
+			obj.ProjectID = root.ProjectID
+			obj.BucketName = root.BucketName
+			metabasetest.CreateObject(ctx, t, db, obj, 50)
+		}
+
+		objects, err := db.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 5, len(objects))
+
+		for i := 0; i < 3; i++ {
+			ctx.Go(func() error {
+				_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+					Bucket:    root.Location().Bucket(),
+					BatchSize: 2,
+					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
+						return nil
+					},
+				})
+				return err
+			})
+		}
+
+		ctx.Wait()
+
+		metabasetest.Verify{}.Check(ctx, t, db)
+	})
+}
+
+func TestDeleteBucketObjectsCancel(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+		object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+		testCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		_, err := db.DeleteBucketObjects(testCtx, metabase.DeleteBucketObjects{
+			Bucket:    object.Location().Bucket(),
+			BatchSize: 2,
+			DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
+				return nil
+			},
+		})
+		require.Error(t, err)
+
+		metabasetest.Verify{
+			Objects: []metabase.RawObject{metabase.RawObject(object)},
+			Segments: []metabase.RawSegment{
+				metabasetest.DefaultRawSegment(object.ObjectStream, metabase.SegmentPosition{}),
+			},
+		}.Check(ctx, t, db)
 	})
 }

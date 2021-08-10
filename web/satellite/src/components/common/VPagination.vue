@@ -38,7 +38,7 @@ import PagesBlock from '@/components/common/PagesBlock.vue';
 import PaginationLeftIcon from '@/../static/images/common/paginationLeft.svg';
 import PaginationRightIcon from '@/../static/images/common/paginationRight.svg';
 
-import { Page } from '@/types/pagination';
+import { OnPageClickCallback, Page } from '@/types/pagination';
 
 @Component({
     components: {
@@ -50,7 +50,7 @@ import { Page } from '@/types/pagination';
 export default class VPagination extends Vue {
     private readonly MAX_PAGES_PER_BLOCK: number = 3;
     private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
-    private currentPageNumber: number = 1;
+    private currentPageNumber = 1;
     public isLoading = false;
     public pagesArray: Page[] = [];
     public firstBlockPages: Page[] = [];
@@ -65,7 +65,7 @@ export default class VPagination extends Vue {
     /**
      * Component initialization.
      */
-    public mounted() {
+    public mounted(): void {
         this.populatePagesArray();
     }
 
@@ -109,7 +109,7 @@ export default class VPagination extends Vue {
      * Method after total page count change.
      */
     @Watch('totalPageCount')
-    public onPageCountChange(val: number, oldVal: number) {
+    public onPageCountChange(_val: number, _oldVal: number): void {
         this.resetPageIndex();
     }
 

@@ -77,7 +77,7 @@ export default class PasswordStrength extends Vue {
     @Prop({default: false})
     private readonly isShown: boolean;
 
-    private MINIMAL_PASSWORD_LENGTH: number = 6;
+    private MINIMAL_PASSWORD_LENGTH = 6;
 
     public get isPasswordLongEnough(): boolean {
         return this.passwordString.length >= this.MINIMAL_PASSWORD_LENGTH;
@@ -126,7 +126,7 @@ export default class PasswordStrength extends Vue {
      */
     private scorePassword(): number {
         const password: string = this.passwordString;
-        let score: number = 0;
+        let score = 0;
 
         const letters: number[] = [];
         for (let i = 0; i < password.length; i++) {
@@ -141,7 +141,7 @@ export default class PasswordStrength extends Vue {
             /\W/.test(password),
         ];
 
-        let variationCount: number = 0;
+        let variationCount = 0;
         variations.forEach((check) => {
             variationCount += check ? 1 : 0;
         });
@@ -156,12 +156,12 @@ export default class PasswordStrength extends Vue {
      */
     private get passwordStrengthColor(): string {
         switch (this.passwordStrength) {
-            case 'Good':
-                return '#ffff00';
-            case 'Strong':
-                return '#bfff00';
-            case 'Very Strong':
-                return '#00ff40';
+        case 'Good':
+            return '#ffff00';
+        case 'Strong':
+            return '#bfff00';
+        case 'Very Strong':
+            return '#00ff40';
         }
 
         return '#e16c58';
@@ -172,14 +172,14 @@ export default class PasswordStrength extends Vue {
      */
     private get barWidth(): string {
         switch (this.passwordStrength) {
-            case 'Weak':
-                return '81px';
-            case 'Good':
-                return '162px';
-            case 'Strong':
-                return '243px';
-            case 'Very Strong':
-                return '325px';
+        case 'Weak':
+            return '81px';
+        case 'Good':
+            return '162px';
+        case 'Strong':
+            return '243px';
+        case 'Very Strong':
+            return '325px';
         }
 
         return '0px';

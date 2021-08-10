@@ -28,17 +28,17 @@ import MoreIcon from '@/../static/images/icons/more.svg';
     },
 })
 export default class NodeOptions extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public id: string;
 
-    public areOptionsShown: boolean = false;
+    public areOptionsShown = false;
 
     public openOptions(): void {
         this.areOptionsShown = true;
     }
 
     public closeOptions(): void {
-        if (!this.areOptionsShown) return;
+        if (!this.areOptionsShown) { return; }
 
         this.areOptionsShown = false;
     }

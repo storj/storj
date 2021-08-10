@@ -100,12 +100,7 @@ import GatewayIcon from '@/../static/images/onboardingTour/s3-gateway.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { ProjectFields } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
@@ -115,7 +110,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
     },
 })
 export default class OverviewStep extends Vue {
-    public isLoading: boolean = false;
+    public isLoading = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 

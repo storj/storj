@@ -76,12 +76,12 @@ import { LocalData } from '@/utils/localData';
     },
 })
 export default class NewProjectPopup extends Vue {
-    private description: string = '';
-    private createdProjectId: string = '';
-    private isLoading: boolean = false;
+    private description = '';
+    private createdProjectId = '';
+    private isLoading = false;
 
-    public projectName: string = '';
-    public nameError: string = '';
+    public projectName = '';
+    public nameError = '';
 
     /**
      * Sets project name from input value.

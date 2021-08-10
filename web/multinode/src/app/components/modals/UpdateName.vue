@@ -33,7 +33,7 @@ import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
-import { CreateNodeFields, UpdateNodeModel } from '@/nodes';
+import { UpdateNodeModel } from '@/nodes';
 
 @Component({
     components: {
@@ -43,14 +43,14 @@ import { CreateNodeFields, UpdateNodeModel } from '@/nodes';
     },
 })
 export default class AddNewNode extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public nodeId: string;
 
-    public nodeName: string = '';
-    private nameError: string = '';
-    public isModalShown: boolean = false;
+    public nodeName = '';
+    private nameError = '';
+    public isModalShown = false;
 
-    private isLoading: boolean = false;
+    private isLoading = false;
 
     /**
      * Sets node name field from value string.
@@ -71,7 +71,7 @@ export default class AddNewNode extends Vue {
     }
 
     public async onSetName(): Promise<void> {
-        if (this.isLoading) return;
+        if (this.isLoading) { return; }
 
         if (!this.nodeName) {
             this.nameError = 'This field is required. Please enter a valid node name';

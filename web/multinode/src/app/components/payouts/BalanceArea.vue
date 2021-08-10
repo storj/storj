@@ -30,9 +30,9 @@ import InfoBlock from '../common/InfoBlock.vue';
     components: { InfoBlock },
 })
 export default class BalanceArea extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public undistributed: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public currentMonthEstimation: number;
 }
 </script>

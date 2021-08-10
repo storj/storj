@@ -47,14 +47,12 @@ export class BandwidthClient extends APIClient {
         const daily = traffic.bandwidthDaily || [];
 
         return new BandwidthTraffic(
-            daily.map(daily => {
-                return new BandwidthRollup(
-                    new Egress(daily.egress.repair, daily.egress.audit, daily.egress.usage),
-                    new Ingress(daily.ingress.repair, daily.ingress.usage),
-                    daily.delete,
-                    new Date(daily.intervalStart),
-                );
-            }),
+            daily.map(daily => new BandwidthRollup(
+                new Egress(daily.egress.repair, daily.egress.audit, daily.egress.usage),
+                new Ingress(daily.ingress.repair, daily.ingress.usage),
+                daily.delete,
+                new Date(daily.intervalStart),
+            )),
             traffic.bandwidthSummary,
             traffic.egressSummary,
             traffic.ingressSummary,

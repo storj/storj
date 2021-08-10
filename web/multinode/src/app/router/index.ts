@@ -90,7 +90,7 @@ export class Route {
  * Config contains configuration of all available routes for a Multinode Dashboard router.
  */
 export class Config {
-    public static Root: Route = new Route('/', 'Root', Dashboard, {requiresAuth: true});
+    public static Root: Route = new Route('/', 'Root', Dashboard, { requiresAuth: true });
     public static Welcome: Route = new Route('/welcome', 'Welcome', WelcomeScreen);
     // nodes.
     public static AddFirstNode: Route = new Route('/add-first-node', 'AddFirstNode', AddFirstNode);
@@ -130,15 +130,15 @@ export const router = new Router(Config);
 /**
  * List of allowed routes without any node added.
  */
-const allowedRoutesNames = [ Config.AddFirstNode.name, Config.Welcome.name ];
+const allowedRoutesNames = [Config.AddFirstNode.name, Config.Welcome.name];
 
 /**
  * Checks if redirect to some of internal routes and no nodes added so far.
  * Redirect to Add first node screen if so.
  */
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async(to, _from, next) => {
     if (store.state.nodes.nodes.length) {
-        next()
+        next();
     }
 
     if (!to.matched.some(record => allowedRoutesNames.includes(<string>record.name))) {

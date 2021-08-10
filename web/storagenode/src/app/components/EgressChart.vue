@@ -20,8 +20,7 @@ import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/BaseChart.vue';
 
-import { ChartData } from '@/app/types/chartData';
-import { Tooltip, TooltipParams } from '@/app/types/tooltip';
+import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { EgressUsed } from '@/storagenode/sno/sno';
@@ -77,7 +76,7 @@ export default class EgressChart extends BaseChart {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public egressTooltip(tooltipModel): void {
+    public egressTooltip(tooltipModel: TooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'egress-chart', 'egress-tooltip',
             'egress-tooltip-arrow', 'egress-tooltip-point', this.tooltipMarkUp(tooltipModel),
             255, 94, 35, 24, 6, 4, `#48a77f`);
@@ -85,7 +84,7 @@ export default class EgressChart extends BaseChart {
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
+    private tooltipMarkUp(tooltipModel: TooltipModel): string {
         if (!tooltipModel.dataPoints) {
             return '';
         }

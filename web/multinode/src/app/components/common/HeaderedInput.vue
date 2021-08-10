@@ -61,17 +61,17 @@ import HeaderlessInput from './HeaderlessInput.vue';
 // Custom input component with labeled header.
 @Component
 export default class HeaderedInput extends HeaderlessInput {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly initValue: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly additionalLabel: string;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly currentLimit: number;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isOptional: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isLimitShown: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isMultiline: boolean;
 
     public value: string;

@@ -4,7 +4,7 @@
 /**
  * Describes callback for pagination page click.
  */
-export type OnPageClickCallback = (index: number) => Promise<any>;
+export type OnPageClickCallback = (index: number) => Promise<void>;
 
 export type CheckSelected = (index: number) => boolean;
 
@@ -20,7 +20,7 @@ export class Page {
         this.onClick = callback;
     }
 
-    public get index() {
+    public get index(): number {
         return this.pageIndex;
     }
 

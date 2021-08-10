@@ -70,7 +70,7 @@ class StylingConstants {
  */
 class Styling {
     public constructor(
-        public tooltipModel: any,
+        public tooltipModel: TooltipModel,
         public element: HTMLElement,
         public topPosition: number,
         public leftPosition: number,
@@ -83,7 +83,7 @@ class Styling {
  */
 export class TooltipParams {
     public constructor(
-        public tooltipModel: any,
+        public tooltipModel: TooltipModel,
         public chartId: string,
         public tooltipId: string,
         public pointId: string,
@@ -97,11 +97,128 @@ export class TooltipParams {
 }
 
 /**
+ * Color is a color definition.
+ */
+export type Color = string
+
+/**
+ * TooltipItem contains datapoint information.
+ */
+export interface TooltipItem {
+    // Label for the tooltip
+    label: string,
+
+    // Value for the tooltip
+    value: string,
+
+    // X Value of the tooltip
+    // (deprecated) use `value` or `label` instead
+    xLabel: number | string,
+
+    // Y value of the tooltip
+    // (deprecated) use `value` or `label` instead
+    yLabel: number | string,
+
+    // Index of the dataset the item comes from
+    datasetIndex: number,
+
+    // Index of this data item in the dataset
+    index: number,
+
+    // X position of matching point
+    x: number,
+
+    // Y position of matching point
+    y: number
+}
+
+/**
+ * TooltipModel contains parameters that can be used to render the tooltip.
+ */
+export interface TooltipModel {
+    // The items that we are rendering in the tooltip. See Tooltip Item Interface section
+    dataPoints: TooltipItem[],
+
+    // Positioning
+    xPadding: number,
+    yPadding: number,
+    xAlign: string,
+    yAlign: string,
+
+    // X and Y properties are the top left of the tooltip
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    // Where the tooltip points to
+    caretX: number,
+    caretY: number,
+
+    // Body
+    // The body lines that need to be rendered
+    // Each object contains 3 parameters
+    // before: string[] // lines of text before the line with the color square
+    // lines: string[], // lines of text to render as the main item with color square
+    // after: string[], // lines of text to render after the main lines
+    body: {before: string[]; lines: string[], after: string[]}[],
+    // lines of text that appear after the title but before the body
+    beforeBody: string[],
+    // line of text that appear after the body and before the footer
+    afterBody: string[],
+    bodyFontColor: Color,
+    _bodyFontFamily: string,
+    _bodyFontStyle: string,
+    _bodyAlign: string,
+    bodyFontSize: number,
+    bodySpacing: number,
+
+    // Title
+    // lines of text that form the title
+    title: string[],
+    titleFontColor: Color,
+    _titleFontFamily: string,
+    _titleFontStyle: string,
+    titleFontSize: number,
+    _titleAlign: string,
+    titleSpacing: number,
+    titleMarginBottom: number,
+
+    // Footer
+    // lines of text that form the footer
+    footer: string[],
+    footerFontColor: Color,
+    _footerFontFamily: string,
+    _footerFontStyle: string,
+    footerFontSize: number,
+    _footerAlign: string,
+    footerSpacing: number,
+    footerMarginTop: number,
+
+    // Appearance
+    caretSize: number,
+    caretPadding: number,
+    cornerRadius: number,
+    backgroundColor: Color,
+
+    // colors to render for each item in body[]. This is the color of the squares in the tooltip
+    labelColors: Color[],
+    labelTextColors: Color[],
+
+    // 0 opacity is a hidden tooltip
+    opacity: number,
+    legendColorBackground: Color,
+    displayColors: boolean,
+    borderColor: Color,
+    borderWidth: number
+}
+
+/**
  * Tooltip provides custom tooltip rendering
  */
 export class Tooltip {
     public static custom(params: TooltipParams): void {
         const chart = document.getElementById(params.chartId);
+
         if (!chart) {
             return;
         }
@@ -122,9 +239,11 @@ export class Tooltip {
         const position = chart.getBoundingClientRect();
 
         const tooltipStyling = new Styling(params.tooltipModel, tooltip, params.tooltipTop, params.tooltipLeft, position);
+
         Tooltip.elemStyling(tooltipStyling);
 
         const pointStyling = new Styling(params.tooltipModel, point, params.pointTop, params.pointLeft, position);
+
         Tooltip.elemStyling(pointStyling);
 
         Tooltip.pointStyling(point, params.color);
@@ -132,6 +251,7 @@ export class Tooltip {
 
     private static createTooltip(id: string): HTMLElement {
         let tooltipEl = document.getElementById(id);
+
         if (!tooltipEl) {
             tooltipEl = document.createElement('div');
             tooltipEl.id = id;
@@ -143,6 +263,7 @@ export class Tooltip {
 
     private static createPoint(id: string): HTMLElement {
         let tooltipPoint = document.getElementById(id);
+
         if (!tooltipPoint) {
             tooltipPoint = document.createElement('div');
             tooltipPoint.id = id;
@@ -174,4 +295,12 @@ export class Tooltip {
         point.style.backgroundColor = color;
         point.style.borderRadius = StylingConstants.borderRadius;
     }
+}
+
+/**
+ * RenderChart contains definition for renderChart, that can be used to cast
+ * a derived chart type, with `(this as unknown as RenderChart).renderChart`
+ */
+export interface RenderChart {
+    renderChart<A, B>(A, B): void
 }

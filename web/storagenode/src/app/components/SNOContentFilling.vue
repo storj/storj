@@ -27,7 +27,7 @@
                 alt="Disqualified image"
             />
             <p class="info-area__disqualified-info__info">
-                Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites"><b> {{ disqualified.id }}</b></span>. If you have any questions regarding this please check our Node Operators
+                Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites" :key="disqualified.id"><b> {{ disqualified.id }}</b></span>. If you have any questions regarding this please check our Node Operators
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
@@ -61,7 +61,7 @@
                 alt="Suspended image"
             />
             <p class="info-area__suspended-info__info">
-                Your node has been suspended on<span v-for="suspended in suspendedSatellites"><b> {{ suspended.id }}</b></span>. If you have any questions regarding this please check our Node Operators
+                Your node has been suspended on<span v-for="suspended in suspendedSatellites" :key="suspended.id"><b> {{ suspended.id }}</b></span>. If you have any questions regarding this please check our Node Operators
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
@@ -199,10 +199,10 @@ import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno
 })
 export default class SNOContentFilling extends Vue {
     public readonly PAYOUT_PATH: string = RouteConfig.Payout.path;
-    public chartWidth: number = 0;
-    public chartHeight: number = 0;
-    public diskSpaceChartWidth: number = 0;
-    public diskSpaceChartHeight: number = 0;
+    public chartWidth = 0;
+    public chartHeight = 0;
+    public diskSpaceChartWidth = 0;
+    public diskSpaceChartHeight = 0;
 
     public $refs: {
         chart: HTMLElement;

@@ -113,7 +113,7 @@ export default class SatelliteSelectionDropdown extends Vue {
     /**
      * Fetches payout information depends on selected satellite.
      */
-    private async fetchPayoutInfo(id: string = ''): Promise<void> {
+    private async fetchPayoutInfo(id = ''): Promise<void> {
         await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
 

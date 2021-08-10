@@ -24,8 +24,11 @@ projectsModule.state.selectedProject = selectedProject;
 
 Vue.use(Vuex);
 
-const store = new Vuex.Store({modules: { projectsModule, bucketsModule } });
-const state = (store.state as any).bucketsModule;
+const store = new Vuex.Store<{
+    projectsModule: typeof projectsModule.state,
+    bucketsModule: typeof bucketsModule.state,
+}>({modules: { projectsModule, bucketsModule } });
+const state = store.state.bucketsModule;
 const bucket = new Bucket('test', 10, 10, 1, new Date(), new Date());
 const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 7, search: 'test', totalCount: 1 };
 

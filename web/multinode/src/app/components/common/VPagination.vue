@@ -47,18 +47,18 @@ import { OnPageClickCallback, Page } from '@/app/types/pagination';
     },
 })
 export default class VPagination extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalPageCount: number;
-    @Prop({default: 1})
+    @Prop({ default: 1 })
     private preselectedCurrentPageNumber: number;
-    @Prop({default: () => new Promise(() => false)})
+    @Prop({ default: () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 
     // TODO: place to config.
     private readonly MAX_PAGES_PER_BLOCK: number = 3;
     private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
 
-    private currentPageNumber: number = 1;
+    private currentPageNumber = 1;
     public isLoading = false;
     public pagesArray: Page[] = [];
     public firstBlockPages: Page[] = [];
@@ -68,7 +68,7 @@ export default class VPagination extends Vue {
     /**
      * Component initialization.
      */
-    public mounted() {
+    public mounted(): void {
         this.populatePages();
         this.currentPageNumber = this.preselectedCurrentPageNumber;
     }
@@ -113,7 +113,7 @@ export default class VPagination extends Vue {
      * Method after total page count change.
      */
     @Watch('totalPageCount')
-    public onPageCountChange(val: number, oldVal: number) {
+    public onPageCountChange(_val: number, _oldVal: number): void {
         this.resetPageIndex();
     }
 

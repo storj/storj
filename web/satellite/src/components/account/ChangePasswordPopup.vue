@@ -94,20 +94,20 @@ import { Validator } from '@/utils/validation';
     },
 })
 export default class ChangePasswordPopup extends Vue {
-    private oldPassword: string = '';
-    private newPassword: string = '';
-    private confirmationPassword: string = '';
+    private oldPassword = '';
+    private newPassword = '';
+    private confirmationPassword = '';
 
-    private oldPasswordError: string = '';
-    private newPasswordError: string = '';
-    private confirmationPasswordError: string = '';
+    private oldPasswordError = '';
+    private newPasswordError = '';
+    private confirmationPasswordError = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     /**
      * Indicates if hint popup needs to be shown while creating new password.
      */
-    public isPasswordStrengthShown: boolean = false;
+    public isPasswordStrengthShown = false;
 
     public showPasswordStrength(): void {
         this.isPasswordStrengthShown = true;

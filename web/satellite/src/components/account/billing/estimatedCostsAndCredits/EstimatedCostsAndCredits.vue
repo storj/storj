@@ -44,7 +44,7 @@ import { MONTHS_NAMES } from '@/utils/constants/date';
     },
 })
 export default class EstimatedCostsAndCredits extends Vue {
-    public isDataFetching: boolean = true;
+    public isDataFetching = true;
 
     /**
      * Lifecycle hook after initial render.

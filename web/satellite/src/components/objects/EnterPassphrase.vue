@@ -76,12 +76,12 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class EnterPassphrase extends Vue {
-    private hashFromInput: string = '';
+    private hashFromInput = '';
 
-    public passphrase: string = '';
-    public isError: boolean = false;
-    public isCheckboxChecked: boolean = false;
-    public isCheckboxError: boolean = false;
+    public passphrase = '';
+    public isError = false;
+    public isCheckboxChecked = false;
+    public isCheckboxError = false;
 
     /**
      * Lifecycle hook after initial render.
@@ -98,8 +98,9 @@ export default class EnterPassphrase extends Vue {
      * Changes passphrase data from input value.
      * @param event
      */
-    public onChangePassphrase(event): void {
-        this.passphrase = event.target.value.trim();
+    public onChangePassphrase(event: Event): void {
+        const target = event.target as HTMLTextAreaElement;
+        this.passphrase = target.value.trim();
         this.resetErrors();
     }
 
@@ -134,21 +135,21 @@ export default class EnterPassphrase extends Vue {
         };
 
         switch (true) {
-            case areHashesEqual() ||
+        case areHashesEqual() ||
             !areHashesEqual() && this.isError && this.isCheckboxChecked:
-                await this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
-                await this.$router.push({name: RouteConfig.BucketsManagement.name});
+            await this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
+            await this.$router.push({name: RouteConfig.BucketsManagement.name});
 
-                return;
-            case !areHashesEqual() && this.isError && !this.isCheckboxChecked:
-                this.isCheckboxError = true;
+            return;
+        case !areHashesEqual() && this.isError && !this.isCheckboxChecked:
+            this.isCheckboxError = true;
 
-                return;
-            case !areHashesEqual():
-                this.isError = true;
+            return;
+        case !areHashesEqual():
+            this.isError = true;
 
-                return;
-            default:
+            return;
+        default:
         }
     }
 

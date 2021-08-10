@@ -11,6 +11,10 @@
                     If you want to use our product with only end-to-end encryption, you may want to skip this feature.
                 </p>
             </div>
+            <div class="warning-view__container__checkbox-area">
+                <v-checkbox @setData="setNotAskMeAgain"/>
+                <p class="warning-view__container__checkbox-area__message">Do not ask me again</p>
+            </div>
             <div class="warning-view__container__buttons-area">
                 <VButton
                     class="warning-view__container__buttons-area__left-button"
@@ -35,15 +39,34 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
+import VCheckbox from '@/components/common/VCheckbox.vue';
 
 import { RouteConfig } from '@/router';
+import { LocalData } from '@/utils/localData';
 
 @Component({
     components: {
+        VCheckbox,
         VButton,
     },
 })
 export default class WarningView extends Vue {
+    // Used for remembering confirmation of acknowledge.
+    public isNotAskMeAgain = false;
+
+    public setNotAskMeAgain(value: boolean): void {
+        this.isNotAskMeAgain = value;
+    }
+
+    /**
+     * Checks if user already acknowledged information and redirects if so.
+     */
+    public beforeMount(): void {
+        if (LocalData.getServerSideEncryptionAcknowledge()) {
+            this.$router.push(RouteConfig.CreatePassphrase.path);
+        }
+    }
+
     /**
      * Redirects to project dashboard page.
      */
@@ -55,6 +78,10 @@ export default class WarningView extends Vue {
      * Proceeds further into file browser flow.
      */
     public proceed(): void {
+        if (this.isNotAskMeAgain) {
+            LocalData.setServerSideEncryptionAcknowledge();
+        }
+
         this.$router.push(RouteConfig.CreatePassphrase.path);
     }
 }
@@ -115,8 +142,33 @@ export default class WarningView extends Vue {
                 }
             }
 
+            &__checkbox-area {
+                margin-top: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+
+                ::v-deep.checkmark {
+                    height: 20px;
+                    width: 20px;
+
+                    &:after {
+                        left: 6px;
+                        top: 2px;
+                    }
+                }
+
+                &__message {
+                    font-weight: normal;
+                    font-size: 16px;
+                    line-height: 24px;
+                    text-align: center;
+                    color: #1b2533;
+                }
+            }
+
             &__buttons-area {
-                margin-top: 35px;
+                margin-top: 20px;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;

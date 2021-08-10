@@ -29,8 +29,11 @@ const projectMembersModule = makeProjectMembersModule(pmApi);
 
 Vue.use(Vuex);
 
-const store = new Vuex.Store({modules: { projectsModule, projectMembersModule }});
-const state = (store.state as any).projectMembersModule;
+const store = new Vuex.Store<{
+    projectsModule: typeof projectsModule.state,
+    projectMembersModule: typeof projectMembersModule.state,
+}>({modules: { projectsModule, projectMembersModule }});
+const state = store.state.projectMembersModule;
 const date = new Date(0);
 const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', date, '1');
 const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', date, '2');

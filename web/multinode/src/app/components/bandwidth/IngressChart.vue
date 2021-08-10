@@ -20,7 +20,7 @@ import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/common/BaseChart.vue';
 
-import { ChartData, Tooltip, TooltipParams } from '@/app/types/chart';
+import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
 import { BandwidthRollup } from '@/bandwidth';
 import { Size } from '@/private/memory/size';
@@ -51,9 +51,7 @@ export default class IngressChart extends BaseChart {
             return 'Bytes';
         }
 
-        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
-            return elem.ingress.repair + elem.ingress.usage;
-        }));
+        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => elem.ingress.repair + elem.ingress.usage));
     }
 
     public get chartData(): ChartData {
@@ -70,15 +68,15 @@ export default class IngressChart extends BaseChart {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public ingressTooltip(tooltipModel): void {
+    public ingressTooltip(tooltipModel: TooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'ingress-chart', 'ingress-tooltip',
-             'ingress-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            185, 94, 6, 4, `#e1a128`);
+            'ingress-tooltip-point', this.tooltipMarkUp(tooltipModel),
+            185, 94, 6, 4, '#e1a128');
 
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
+    private tooltipMarkUp(tooltipModel: TooltipModel): string {
         if (!tooltipModel.dataPoints) {
             return '';
         }

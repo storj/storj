@@ -108,8 +108,8 @@ export default class AddUserPopup extends Vue {
      * Initial empty inputs set.
      */
     private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
-    private formError: string = '';
-    private isLoading: boolean = false;
+    private formError = '';
+    private isLoading = false;
 
     private FIRST_PAGE = 1;
 
@@ -153,11 +153,12 @@ export default class AddUserPopup extends Vue {
         this.inputs = newInputsArray;
 
         if (length > 3) {
-            const scrollableDiv: any = document.querySelector('.add-user__form-container__inputs-group');
-
+            const scrollableDiv = document.querySelector('.add-user__form-container__inputs-group');
             if (scrollableDiv) {
-                const scrollableDivHeight = scrollableDiv.offsetHeight;
-                scrollableDiv.scroll(0, -scrollableDivHeight);
+                const scrollableDivHeight = scrollableDiv.getAttribute('offsetHeight');
+                if(scrollableDivHeight) {
+                    scrollableDiv.scroll(0, -scrollableDivHeight);
+                }
             }
         }
 
@@ -211,7 +212,7 @@ export default class AddUserPopup extends Vue {
      * Deletes selected email input from list.
      * @param index
      */
-    public deleteInput(index): void {
+    public deleteInput(index: number): void {
         if (this.inputs.length === 1) return;
 
         this.resetFormErrors(index);

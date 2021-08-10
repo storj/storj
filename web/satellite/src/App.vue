@@ -89,7 +89,8 @@ export default class App extends Vue {
         font-style: normal;
         font-weight: 400;
         font-display: swap;
-        src: local(''),
+        src:
+            local(''),
             url('../static/fonts/inter-v3-latin-regular.woff2') format('woff2'),
             url('../static/fonts/inter-v3-latin-regular.woff') format('woff'),
             url('../static/fonts/inter-v3-latin-regular.ttf') format('truetype');
@@ -100,7 +101,8 @@ export default class App extends Vue {
         font-style: normal;
         font-weight: 600;
         font-display: swap;
-        src: local(''),
+        src:
+            local(''),
             url('../static/fonts/inter-v3-latin-600.woff2') format('woff2'),
             url('../static/fonts/inter-v3-latin-600.woff') format('woff'),
             url('../static/fonts/inter-v3-latin-600.ttf') format('truetype');
@@ -111,7 +113,8 @@ export default class App extends Vue {
         font-style: normal;
         font-weight: 800;
         font-display: swap;
-        src: local(''),
+        src:
+            local(''),
             url('../static/fonts/inter-v3-latin-800.woff2') format('woff2'),
             url('../static/fonts/inter-v3-latin-800.woff') format('woff'),
             url('../static/fonts/inter-v3-latin-800.ttf') format('truetype');

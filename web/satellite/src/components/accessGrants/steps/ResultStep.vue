@@ -70,11 +70,11 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class ResultStep extends Vue {
-    private key: string = '';
-    private restrictedKey: string = '';
+    private key = '';
+    private restrictedKey = '';
 
-    public access: string = '';
-    public isGatewayLinkVisible: boolean = false;
+    public access = '';
+    public isGatewayLinkVisible = false;
 
     /**
      * Lifecycle hook after initial render.

@@ -51,7 +51,7 @@ import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
     },
 })
 export default class CreditsHistory extends Vue {
-    public isHistoryFetching: boolean = true;
+    public isHistoryFetching = true;
 
     /**
      * Lifecycle hook after initial render.

@@ -5,7 +5,6 @@
  * Size class contains currency related functionality such as convertation.
  */
 export class Currency {
-
     /**
      * dollarsFromCents converts cents to dollars with prefix.
      * @param cents count

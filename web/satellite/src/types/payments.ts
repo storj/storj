@@ -91,7 +91,7 @@ export class AccountBalance {
 }
 
 export class CreditCard {
-    public isSelected: boolean = false;
+    public isSelected = false;
 
     constructor(
         public id: string = '',

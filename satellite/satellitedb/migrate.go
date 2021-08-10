@@ -1595,6 +1595,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 							FROM nodes as n INNER JOIN audit_histories ON n.id = audit_histories.node_id;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop tables after metaloop refactoring",
+				Version:     169,
+				Action: migrate.SQL{
+					`DROP TABLE pending_audits`,
+					`DROP TABLE irreparabledbs`,
+					`DROP TABLE injuredsegments`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

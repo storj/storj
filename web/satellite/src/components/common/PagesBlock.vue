@@ -15,7 +15,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { Page } from '@/types/pagination';
+import { CheckSelected, Page } from '@/types/pagination';
 
 @Component
 export default class PagesBlock extends Vue {

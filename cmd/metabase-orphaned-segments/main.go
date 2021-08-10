@@ -175,7 +175,7 @@ func findOrphanedSegments(ctx context.Context, log *zap.Logger, config Config) (
 		var entry metabase.LoopSegmentEntry
 		for it.Next(ctx, &entry) {
 			// avoid segments created after starting processing
-			if entry.CreatedAt != nil && entry.CreatedAt.After(startingTime) {
+			if entry.CreatedAt.After(startingTime) {
 				continue
 			}
 

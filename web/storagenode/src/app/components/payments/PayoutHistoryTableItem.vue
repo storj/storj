@@ -128,7 +128,7 @@ export default class PayoutHistoryTableItem extends Vue {
     /**
      * Indicates if payout info should be rendered.
      */
-    public isExpanded: boolean = false;
+    public isExpanded = false;
 
     /**
      * Toggles additional payout information.

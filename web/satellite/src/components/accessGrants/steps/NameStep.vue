@@ -42,12 +42,8 @@ import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
-import { ProjectFields } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
@@ -56,10 +52,10 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class NameStep extends Vue {
-    private name: string = '';
-    private errorMessage: string = '';
-    private isLoading: boolean = false;
-    private key: string = '';
+    private name = '';
+    private errorMessage = '';
+    private isLoading = false;
+    private key = '';
 
     private readonly FIRST_PAGE = 1;
 

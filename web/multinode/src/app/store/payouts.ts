@@ -29,13 +29,14 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
     public readonly actions: ActionTree<PayoutsState, RootState>;
     public readonly mutations: MutationTree<PayoutsState>;
 
-    private readonly payouts: any;
+    private readonly payouts: Payouts;
 
     public constructor(payouts: Payouts) {
         this.payouts = payouts;
 
         this.namespaced = true;
         this.state = new PayoutsState();
+
         this.mutations = {
             setSummary: this.setSummary,
             setPayoutPeriod: this.setPayoutPeriod,
@@ -45,6 +46,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
             setNodeHeldHistory: this.setNodeHeldHistory,
             setCurrentNodeExpectations: this.setCurrentNodeExpectations,
         };
+
         this.actions = {
             summary: this.summary.bind(this),
             expectations: this.expectations.bind(this),
@@ -52,6 +54,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
             nodeTotals: this.nodeTotals.bind(this),
             heldHistory: this.heldHistory.bind(this),
         };
+
         this.getters = {
             periodString: this.periodString,
         };
@@ -72,7 +75,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * @param state
      * @param period representation of month and year
      */
-    public setPayoutPeriod(state: PayoutsState, period: string | null) {
+    public setPayoutPeriod(state: PayoutsState, period: string | null): void {
         state.selectedPayoutPeriod = period;
     }
 
@@ -90,7 +93,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * @param state
      * @param paystub for all time
      */
-    public setNodeTotals(state: PayoutsState, paystub: Paystub) {
+    public setNodeTotals(state: PayoutsState, paystub: Paystub) : void{
         state.selectedNodePayouts = { ...state.selectedNodePayouts, totalPaid: paystub.distributed, totalEarned: paystub.paid, totalHeld: paystub.held };
     }
 
@@ -99,7 +102,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * @param state
      * @param paystub
      */
-    public setNodePaystub(state: PayoutsState, paystub: Paystub) {
+    public setNodePaystub(state: PayoutsState, paystub: Paystub): void {
         state.selectedNodePayouts = { ...state.selectedNodePayouts, paystubForPeriod: paystub };
     }
 
@@ -108,7 +111,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * @param state
      * @param heldHistory
      */
-    public setNodeHeldHistory(state: PayoutsState, heldHistory: HeldAmountSummary[]) {
+    public setNodeHeldHistory(state: PayoutsState, heldHistory: HeldAmountSummary[]): void {
         state.selectedNodePayouts = { ...state.selectedNodePayouts, heldHistory };
     }
 
@@ -117,7 +120,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * @param state
      * @param expectations
      */
-    public setCurrentNodeExpectations(state: PayoutsState, expectations: any) {
+    public setCurrentNodeExpectations(state: PayoutsState, expectations: Expectation): void {
         state.selectedNodePayouts = { ...state.selectedNodePayouts, expectations };
     }
 
@@ -127,7 +130,6 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * @param ctx - context of the Vuex action.
      */
     public async summary(ctx: ActionContext<PayoutsState, RootState>): Promise<void> {
-        // @ts-ignore
         const selectedSatelliteId = ctx.rootState.nodes.selectedSatellite ? ctx.rootState.nodes.selectedSatellite.id : null;
         const summary = await this.payouts.summary(selectedSatelliteId, ctx.state.selectedPayoutPeriod);
 
@@ -151,7 +153,6 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * @param nodeId
      */
     public async paystub(ctx: ActionContext<PayoutsState, RootState>, nodeId: string): Promise<void> {
-        // @ts-ignore
         const selectedSatelliteId = ctx.rootState.nodes.selectedSatellite ? ctx.rootState.nodes.selectedSatellite.id : null;
         const paystub = await this.payouts.paystub(selectedSatelliteId, ctx.state.selectedPayoutPeriod, nodeId);
 
@@ -185,7 +186,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * periodString is full name month and year representation of selected payout period.
      */
     public periodString(state: PayoutsState): string {
-        if (!state.selectedPayoutPeriod) return 'All time';
+        if (!state.selectedPayoutPeriod) { return 'All time'; }
 
         const splittedPeriod = state.selectedPayoutPeriod.split('-');
         const monthIndex = parseInt(splittedPeriod[1]) - 1;

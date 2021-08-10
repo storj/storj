@@ -227,7 +227,8 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			Offlines: offlineNodes,
 			Unknown:  unknownNodes,
 		}
-		return report, ErrNotEnoughShares.New("got %d, required %d", len(sharesToAudit), required)
+		return report, ErrNotEnoughShares.New("got: %d, required: %d, failed: %d, offline: %d, unknown: %d, contained: %d",
+			len(sharesToAudit), required, len(failedNodes), len(offlineNodes), len(unknownNodes), len(containedNodes))
 	}
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Counter("not_enough_shares_for_audit").Inc(0)

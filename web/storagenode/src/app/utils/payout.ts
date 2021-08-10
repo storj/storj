@@ -10,14 +10,14 @@ export function getHeldPercentage(startedAt: Date): number {
     const monthsOnline = getMonthsBeforeNow(startedAt);
 
     switch (true) {
-        case monthsOnline < 4:
-            return 75;
-        case monthsOnline < 7:
-            return 50;
-        case monthsOnline < 10:
-            return 25;
-        default:
-            return 0;
+    case monthsOnline < 4:
+        return 75;
+    case monthsOnline < 7:
+        return 50;
+    case monthsOnline < 10:
+        return 25;
+    default:
+        return 0;
     }
 }
 

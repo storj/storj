@@ -10,11 +10,10 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 import store from '../../mock/store';
 
 const localVue = createLocalVue();
+
 localVue.use(Vuex);
 
-localVue.filter('centsToDollars', (cents: number): string => {
-    return Currency.dollarsFromCents(cents);
-});
+localVue.filter('centsToDollars', (cents: number): string => Currency.dollarsFromCents(cents));
 
 const $route = {
     fullPath: '/payouts/by-node/1',

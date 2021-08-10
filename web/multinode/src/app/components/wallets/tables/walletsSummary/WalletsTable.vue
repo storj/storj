@@ -61,10 +61,10 @@ import { Operator } from '@/operators';
     },
 })
 export default class WalletsTable extends Vue {
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     private readonly operators: Operator[];
 
-    public redirectToWalletDetailsPage(walletAddress: string): void {
+    public redirectToWalletDetailsPage(_walletAddress: string): void {
         // TODO: uncomment when undistributed will be added.
         // this.$router.push({
         //     name: RouterConfig.Wallets.with(RouterConfig.WalletDetails).name,

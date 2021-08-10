@@ -38,7 +38,7 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class BucketsSelection extends Vue {
-    public isDropdownShown: boolean = false;
+    public isDropdownShown = false;
 
     /**
      * Toggles dropdown visibility.

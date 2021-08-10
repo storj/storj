@@ -4,7 +4,7 @@
 /**
  * Divider to convert payout amounts to cents.
  */
-const PRICE_DIVIDER: number = 10000;
+const PRICE_DIVIDER = 10000;
 
 /**
  * PayoutsSummary is a representation of summary of payout information for node.
@@ -121,7 +121,7 @@ export class HeldAmountSummary {
  * Payouts month-term representation.
  */
 export class Paystub {
-    public gross: number = 0;
+    public gross = 0;
 
     public constructor(
         public usageAtRest: number = 0,

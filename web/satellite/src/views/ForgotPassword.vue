@@ -18,7 +18,7 @@
                                 <SelectedCheckIcon />
                                 <span class="forgot-area__expand__dropdown__item__name">{{ satelliteName }}</span>
                             </div>
-                            <a v-for="sat in partneredSatellites" class="forgot-area__expand__dropdown__item" :href="sat.address + '/forgot-password'">
+                            <a v-for="sat in partneredSatellites" :key="sat.id" class="forgot-area__expand__dropdown__item" :href="sat.address + '/forgot-password'">
                                 {{ sat.name }}
                             </a>
                         </div>
@@ -72,13 +72,13 @@ import { Validator } from '@/utils/validation';
     },
 })
 export default class ForgotPassword extends Vue {
-    private email: string = '';
-    private emailError: string = '';
+    private email = '';
+    private emailError = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     // tardigrade logic
-    public isDropdownShown: boolean = false;
+    public isDropdownShown = false;
 
     public readonly loginPath: string = RouteConfig.Login.path;
 
@@ -122,9 +122,7 @@ export default class ForgotPassword extends Vue {
      * Sends recovery password email.
      */
     public async onSendConfigurations(): Promise<void> {
-        const self = this;
-
-        if (!self.validateFields()) {
+        if (!this.validateFields()) {
             return;
         }
 

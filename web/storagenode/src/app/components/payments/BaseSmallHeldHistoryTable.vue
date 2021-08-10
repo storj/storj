@@ -26,7 +26,7 @@ export default class BaseSmallHeldHistoryTable extends Vue {
     /**
      * Indicates if held info should be rendered.
      */
-    public isExpanded: boolean = false;
+    public isExpanded = false;
 
     /**
      * Shows held info.

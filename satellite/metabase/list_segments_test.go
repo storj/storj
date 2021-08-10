@@ -70,7 +70,7 @@ func TestListSegments(t *testing.T) {
 				Position: metabase.SegmentPosition{
 					Index: 0,
 				},
-				CreatedAt:         &now,
+				CreatedAt:         now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -188,7 +188,7 @@ func TestListSegments(t *testing.T) {
 
 			expectedSegment := metabase.Segment{
 				StreamID:          obj.StreamID,
-				CreatedAt:         &now,
+				CreatedAt:         now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -328,7 +328,7 @@ func TestListStreamPositions(t *testing.T) {
 				Position: metabase.SegmentPosition{
 					Index: 0,
 				},
-				CreatedAt:         &now,
+				CreatedAt:         now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},

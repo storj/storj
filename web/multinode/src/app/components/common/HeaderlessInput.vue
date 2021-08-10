@@ -74,26 +74,26 @@ export default class HeaderlessInput extends Vue {
     private readonly passwordType: string = 'password';
 
     private type: string = this.textType;
-    private isPasswordShown: boolean = false;
+    private isPasswordShown = false;
 
-    protected value: string = '';
+    protected value = '';
 
-    @Prop({default: ''})
+    @Prop({ default: '' })
     protected readonly label: string;
-    @Prop({default: 'default'})
+    @Prop({ default: 'default' })
     protected readonly placeholder: string;
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly isPassword: boolean;
-    @Prop({default: '48px'})
+    @Prop({ default: '48px' })
     protected readonly height: string;
-    @Prop({default: '100%'})
+    @Prop({ default: '100%' })
     protected readonly width: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     protected readonly error: string;
-    @Prop({default: Number.MAX_SAFE_INTEGER})
+    @Prop({ default: Number.MAX_SAFE_INTEGER })
     protected readonly maxSymbols: number;
 
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isWhite: boolean;
 
     public constructor() {
@@ -121,9 +121,10 @@ export default class HeaderlessInput extends Vue {
     /**
      * triggers on input.
      */
-    // @ts-ignore
-    public onInput({ target }): void {
-        if (!target || !target.value) return;
+    public onInput(event: Event): void {
+        if(!event.target) { return; }
+        const target = event.target as HTMLInputElement;
+        if (!target || !target.value) { return; }
 
         if (target.value.length > this.maxSymbols) {
             this.value = target.value.slice(0, this.maxSymbols);
@@ -134,7 +135,8 @@ export default class HeaderlessInput extends Vue {
         this.$emit('setData', this.value);
     }
 
-    public onPaste(event): void {
+    public onPaste(event: ClipboardEvent): void {
+        if(!event || !event.clipboardData) { return; }
         const clipped: string = event.clipboardData.getData('text');
 
         if (clipped.length > this.maxSymbols) {
@@ -169,7 +171,7 @@ export default class HeaderlessInput extends Vue {
     /**
      * Returns style objects depends on props.
      */
-    protected get style(): object {
+    protected get style(): Record<string, unknown> {
         return {
             inputStyle: {
                 width: this.width,

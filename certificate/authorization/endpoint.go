@@ -78,7 +78,7 @@ func (endpoint *Endpoint) Close() error {
 func (endpoint *Endpoint) handleAuthorization(writer http.ResponseWriter, httpReq *http.Request) {
 	var err error
 	ctx := httpReq.Context()
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	if httpReq.Method != http.MethodPut {
 		msg := fmt.Sprintf("unsupported HTTP method: %s", httpReq.Method)

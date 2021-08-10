@@ -53,7 +53,7 @@ export enum NotificationTypes {
  * Describes page offset for pagination.
  */
 export class NotificationsCursor {
-    private DEFAULT_LIMIT: number = 7;
+    private DEFAULT_LIMIT = 7;
 
     public constructor(
         public page: number = 0,

@@ -212,7 +212,7 @@ type SegmentIterator func(ctx context.Context, segment *LoopSegmentEntry) bool
 type LoopSegmentEntry struct {
 	StreamID      uuid.UUID
 	Position      SegmentPosition
-	CreatedAt     *time.Time // repair
+	CreatedAt     time.Time // non-nillable
 	ExpiresAt     *time.Time
 	RepairedAt    *time.Time // repair
 	RootPieceID   storj.PieceID

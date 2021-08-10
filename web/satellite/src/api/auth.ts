@@ -62,12 +62,12 @@ export class AuthHttpApi {
         }
 
         switch (response.status) {
-            case 401:
-                throw new ErrorUnauthorized('Your email or password was incorrect, please try again');
-            case 429:
-                throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
-            default:
-                throw new Error('Can not receive authentication token');
+        case 401:
+            throw new ErrorUnauthorized('Your email or password was incorrect, please try again');
+        case 429:
+            throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+        default:
+            throw new Error('Can not receive authentication token');
         }
     }
 
@@ -178,12 +178,12 @@ export class AuthHttpApi {
         }
 
         switch (response.status) {
-            case 401: {
-                throw new Error('old password is incorrect, please try again');
-            }
-            default: {
-                throw new Error('can not change password');
-            }
+        case 401: {
+            throw new Error('old password is incorrect, please try again');
+        }
+        default: {
+            throw new Error('can not change password');
+        }
         }
     }
 
@@ -242,16 +242,16 @@ export class AuthHttpApi {
         if (!response.ok) {
             const errMsg = result.error || 'Cannot register user';
             switch (response.status) {
-                case 400:
-                    throw new ErrorBadRequest(errMsg);
-                case 401:
-                    throw new ErrorUnauthorized(errMsg);
-                case 409:
-                    throw new ErrorEmailUsed(errMsg);
-                case 429:
-                    throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
-                default:
-                    throw new Error(errMsg);
+            case 400:
+                throw new ErrorBadRequest(errMsg);
+            case 401:
+                throw new ErrorUnauthorized(errMsg);
+            case 409:
+                throw new ErrorEmailUsed(errMsg);
+            case 429:
+                throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+            default:
+                throw new Error(errMsg);
             }
         }
 

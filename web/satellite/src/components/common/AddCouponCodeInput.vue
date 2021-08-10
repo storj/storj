@@ -97,7 +97,7 @@ export default class AddCouponCodeInput extends Vue {
     /**
      * Check if coupon code is valid
      */
-    public async onApplyClick() {
+    public async onApplyClick(): Promise<void> {
         try {
             await this.$store.dispatch(APPLY_COUPON_CODE, this.couponCode);
         } catch (error) {

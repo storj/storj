@@ -1,7 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-declare type OnPageClickCallback = (search: number) => Promise<void>;
+export type OnPageClickCallback = (search: number) => Promise<void>;
+export type CheckSelected = (index: number) => boolean;
 
 /**
  * Describes paginator page.
@@ -15,7 +16,7 @@ export class Page {
         this.onClick = callback;
     }
 
-    public get index() {
+    public get index(): number {
         return this.pageIndex;
     }
 

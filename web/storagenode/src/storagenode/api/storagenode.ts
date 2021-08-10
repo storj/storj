@@ -3,7 +3,6 @@
 
 import {
     Dashboard,
-    Metric,
     Satellite,
     SatelliteByDayInfo,
     SatelliteInfo,

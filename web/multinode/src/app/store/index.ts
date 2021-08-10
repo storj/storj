@@ -49,6 +49,7 @@ export class MultinodeStoreOptions implements StoreOptions<RootState> {
         storage: StorageModule,
     ) {
         this.strict = true;
+
         this.state = {
             nodes: nodes.state,
             payouts: payouts.state,
@@ -56,6 +57,7 @@ export class MultinodeStoreOptions implements StoreOptions<RootState> {
             operators: operators.state,
             storage: storage.state,
         };
+
         this.modules = {
             nodes,
             payouts,

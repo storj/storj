@@ -50,8 +50,8 @@ export default class BucketItem extends Vue {
     @Prop({ default: -1 })
     public readonly dropdownKey: number;
 
-    public isRequestProcessing: boolean = false;
-    public errorMessage: string = '';
+    public isRequestProcessing = false;
+    public errorMessage = '';
 
     /**
      * Returns formatted date.

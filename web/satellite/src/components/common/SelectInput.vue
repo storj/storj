@@ -38,7 +38,7 @@ import InputCaret from '@/../static/images/common/caret.svg';
 })
 export default class SelectInput extends Vue {
 
-    protected value: string = '';
+    protected value = '';
 
     @Prop({default: ''})
     protected readonly label: string;
@@ -62,14 +62,15 @@ export default class SelectInput extends Vue {
     /**
      * triggers on input.
      */
-    public onInput({ target }): void {
+    public onInput(event: Event): void {
+        const target = event.target as HTMLSelectElement;
         this.$emit('setData', target.value);
     }
 
     /**
      * Returns style objects depends on props.
      */
-    protected get style(): object {
+    protected get style(): Record<string, unknown> {
         return {
             inputStyle: {
                 width: this.width,

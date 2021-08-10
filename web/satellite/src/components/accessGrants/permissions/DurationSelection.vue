@@ -38,8 +38,8 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 })
 
 export default class DurationSelection extends Vue {
-    public isDurationPickerVisible: boolean = false;
-    public dateRangeLabel: string = 'Forever';
+    public isDurationPickerVisible = false;
+    public dateRangeLabel = 'Forever';
 
     /**
      * Toggles duration picker.

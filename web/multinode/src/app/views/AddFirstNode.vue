@@ -58,11 +58,11 @@ import { CreateNodeFields } from '@/nodes';
 export default class AddFirstNode extends Vue {
     private nodeToAdd: CreateNodeFields = new CreateNodeFields();
 
-    private isLoading: boolean = false;
+    private isLoading = false;
     // errors
-    private idError: string = '';
-    private publicIPError: string = '';
-    private apiKeyError: string = '';
+    private idError = '';
+    private publicIPError = '';
+    private apiKeyError = '';
 
     /**
      * Sets node id field from value string.
@@ -89,7 +89,7 @@ export default class AddFirstNode extends Vue {
     }
 
     public async onCreate(): Promise<void> {
-        if (this.isLoading) return;
+        if (this.isLoading) { return; }
 
         this.isLoading = true;
 
@@ -110,7 +110,7 @@ export default class AddFirstNode extends Vue {
     }
 
     private validateFields(): boolean {
-        let hasNoErrors: boolean = true;
+        let hasNoErrors = true;
 
         if (!this.nodeToAdd.id) {
             this.idError = 'This field is required. Please enter a valid node ID';

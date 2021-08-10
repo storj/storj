@@ -46,7 +46,7 @@ type RawSegment struct {
 	StreamID uuid.UUID
 	Position SegmentPosition
 
-	CreatedAt  *time.Time // TODO: make it non-nilable after we migrate all existing segments to have creation time
+	CreatedAt  time.Time // non-nillable
 	RepairedAt *time.Time
 	ExpiresAt  *time.Time
 

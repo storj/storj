@@ -282,7 +282,7 @@ pipeline {
                 stage('web/satellite') {
                     steps {
                         dir("web/satellite") {
-                            sh 'npm run lint'
+                            sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
@@ -292,7 +292,7 @@ pipeline {
                 stage('web/storagenode') {
                     steps {
                         dir("web/storagenode") {
-                            sh 'npm run lint'
+                            sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
@@ -302,7 +302,7 @@ pipeline {
                 stage('web/multinode') {
                     steps {
                         dir("web/multinode") {
-                            sh 'npm run lint'
+                            sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
