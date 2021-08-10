@@ -6,13 +6,15 @@ package coinpayments
 import (
 	"context"
 	"encoding/json"
-	"math/big"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/satellite/payments/monetary"
 )
 
 const (
@@ -90,7 +92,7 @@ func (list TransactionIDList) Encode() string {
 type Transaction struct {
 	ID             TransactionID
 	Address        string
-	Amount         big.Float
+	Amount         monetary.Amount
 	DestTag        string
 	ConfirmsNeeded int
 	Timeout        time.Duration
@@ -117,7 +119,7 @@ func (tx *Transaction) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	amount, err := parseAmount(txRaw.Amount)
+	amount, err := monetary.AmountFromString(txRaw.Amount, monetary.StorjToken)
 	if err != nil {
 		return err
 	}
@@ -130,7 +132,7 @@ func (tx *Transaction) UnmarshalJSON(b []byte) error {
 	*tx = Transaction{
 		ID:             TransactionID(txRaw.TxID),
 		Address:        txRaw.Address,
-		Amount:         *amount,
+		Amount:         amount,
 		DestTag:        txRaw.DestTag,
 		ConfirmsNeeded: int(confirms),
 		Timeout:        time.Second * time.Duration(txRaw.Timeout),
@@ -145,9 +147,9 @@ func (tx *Transaction) UnmarshalJSON(b []byte) error {
 // TransactionInfo holds transaction information.
 type TransactionInfo struct {
 	Address          string
-	Coin             Currency
-	Amount           big.Float
-	Received         big.Float
+	Coin             CurrencySymbol
+	Amount           decimal.Decimal
+	Received         decimal.Decimal
 	ConfirmsReceived int
 	Status           Status
 	ExpiresAt        time.Time
@@ -157,34 +159,25 @@ type TransactionInfo struct {
 // UnmarshalJSON handles json unmarshaling for transaction info.
 func (info *TransactionInfo) UnmarshalJSON(b []byte) error {
 	var txInfoRaw struct {
-		Address      string `json:"payment_address"`
-		Coin         string `json:"coin"`
-		Status       int    `json:"status"`
-		AmountF      string `json:"amountf"`
-		ReceivedF    string `json:"receivedf"`
-		ConfirmsRecv int    `json:"recv_confirms"`
-		ExpiresAt    int64  `json:"time_expires"`
-		CreatedAt    int64  `json:"time_created"`
+		Address      string          `json:"payment_address"`
+		Coin         string          `json:"coin"`
+		Status       int             `json:"status"`
+		Amount       decimal.Decimal `json:"amountf"`
+		Received     decimal.Decimal `json:"receivedf"`
+		ConfirmsRecv int             `json:"recv_confirms"`
+		ExpiresAt    int64           `json:"time_expires"`
+		CreatedAt    int64           `json:"time_created"`
 	}
 
 	if err := json.Unmarshal(b, &txInfoRaw); err != nil {
 		return err
 	}
 
-	amount, err := parseAmount(txInfoRaw.AmountF)
-	if err != nil {
-		return err
-	}
-	received, err := parseAmount(txInfoRaw.ReceivedF)
-	if err != nil {
-		return err
-	}
-
 	*info = TransactionInfo{
 		Address:          txInfoRaw.Address,
-		Coin:             Currency(txInfoRaw.Coin),
-		Amount:           *amount,
-		Received:         *received,
+		Coin:             CurrencySymbol(txInfoRaw.Coin),
+		Amount:           txInfoRaw.Amount,
+		Received:         txInfoRaw.Received,
 		ConfirmsReceived: txInfoRaw.ConfirmsRecv,
 		Status:           Status(txInfoRaw.Status),
 		ExpiresAt:        time.Unix(txInfoRaw.ExpiresAt, 0),
@@ -233,9 +226,9 @@ func (infos *TransactionInfos) UnmarshalJSON(b []byte) error {
 
 // CreateTX defines parameters for transaction creating.
 type CreateTX struct {
-	Amount      big.Float
-	CurrencyIn  Currency
-	CurrencyOut Currency
+	Amount      decimal.Decimal
+	CurrencyIn  *monetary.Currency
+	CurrencyOut *monetary.Currency
 	BuyerEmail  string
 }
 
@@ -246,10 +239,18 @@ type Transactions struct {
 
 // Create creates new transaction.
 func (t Transactions) Create(ctx context.Context, params *CreateTX) (*Transaction, error) {
+	cpSymbolIn, ok := currencySymbols[params.CurrencyIn]
+	if !ok {
+		return nil, Error.New("can't identify coinpayments currency symbol for %q", params.CurrencyIn.Name())
+	}
+	cpSymbolOut, ok := currencySymbols[params.CurrencyOut]
+	if !ok {
+		return nil, Error.New("can't identify coinpayments currency symbol for %q", params.CurrencyOut.Name())
+	}
 	values := make(url.Values)
-	values.Set("amount", params.Amount.Text('f', -1))
-	values.Set("currency1", params.CurrencyIn.String())
-	values.Set("currency2", params.CurrencyOut.String())
+	values.Set("amount", params.Amount.String())
+	values.Set("currency1", string(cpSymbolIn))
+	values.Set("currency2", string(cpSymbolOut))
 	values.Set("buyer_email", params.BuyerEmail)
 
 	tx := new(Transaction)

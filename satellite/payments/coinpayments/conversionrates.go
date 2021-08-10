@@ -6,10 +6,13 @@ package coinpayments
 import (
 	"context"
 	"encoding/json"
-	"math/big"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/shopspring/decimal"
+
+	"storj.io/storj/satellite/payments/monetary"
 )
 
 // cmdRates is API command for retrieving currency rate infos.
@@ -28,8 +31,8 @@ const (
 // CurrencyRateInfo holds currency conversion info.
 type CurrencyRateInfo struct {
 	IsFiat     bool
-	RateBTC    big.Float
-	TXFee      big.Float
+	RateBTC    decimal.Decimal
+	TXFee      decimal.Decimal
 	Status     ExchangeStatus
 	LastUpdate time.Time
 }
@@ -48,16 +51,11 @@ func (rateInfo *CurrencyRateInfo) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	parseBigFloat := func(s string) (*big.Float, error) {
-		f, _, err := big.ParseFloat(s, 10, 256, big.ToNearestEven)
-		return f, err
-	}
-
-	rateBTC, err := parseBigFloat(rateRaw.RateBTC)
+	rateBTC, err := decimal.NewFromString(rateRaw.RateBTC)
 	if err != nil {
 		return err
 	}
-	txFee, err := parseBigFloat(rateRaw.TXFee)
+	txFee, err := decimal.NewFromString(rateRaw.TXFee)
 	if err != nil {
 		return err
 	}
@@ -69,8 +67,8 @@ func (rateInfo *CurrencyRateInfo) UnmarshalJSON(b []byte) error {
 
 	*rateInfo = CurrencyRateInfo{
 		IsFiat:     rateRaw.IsFiat > 0,
-		RateBTC:    *rateBTC,
-		TXFee:      *txFee,
+		RateBTC:    rateBTC,
+		TXFee:      txFee,
 		Status:     ExchangeStatus(rateRaw.Status),
 		LastUpdate: time.Unix(lastUpdate, 0),
 	}
@@ -79,7 +77,7 @@ func (rateInfo *CurrencyRateInfo) UnmarshalJSON(b []byte) error {
 }
 
 // CurrencyRateInfos maps currency to currency rate info.
-type CurrencyRateInfos map[Currency]CurrencyRateInfo
+type CurrencyRateInfos map[*monetary.Currency]CurrencyRateInfo
 
 // ConversionRates collection of API methods for retrieving currency
 // conversion rates.

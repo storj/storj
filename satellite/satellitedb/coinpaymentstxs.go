@@ -8,10 +8,12 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -45,11 +47,11 @@ type coinPaymentsTransactions struct {
 func (db *coinPaymentsTransactions) Insert(ctx context.Context, tx stripecoinpayments.Transaction) (_ *stripecoinpayments.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	amount, err := tx.Amount.GobEncode()
+	amount, err := tx.Amount.AsBigFloat().GobEncode()
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	received, err := tx.Received.GobEncode()
+	received, err := tx.Received.AsBigFloat().GobEncode()
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -81,7 +83,7 @@ func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripe
 
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for _, update := range updates {
-			received, err := update.Received.GobEncode()
+			received, err := update.Received.AsBigFloat().GobEncode()
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -147,10 +149,10 @@ func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments
 }
 
 // LockRate locks conversion rate for transaction.
-func (db *coinPaymentsTransactions) LockRate(ctx context.Context, id coinpayments.TransactionID, rate *big.Float) (err error) {
+func (db *coinPaymentsTransactions) LockRate(ctx context.Context, id coinpayments.TransactionID, rate decimal.Decimal) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	buff, err := rate.GobEncode()
+	buff, err := rate.BigFloat().GobEncode()
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -163,19 +165,23 @@ func (db *coinPaymentsTransactions) LockRate(ctx context.Context, id coinpayment
 }
 
 // GetLockedRate returns locked conversion rate for transaction or error if non exists.
-func (db *coinPaymentsTransactions) GetLockedRate(ctx context.Context, id coinpayments.TransactionID) (_ *big.Float, err error) {
+func (db *coinPaymentsTransactions) GetLockedRate(ctx context.Context, id coinpayments.TransactionID) (_ decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxRate, err := db.db.Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx,
 		dbx.StripecoinpaymentsTxConversionRate_TxId(id.String()),
 	)
 	if err != nil {
-		return nil, err
+		return decimal.Decimal{}, err
 	}
 
-	rate := new(big.Float)
-	if err = rate.GobDecode(dbxRate.Rate); err != nil {
-		return nil, errs.Wrap(err)
+	var rateF big.Float
+	if err = rateF.GobDecode(dbxRate.Rate); err != nil {
+		return decimal.Decimal{}, errs.Wrap(err)
+	}
+	rate, err := monetary.DecimalFromBigFloat(&rateF)
+	if err != nil {
+		return decimal.Decimal{}, errs.Wrap(err)
 	}
 
 	return rate, nil
@@ -248,12 +254,17 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 			return stripecoinpayments.TransactionsPage{}, err
 		}
 
-		var amount, received big.Float
-		if err := amount.GobDecode(amountB); err != nil {
-			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
+		// TODO: the currency here should be passed in to this function or stored
+		//  in the database.
+		currency := monetary.StorjToken
+
+		amount, err := monetaryAmountFromGobEncodedBigFloat(amountB, currency)
+		if err != nil {
+			return stripecoinpayments.TransactionsPage{}, err
 		}
-		if err := received.GobDecode(receivedB); err != nil {
-			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
+		received, err := monetaryAmountFromGobEncodedBigFloat(receivedB, currency)
+		if err != nil {
+			return stripecoinpayments.TransactionsPage{}, err
 		}
 
 		page.Transactions = append(page.Transactions,
@@ -283,7 +294,7 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 	return page, nil
 }
 
-// List Unapplied returns TransactionsPage with a pending or completed status, that should be applied to account balance.
+// ListUnapplied returns TransactionsPage with a pending or completed status, that should be applied to account balance.
 func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -326,11 +337,16 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 			return stripecoinpayments.TransactionsPage{}, err
 		}
 
-		var amount, received big.Float
-		if err := amount.GobDecode(amountB); err != nil {
+		// TODO: the currency here should be passed in to this function or stored
+		//  in the database.
+		currency := monetary.StorjToken
+
+		amount, err := monetaryAmountFromGobEncodedBigFloat(amountB, currency)
+		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
 		}
-		if err := received.GobDecode(receivedB); err != nil {
+		received, err := monetaryAmountFromGobEncodedBigFloat(receivedB, currency)
+		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
 		}
 
@@ -368,11 +384,16 @@ func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stri
 		return nil, errs.Wrap(err)
 	}
 
-	var amount, received big.Float
-	if err := amount.GobDecode(dbxCPTX.Amount); err != nil {
+	// TODO: the currency here should be passed in to this function or stored
+	//  in the database.
+	currency := monetary.StorjToken
+
+	amount, err := monetaryAmountFromGobEncodedBigFloat(dbxCPTX.Amount, currency)
+	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	if err := received.GobDecode(dbxCPTX.Received); err != nil {
+	received, err := monetaryAmountFromGobEncodedBigFloat(dbxCPTX.Received, currency)
+	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
@@ -387,4 +408,12 @@ func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stri
 		Timeout:   time.Second * time.Duration(dbxCPTX.Timeout),
 		CreatedAt: dbxCPTX.CreatedAt,
 	}, nil
+}
+
+func monetaryAmountFromGobEncodedBigFloat(encoded []byte, currency *monetary.Currency) (_ monetary.Amount, err error) {
+	var bf big.Float
+	if err := bf.GobDecode(encoded); err != nil {
+		return monetary.Amount{}, Error.Wrap(err)
+	}
+	return monetary.AmountFromBigFloat(&bf, currency)
 }

@@ -6,11 +6,11 @@ package stripecoinpayments_test
 import (
 	"encoding/base64"
 	"errors"
-	"math/big"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stripe/stripe-go/v72"
@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -32,17 +33,18 @@ func TestTransactionsDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
-		amount, ok := new(big.Float).SetPrec(1000).SetString("2.0000000000000000005")
-		require.True(t, ok)
-		received, ok := new(big.Float).SetPrec(1000).SetString("1.0000000000000000003")
-		require.True(t, ok)
+		amount, err := monetary.AmountFromString("2.0000000000000000005", monetary.StorjToken)
+		require.NoError(t, err)
+		received, err := monetary.AmountFromString("1.0000000000000000003", monetary.StorjToken)
+		require.NoError(t, err)
+		userID := testrand.UUID()
 
 		createTx := stripecoinpayments.Transaction{
 			ID:        "testID",
-			AccountID: uuid.UUID{1, 2, 3},
+			AccountID: userID,
 			Address:   "testAddress",
-			Amount:    *amount,
-			Received:  *received,
+			Amount:    amount,
+			Received:  received,
 			Status:    coinpayments.StatusPending,
 			Key:       "testKey",
 			Timeout:   time.Second * 60,
@@ -51,29 +53,30 @@ func TestTransactionsDB(t *testing.T) {
 		t.Run("insert", func(t *testing.T) {
 			tx, err := transactions.Insert(ctx, createTx)
 			require.NoError(t, err)
-			require.NotNil(t, tx)
-
-			compareTransactions(t, createTx, *tx)
+			requireSaneTimestamp(t, tx.CreatedAt)
+			txs, err := transactions.ListAccount(ctx, userID)
+			require.NoError(t, err)
+			require.Len(t, txs, 1)
+			compareTransactions(t, createTx, txs[0])
 		})
 
 		t.Run("update", func(t *testing.T) {
-			received, ok := new(big.Float).SetPrec(1000).SetString("6.0000000000000000001")
-			require.True(t, ok)
+			received, err := monetary.AmountFromString("6.0000000000000000001", monetary.StorjToken)
+			require.NoError(t, err)
 
 			update := stripecoinpayments.TransactionUpdate{
 				TransactionID: createTx.ID,
 				Status:        coinpayments.StatusReceived,
-				Received:      *received,
+				Received:      received,
 			}
 
-			err := transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update}, nil)
+			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update}, nil)
 			require.NoError(t, err)
 
 			page, err := transactions.ListPending(ctx, 0, 1, time.Now())
 			require.NoError(t, err)
 
-			require.NotNil(t, page.Transactions)
-			require.Equal(t, 1, len(page.Transactions))
+			require.Len(t, page.Transactions, 1)
 			assert.Equal(t, createTx.ID, page.Transactions[0].ID)
 			assert.Equal(t, update.Received, page.Transactions[0].Received)
 			assert.Equal(t, update.Status, page.Transactions[0].Status)
@@ -83,7 +86,7 @@ func TestTransactionsDB(t *testing.T) {
 					{
 						TransactionID: createTx.ID,
 						Status:        coinpayments.StatusCompleted,
-						Received:      *received,
+						Received:      received,
 					},
 				},
 				coinpayments.TransactionIDList{
@@ -115,24 +118,34 @@ func TestTransactionsDB(t *testing.T) {
 	})
 }
 
+func requireSaneTimestamp(t *testing.T, when time.Time) {
+	// ensure time value is sane. I apologize to you people of the future when this starts breaking
+	require.Truef(t, when.After(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)),
+		"%s seems too small to be a valid creation timestamp", when)
+	require.Truef(t, when.Before(time.Date(2500, 1, 1, 0, 0, 0, 0, time.UTC)),
+		"%s seems too large to be a valid creation timestamp", when)
+}
+
 func TestConcurrentConsume(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
 		const concurrentTries = 30
 
-		amount, ok := new(big.Float).SetPrec(1000).SetString("2.0000000000000000005")
-		require.True(t, ok)
-		received, ok := new(big.Float).SetPrec(1000).SetString("1.0000000000000000003")
-		require.True(t, ok)
+		amount, err := monetary.AmountFromString("2.0000000000000000005", monetary.StorjToken)
+		require.NoError(t, err)
+		received, err := monetary.AmountFromString("1.0000000000000000003", monetary.StorjToken)
+		require.NoError(t, err)
+		userID := testrand.UUID()
+		txID := coinpayments.TransactionID("testID")
 
 		tx, err := transactions.Insert(ctx,
 			stripecoinpayments.Transaction{
-				ID:        "testID",
-				AccountID: uuid.UUID{1, 2, 3},
+				ID:        txID,
+				AccountID: userID,
 				Address:   "testAddress",
-				Amount:    *amount,
-				Received:  *received,
+				Amount:    amount,
+				Received:  received,
 				Status:    coinpayments.StatusPending,
 				Key:       "testKey",
 				Timeout:   time.Second * 60,
@@ -144,7 +157,7 @@ func TestConcurrentConsume(t *testing.T) {
 			[]stripecoinpayments.TransactionUpdate{{
 				TransactionID: tx.ID,
 				Status:        coinpayments.StatusCompleted,
-				Received:      *received,
+				Received:      received,
 			}},
 			coinpayments.TransactionIDList{
 				tx.ID,
@@ -194,10 +207,10 @@ func TestTransactionsDBList(t *testing.T) {
 	)
 
 	// create transactions
-	amount, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
-	require.True(t, ok)
-	received, ok := new(big.Float).SetPrec(1000).SetString("5.0000000000000000003")
-	require.True(t, ok)
+	amount, err := monetary.AmountFromString("4.0000000000000000005", monetary.StorjToken)
+	require.NoError(t, err)
+	received, err := monetary.AmountFromString("5.0000000000000000003", monetary.StorjToken)
+	require.NoError(t, err)
 
 	var txs []stripecoinpayments.Transaction
 	for i := 0; i < transactionCount; i++ {
@@ -214,8 +227,8 @@ func TestTransactionsDBList(t *testing.T) {
 			ID:        coinpayments.TransactionID(id),
 			AccountID: uuid.UUID{},
 			Address:   addr,
-			Amount:    *amount,
-			Received:  *received,
+			Amount:    amount,
+			Received:  received,
 			Status:    status,
 			Key:       key,
 		}
@@ -312,12 +325,12 @@ func TestTransactionsDBRates(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
-		val, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
-		require.True(t, ok)
+		val, err := decimal.NewFromString("4.000000000000000005")
+		require.NoError(t, err)
 
 		const txID = "tx_id"
 
-		err := transactions.LockRate(ctx, txID, val)
+		err = transactions.LockRate(ctx, txID, val)
 		require.NoError(t, err)
 
 		rate, err := transactions.GetLockedRate(ctx, txID)
@@ -355,17 +368,17 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 
 		// Emulate a deposit through CoinPayments.
 		txID := coinpayments.TransactionID("testID")
-		storjAmount, ok := new(big.Float).SetString("100")
-		require.True(t, ok)
-		storjUSDRate, ok := new(big.Float).SetString("0.2")
-		require.True(t, ok)
+		storjAmount, err := monetary.AmountFromString("100", monetary.StorjToken)
+		require.NoError(t, err)
+		storjUSDRate, err := decimal.NewFromString("0.2")
+		require.NoError(t, err)
 
 		createTx := stripecoinpayments.Transaction{
 			ID:        txID,
 			AccountID: userID,
 			Address:   "testAddress",
-			Amount:    *storjAmount,
-			Received:  *storjAmount,
+			Amount:    storjAmount,
+			Received:  storjAmount,
 			Status:    coinpayments.StatusPending,
 			Key:       "testKey",
 			Timeout:   time.Second * 60,
@@ -378,7 +391,7 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 		update := stripecoinpayments.TransactionUpdate{
 			TransactionID: createTx.ID,
 			Status:        coinpayments.StatusReceived,
-			Received:      *storjAmount,
+			Received:      storjAmount,
 		}
 
 		err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update}, coinpayments.TransactionIDList{createTx.ID})
