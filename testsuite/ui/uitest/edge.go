@@ -11,7 +11,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -34,8 +33,6 @@ type EdgeInfo struct {
 	AuthSvcAddr string
 }
 
-var counter int64
-
 // Test defines common services for uitests.
 type EdgeTest func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser, edgeinfo EdgeInfo)
 
@@ -44,10 +41,8 @@ func RunWithEdge(t *testing.T, test EdgeTest) {
 	Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
 		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 
-		// TODO: make address not hardcoded the address selection here
-		// may conflict with some automatically bound address.
-		gatewayAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
-		authSvcAddr := fmt.Sprintf("127.0.0.1:1100%d", atomic.AddInt64(&counter, 1))
+		gatewayAddr := os.Getenv("STORJ_TEST_GATEWAY_ADDR")
+		authSvcAddr := os.Getenv("STORJ_TEST_AUTHSRV_ADDR")
 		satelliteURL := planet.Satellites[0].URL()
 
 		gatewayExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/gateway-mt")
