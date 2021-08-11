@@ -673,7 +673,13 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		// Verify should not return an error, but report should be empty
 		report, err := audits.Verifier.Verify(ctx, segment, nil)
 		require.NoError(t, err)
-		assert.Empty(t, report)
+		assert.True(t, report.Completed)
+		assert.Zero(t, report.TotalPieces)
+		assert.Zero(t, report.Successes)
+		assert.Zero(t, report.Fails)
+		assert.Zero(t, report.Offlines)
+		assert.Zero(t, report.PendingAudits)
+		assert.Zero(t, report.Unknown)
 	})
 }
 
@@ -698,9 +704,10 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
+		var segment metabase.Segment
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
 			// remove one piece from the segment so that checkIfSegmentAltered fails
-			segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			segment, err = satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 				StreamID: queueSegment.StreamID,
 				Position: queueSegment.Position,
 			})
@@ -719,7 +726,13 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		// Verify should not return an error, but report should be empty
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
-		assert.Empty(t, report)
+		assert.True(t, report.Completed)
+		assert.Zero(t, report.Successes)
+		assert.Zero(t, report.Fails)
+		assert.Zero(t, report.Offlines)
+		assert.Zero(t, report.PendingAudits)
+		assert.Zero(t, report.Unknown)
+		assert.Equal(t, report.TotalPieces, len(segment.Pieces))
 	})
 }
 
@@ -744,6 +757,12 @@ func TestVerifierReplacedSegment(t *testing.T) {
 		segment, err := queue.Next()
 		require.NoError(t, err)
 
+		segmentInfo, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: segment.StreamID,
+			Position: segment.Position,
+		})
+		require.NoError(t, err)
+
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
 			// replace the file so that checkIfSegmentAltered fails
 			err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
@@ -753,7 +772,13 @@ func TestVerifierReplacedSegment(t *testing.T) {
 		// Verify should not return an error, but report should be empty
 		report, err := audits.Verifier.Verify(ctx, segment, nil)
 		require.NoError(t, err)
-		assert.Empty(t, report)
+		assert.True(t, report.Completed)
+		assert.Equal(t, report.TotalPieces, len(segmentInfo.Pieces))
+		assert.Zero(t, report.Successes)
+		assert.Zero(t, report.Fails)
+		assert.Zero(t, report.Offlines)
+		assert.Zero(t, report.PendingAudits)
+		assert.Zero(t, report.Unknown)
 	})
 }
 
@@ -798,7 +823,9 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		assert.Len(t, report.Successes, origNumPieces-1)
 		assert.Len(t, report.Fails, 1)
 		assert.Equal(t, report.Fails[0], piece.StorageNode)
+		assert.Equal(t, report.TotalPieces, origNumPieces)
 		assert.Len(t, report.Offlines, 0)
+		assert.True(t, report.Completed)
 		require.Len(t, report.PendingAudits, 0)
 	})
 }
@@ -855,6 +882,8 @@ func TestVerifierSlowDownload(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotContains(t, report.Successes, slowNode.ID())
+		assert.Equal(t, report.TotalPieces, len(segment.Pieces))
+		assert.True(t, report.Completed)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.Unknown, 0)
@@ -906,11 +935,13 @@ func TestVerifierUnknownError(t *testing.T) {
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 
-		require.Len(t, report.Successes, 3)
-		require.Len(t, report.Fails, 0)
-		require.Len(t, report.Offlines, 0)
-		require.Len(t, report.PendingAudits, 0)
-		require.Len(t, report.Unknown, 1)
-		require.Equal(t, report.Unknown[0], badNode.ID())
+		assert.True(t, report.Completed)
+		assert.Equal(t, report.TotalPieces, len(segment.Pieces))
+		assert.Len(t, report.Successes, 3)
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
+		assert.Len(t, report.PendingAudits, 0)
+		assert.Len(t, report.Unknown, 1)
+		assert.Equal(t, report.Unknown[0], badNode.ID())
 	})
 }
