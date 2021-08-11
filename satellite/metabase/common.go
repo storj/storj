@@ -28,7 +28,16 @@ const (
 // ListLimit is the maximum number of items the client can request for listing.
 const ListLimit = intLimitRange(1000)
 
-const batchsizeLimit = intLimitRange(1000)
+// batchsizeLimit specifies up to how many items fetch from the storage layer at
+// a time.
+//
+// NOTE: A frequent pattern while listing items is to list up to ListLimit items
+// and see whether there is more by trying to fetch another one. If the caller
+// requests a list of ListLimit size and batchSizeLimit equals ListLimit, we
+// would have queried another batch on that check for more items. Most of these
+// results, except the first one, would be thrown away by callers. To prevent
+// this from happening, we add 1 to batchSizeLimit.
+const batchsizeLimit = ListLimit + 1
 
 // BucketPrefix consists of <project id>/<bucket name>.
 type BucketPrefix string
