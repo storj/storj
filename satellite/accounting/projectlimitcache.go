@@ -9,9 +9,9 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/lrucache"
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/lrucache"
 )
 
 var (

@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/encryption"
+	"storj.io/common/lrucache"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -22,7 +23,6 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/lrucache"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"

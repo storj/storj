@@ -19,6 +19,7 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/fpath"
+	"storj.io/common/lrucache"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -30,7 +31,6 @@ import (
 	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
-	"storj.io/storj/private/lrucache"
 	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/satellite"
