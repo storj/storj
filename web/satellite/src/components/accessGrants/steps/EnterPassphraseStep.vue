@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="enter-passphrase" :class="{ 'border-radius': isOnboardingTour }">
+    <div class="enter-passphrase">
         <BackIcon class="enter-passphrase__back-icon" @click="onBackClick" />
         <h1 class="enter-passphrase__title">Enter Encryption Passphrase</h1>
         <p class="enter-passphrase__sub-title">Enter the passphrase you most recently generated for Access Grants</p>
