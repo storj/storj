@@ -5,6 +5,7 @@
     <button
         name="Show Period Date Picker"
         class="period-container"
+        type="button"
         :class="{ disabled: false }"
         @click.stop="openPeriodDropdown"
     >

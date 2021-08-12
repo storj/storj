@@ -12,7 +12,6 @@
                     <h2 class="edit-profile-popup__form-container__main-label-text">Edit Profile</h2>
                 </div>
                 <HeaderedInput
-                    ref="fullNameInput"
                     class="full-input"
                     label="Full Name"
                     placeholder="Enter Full Name"

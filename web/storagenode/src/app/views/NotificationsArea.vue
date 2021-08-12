@@ -13,6 +13,7 @@
             <button
                 name="Mark all notifications as read"
                 class="notifications-container__header__button"
+                type="button"
                 :class="{ disabled: isMarkAllAsReadButtonDisabled }"
                 @click="markAllAsRead"
             >
@@ -37,7 +38,6 @@
         </div>
         <VPagination
             v-if="totalPageCount > 1"
-            ref="pagination"
             class="pagination-area"
             :total-page-count="totalPageCount"
             :on-page-click-callback="onPageClick"

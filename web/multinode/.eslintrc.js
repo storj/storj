@@ -33,5 +33,11 @@ module.exports = {
 
         "vue/max-attributes-per-line": ["off"],
         "vue/singleline-html-element-content-newline": ["off"],
+
+        "vue/block-lang": ["error", {"script": {"lang": "ts"}}],
+        "vue/html-button-has-type": ["error"],
+        "vue/no-unused-properties": ["warn"],
+        "vue/no-unused-refs": ["warn"],
+        "vue/no-useless-v-bind": ["warn"],
     },
 }

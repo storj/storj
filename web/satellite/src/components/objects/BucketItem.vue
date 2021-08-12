@@ -10,7 +10,7 @@
         <p class="bucket-item__date">{{ formattedDate }}</p>
         <div v-click-outside="closeDropdown" class="bucket-item__functional" @click.stop="openDropdown(dropdownKey)">
             <DotsIcon />
-            <div v-if="isDropdownOpen" ref="dropdown" class="bucket-item__functional__dropdown">
+            <div v-if="isDropdownOpen" class="bucket-item__functional__dropdown">
                 <div class="bucket-item__functional__dropdown__item" @click.stop="onDeleteClick">
                     <DeleteIcon />
                     <p class="bucket-item__functional__dropdown__item__label">Delete</p>

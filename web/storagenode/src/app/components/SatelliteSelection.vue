@@ -6,6 +6,7 @@
         v-if="satellites"
         name="Choose your satellite"
         class="satellite-selection-toggle-container"
+        type="button"
         @click.stop="toggleDropDown"
     >
         <p

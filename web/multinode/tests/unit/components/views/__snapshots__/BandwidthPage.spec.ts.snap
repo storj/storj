@@ -10,11 +10,11 @@ exports[`BandwidthPage renders correctly 1`] = `
   <div class="chart-container bandwidth-chart">
     <div class="chart-container__title-area">
       <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
-      <div class="chart-container__title-area__buttons-area"><button name="Show Bandwidth Chart" class="chart-container__title-area__chart-choice-item active">
+      <div class="chart-container__title-area__buttons-area"><button name="Show Bandwidth Chart" type="button" class="chart-container__title-area__chart-choice-item active">
           Bandwidth
-        </button> <button name="Show Egress Chart" class="chart-container__title-area__chart-choice-item">
+        </button> <button name="Show Egress Chart" type="button" class="chart-container__title-area__chart-choice-item">
           Egress
-        </button> <button name="Show Ingress Chart" class="chart-container__title-area__chart-choice-item">
+        </button> <button name="Show Ingress Chart" type="button" class="chart-container__title-area__chart-choice-item">
           Ingress
         </button></div>
     </div>
@@ -50,11 +50,11 @@ exports[`BandwidthPage renders correctly with egress chart 1`] = `
   <div class="chart-container bandwidth-chart">
     <div class="chart-container__title-area">
       <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
-      <div class="chart-container__title-area__buttons-area"><button name="Show Bandwidth Chart" class="chart-container__title-area__chart-choice-item">
+      <div class="chart-container__title-area__buttons-area"><button name="Show Bandwidth Chart" type="button" class="chart-container__title-area__chart-choice-item">
           Bandwidth
-        </button> <button name="Show Egress Chart" class="chart-container__title-area__chart-choice-item active">
+        </button> <button name="Show Egress Chart" type="button" class="chart-container__title-area__chart-choice-item active">
           Egress
-        </button> <button name="Show Ingress Chart" class="chart-container__title-area__chart-choice-item">
+        </button> <button name="Show Ingress Chart" type="button" class="chart-container__title-area__chart-choice-item">
           Ingress
         </button></div>
     </div>
@@ -90,11 +90,11 @@ exports[`BandwidthPage renders correctly with ingress chart 1`] = `
   <div class="chart-container bandwidth-chart">
     <div class="chart-container__title-area">
       <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
-      <div class="chart-container__title-area__buttons-area"><button name="Show Bandwidth Chart" class="chart-container__title-area__chart-choice-item">
+      <div class="chart-container__title-area__buttons-area"><button name="Show Bandwidth Chart" type="button" class="chart-container__title-area__chart-choice-item">
           Bandwidth
-        </button> <button name="Show Egress Chart" class="chart-container__title-area__chart-choice-item">
+        </button> <button name="Show Egress Chart" type="button" class="chart-container__title-area__chart-choice-item">
           Egress
-        </button> <button name="Show Ingress Chart" class="chart-container__title-area__chart-choice-item active">
+        </button> <button name="Show Ingress Chart" type="button" class="chart-container__title-area__chart-choice-item active">
           Ingress
         </button></div>
     </div>

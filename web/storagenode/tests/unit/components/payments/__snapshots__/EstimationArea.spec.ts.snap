@@ -4,7 +4,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
 <div class="estimation-container">
   <div class="estimation-container__header">
     <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Feb 2020</span></p>
-    <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item active">
+    <div class="estimation-container__header__selection-area"><button name="Select Current Period" type="button" class="estimation-container__header__selection-area__item active">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
         </p>
@@ -142,7 +142,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
 <div class="estimation-container">
   <div class="estimation-container__header">
     <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Feb 2020</span></p>
-    <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item active">
+    <div class="estimation-container__header__selection-area"><button name="Select Current Period" type="button" class="estimation-container__header__selection-area__item active">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
         </p>
@@ -288,7 +288,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
 <div class="estimation-container">
   <div class="estimation-container__header">
     <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Jan 2020</span></p>
-    <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item">
+    <div class="estimation-container__header__selection-area"><button name="Select Current Period" type="button" class="estimation-container__header__selection-area__item">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
         </p>
@@ -443,7 +443,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
 <div class="estimation-container">
   <div class="estimation-container__header">
     <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Jan 2020</span></p>
-    <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item">
+    <div class="estimation-container__header__selection-area"><button name="Select Current Period" type="button" class="estimation-container__header__selection-area__item">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
         </p>
@@ -468,7 +468,7 @@ exports[`EstimationArea renders correctly with actual values and previous period
 <div class="estimation-container">
   <div class="estimation-container__header">
     <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Jan 2020</span></p>
-    <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item">
+    <div class="estimation-container__header__selection-area"><button name="Select Current Period" type="button" class="estimation-container__header__selection-area__item">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
         </p>

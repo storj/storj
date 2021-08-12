@@ -5,7 +5,7 @@
     <div class="header">
         <div class="header__content-holder">
             <div class="header__content-holder__logo-area">
-                <button name="Logo Button" @click.prevent="onHeaderLogoClick">
+                <button name="Logo Button" type="button" @click.prevent="onHeaderLogoClick">
                     <StorjIcon
                         class="header__content-holder__logo"
                         alt="storj logo"
@@ -15,7 +15,7 @@
                     alt="storj logo"
                     class="header__content-holder__logo--small"
                 />
-                <button name="Refresh" class="header__content-holder__logo-area__refresh-button" @click.prevent="onRefresh">
+                <button name="Refresh" type="button" class="header__content-holder__logo-area__refresh-button" @click.prevent="onRefresh">
                     <RefreshIcon alt="refresh image" />
                 </button>
             </div>
@@ -25,7 +25,7 @@
                     <p class="header__content-holder__right-area__node-id-container__id">{{ nodeId }}</p>
                     <CopyIcon />
                 </div>
-                <button name="Settings" aria-pressed="false" class="options-button" @click.prevent.stop="openOptionsDropdown">
+                <button name="Settings" aria-pressed="false" class="options-button" type="button" @click.prevent.stop="openOptionsDropdown">
                     <SettingsIcon />
                 </button>
                 <OptionsDropdown
@@ -33,7 +33,7 @@
                     class="options-dropdown"
                     @closeDropdown="closeOptionsDropdown"
                 />
-                <button name="Notifications" aria-pressed="false" class="header__content-holder__right-area__bell-area" @click.stop.prevent="toggleNotificationsPopup">
+                <button name="Notifications" aria-pressed="false" class="header__content-holder__right-area__bell-area" type="button" @click.stop.prevent="toggleNotificationsPopup">
                     <BellIcon />
                     <span
                         v-if="hasNewNotifications"

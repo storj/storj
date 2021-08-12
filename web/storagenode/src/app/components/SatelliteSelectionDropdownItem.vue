@@ -5,6 +5,7 @@
     <button
         :name="`Choose ${satellite.url} satellite`"
         class="satellite-choice"
+        type="button"
         @click.stop="onSatelliteClick"
     >
         <DisqualificationIcon
@@ -33,6 +34,7 @@
                 v-if="isNameShown"
                 name="Show Satellite ID"
                 class="satellite-choice__right-area__button"
+                type="button"
                 @click.stop.prevent="toggleSatelliteView"
             >
                 <EyeIcon />
@@ -43,6 +45,7 @@
                     v-clipboard:copy="satellite.id"
                     name="Copy Satellite ID"
                     class="satellite-choice__right-area__button copy-button"
+                    type="button"
                     @click.stop="() => {}"
                 >
                     <CopyIcon />
@@ -50,6 +53,7 @@
                 <button
                     name="Show Satellite Name"
                     class="satellite-choice__right-area__button"
+                    type="button"
                     @click.stop.prevent="toggleSatelliteView"
                 >
                     <EyeIcon />

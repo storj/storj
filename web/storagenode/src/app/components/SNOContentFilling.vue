@@ -81,6 +81,7 @@
                         <button
                             name="Show Egress Chart"
                             class="chart-container__title-area__chart-choice-item"
+                            type="button"
                             :class="{ 'egress-chart-shown': isEgressChartShown }"
                             @click.stop="toggleEgressChartShowing"
                         >
@@ -89,6 +90,7 @@
                         <button
                             name="Show Ingress Chart"
                             class="chart-container__title-area__chart-choice-item"
+                            type="button"
                             :class="{ 'ingress-chart-shown': isIngressChartShown }"
                             @click.stop="toggleIngressChartShowing"
                         >

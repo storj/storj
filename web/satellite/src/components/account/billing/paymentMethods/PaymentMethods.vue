@@ -34,7 +34,6 @@
             />
             <AddStorjForm
                 v-if="isAddingStorjState"
-                ref="addStorj"
                 :is-loading="isLoading"
                 @toggleIsLoading="toggleIsLoading"
                 @cancel="onCancel"

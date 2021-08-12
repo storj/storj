@@ -15,6 +15,7 @@
                     <button
                         name="Show Bandwidth Chart"
                         class="chart-container__title-area__chart-choice-item"
+                        type="button"
                         :class="{ 'active': (!isEgressChartShown && !isIngressChartShown) }"
                         @click.stop="openBandwidthChart"
                     >
@@ -23,6 +24,7 @@
                     <button
                         name="Show Egress Chart"
                         class="chart-container__title-area__chart-choice-item"
+                        type="button"
                         :class="{ 'active': isEgressChartShown }"
                         @click.stop="openEgressChart"
                     >
@@ -31,6 +33,7 @@
                     <button
                         name="Show Ingress Chart"
                         class="chart-container__title-area__chart-choice-item"
+                        type="button"
                         :class="{ 'active': isIngressChartShown }"
                         @click.stop="openIngressChart"
                     >

@@ -9,6 +9,7 @@
                 <button
                     name="Select All Stats"
                     class="held-history-container__header__selection-area__item"
+                    type="button"
                     :class="{ active: isAllStatsShown }"
                     @click="showAllStats"
                 >
@@ -19,6 +20,7 @@
                 <button
                     name="Select Monthly Breakdown"
                     class="held-history-container__header__selection-area__item"
+                    type="button"
                     :class="{ active: !isAllStatsShown }"
                     @click="showMonthlyBreakdown"
                 >

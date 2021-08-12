@@ -5,7 +5,7 @@
     <div v-click-outside="closePopup" class="satellite-selection-choice-container">
         <div class="satellite-selection-overflow-container">
             <div class="satellite-selection-choice-container__all-satellites">
-                <button name="Choose All satellite" class="satellite-selection-overflow-container__satellite-choice" @click.stop="onAllSatellitesClick">
+                <button name="Choose All satellite" class="satellite-selection-overflow-container__satellite-choice" type="button" @click.stop="onAllSatellitesClick">
                     <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{selected: !selectedSatellite}">All Satellites</p>
                 </button>
             </div>

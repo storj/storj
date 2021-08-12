@@ -9,6 +9,7 @@
                 <button
                     name="Select Current Period"
                     class="estimation-container__header__selection-area__item"
+                    type="button"
                     :class="{ active: isCurrentPeriod }"
                     @click.stop="selectCurrentPeriod"
                 >
