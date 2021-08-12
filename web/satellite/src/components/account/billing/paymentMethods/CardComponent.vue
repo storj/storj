@@ -78,7 +78,7 @@ export default class CardComponent extends Vue {
     /**
      * Returns card logo depends of brand.
      */
-    public get cardIcon() {
+    public get cardIcon(): Vue {
         switch (this.creditCard.brand) {
         case 'jcb':
             return JCBIcon;

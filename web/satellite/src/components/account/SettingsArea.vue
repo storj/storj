@@ -105,7 +105,6 @@ import EditIcon from '@/../static/images/common/edit.svg';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {

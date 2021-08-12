@@ -26,7 +26,7 @@
                                     <SelectedCheckIcon />
                                     <span class="login-area__expand__dropdown__item__name">{{ satelliteName }}</span>
                                 </div>
-                                <a v-for="sat in partneredSatellites" class="login-area__expand__dropdown__item" :href="sat.address + '/login'">
+                                <a v-for="sat in partneredSatellites" :key="sat.id" class="login-area__expand__dropdown__item" :href="sat.address + '/login'">
                                     {{ sat.name }}
                                 </a>
                             </div>
@@ -155,7 +155,7 @@ export default class Login extends Vue {
     /**
      * Clears confirm MFA input.
      */
-    public clearConfirmMFAInput() {
+    public clearConfirmMFAInput(): void {
         this.$refs.mfaInput.clearInput();
     }
 

@@ -30,7 +30,7 @@ export default class ObjectsArea extends Vue {
      * Lifecycle hook before component destroying.
      * Clears objects VUEX state.
      */
-    public beforeDestroy() {
+    public beforeDestroy(): void {
         this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
     }
 }

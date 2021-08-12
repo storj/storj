@@ -56,10 +56,7 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 const {
     FETCH,
-    DELETE,
     TOGGLE_SELECTION,
-    CLEAR,
-    SET_SEARCH_QUERY,
     SET_SORT_BY,
     SET_SORT_DIRECTION,
 } = PM_ACTIONS;
@@ -126,7 +123,7 @@ export default class ProjectMembersArea extends Vue {
         return projectMembersToReturn;
     }
 
-    public get getItemComponent() {
+    public get getItemComponent(): typeof ProjectMemberListItem {
         return ProjectMemberListItem;
     }
 

@@ -5,7 +5,7 @@
  * Returns color string depends on first symbol of first name.
  * @param symbol
  */
-export function getColor(symbol): string {
+export function getColor(symbol: string): string {
     switch (symbol) {
     case 'A':
     case 'I':

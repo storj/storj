@@ -18,10 +18,10 @@ module.exports = {
         'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
         'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
 
-        "indent": ["error", 4],
+        "indent": ["warn", 4],
 
         "@typescript-eslint/no-unused-vars": [
-            "error", {
+            "warn", {
                 "vars": "all",
                 "args": "all",
                 "argsIgnorePattern": "^_"

@@ -40,15 +40,16 @@ const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const paymentsApi = new PaymentsHttpApi();
 
-class ModulesState {
-    public notificationsModule: NotificationsState;
-    public accessGrantsModule: AccessGrantsState;
-    public appStateModule;
-    public projectMembersModule: ProjectMembersState;
-    public paymentsModule: PaymentsState;
-    public usersModule: User;
-    public projectsModule: ProjectsState;
-    public objectsModule: ObjectsState;
+export interface ModulesState {
+    notificationsModule: NotificationsState;
+    accessGrantsModule: AccessGrantsState;
+    appStateModule: typeof appStateModule.state;
+    projectMembersModule: ProjectMembersState;
+    paymentsModule: PaymentsState;
+    usersModule: User;
+    projectsModule: ProjectsState;
+    objectsModule: ObjectsState;
+    files: typeof files.state;
 }
 
 // Satellite store (vuex)

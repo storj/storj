@@ -23,7 +23,7 @@ module.exports = {
         "selector-attribute-brackets-space-inside": "never",
         "declaration-block-trailing-semicolon": "always",
         "declaration-colon-space-before": "never",
-        "declaration-colon-space-after": "always",
+        "declaration-colon-space-after": "always-single-line",
         "number-leading-zero": "always",
         "function-url-quotes": "always",
         "font-family-name-quotes": "always-unless-keyword",
@@ -40,6 +40,12 @@ module.exports = {
         "media-feature-range-operator-space-after": "always",
         "media-feature-parentheses-space-inside": "never",
         "media-feature-colon-space-before": "never",
-        "media-feature-colon-space-after": "always"
+        "media-feature-colon-space-after": "always",
+        "selector-pseudo-element-no-unknown": [
+            true,
+            {
+                "ignorePseudoElements": ["v-deep"]
+            }
+        ]
     }
 }

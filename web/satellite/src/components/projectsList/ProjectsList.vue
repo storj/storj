@@ -103,7 +103,7 @@ export default class Projects extends Vue {
     /**
      * Returns ProjectsList item component.
      */
-    public get itemComponent() {
+    public get itemComponent(): typeof ProjectsListItem {
         return ProjectsListItem;
     }
 

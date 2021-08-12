@@ -206,7 +206,7 @@ export default class AddPaymentMethodModal extends Vue {
      *
      * @param token from Stripe
      */
-    public async addCardToDB(token: string) {
+    public async addCardToDB(token: string): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.ADD_CREDIT_CARD, token);
 

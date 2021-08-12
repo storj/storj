@@ -6,7 +6,7 @@ import * as sinon from 'sinon';
 import PagesBlock from '@/components/common/PagesBlock.vue';
 
 import { Page } from '@/types/pagination';
-import { mount, shallowMount } from '@vue/test-utils';
+import { shallowMount } from '@vue/test-utils';
 
 describe('Pagination.vue', () => {
     it('renders correctly without props', () => {

@@ -130,7 +130,8 @@ export default class HeaderlessInput extends Vue {
     /**
      * triggers on input.
      */
-    public onInput({ target }): void {
+    public onInput(event: Event): void {
+        const target = event.target as HTMLInputElement;
         if (target.value.length > this.maxSymbols) {
             this.value = target.value.slice(0, this.maxSymbols);
         } else {

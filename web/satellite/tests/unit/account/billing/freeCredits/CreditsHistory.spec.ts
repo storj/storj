@@ -1,7 +1,6 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import sinon from 'sinon';
 import Vuex from 'vuex';
 
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';

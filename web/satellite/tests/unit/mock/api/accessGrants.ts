@@ -20,23 +20,23 @@ export class AccessGrantsMock implements AccessGrantsApi {
         this.mockAccessGrantsPage = mockAccessGrantsPage;
     }
 
-    get(projectId: string, cursor: AccessGrantCursor): Promise<AccessGrantsPage> {
+    get(_projectId: string, _cursor: AccessGrantCursor): Promise<AccessGrantsPage> {
         return Promise.resolve(this.mockAccessGrantsPage);
     }
 
-    create(projectId: string, name: string): Promise<AccessGrant> {
+    create(_projectId: string, _name: string): Promise<AccessGrant> {
         return Promise.resolve(new AccessGrant('testId', 'testName', this.date, 'testKey'));
     }
 
-    delete(ids: string[]): Promise<void> {
+    delete(_ids: string[]): Promise<void> {
         return Promise.resolve();
     }
 
-    deleteByNameAndProjectID(name: string, projectID: string): Promise<void> {
+    deleteByNameAndProjectID(_name: string, _projectID: string): Promise<void> {
         return Promise.resolve();
     }
 
-    getGatewayCredentials(accessGrant: string, optionalURL?: string): Promise<GatewayCredentials> {
+    getGatewayCredentials(_accessGrant: string, _optionalURL?: string): Promise<GatewayCredentials> {
         return Promise.resolve(new GatewayCredentials('testCredId', new Date(), 'testAccessKeyId', 'testSecret', 'testEndpoint'));
     }
 }

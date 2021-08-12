@@ -110,10 +110,10 @@ export default class EditProjectDetails extends Vue {
     /**
      * Triggers on name input.
      */
-    public onNameInput({ target }): void {
+    public onNameInput(event: Event): void {
+        const target = event.target as HTMLInputElement;
         if (target.value.length < MAX_NAME_LENGTH) {
             this.nameValue = target.value;
-
             return;
         }
 
@@ -123,10 +123,10 @@ export default class EditProjectDetails extends Vue {
     /**
      * Triggers on description input.
      */
-    public onDescriptionInput({ target }): void {
+    public onDescriptionInput(event: Event): void {
+        const target = event.target as HTMLInputElement;
         if (target.value.length < MAX_DESCRIPTION_LENGTH) {
             this.descriptionValue = target.value;
-
             return;
         }
 

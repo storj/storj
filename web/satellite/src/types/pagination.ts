@@ -16,7 +16,7 @@ export class Page {
         this.onClick = callback;
     }
 
-    public get index() {
+    public get index(): number {
         return this.pageIndex;
     }
 

@@ -31,7 +31,7 @@ export default class TestList extends Vue {
 
     private items: string[] = ['1', '2', '3'];
 
-    public get getItemComponent() {
+    public get getItemComponent(): typeof TestListItem {
         return TestListItem;
     }
 

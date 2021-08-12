@@ -39,7 +39,7 @@
                                     <SelectedCheckIcon />
                                     <span class="register-area__input-area__expand__dropdown__item__name">{{ satelliteName }}</span>
                                 </div>
-                                <a v-for="sat in partneredSatellites" class="register-area__input-area__expand__dropdown__item" :href="sat.address + '/signup'">
+                                <a v-for="sat in partneredSatellites" :key="sat.id" class="register-area__input-area__expand__dropdown__item" :href="sat.address + '/signup'">
                                     {{ sat.name }}
                                 </a>
                             </div>

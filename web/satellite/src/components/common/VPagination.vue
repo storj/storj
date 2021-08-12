@@ -65,7 +65,7 @@ export default class VPagination extends Vue {
     /**
      * Component initialization.
      */
-    public mounted() {
+    public mounted(): void {
         this.populatePagesArray();
     }
 
@@ -109,7 +109,7 @@ export default class VPagination extends Vue {
      * Method after total page count change.
      */
     @Watch('totalPageCount')
-    public onPageCountChange(val: number, oldVal: number) {
+    public onPageCountChange(_val: number, _oldVal: number): void {
         this.resetPageIndex();
     }
 
