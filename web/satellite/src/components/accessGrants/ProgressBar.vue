@@ -4,23 +4,23 @@
 <template>
     <div class="progress-bar">
         <div class="progress-bar__item">
-            <div class="progress-bar__item__line" :class="{ blue: isNameStep }"/>
+            <div class="progress-bar__item__line" :class="{ blue: isNameStep }" />
             <p class="progress-bar__item__label" :class="{ checked: isNameStep }">Name Access</p>
         </div>
         <div class="progress-bar__item">
-            <div class="progress-bar__item__line" :class="{ blue: isPermissionsStep }"/>
+            <div class="progress-bar__item__line" :class="{ blue: isPermissionsStep }" />
             <p class="progress-bar__item__label" :class="{ checked: isPermissionsStep }">Permissions</p>
         </div>
         <div class="progress-bar__item">
-            <div class="progress-bar__item__line" :class="{ blue: isPassphraseStep }"/>
+            <div class="progress-bar__item__line" :class="{ blue: isPassphraseStep }" />
             <p class="progress-bar__item__label" :class="{ checked: isPassphraseStep }">Passphrase</p>
         </div>
         <div class="progress-bar__item">
-            <div class="progress-bar__item__line" :class="{ blue: isResultStep }"/>
+            <div class="progress-bar__item__line" :class="{ blue: isResultStep }" />
             <p class="progress-bar__item__label" :class="{ checked: isResultStep }">Access Grant</p>
         </div>
-        <div class="progress-bar__item" v-if="isGatewayStep">
-            <div class="progress-bar__item__line" :class="{ blue: isGatewayStep }"/>
+        <div v-if="isGatewayStep" class="progress-bar__item">
+            <div class="progress-bar__item__line" :class="{ blue: isGatewayStep }" />
             <p class="progress-bar__item__label" :class="{ checked: isGatewayStep }">S3 Gateway</p>
         </div>
     </div>

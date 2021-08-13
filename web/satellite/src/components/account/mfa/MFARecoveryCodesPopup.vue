@@ -13,7 +13,7 @@
                     v-for="(code, index) in userMFARecoveryCodes"
                     :key="index"
                 >
-                    {{code}}
+                    {{ code }}
                 </p>
             </div>
             <VButton

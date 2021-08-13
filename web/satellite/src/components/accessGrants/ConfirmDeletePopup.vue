@@ -13,13 +13,13 @@
             </p>
             <div class="confirm-delete__container__list">
                 <div
-                    class="confirm-delete__container__list__container"
                     v-for="accessGrant in selectedAccessGrants"
                     :key="accessGrant.id"
+                    class="confirm-delete__container__list__container"
                 >
                     <div class="confirm-delete__container__list__container__item">
                         <p class="confirm-delete__container__list__container__item__name">
-                            {{accessGrant.name}}
+                            {{ accessGrant.name }}
                         </p>
                     </div>
                 </div>

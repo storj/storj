@@ -6,8 +6,8 @@
         <div class="pagination-container__pages">
             <div
                 class="pagination-container__button"
-                @click="prevPage"
                 :class="{ active: !isFirstPage }"
+                @click="prevPage"
             >
                 <p class="pagination-container__button__label">Prev</p>
             </div>
@@ -16,12 +16,12 @@
                     :pages="firstBlockPages"
                     :is-selected="isSelected"
                 />
-                <span class="pages-divider" v-if="isFirstDotsShown">...</span>
+                <span v-if="isFirstDotsShown" class="pages-divider">...</span>
                 <PagesBlock
                     :pages="middleBlockPages"
                     :is-selected="isSelected"
                 />
-                <span class="pages-divider" v-if="isSecondDotsShown">...</span>
+                <span v-if="isSecondDotsShown" class="pages-divider">...</span>
                 <PagesBlock
                     :pages="lastBlockPages"
                     :is-selected="isSelected"
@@ -29,8 +29,8 @@
             </div>
             <div
                 class="pagination-container__button"
-                @click="nextPage"
                 :class="{ active: !isLastPage }"
+                @click="nextPage"
             >
                 <p class="pagination-container__button__label">Next</p>
             </div>

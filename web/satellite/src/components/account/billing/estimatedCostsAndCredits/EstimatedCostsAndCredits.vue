@@ -3,7 +3,7 @@
 
 <template>
     <div class="current-month-area">
-        <VLoader class="consts-loader" v-if="isDataFetching"/>
+        <VLoader v-if="isDataFetching" class="consts-loader" />
         <template v-else>
             <h1 class="current-month-area__costs">{{ priceSummary | centsToDollars }}</h1>
             <span class="current-month-area__title">Estimated Charges for {{ chosenPeriod }}</span>
@@ -15,8 +15,8 @@
                 <p class="current-month-area__content__title">DETAILS</p>
                 <UsageAndChargesItem
                     v-for="usageAndCharges in projectUsageAndCharges"
-                    :item="usageAndCharges"
                     :key="usageAndCharges.projectId"
+                    :item="usageAndCharges"
                     class="item"
                 />
             </div>

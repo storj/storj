@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync"
 
 	progressbar "github.com/cheggaaa/pb/v3"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/sync2"
 	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/storj/cmd/uplinkng/ulloc"
@@ -20,10 +22,11 @@ import (
 type cmdCp struct {
 	ex ulext.External
 
-	access    string
-	recursive bool
-	dryrun    bool
-	progress  bool
+	access      string
+	recursive   bool
+	parallelism int
+	dryrun      bool
+	progress    bool
 
 	source ulloc.Location
 	dest   ulloc.Location
@@ -34,11 +37,21 @@ func newCmdCp(ex ulext.External) *cmdCp {
 }
 
 func (c *cmdCp) Setup(params clingy.Parameters) {
-	c.access = params.Flag("access", "Which access to use", "").(string)
+	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.recursive = params.Flag("recursive", "Peform a recursive copy", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
+	c.parallelism = params.Flag("parallelism", "Controls how many uploads/downloads to perform in parallel", 1,
+		clingy.Short('p'),
+		clingy.Transform(strconv.Atoi),
+		clingy.Transform(func(n int) (int, error) {
+			if n <= 0 {
+				return 0, errs.New("parallelism must be at least 1")
+			}
+			return n, nil
+		}),
+	).(int)
 	c.dryrun = params.Flag("dryrun", "Print what operations would happen but don't execute them", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
@@ -57,9 +70,38 @@ func (c *cmdCp) Execute(ctx clingy.Context) error {
 	}
 	defer func() { _ = fs.Close() }()
 
+	// we ensure the source and destination are lexically directoryish
+	// if they map to directories. the destination is always converted to be
+	// directoryish if the copy is recursive.
+	if fs.IsLocalDir(ctx, c.source) {
+		c.source = c.source.AsDirectoryish()
+	}
+	if c.recursive || fs.IsLocalDir(ctx, c.dest) {
+		c.dest = c.dest.AsDirectoryish()
+	}
+
 	if c.recursive {
 		return c.copyRecursive(ctx, fs)
 	}
+
+	// if the destination is directoryish, we add the basename of the source
+	// to the end of the destination to pick a filename.
+	var base string
+	if c.dest.Directoryish() && !c.source.Std() {
+		// we undirectoryish the source so that we ignore any trailing slashes
+		// when finding the base name.
+		var ok bool
+		base, ok = c.source.Undirectoryish().Base()
+		if !ok {
+			return errs.New("destination is a directory and cannot find base name for source %q", c.source)
+		}
+	}
+	c.dest = joinDestWith(c.dest, base)
+
+	if !c.source.Std() && !c.dest.Std() {
+		fmt.Fprintln(ctx.Stdout(), copyVerb(c.source, c.dest), c.source, "to", c.dest)
+	}
+
 	return c.copyFile(ctx, fs, c.source, c.dest, c.progress)
 }
 
@@ -73,43 +115,58 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 		return err
 	}
 
-	anyFailed := false
+	var (
+		limiter = sync2.NewLimiter(c.parallelism)
+		es      errs.Group
+		mu      sync.Mutex
+	)
+
+	fprintln := func(w io.Writer, args ...interface{}) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		fmt.Fprintln(w, args...)
+	}
+
+	addError := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		es.Add(err)
+	}
+
 	for iter.Next() {
-		rel, err := c.source.RelativeTo(iter.Item().Loc)
+		source := iter.Item().Loc
+		rel, err := c.source.RelativeTo(source)
 		if err != nil {
 			return err
 		}
+		dest := joinDestWith(c.dest, rel)
 
-		source := iter.Item().Loc
-		dest := c.dest.AppendKey(rel)
+		ok := limiter.Go(ctx, func() {
+			fprintln(ctx.Stdout(), copyVerb(source, dest), source, "to", dest)
 
-		if err := c.copyFile(ctx, fs, source, dest, false); err != nil {
-			fmt.Fprintln(ctx.Stderr(), copyVerb(source, dest), "failed:", err.Error())
-			anyFailed = true
+			if err := c.copyFile(ctx, fs, source, dest, false); err != nil {
+				fprintln(ctx.Stderr(), copyVerb(source, dest), "failed:", err.Error())
+				addError(err)
+			}
+		})
+		if !ok {
+			break
 		}
 	}
 
+	limiter.Wait()
+
 	if err := iter.Err(); err != nil {
 		return errs.Wrap(err)
-	} else if anyFailed {
-		return errs.New("some downloads failed")
+	} else if len(es) > 0 {
+		return es.Err()
 	}
 	return nil
 }
 
 func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ulloc.Location, progress bool) error {
-	if isDir := fs.IsLocalDir(ctx, dest); isDir {
-		base, ok := source.Base()
-		if !ok {
-			return errs.New("destination is a directory and cannot find base name for %q", source)
-		}
-		dest = dest.AppendKey(base)
-	}
-
-	if !source.Std() && !dest.Std() {
-		fmt.Fprintln(ctx.Stdout(), copyVerb(source, dest), source, "to", dest)
-	}
-
 	if c.dryrun {
 		return nil
 	}
@@ -151,4 +208,16 @@ func copyVerb(source, dest ulloc.Location) string {
 	default:
 		return "copy"
 	}
+}
+
+func joinDestWith(dest ulloc.Location, suffix string) ulloc.Location {
+	dest = dest.AppendKey(suffix)
+	// if the destination is local and directoryish, remove any
+	// trailing slashes that it has. this makes it so that if
+	// a remote file is name "foo/", then we copy it down as
+	// just "foo".
+	if dest.Local() && dest.Directoryish() {
+		dest = dest.Undirectoryish()
+	}
+	return dest
 }

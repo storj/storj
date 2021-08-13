@@ -3,7 +3,7 @@
 
 <template>
     <div class="tour-area">
-        <router-view/>
+        <router-view />
     </div>
 </template>
 

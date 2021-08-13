@@ -7,49 +7,49 @@
             <div class="label-container__main">
                 <div v-if="error" class="label-container__main__error-icon-container">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="20" height="20" rx="10" fill="#EB5757"/>
-                        <path d="M10.0012 11.7364C10.612 11.7364 11.1117 11.204 11.1117 10.5532V5.81218C11.1117 5.75302 11.108 5.68991 11.1006 5.63074C11.0192 5.06672 10.5565 4.62891 10.0012 4.62891C9.39037 4.62891 8.89062 5.16138 8.89062 5.81218V10.5492C8.89062 11.204 9.39037 11.7364 10.0012 11.7364Z" fill="white"/>
-                        <path d="M10.0001 12.8906C9.13977 12.8906 8.44531 13.5851 8.44531 14.4454C8.44531 15.3057 9.13977 16.0002 10.0001 16.0002C10.8604 16.0002 11.5548 15.3057 11.5548 14.4454C11.5583 13.5851 10.8638 12.8906 10.0001 12.8906Z" fill="white"/>
+                        <rect width="20" height="20" rx="10" fill="#EB5757" />
+                        <path d="M10.0012 11.7364C10.612 11.7364 11.1117 11.204 11.1117 10.5532V5.81218C11.1117 5.75302 11.108 5.68991 11.1006 5.63074C11.0192 5.06672 10.5565 4.62891 10.0012 4.62891C9.39037 4.62891 8.89062 5.16138 8.89062 5.81218V10.5492C8.89062 11.204 9.39037 11.7364 10.0012 11.7364Z" fill="white" />
+                        <path d="M10.0001 12.8906C9.13977 12.8906 8.44531 13.5851 8.44531 14.4454C8.44531 15.3057 9.13977 16.0002 10.0001 16.0002C10.8604 16.0002 11.5548 15.3057 11.5548 14.4454C11.5583 13.5851 10.8638 12.8906 10.0001 12.8906Z" fill="white" />
                     </svg>
                 </div>
-                <h3 v-if="!error" class="label-container__main__label">{{label}}</h3>
-                <h3 v-if="!error" class="label-container__main__label add-label">{{additionalLabel}}</h3>
-                <h3 class="label-container__main__error" v-if="error">{{error}}</h3>
+                <h3 v-if="!error" class="label-container__main__label">{{ label }}</h3>
+                <h3 v-if="!error" class="label-container__main__label add-label">{{ additionalLabel }}</h3>
+                <h3 v-if="error" class="label-container__main__error">{{ error }}</h3>
             </div>
-            <h3 v-if="isLimitShown" class="label-container__limit">{{currentLimit}}/{{maxSymbols}}</h3>
+            <h3 v-if="isLimitShown" class="label-container__limit">{{ currentLimit }}/{{ maxSymbols }}</h3>
         </div>
         <div v-if="isOptional" class="optional-label-container">
-            <h3 class="label-container__label">{{label}}</h3>
+            <h3 class="label-container__label">{{ label }}</h3>
             <h4 class="optional-label-container__optional">Optional</h4>
         </div>
         <textarea
-            class="headered-textarea"
             v-if="isMultiline"
-            :id="this.label"
-            :placeholder="this.placeholder"
+            :id="label"
+            v-model="value"
+            class="headered-textarea"
+            :placeholder="placeholder"
             :style="style.inputStyle"
             :rows="5"
             :cols="40"
             wrap="hard"
-            @input="onInput"
-            @change="onInput"
-            @paste.prevent="onPaste"
             autocomplete="off"
-            v-model="value">
-        </textarea>
-        <input
-            class="headered-input"
-            v-if="!isMultiline"
-            :id="this.label"
-            :placeholder="this.placeholder"
-            :type="[isPassword ? 'password': 'text']"
             @input="onInput"
             @change="onInput"
             @paste.prevent="onPaste"
+        />
+        <input
+            v-if="!isMultiline"
+            :id="label"
             v-model="value"
+            class="headered-input"
+            :placeholder="placeholder"
+            :type="[isPassword ? 'password': 'text']"
             autocomplete="off"
             :style="style.inputStyle"
-        />
+            @input="onInput"
+            @change="onInput"
+            @paste.prevent="onPaste"
+        >
     </div>
 </template>
 

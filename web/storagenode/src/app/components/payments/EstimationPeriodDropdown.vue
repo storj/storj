@@ -5,6 +5,7 @@
     <button
         name="Show Period Date Picker"
         class="period-container"
+        type="button"
         :class="{ disabled: false }"
         @click.stop="openPeriodDropdown"
     >
@@ -13,9 +14,9 @@
         <BlackArrowHide v-if="isCalendarShown" />
         <BlackArrowExpand v-else />
         <PayoutPeriodCalendar
-            class="period-container__calendar"
-            v-click-outside="closePeriodDropdown"
             v-if="isCalendarShown"
+            v-click-outside="closePeriodDropdown"
+            class="period-container__calendar"
         />
     </button>
 </template>

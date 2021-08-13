@@ -20,7 +20,6 @@
             @close="closePicker"
         />
     </div>
-
 </template>
 
 <script lang="ts">

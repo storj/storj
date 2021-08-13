@@ -10,7 +10,7 @@
             </p>
             <div class="disable-mfa__container__confirm">
                 <h2 class="disable-mfa__container__confirm__title">Confirm Authentication Code</h2>
-                <ConfirmMFAInput :on-input="onConfirmInput" :is-error="isError"/>
+                <ConfirmMFAInput :on-input="onConfirmInput" :is-error="isError" />
             </div>
             <p class="disable-mfa__container__info">
                 After disabling 2FA, remove the authentication code from your TOTP app.

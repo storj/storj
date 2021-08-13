@@ -10,11 +10,11 @@
                 :class="step.className"
             >
                 <h1 class="amount">{{ step.amount }}</h1>
-                <div class="divider"></div>
+                <div class="divider" />
                 <h4 class="label">{{ step.label }}</h4>
             </div>
         </div>
-        <div class="held-progress__border"></div>
+        <div class="held-progress__border" />
         <p class="held-progress__main-text">It is your <span class="bold">{{ monthsOnNetwork }} month</span> on network</p>
     </div>
 </template>

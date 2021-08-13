@@ -8,7 +8,7 @@ exports[`NotificationsArea renders correctly with no notifications 1`] = `
         <backarrowicon-stub></backarrowicon-stub>
       </router-link>
       <p class="notifications-container__header__text">Notifications</p>
-    </div> <button name="Mark all notifications as read" class="notifications-container__header__button disabled">
+    </div> <button name="Mark all notifications as read" type="button" class="notifications-container__header__button disabled">
       <p class="notifications-container__header__button__label">Mark all as read</p>
     </button>
   </div>
@@ -27,7 +27,7 @@ exports[`NotificationsArea renders correctly with notifications 1`] = `
         <backarrowicon-stub></backarrowicon-stub>
       </router-link>
       <p class="notifications-container__header__text">Notifications</p>
-    </div> <button name="Mark all notifications as read" class="notifications-container__header__button">
+    </div> <button name="Mark all notifications as read" type="button" class="notifications-container__header__button">
       <p class="notifications-container__header__button__label">Mark all as read</p>
     </button>
   </div>

@@ -6,24 +6,24 @@
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title">Buckets</h1>
             <div class="buckets-view__title-area__button" :class="{ disabled: isLoading }" @click="showCreateBucketPopup">
-                <BucketIcon/>
+                <BucketIcon />
                 <p class="buckets-view__title-area__button__label">New Bucket</p>
             </div>
         </div>
         <VLoader
+            v-if="isLoading"
             width="100px"
             height="100px"
             class="buckets-view__loader"
-            v-if="isLoading"
         />
-        <p class="buckets-view__no-buckets" v-if="!(isLoading || bucketsList.length)">No Buckets</p>
-        <div class="buckets-view__list" v-if="!isLoading && bucketsList.length">
+        <p v-if="!(isLoading || bucketsList.length)" class="buckets-view__no-buckets">No Buckets</p>
+        <div v-if="!isLoading && bucketsList.length" class="buckets-view__list">
             <div class="buckets-view__list__sorting-header">
                 <p class="buckets-view__list__sorting-header__name">Name</p>
                 <p class="buckets-view__list__sorting-header__date">Date Added</p>
-                <p class="buckets-view__list__sorting-header__empty"/>
+                <p class="buckets-view__list__sorting-header__empty" />
             </div>
-            <div class="buckets-view__list__item" v-for="(bucket, key) in bucketsList" :key="key" @click.stop="openBucket(bucket.Name)">
+            <div v-for="(bucket, key) in bucketsList" :key="key" class="buckets-view__list__item" @click.stop="openBucket(bucket.Name)">
                 <BucketItem
                     :item-data="bucket"
                     :show-delete-bucket-popup="showDeleteBucketPopup"
@@ -35,25 +35,25 @@
         </div>
         <ObjectsPopup
             v-if="isCreatePopupVisible"
-            @setName="setCreateBucketName"
-            @close="hideCreateBucketPopup"
             :on-click="onCreateBucketClick"
             title="Create Bucket"
             sub-title="Buckets are simply containers that store objects and their metadata within a project."
             button-label="Create Bucket"
             :error-message="errorMessage"
             :is-loading="isRequestProcessing"
+            @setName="setCreateBucketName"
+            @close="hideCreateBucketPopup"
         />
         <ObjectsPopup
             v-if="isDeletePopupVisible"
-            @setName="setDeleteBucketName"
-            @close="hideDeleteBucketPopup"
             :on-click="onDeleteBucketClick"
             title="Are you sure?"
             sub-title="Deleting this bucket will delete all metadata related to this bucket."
             button-label="Confirm Delete Bucket"
             :error-message="errorMessage"
             :is-loading="isRequestProcessing"
+            @setName="setDeleteBucketName"
+            @close="hideDeleteBucketPopup"
         />
     </div>
 </template>

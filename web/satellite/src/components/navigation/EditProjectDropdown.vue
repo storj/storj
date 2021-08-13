@@ -5,11 +5,11 @@
     <div class="edit-project">
         <div class="edit-project__selection-area" :class="{ active: isDropdownShown, 'on-edit': isEditPage }" @click.stop.prevent="toggleDropdown">
             <p class="edit-project__selection-area__name" :title="projectName">{{ projectName }}</p>
-            <DotsImage class="edit-project__selection-area__image"/>
+            <DotsImage class="edit-project__selection-area__image" />
         </div>
-        <div class="edit-project__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">
+        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="edit-project__dropdown">
             <div class="edit-project__dropdown__choice" @click.stop.prevent="onEditProjectClick">
-                <EditImage/>
+                <EditImage />
                 <p class="edit-project__dropdown__choice__label">Edit Details</p>
             </div>
         </div>

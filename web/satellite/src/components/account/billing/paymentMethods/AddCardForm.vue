@@ -5,11 +5,11 @@
     <div class="add-card-area">
         <p class="add-card-area__label">Add Credit or Debit Card</p>
         <StripeCardInput
-            class="add-card-area__stripe"
             ref="stripeCardInput"
+            class="add-card-area__stripe"
             :on-stripe-response-callback="addCard"
         />
-        <div class="add-card-area__submit-area"/>
+        <div class="add-card-area__submit-area" />
     </div>
 </template>
 

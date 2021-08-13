@@ -4,8 +4,8 @@
 <template>
     <div class="content-overflow">
         <div class="content">
-            <SNOContentTitle/>
-            <SNOContentFilling/>
+            <SNOContentTitle />
+            <SNOContentFilling />
         </div>
     </div>
 </template>

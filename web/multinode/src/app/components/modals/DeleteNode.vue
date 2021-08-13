@@ -3,17 +3,17 @@
 
 <template>
     <div class="delete-node">
-        <div @click.stop="openModal" class="delete-node__button">Delete Node</div>
+        <div class="delete-node__button" @click.stop="openModal">Delete Node</div>
         <v-modal v-if="isModalShown" @onClose="closeModal">
             <h2 slot="header">Delete this node?</h2>
-            <div class="delete-node__body" slot="body">
+            <div slot="body" class="delete-node__body">
                 <div class="delete-node__body__node-id-container">
                     <span>{{ nodeId }}</span>
                 </div>
             </div>
-            <div class="delete-node__footer" slot="footer">
+            <div slot="footer" class="delete-node__footer">
                 <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
-                <v-button label="Delete" width="205px" :on-press="onDelete"/>
+                <v-button label="Delete" width="205px" :on-press="onDelete" />
             </div>
         </v-modal>
     </div>

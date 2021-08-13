@@ -14,9 +14,9 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/quic"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
-	"storj.io/storj/private/quic"
 	"storj.io/storj/satellite/overlay"
 )
 

@@ -4,21 +4,21 @@
 <template>
     <div class="credit-history__wrapper">
         <VButton
+            v-if="couponCodeBillingUIEnabled"
             class="credit-history__add-button"
             height="44px"
             width="174px"
             :on-press="onCreateClick"
             label="Add Coupon Code"
-            v-if="couponCodeBillingUIEnabled"
         />
         <div class="credit-history__container">
             <div class="credit-history__content">
                 <div class="credit-history__title-area">
                     <h1 class="credit-history__title">Credit History</h1>
                 </div>
-                <VLoader v-if="isHistoryFetching"/>
+                <VLoader v-if="isHistoryFetching" />
                 <template v-else>
-                    <SortingHeader/>
+                    <SortingHeader />
                     <CreditsItem
                         v-for="(item, index) in historyItems"
                         :key="index"

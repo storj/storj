@@ -31,7 +31,7 @@ func newCmdLs(ex ulext.External) *cmdLs {
 }
 
 func (c *cmdLs) Setup(params clingy.Parameters) {
-	c.access = params.Flag("access", "Which access to use", "").(string)
+	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.recursive = params.Flag("recursive", "List recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
@@ -83,6 +83,10 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 	}
 	defer func() { _ = fs.Close() }()
 
+	if fs.IsLocalDir(ctx, prefix) {
+		prefix = prefix.AsDirectoryish()
+	}
+
 	tw := newTabbedWriter(ctx.Stdout(), "KIND", "CREATED", "SIZE", "KEY")
 	defer tw.Done()
 
@@ -101,9 +105,9 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 	for iter.Next() {
 		obj := iter.Item()
 		if obj.IsPrefix {
-			tw.WriteLine("PRE", "", "", obj.Loc.Key())
+			tw.WriteLine("PRE", "", "", obj.Loc.Loc())
 		} else {
-			tw.WriteLine("OBJ", formatTime(c.utc, obj.Created), obj.ContentLength, obj.Loc.Key())
+			tw.WriteLine("OBJ", formatTime(c.utc, obj.Created), obj.ContentLength, obj.Loc.Loc())
 		}
 	}
 	return iter.Err()

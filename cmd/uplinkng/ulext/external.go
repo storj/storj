@@ -19,8 +19,11 @@ type External interface {
 	OpenFilesystem(ctx context.Context, accessName string, options ...Option) (ulfs.Filesystem, error)
 	OpenProject(ctx context.Context, accessName string, options ...Option) (*uplink.Project, error)
 
+	AccessInfoFile() string
+	OpenAccess(accessName string) (access *uplink.Access, err error)
 	GetAccessInfo(required bool) (string, map[string]string, error)
 	SaveAccessInfo(defaultName string, accesses map[string]string) error
+	RequestAccess(ctx context.Context, token, passphrase string) (*uplink.Access, error)
 
 	PromptInput(ctx clingy.Context, prompt string) (input string, err error)
 }

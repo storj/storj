@@ -23,6 +23,10 @@ pipeline {
                 sh 'cp go.mod .build/go.mod.orig'
                 // download dependencies
                 sh 'go mod download'
+
+                // add a stub go.mod file to node projects to prevent go build ./... from scanning them
+                sh 'mkdir -p web/satellite/node_modules web/storagenode/node_modules web/multinode/node_modules'
+                sh 'touch web/satellite/node_modules/go.mod web/storagenode/node_modules/go.mod web/multinode/node_modules/go.mod'
             }
         }
         stage('Build') {

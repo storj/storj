@@ -4,7 +4,7 @@
 <template>
     <div class="header-container">
         <div class="header-container__buttons-area">
-            <slot></slot>
+            <slot />
         </div>
         <VSearch
             ref="search"

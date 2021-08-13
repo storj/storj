@@ -2,30 +2,31 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class='add-user-container' @keyup.enter="onAddUsersClick" @keyup.esc="onClose">
-        <div class='add-user' id="addTeamMemberPopup">
+    <div class="add-user-container" @keyup.enter="onAddUsersClick" @keyup.esc="onClose">
+        <div id="addTeamMemberPopup" class="add-user">
             <div class="add-user__main">
-                <div class='add-user__info-panel-container'>
-                    <h2 class='add-user__info-panel-container__main-label-text'>Add Team Member</h2>
+                <div class="add-user__info-panel-container">
+                    <h2 class="add-user__info-panel-container__main-label-text">Add Team Member</h2>
                     <img src="@/../static/images/team/addMember.jpg" alt="add team member image">
                 </div>
-                <div class='add-user__form-container'>
-                    <p class='add-user__form-container__common-label' v-if="!formError">Email Address</p>
+                <div class="add-user__form-container">
+                    <p v-if="!formError" class="add-user__form-container__common-label">Email Address</p>
                     <div v-if="formError" class="add-user__form-container__label">
-                        <ErrorIcon alt="Red error icon"/>
-                        <p class="add-user__form-container__label__error">{{formError}}</p>
+                        <ErrorIcon alt="Red error icon" />
+                        <p class="add-user__form-container__label__error">{{ formError }}</p>
                     </div>
                     <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': isInputsGroupScrollable }">
                         <div v-for="(input, index) in inputs"
-                            class="add-user__form-container__inputs-group__item"
-                            :key="index" >
+                             :key="index"
+                             class="add-user__form-container__inputs-group__item"
+                        >
                             <input
-                                placeholder="email@example.com"
                                 v-model="input.value"
+                                placeholder="email@example.com"
                                 class="no-error-input"
                                 :class="{ 'error-input': input.error }"
                                 @keyup="resetFormErrors(index)"
-                            />
+                            >
                             <DeleteFieldIcon
                                 class="add-user__form-container__inputs-group__item__image"
                                 @click="deleteInput(index)"
@@ -33,42 +34,42 @@
                         </div>
                     </div>
                     <div class="add-user-row">
-                        <div @click='addInput' class="add-user-row__item" id="addUserButton">
+                        <div id="addUserButton" class="add-user-row__item" @click="addInput">
                             <div :class="{ 'inactive-image': isMaxInputsCount }">
-                                <AddFieldIcon class="add-user-row__item__image"/>
+                                <AddFieldIcon class="add-user-row__item__image" />
                             </div>
                             <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add More</p>
                         </div>
                     </div>
-                    <div class='add-user__form-container__button-container'>
+                    <div class="add-user__form-container__button-container">
                         <VButton
-                            label='Cancel'
-                            width='205px'
-                            height='48px'
+                            label="Cancel"
+                            width="205px"
+                            height="48px"
                             :on-press="onClose"
                             is-transparent="true"
                         />
                         <VButton
-                            label='Add Team Members'
-                            width='205px'
-                            height='48px'
+                            label="Add Team Members"
+                            width="205px"
+                            height="48px"
                             :on-press="onAddUsersClick"
                             :is-disabled="!isButtonActive"
                         />
                     </div>
                 </div>
-                <div class='add-user__close-cross-container' @click='onClose'>
-                    <CloseCrossIcon/>
+                <div class="add-user__close-cross-container" @click="onClose">
+                    <CloseCrossIcon />
                 </div>
             </div>
             <div class="notification-wrap">
-                <AddMemberNotificationIcon class="notification-wrap__image"/>
+                <AddMemberNotificationIcon class="notification-wrap__image" />
                 <div class="notification-wrap__text-area">
                     <p class="notification-wrap__text-area__text">
                         If the team member you want to invite to join the project is still not on this Satellite, please
                         share this link to the signup page and ask them to register here:
                         <router-link target="_blank" rel="noopener noreferrer" exact to="/signup">
-                            {{registerPath}}
+                            {{ registerPath }}
                         </router-link>
                     </p>
                 </div>

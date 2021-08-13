@@ -5,15 +5,15 @@
     <div class="usage-charges-item-container">
         <div class="usage-charges-item-container__summary" @click="toggleDetailedInfo">
             <div class="usage-charges-item-container__summary__name-container">
-                <ChargesExpandIcon v-if="isDetailedInfoShown"/>
-                <ChargesHideIcon v-else/>
+                <ChargesExpandIcon v-if="isDetailedInfoShown" />
+                <ChargesHideIcon v-else />
                 <span>{{ projectName }}</span>
             </div>
             <span class="usage-charges-item-container__summary__amount">
                 Estimated Total {{ item.summary() | centsToDollars }}
             </span>
         </div>
-        <div class="usage-charges-item-container__detailed-info-container" v-if="isDetailedInfoShown">
+        <div v-if="isDetailedInfoShown" class="usage-charges-item-container__detailed-info-container">
             <div class="usage-charges-item-container__detailed-info-container__info-header">
                 <span class="resource-header">RESOURCE</span>
                 <span class="period-header">PERIOD</span>
@@ -22,9 +22,9 @@
             </div>
             <div class="usage-charges-item-container__detailed-info-container__content-area">
                 <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
-                    <p>Storage (${{storagePrice}} per Gigabyte-Month)</p>
-                    <p>Egress (${{egressPrice}} per GB)</p>
-                    <p>Objects (${{objectPrice}} per Object-Month)</p>
+                    <p>Storage (${{ storagePrice }} per Gigabyte-Month)</p>
+                    <p>Egress (${{ egressPrice }} per GB)</p>
+                    <p>Objects (${{ objectPrice }} per Object-Month)</p>
                 </div>
                 <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
                     <p>{{ period }}</p>

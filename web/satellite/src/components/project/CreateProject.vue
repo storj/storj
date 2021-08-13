@@ -47,7 +47,7 @@
                     :is-disabled="!projectName"
                 />
             </div>
-            <div class="create-project-area__container__blur" v-if="isLoading">
+            <div v-if="isLoading" class="create-project-area__container__blur">
                 <img
                     class="create-project-area__container__blur__loading-image"
                     src="@/../static/images/account/billing/loading.gif"

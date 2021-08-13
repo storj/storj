@@ -239,3 +239,26 @@ func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, c
 
 	return nil
 }
+
+// HasCouponApplied checks if a user has a coupon applied to their account.
+func (coupons *coupons) HasCouponApplied(ctx context.Context, userID uuid.UUID) (_ bool, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	customerID, err := coupons.service.db.Customers().GetCustomerID(ctx, userID)
+
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	customer, err := coupons.service.stripeClient.Customers().Get(customerID, nil)
+
+	if err != nil {
+		return false, err
+	}
+
+	if customer.Discount == nil || customer.Discount.Coupon == nil {
+		return false, nil
+	}
+
+	return true, nil
+}

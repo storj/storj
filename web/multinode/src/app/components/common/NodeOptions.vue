@@ -4,8 +4,8 @@
 <template>
     <div class="options-button" @click.stop="openOptions">
         <more-icon />
-        <div class="options" v-if="areOptionsShown" v-click-outside="closeOptions">
-            <div @click.stop="onCopy" class="options__item">Copy Node ID</div>
+        <div v-if="areOptionsShown" v-click-outside="closeOptions" class="options">
+            <div class="options__item" @click.stop="onCopy">Copy Node ID</div>
             <delete-node :node-id="id" @closeOptions="closeOptions" />
             <update-name :node-id="id" @closeOptions="closeOptions" />
         </div>

@@ -4,8 +4,8 @@
 <template>
     <div class="create-grant">
         <div class="create-grant__container">
-            <ProgressBar v-if="!isProgressBarHidden"/>
-            <router-view/>
+            <ProgressBar v-if="!isProgressBarHidden" />
+            <router-view />
             <div class="create-grant__container__close-cross-container" @click="onCloseClick">
                 <CloseCrossIcon />
             </div>

@@ -273,4 +273,23 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
         throw new Error(`Can not apply coupon code "${couponCode}"`);
     }
+
+    /**
+     * hasCouponApplied checks if a user has a coupon applied in Stripe
+     *
+     * @throws Error
+     */
+    public async hasCouponApplied(): Promise<PaymentsHistoryItem[]> {
+        const path = `${this.ROOT_PATH}/couponcodes/coupon`;
+        const response = await this.client.get(path);
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('cannot list coupons');
+        }
+
+        return await response.json();
+    }
 }

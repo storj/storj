@@ -7,7 +7,7 @@ module.exports = {
         node: true
     },
     extends: [
-        'plugin:vue/essential',
+        'plugin:vue/recommended',
         'eslint:recommended',
         '@vue/typescript/recommended',
     ],
@@ -19,6 +19,7 @@ module.exports = {
         'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
 
         "indent": ["warn", 4],
+        "vue/html-indent": ["warn", 4],
 
         "@typescript-eslint/no-explicit-any": "off", // TODO: fix
 
@@ -31,5 +32,16 @@ module.exports = {
 
         '@typescript-eslint/no-empty-function': "off",
         '@typescript-eslint/no-var-requires': "off",
+
+        "vue/max-attributes-per-line": ["off"],
+        "vue/singleline-html-element-content-newline": ["off"],
+
+        "vue/no-v-html": ["off"], // needs a dedicated fix
+
+        "vue/block-lang": ["error", {"script": {"lang": "ts"}}],
+        "vue/html-button-has-type": ["error"],
+        "vue/no-unused-properties": ["warn"],
+        "vue/no-unused-refs": ["warn"],
+        "vue/no-useless-v-bind": ["warn"],
     },
 }

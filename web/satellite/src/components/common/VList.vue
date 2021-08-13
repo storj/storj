@@ -4,13 +4,13 @@
 <template>
     <div class="item-component">
         <component
-            v-for="(item, key) in dataSet"
-            class="item-component__item"
             :is="itemComponent"
-            :item-data="item"
-            @click.native="onItemClick(item)"
-            :class="{ selected: item.isSelected }"
+            v-for="(item, key) in dataSet"
             :key="key"
+            class="item-component__item"
+            :item-data="item"
+            :class="{ selected: item.isSelected }"
+            @click.native="onItemClick(item)"
         />
     </div>
 </template>

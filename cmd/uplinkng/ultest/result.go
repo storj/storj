@@ -26,8 +26,8 @@ type Result struct {
 func (r Result) RequireSuccess(t *testing.T) {
 	if !r.Ok {
 		errs := parseErrors(r.Stdout)
-		require.True(t, r.Ok, "test did not run successfully. errors:\n%s",
-			strings.Join(errs, "\n"))
+		require.FailNow(t, "test did not run successfully:",
+			"%s", strings.Join(errs, "\n"))
 	}
 	require.NoError(t, r.Err)
 }
@@ -56,17 +56,56 @@ func (r Result) RequireStderr(t *testing.T, stderr string) Result {
 // existed at the end of the execution. It assumes any passed in files with no
 // contents contain the filename as the contents instead.
 func (r Result) RequireFiles(t *testing.T, files ...File) Result {
-	files = append([]File(nil), files...)
-	sort.Slice(files, func(i, j int) bool { return files[i].less(files[j]) })
+	require.Equal(t, canonicalizeFiles(files), r.Files)
+	return r
+}
 
-	for i := range files {
-		if files[i].Contents == "" {
-			files[i].Contents = files[i].Loc
+// RequireLocalFiles requires that the set of files provided are all of the
+// local files that existed at the end of the execution. It assumes any passed
+// in files with no contents contain the filename as the contents instead.
+func (r Result) RequireLocalFiles(t *testing.T, files ...File) Result {
+	require.Equal(t, canonicalizeFiles(files), filterFiles(r.Files, fileIsLocal))
+	return r
+}
+
+// RequireRemoteFiles requires that the set of files provided are all of the
+// remote files that existed at the end of the execution. It assumes any passed
+// in files with no contents contain the filename as the contents instead.
+func (r Result) RequireRemoteFiles(t *testing.T, files ...File) Result {
+	require.Equal(t, canonicalizeFiles(files), filterFiles(r.Files, fileIsRemote))
+	return r
+}
+
+func filterFiles(files []File, match func(File) bool) (out []File) {
+	for _, file := range files {
+		if match(file) {
+			out = append(out, file)
+		}
+	}
+	return out
+}
+
+func canonicalizeFiles(files []File) (out []File) {
+	out = append(out, files...)
+	sort.Slice(out, func(i, j int) bool { return out[i].less(out[j]) })
+
+	for i := range out {
+		if out[i].Contents == "" {
+			out[i].Contents = out[i].Loc
 		}
 	}
 
-	require.Equal(t, files, r.Files)
-	return r
+	return out
+}
+
+func fileIsLocal(file File) bool {
+	loc, _ := ulloc.Parse(file.Loc)
+	return loc.Local()
+}
+
+func fileIsRemote(file File) bool {
+	loc, _ := ulloc.Parse(file.Loc)
+	return loc.Remote()
 }
 
 func parseErrors(s string) []string {

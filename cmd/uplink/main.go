@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	_ "storj.io/common/rpc/quic" // This enables quic connector
 	"storj.io/private/process"
 	"storj.io/storj/cmd/uplink/cmd"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.

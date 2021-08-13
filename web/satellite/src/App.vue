@@ -3,9 +3,9 @@
 
 <template>
     <div id="app">
-        <router-view/>
+        <router-view />
         <!-- Area for displaying notification -->
-        <NotificationArea/>
+        <NotificationArea />
     </div>
 </template>
 

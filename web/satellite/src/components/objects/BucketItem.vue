@@ -4,15 +4,15 @@
 <template>
     <div class="bucket-item">
         <div class="bucket-item__name">
-            <BucketIcon/>
-            <p class="bucket-item__name__value">{{itemData.Name}}</p>
+            <BucketIcon />
+            <p class="bucket-item__name__value">{{ itemData.Name }}</p>
         </div>
-        <p class="bucket-item__date">{{formattedDate}}</p>
-        <div class="bucket-item__functional" @click.stop="openDropdown(dropdownKey)" v-click-outside="closeDropdown">
-            <DotsIcon/>
-            <div ref="dropdown" class="bucket-item__functional__dropdown" v-if="isDropdownOpen">
+        <p class="bucket-item__date">{{ formattedDate }}</p>
+        <div v-click-outside="closeDropdown" class="bucket-item__functional" @click.stop="openDropdown(dropdownKey)">
+            <DotsIcon />
+            <div v-if="isDropdownOpen" class="bucket-item__functional__dropdown">
                 <div class="bucket-item__functional__dropdown__item" @click.stop="onDeleteClick">
-                    <DeleteIcon/>
+                    <DeleteIcon />
                     <p class="bucket-item__functional__dropdown__item__label">Delete</p>
                 </div>
             </div>

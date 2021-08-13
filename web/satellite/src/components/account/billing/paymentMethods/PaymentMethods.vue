@@ -7,7 +7,7 @@
             <div class="payment-methods-area__functional-area__top-container">
                 <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
                 <div class="payment-methods-area__functional-area__button-area">
-                    <div class="payment-methods-area__functional-area__button-area__default-buttons" v-if="!areAddButtonsClicked">
+                    <div v-if="!areAddButtonsClicked" class="payment-methods-area__functional-area__button-area__default-buttons">
                         <VButton
                             class="add-storj-button"
                             label="Add STORJ"
@@ -17,7 +17,7 @@
                             :on-press="onAddSTORJ"
                         />
                     </div>
-                    <div class="payment-methods-area__functional-area__button-area__cancel" v-else @click="onCancel">
+                    <div v-else class="payment-methods-area__functional-area__button-area__cancel" @click="onCancel">
                         <p class="payment-methods-area__functional-area__button-area__cancel__text">Cancel</p>
                     </div>
                 </div>
@@ -33,15 +33,14 @@
                 class="payment-methods-area__functional-area__bonus"
             />
             <AddStorjForm
-                ref="addStorj"
                 v-if="isAddingStorjState"
                 :is-loading="isLoading"
                 @toggleIsLoading="toggleIsLoading"
                 @cancel="onCancel"
             />
             <AddCardForm
-                ref="addCard"
                 v-if="isAddingCardState"
+                ref="addCard"
                 @toggleIsLoading="toggleIsLoading"
                 @toggleIsLoaded="toggleIsLoaded"
                 @cancel="onCancel"
@@ -65,21 +64,21 @@
                 <span>{{ addingCCButtonLabel }}</span>
             </div>
         </div>
-        <div class="payment-methods-area__security-info-container" v-if="isAddingCardState && noCreditCards">
-            <LockImage/>
+        <div v-if="isAddingCardState && noCreditCards" class="payment-methods-area__security-info-container">
+            <LockImage />
             <span class="payment-methods-area__security-info-container__info">
                 Your card is secured by Stripe through TLS and AES-256 encryption. Your information is secure.
             </span>
         </div>
-        <VLoader v-if="areCardsFetching" class="pm-loader"/>
-        <div class="payment-methods-area__existing-cards-container" v-if="!noCreditCards && !areCardsFetching">
+        <VLoader v-if="areCardsFetching" class="pm-loader" />
+        <div v-if="!noCreditCards && !areCardsFetching" class="payment-methods-area__existing-cards-container">
             <CardComponent
                 v-for="card in creditCards"
                 :key="card.id"
                 :credit-card="card"
             />
         </div>
-        <div class="payment-methods-area__blur" v-if="isLoading || isLoaded"/>
+        <div v-if="isLoading || isLoaded" class="payment-methods-area__blur" />
     </div>
 </template>
 

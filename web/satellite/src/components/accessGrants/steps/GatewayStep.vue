@@ -3,7 +3,7 @@
 
 <template>
     <div class="gateway" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="gateway__back-icon" @click="onBackClick"/>
+        <BackIcon class="gateway__back-icon" @click="onBackClick" />
         <h1 class="gateway__title">S3 Gateway</h1>
         <div class="gateway__container">
             <h3 class="gateway__container__title">
@@ -22,13 +22,14 @@
                 :on-press="onGenerateCredentialsClick"
                 :is-disabled="isLoading"
             />
-            <div class="gateway__container__keys-area" v-else>
+            <div v-else class="gateway__container__keys-area">
                 <div class="gateway__container__keys-area__label-area">
                     <h3 class="gateway__container__keys-area__label-area__label">Access Key</h3>
                     <VInfo
                         class="gateway__container__keys-area__label-area__info-button"
-                        bold-text="The access key ID uniquely identifies your account.">
-                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image"/>
+                        bold-text="The access key ID uniquely identifies your account."
+                    >
+                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image" />
                     </VInfo>
                 </div>
                 <div class="gateway__container__keys-area__key">
@@ -45,8 +46,9 @@
                     <h3 class="gateway__container__keys-area__label-area__label">Secret Key</h3>
                     <VInfo
                         class="gateway__container__keys-area__label-area__info-button"
-                        bold-text="Secret access keys are—as the name implies—secrets, like your password.">
-                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image"/>
+                        bold-text="Secret access keys are—as the name implies—secrets, like your password."
+                    >
+                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image" />
                     </VInfo>
                 </div>
                 <div class="gateway__container__keys-area__key">
@@ -63,8 +65,9 @@
                     <h3 class="gateway__container__keys-area__label-area__label">End Point</h3>
                     <VInfo
                         class="gateway__container__keys-area__label-area__info-button"
-                        bold-text="The service to which you want to establish the connection.">
-                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image"/>
+                        bold-text="The service to which you want to establish the connection."
+                    >
+                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image" />
                     </VInfo>
                 </div>
                 <div class="gateway__container__keys-area__key">

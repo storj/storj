@@ -5,18 +5,18 @@
     <div class="modal-wrap" @click.self.stop="close">
         <div class="modal">
             <div class="modal__header">
-                <slot name="header"></slot>
+                <slot name="header" />
             </div>
             <div class="modal__body">
-                <slot name="body"></slot>
+                <slot name="body" />
             </div>
             <div class="modal__footer">
-                <slot name="footer"></slot>
+                <slot name="footer" />
             </div>
             <div class="modal__cross" @click.stop="close">
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <path d="M24 8L8 24" stroke="#676F84" stroke-width="2.66667" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M8 8L24 24" stroke="#676F84" stroke-width="2.66667" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M24 8L8 24" stroke="#676F84" stroke-width="2.66667" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M8 8L24 24" stroke="#676F84" stroke-width="2.66667" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
             </div>
         </div>

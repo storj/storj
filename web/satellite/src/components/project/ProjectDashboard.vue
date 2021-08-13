@@ -4,18 +4,18 @@
 <template>
     <div class="dashboard-area">
         <div class="dashboard-area__header-wrapper">
-            <h1 class="dashboard-area__header-wrapper__title">{{projectName}} Dashboard</h1>
+            <h1 class="dashboard-area__header-wrapper__title">{{ projectName }} Dashboard</h1>
             <p class="dashboard-area__header-wrapper__message">
                 Expect a delay of a few hours between network activity and the latest dashboard stats.
             </p>
         </div>
-        <ProjectUsage/>
-        <ProjectSummary :is-data-fetching="isSummaryDataFetching"/>
+        <ProjectUsage />
+        <ProjectSummary :is-data-fetching="isSummaryDataFetching" />
         <div v-if="areBucketsFetching" class="dashboard-area__container">
             <p class="dashboard-area__container__title">Buckets</p>
-            <VLoader/>
+            <VLoader />
         </div>
-        <BucketArea v-else/>
+        <BucketArea v-else />
     </div>
 </template>
 

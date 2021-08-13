@@ -4,12 +4,12 @@
 <template>
     <div class="audits-area">
         <div class="audits-area__content">
-            <div class="audits-area__content__item" v-for="item in auditItems" :key="item.satelliteName">
+            <div v-for="item in auditItems" :key="item.satelliteName" class="audits-area__content__item">
                 <div class="audits-area__content__item__header">
                     <p class="audits-area__content__item__header__satellite-name">{{ item.satelliteName }}</p>
                     <DisqualifyIcon v-if="item.iconClassName" :class="[ item.iconClassName ]" />
                 </div>
-                <div class="audits-area__content__item__divider"></div>
+                <div class="audits-area__content__item__divider" />
                 <div class="audits-area__content__item__info">
                     <p class="audits-area__content__item__info__label">Suspension</p>
                     <p class="audits-area__content__item__info__value" :class="[ item.suspensionScore.statusClassName ]">{{ item.suspensionScore.label }}</p>
@@ -24,7 +24,7 @@
                 </div>
             </div>
         </div>
-        <div class="audits-area__load-more-button" v-if="isLoadMoreButtonVisible" @click="loadMore">
+        <div v-if="isLoadMoreButtonVisible" class="audits-area__load-more-button" @click="loadMore">
             <p class="audits-area__load-more-button__label">Load More</p>
         </div>
     </div>

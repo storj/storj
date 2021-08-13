@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
-    "lint": "vue-cli-service lint --max-warnings 0 && stylelint --max-warnings 0 \"**/*.{vue,css,sss,less,scss,sass}\" --fix",
+    "lint": "vue-cli-service lint --max-warnings 0 --fix && stylelint --max-warnings 0 \"**/*.{vue,css,sss,less,scss,sass}\" --fix",
     "lint-ci": "vue-cli-service lint --max-warnings 0 --no-fix && stylelint --max-warnings 0 --no-fix \"**/*.{vue,css,sss,less,scss,sass}\"",
     "build": "vue-cli-service build",
     "dev": "vue-cli-service build --mode development --watch",
@@ -37,7 +37,7 @@
     "compression-webpack-plugin": "6.0.0",
     "core-js": "3.6.5",
     "eslint": "6.7.2",
-    "eslint-plugin-vue": "6.2.2",
+    "eslint-plugin-vue": "7.16.0",
     "jest-fetch-mock": "3.0.0",
     "sass": "1.37.0",
     "sass-loader": "8.0.0",

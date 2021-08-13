@@ -6,11 +6,11 @@
         <p class="bandwidth-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="bandwidth-chart"
+            :key="chartKey"
             :chart-data="chartData"
             :width="chartWidth"
             :height="chartHeight"
             :tooltip-constructor="bandwidthTooltip"
-            :key="chartKey"
         />
     </div>
 </template>

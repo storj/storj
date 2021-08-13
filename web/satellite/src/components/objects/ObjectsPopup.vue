@@ -4,19 +4,19 @@
 <template>
     <div class="objects-popup">
         <div class="objects-popup__container">
-            <h1 class="objects-popup__container__title">{{title}}</h1>
-            <p class="objects-popup__container__sub-title">{{subTitle}}</p>
+            <h1 class="objects-popup__container__title">{{ title }}</h1>
+            <p class="objects-popup__container__sub-title">{{ subTitle }}</p>
             <div class="objects-popup__container__info">
-                <WarningIcon/>
+                <WarningIcon />
                 <p class="objects-popup__container__info__msg">Only lowercase alphanumeric characters are allowed.</p>
             </div>
             <HeaderedInput
                 class="objects-popup__container__input"
                 label="Bucket Name"
                 placeholder="Enter bucket name"
-                @setData="onChangeName"
                 :error="errorMessage"
                 :is-loading="isLoading"
+                @setData="onChangeName"
             />
             <VButton
                 :label="buttonLabel"

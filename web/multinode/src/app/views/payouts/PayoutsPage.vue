@@ -11,8 +11,8 @@
                     <payout-period-calendar-button :period="period" />
                 </div>
                 <payouts-summary-table
-                    class="payouts__left-area__table"
                     v-if="payouts.summary.nodeSummary"
+                    class="payouts__left-area__table"
                     :node-payouts-summary="payouts.summary.nodeSummary"
                 />
             </div>
@@ -27,7 +27,7 @@
                     :current-month-estimation="payouts.totalExpectations.currentMonthEstimation"
                     :undistributed="payouts.totalExpectations.undistributed"
                 />
-<!--                <payout-history-block />-->
+                <!--                <payout-history-block />-->
             </div>
         </div>
     </div>

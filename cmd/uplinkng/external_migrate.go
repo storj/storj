@@ -26,7 +26,7 @@ func (ex *external) migrate() (err error) {
 	defer func() { ex.migration.err = err }()
 
 	// if the config file exists, there is no need to migrate
-	if _, err := os.Stat(ex.configFile()); err == nil {
+	if _, err := os.Stat(ex.ConfigFile()); err == nil {
 		return nil
 	}
 

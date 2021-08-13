@@ -3,7 +3,7 @@
 
 <template>
     <div id="payouts-root">
-        <router-view/>
+        <router-view />
     </div>
 </template>
 

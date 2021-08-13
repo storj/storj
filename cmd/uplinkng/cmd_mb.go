@@ -23,7 +23,7 @@ func newCmdMb(ex ulext.External) *cmdMb {
 }
 
 func (c *cmdMb) Setup(params clingy.Parameters) {
-	c.access = params.Flag("access", "Which access to use", "").(string)
+	c.access = params.Flag("access", "Access name or value to use", "").(string)
 
 	c.name = params.Arg("name", "Bucket name (sj://BUCKET)").(string)
 }

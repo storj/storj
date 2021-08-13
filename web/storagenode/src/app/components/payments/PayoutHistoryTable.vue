@@ -9,7 +9,7 @@
                 <PayoutHistoryPeriodDropdown />
             </div>
         </div>
-        <div class="payout-history-table__divider"></div>
+        <div class="payout-history-table__divider" />
         <div class="payout-history-table__table-container">
             <div class="payout-history-table__table-container__labels-area">
                 <p class="payout-history-table__table-container__labels-area__label">Satellite</p>

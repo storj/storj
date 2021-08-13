@@ -7,8 +7,8 @@
             <p class="add-storj-area__selection-container__label">Deposit STORJ Tokens via Coin Payments</p>
             <TokenDepositSelection
                 class="add-storj-area__selection-container__form"
-                @onChangeTokenValue="onChangeTokenValue"
                 :payment-options="paymentOptions"
+                @onChangeTokenValue="onChangeTokenValue"
             />
         </div>
         <div class="add-storj-area__submit-area">

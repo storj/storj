@@ -15,9 +15,9 @@
             />
             <ProjectDropdown
                 v-show="isDropdownShown"
+                v-click-outside="closeDropdown"
                 :is-loading="isLoading"
                 @close="closeDropdown"
-                v-click-outside="closeDropdown"
             />
         </div>
     </div>

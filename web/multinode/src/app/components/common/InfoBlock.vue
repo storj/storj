@@ -3,7 +3,7 @@
 
 <template>
     <div class="info-block">
-        <slot name="body"></slot>
+        <slot name="body" />
     </div>
 </template>
 

@@ -104,10 +104,6 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 func TestAuditSuspendFailedAudit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeID := planet.StorageNodes[0].ID()
 		oc := planet.Satellites[0].Overlay.DB

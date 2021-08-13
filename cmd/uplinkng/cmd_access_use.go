@@ -4,6 +4,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
@@ -13,7 +15,7 @@ import (
 type cmdAccessUse struct {
 	ex ulext.External
 
-	name string
+	access string
 }
 
 func newCmdAccessUse(ex ulext.External) *cmdAccessUse {
@@ -21,7 +23,7 @@ func newCmdAccessUse(ex ulext.External) *cmdAccessUse {
 }
 
 func (c *cmdAccessUse) Setup(params clingy.Parameters) {
-	c.name = params.Arg("name", "Access to use").(string)
+	c.access = params.Arg("access", "Access name to use").(string)
 }
 
 func (c *cmdAccessUse) Execute(ctx clingy.Context) error {
@@ -29,8 +31,14 @@ func (c *cmdAccessUse) Execute(ctx clingy.Context) error {
 	if err != nil {
 		return err
 	}
-	if _, ok := accesses[c.name]; !ok {
-		return errs.New("unknown access: %q", c.name)
+	if _, ok := accesses[c.access]; !ok {
+		return errs.New("unknown access: %q", c.access)
 	}
-	return c.ex.SaveAccessInfo(c.name, accesses)
+	if err := c.ex.SaveAccessInfo(c.access, accesses); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(ctx, "Switched default access to access %q\n", c.access)
+
+	return nil
 }

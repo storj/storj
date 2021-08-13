@@ -18,7 +18,7 @@ func (ex *external) loadConfig() error {
 	}
 	ex.config.values = make(map[string][]string)
 
-	fh, err := os.Open(ex.configFile())
+	fh, err := os.Open(ex.ConfigFile())
 	if os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
@@ -46,7 +46,7 @@ func (ex *external) loadConfig() error {
 func (ex *external) saveConfig(entries []ini.Entry) error {
 	// TODO(jeff): write it atomically
 
-	newFh, err := os.Create(ex.configFile())
+	newFh, err := os.Create(ex.ConfigFile())
 	if err != nil {
 		return errs.Wrap(err)
 	}

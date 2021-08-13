@@ -12,7 +12,7 @@
                 </p>
             </div>
             <div class="warning-view__container__checkbox-area">
-                <v-checkbox @setData="setNotAskMeAgain"/>
+                <v-checkbox @setData="setNotAskMeAgain" />
                 <p class="warning-view__container__checkbox-area__message">Do not ask me again</p>
             </div>
             <div class="warning-view__container__buttons-area">

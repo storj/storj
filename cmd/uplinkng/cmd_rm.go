@@ -29,7 +29,7 @@ func newCmdRm(ex ulext.External) *cmdRm {
 }
 
 func (c *cmdRm) Setup(params clingy.Parameters) {
-	c.access = params.Flag("access", "Which access to use", "").(string)
+	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.recursive = params.Flag("recursive", "Remove recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),

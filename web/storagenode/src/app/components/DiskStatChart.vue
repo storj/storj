@@ -9,28 +9,28 @@
         <div class="disk-stat-area__info-area">
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
-                    <div class="disk-stat-area__info-area__item__labels-area__circle used"></div>
+                    <div class="disk-stat-area__info-area__item__labels-area__circle used" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Used</p>
                 </div>
                 <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.used | bytesToBase10String }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
-                    <div class="disk-stat-area__info-area__item__labels-area__circle free"></div>
+                    <div class="disk-stat-area__info-area__item__labels-area__circle free" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Free</p>
                 </div>
                 <p class="disk-stat-area__info-area__item__labels-area__amount">{{ free | bytesToBase10String }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
-                    <div class="disk-stat-area__info-area__item__labels-area__circle trash"></div>
+                    <div class="disk-stat-area__info-area__item__labels-area__circle trash" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Trash</p>
                 </div>
                 <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.trash | bytesToBase10String }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
-                    <div class="disk-stat-area__info-area__item__labels-area__circle overused"></div>
+                    <div class="disk-stat-area__info-area__item__labels-area__circle overused" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Overused</p>
                 </div>
                 <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.overused | bytesToBase10String }}</p>

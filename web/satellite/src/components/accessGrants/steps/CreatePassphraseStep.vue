@@ -3,7 +3,7 @@
 
 <template>
     <div class="create-passphrase">
-        <BackIcon class="create-passphrase__back-icon" @click="onBackClick"/>
+        <BackIcon class="create-passphrase__back-icon" @click="onBackClick" />
         <GeneratePassphrase
             :is-loading="isLoading"
             :on-button-click="onNextClick"

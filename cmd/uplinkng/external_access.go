@@ -4,10 +4,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
+	"strings"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/uplink"
 )
 
 func (ex *external) loadAccesses() error {
@@ -15,7 +19,7 @@ func (ex *external) loadAccesses() error {
 		return nil
 	}
 
-	fh, err := os.Open(ex.accessFile())
+	fh, err := os.Open(ex.AccessInfoFile())
 	if os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
@@ -37,6 +41,29 @@ func (ex *external) loadAccesses() error {
 	ex.access.loaded = true
 
 	return nil
+}
+
+func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err error) {
+	accessDefault, accesses, err := ex.GetAccessInfo(true)
+	if err != nil {
+		return nil, err
+	}
+	if accessName != "" {
+		accessDefault = accessName
+	}
+
+	if data, ok := accesses[accessDefault]; ok {
+		access, err = uplink.ParseAccess(data)
+	} else {
+		access, err = uplink.ParseAccess(accessDefault)
+		// TODO: if this errors then it's probably a name so don't report an error
+		// that says "it failed to parse"
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return access, nil
 }
 
 func (ex *external) GetAccessInfo(required bool) (string, map[string]string, error) {
@@ -62,7 +89,7 @@ func (ex *external) GetAccessInfo(required bool) (string, map[string]string, err
 func (ex *external) SaveAccessInfo(defaultName string, accesses map[string]string) error {
 	// TODO(jeff): write it atomically
 
-	accessFh, err := os.OpenFile(ex.accessFile(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	accessFh, err := os.OpenFile(ex.AccessInfoFile(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -94,4 +121,18 @@ func (ex *external) SaveAccessInfo(defaultName string, accesses map[string]strin
 	}
 
 	return nil
+}
+
+func (ex *external) RequestAccess(ctx context.Context, token, passphrase string) (*uplink.Access, error) {
+	idx := strings.IndexByte(token, '/')
+	if idx == -1 {
+		return nil, errs.New("invalid setup token. should be 'satelliteAddress/apiKey'")
+	}
+	satelliteAddr, apiKey := token[:idx], token[idx+1:]
+
+	access, err := uplink.RequestAccessWithPassphrase(ctx, satelliteAddr, apiKey, passphrase)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	return access, nil
 }

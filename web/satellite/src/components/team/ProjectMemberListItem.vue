@@ -4,9 +4,9 @@
 <template>
     <div class="user-container" :class="{ 'owner': isProjectOwner }">
         <div class="user-container__base-info">
-            <div v-if="!isProjectOwner" class="checkbox"></div>
+            <div v-if="!isProjectOwner" class="checkbox" />
             <div class="user-container__base-info__avatar" :class="{ 'extra-margin': isProjectOwner }" :style="avatarData.style">
-                <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
+                <h1 class="user-container__base-info__avatar__letter">{{ avatarData.letter }}</h1>
             </div>
             <div class="user-container__base-info__name-area" :title="itemData.name">
                 <p class="user-container__base-info__name-area__user-name">{{ itemData.name }}</p>

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <base-table >
+    <base-table>
         <thead slot="head">
             <tr>
                 <th class="align-left">NODE</th>

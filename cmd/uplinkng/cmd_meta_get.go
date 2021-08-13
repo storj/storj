@@ -30,7 +30,7 @@ func newCmdMetaGet(ex ulext.External) *cmdMetaGet {
 }
 
 func (c *cmdMetaGet) Setup(params clingy.Parameters) {
-	c.access = params.Flag("access", "Which access to use", "").(string)
+	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.encrypted = params.Flag("encrypted", "Shows keys base64 encoded without decrypting", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)

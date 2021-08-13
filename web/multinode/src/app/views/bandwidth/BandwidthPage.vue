@@ -15,6 +15,7 @@
                     <button
                         name="Show Bandwidth Chart"
                         class="chart-container__title-area__chart-choice-item"
+                        type="button"
                         :class="{ 'active': (!isEgressChartShown && !isIngressChartShown) }"
                         @click.stop="openBandwidthChart"
                     >
@@ -23,6 +24,7 @@
                     <button
                         name="Show Egress Chart"
                         class="chart-container__title-area__chart-choice-item"
+                        type="button"
                         :class="{ 'active': isEgressChartShown }"
                         @click.stop="openEgressChart"
                     >
@@ -31,6 +33,7 @@
                     <button
                         name="Show Ingress Chart"
                         class="chart-container__title-area__chart-choice-item"
+                        type="button"
                         :class="{ 'active': isIngressChartShown }"
                         @click.stop="openIngressChart"
                     >
@@ -38,13 +41,13 @@
                     </button>
                 </div>
             </div>
-            <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{ bandwidth.egressSummary | bytesToBase10String }}</b></p>
-            <p class="chart-container__amount" v-else-if="isIngressChartShown"><b>{{ bandwidth.ingressSummary | bytesToBase10String }}</b></p>
-            <p class="chart-container__amount" v-else><b>{{ bandwidth.bandwidthSummary | bytesToBase10String }}</b></p>
-            <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
-                <egress-chart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth"/>
-                <ingress-chart v-else-if="isIngressChartShown" :height="chartHeight" :width="chartWidth"/>
-                <bandwidth-chart v-else :height="chartHeight" :width="chartWidth"/>
+            <p v-if="isEgressChartShown" class="chart-container__amount"><b>{{ bandwidth.egressSummary | bytesToBase10String }}</b></p>
+            <p v-else-if="isIngressChartShown" class="chart-container__amount"><b>{{ bandwidth.ingressSummary | bytesToBase10String }}</b></p>
+            <p v-else class="chart-container__amount"><b>{{ bandwidth.bandwidthSummary | bytesToBase10String }}</b></p>
+            <div ref="chart" class="chart-container__chart" onresize="recalculateChartDimensions()">
+                <egress-chart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" />
+                <ingress-chart v-else-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" />
+                <bandwidth-chart v-else :height="chartHeight" :width="chartWidth" />
             </div>
         </div>
         <section class="bandwidth__chart-area">
@@ -53,8 +56,8 @@
                     <p class="chart-container__title-area__title">Disk Space Used This Month</p>
                 </div>
                 <p class="chart-container__amount disk-space-amount"><b>{{ diskSpaceUsageSummary | bytesToBase10String }}*h</b></p>
-                <div class="chart-container__chart" ref="diskSpaceChart" onresize="recalculateChartDimensions()" >
-                    <disk-space-chart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth"/>
+                <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
+                    <disk-space-chart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" />
                 </div>
             </section>
             <section class="disk-stat-chart">

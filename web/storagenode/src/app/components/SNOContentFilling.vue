@@ -81,6 +81,7 @@
                         <button
                             name="Show Egress Chart"
                             class="chart-container__title-area__chart-choice-item"
+                            type="button"
                             :class="{ 'egress-chart-shown': isEgressChartShown }"
                             @click.stop="toggleEgressChartShowing"
                         >
@@ -89,6 +90,7 @@
                         <button
                             name="Show Ingress Chart"
                             class="chart-container__title-area__chart-choice-item"
+                            type="button"
                             :class="{ 'ingress-chart-shown': isIngressChartShown }"
                             @click.stop="toggleIngressChartShowing"
                         >
@@ -96,13 +98,13 @@
                         </button>
                     </div>
                 </div>
-                <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{ bandwidthSummary }}</b></p>
-                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{ egressSummary }}</b></p>
-                <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ ingressSummary }}</b></p>
-                <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
-                    <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                    <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                    <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
+                <p v-if="isBandwidthChartShown" class="chart-container__amount"><b>{{ bandwidthSummary }}</b></p>
+                <p v-if="isEgressChartShown" class="chart-container__amount"><b>{{ egressSummary }}</b></p>
+                <p v-if="isIngressChartShown" class="chart-container__amount"><b>{{ ingressSummary }}</b></p>
+                <div ref="chart" class="chart-container__chart" onresize="recalculateChartDimensions()">
+                    <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
+                    <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
+                    <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
                 </div>
             </div>
         </section>
@@ -113,8 +115,8 @@
                     <p class="chart-container__title-area__title">Disk Space Used This Month</p>
                 </div>
                 <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*h</b></p>
-                <div class="chart-container__chart" ref="diskSpaceChart" onresize="recalculateChartDimensions()" >
-                    <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode"/>
+                <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
+                    <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode" />
                 </div>
             </section>
             <section>
@@ -123,7 +125,7 @@
         </section>
         <div>
             <p class="info-area__title">Suspension & Audit</p>
-            <div class="info-area__checks-area" v-if="selectedSatellite.id">
+            <div v-if="selectedSatellite.id" class="info-area__checks-area">
                 <ChecksArea
                     label="Suspension Score"
                     :amount="audits.suspensionScore.label"

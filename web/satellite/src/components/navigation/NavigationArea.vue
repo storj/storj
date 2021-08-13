@@ -2,18 +2,18 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="navigation-area" v-if="!isNavigationHidden">
-        <EditProjectDropdown/>
+    <div v-if="!isNavigationHidden" class="navigation-area">
+        <EditProjectDropdown />
         <router-link
-            :aria-label="navItem.name"
-            class="navigation-area__item-container"
             v-for="navItem in navigation"
             :key="navItem.name"
+            :aria-label="navItem.name"
+            class="navigation-area__item-container"
             :to="navItem.path"
         >
             <div class="navigation-area__item-container__link">
-                <component class="navigation-area__item-container__link__icon" :is="navItem.icon"/>
-                <p class="navigation-area__item-container__link__title">{{navItem.name}}</p>
+                <component :is="navItem.icon" class="navigation-area__item-container__link__icon" />
+                <p class="navigation-area__item-container__link__title">{{ navItem.name }}</p>
             </div>
         </router-link>
     </div>

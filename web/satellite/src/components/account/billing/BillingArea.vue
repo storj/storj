@@ -3,53 +3,53 @@
 
 <template>
     <div class="account-billing-area">
-        <div class="account-billing-area__notification-container" v-if="hasNoCreditCard">
-            <div class="account-billing-area__notification-container__negative-balance" v-if="isBalanceNegative">
-                <NegativeBalanceIcon/>
+        <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
+            <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
+                <NegativeBalanceIcon />
                 <p class="account-billing-area__notification-container__negative-balance__text">
                     Your usage charges exceed your account balance. Please add STORJ Tokens or a debit/credit card to
                     prevent data loss.
                 </p>
             </div>
-            <div class="account-billing-area__notification-container__low-balance" v-if="isBalanceLow">
-                <LowBalanceIcon/>
+            <div v-if="isBalanceLow" class="account-billing-area__notification-container__low-balance">
+                <LowBalanceIcon />
                 <p class="account-billing-area__notification-container__low-balance__text">
                     Your account balance is running low. Please add STORJ Tokens or a debit/credit card to prevent data loss.
                 </p>
             </div>
         </div>
-        <div class="account-billing-area__title-area" v-if="userHasOwnProject" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
+        <div v-if="userHasOwnProject" class="account-billing-area__title-area" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
             <div class="account-billing-area__title-area__balance-area">
                 <div class="account-billing-area__title-area__balance-area__free-credits">
                     <p class="account-billing-area__title-area__balance-area__free-credits__label">Free Credits:</p>
-                    <VLoader v-if="isBalanceFetching" width="20px" height="20px"/>
+                    <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
                     <p v-else>{{ balance.freeCredits | centsToDollars }}</p>
                 </div>
-                <div @click.stop="toggleBalanceDropdown" class="account-billing-area__title-area__balance-area__tokens-area">
+                <div class="account-billing-area__title-area__balance-area__tokens-area" @click.stop="toggleBalanceDropdown">
                     <p class="account-billing-area__title-area__balance-area__tokens-area__label" :style="{ color: balanceColor }">
                         Available Balance:
                     </p>
-                    <VLoader v-if="isBalanceFetching" width="20px" height="20px"/>
+                    <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
                     <p v-else>
                         {{ balance.coins | centsToDollars }}
                     </p>
-                    <HideIcon v-if="isBalanceDropdownShown" class="icon"/>
-                    <ExpandIcon v-else class="icon"/>
+                    <HideIcon v-if="isBalanceDropdownShown" class="icon" />
+                    <ExpandIcon v-else class="icon" />
                     <HistoryDropdown
                         v-show="isBalanceDropdownShown"
-                        @close="closeDropdown"
                         label="Balance History"
                         :route="balanceHistoryRoute"
+                        @close="closeDropdown"
                     />
                 </div>
             </div>
-            <PeriodSelection v-if="userHasOwnProject"/>
+            <PeriodSelection v-if="userHasOwnProject" />
         </div>
-        <EstimatedCostsAndCredits v-if="isSummaryVisible"/>
-        <PaymentMethods/>
-        <SmallDepositHistory/>
+        <EstimatedCostsAndCredits v-if="isSummaryVisible" />
+        <PaymentMethods />
+        <SmallDepositHistory />
         <CreditsHistory />
-        <router-view/>
+        <router-view />
     </div>
 </template>
 

@@ -6,16 +6,15 @@
         <div class="change-password-popup">
             <div class="change-password-popup__form-container">
                 <div class="change-password-row-container">
-                    <ChangePasswordIcon class="change-password-popup__form-container__svg"/>
+                    <ChangePasswordIcon class="change-password-popup__form-container__svg" />
                     <h2 class="change-password-popup__form-container__main-label-text">Change Password</h2>
                 </div>
                 <HeaderlessInput
                     class="full-input"
                     label="Old Password"
-                    placeholder ="Enter Old Password"
+                    placeholder="Enter Old Password"
                     width="100%"
                     is-password="true"
-                    ref="oldPasswordInput"
                     :error="oldPasswordError"
                     @setData="setOldPassword"
                 />
@@ -23,9 +22,8 @@
                     <HeaderlessInput
                         class="full-input"
                         label="New Password"
-                        placeholder ="Enter New Password"
+                        placeholder="Enter New Password"
                         width="100%"
-                        ref="newPasswordInput"
                         is-password="true"
                         :error="newPasswordError"
                         @setData="setNewPassword"
@@ -42,7 +40,6 @@
                     label="Confirm Password"
                     placeholder="Confirm Password"
                     width="100%"
-                    ref="confirmPasswordInput"
                     is-password="true"
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation"
@@ -64,7 +61,7 @@
                 </div>
             </div>
             <div class="change-password-popup__close-cross-container" @click="onCloseClick">
-                <CloseCrossIcon/>
+                <CloseCrossIcon />
             </div>
         </div>
     </div>

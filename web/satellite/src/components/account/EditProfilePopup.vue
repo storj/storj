@@ -7,7 +7,7 @@
             <div class="edit-profile-popup__form-container">
                 <div class="edit-profile-row-container">
                     <div class="edit-profile-popup__form-container__avatar">
-                        <h1 class="edit-profile-popup__form-container__avatar__letter">{{avatarLetter}}</h1>
+                        <h1 class="edit-profile-popup__form-container__avatar__letter">{{ avatarLetter }}</h1>
                     </div>
                     <h2 class="edit-profile-popup__form-container__main-label-text">Edit Profile</h2>
                 </div>
@@ -16,7 +16,6 @@
                     label="Full Name"
                     placeholder="Enter Full Name"
                     width="100%"
-                    ref="fullNameInput"
                     :error="fullNameError"
                     :init-value="userInfo.fullName"
                     @setData="setFullName"
@@ -38,7 +37,7 @@
                 </div>
             </div>
             <div class="edit-profile-popup__close-cross-container" @click="onCloseClick">
-                <CloseCrossIcon/>
+                <CloseCrossIcon />
             </div>
         </div>
     </div>

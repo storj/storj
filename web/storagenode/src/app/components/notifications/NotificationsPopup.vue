@@ -10,9 +10,9 @@
             </a>
         </div>
         <div
+            v-if="latest.length"
             class="notification-popup-container__content"
             :class="{'collapsed': isCollapsed}"
-            v-if="latest.length"
         >
             <SNONotification
                 v-for="notification in latest"
@@ -21,7 +21,7 @@
                 :notification="notification"
             />
         </div>
-        <div class="notification-popup-container__empty-state" v-else>
+        <div v-else class="notification-popup-container__empty-state">
             <img src="@/../static/images/notifications/EmptyState.png" alt="Empty state image">
             <p class="notification-popup-container__empty-state__label">No notifications yet</p>
         </div>

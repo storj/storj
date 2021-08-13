@@ -157,8 +157,6 @@ type Server struct {
 		notFound            *template.Template
 		internalServerError *template.Template
 		usageReport         *template.Template
-		resetPassword       *template.Template
-		success             *template.Template
 	}
 }
 
@@ -231,6 +229,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/register", server.rateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost)
 	authRouter.Handle("/forgot-password/{email}", server.rateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
 	authRouter.Handle("/resend-email/{id}", server.rateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
+	authRouter.Handle("/reset-password", server.rateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost)
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -245,6 +244,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/couponcodes/apply", paymentController.ApplyCouponCode).Methods(http.MethodPatch)
+	paymentsRouter.HandleFunc("/couponcodes/coupon", paymentController.HasCouponApplied).Methods(http.MethodGet)
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
@@ -263,7 +263,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
-		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
 		router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
@@ -571,58 +570,6 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	http.Redirect(w, r, server.config.AccountActivationRedirectURL, http.StatusTemporaryRedirect)
 }
 
-func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-
-	recoveryToken := r.URL.Query().Get("token")
-	if len(recoveryToken) == 0 {
-		server.serveError(w, http.StatusNotFound)
-		return
-	}
-
-	var data struct {
-		SatelliteName string
-	}
-
-	data.SatelliteName = server.config.SatelliteName
-
-	switch r.Method {
-	case http.MethodPost:
-		err := r.ParseForm()
-		if err != nil {
-			server.serveError(w, http.StatusNotFound)
-			return
-		}
-
-		password := r.FormValue("password")
-		passwordRepeat := r.FormValue("passwordRepeat")
-		if strings.Compare(password, passwordRepeat) != 0 {
-			server.serveError(w, http.StatusNotFound)
-			return
-		}
-
-		err = server.service.ResetPassword(ctx, recoveryToken, password)
-		if err != nil {
-			server.serveError(w, http.StatusNotFound)
-			return
-		}
-
-		if err := server.templates.success.Execute(w, data); err != nil {
-			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
-			return
-		}
-	case http.MethodGet:
-		if err := server.templates.resetPassword.Execute(w, data); err != nil {
-			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
-			return
-		}
-	default:
-		server.serveError(w, http.StatusNotFound)
-		return
-	}
-}
-
 func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -816,16 +763,6 @@ func (server *Server) initializeTemplates() (err error) {
 	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {
 		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
-	}
-
-	server.templates.success, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "success.html"))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	server.templates.resetPassword, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
-	if err != nil {
-		return Error.Wrap(err)
 	}
 
 	server.templates.usageReport, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))

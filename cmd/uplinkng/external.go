@@ -66,8 +66,8 @@ func (ex *external) Setup(f clingy.Flags) {
 	ex.dirs.loaded = true
 }
 
-func (ex *external) accessFile() string       { return filepath.Join(ex.dirs.current, "access.json") }
-func (ex *external) configFile() string       { return filepath.Join(ex.dirs.current, "config.ini") }
+func (ex *external) AccessInfoFile() string   { return filepath.Join(ex.dirs.current, "access.json") }
+func (ex *external) ConfigFile() string       { return filepath.Join(ex.dirs.current, "config.ini") }
 func (ex *external) legacyConfigFile() string { return filepath.Join(ex.dirs.legacy, "config.yaml") }
 
 // Dynamic is called by clingy to look up values for global flags not specified on the command

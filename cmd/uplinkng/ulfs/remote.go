@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulloc"
 	"storj.io/uplink"
 )
 
@@ -63,14 +64,14 @@ func (r *Remote) ListObjects(ctx context.Context, bucket, prefix string, recursi
 		parentPrefix = prefix[:idx+1]
 	}
 
-	trim := parentPrefix
-	if recursive {
-		trim = ""
+	trim := ulloc.NewRemote(bucket, "")
+	if !recursive {
+		trim = ulloc.NewRemote(bucket, parentPrefix)
 	}
 
 	return &filteredObjectIterator{
 		trim:   trim,
-		filter: prefix,
+		filter: ulloc.NewRemote(bucket, prefix),
 		iter: newUplinkObjectIterator(bucket, r.project.ListObjects(ctx, bucket,
 			&uplink.ListObjectsOptions{
 				Prefix:    parentPrefix,
@@ -87,14 +88,14 @@ func (r *Remote) ListUploads(ctx context.Context, bucket, prefix string, recursi
 		parentPrefix = prefix[:idx+1]
 	}
 
-	trim := parentPrefix
-	if recursive {
-		trim = ""
+	trim := ulloc.NewRemote(bucket, "")
+	if !recursive {
+		trim = ulloc.NewRemote(bucket, parentPrefix)
 	}
 
 	return &filteredObjectIterator{
 		trim:   trim,
-		filter: prefix,
+		filter: ulloc.NewRemote(bucket, prefix),
 		iter: newUplinkUploadIterator(bucket, r.project.ListUploads(ctx, bucket,
 			&uplink.ListUploadsOptions{
 				Prefix:    parentPrefix,

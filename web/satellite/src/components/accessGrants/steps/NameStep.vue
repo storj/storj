@@ -9,8 +9,8 @@
             class="name-step__input"
             label="Access Grant Name"
             placeholder="Enter a name here..."
-            @setData="onChangeName"
             :error="errorMessage"
+            @setData="onChangeName"
         />
         <div class="name-step__buttons-area">
             <VButton

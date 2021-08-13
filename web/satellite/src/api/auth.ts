@@ -345,4 +345,35 @@ export class AuthHttpApi {
 
         throw new Error('Can not generate MFA recovery codes. Please try again later');
     }
+
+    /**
+     * Used to reset user's password.
+     *
+     * @throws Error
+     */
+    public async resetPassword(token: string, password: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/reset-password`;
+
+        const body = {
+            token: token,
+            password: password,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        const errMsg = result.error || 'Cannot reset password';
+        switch (response.status) {
+        case 400:
+            throw new ErrorBadRequest(errMsg);
+        case 401:
+            throw new ErrorUnauthorized(errMsg);
+        default:
+            throw new Error(errMsg);
+        }
+    }
 }

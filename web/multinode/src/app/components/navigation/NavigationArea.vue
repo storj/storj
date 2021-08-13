@@ -5,14 +5,14 @@
     <div class="navigation-area">
         <storj-logo class="navigation-area__logo" />
         <router-link
-            :aria-label="navItem.name"
-            class="navigation-area__item-container"
             v-for="navItem in navigation"
             :key="navItem.name"
+            :aria-label="navItem.name"
+            class="navigation-area__item-container"
             :to="navItem.path"
         >
             <div class="navigation-area__item-container__link">
-                <component :is="navItem.icon"></component>
+                <component :is="navItem.icon" />
                 <p class="navigation-area__item-container__link__title">{{ navItem.name }}</p>
             </div>
         </router-link>

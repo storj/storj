@@ -5,26 +5,26 @@
     <div class="pagination-container">
         <div class="pagination-container__pages">
             <div class="pagination-container__button" @click="prevPage">
-                <PaginationLeftIcon class="pagination-container__button__image"/>
+                <PaginationLeftIcon class="pagination-container__button__image" />
             </div>
             <div class="pagination-container__items">
                 <PagesBlock
                     :pages="firstBlockPages"
                     :is-selected="isSelected"
                 />
-                <span class="pages-divider" v-if="isFirstDotsShown">...</span>
+                <span v-if="isFirstDotsShown" class="pages-divider">...</span>
                 <PagesBlock
                     :pages="middleBlockPages"
                     :is-selected="isSelected"
                 />
-                <span class="pages-divider" v-if="isSecondDotsShown">...</span>
+                <span v-if="isSecondDotsShown" class="pages-divider">...</span>
                 <PagesBlock
                     :pages="lastBlockPages"
                     :is-selected="isSelected"
                 />
             </div>
             <div class="pagination-container__button" @click="nextPage">
-                <PaginationRightIcon class="pagination-container__button__image"/>
+                <PaginationRightIcon class="pagination-container__button__image" />
             </div>
         </div>
     </div>

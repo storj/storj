@@ -19,8 +19,8 @@
                 </div>
             </section>
             <p class="payout-area-container__section-title">Payout</p>
-            <EstimationArea class="payout-area-container__estimation"/>
-            <PayoutHistoryTable class="payout-area-container__payout-history-table" v-if="payoutPeriods.length > 0" />
+            <EstimationArea class="payout-area-container__estimation" />
+            <PayoutHistoryTable v-if="payoutPeriods.length > 0" class="payout-area-container__payout-history-table" />
             <p class="payout-area-container__section-title">Held Amount</p>
             <p class="additional-text">
                 Learn more about held back
@@ -35,7 +35,7 @@
             </p>
             <section class="payout-area-container__held-info-area">
                 <TotalHeldArea v-if="isSatelliteSelected" />
-                <div class="row" v-else >
+                <div v-else class="row">
                     <SingleInfo width="48%" label="Total Held Amount" :value="totalPayments.held | centsToDollars" />
                     <SingleInfo width="48%" label="Total Held Returned" :value="totalPayments.disposed | centsToDollars" />
                 </div>

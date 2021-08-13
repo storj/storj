@@ -4,22 +4,22 @@
 <template>
     <div class="history-area">
         <div class="history-area__back-area" @click.stop="onBackToBillingClick">
-            <BackImage/>
+            <BackImage />
             <p class="history-area__back-area__title">Back to Billing</p>
         </div>
-        <h1 class="history-area__title" v-if="isBillingHistory">Billing History</h1>
-        <h1 class="history-area__title" v-else>Balance History</h1>
-        <VLoader v-if="isDataFetching" height="100px" width="100px" class="history-loader"/>
+        <h1 v-if="isBillingHistory" class="history-area__title">Billing History</h1>
+        <h1 v-else class="history-area__title">Balance History</h1>
+        <VLoader v-if="isDataFetching" height="100px" width="100px" class="history-loader" />
         <template v-else>
-            <div class="history-area__content" v-if="historyItems.length > 0">
-                <SortingHeader/>
+            <div v-if="historyItems.length > 0" class="history-area__content">
+                <SortingHeader />
                 <PaymentsItem
                     v-for="item in historyItems"
-                    :billing-item="item"
                     :key="item.id"
+                    :billing-item="item"
                 />
             </div>
-            <h2 class="history-area__empty-state" v-else>No Items Yet</h2>
+            <h2 v-else class="history-area__empty-state">No Items Yet</h2>
         </template>
     </div>
 </template>

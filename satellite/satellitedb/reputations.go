@@ -26,79 +26,93 @@ type reputations struct {
 	db *satelliteDB
 }
 
+// Update updates a node's reputation stats.
+// The update is done in a loop to handle concurrent update calls and to avoid
+// the need for a explicit transaction.
+// There are two main steps go into the update process:
+// 1. Get existing row for the node
+// 2. Depends on the result of the first step,
+//	a. if existing row is returned, do compare-and-swap.
+//	b. if no row found, insert a new row.
 func (reputations *reputations) Update(ctx context.Context, updateReq reputation.UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, changed bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodeID := updateReq.NodeID
-
-	var dbNode *dbx.Reputation
-	var oldStatus overlay.ReputationStatus
-	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-		if err != nil {
-			return err
+	for {
+		// get existing reputation stats
+		dbNode, err := reputations.db.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(updateReq.NodeID.Bytes()))
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, false, Error.Wrap(err)
 		}
 
-		dbNode, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
-		if errors.Is(err, sql.ErrNoRows) {
+		// if this is a new node, we will insert a new entry into the table
+		if dbNode == nil {
 			historyBytes, err := pb.Marshal(&internalpb.AuditHistory{})
 			if err != nil {
-				return err
+				return nil, false, Error.Wrap(err)
 			}
 
-			_, err = tx.Tx.ExecContext(ctx, `
-				INSERT INTO reputations (id, audit_history)
-				VALUES ($1, $2);
-			`, nodeID.Bytes(), historyBytes)
+			auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, historyBytes, updateReq, now)
 			if err != nil {
-				return err
+				return nil, false, Error.Wrap(err)
 			}
 
-			dbNode, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
-			if err != nil {
-				return err
+			// set default reputation stats for new node
+			newNode := dbx.Reputation{
+				Id:                          updateReq.NodeID.Bytes(),
+				UnknownAuditReputationAlpha: 1,
+				AuditReputationAlpha:        1,
+				OnlineScore:                 1,
+				AuditHistory:                auditHistoryResponse.History,
 			}
-		} else if err != nil {
-			return err
+
+			createFields := reputations.populateCreateFields(&newNode, updateReq, auditHistoryResponse, now)
+			stats, err := reputations.db.Create_Reputation(ctx, dbx.Reputation_Id(updateReq.NodeID.Bytes()), dbx.Reputation_AuditHistory(auditHistoryResponse.History), createFields)
+			if err != nil {
+				// if node has been added into the table during a concurrent
+				// Update call happened between Get and Insert, we will try again so the audit is recorded
+				// correctly
+				if dbx.IsConstraintError(err) {
+					mon.Event("reputations_update_query_retry_create")
+					continue
+				}
+
+				return nil, false, Error.Wrap(err)
+			}
+
+			rep := getNodeStatus(stats)
+			return &rep, !rep.Equal(overlay.ReputationStatus{}), nil
 		}
 
 		// do not update reputation if node is disqualified
 		if dbNode.Disqualified != nil {
-			return nil
+			return nil, false, nil
 		}
 
-		oldStatus = overlay.ReputationStatus{
-			Contained:             dbNode.Contained,
-			Disqualified:          dbNode.Disqualified,
-			UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
-			OfflineSuspended:      dbNode.OfflineSuspended,
-			VettedAt:              dbNode.VettedAt,
-		}
+		oldStats := getNodeStatus(dbNode)
 
-		isUp := updateReq.AuditOutcome != reputation.AuditOffline
-		auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, dbNode.AuditHistory, now, isUp, updateReq.AuditHistory)
+		auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, dbNode.AuditHistory, updateReq, now)
 		if err != nil {
-			return err
+			return nil, false, Error.Wrap(err)
 		}
 
 		updateFields := reputations.populateUpdateFields(dbNode, updateReq, auditHistoryResponse, now)
-		dbNode, err = tx.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()), updateFields)
+		oldAuditHistory := dbx.Reputation_AuditHistory(dbNode.AuditHistory)
+		dbNode, err = reputations.db.Update_Reputation_By_Id_And_AuditHistory(ctx, dbx.Reputation_Id(updateReq.NodeID.Bytes()), oldAuditHistory, updateFields)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, false, Error.Wrap(err)
+		}
 
-		return err
-	})
-	if err != nil {
-		return nil, false, Error.Wrap(err)
+		// if update failed due to concurrent audit_history updates, we will try
+		// again to get the latest data and update it
+		if dbNode == nil {
+			mon.Event("reputations_update_query_retry_update")
+			continue
+		}
+
+		newStats := getNodeStatus(dbNode)
+		return &newStats, !newStats.Equal(oldStats), nil
 	}
 
-	newStatus := overlay.ReputationStatus{
-		Contained:             dbNode.Contained,
-		Disqualified:          dbNode.Disqualified,
-		UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
-		OfflineSuspended:      dbNode.OfflineSuspended,
-		VettedAt:              dbNode.VettedAt,
-	}
-
-	return getNodeStatus(dbNode), !oldStatus.Equal(newStatus), nil
 }
 
 // SetNodeStatus updates node reputation status.
@@ -269,8 +283,70 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 	return Error.Wrap(err)
 }
 
-func (reputations *reputations) populateUpdateFields(dbNode *dbx.Reputation, updateReq reputation.UpdateRequest, auditHistoryResponse *reputation.UpdateAuditHistoryResponse, now time.Time) dbx.Reputation_Update_Fields {
+func (reputations *reputations) populateCreateFields(dbNode *dbx.Reputation, updateReq reputation.UpdateRequest, auditHistoryResponse *reputation.UpdateAuditHistoryResponse, now time.Time) dbx.Reputation_Create_Fields {
+	update := reputations.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
 
+	createFields := dbx.Reputation_Create_Fields{}
+
+	if update.VettedAt.set {
+		createFields.VettedAt = dbx.Reputation_VettedAt(update.VettedAt.value)
+	}
+	if update.TotalAuditCount.set {
+		createFields.TotalAuditCount = dbx.Reputation_TotalAuditCount(update.TotalAuditCount.value)
+	}
+	if update.AuditReputationAlpha.set {
+		createFields.AuditReputationAlpha = dbx.Reputation_AuditReputationAlpha(update.AuditReputationAlpha.value)
+	}
+	if update.AuditReputationBeta.set {
+		createFields.AuditReputationBeta = dbx.Reputation_AuditReputationBeta(update.AuditReputationBeta.value)
+	}
+	if update.Disqualified.set {
+		createFields.Disqualified = dbx.Reputation_Disqualified(update.Disqualified.value)
+	}
+	if update.UnknownAuditReputationAlpha.set {
+		createFields.UnknownAuditReputationAlpha = dbx.Reputation_UnknownAuditReputationAlpha(update.UnknownAuditReputationAlpha.value)
+	}
+	if update.UnknownAuditReputationBeta.set {
+		createFields.UnknownAuditReputationBeta = dbx.Reputation_UnknownAuditReputationBeta(update.UnknownAuditReputationBeta.value)
+	}
+	if update.UnknownAuditSuspended.set {
+		if update.UnknownAuditSuspended.isNil {
+			createFields.UnknownAuditSuspended = dbx.Reputation_UnknownAuditSuspended_Null()
+		} else {
+			createFields.UnknownAuditSuspended = dbx.Reputation_UnknownAuditSuspended(update.UnknownAuditSuspended.value)
+		}
+	}
+	if update.AuditSuccessCount.set {
+		createFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(update.AuditSuccessCount.value)
+	}
+	if update.Contained.set {
+		createFields.Contained = dbx.Reputation_Contained(update.Contained.value)
+	}
+	if updateReq.AuditOutcome == reputation.AuditSuccess {
+		createFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
+	}
+
+	if update.OnlineScore.set {
+		createFields.OnlineScore = dbx.Reputation_OnlineScore(update.OnlineScore.value)
+	}
+	if update.OfflineSuspended.set {
+		if update.OfflineSuspended.isNil {
+			createFields.OfflineSuspended = dbx.Reputation_OfflineSuspended_Null()
+		} else {
+			createFields.OfflineSuspended = dbx.Reputation_OfflineSuspended(update.OfflineSuspended.value)
+		}
+	}
+	if update.OfflineUnderReview.set {
+		if update.OfflineUnderReview.isNil {
+			createFields.UnderReview = dbx.Reputation_UnderReview_Null()
+		} else {
+			createFields.UnderReview = dbx.Reputation_UnderReview(update.OfflineUnderReview.value)
+		}
+	}
+
+	return createFields
+}
+func (reputations *reputations) populateUpdateFields(dbNode *dbx.Reputation, updateReq reputation.UpdateRequest, auditHistoryResponse *reputation.UpdateAuditHistoryResponse, now time.Time) dbx.Reputation_Update_Fields {
 	update := reputations.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
 
 	updateFields := dbx.Reputation_Update_Fields{
@@ -563,8 +639,8 @@ type updateNodeStats struct {
 	OnlineScore                 float64Field
 }
 
-func getNodeStatus(dbNode *dbx.Reputation) *overlay.ReputationStatus {
-	return &overlay.ReputationStatus{
+func getNodeStatus(dbNode *dbx.Reputation) overlay.ReputationStatus {
+	return overlay.ReputationStatus{
 		Contained:             dbNode.Contained,
 		VettedAt:              dbNode.VettedAt,
 		Disqualified:          dbNode.Disqualified,

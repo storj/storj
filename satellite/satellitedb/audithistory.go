@@ -77,8 +77,12 @@ func addAudit(a *internalpb.AuditHistory, auditTime time.Time, online bool, conf
 	return nil
 }
 
-func (reputations *reputations) UpdateAuditHistory(ctx context.Context, oldHistory []byte, auditTime time.Time, online bool, config reputation.AuditHistoryConfig) (res *reputation.UpdateAuditHistoryResponse, err error) {
+func (reputations *reputations) UpdateAuditHistory(ctx context.Context, oldHistory []byte, updateReq reputation.UpdateRequest, auditTime time.Time) (res *reputation.UpdateAuditHistoryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	config := updateReq.AuditHistory
+
+	online := updateReq.AuditOutcome != reputation.AuditOffline
 
 	res = &reputation.UpdateAuditHistoryResponse{
 		NewScore:           1,
@@ -105,7 +109,7 @@ func (reputations *reputations) UpdateAuditHistory(ctx context.Context, oldHisto
 	windowsPerTrackingPeriod := int(config.TrackingPeriod.Seconds() / config.WindowSize.Seconds())
 	res.TrackingPeriodFull = len(history.Windows)-1 >= windowsPerTrackingPeriod
 	res.NewScore = history.Score
-	return res, Error.Wrap(err)
+	return res, nil
 }
 
 // GetAuditHistory gets a node's audit history.
