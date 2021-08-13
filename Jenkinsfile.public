@@ -64,7 +64,8 @@ pipeline {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26270 --http-addr=localhost:8091 --cache 256MiB --max-sql-memory 256MiB --background'
-                        }
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26270 --http-addr=localhost:8092 --cache 256MiB --max-sql-memory 256MiB --background'
+                       }
                     }
                 }
 
@@ -222,8 +223,8 @@ pipeline {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26270/testui?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
                         STORJ_TEST_BROWSER  = '/usr/bin/chromium'
-                        STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
-                        //STORJ_TEST_SATELLITE_WEB = 'built npm'
+                        // STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
+                        STORJ_TEST_SATELLITE_WEB = 'built npm'
                         STORJ_TEST_GATEWAY_ADDR = '127.0.0.1'
                         STORJ_TEST_AUTHSRV_ADDR = '127.0.0.1'
 
@@ -238,6 +239,41 @@ pipeline {
                             //sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -race -json ... 2>&1 | tee ui-tests.json | xunit -out ui-tests.xml'
                             sh 'go test -vet=off -race -json ./ui/... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
                         }
+                    }
+                    post {
+                        always {
+                            sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/ui-tests.json'
+                            junit '.build/ui-tests.xml'
+                        }
+                    }
+                }
+
+                stage('UI_Private') {
+                    environment {
+                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testui2?sslmode=disable'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui2?sslmode=disable'
+                        STORJ_TEST_BROWSER  = '/usr/bin/chromium'
+                        STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
+
+                        DISPLAY = ':99'
+                    }
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testui2;\''
+                        sh 'psql -U postgres -c \'create database testui2;\''
+
+                        sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
+
+                        // TODO: this is not quite correct
+                        sh 'mkdir ${STORJ_TEST_SATELLITE_WEB}/wasm'
+                        sh 'cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" ${STORJ_TEST_SATELLITE_WEB}/wasm/wasm_exec.js'
+                        sh 'GOOS=js GOARCH=wasm go build -o ${STORJ_TEST_SATELLITE_WEB}/wasm/main.wasm storj.io/storj/satellite/console/wasm'
+
+                        sh 'cd .build/satellite-web && npm install'
+                        sh 'cd .build/satellite-web && npm run build'
+
+                        sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
+                        sh 'cd testsuite && go test -vet=off -race -json ./ui/... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
                     }
                     post {
                         always {
