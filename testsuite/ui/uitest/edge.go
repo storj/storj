@@ -45,8 +45,8 @@ func RunWithEdge(t *testing.T, test EdgeTest) {
 		authSvcAddr := os.Getenv("STORJ_TEST_AUTHSRV_ADDR")
 		satelliteURL := planet.Satellites[0].URL()
 
-		gatewayExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/gateway-mt")
-		authSvcExe := compileAt(t, ctx, "../../cmd", "storj.io/gateway-mt/cmd/authservice")
+		gatewayExe := compileAt(t, ctx, "./cmd", "storj.io/gateway-mt/cmd/gateway-mt")
+		authSvcExe := compileAt(t, ctx, "./cmd", "storj.io/gateway-mt/cmd/authservice")
 
 		authSvc, err := startAuthSvc(t, authSvcExe, authSvcAddr, gatewayAddr, satelliteURL)
 		require.NoError(t, err)
