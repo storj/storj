@@ -63,8 +63,7 @@ pipeline {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26270 --http-addr=localhost:8091 --cache 256MiB --max-sql-memory 256MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26271 --http-addr=localhost:8092 --cache 256MiB --max-sql-memory 256MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26261 --http-addr=localhost:8091 --cache 256MiB --max-sql-memory 256MiB --background'
                        }
                     }
                 }
@@ -134,7 +133,8 @@ pipeline {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
+                            'cockroach://root@localhost:26259/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26261/testcockroach?sslmode=disable'
                         STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
@@ -147,7 +147,7 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
                         sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
 
-                        sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testmetabase;\''
+                        sh 'cockroach sql --insecure --host=localhost:26261 -e \'create database testmetabase;\''
 
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'psql -U postgres -c \'create database testmetabase;\''
@@ -157,6 +157,13 @@ pipeline {
 
                         sh 'check-clean-directory'
                     }
+                     post {
+                        always {
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/tests.json'
+                            junit '.build/tests.xml'
+                        }
+            }
                 }
 
                 stage('Check Benchmark') {
