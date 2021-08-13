@@ -64,7 +64,7 @@ pipeline {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26270 --http-addr=localhost:8091 --cache 256MiB --max-sql-memory 256MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26270 --http-addr=localhost:8092 --cache 256MiB --max-sql-memory 256MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26271 --http-addr=localhost:8092 --cache 256MiB --max-sql-memory 256MiB --background'
                        }
                     }
                 }
