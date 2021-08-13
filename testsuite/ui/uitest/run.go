@@ -46,7 +46,7 @@ func Run(t *testing.T, test Test) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.StaticDir = os.Getenv("STORJ_TEST_SATELLITE_WEB")
+				// config.Console.StaticDir = os.Getenv("STORJ_TEST_SATELLITE_WEB")
 			},
 		},
 		NonParallel: true,
