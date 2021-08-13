@@ -5,6 +5,8 @@ package main
 
 import (
 	"os"
+	"sort"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"github.com/zeebo/ini"
@@ -39,6 +41,30 @@ func (ex *external) loadConfig() error {
 
 	ex.config.loaded = true
 	return nil
+}
+
+// SaveConfig writes out the config file using the provided values.
+// It is only intended to be used during initial migration and setup.
+func (ex *external) SaveConfig(values map[string]string) error {
+	entries := make([]ini.Entry, 0, len(values))
+	for k, v := range values {
+		var section string
+		if idx := strings.LastIndexByte(k, '.'); idx >= 0 {
+			section, k = k[:idx], k[idx+1:]
+		}
+		entries = append(entries, ini.Entry{
+			Section: section,
+			Key:     k,
+			Value:   v,
+		})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Section == entries[j].Section {
+			return entries[i].Key < entries[j].Key
+		}
+		return entries[i].Section < entries[j].Section
+	})
+	return ex.saveConfig(entries)
 }
 
 // saveConfig writes out the config file using the provided values.

@@ -72,7 +72,7 @@ func (ex *external) GetAccessInfo(required bool) (string, map[string]string, err
 			return "", nil, err
 		}
 		if required && !ex.access.loaded {
-			return "", nil, errs.New("No accesses configured. Use 'access save' to create one")
+			return "", nil, errs.New("No accesses configured. Use 'access save' or 'access create' to create one")
 		}
 	}
 

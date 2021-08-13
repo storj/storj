@@ -100,12 +100,15 @@ func (ex *external) Dynamic(name string) (vals []string, err error) {
 // Wrap is called by clingy with the command to be executed.
 func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) error {
 	if err := ex.migrate(); err != nil {
-		// TODO(jeff): prompt for initial setup?
+		return err
+	}
+	if err := ex.loadConfig(); err != nil {
 		return err
 	}
 	if !ex.config.loaded {
-		// TODO(jeff): prompt for initial config setup
-		_ = false
+		if err := saveInitialConfig(ctx, ex); err != nil {
+			return err
+		}
 	}
 	return cmd.Execute(ctx)
 }

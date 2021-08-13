@@ -97,6 +97,16 @@ func (ap *accessPermissions) Apply(access *uplink.Access) (*uplink.Access, error
 		NotAfter:      ap.notAfter,
 	}
 
+	// if we aren't actually restricting anything, then we don't need to Share.
+	if permission == (uplink.Permission{
+		AllowDelete:   true,
+		AllowList:     true,
+		AllowDownload: true,
+		AllowUpload:   true,
+	}) && len(ap.prefixes) == 0 {
+		return access, nil
+	}
+
 	access, err := access.Share(permission, ap.prefixes...)
 	if err != nil {
 		return nil, errs.Wrap(err)

@@ -6,9 +6,6 @@ package ultest
 import (
 	"context"
 
-	"github.com/zeebo/clingy"
-	"github.com/zeebo/errs"
-
 	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/uplink"
@@ -34,24 +31,4 @@ func (ex *external) OpenFilesystem(ctx context.Context, access string, options .
 
 func (ex *external) OpenProject(ctx context.Context, access string, options ...ulext.Option) (*uplink.Project, error) {
 	return ex.project, nil
-}
-
-func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err error) {
-	return nil, errs.New("not implemented")
-}
-
-func (ex *external) GetAccessInfo(required bool) (string, map[string]string, error) {
-	return "", nil, errs.New("not implemented")
-}
-
-func (ex *external) SaveAccessInfo(accessDefault string, accesses map[string]string) error {
-	return errs.New("not implemented")
-}
-
-func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string, err error) {
-	return "", errs.New("not implemented")
-}
-
-func (ex *external) PromptSecret(ctx clingy.Context, prompt string) (secret string, err error) {
-	return "", errs.New("not implemented")
 }

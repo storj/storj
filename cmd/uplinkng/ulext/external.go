@@ -25,6 +25,9 @@ type External interface {
 	SaveAccessInfo(defaultName string, accesses map[string]string) error
 	RequestAccess(ctx context.Context, token, passphrase string) (*uplink.Access, error)
 
+	ConfigFile() string
+	SaveConfig(values map[string]string) error
+
 	PromptInput(ctx clingy.Context, prompt string) (input string, err error)
 	PromptSecret(ctx clingy.Context, prompt string) (secret string, err error)
 }
