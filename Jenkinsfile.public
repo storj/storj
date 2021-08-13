@@ -223,7 +223,7 @@ pipeline {
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
                         STORJ_TEST_BROWSER  = '/usr/bin/chromium'
                         STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
-                        STORJ_TEST_SATELLITE_WEB = 'built npm'
+                        //STORJ_TEST_SATELLITE_WEB = 'built npm'
                         STORJ_TEST_GATEWAY_ADDR = '127.0.0.1'
                         STORJ_TEST_AUTHSRV_ADDR = '127.0.0.1'
 
