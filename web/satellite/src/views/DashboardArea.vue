@@ -16,6 +16,7 @@
         </div>
         <div v-if="!isLoading" class="dashboard__wrap">
             <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
+            <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
             <DashboardHeader />
             <div class="dashboard__wrap__main-area">
                 <NavigationArea class="regular-navigation" />
@@ -25,6 +26,7 @@
             </div>
         </div>
         <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal" />
+        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
     </div>
 </template>
 
@@ -33,6 +35,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import AddPaymentMethodModal from '@/components/account/billing/paidTier/AddPaymentMethodModal.vue';
 import PaidTierBar from '@/components/account/billing/paidTier/PaidTierBar.vue';
+import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
+import MFARecoveryCodeBar from '@/components/account/mfa/MFARecoveryCodeBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
@@ -50,6 +54,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
+import { User } from '@/types/users';
 
 const {
     SETUP_ACCOUNT,
@@ -62,10 +67,17 @@ const {
         DashboardHeader,
         LoaderImage,
         PaidTierBar,
+        MFARecoveryCodeBar,
+        MFARecoveryCodesPopup,
         AddPaymentMethodModal,
     },
 })
 export default class DashboardArea extends Vue {
+    // Minimum number of recovery codes before the recovery code warning bar is shown.
+    public recoveryCodeWarningThreshold = 4;
+
+    public isMFACodesPopup = false;
+
     /**
      * Lifecycle hook before initial render.
      * Sets access grants web worker.
@@ -137,10 +149,29 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Generates new MFA recovery codes and toggles popup visibility.
+     */
+    public async generateNewMFARecoveryCodes(): Promise<void> {
+        try {
+            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+            this.toggleMFACodesPopup();
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
+
+    /**
      * Opens add payment method modal.
      */
     public togglePMModal(): void {
         this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    }
+
+    /**
+     * Toggles MFA recovery codes popup visibility.
+     */
+    public toggleMFACodesPopup(): void {
+        this.isMFACodesPopup = !this.isMFACodesPopup;
     }
 
     /**
@@ -197,6 +228,14 @@ export default class DashboardArea extends Vue {
      */
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
+    }
+
+    /**
+     * Indicates whether the MFA recovery code warning bar should be shown.
+     */
+    public get showMFARecoveryCodeBar(): boolean {
+        const user : User = this.$store.getters.user;
+        return user.isMFAEnabled && user.mfaRecoveryCodeCount < this.recoveryCodeWarningThreshold;
     }
 
     /**

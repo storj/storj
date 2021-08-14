@@ -87,6 +87,7 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
             },
             [SET_USER_MFA_RECOVERY_CODES](state: UsersState, codes: string[]): void {
                 state.userMFARecoveryCodes = codes;
+                state.user.mfaRecoveryCodeCount = codes.length;
             },
         },
 

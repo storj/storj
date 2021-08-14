@@ -280,19 +280,20 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID               uuid.UUID `json:"id"`
-		FullName         string    `json:"fullName"`
-		ShortName        string    `json:"shortName"`
-		Email            string    `json:"email"`
-		PartnerID        uuid.UUID `json:"partnerId"`
-		ProjectLimit     int       `json:"projectLimit"`
-		IsProfessional   bool      `json:"isProfessional"`
-		Position         string    `json:"position"`
-		CompanyName      string    `json:"companyName"`
-		EmployeeCount    string    `json:"employeeCount"`
-		HaveSalesContact bool      `json:"haveSalesContact"`
-		PaidTier         bool      `json:"paidTier"`
-		MFAEnabled       bool      `json:"isMFAEnabled"`
+		ID                   uuid.UUID `json:"id"`
+		FullName             string    `json:"fullName"`
+		ShortName            string    `json:"shortName"`
+		Email                string    `json:"email"`
+		PartnerID            uuid.UUID `json:"partnerId"`
+		ProjectLimit         int       `json:"projectLimit"`
+		IsProfessional       bool      `json:"isProfessional"`
+		Position             string    `json:"position"`
+		CompanyName          string    `json:"companyName"`
+		EmployeeCount        string    `json:"employeeCount"`
+		HaveSalesContact     bool      `json:"haveSalesContact"`
+		PaidTier             bool      `json:"paidTier"`
+		MFAEnabled           bool      `json:"isMFAEnabled"`
+		MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
 	}
 
 	auth, err := console.GetAuth(ctx)
@@ -314,6 +315,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.HaveSalesContact = auth.User.HaveSalesContact
 	user.PaidTier = auth.User.PaidTier
 	user.MFAEnabled = auth.User.MFAEnabled
+	user.MFARecoveryCodeCount = len(auth.User.MFARecoveryCodes)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)

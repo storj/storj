@@ -149,6 +149,12 @@ export class AuthHttpApi {
                 userResponse.projectLimit,
                 userResponse.paidTier,
                 userResponse.isMFAEnabled,
+                userResponse.isProfessional,
+                userResponse.position,
+                userResponse.companyName,
+                userResponse.employeeCount,
+                userResponse.haveSalesContact,
+                userResponse.mfaRecoveryCodeCount,
             );
         }
 
