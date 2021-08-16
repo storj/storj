@@ -21,8 +21,7 @@ import CreditsHistory from '@/components/account/billing/coupons/CouponArea.vue'
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import BucketsView from '@/components/objects/BucketsView.vue';
-import CreatePassphrase from '@/components/objects/CreatePassphrase.vue';
-import EnterPassphrase from '@/components/objects/EnterPassphrase.vue';
+import EncryptData from '@/components/objects/EncryptData.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
 import UploadFile from '@/components/objects/UploadFile.vue';
 import WarningView from '@/components/objects/WarningView.vue';
@@ -97,8 +96,7 @@ export abstract class RouteConfig {
 
     // objects child paths.
     public static Warning = new NavigationLink('warning', 'Objects Warning');
-    public static CreatePassphrase = new NavigationLink('create-passphrase', 'Objects Create Passphrase');
-    public static EnterPassphrase = new NavigationLink('enter-passphrase', 'Objects Enter Passphrase');
+    public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
 }
@@ -334,14 +332,9 @@ export const router = new Router({
                             component: WarningView,
                         },
                         {
-                            path: RouteConfig.CreatePassphrase.path,
-                            name: RouteConfig.CreatePassphrase.name,
-                            component: CreatePassphrase,
-                        },
-                        {
-                            path: RouteConfig.EnterPassphrase.path,
-                            name: RouteConfig.EnterPassphrase.name,
-                            component: EnterPassphrase,
+                            path: RouteConfig.EncryptData.path,
+                            name: RouteConfig.EncryptData.name,
+                            component: EncryptData,
                         },
                         {
                             path: RouteConfig.BucketsManagement.path,

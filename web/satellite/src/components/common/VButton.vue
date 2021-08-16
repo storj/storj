@@ -35,6 +35,8 @@ export default class VButton extends Vue {
     @Prop({default: false})
     private readonly isDeletion: boolean;
     @Prop({default: false})
+    private readonly isBack: boolean;
+    @Prop({default: false})
     private readonly isBlueWhite: boolean;
     @Prop({default: false})
     private isDisabled: boolean;
@@ -53,6 +55,8 @@ export default class VButton extends Vue {
         if (this.isTransparent) return 'container transparent';
 
         if (this.isDeletion) return 'container red';
+
+        if (this.isBack) return 'container back';
 
         if (this.isBlueWhite) return 'container blue-white';
 
@@ -86,6 +90,15 @@ export default class VButton extends Vue {
 
         .label {
             color: #2683ff !important;
+        }
+    }
+
+    .back {
+        background-color: #fff !important;
+        border: 2px solid #d9dbe9 !important;
+
+        .label {
+            color: #0149ff !important;
         }
     }
 
@@ -133,6 +146,15 @@ export default class VButton extends Vue {
                 box-shadow: none !important;
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;
+
+                .label {
+                    color: white !important;
+                }
+            }
+
+            &.back {
+                background-color: #2683ff !important;
+                border-color: #2683ff !important;
 
                 .label {
                     color: white !important;

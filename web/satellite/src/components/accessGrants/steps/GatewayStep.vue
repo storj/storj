@@ -378,26 +378,7 @@ export default class GatewayStep extends Vue {
         border-radius: 6px;
     }
 
-    ::v-deep .info__message-box {
-        background-image: url('../../../../static/images/accessGrants/MessageBox.png');
-        background-repeat: no-repeat;
-        min-height: 65px;
-        min-width: 200px;
-        width: 200px;
-        bottom: 23px;
-        left: 59px;
-        padding: 10px 20px 20px 20px;
-        word-break: break-word;
-
-        &__text {
-            text-align: left;
-            font-size: 13px;
-            line-height: 17px;
-
-            &__bold-text {
-                font-family: 'font_medium', sans-serif;
-                color: #354049;
-            }
-        }
+    ::v-deep .info__box__message {
+        min-width: 300px;
     }
 </style>

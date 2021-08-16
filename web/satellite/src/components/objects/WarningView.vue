@@ -63,7 +63,7 @@ export default class WarningView extends Vue {
      */
     public beforeMount(): void {
         if (LocalData.getServerSideEncryptionAcknowledge()) {
-            this.$router.push(RouteConfig.CreatePassphrase.path);
+            this.$router.push(RouteConfig.EncryptData.path);
         }
     }
 
@@ -82,7 +82,7 @@ export default class WarningView extends Vue {
             LocalData.setServerSideEncryptionAcknowledge();
         }
 
-        this.$router.push(RouteConfig.CreatePassphrase.path);
+        this.$router.push(RouteConfig.EncryptData.path);
     }
 }
 </script>

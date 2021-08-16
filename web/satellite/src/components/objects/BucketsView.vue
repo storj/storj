@@ -104,7 +104,7 @@ export default class BucketsView extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$store.state.objectsModule.passphrase) {
-            await this.$router.push(RouteConfig.Objects.with(RouteConfig.EnterPassphrase).path);
+            await this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
 
             return;
         }

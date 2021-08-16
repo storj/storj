@@ -346,27 +346,7 @@ export default class HeaderArea extends Vue {
         }
     }
 
-    ::v-deep .info__message-box {
-        background-image: url('../../../static/images/team/MessageBox.png');
-        background-repeat: no-repeat;
-        min-height: 80px;
-        min-width: 200px;
-        width: 200px;
-        top: 110%;
-        left: -205%;
-        padding: 0 20px 12px 20px;
-        word-break: break-word;
-
-        &__text {
-            text-align: left;
-            font-size: 13px;
-            line-height: 17px;
-            margin-top: 20px;
-
-            &__bold-text {
-                font-family: 'font_medium', sans-serif;
-                color: #354049;
-            }
-        }
+    ::v-deep .info__box__message {
+        min-width: 300px;
     }
 </style>

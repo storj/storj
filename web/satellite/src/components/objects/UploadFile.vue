@@ -42,7 +42,7 @@ export default class UploadFile extends Vue {
      */
     public mounted(): void {
         if (!this.bucket) {
-            this.$router.push(RouteConfig.Objects.with(RouteConfig.EnterPassphrase).path);
+            this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
 
             return;
         }
