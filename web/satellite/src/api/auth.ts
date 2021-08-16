@@ -6,14 +6,14 @@ import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { UpdatedUser, User } from '@/types/users';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
  * AuthHttpApi is a console Auth API.
  * Exposes all auth-related functionality
  */
-export class AuthHttpApi {
+export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
 
@@ -313,10 +313,11 @@ export class AuthHttpApi {
      *
      * @throws Error
      */
-    public async disableUserMFA(passcode: string): Promise<void> {
+    public async disableUserMFA(passcode: string, recoveryCode: string): Promise<void> {
         const path = `${this.ROOT_PATH}/mfa/disable`;
         const body = {
-            passcode: passcode,
+            passcode: passcode || null,
+            recoveryCode: recoveryCode || null,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));
@@ -324,12 +325,17 @@ export class AuthHttpApi {
         if (response.ok) {
             return;
         }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
+        
+        const result = await response.json();
+        if (!response.ok) {
+            const errMsg = result.error || 'Cannot disable MFA. Please try again later';
+            switch (response.status) {
+            case 401:
+                throw new ErrorUnauthorized(errMsg);
+            default:
+                throw new Error(errMsg);
+            }
         }
-
-        throw new Error('Can not disable MFA. Please try again later');
     }
 
     /**

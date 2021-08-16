@@ -384,7 +384,7 @@ func TestMFA(t *testing.T) {
 
 			// Expect no token due to lack of MFA passcode.
 			token, err := service.Token(ctx, request)
-			require.True(t, console.ErrMFAPasscodeRequired.Has(err))
+			require.True(t, console.ErrMFAMissing.Has(err))
 			require.Empty(t, token)
 
 			// Expect no token due to bad MFA passcode.
@@ -441,8 +441,23 @@ func TestMFA(t *testing.T) {
 			require.NoError(t, err)
 
 			updateAuth()
-			err = service.DisableUserMFA(authCtx, badCode, time.Time{})
+			err = service.DisableUserMFA(authCtx, badCode, time.Time{}, "")
 			require.True(t, console.ErrValidation.Has(err))
+
+			updateAuth()
+			require.True(t, auth.User.MFAEnabled)
+			require.NotEmpty(t, auth.User.MFASecretKey)
+			require.NotEmpty(t, auth.User.MFARecoveryCodes)
+		})
+
+		t.Run("TestDisableUserMFAConflict", func(t *testing.T) {
+			// Expect MFA-disabling attempt to fail when providing both recovery code and passcode.
+			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.DisableUserMFA(authCtx, goodCode, time.Time{}, auth.User.MFARecoveryCodes[0])
+			require.True(t, console.ErrMFAConflict.Has(err))
 
 			updateAuth()
 			require.True(t, auth.User.MFAEnabled)
@@ -456,7 +471,39 @@ func TestMFA(t *testing.T) {
 			require.NoError(t, err)
 
 			updateAuth()
-			err = service.DisableUserMFA(authCtx, goodCode, time.Time{})
+			err = service.DisableUserMFA(authCtx, goodCode, time.Time{}, "")
+			require.NoError(t, err)
+
+			updateAuth()
+			require.False(t, auth.User.MFAEnabled)
+			require.Empty(t, auth.User.MFASecretKey)
+			require.Empty(t, auth.User.MFARecoveryCodes)
+		})
+
+		t.Run("TestDisableUserMFAGoodRecoveryCode", func(t *testing.T) {
+			// Expect MFA-disabling attempt to succeed when providing valid recovery code.
+			// Enable MFA
+			key, err = service.ResetMFASecretKey(authCtx)
+			require.NoError(t, err)
+
+			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.EnableUserMFA(authCtx, goodCode, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			_, err = service.ResetMFARecoveryCodes(authCtx)
+			require.NoError(t, err)
+
+			updateAuth()
+			require.True(t, auth.User.MFAEnabled)
+			require.NotEmpty(t, auth.User.MFASecretKey)
+			require.NotEmpty(t, auth.User.MFARecoveryCodes)
+
+			// Disable MFA
+			err = service.DisableUserMFA(authCtx, "", time.Time{}, auth.User.MFARecoveryCodes[0])
 			require.NoError(t, err)
 
 			updateAuth()

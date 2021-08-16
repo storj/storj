@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { UpdatedUser, User, UsersApi } from '@/types/users';
+import { DisableMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
 
 export const USER_ACTIONS = {
@@ -104,8 +104,8 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
 
                 return user;
             },
-            [DISABLE_USER_MFA]: async function (_, passcode: string): Promise<void> {
-                await api.disableUserMFA(passcode);
+            [DISABLE_USER_MFA]: async function (_, request: DisableMFARequest): Promise<void> {
+                await api.disableUserMFA(request.passcode, request.recoveryCode);
             },
             [ENABLE_USER_MFA]: async function (_, passcode: string): Promise<void> {
                 await api.enableUserMFA(passcode);

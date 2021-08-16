@@ -10,7 +10,10 @@
             </p>
             <div class="disable-mfa__container__confirm">
                 <h2 class="disable-mfa__container__confirm__title">Confirm Authentication Code</h2>
-                <ConfirmMFAInput :on-input="onConfirmInput" :is-error="isError" />
+                <ConfirmMFAInput ref="mfaInput" :on-input="onConfirmInput" :is-error="isError" :is-recovery="isRecoveryCodeState" />
+                <span class="disable-mfa__container__confirm__toggle" @click="toggleRecoveryCodeState">
+                    Or use {{ isRecoveryCodeState ? '2FA code' : 'recovery code' }}
+                </span>
             </div>
             <p class="disable-mfa__container__info">
                 After disabling 2FA, remove the authentication code from your TOTP app.
@@ -29,7 +32,7 @@
                     width="50%"
                     height="44px"
                     :on-press="disable"
-                    :is-disabled="!confirmPasscode || isLoading"
+                    :is-disabled="!(request.recoveryCode || request.passcode) || isLoading"
                 />
             </div>
             <div class="disable-mfa__container__close-container" @click="toggleModal">
@@ -48,6 +51,11 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { USER_ACTIONS } from '@/store/modules/users';
+import { DisableMFARequest } from '@/types/users';
+
+interface ClearInput {
+    clearInput(): void;
+}
 
 @Component({
     components: {
@@ -62,26 +70,41 @@ export default class DisableMFAPopup extends Vue {
 
     public isError = false;
     public isLoading = false;
-    public confirmPasscode = '';
+    public request = new DisableMFARequest();
+    public isRecoveryCodeState = false;
+
+    public $refs!: {
+        mfaInput: ConfirmMFAInput & ClearInput;
+    }
 
     /**
      * Sets confirmation passcode value from input.
      */
     public onConfirmInput(value: string): void {
         this.isError = false;
-        this.confirmPasscode = value;
+        this.isRecoveryCodeState ? this.request.recoveryCode = value : this.request.passcode = value;
+    }
+
+    /**
+     * Toggles whether the MFA recovery code page is shown.
+     */
+    public toggleRecoveryCodeState(): void {
+        this.isError = false;
+        this.request.recoveryCode = this.request.passcode = '';
+        this.$refs.mfaInput.clearInput();
+        this.isRecoveryCodeState = !this.isRecoveryCodeState;
     }
 
     /**
      * Disables user MFA.
      */
     public async disable(): Promise<void> {
-        if (!this.confirmPasscode || this.isLoading || this.isError) return;
+        if (!(this.request.recoveryCode || this.request.passcode) || this.isLoading || this.isError) return;
 
         this.isLoading = true;
 
         try {
-            await this.$store.dispatch(USER_ACTIONS.DISABLE_USER_MFA, this.confirmPasscode);
+            await this.$store.dispatch(USER_ACTIONS.DISABLE_USER_MFA, this.request);
             await this.$store.dispatch(USER_ACTIONS.GET);
 
             await this.$notify.success('MFA was disabled successfully');
@@ -153,6 +176,14 @@ export default class DisableMFAPopup extends Vue {
                 text-align: center;
                 color: #000;
                 margin-bottom: 20px;
+            }
+
+            &__toggle {
+                font-size: 16px;
+                color: #0068dc;
+                cursor: pointer;
+                margin-top: 20px;
+                text-align: center;
             }
         }
 

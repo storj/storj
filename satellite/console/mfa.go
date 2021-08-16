@@ -22,15 +22,28 @@ const (
 // Error messages.
 const (
 	mfaPasscodeInvalidErrMsg    = "The MFA passcode is not valid or has expired"
-	mfaPasscodeRequiredErrMsg   = "A MFA passcode or recovery code is required"
+	mfaRequiredErrMsg           = "A MFA passcode or recovery code is required"
 	mfaRecoveryInvalidErrMsg    = "The MFA recovery code is not valid or has been previously used"
 	mfaRecoveryGenerationErrMsg = "MFA recovery codes cannot be generated while MFA is disabled."
+	mfaConflictErrMsg           = "Expected either passcode or recovery code, but got both"
 )
 
 var (
-	// ErrMFAPasscodeRequired is error type that occurs when a token request is incomplete
+	// ErrMFAMissing is error type that occurs when a request is incomplete
 	// due to missing MFA passcode and recovery code.
-	ErrMFAPasscodeRequired = errs.Class("MFA passcode required")
+	ErrMFAMissing = errs.Class("MFA code required")
+
+	// ErrMFAConflict is error type that occurs when both a passcode and recovery code are given.
+	ErrMFAConflict = errs.Class("MFA conflict")
+
+	// ErrMFALogin is error type caused by MFA that occurs when logging in / retrieving token.
+	ErrMFALogin = errs.Class("MFA login")
+
+	// ErrMFARecoveryCode is error type that represents usage of invalid MFA recovery code.
+	ErrMFARecoveryCode = errs.Class("MFA recovery code")
+
+	// ErrMFAPasscode is error type that represents usage of invalid MFA passcode.
+	ErrMFAPasscode = errs.Class("MFA passcode")
 )
 
 // NewMFAValidationOpts returns the options used to validate TOTP passcodes.
@@ -83,10 +96,10 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 
 	valid, err := ValidateMFAPasscode(passcode, auth.User.MFASecretKey, t)
 	if err != nil {
-		return ErrValidation.Wrap(err)
+		return ErrValidation.Wrap(ErrMFAPasscode.Wrap(err))
 	}
 	if !valid {
-		return ErrValidation.New(mfaPasscodeInvalidErrMsg)
+		return ErrValidation.Wrap(ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg))
 	}
 
 	auth.User.MFAEnabled = true
@@ -99,7 +112,7 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 }
 
 // DisableUserMFA disables multi-factor authentication for the user if the given secret key and password are valid.
-func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Time) (err error) {
+func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Time, recoveryCode string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := s.getAuthAndAuditLog(ctx, "disable MFA")
@@ -107,12 +120,37 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 		return Error.Wrap(err)
 	}
 
-	valid, err := ValidateMFAPasscode(passcode, auth.User.MFASecretKey, t)
-	if err != nil {
-		return ErrValidation.Wrap(err)
+	user := &auth.User
+
+	if !user.MFAEnabled {
+		return nil
 	}
-	if !valid {
-		return ErrValidation.New(mfaPasscodeInvalidErrMsg)
+
+	if recoveryCode != "" && passcode != "" {
+		return ErrMFAConflict.New(mfaConflictErrMsg)
+	}
+
+	if recoveryCode != "" {
+		found := false
+		for _, code := range user.MFARecoveryCodes {
+			if code == recoveryCode {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return ErrUnauthorized.Wrap(ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg))
+		}
+	} else if passcode != "" {
+		valid, err := ValidateMFAPasscode(passcode, auth.User.MFASecretKey, t)
+		if err != nil {
+			return ErrValidation.Wrap(ErrMFAPasscode.Wrap(err))
+		}
+		if !valid {
+			return ErrValidation.Wrap(ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg))
+		}
+	} else {
+		return ErrMFAMissing.New(mfaRequiredErrMsg)
 	}
 
 	auth.User.MFAEnabled = false

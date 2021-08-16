@@ -30,7 +30,7 @@ export interface UsersApi {
      *
      * @throws Error
      */
-    disableUserMFA(code: string): Promise<void>;
+    disableUserMFA(passcode: string, recoveryCode: string): Promise<void>;
     /**
      * Generate user's MFA secret.
      *
@@ -93,4 +93,14 @@ export class UpdatedUser {
     public isValid(): boolean {
         return !!this.fullName;
     }
+}
+
+/**
+ * DisableMFARequest represents a request to disable multi-factor authentication.
+ */
+export class DisableMFARequest {
+    public constructor(
+        public passcode: string = '',
+        public recoveryCode: string = '',
+    ) {}
 }

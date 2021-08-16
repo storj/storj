@@ -846,6 +846,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 	}
 
 	if user.MFAEnabled {
+		if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
+			return "", ErrMFAConflict.New(mfaConflictErrMsg)
+		}
+
 		if request.MFARecoveryCode != "" {
 			found := false
 			codeIndex := -1
@@ -875,7 +879,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 				return "", ErrUnauthorized.New(mfaPasscodeInvalidErrMsg)
 			}
 		} else {
-			return "", ErrMFAPasscodeRequired.New(mfaPasscodeRequiredErrMsg)
+			return "", ErrMFALogin.Wrap(ErrMFAMissing.New(mfaRequiredErrMsg))
 		}
 	}
 
