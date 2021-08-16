@@ -2801,3 +2801,58 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex uint32, b
 		ObjectKey:  metabase.ObjectKey(path),
 	}, nil
 }
+
+// Server side move.
+
+// BeginMoveObject begins moving object segments.
+func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeginMoveRequest) (resp *pb.ObjectBeginMoveResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:   macaroon.ActionProjectInfo,
+		Time: time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := endpoint.metainfo.metabaseDB.BeginMoveObject(ctx, metabase.BeginMoveObject{
+		ProjectID:  keyInfo.ProjectID[:],
+		BucketName: req.Bucket,
+		ObjectKey:  req.ObjectKey,
+	})
+	if err != nil {
+		if storj.ErrObjectNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("coulnd not perform begin move object", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	response := convertBeginMoveObjectResults(result)
+
+	return response, nil
+}
+
+func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) *pb.ObjectBeginMoveResponse {
+	var keys []*pb.EncryptedKeyAndNonce
+
+	for _, key := range result.EncryptedKeysNonces {
+		keys = append(keys, &pb.EncryptedKeyAndNonce{
+			EncryptedKey:      key.EncryptedKey,
+			EncryptedKeyNonce: key.EncryptedKeyNonce,
+		})
+	}
+
+	return &pb.ObjectBeginMoveResponse{
+		StreamId: result.StreamID,
+		Keys:     keys,
+	}
+}
+
+// FinishMoveObject begins moving object segments.
+func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFinishMoveRequest) (resp *pb.ObjectFinishMoveResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return resp, nil
+}

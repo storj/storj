@@ -2,6 +2,8 @@ module storj.io/storj
 
 go 1.13
 
+replace storj.io/common => /home/crawter/Work/storj.io/common
+
 require (
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
