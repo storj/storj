@@ -236,9 +236,12 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Counter("not_enough_shares_for_audit").Inc(0)
+	mon.Counter("could_not_verify_audit_shares").Inc(0) //mon:locked
 
 	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
+		mon.Counter("could_not_verify_audit_shares").Inc(1) //mon:locked
+		verifier.log.Error("could not verify shares", zap.Error(err))
 		return Report{
 			Fails:    failedNodes,
 			Offlines: offlineNodes,
