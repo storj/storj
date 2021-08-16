@@ -2831,3 +2831,151 @@ func (endpoint *Endpoint) checkExceedsStorageUsage(ctx context.Context, projectI
 
 	return nil
 }
+
+// Server side move.
+
+// BeginMoveObject begins moving object to different key.
+func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeginMoveRequest) (resp *pb.ObjectBeginMoveResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	now := time.Now()
+	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionRead,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionWrite,
+				Bucket:        req.NewBucket,
+				EncryptedPath: req.NewEncryptedObjectKey,
+				Time:          now,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, bucket := range [][]byte{req.Bucket, req.NewBucket} {
+		err = endpoint.validateBucket(ctx, bucket)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+	}
+
+	// we are verifying existence of target bucket only because source bucket
+	// will be checked while quering source object
+	// TODO this needs to be optimized to avoid DB call on each request
+	exists, err := endpoint.buckets.HasBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	if err != nil {
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, fmt.Sprintf("bucket not found: %s", req.NewBucket))
+	}
+
+	result, err := endpoint.metabase.BeginMoveObject(ctx, metabase.BeginMoveObject{
+		ObjectLocation: metabase.ObjectLocation{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+		},
+		Version: metabase.DefaultVersion,
+	})
+	if err != nil {
+		switch {
+		case storj.ErrObjectNotFound.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		case metabase.ErrInvalidRequest.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		default:
+			endpoint.log.Error("internal", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+	}
+
+	response, err := convertBeginMoveObjectResults(result)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedObjectKey,
+		Version:       int32(metabase.DefaultVersion),
+		Redundancy:    endpoint.defaultRS,
+		StreamId:      result.StreamID[:],
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
+			BlockSize:   int64(result.EncryptionParameters.BlockSize),
+		},
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	response.StreamId = satStreamID
+	return response, nil
+}
+
+func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.ObjectBeginMoveResponse, error) {
+	keys := make([]*pb.EncryptedKeyAndNonce, len(result.EncryptedKeysNonces))
+	for i, key := range result.EncryptedKeysNonces {
+		nonce, err := storj.NonceFromBytes(key.EncryptedKeyNonce)
+		if err != nil {
+			return nil, err
+		}
+
+		keys[i] = &pb.EncryptedKeyAndNonce{
+			EncryptedKey:      key.EncryptedKey,
+			EncryptedKeyNonce: nonce,
+		}
+	}
+
+	// TODO we need this becase of an uplink issue with how we are storing key and nonce
+	if result.EncryptedMetadataKey == nil {
+		streamMeta := &pb.StreamMeta{}
+		err := pb.Unmarshal(result.EncryptedMetadata, streamMeta)
+		if err != nil {
+			return nil, err
+		}
+		if streamMeta.LastSegmentMeta != nil {
+			result.EncryptedMetadataKey = streamMeta.LastSegmentMeta.EncryptedKey
+			result.EncryptedMetadataKeyNonce = streamMeta.LastSegmentMeta.KeyNonce
+		}
+	}
+
+	metadataNonce, err := storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ObjectBeginMoveResponse{
+		EncryptedMetadataKey:      result.EncryptedMetadataKey,
+		EncryptedMetadataKeyNonce: metadataNonce,
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
+			BlockSize:   int64(result.EncryptionParameters.BlockSize),
+		},
+		SegmentKeys: keys,
+	}, nil
+}

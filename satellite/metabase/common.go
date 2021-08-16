@@ -28,6 +28,9 @@ const (
 // ListLimit is the maximum number of items the client can request for listing.
 const ListLimit = intLimitRange(1000)
 
+// MoveLimit is the maximum number of segments that can be moved.
+const MoveLimit = int64(10000)
+
 // batchsizeLimit specifies up to how many items fetch from the storage layer at
 // a time.
 //
@@ -284,6 +287,9 @@ type Version int64
 
 // NextVersion means that the version should be chosen automatically.
 const NextVersion = Version(0)
+
+// DefaultVersion represents default version 1.
+const DefaultVersion = Version(1)
 
 // ObjectStatus defines the statuses that the object might be in.
 type ObjectStatus byte

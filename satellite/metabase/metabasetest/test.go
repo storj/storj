@@ -709,3 +709,20 @@ func (step GetTableStats) Check(ctx *testcontext.Context, t testing.TB, db *meta
 
 	return result
 }
+
+// BeginMoveObject is for testing metabase.BeginMoveObject.
+type BeginMoveObject struct {
+	Opts     metabase.BeginMoveObject
+	Result   metabase.BeginMoveObjectResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step BeginMoveObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.BeginMoveObject(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result)
+	require.Zero(t, diff)
+}
