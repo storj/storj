@@ -63,17 +63,17 @@ func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err 
 }
 
 // MissingPieces returns piece indices that are unreliable with the given staleness period.
-func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.Time, pieces metabase.Pieces) (_ []int32, err error) {
+func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.Time, pieces metabase.Pieces) (_ []metabase.Piece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.loadFast(ctx, created)
 	if err != nil {
 		return nil, err
 	}
-	var unreliable []int32
-	for _, piece := range pieces {
-		if _, ok := state.reliable[piece.StorageNode]; !ok {
-			unreliable = append(unreliable, int32(piece.Number))
+	var unreliable []metabase.Piece
+	for _, p := range pieces {
+		if _, ok := state.reliable[p.StorageNode]; !ok {
+			unreliable = append(unreliable, p)
 		}
 	}
 	return unreliable, nil
