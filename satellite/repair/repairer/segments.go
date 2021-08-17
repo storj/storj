@@ -290,6 +290,10 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		}
 	}
 
+	// ensure we get values, even if only zero values, so that redash can have an alert based on this
+	mon.Meter("repair_too_many_nodes_failed").Mark(0) //mon:locked
+	stats.repairTooManyNodesFailed.Mark(0)
+
 	// update audit status for nodes that failed piece hash verification during downloading
 	failedNum, updateErr := repairer.updateAuditFailStatus(ctx, failedNodeIDs)
 	if updateErr != nil || failedNum > 0 {
