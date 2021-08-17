@@ -379,7 +379,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 	}
 
 	if limitsCount < redundancy.RequiredCount() {
-		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.RequiredCount())
+		err = ErrDownloadFailedNotEnoughPieces.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.RequiredCount())
 		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
 	}
 
