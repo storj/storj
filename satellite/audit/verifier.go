@@ -117,6 +117,10 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 
 	orderLimits, privateKey, cachedIPsAndPorts, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentInfo, skip)
 	if err != nil {
+		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+			mon.Counter("not_enough_shares_for_audit").Inc(1)
+			err = ErrNotEnoughShares.Wrap(err)
+		}
 		return Report{}, err
 	}
 

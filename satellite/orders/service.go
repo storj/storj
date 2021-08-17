@@ -277,7 +277,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment meta
 	}
 
 	if limitsCount < segment.Redundancy.RequiredShares {
-		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, segment.Redundancy.RequiredShares)
+		err = ErrDownloadFailedNotEnoughPieces.New("not enough nodes available: got %d, required %d", limitsCount, segment.Redundancy.RequiredShares)
 		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
 	}
 
