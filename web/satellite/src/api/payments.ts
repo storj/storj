@@ -13,6 +13,7 @@ import {
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
+import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
 
 /**
  * PaymentsHttpApi is a http implementation of Payments API.
@@ -285,10 +286,14 @@ export class PaymentsHttpApi implements PaymentsApi {
             );
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
+        switch (response.status) {
+        case 429:
+            throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+        case 401:
+            throw new ErrorUnauthorized(errMsg);
+        default:
+            throw new Error(errMsg);
         }
-        throw new Error(errMsg);
     }
 
     /**

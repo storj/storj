@@ -20,7 +20,7 @@ import (
 
 func TestNewIPRateLimiter(t *testing.T) {
 	// create a rate limiter with defaults except NumLimits = 2
-	config := web.IPRateLimiterConfig{}
+	config := web.RateLimiterConfig{}
 	cfgstruct.Bind(&pflag.FlagSet{}, &config, cfgstruct.UseDevDefaults())
 	config.NumLimits = 2
 	rateLimiter := web.NewIPRateLimiter(config)

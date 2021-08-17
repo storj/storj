@@ -91,7 +91,8 @@ type Config struct {
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 
-	RateLimit web.IPRateLimiterConfig
+	// RateLimit defines the configuration for the IP and userID rate limiters.
+	RateLimit web.RateLimiterConfig
 
 	console.Config
 }
@@ -141,11 +142,12 @@ type Server struct {
 	partners    *rewards.PartnersService
 	analytics   *analytics.Service
 
-	listener    net.Listener
-	server      http.Server
-	cookieAuth  *consolewebauth.CookieAuth
-	rateLimiter *web.IPRateLimiter
-	nodeURL     storj.NodeURL
+	listener          net.Listener
+	server            http.Server
+	cookieAuth        *consolewebauth.CookieAuth
+	ipRateLimiter     *web.RateLimiter
+	userIDRateLimiter *web.RateLimiter
+	nodeURL           storj.NodeURL
 
 	stripePublicKey string
 
@@ -163,17 +165,18 @@ type Server struct {
 // NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
-		log:             logger,
-		config:          config,
-		listener:        listener,
-		service:         service,
-		mailService:     mailService,
-		partners:        partners,
-		analytics:       analytics,
-		stripePublicKey: stripePublicKey,
-		rateLimiter:     web.NewIPRateLimiter(config.RateLimit),
-		nodeURL:         nodeURL,
-		pricing:         pricing,
+		log:               logger,
+		config:            config,
+		listener:          listener,
+		service:           service,
+		mailService:       mailService,
+		partners:          partners,
+		analytics:         analytics,
+		stripePublicKey:   stripePublicKey,
+		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit),
+		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit),
+		nodeURL:           nodeURL,
+		pricing:           pricing,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -225,11 +228,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost)
 	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
-	authRouter.Handle("/token", server.rateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
-	authRouter.Handle("/register", server.rateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/forgot-password/{email}", server.rateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
-	authRouter.Handle("/resend-email/{id}", server.rateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
-	authRouter.Handle("/reset-password", server.rateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost)
+	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
+	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/forgot-password/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
+	authRouter.Handle("/resend-email/{id}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
+	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost)
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -243,7 +246,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
-	paymentsRouter.HandleFunc("/coupon/apply", paymentController.ApplyCouponCode).Methods(http.MethodPatch)
+	paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch)
 	paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet)
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
@@ -299,7 +302,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return server.server.Shutdown(context.Background())
 	})
 	group.Go(func() error {
-		server.rateLimiter.Run(ctx)
+		server.ipRateLimiter.Run(ctx)
 		return nil
 	})
 	group.Go(func() error {
@@ -781,4 +784,15 @@ func (server *Server) initializeTemplates() (err error) {
 	}
 
 	return nil
+}
+
+// NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
+func NewUserIDRateLimiter(config web.RateLimiterConfig) *web.RateLimiter {
+	return web.NewRateLimiter(config, func(r *http.Request) (string, error) {
+		auth, err := console.GetAuth(r.Context())
+		if err != nil {
+			return "", err
+		}
+		return auth.User.ID.String(), nil
+	})
 }
