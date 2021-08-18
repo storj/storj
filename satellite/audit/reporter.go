@@ -202,6 +202,11 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 			if err != nil {
 				errlist.Add(err)
 				failed = append(failed, pendingAudit)
+			} else {
+				_, err = reporter.containment.Delete(ctx, pendingAudit.NodeID)
+				if err != nil && !ErrContainedNotFound.Has(err) {
+					errlist.Add(err)
+				}
 			}
 		}
 	}
