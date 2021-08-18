@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/integration/ui/uitest"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/testsuite/ui/uitest"
 )
 
 func TestLoginToAccount(t *testing.T) {
@@ -23,7 +23,8 @@ func TestLoginToAccount(t *testing.T) {
 
 		page := browser.Timeout(10 * time.Second).MustPage(loginPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
-		page.MustElement(".headerless-input").MustInput(user.Email)
+
+		page.MustElement("[type=text]").MustInput(user.Email)
 		page.MustElement("[type=password]").MustInput(user.Password)
 		page.Keyboard.MustPress(input.Enter)
 

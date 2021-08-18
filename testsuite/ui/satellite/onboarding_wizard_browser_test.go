@@ -25,7 +25,7 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		page := browser.MustPage(signupPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
 		// first time User signup
-		page.MustElement(".headerless-input").MustInput(fullName)
+		page.MustElement("[placeholder=\"Enter Full Name\"]").MustInput(fullName)
 		page.MustElement("[placeholder=\"example@email.com\"]").MustInput(emailAddress)
 		page.MustElement("[placeholder=\"Enter Password\"]").MustInput(password)
 		page.MustElement("[placeholder=\"Retype Password\"]").MustInput(password)
@@ -35,8 +35,8 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 
 		// first time user log in
-		page.MustElement(".register-area__content-area__login-container__link").MustClick()
-		page.MustElement(".headerless-input").MustInput(emailAddress)
+		page.MustElement("[href=\"/login\"]").MustClick()
+		page.MustElement("[type=text]").MustInput(emailAddress)
 		page.MustElement("[type=password]").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
 
@@ -44,21 +44,16 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		page.MustElement(".label").MustClick()
 		objectBrowserWarning := page.MustElement(".warning-view__container").MustText()
 		require.Contains(t, objectBrowserWarning, "The object browser uses server side encryption.")
-		page.MustElement(".container:nth-of-type(2)").MustClick()
+		page.MustElementX("(//*[@class=\"label\"])[2]").MustClick()
 
-		EncryptionPassphraseWarningTitle := page.MustElement(".generate-container__warning__title").MustText()
-		require.Contains(t, EncryptionPassphraseWarningTitle, "Save Your Encryption Passphrase")
-		customPassphrase := page.MustElement(".generate-container__choosing__right__option:nth-of-type(2)")
+		encryptionPassphraseWarningTitle := page.MustElement(".encrypt__container__save__title").MustText()
+		require.Contains(t, encryptionPassphraseWarningTitle, "Save your encryption passphrase")
+		customPassphrase := page.MustElement(".encrypt__container__header__row__right__enter")
+		customPassphraseLabel := customPassphrase.MustText()
+		require.Contains(t, customPassphraseLabel, "Enter Your Own Passphrase")
 		customPassphrase.MustClick()
 
-		existingPassphraseWarning := page.MustElement(".generate-container__enter-passphrase-box").MustText()
-		require.Contains(t, existingPassphraseWarning, "Enter an Existing Passphrase")
-		page.MustElement(".headered-input").MustInput("password123")
-		page.MustElement(".label").MustClick()
-
-		enterPasswordWarning := page.MustElement(".enter-pass__container__warning").MustText()
-		require.Contains(t, enterPasswordWarning, "Would you like to access files in your browser?")
-		page.MustElement(".enter-pass__container__textarea__input").MustInput("password123")
+		page.MustElement("[type=text]").MustInput("password123")
 		page.MustElement(".label").MustClick()
 
 		// Buckets Page
