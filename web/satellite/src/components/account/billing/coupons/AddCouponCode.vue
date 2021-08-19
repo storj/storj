@@ -25,7 +25,7 @@ import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
 import CloseIcon from '@/../static/images/common/closeCross.svg';
-import CheckIcon from '@/../static/images/common/success-check.svg';
+import CheckIcon from '@/../static/images/common/successCheck.svg';
 
 import { RouteConfig } from '@/router';
 
