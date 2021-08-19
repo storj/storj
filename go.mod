@@ -53,11 +53,12 @@ require (
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
+	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	storj.io/common v0.0.0-20210810183638-70ba30f208a9
 	storj.io/drpc v0.0.24
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20210625132526-af46b647eda5
-	storj.io/uplink v1.5.0-rc.1.0.20210512164354-e2e5889614a9
+	storj.io/uplink v1.5.0-rc.1.0.20210820085250-799c214b35ac
 )
