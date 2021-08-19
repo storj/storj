@@ -48,7 +48,7 @@ import ResourcesSelection from '@/components/header/resourcesDropdown/ResourcesS
 import SettingsSelection from '@/components/header/settingsDropdown/SettingsSelection.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
-import LogoIcon from '@/../static/images/dcs-logo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
 import CheckmarkIcon from '@/../static/images/header/checkmark.svg';
 import NavigationCloseIcon from '@/../static/images/header/navigationClose.svg';
 import NavigationMenuIcon from '@/../static/images/header/navigationMenu.svg';
