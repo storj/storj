@@ -19,12 +19,14 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/uplink"
+	"storj.io/uplink/private/object"
 )
 
 var (
-	progress *bool
-	expires  *string
-	metadata *string
+	progress    *bool
+	expires     *string
+	metadata    *string
+	parallelism *int
 )
 
 func init() {
@@ -38,6 +40,7 @@ func init() {
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
 	metadata = cpCmd.Flags().String("metadata", "", "optional metadata for the object. Please use a single level JSON object of string to string only")
+	parallelism = cpCmd.Flags().Int("parallelism", 1, "controls how many parallel downloads of a single object will be performed")
 
 	setBasicFlags(cpCmd.Flags(), "progress", "expires", "metadata")
 }
@@ -137,6 +140,25 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, expiration ti
 	return nil
 }
 
+// WriterAt wraps writer and progress bar to display progress correctly.
+type WriterAt struct {
+	object.WriterAt
+	bar *progressbar.ProgressBar
+}
+
+// WriteAt writes bytes to wrapped writer and add amount of bytes to progress bar.
+func (w *WriterAt) WriteAt(p []byte, off int64) (n int, err error) {
+	n, err = w.WriterAt.WriteAt(p, off)
+	w.bar.Add(n)
+	return
+}
+
+// Truncate truncates writer to specific size.
+func (w *WriterAt) Truncate(size int64) error {
+	w.bar.SetTotal(size)
+	return w.WriterAt.Truncate(size)
+}
+
 // download transfers s3 compatible object src to dst on local machine.
 func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
 	if src.IsLocal() {
@@ -147,28 +169,15 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
+	if *parallelism < 1 {
+		return fmt.Errorf("parallelism must be at least 1")
+	}
+
 	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
 	}
 	defer closeProject(project)
-
-	download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), nil)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errs.Combine(err, download.Close()) }()
-
-	var bar *progressbar.ProgressBar
-	var reader io.ReadCloser
-	if showProgress {
-		info := download.Info()
-		bar = progressbar.New64(info.System.ContentLength)
-		reader = bar.NewProxyReader(download)
-		bar.Start()
-	} else {
-		reader = download
-	}
 
 	if fileInfo, err := os.Stat(dst.Path()); err == nil && fileInfo.IsDir() {
 		dst = dst.Join(src.Base())
@@ -189,7 +198,43 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		}()
 	}
 
-	_, err = io.Copy(file, reader)
+	var bar *progressbar.ProgressBar
+	if *parallelism <= 1 {
+		download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), nil)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, download.Close()) }()
+
+		var reader io.ReadCloser
+		if showProgress {
+			info := download.Info()
+			bar = progressbar.New64(info.System.ContentLength)
+			reader = bar.NewProxyReader(download)
+			bar.Start()
+		} else {
+			reader = download
+		}
+
+		_, err = io.Copy(file, reader)
+	} else {
+		var writer object.WriterAt
+		if showProgress {
+			bar = progressbar.New64(0)
+			bar.Set(progressbar.Bytes, true)
+			writer = &WriterAt{file, bar}
+			bar.Start()
+		} else {
+			writer = file
+		}
+
+		// final DownloadObjectAt method signature is under design so we can still have some
+		// inconsistency between naming e.g. concurrency - parallelism.
+		err = object.DownloadObjectAt(ctx, project, src.Bucket(), src.Path(), writer, &object.DownloadObjectAtOptions{
+			Concurrency: *parallelism,
+		})
+	}
+
 	if bar != nil {
 		bar.Finish()
 	}
