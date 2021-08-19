@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/integration/ui/uitest"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/testsuite/ui/uitest"
 )
 
-func TestOnboardingWizardGatewayMT(t *testing.T) {
+func TestOnboardingWizardBrowser(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
 		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
 		fullName := "John Doe"
@@ -24,8 +24,7 @@ func TestOnboardingWizardGatewayMT(t *testing.T) {
 
 		page := browser.MustPage(signupPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
-
-		// First time user signup
+		// first time User signup
 		page.MustElement(".headerless-input").MustInput(fullName)
 		page.MustElement("[placeholder=\"example@email.com\"]").MustInput(emailAddress)
 		page.MustElement("[placeholder=\"Enter Password\"]").MustInput(password)
@@ -35,39 +34,35 @@ func TestOnboardingWizardGatewayMT(t *testing.T) {
 		confirmAccountEmailMessage := page.MustElement(".register-success-area__form-container__title").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 
-		// First time user log in
+		// first time user log in
 		page.MustElement(".register-area__content-area__login-container__link").MustClick()
 		page.MustElement(".headerless-input").MustInput(emailAddress)
 		page.MustElement("[type=password]").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
 
-		// Testing onboarding workflow gatewayMT
-		gatewayMTwizard := page.MustElement(".overview-area__path-section:nth-child(1) span")
-		gatewayMTwizard.MustClick()
-		createAnAccessGrantTitle := page.MustElement(".onboarding-access__title").MustText()
-		require.Contains(t, createAnAccessGrantTitle, "Access Grant")
-
-		page.MustElement(".headered-input").MustInput("grant123")
+		// testing onboarding workflow browser
 		page.MustElement(".label").MustClick()
-		accessPermissions := page.MustElement(".permissions__title").MustText()
-		require.Contains(t, accessPermissions, "Access Permissions")
-
-		page.MustElement(".label").MustClick()
-		encryptionPassphraseTitle := page.MustElement(".generate-container__title").MustText()
-		require.Contains(t, encryptionPassphraseTitle, "Encryption Passphrase")
+		objectBrowserWarning := page.MustElement(".warning-view__container").MustText()
+		require.Contains(t, objectBrowserWarning, "The object browser uses server side encryption.")
+		page.MustElement(".container:nth-of-type(2)").MustClick()
 
 		EncryptionPassphraseWarningTitle := page.MustElement(".generate-container__warning__title").MustText()
 		require.Contains(t, EncryptionPassphraseWarningTitle, "Save Your Encryption Passphrase")
+		customPassphrase := page.MustElement(".generate-container__choosing__right__option:nth-of-type(2)")
+		customPassphrase.MustClick()
 
-		page.MustElement(".generate-container__warning__check-area__checkbox").MustClick()
-		page.MustElement(".generate-container__next-button").MustClick()
-		accessGrantWarning := page.MustElement(".generate-grant__warning").MustText()
-		require.Contains(t, accessGrantWarning, "This Information is Only Displayed Once")
+		existingPassphraseWarning := page.MustElement(".generate-container__enter-passphrase-box").MustText()
+		require.Contains(t, existingPassphraseWarning, "Enter an Existing Passphrase")
+		page.MustElement(".headered-input").MustInput("password123")
+		page.MustElement(".label").MustClick()
 
-		page.MustElement(".generate-grant__done-button").MustClick()
-		accessGrants := page.MustElement("a.navigation-area__item-container:nth-of-type(3)")
-		accessGrants.MustClick()
-		grantContainer := page.MustElement(".grants-item-container").MustText()
-		require.Contains(t, grantContainer, "grant123")
+		enterPasswordWarning := page.MustElement(".enter-pass__container__warning").MustText()
+		require.Contains(t, enterPasswordWarning, "Would you like to access files in your browser?")
+		page.MustElement(".enter-pass__container__textarea__input").MustInput("password123")
+		page.MustElement(".label").MustClick()
+
+		// Buckets Page
+		bucketsTitle := page.MustElement(".buckets-view__title-area").MustText()
+		require.Contains(t, bucketsTitle, "Buckets")
 	})
 }

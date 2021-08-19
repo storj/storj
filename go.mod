@@ -11,7 +11,6 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.7.1
-	github.com/go-rod/rod v0.100.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.5
 	github.com/google/pprof v0.0.0-20200229191704-1ebb73c60ed3 // indirect
@@ -55,7 +54,7 @@ require (
 	google.golang.org/api v0.20.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	storj.io/common v0.0.0-20210810183638-70ba30f208a9
+	storj.io/common v0.0.0-20210818163656-4667d2cafb27
 	storj.io/drpc v0.0.24
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20210625132526-af46b647eda5
