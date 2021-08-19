@@ -835,7 +835,7 @@ func GetRandomStripe(ctx context.Context, segment metabase.Segment) (index int32
 
 	var src cryptoSource
 	rnd := rand.New(src)
-	numStripes := segment.EncryptedSize / segment.Redundancy.StripeSize()
+	numStripes := segment.Redundancy.StripeCount(segment.EncryptedSize)
 	randomStripeIndex := rnd.Int31n(numStripes)
 
 	return randomStripeIndex, nil
