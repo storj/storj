@@ -56,7 +56,7 @@ pipeline {
                 sh 'cd .build/satellite-web && npm run build'
 
                 sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
-                sh 'go test -vet=off -race -json ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
+                sh 'cd testsuite && go test -vet=off -race -json ./ui/... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
             }
             post {
                 always {

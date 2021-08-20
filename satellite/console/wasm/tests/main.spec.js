@@ -31,7 +31,7 @@ describe('main.wasm Tests', () => {
             const projectID = "b9e663e0-69e0-48e9-8eb2-4079be85e488"
             const result = generateAccessGrant("a",apiKey, "supersecretpassphrase", projectID);
             expect(result["error"]).toEqual("")
-            expect(result["value"]).toEqual("158UWUf6FHtCk8RGQn2JAXETNRnVwyoF7yEQQnuvPrLbsCPpttuAVWwzQ2YgD2bpQLpdBnctHssvQsqeju7kn7gz3LEJZSdRqyRG6rA9Da3PLGsawWMtM3NdGVqq9akyEmotsN7eMJVC1mfTsupiYXeHioTTTg11kY")
+            expect(result["value"]).toEqual("12PaUMS67QSkZC3SdDAxGpBUPJ48AJD7JrWHdWNrzvnTGcbvX4PN6SU1eYF2jw4QsmFzZJyXB8ppNZHzBx6bfYfQnjyQfDMZ98fqax98nxhkXaSfAGj8YH22GN5we")
         });
     });
 
