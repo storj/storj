@@ -4,7 +4,7 @@ exports[`Team HeaderArea renders correctly 1`] = `
 <div class="team-header-container">
   <div class="team-header-container__title-area">
     <h1 class="team-header-container__title-area__title">Project Members</h1>
-    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+    <vinfo-stub title="" text="" boldtext="The only project role currently available is Admin, which gives full access to the project." buttonlabel="" class="team-header-container__title-area__info-button">
       <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
     </vinfo-stub>
   </div>
@@ -27,7 +27,7 @@ exports[`Team HeaderArea renders correctly with 1 selected user and delete click
 <div class="team-header-container">
   <div class="team-header-container__title-area">
     <h1 class="team-header-container__title-area__title">Project Members</h1>
-    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+    <vinfo-stub title="" text="" boldtext="The only project role currently available is Admin, which gives full access to the project." buttonlabel="" class="team-header-container__title-area__info-button">
       <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
     </vinfo-stub>
   </div>
@@ -53,7 +53,7 @@ exports[`Team HeaderArea renders correctly with 2 selected users and delete clic
 <div class="team-header-container">
   <div class="team-header-container__title-area">
     <h1 class="team-header-container__title-area__title">Project Members</h1>
-    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+    <vinfo-stub title="" text="" boldtext="The only project role currently available is Admin, which gives full access to the project." buttonlabel="" class="team-header-container__title-area__info-button">
       <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
     </vinfo-stub>
   </div>
@@ -79,7 +79,7 @@ exports[`Team HeaderArea renders correctly with opened Add team member popup 1`]
 <div class="team-header-container">
   <div class="team-header-container__title-area">
     <h1 class="team-header-container__title-area__title">Project Members</h1>
-    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+    <vinfo-stub title="" text="" boldtext="The only project role currently available is Admin, which gives full access to the project." buttonlabel="" class="team-header-container__title-area__info-button">
       <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
     </vinfo-stub>
   </div>
@@ -102,7 +102,7 @@ exports[`Team HeaderArea renders correctly with selected users 1`] = `
 <div class="team-header-container">
   <div class="team-header-container__title-area">
     <h1 class="team-header-container__title-area__title">Project Members</h1>
-    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+    <vinfo-stub title="" text="" boldtext="The only project role currently available is Admin, which gives full access to the project." buttonlabel="" class="team-header-container__title-area__info-button">
       <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
     </vinfo-stub>
   </div>

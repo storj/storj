@@ -132,10 +132,10 @@ export default class DashboardArea extends Vue {
         }
 
         if (!projects.length) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
-
             try {
+                await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
                 await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
             } catch (error) {
                 return;
             }

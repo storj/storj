@@ -10,27 +10,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from '@/router';
-
 @Component
-export default class OnboardingTourArea extends Vue {
-    /**
-     * Lifecycle hook after initial render.
-     * Sets area to needed state.
-     */
-    public mounted(): void {
-        if (this.userHasProject) {
-            this.$router.push(RouteConfig.ProjectDashboard.path).catch(() => {return; });
-        }
-    }
-
-    /**
-     * Indicates if user has at least one project.
-     */
-    private get userHasProject(): boolean {
-        return this.$store.state.projectsModule.projects.length > 0;
-    }
-}
+export default class OnboardingTourArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
