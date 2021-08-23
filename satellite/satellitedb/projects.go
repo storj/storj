@@ -138,6 +138,7 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 		Name:        dbx.Project_Name(project.Name),
 		Description: dbx.Project_Description(project.Description),
 		RateLimit:   dbx.Project_RateLimit_Raw(project.RateLimit),
+		BurstLimit:  dbx.Project_BurstLimit_Raw(project.BurstLimit),
 	}
 	if project.StorageLimit != nil {
 		updateFields.UsageLimit = dbx.Project_UsageLimit(project.StorageLimit.Int64())
@@ -322,6 +323,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		PartnerID:      partnerID,
 		OwnerID:        ownerID,
 		RateLimit:      project.RateLimit,
+		BurstLimit:     project.BurstLimit,
 		MaxBuckets:     project.MaxBuckets,
 		CreatedAt:      project.CreatedAt,
 		StorageLimit:   (*memory.Size)(project.UsageLimit),

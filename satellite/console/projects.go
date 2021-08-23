@@ -73,6 +73,7 @@ type Project struct {
 	PartnerID      uuid.UUID    `json:"partnerId"`
 	OwnerID        uuid.UUID    `json:"ownerId"`
 	RateLimit      *int         `json:"rateLimit"`
+	BurstLimit     *int         `json:"burstLimit"`
 	MaxBuckets     *int         `json:"maxBuckets"`
 	CreatedAt      time.Time    `json:"createdAt"`
 	MemberCount    int          `json:"memberCount"`

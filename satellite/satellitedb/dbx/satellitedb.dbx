@@ -330,6 +330,7 @@ model project (
     field usage_limit     int64     ( nullable, updatable )
     field bandwidth_limit int64     ( nullable, updatable )
     field rate_limit      int       ( nullable, updatable )
+    field burst_limit     int       ( nullable, updatable )
     field max_buckets     int       ( nullable, updatable )
     field partner_id      blob      ( nullable )
     field owner_id        blob

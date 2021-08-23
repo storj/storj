@@ -207,6 +207,7 @@ CREATE TABLE projects (
 	usage_limit bigint,
 	bandwidth_limit bigint,
 	rate_limit integer,
+	burst_limit integer,
 	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
