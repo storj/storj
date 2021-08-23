@@ -178,6 +178,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		Usage     *memory.Size `schema:"usage"`
 		Bandwidth *memory.Size `schema:"bandwidth"`
 		Rate      *int         `schema:"rate"`
+		Burst     *int         `schema:"burst"`
 		Buckets   *int         `schema:"buckets"`
 	}
 
@@ -235,6 +236,21 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		err = server.db.Console().Projects().UpdateRateLimit(ctx, projectUUID, *arguments.Rate)
 		if err != nil {
 			httpJSONError(w, "failed to update rate",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if arguments.Burst != nil {
+		if *arguments.Burst < 0 {
+			httpJSONError(w, "negative burst rate",
+				fmt.Sprintf("%v", arguments.Burst), http.StatusBadRequest)
+			return
+		}
+
+		err = server.db.Console().Projects().UpdateBurstLimit(ctx, projectUUID, *arguments.Burst)
+		if err != nil {
+			httpJSONError(w, "failed to update burst",
 				err.Error(), http.StatusInternalServerError)
 			return
 		}

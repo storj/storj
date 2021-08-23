@@ -604,3 +604,39 @@ func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 		require.Len(t, groupErrs, 3)
 	})
 }
+
+func TestBurstLimit_ProjectBurstLimitZero(t *testing.T) {
+	rateLimit := 2
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
+				// Make limit cache to refresh as quickly as possible
+				// if it starts to become flaky, we can then add sleeps between
+				// the cache update and the API calls
+				config.Metainfo.RateLimiter.CacheExpiration = time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		zeroRateLimit := 0
+		err = satellite.DB.Console().Projects().UpdateBurstLimit(ctx, projects[0].ID, zeroRateLimit)
+		require.NoError(t, err)
+
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 3)
+	})
+}

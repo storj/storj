@@ -162,19 +162,23 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 		return nil
 	}
 	limiter, err := endpoint.limiterCache.Get(projectID.String(), func() (interface{}, error) {
-		limit := rate.Limit(endpoint.config.RateLimiter.Rate)
+		rateLimit := rate.Limit(endpoint.config.RateLimiter.Rate)
+		burstLimit := int(endpoint.config.RateLimiter.Rate)
 
 		project, err := endpoint.projects.Get(ctx, projectID)
 		if err != nil {
 			return false, err
 		}
 		if project.RateLimit != nil {
-			limit = rate.Limit(*project.RateLimit)
+			rateLimit = rate.Limit(*project.RateLimit)
+			burstLimit = *project.RateLimit
+		}
+		// use the explicitly set burst value if it's defined
+		if project.BurstLimit != nil {
+			burstLimit = *project.BurstLimit
 		}
 
-		// initialize the limiter with limit and burst the same so that we don't limit how quickly calls
-		// are made within the second.
-		return rate.NewLimiter(limit, int(limit)), nil
+		return rate.NewLimiter(rateLimit, burstLimit), nil
 	})
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Unavailable, err.Error())
@@ -183,7 +187,8 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 	if !limiter.(*rate.Limiter).Allow() {
 		endpoint.log.Warn("too many requests for project",
 			zap.Stringer("projectID", projectID),
-			zap.Float64("limit", float64(limiter.(*rate.Limiter).Limit())))
+			zap.Float64("rate limit", float64(limiter.(*rate.Limiter).Limit())),
+			zap.Float64("burst limit", float64(limiter.(*rate.Limiter).Burst())))
 
 		mon.Event("metainfo_rate_limit_exceeded") //mon:locked
 
