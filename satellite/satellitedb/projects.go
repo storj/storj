@@ -157,15 +157,14 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 func (projects *projects) UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rateLimit := &newLimit
-	if newLimit == 0 {
-		rateLimit = nil
+	if newLimit < 0 {
+		return Error.New("limit can't be set to negative value")
 	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(id[:]),
 		dbx.Project_Update_Fields{
-			RateLimit: dbx.Project_RateLimit_Raw(rateLimit),
+			RateLimit: dbx.Project_RateLimit(newLimit),
 		})
 
 	return err
