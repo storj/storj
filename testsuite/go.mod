@@ -11,7 +11,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
 	storj.io/common v0.0.0-20211217122906-6be0b96ce7e0
-	storj.io/gateway-mt v1.14.4-0.20211015103214-01eddbc864fb
+	storj.io/gateway-mt v1.18.1-0.20211210081136-cada9a567d31
 	storj.io/private v0.0.0-20211209191323-6595d4aa0cfe
 	storj.io/storj v0.12.1-0.20211102170500-1de8a695e84a
 )
@@ -229,7 +229,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	storj.io/drpc v0.0.26 // indirect
-	storj.io/gateway v1.3.1-0.20211004141903-f55ba9105164 // indirect
+	storj.io/gateway v1.4.1 // indirect
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a // indirect
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7 // indirect
 	storj.io/uplink v1.7.2-0.20220110164813-03e4f59f7af2 // indirect

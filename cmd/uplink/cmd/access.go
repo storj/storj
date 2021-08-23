@@ -4,14 +4,12 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"time"
+	"os"
+	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
@@ -22,12 +20,12 @@ import (
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/uplink"
+	"storj.io/uplink/edge"
 )
-
-const defaultAccessRegisterTimeout = 15 * time.Second
 
 type registerConfig struct {
 	AuthService string `help:"the address to the service you wish to register your access with" default:"" basic-help:"true"`
+	CACert      string `help:"path to a file in PEM format with certificate(s) or certificate chain(s) to validate the auth service against" default:""`
 	Public      bool   `help:"if the access should be public" default:"false" basic-help:"true"`
 	Format      string `help:"format of credentials, use 'env' or 'aws' for using in scripts" default:""`
 	AWSProfile  string `help:"if using --format=aws, output the --profile tag using this profile" default:""`
@@ -64,7 +62,7 @@ func init() {
 
 	registerCmd := &cobra.Command{
 		Use:   "register [ACCESS]",
-		Short: "Register your access for use with a hosted gateway.",
+		Short: "Register your access for use with a hosted S3 compatible gateway and linksharing.",
 		RunE:  accessRegister,
 		Args:  cobra.MaximumNArgs(1),
 	}
@@ -211,12 +209,12 @@ func accessRegister(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("no access specified: %w", err)
 	}
 
-	accessKey, secretKey, endpoint, err := RegisterAccess(ctx, access, registerCfg.AuthService, registerCfg.Public, defaultAccessRegisterTimeout)
+	credentials, err := RegisterAccess(ctx, access, registerCfg.AuthService, registerCfg.Public, registerCfg.CACert)
 	if err != nil {
 		return err
 	}
 
-	return DisplayGatewayCredentials(accessKey, secretKey, endpoint, registerCfg.Format, registerCfg.AWSProfile)
+	return DisplayGatewayCredentials(credentials, registerCfg.Format, registerCfg.AWSProfile)
 }
 
 func getAccessFromArgZeroOrConfig(config AccessConfig, args []string) (access *uplink.Access, err error) {
@@ -234,14 +232,16 @@ func getAccessFromArgZeroOrConfig(config AccessConfig, args []string) (access *u
 }
 
 // DisplayGatewayCredentials formats and writes credentials to stdout.
-func DisplayGatewayCredentials(accessKey, secretKey, endpoint, format, awsProfile string) (err error) {
+func DisplayGatewayCredentials(credentials *edge.Credentials, format, awsProfile string) (err error) {
 	switch format {
 	case "env": // export / set compatible format
 		// note that AWS_ENDPOINT configuration is not natively utilized by the AWS CLI
 		_, err = fmt.Printf("AWS_ACCESS_KEY_ID=%s\n"+
 			"AWS_SECRET_ACCESS_KEY=%s\n"+
 			"AWS_ENDPOINT=%s\n",
-			accessKey, secretKey, endpoint)
+			credentials.AccessKeyID,
+			credentials.SecretKey,
+			credentials.Endpoint)
 		if err != nil {
 			return err
 		}
@@ -258,7 +258,9 @@ func DisplayGatewayCredentials(accessKey, secretKey, endpoint, format, awsProfil
 		_, err = fmt.Printf("aws configure %s set aws_access_key_id %s\n"+
 			"aws configure %s set aws_secret_access_key %s\n"+
 			"aws configure %s set s3.endpoint_url %s\n",
-			profile, accessKey, profile, secretKey, profile, endpoint)
+			profile, credentials.AccessKeyID,
+			profile, credentials.SecretKey,
+			profile, credentials.Endpoint)
 		if err != nil {
 			return err
 		}
@@ -267,7 +269,7 @@ func DisplayGatewayCredentials(accessKey, secretKey, endpoint, format, awsProfil
 			"Access Key ID: %s\n"+
 			"Secret Key   : %s\n"+
 			"Endpoint     : %s\n",
-			accessKey, secretKey, endpoint)
+			credentials.AccessKeyID, credentials.SecretKey, credentials.Endpoint)
 		if err != nil {
 			return err
 		}
@@ -276,55 +278,29 @@ func DisplayGatewayCredentials(accessKey, secretKey, endpoint, format, awsProfil
 }
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.
-func RegisterAccess(ctx context.Context, access *uplink.Access, authService string, public bool, timeout time.Duration) (accessKey, secretKey, endpoint string, err error) {
+func RegisterAccess(ctx context.Context, access *uplink.Access, authService string, public bool, certificateFile string) (credentials *edge.Credentials, err error) {
 	if authService == "" {
-		return "", "", "", errs.New("no auth service address provided")
-	}
-	accesssSerialized, err := access.Serialize()
-	if err != nil {
-		return "", "", "", errs.Wrap(err)
-	}
-	postData, err := json.Marshal(map[string]interface{}{
-		"access_grant": accesssSerialized,
-		"public":       public,
-	})
-	if err != nil {
-		return accessKey, "", "", errs.Wrap(err)
+		return nil, errs.New("no auth service address provided")
 	}
 
-	client := &http.Client{
-		Timeout: timeout,
+	// preserve compatibility with previous https service
+	authService = strings.TrimPrefix(authService, "https://")
+	authService = strings.TrimSuffix(authService, "/")
+	if !strings.Contains(authService, ":") {
+		authService += ":7777"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/v1/access", authService), bytes.NewReader(postData))
-	if err != nil {
-		return "", "", "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", "", err
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", "", err
+	var certificatePEM []byte
+	if certificateFile != "" {
+		certificatePEM, err = os.ReadFile(certificateFile)
+		if err != nil {
+			return nil, errs.New("can't read certificate file: %w", err)
+		}
 	}
 
-	respBody := make(map[string]string)
-	if err := json.Unmarshal(body, &respBody); err != nil {
-		return "", "", "", errs.New("unexpected response from auth service: %s", string(body))
+	edgeConfig := edge.Config{
+		AuthServiceAddress: authService,
+		CertificatePEM:     certificatePEM,
 	}
-
-	accessKey, ok := respBody["access_key_id"]
-	if !ok {
-		return "", "", "", errs.New("access_key_id missing in response")
-	}
-	secretKey, ok = respBody["secret_key"]
-	if !ok {
-		return "", "", "", errs.New("secret_key missing in response")
-	}
-	return accessKey, secretKey, respBody["endpoint"], nil
+	return edgeConfig.RegisterAccess(ctx, access, &edge.RegisterAccessOptions{Public: public})
 }

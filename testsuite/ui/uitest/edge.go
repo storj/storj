@@ -5,11 +5,17 @@ package uitest
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/binary"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
+	"math/big"
 	"net"
-	"net/url"
 	"os"
 	"strconv"
 	"testing"
@@ -22,7 +28,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
-	"storj.io/gateway-mt/auth"
+	"storj.io/gateway-mt/pkg/auth"
 	"storj.io/gateway-mt/pkg/authclient"
 	"storj.io/gateway-mt/pkg/server"
 	"storj.io/gateway-mt/pkg/trustedip"
@@ -55,13 +61,15 @@ type EdgeTest func(t *testing.T, ctx *testcontext.Context, planet *EdgePlanet, b
 func Edge(t *testing.T, test EdgeTest) {
 	edgehost := os.Getenv("STORJ_TEST_EDGE_HOST")
 	if edgehost == "" {
-		edgehost = "127.0.0.1"
+		edgehost = "localhost"
 	}
 
 	// TODO: make address not hardcoded the address selection here may
 	// conflict with some automatically bound address.
-	authSvcAddr := net.JoinHostPort(edgehost, strconv.Itoa(randomRange(20000, 40000)))
-	authSvcAddrTLS := net.JoinHostPort(edgehost, strconv.Itoa(randomRange(20000, 40000)))
+	startPort := randomRange(20000, 40000)
+	authSvcAddr := net.JoinHostPort(edgehost, strconv.Itoa(startPort))
+	authSvcAddrTLS := net.JoinHostPort(edgehost, strconv.Itoa(startPort+1))
+	authSvcDrpcAddrTLS := net.JoinHostPort(edgehost, strconv.Itoa(startPort+2))
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -79,55 +87,119 @@ func Edge(t *testing.T, test EdgeTest) {
 		gwConfig := server.Config{}
 		cfgstruct.Bind(&pflag.FlagSet{}, &gwConfig, cfgstruct.UseTestDefaults())
 		gwConfig.Server.Address = "127.0.0.1:0"
-		gwConfig.AuthURL = "http://" + authSvcAddr
+		gwConfig.Auth.BaseURL = "http://" + authSvcAddr
+		gwConfig.Auth.Token = "super-secret"
+		gwConfig.Auth.Timeout = 5 * time.Minute
 		gwConfig.InsecureLogAll = true
 
-		authURL, err := url.Parse("http://" + authSvcAddr)
-		require.NoError(t, err)
-		authClient, err := authclient.New(authURL, "super-secret", 5*time.Minute)
-		require.NoError(t, err)
+		authClient := authclient.New(gwConfig.Auth)
 
-		gateway, err := server.New(gwConfig, planet.Log().Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient)
+		gateway, err := server.New(gwConfig, planet.Log().Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient, []string{})
 		require.NoError(t, err)
 
 		defer ctx.Check(gateway.Close)
 
+		certFile, keyFile, _, _ := createSelfSignedCertificateFile(t, edgehost)
+
 		authConfig := auth.Config{
-			Endpoint:      "http://" + gateway.Address(),
-			AuthToken:     "super-secret",
-			KVBackend:     "memory://",
-			ListenAddr:    authSvcAddr,
-			ListenAddrTLS: authSvcAddrTLS,
+			Endpoint:          "http://" + gateway.Address(),
+			AuthToken:         "super-secret",
+			KVBackend:         "memory://",
+			ListenAddr:        authSvcAddr,
+			ListenAddrTLS:     authSvcAddrTLS,
+			DRPCListenAddr:    ":0",
+			DRPCListenAddrTLS: authSvcDrpcAddrTLS,
+			CertFile:          certFile.Name(),
+			KeyFile:           keyFile.Name(),
 		}
 		for _, sat := range planet.Satellites {
 			authConfig.AllowedSatellites = append(authConfig.AllowedSatellites, sat.NodeURL().String())
 		}
 
-		auth, err := auth.New(ctx, planet.Log().Named("auth"), authConfig, ctx.Dir("authservice"))
+		authPeer, err := auth.New(ctx, planet.Log().Named("auth"), authConfig, ctx.Dir("authservice"))
 		require.NoError(t, err)
 
-		defer ctx.Check(auth.Close)
-		ctx.Go(func() error { return auth.Run(ctx) })
-		require.NoError(t, waitForAddress(ctx, authSvcAddr, 3*time.Second))
+		defer ctx.Check(authPeer.Close)
+		ctx.Go(func() error { return authPeer.Run(ctx) })
+		require.NoError(t, waitForAddress(ctx, authSvcAddrTLS, 3*time.Second))
+		require.NoError(t, waitForAddress(ctx, authSvcDrpcAddrTLS, 3*time.Second))
 
 		ctx.Go(gateway.Run)
 		require.NoError(t, waitForAddress(ctx, gateway.Address(), 3*time.Second))
 
-		// todo: use the unused endpoint below
-		accessKey, secretKey, _, err := cmd.RegisterAccess(ctx, access, "http://"+authSvcAddr, false, 15*time.Second)
+		edgeCredentials, err := cmd.RegisterAccess(ctx, access, authSvcDrpcAddrTLS, false, certFile.Name())
 		require.NoError(t, err)
 
 		edge := &EdgePlanet{}
 		edge.Planet = planet
-		edge.Gateway.AccessKey = accessKey
-		edge.Gateway.SecretKey = secretKey
-		edge.Gateway.Addr = gateway.Address()
+		edge.Gateway.AccessKey = edgeCredentials.AccessKeyID
+		edge.Gateway.SecretKey = edgeCredentials.SecretKey
+		edge.Gateway.Addr = edgeCredentials.Endpoint
 		edge.Auth.Addr = authSvcAddr
 
 		Browser(t, ctx, planet, func(browser *rod.Browser) {
 			test(t, ctx, edge, browser)
 		})
 	})
+}
+
+func createSelfSignedCertificateFile(t *testing.T, hostname string) (certFile *os.File, keyFile *os.File, certificatePEM []byte, privateKeyPEM []byte) {
+	certificatePEM, privateKeyPEM = createSelfSignedCertificate(t, hostname)
+
+	certFile, err := ioutil.TempFile(os.TempDir(), "*-cert.pem")
+	require.NoError(t, err)
+	_, err = certFile.Write(certificatePEM)
+	require.NoError(t, err)
+
+	keyFile, err = ioutil.TempFile(os.TempDir(), "*-key.pem")
+	require.NoError(t, err)
+	_, err = keyFile.Write(privateKeyPEM)
+	require.NoError(t, err)
+
+	return certFile, keyFile, certificatePEM, privateKeyPEM
+}
+
+func createSelfSignedCertificate(t *testing.T, hostname string) (certificatePEM []byte, privateKeyPEM []byte) {
+	notAfter := time.Now().Add(1 * time.Minute)
+
+	var ips []net.IP
+	ip := net.ParseIP(hostname)
+	if ip != nil {
+		ips = []net.IP{ip}
+	}
+
+	// first create a server certificate
+	template := x509.Certificate{
+		Subject: pkix.Name{
+			CommonName: hostname,
+		},
+		DNSNames:              []string{hostname},
+		IPAddresses:           ips,
+		SerialNumber:          big.NewInt(1337),
+		BasicConstraintsValid: false,
+		IsCA:                  true,
+		NotAfter:              notAfter,
+	}
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	certificateDERBytes, err := x509.CreateCertificate(
+		rand.Reader,
+		&template,
+		&template,
+		&privateKey.PublicKey,
+		privateKey,
+	)
+	require.NoError(t, err)
+
+	certificatePEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificateDERBytes})
+
+	privateKeyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	require.NoError(t, err)
+	privateKeyPEM = pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateKeyBytes})
+
+	return certificatePEM, privateKeyPEM
 }
 
 func randomRange(low, high int) int {

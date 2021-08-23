@@ -39,6 +39,7 @@ var shareCfg struct {
 	URL         bool   `default:"false" help:"if true, returns a url for the shared path. implies --register and --public" basic-help:"true"`
 	DNS         string `default:"" help:"specify your custom hostname. if set, returns dns settings for web hosting. implies --register and --public" basic-help:"true"`
 	AuthService string `default:"https://auth.us1.storjshare.io" help:"url for shared auth service" basic-help:"true"`
+	CACert      string `help:"path to a file in PEM format with certificate(s) or certificate chain(s) to validate the auth service against" default:""`
 	Public      bool   `default:"false" help:"if true, the access will be public. --dns and --url override this" basic-help:"true"`
 
 	// Share requires information about the current access
@@ -82,11 +83,11 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if shareCfg.Register || shareCfg.URL || shareCfg.DNS != "" {
-		accessKey, secretKey, endpoint, err := RegisterAccess(ctx, newAccess, shareCfg.AuthService, isPublic, defaultAccessRegisterTimeout)
+		credentials, err := RegisterAccess(ctx, newAccess, shareCfg.AuthService, isPublic, shareCfg.CACert)
 		if err != nil {
 			return err
 		}
-		err = DisplayGatewayCredentials(accessKey, secretKey, endpoint, "", "")
+		err = DisplayGatewayCredentials(credentials, "", "")
 		if err != nil {
 			return err
 		}
@@ -97,12 +98,12 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 
 		if len(shareCfg.AllowedPathPrefix) == 1 && !permission.AllowUpload && !permission.AllowDelete {
 			if shareCfg.URL {
-				if err = createURL(accessKey, sharePrefixes); err != nil {
+				if err = createURL(credentials.AccessKeyID, sharePrefixes); err != nil {
 					return err
 				}
 			}
 			if shareCfg.DNS != "" {
-				if err = createDNS(accessKey); err != nil {
+				if err = createDNS(credentials.AccessKeyID); err != nil {
 					return err
 				}
 			}
