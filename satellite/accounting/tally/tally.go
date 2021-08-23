@@ -188,11 +188,12 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 		updateLiveAccountingTotals(projectTotalsFromBuckets(collector.Bucket))
 	}
 
-	// TODO move commented metrics in a different place or wait until metabase
-	// object will contains such informations
-	// report bucket metrics
 	if len(collector.Bucket) > 0 {
 		var total accounting.BucketTally
+		// TODO for now we don't have access to inline/remote stats per bucket
+		// but that may change in the future. To get back those stats we would
+		// most probably need to add inline/remote information to object in
+		// metabase. We didn't decide yet if that is really needed right now.
 		for _, bucket := range collector.Bucket {
 			monAccounting.IntVal("bucket_objects").Observe(bucket.ObjectCount) //mon:locked
 			monAccounting.IntVal("bucket_segments").Observe(bucket.Segments()) //mon:locked
@@ -205,14 +206,8 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			total.Combine(bucket)
 		}
 		monAccounting.IntVal("total_objects").Observe(total.ObjectCount) //mon:locked
-
 		monAccounting.IntVal("total_segments").Observe(total.Segments()) //mon:locked
-		// monAccounting.IntVal("total_inline_segments").Observe(total.InlineSegments) //mon:locked
-		// monAccounting.IntVal("total_remote_segments").Observe(total.RemoteSegments) //mon:locked
-
-		monAccounting.IntVal("total_bytes").Observe(total.Bytes()) //mon:locked
-		// monAccounting.IntVal("total_inline_bytes").Observe(total.InlineBytes) //mon:locked
-		// monAccounting.IntVal("total_remote_bytes").Observe(total.RemoteBytes) //mon:locked
+		monAccounting.IntVal("total_bytes").Observe(total.Bytes())       //mon:locked
 	}
 
 	// return errors if something went wrong.
