@@ -707,12 +707,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
 	}
 
-	return endpoint.commitObject(ctx, req, nil)
-}
-
-func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommitRequest, pointer *pb.Pointer) (resp *pb.ObjectCommitResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -1749,16 +1743,9 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
 	}
 
-	_, resp, err = endpoint.commitSegment(ctx, req, true)
-	return resp, err
-}
-
-func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentCommitRequest, savePointer bool) (_ *pb.Pointer, resp *pb.SegmentCommitResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	segmentID, err := endpoint.unmarshalSatSegmentID(ctx, req.SegmentId)
 	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	streamID := segmentID.StreamId
@@ -1770,7 +1757,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// cheap basic verification
@@ -1781,7 +1768,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 			zap.Int32("redundancy optimal threshold", streamID.Redundancy.GetSuccessThreshold()),
 			zap.Stringer("Segment ID", req.SegmentId),
 		)
-		return nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
 			numResults, streamID.Redundancy.GetSuccessThreshold(),
 		)
@@ -1799,7 +1786,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	err = endpoint.pointerVerification.VerifySizes(ctx, rs, req.SizeEncryptedData, req.UploadResult)
 	if err != nil {
 		endpoint.log.Debug("piece sizes are invalid", zap.Error(err))
-		return nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece sizes are invalid: %v", err)
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece sizes are invalid: %v", err)
 	}
 
 	// extract the original order limits
@@ -1812,7 +1799,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, req.UploadResult, originalLimits)
 	if err != nil {
 		endpoint.log.Debug("pointer verification failed", zap.Error(err))
-		return nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "pointer verification failed: %s", err)
+		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "pointer verification failed: %s", err)
 	}
 
 	if len(validPieces) < int(rs.OptimalShares) {
@@ -1836,7 +1823,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 				)
 			}
 		}
-		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 	}
 
 	pieces := metabase.Pieces{}
@@ -1850,7 +1837,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	var expiresAt *time.Time
@@ -1886,11 +1873,11 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 
 	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
 	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	segmentSize := req.SizeEncryptedData
@@ -1907,7 +1894,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 			zap.Int16("redundancy minimum requested", rs.RequiredShares),
 			zap.Int16("redundancy total", rs.TotalShares),
 		)
-		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, segmentSize); err != nil {
@@ -1923,13 +1910,13 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	err = endpoint.metainfo.metabaseDB.CommitSegment(ctx, mbCommitSegment)
 	if err != nil {
 		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 		}
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	return nil, &pb.SegmentCommitResponse{
+	return &pb.SegmentCommitResponse{
 		SuccessfulPieces: int32(len(pieces)),
 	}, nil
 }
@@ -1943,17 +1930,9 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
 	}
 
-	_, resp, err = endpoint.makeInlineSegment(ctx, req, true)
-	return resp, err
-}
-
-// makeInlineSegment makes inline segment on satellite.
-func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest, savePointer bool) (pointer *pb.Pointer, resp *pb.SegmentMakeInlineResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
@@ -1963,20 +1942,20 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if req.Position.Index < 0 {
-		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
 	inlineUsed := int64(len(req.EncryptedInlineData))
 	if inlineUsed > endpoint.encInlineSegmentSize {
-		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
 	}
 
 	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
@@ -1992,7 +1971,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	var expiresAt *time.Time
@@ -2024,23 +2003,23 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	})
 	if err != nil {
 		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 		}
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
 	err = endpoint.orders.UpdatePutInlineOrder(ctx, bucket, inlineUsed)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	endpoint.log.Info("Inline Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "inline"))
 	mon.Meter("req_put_inline").Mark(1)
 
-	return nil, &pb.SegmentMakeInlineResponse{}, nil
+	return &pb.SegmentMakeInlineResponse{}, nil
 }
 
 // ListSegments list object segments.
@@ -2788,16 +2767,4 @@ func (endpoint *Endpoint) checkExceedsStorageUsage(ctx context.Context, projectI
 	}
 
 	return nil
-}
-
-// CreatePath creates a segment key.
-func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex uint32, bucket, path []byte) (_ metabase.SegmentLocation, err error) {
-	// TODO rename to CreateLocation
-	defer mon.Task()(&ctx)(&err)
-	return metabase.SegmentLocation{
-		ProjectID:  projectID,
-		BucketName: string(bucket),
-		Position:   metabase.SegmentPosition{Index: segmentIndex},
-		ObjectKey:  metabase.ObjectKey(path),
-	}, nil
 }
