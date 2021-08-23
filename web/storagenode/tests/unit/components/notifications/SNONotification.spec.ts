@@ -10,7 +10,7 @@ import { UINotification } from '@/app/types/notifications';
 import { NotificationsHttpApi } from '@/storagenode/api/notifications';
 import { Notification, NotificationTypes } from '@/storagenode/notifications/notifications';
 import { NotificationsService } from '@/storagenode/notifications/service';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -23,7 +23,7 @@ const store = new Vuex.Store({ modules: { notificationsModule }});
 
 describe('SNONotification', (): void => {
     it('renders correctly with default props', (): void => {
-        const wrapper = shallowMount(SNONotification, {
+        const wrapper = mount(SNONotification, {
             store,
             localVue,
         });
@@ -41,7 +41,7 @@ describe('SNONotification', (): void => {
             'message1',
         );
 
-        const wrapper = shallowMount(SNONotification, {
+        const wrapper = mount(SNONotification, {
             store,
             localVue,
             propsData: {
