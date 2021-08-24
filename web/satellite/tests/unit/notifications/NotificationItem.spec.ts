@@ -10,7 +10,7 @@ import { makeNotificationsModule } from '@/store/modules/notifications';
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 
@@ -28,7 +28,7 @@ const store = new Vuex.Store(notificationModule);
 describe('NotificationItem', () => {
 
     it('renders correctly', () => {
-        const wrapper = shallowMount(NotificationItem);
+        const wrapper = mount(NotificationItem);
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -102,7 +102,7 @@ describe('NotificationItem', () => {
     });
 
     it('trigger pause correctly', () => {
-        const wrapper = shallowMount(NotificationItem, { store, localVue });
+        const wrapper = mount(NotificationItem, { store, localVue });
 
         wrapper.find('.notification-wrap').trigger('mouseover');
 
@@ -110,7 +110,7 @@ describe('NotificationItem', () => {
     });
 
     it('trigger resume correctly', () => {
-        const wrapper = shallowMount(NotificationItem, { store, localVue });
+        const wrapper = mount(NotificationItem, { store, localVue });
 
         wrapper.find('.notification-wrap').trigger('mouseover');
         wrapper.find('.notification-wrap').trigger('mouseleave');
@@ -119,7 +119,7 @@ describe('NotificationItem', () => {
     });
 
     it('trigger delete correctly', () => {
-        const wrapper = shallowMount(NotificationItem, { store, localVue });
+        const wrapper = mount(NotificationItem, { store, localVue });
 
         wrapper.find('.notification-wrap__buttons-group').trigger('click');
 

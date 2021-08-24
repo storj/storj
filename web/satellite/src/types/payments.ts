@@ -172,14 +172,13 @@ export class PaymentsHistoryItem {
         return amount / 100;
     }
 
-    public downloadLinkHtml(): string {
-        if (!this.link) {
-            return '';
+    public get label(): string {
+        switch(this.type) {
+        case PaymentsHistoryItemType.Transaction:
+            return "Checkout"
+        default:
+            return "Invoice PDF"
         }
-
-        const downloadLabel = this.type === PaymentsHistoryItemType.Transaction ? 'Checkout' : 'Invoice PDF';
-
-        return `<a class="download-link" target="_blank" href="${this.link}">${downloadLabel}</a>`;
     }
 
     /**

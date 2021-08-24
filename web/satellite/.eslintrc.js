@@ -36,8 +36,6 @@ module.exports = {
         "vue/max-attributes-per-line": ["off"],
         "vue/singleline-html-element-content-newline": ["off"],
 
-        "vue/no-v-html": ["off"], // needs a dedicated fix
-
         "vue/block-lang": ["error", {"script": {"lang": "ts"}}],
         "vue/html-button-has-type": ["error"],
         "vue/no-unused-properties": ["warn"],

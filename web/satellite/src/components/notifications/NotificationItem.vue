@@ -4,7 +4,9 @@
 <template>
     <div :style="notification.style" class="notification-wrap" :class="{ active: isClassActive }" @mouseover="onMouseOver" @mouseleave="onMouseLeave">
         <div class="notification-wrap__text-area">
-            <div class="notification-wrap__text-area__image" v-html="notification.imgSource" />
+            <div class="notification-wrap__text-area__image">
+                <component :is="notification.icon" />
+            </div>
             <p class="notification-wrap__text-area__message">{{ notification.message }}</p>
         </div>
         <div class="notification-wrap__buttons-group" @click="onCloseClick">
