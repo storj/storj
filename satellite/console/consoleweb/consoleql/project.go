@@ -439,12 +439,18 @@ func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInf
 }
 
 // fromMapProjectInfoProjectLimits creates console.ProjectInfo from input args.
-func fromMapProjectInfoProjectLimits(projectInfo, projectLimits map[string]interface{}) (project console.ProjectInfo) {
+func fromMapProjectInfoProjectLimits(projectInfo, projectLimits map[string]interface{}) (project console.ProjectInfo, err error) {
 	project.Name, _ = projectInfo[FieldName].(string)
 	project.Description, _ = projectInfo[FieldDescription].(string)
-	storageLimit, _ := strconv.Atoi(projectLimits[FieldStorageLimit].(string))
+	storageLimit, err := strconv.Atoi(projectLimits[FieldStorageLimit].(string))
+	if err != nil {
+		return project, err
+	}
 	project.StorageLimit = memory.Size(storageLimit)
-	bandwidthLimit, _ := strconv.Atoi(projectLimits[FieldBandwidthLimit].(string))
+	bandwidthLimit, err := strconv.Atoi(projectLimits[FieldBandwidthLimit].(string))
+	if err != nil {
+		return project, err
+	}
 	project.BandwidthLimit = memory.Size(bandwidthLimit)
 
 	return
