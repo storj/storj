@@ -37,7 +37,8 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import Vue, { VueConstructor } from 'vue';
+import { Component, Prop } from 'vue-property-decorator';
 
 import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
 
@@ -78,7 +79,7 @@ export default class CardComponent extends Vue {
     /**
      * Returns card logo depends of brand.
      */
-    public get cardIcon(): Vue {
+    public get cardIcon(): VueConstructor<Vue> {
         switch (this.creditCard.brand) {
         case 'jcb':
             return JCBIcon;

@@ -48,7 +48,7 @@ const {
 
 interface UsersContext {
     state: UsersState
-    commit: any
+    commit: (string, ...unknown) => void
 }
 
 /**
@@ -56,7 +56,7 @@ interface UsersContext {
  *
  * @param api - users api
  */
-export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
+export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersContext> {
     return {
         state: new UsersState(),
 

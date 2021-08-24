@@ -75,10 +75,16 @@ export class AccessGrantsState {
     public isAccessGrantsWebWorkerReady = false;
 }
 
+interface AccessGrantsRootGetters {
+    selectedProject: {
+        id: string
+    }
+}
+
 interface AccessGrantsContext {
     state: AccessGrantsState
-    commit: any
-    rootGetters: any
+    commit: (string, ...unknown) => void
+    rootGetters: AccessGrantsRootGetters
 }
 
 /**
@@ -86,7 +92,7 @@ interface AccessGrantsContext {
  *
  * @param api - accessGrants api
  */
-export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<AccessGrantsState> {
+export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<AccessGrantsState, AccessGrantsContext, AccessGrantsRootGetters> {
     return {
         state: new AccessGrantsState(),
         mutations: {
@@ -200,7 +206,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             stopAccessGrantsWebWorker: function({commit}: AccessGrantsContext): void {
                 commit(STOP_ACCESS_GRANTS_WEB_WORKER);
             },
-            fetchAccessGrants: async function ({commit, rootGetters, state}, pageNumber: number): Promise<AccessGrantsPage> {
+            fetchAccessGrants: async function ({commit, rootGetters, state}: AccessGrantsContext, pageNumber: number): Promise<AccessGrantsPage> {
                 const projectId = rootGetters.selectedProject.id;
                 commit(SET_PAGE_NUMBER, pageNumber);
 

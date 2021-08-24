@@ -39,10 +39,16 @@ export class BucketsState {
     public page: BucketPage = { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: bucketPageLimit, search: '', totalCount: 0 };
 }
 
+interface BucketsRootGetters {
+    selectedProject: {
+        id: string
+    }
+}
+
 interface BucketsContext {
     state: BucketsState
-    commit: any
-    rootGetters: any
+    commit: (string, ...unknown) => void
+    rootGetters: BucketsRootGetters
 }
 
 /**
@@ -50,7 +56,7 @@ interface BucketsContext {
  *
  * @param api - buckets api
  */
-export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
+export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState, BucketsContext, BucketsRootGetters> {
     return {
         state: new BucketsState(),
 

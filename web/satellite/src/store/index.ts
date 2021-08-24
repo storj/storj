@@ -25,11 +25,11 @@ import { User } from '@/types/users';
 
 Vue.use(Vuex);
 
-export class StoreModule<S> {
-    public state: S;
-    public mutations: any;
-    public actions: any;
-    public getters?: any;
+export class StoreModule<State, Context, RootGetters = void> { // eslint-disable-line @typescript-eslint/no-unused-vars
+    public state: State;
+    public mutations: Record<string, (State, ...args : any[]) => any>;  // eslint-disable-line @typescript-eslint/no-explicit-any
+    public actions: Record<string, (Context, ...args : any[]) => (Promise<any>|void|any)>; // eslint-disable-line @typescript-eslint/no-explicit-any
+    public getters?: Record<string, ((State) => any) | ((State, RootGetters) => any)>; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 // TODO: remove it after we will use modules as classes and use some DI framework

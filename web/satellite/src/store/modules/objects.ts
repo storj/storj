@@ -58,15 +58,19 @@ export class ObjectsState {
 
 interface ObjectsContext {
     state: ObjectsState
-    commit: any
-    dispatch: any
-    rootState: any
+    commit: (string, ...unknown) => void
+    dispatch: (string, ...unknown) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
+    rootState: {
+        files: {
+            uploading: []
+        }
+    }
 }
 
 /**
  * Creates objects module with all dependencies.
  */
-export function makeObjectsModule(): StoreModule<ObjectsState> {
+export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
     return {
         state: new ObjectsState(),
         mutations: {

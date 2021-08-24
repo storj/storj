@@ -18,7 +18,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-declare type listItemClickCallback = (item: any) => Promise<void>;
+declare type listItemClickCallback = (item: unknown) => Promise<void>;
 
 @Component
 export default class VList extends Vue {
@@ -27,7 +27,7 @@ export default class VList extends Vue {
     @Prop({default: () => new Promise(() => false)})
     private readonly onItemClick: listItemClickCallback;
     @Prop({default: []})
-    private readonly dataSet: any[];
+    private readonly dataSet: unknown[];
 }
 </script>
 

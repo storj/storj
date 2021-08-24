@@ -100,10 +100,16 @@ export class PaymentsState {
     public coupon: Coupon | null = null;
 }
 
+interface PaymentsRootGetters {
+    selectedProject: {
+        id: string
+    }
+}
+
 interface PaymentsContext {
     state: PaymentsState
-    commit: any
-    rootGetters: any
+    commit: (string, ...unknown) => void
+    rootGetters: PaymentsRootGetters
 }
 
 /**
@@ -111,7 +117,7 @@ interface PaymentsContext {
  *
  * @param api - payments api
  */
-export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState> {
+export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState, PaymentsContext, PaymentsRootGetters> {
     return {
         state: new PaymentsState(),
         mutations: {
@@ -269,14 +275,12 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
             },
-            [APPLY_COUPON_CODE]: async function({commit}: any, code: string): Promise<void> {
+            [APPLY_COUPON_CODE]: async function({commit}: PaymentsContext, code: string): Promise<void> {
                 const coupon = await api.applyCouponCode(code);
-                
                 commit(SET_COUPON, coupon);
             },
-            [GET_COUPON]: async function({commit}: any): Promise<void> {
+            [GET_COUPON]: async function({commit}: PaymentsContext): Promise<void> {
                 const coupon = await api.getCoupon();
-                
                 commit(SET_COUPON, coupon);
             }
         },

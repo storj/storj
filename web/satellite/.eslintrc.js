@@ -31,8 +31,6 @@ module.exports = {
         '@typescript-eslint/no-empty-function': "off",
         '@typescript-eslint/no-var-requires': "off",
 
-        '@typescript-eslint/no-explicit-any': "off", // TODO: not everything has been fixed yet
-
         "vue/max-attributes-per-line": ["off"],
         "vue/singleline-html-element-content-newline": ["off"],
 

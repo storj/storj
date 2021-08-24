@@ -38,12 +38,12 @@ export default class StripeCardInput extends Vue {
     /**
      * Stripe elements is using to create 'Add Card' form.
      */
-    private cardElement: any;
+    private cardElement: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     /**
      * Stripe library.
      */
-    private stripe: any;
+    private stripe: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     /**
      * Stripe initialization after initial render.
