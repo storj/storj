@@ -46,8 +46,8 @@ class State {
 }
 
 interface AppContext {
-    state: State;
-    commit: (string, ...unknown) => void;
+    state: State
+    commit: (string, ...unknown) => void
 }
 
 export const appStateModule = {

@@ -54,16 +54,14 @@ export class ProjectsState {
     public page: ProjectsPage = new ProjectsPage();
 }
 
-interface ProjectsRootGetters {
-    user: {
-        id: string
-    }
-}
-
 interface ProjectsContext {
     state: ProjectsState
     commit: (string, ...unknown) => void
-    rootGetters: ProjectsRootGetters
+    rootGetters: {
+        user: {
+            id: string
+        }
+    }
     dispatch: (string, ...unknown) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
@@ -318,7 +316,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 });
             },
             selectedProject: (state: ProjectsState): Project => state.selectedProject,
-            projectsCount: (state: ProjectsState, rootGetters: ProjectsRootGetters): number => {
+            projectsCount: (state: ProjectsState, rootGetters: ProjectsContext["rootGetters"]): number => {
                 let projectsCount = 0;
 
                 state.projects.forEach((project: Project) => {

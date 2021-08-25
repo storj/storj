@@ -100,16 +100,14 @@ export class PaymentsState {
     public coupon: Coupon | null = null;
 }
 
-interface PaymentsRootGetters {
-    selectedProject: {
-        id: string
-    }
-}
-
 interface PaymentsContext {
     state: PaymentsState
     commit: (string, ...unknown) => void
-    rootGetters: PaymentsRootGetters
+    rootGetters: {
+        selectedProject: {
+            id: string
+        }
+    }
 }
 
 /**
@@ -117,7 +115,7 @@ interface PaymentsContext {
  *
  * @param api - payments api
  */
-export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState, PaymentsContext, PaymentsRootGetters> {
+export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState, PaymentsContext> {
     return {
         state: new PaymentsState(),
         mutations: {

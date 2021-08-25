@@ -75,16 +75,14 @@ export class AccessGrantsState {
     public isAccessGrantsWebWorkerReady = false;
 }
 
-interface AccessGrantsRootGetters {
-    selectedProject: {
-        id: string
-    }
-}
-
 interface AccessGrantsContext {
     state: AccessGrantsState
     commit: (string, ...unknown) => void
-    rootGetters: AccessGrantsRootGetters
+    rootGetters: {
+        selectedProject: {
+            id: string
+        }
+    }
 }
 
 /**
@@ -92,7 +90,7 @@ interface AccessGrantsContext {
  *
  * @param api - accessGrants api
  */
-export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<AccessGrantsState, AccessGrantsContext, AccessGrantsRootGetters> {
+export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<AccessGrantsState, AccessGrantsContext> {
     return {
         state: new AccessGrantsState(),
         mutations: {

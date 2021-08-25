@@ -39,19 +39,17 @@ export class ProjectMembersState {
     public selectedProjectMembersEmails: string[] = [];
 }
 
-interface ProjectMembersRootGetters {
-    selectedProject: {
-        id: string
-    }
-}
-
 interface ProjectMembersContext {
     state: ProjectMembersState
     commit: (string, ...unknown) => void
-    rootGetters: ProjectMembersRootGetters
+    rootGetters: {
+        selectedProject: {
+            id: string
+        }
+    }
 }
 
-export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<ProjectMembersState, ProjectMembersContext, ProjectMembersRootGetters> {
+export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<ProjectMembersState, ProjectMembersContext> {
     return {
         state: new ProjectMembersState(),
         mutations: {
