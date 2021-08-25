@@ -725,7 +725,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:               req.Bucket,
-		EncryptedPath:        req.EncryptedPath,
+		EncryptedObjectKey:   req.EncryptedPath,
 		Version:              int32(object.Version),
 		Redundancy:           pbRS,
 		CreationDate:         object.CreatedAt,
@@ -768,7 +768,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedPath,
+		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -799,7 +799,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
-			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
 			Version:    metabase.Version(1),
 		},
@@ -1695,7 +1695,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedPath,
+		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -1752,7 +1752,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
-			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
 			Version:    1,
 		},
@@ -1807,7 +1807,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedPath,
+		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -1903,7 +1903,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
-			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
 			Version:    1,
 		},
@@ -1992,7 +1992,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedPath,
+		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -2037,7 +2037,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
-			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
 			Version:    1,
 		},
@@ -2088,7 +2088,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedPath,
+		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -2176,7 +2176,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedPath,
+		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -2211,7 +2211,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(streamID.Bucket),
-				ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+				ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			},
 		})
 	} else {
@@ -2329,7 +2329,7 @@ func (endpoint *Endpoint) DeletePart(ctx context.Context, req *pb.PartDeleteRequ
 	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedPath,
+		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -2569,14 +2569,14 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	// TotalPlainSize != 0 means object was uploaded with newer uplink
 	multipartObject := object.TotalPlainSize != 0 && object.FixedSegmentSize <= 0
 	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:          []byte(object.BucketName),
-		EncryptedPath:   []byte(object.ObjectKey),
-		Version:         int32(object.Version), // TODO incomatible types
-		CreationDate:    object.CreatedAt,
-		ExpirationDate:  expires,
-		StreamId:        object.StreamID[:],
-		MultipartObject: multipartObject,
-		Redundancy:      rs,
+		Bucket:             []byte(object.BucketName),
+		EncryptedObjectKey: []byte(object.ObjectKey),
+		Version:            int32(object.Version), // TODO incomatible types
+		CreationDate:       object.CreatedAt,
+		ExpirationDate:     expires,
+		StreamId:           object.StreamID[:],
+		MultipartObject:    multipartObject,
+		Redundancy:         rs,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
@@ -2707,13 +2707,13 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	// The client requires the Stream ID to use in the MultipartInfo.
 	if entry.Status == metabase.Pending {
 		satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-			Bucket:          bucket,
-			EncryptedPath:   append([]byte(prefixToPrependInSatStreamID), item.EncryptedPath...),
-			Version:         item.Version,
-			CreationDate:    item.CreatedAt,
-			ExpirationDate:  item.ExpiresAt,
-			StreamId:        entry.StreamID[:],
-			MultipartObject: entry.FixedSegmentSize <= 0,
+			Bucket:             bucket,
+			EncryptedObjectKey: append([]byte(prefixToPrependInSatStreamID), item.EncryptedPath...),
+			Version:            item.Version,
+			CreationDate:       item.CreatedAt,
+			ExpirationDate:     item.ExpiresAt,
+			StreamId:           entry.StreamID[:],
+			MultipartObject:    entry.FixedSegmentSize <= 0,
 			// TODO: defaultRS may change while the upload is pending.
 			// Ideally, we should remove redundancy from satStreamID.
 			Redundancy: endpoint.defaultRS,
@@ -2879,11 +2879,11 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedObjectKey,
-		Version:       int32(metabase.DefaultVersion),
-		Redundancy:    endpoint.defaultRS,
-		StreamId:      result.StreamID[:],
+		Bucket:             req.Bucket,
+		EncryptedObjectKey: req.EncryptedObjectKey,
+		Version:            int32(metabase.DefaultVersion),
+		Redundancy:         endpoint.defaultRS,
+		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
 			BlockSize:   int64(result.EncryptionParameters.BlockSize),
@@ -2990,7 +2990,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
-			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			Version:    metabase.DefaultVersion,
 			StreamID:   streamUUID,
 		},
