@@ -66,7 +66,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		require.NoError(t, err)
 
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(period.Year(), period.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 		// check if we have project record for each project
 		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
@@ -116,7 +116,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(period.Year(), period.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 		numberOfProjects := 5
 		storageHours := 24
@@ -568,7 +568,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		require.NoError(t, err)
 
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(period.Year(), period.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
 		require.NoError(t, err)

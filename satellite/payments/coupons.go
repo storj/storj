@@ -91,7 +91,7 @@ func (coupon *CouponOld) ExpirationDate() *time.Time {
 		return nil
 	}
 
-	expireDate := time.Date(coupon.Created.Year(), coupon.Created.Month()+time.Month(*coupon.Duration)+1, 0, 0, 0, 0, 0, time.UTC)
+	expireDate := time.Date(coupon.Created.Year(), coupon.Created.Month()+time.Month(*coupon.Duration)+1, 1, 0, 0, 0, 0, time.UTC)
 	return &expireDate
 }
 

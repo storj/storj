@@ -402,7 +402,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")
@@ -581,7 +581,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")
@@ -764,7 +764,7 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")
@@ -879,7 +879,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")
