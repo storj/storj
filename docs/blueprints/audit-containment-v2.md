@@ -43,7 +43,7 @@ The change also comes with some additional benefits. Nodes that are overloaded b
 
 ## Further considerations
 ### Egress during suspension
-The current design for node suspension as described in [audit-suspend.md](/docs/blueprint/audit-suspend.md) still allows for egress to customers to take place.
+The current design for node suspension as described in [audit-suspend.md](/docs/blueprints/audit-suspend.md) still allows for egress to customers to take place.
 
 >Permitted requests: GET, GET_AUDIT, DELETE
 >
