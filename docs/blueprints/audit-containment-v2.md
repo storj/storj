@@ -7,7 +7,7 @@ The current containment mode implementation causes these nodes to quickly be dis
 The more data is stored on the node, the quicker this disqualification happens due to the high amount of audits occurring on nodes with high amounts of data. As a result long term loyal nodes are disqualified much more quickly than relatively new nodes, which provides an unwanted inverse incentive.
 This blueprint outlines some tweaks to the containment mechanism to both give the node operator early warning that something is wrong while giving them more time to resolve any issues. At the same time we still must prevent the node from getting out of giving a response to any audit initiated.
 
-This blueprint builds on the design as outlined in the blueprint [audit-containment.md](/docs/blueprint/audit-containment.md).
+This blueprint builds on the design as outlined in the blueprint [audit-containment.md](/docs/blueprints/audit-containment.md).
 
 ## Main Objectives
 
