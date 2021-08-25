@@ -122,6 +122,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		// we should send the exact origin back, rather than a wildcard
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 	}
 
 	// OPTIONS is a pre-flight check for cross-origin (CORS) permissions
