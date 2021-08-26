@@ -81,7 +81,7 @@ func TestAuth_Register(t *testing.T) {
 				jsonBody, err := json.Marshal(registerData)
 				require.NoError(t, err)
 
-				url := "http://" + planet.Satellites[0].API.Console.Listener.Addr().String() + "/api/v0/auth/register"
+				url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
 				req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 				require.NoError(t, err)
 				req.Header.Set("Content-Type", "application/json")
@@ -113,6 +113,105 @@ func TestAuth_Register(t *testing.T) {
 				}
 			}()
 		}
+	})
+}
+
+func TestAuth_Register_CORS(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OpenRegistrationEnabled = true
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		jsonBody := []byte(`{"email":"user@test.com","fullName":"testuser","password":"abc123","shortName":"test"}`)
+
+		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		// 1. OPTIONS request
+		//     1.1 CORS headers should not be set with origin other than storj.io or www.storj.io
+		req.Header.Set("Origin", "https://someexternalorigin.test")
+		req.Method = http.MethodOptions
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Origin"))
+		require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Methods"))
+		require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Headers"))
+		require.NoError(t, resp.Body.Close())
+
+		//     1.2 CORS headers should be set with a domain of storj.io
+		req.Header.Set("Origin", "https://storj.io")
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, "https://storj.io", resp.Header.Get("Access-Control-Allow-Origin"))
+		require.Equal(t, "POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
+		allowedHeaders := strings.Split(resp.Header.Get("Access-Control-Allow-Headers"), ", ")
+		require.ElementsMatch(t, allowedHeaders, []string{
+			"Content-Type",
+			"Content-Length",
+			"Accept",
+			"Accept-Encoding",
+			"X-CSRF-Token",
+			"Authorization",
+		})
+		require.NoError(t, resp.Body.Close())
+
+		//     1.3 CORS headers should be set with a domain of www.storj.io
+		req.Header.Set("Origin", "https://www.storj.io")
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, "https://www.storj.io", resp.Header.Get("Access-Control-Allow-Origin"))
+		require.Equal(t, "POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
+		allowedHeaders = strings.Split(resp.Header.Get("Access-Control-Allow-Headers"), ", ")
+		require.ElementsMatch(t, allowedHeaders, []string{
+			"Content-Type",
+			"Content-Length",
+			"Accept",
+			"Accept-Encoding",
+			"X-CSRF-Token",
+			"Authorization",
+		})
+		require.NoError(t, resp.Body.Close())
+
+		// 2. POST request with origin www.storj.io
+		req.Method = http.MethodPost
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, "https://www.storj.io", resp.Header.Get("Access-Control-Allow-Origin"))
+		require.Equal(t, "POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
+		allowedHeaders = strings.Split(resp.Header.Get("Access-Control-Allow-Headers"), ", ")
+		require.ElementsMatch(t, allowedHeaders, []string{
+			"Content-Type",
+			"Content-Length",
+			"Accept",
+			"Accept-Encoding",
+			"X-CSRF-Token",
+			"Authorization",
+		})
+
+		defer func() {
+			err = resp.Body.Close()
+			require.NoError(t, err)
+		}()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+
+		var userID uuid.UUID
+		err = json.Unmarshal(body, &userID)
+		require.NoError(t, err)
+
+		_, err = planet.Satellites[0].API.Console.Service.GetUser(ctx, userID)
+		require.NoError(t, err)
 	})
 }
 
@@ -262,7 +361,7 @@ func TestMFAEndpoints(t *testing.T) {
 		}
 
 		doRequest := func(urlSuffix string, passcode string, recoveryCode string) *http.Response {
-			urlLink := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/auth/mfa" + urlSuffix
+			urlLink := sat.ConsoleURL() + "/api/v0/auth/mfa" + urlSuffix
 			var buf io.Reader
 
 			body := &data{
@@ -448,7 +547,7 @@ func TestResetPasswordEndpoint(t *testing.T) {
 		tokenStr := token.Secret.String()
 
 		tryReset := func(token, password string) int {
-			url := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/auth/reset-password"
+			url := sat.ConsoleURL() + "/api/v0/auth/reset-password"
 
 			bodyBytes, err := json.Marshal(map[string]string{
 				"password": password,
