@@ -136,6 +136,11 @@
                     :amount="audits.auditScore.label"
                     info-text="Percentage of successful pings/communication between the node & satellite."
                 />
+                <ChecksArea
+                    label="Online Score"
+                    :amount="audits.onlineScore.label"
+                    info-text="Online checks occur to make sure your node is still online. This is the percentage of online checks you’ve passed."
+                />
             </div>
             <AllSatellitesAuditsArea v-else />
         </div>
