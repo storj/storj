@@ -65,7 +65,7 @@ func TestVerifyReadable(t *testing.T) {
 		start := time.Now()
 		planet.StorageNodes[0].Storage2.Monitor.VerifyDirReadableLoop.TriggerWait()
 		duration := time.Since(start)
-		require.Less(t, duration, 5*time.Second)
+		require.Less(t, duration, 5 * time.Second)
 	})
 }
 
@@ -86,6 +86,6 @@ func TestVerifyWritable(t *testing.T) {
 		start := time.Now()
 		planet.StorageNodes[0].Storage2.Monitor.VerifyDirWritableLoop.TriggerWait()
 		duration := time.Since(start)
-		require.Less(t, duration, 5*time.Second)
+		require.Less(t, duration, 5 * time.Second)
 	})
 }
