@@ -4,19 +4,19 @@
 package monitor_test
 
 import (
-	"go.uber.org/zap"
-	"storj.io/storj/private/testblobs"
-	"storj.io/storj/storagenode"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/internalpb"
 )
 
