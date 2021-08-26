@@ -91,7 +91,8 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 		if loc.Directoryish() || tfs.IsLocalDir(ctx, loc) {
 			return nil, errs.New("unable to open file for writing: %q", loc)
 		}
-		if err := tfs.mkdirAll(ctx, filepath.Dir(path)); err != nil {
+		dir := ulloc.CleanPath(filepath.Dir(path))
+		if err := tfs.mkdirAll(ctx, dir); err != nil {
 			return nil, err
 		}
 	}
@@ -162,7 +163,7 @@ func (tfs *testFilesystem) ListUploads(ctx context.Context, prefix ulloc.Locatio
 
 func (tfs *testFilesystem) IsLocalDir(ctx context.Context, loc ulloc.Location) (local bool) {
 	path, ok := loc.LocalParts()
-	return ok && (filepath.Clean(path) == "." || tfs.locals[path])
+	return ok && (ulloc.CleanPath(path) == "." || tfs.locals[path])
 }
 
 func (tfs *testFilesystem) mkdirAll(ctx context.Context, dir string) error {
