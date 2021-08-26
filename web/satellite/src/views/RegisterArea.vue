@@ -200,10 +200,11 @@
                             <ErrorIcon />
                             <p class="register-area__input-area__container__recaptcha-wrapper__label-container__error">reCAPTCHA is required</p>
                         </div>
-                        <vue-recaptcha
+                        <VueRecaptcha
                             ref="recaptcha"
                             :sitekey="recaptchaSiteKey"
                             load-recaptcha-script="true"
+                            size="invisible"
                             @verify="onRecaptchaVerified"
                             @expired="onRecaptchaError"
                             @error="onRecaptchaError"
@@ -310,6 +311,10 @@ export default class RegisterArea extends Vue {
 
     public readonly loginPath: string = RouteConfig.Login.path;
 
+    public $refs!: {
+        recaptcha: VueRecaptcha;
+    }
+
     /**
      * Lifecycle hook on component destroy.
      * Sets view to default state.
@@ -373,20 +378,12 @@ export default class RegisterArea extends Vue {
      * Validates input fields and proceeds user creation.
      */
     public async onCreateClick(): Promise<void> {
-        if (this.isLoading) {
+        if (this.$refs.recaptcha && !this.recaptchaResponseToken) {
+            this.$refs.recaptcha.execute();
             return;
         }
 
-        this.isLoading = true;
-
-        if (!this.validateFields()) {
-            this.isLoading = false;
-
-            return;
-        }
         await this.createUser();
-
-        this.isLoading = false;
     }
 
     /**
@@ -501,6 +498,7 @@ export default class RegisterArea extends Vue {
     public onRecaptchaVerified(response: string): void {
         this.recaptchaResponseToken = response;
         this.recaptchaError = false;
+        this.createUser();
     }
 
     /**
@@ -508,6 +506,7 @@ export default class RegisterArea extends Vue {
      */
     public onRecaptchaError(): void {
         this.recaptchaResponseToken = '';
+        this.recaptchaError = true;
     }
 
     /**
@@ -566,11 +565,6 @@ export default class RegisterArea extends Vue {
             isNoErrors = false;
         }
 
-        if (this.recaptchaEnabled && !this.recaptchaResponseToken) {
-            this.recaptchaError = true;
-            isNoErrors = false;
-        }
-
         return isNoErrors;
     }
 
@@ -578,6 +572,16 @@ export default class RegisterArea extends Vue {
      * Creates user and toggles successful registration area visibility.
      */
     private async createUser(): Promise<void> {
+        if (this.isLoading) {
+            return;
+        }
+
+        if (!this.validateFields()) {
+            return;
+        }
+
+        this.isLoading = true;
+
         this.user.isProfessional = this.isProfessional;
         this.user.haveSalesContact = this.haveSalesContact;
 
@@ -588,11 +592,11 @@ export default class RegisterArea extends Vue {
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         } catch (error) {
             if (this.$refs.recaptcha) {
-                (this.$refs.recaptcha as VueRecaptcha).reset();
+                this.$refs.recaptcha.reset();
             }
             await this.$notify.error(error.message);
-            this.isLoading = false;
         }
+        this.isLoading = false;
     }
 }
 </script>
@@ -1202,6 +1206,10 @@ export default class RegisterArea extends Vue {
                 }
             }
         }
+    }
+
+    ::v-deep .grecaptcha-badge {
+        z-index: 99;
     }
 
     @media screen and (max-width: 414px) {
