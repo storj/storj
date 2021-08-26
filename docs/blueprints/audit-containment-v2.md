@@ -33,6 +33,7 @@ The original blueprint describes how the verifier will handle different audit re
 >     - -> If the count does not exceed the reverify limit, the `pendingAudit` will remain in the ContainmentDB.
 
 In this blueprint I suggest only a small addition to the very last scenario, where the node doesn't respond again, but the reverify limit hasn't been exceeded. In addition to leaving the `pendingAudit` in the ContainmentDB, the node's stats should be updated to reflect an unknown audit failure. Because these unkown audit failures will occur with every reverification, the node will be suspended before it is disqualified.
+This doesn't replace the disqualification. When the `reverifyCount` exceeds the `maxReverifyCount`, this should still count as a hard audit failure and node stats should still be updated to reflect this in the audit score. This ensures that suspension is only a temporary step inbetween, but doesn't replace the eventual inevitable disqualification, should the node be unable to respond with the correct data. This prevents nodes with bad intention from using this system to avoid disqualification by ensuring that each audit initiated will have to eventually result in a definitive audit success or audit failure.
 
 With suspension happening before disqualification and the pieces marked as unhealthy already, we can now afford to raise the maxReverifyCount (suggestion: to 10) to allow the node operator more time to resolve any issues with their setup.
 
