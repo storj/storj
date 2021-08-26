@@ -34,7 +34,6 @@
         </div>
         <div
             class="overview-area__skip-button"
-            :on-press="onSkipClick"
             @click.prevent="onSkipClick"
         >
             Skip and go directly to dashboard

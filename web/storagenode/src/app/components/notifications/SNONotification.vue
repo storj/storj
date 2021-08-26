@@ -8,7 +8,9 @@
                 <span v-if="!notification.isRead" class="notification-item__new-indicator-container__circle" />
             </div>
             <div class="notification-item__icon-container">
-                <div class="icon" v-html="notification.icon" />
+                <div class="icon">
+                    <component :is="notification.icon" />
+                </div>
             </div>
             <div class="notification-item__text-container">
                 <p

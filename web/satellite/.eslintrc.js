@@ -31,12 +31,8 @@ module.exports = {
         '@typescript-eslint/no-empty-function': "off",
         '@typescript-eslint/no-var-requires': "off",
 
-        '@typescript-eslint/no-explicit-any': "off", // TODO: not everything has been fixed yet
-
         "vue/max-attributes-per-line": ["off"],
         "vue/singleline-html-element-content-newline": ["off"],
-
-        "vue/no-v-html": ["off"], // needs a dedicated fix
 
         "vue/block-lang": ["error", {"script": {"lang": "ts"}}],
         "vue/html-button-has-type": ["error"],

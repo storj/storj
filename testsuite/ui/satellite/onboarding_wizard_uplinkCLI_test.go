@@ -26,7 +26,7 @@ func TestOnboardingWizardUplinkCLI(t *testing.T) {
 		page.MustSetViewport(1350, 600, 1, false)
 
 		// First time User signup
-		page.MustElement(".headerless-input").MustInput(fullName)
+		page.MustElement("[placeholder=\"Enter Full Name\"]").MustInput(fullName)
 		page.MustElement("[placeholder=\"example@email.com\"]").MustInput(emailAddress)
 		page.MustElement("[placeholder=\"Enter Password\"]").MustInput(password)
 		page.MustElement("[placeholder=\"Retype Password\"]").MustInput(password)
@@ -36,17 +36,17 @@ func TestOnboardingWizardUplinkCLI(t *testing.T) {
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 
 		// First time User log in
-		page.MustElement(".register-area__content-area__login-container__link").MustClick()
-		page.MustElement(".headerless-input").MustInput(emailAddress)
+		page.MustElement("[href=\"/login\"]").MustClick()
+		page.MustElement("[type=text]").MustInput(emailAddress)
 		page.MustElement("[type=password]").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
 
 		// Testing onboarding workflow uplinkCLI method
-		page.MustElement(".overview-area__path-section:nth-child(2) span").MustClick()
+		page.MustElementX("(//*[@class=\"label\"])[2]").MustClick()
 		createAnAccessGrantTitle := page.MustElement(".onboarding-access__title").MustText()
 		require.Contains(t, createAnAccessGrantTitle, "Access Grant")
 
-		page.MustElement(".headered-input").MustInput("grant123")
+		page.MustElement("[type=text]").MustInput("grant123")
 		page.MustElement(".label").MustClick()
 		accessPermissions := page.MustElement(".permissions__title").MustText()
 		require.Contains(t, accessPermissions, "Access Permissions")
@@ -58,12 +58,12 @@ func TestOnboardingWizardUplinkCLI(t *testing.T) {
 		EncryptionPassphraseWarningTitle := page.MustElement(".generate-container__warning__title").MustText()
 		require.Contains(t, EncryptionPassphraseWarningTitle, "Save Your Encryption Passphrase")
 
-		page.MustElement(".generate-container__warning__check-area__checkbox").MustClick()
-		page.MustElement(".generate-container__next-button").MustClick()
+		page.MustElement("[type=checkbox]").MustClick()
+		page.MustElementX("(//*[@class=\"label\"])[2]").MustClick()
 		accessGrantWarning := page.MustElement(".generate-grant__warning").MustText()
 		require.Contains(t, accessGrantWarning, "This Information is Only Displayed Once")
 
-		page.MustElement(".generate-grant__done-button").MustClick()
+		page.MustElementX("(//*[@class=\"label\"])[3]").MustClick()
 		accessGrants := page.MustElement("a.navigation-area__item-container:nth-of-type(3)")
 		accessGrants.MustClick()
 		grantContainer := page.MustElement(".grants-item-container").MustText()

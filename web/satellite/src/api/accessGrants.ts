@@ -101,7 +101,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         };
 
         const response = await this.mutate(query, variables);
-        const key: any = response.data.createAPIKey.keyInfo;
+        const key = response.data.createAPIKey.keyInfo;
         const secret: string = response.data.createAPIKey.key;
 
         return new AccessGrant(key.id, key.name, key.createdAt, secret);
@@ -190,7 +190,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      *
      * @param page anonymous object from json
      */
-    private getAccessGrantsPage(page: any): AccessGrantsPage {
+    private getAccessGrantsPage(page: any): AccessGrantsPage { // eslint-disable-line @typescript-eslint/no-explicit-any
         if (!page) {
             return new AccessGrantsPage();
         }

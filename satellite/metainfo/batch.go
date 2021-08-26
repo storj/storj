@@ -98,7 +98,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			var err error
 			switch {
 			case prevSegmentReq.GetSegmentMakeInline() != nil:
-				pointer, segmentResp, segmentErr := endpoint.makeInlineSegment(ctx, prevSegmentReq.GetSegmentMakeInline(), false)
+				segmentResp, segmentErr := endpoint.MakeInlineSegment(ctx, prevSegmentReq.GetSegmentMakeInline())
 				prevSegmentReq = nil
 				if segmentErr != nil {
 					return resp, segmentErr
@@ -109,9 +109,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 						SegmentMakeInline: segmentResp,
 					},
 				})
-				response, err = endpoint.commitObject(ctx, singleRequest.ObjectCommit, pointer)
+				response, err = endpoint.CommitObject(ctx, singleRequest.ObjectCommit)
 			case prevSegmentReq.GetSegmentCommit() != nil:
-				pointer, segmentResp, segmentErr := endpoint.commitSegment(ctx, prevSegmentReq.GetSegmentCommit(), false)
+				segmentResp, segmentErr := endpoint.CommitSegment(ctx, prevSegmentReq.GetSegmentCommit())
 				prevSegmentReq = nil
 				if segmentErr != nil {
 					return resp, segmentErr
@@ -122,7 +122,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 						SegmentCommit: segmentResp,
 					},
 				})
-				response, err = endpoint.commitObject(ctx, singleRequest.ObjectCommit, pointer)
+				response, err = endpoint.CommitObject(ctx, singleRequest.ObjectCommit)
 			default:
 				response, err = endpoint.CommitObject(ctx, singleRequest.ObjectCommit)
 			}

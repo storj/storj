@@ -56,9 +56,13 @@ export class ProjectsState {
 
 interface ProjectsContext {
     state: ProjectsState
-    commit: any
-    rootGetters: any
-    dispatch: any
+    commit: (string, ...unknown) => void
+    rootGetters: {
+        user: {
+            id: string
+        }
+    }
+    dispatch: (string, ...unknown) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 const {
@@ -94,7 +98,7 @@ const {
 } = PROJECTS_MUTATIONS;
 const projectsPageLimit = 7;
 
-export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState> {
+export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState, ProjectsContext> {
     return {
         state: new ProjectsState(),
         mutations: {
@@ -241,7 +245,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 commit(UPDATE_PROJECT_DESCRIPTION, fieldsToUpdate);
             },
-            [UPDATE_STORAGE_LIMIT]: async function ({commit, state}: any, limitsToUpdate: ProjectLimits): Promise<void> {
+            [UPDATE_STORAGE_LIMIT]: async function ({commit, state}: ProjectsContext, limitsToUpdate: ProjectLimits): Promise<void> {
                 const project = new ProjectFields(
                     state.selectedProject.name,
                     state.selectedProject.description,
@@ -257,7 +261,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 commit(UPDATE_PROJECT_STORAGE_LIMIT, limitsToUpdate);
             },
-            [UPDATE_BANDWIDTH_LIMIT]: async function ({commit, state}: any, limitsToUpdate: ProjectLimits): Promise<void> {
+            [UPDATE_BANDWIDTH_LIMIT]: async function ({commit, state}: ProjectsContext, limitsToUpdate: ProjectLimits): Promise<void> {
                 const project = new ProjectFields(
                     state.selectedProject.name,
                     state.selectedProject.description,
@@ -273,7 +277,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 commit(UPDATE_PROJECT_BANDWIDTH_LIMIT, limitsToUpdate);
             },
-            [DELETE]: async function ({commit}: any, projectID: string): Promise<void> {
+            [DELETE]: async function ({commit}: ProjectsContext, projectID: string): Promise<void> {
                 await api.delete(projectID);
 
                 commit(REMOVE, projectID);
@@ -312,11 +316,11 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 });
             },
             selectedProject: (state: ProjectsState): Project => state.selectedProject,
-            projectsCount: (state: ProjectsState, getters: any): number => {
+            projectsCount: (state: ProjectsState, rootGetters: ProjectsContext["rootGetters"]): number => {
                 let projectsCount = 0;
 
                 state.projects.forEach((project: Project) => {
-                    if (project.ownerId === getters.user.id) {
+                    if (project.ownerId === rootGetters.user.id) {
                         projectsCount++;
                     }
                 });

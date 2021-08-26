@@ -23,11 +23,13 @@ func TestBusinessUserCanSignUp(t *testing.T) {
 		password := "qazwsx123"
 		companyName := "company"
 		positionTitle := "tester"
+
 		page := browser.MustPage(signupPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
+
 		// First time User signup
-		page.MustElement(".register-area__content-area__toggle__professional").MustClick()
-		page.MustElement(".headerless-input").MustInput(fullName)
+		page.MustElement("li:nth-of-type(2)").MustClick()
+		page.MustElement("[placeholder=\"Enter Full Name\"]").MustInput(fullName)
 		page.MustElement("[placeholder=\"example@email.com\"]").MustInput(emailAddress)
 		page.MustElement("[placeholder=\"Acme Corp.\"]").MustInput(companyName)
 		page.MustElement("[placeholder=\"Position Title\"]").MustInput(positionTitle)

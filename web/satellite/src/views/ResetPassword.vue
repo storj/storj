@@ -62,7 +62,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 
-import LogoIcon from '@/../static/images/dcs-logo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
 import KeyIcon from '@/../static/images/resetPassword/success.svg';
 
 import { AuthHttpApi } from '@/api/auth';

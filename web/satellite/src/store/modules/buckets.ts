@@ -41,8 +41,12 @@ export class BucketsState {
 
 interface BucketsContext {
     state: BucketsState
-    commit: any
-    rootGetters: any
+    commit: (string, ...unknown) => void
+    rootGetters: {
+        selectedProject: {
+            id: string
+        }
+    }
 }
 
 /**
@@ -50,7 +54,7 @@ interface BucketsContext {
  *
  * @param api - buckets api
  */
-export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
+export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState, BucketsContext> {
     return {
         state: new BucketsState(),
 

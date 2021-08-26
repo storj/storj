@@ -24,7 +24,7 @@ func TestPersonalUserCanSignUp(t *testing.T) {
 		page := browser.MustPage(signupPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
 		// First time User signup
-		page.MustElement(".headerless-input").MustInput(fullName)
+		page.MustElement("[placeholder=\"Enter Full Name\"]").MustInput(fullName)
 		page.MustElement("[placeholder=\"example@email.com\"]").MustInput(emailAddress)
 		page.MustElement("[placeholder=\"Enter Password\"]").MustInput(password)
 		page.MustElement("[placeholder=\"Retype Password\"]").MustInput(password)

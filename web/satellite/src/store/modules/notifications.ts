@@ -14,10 +14,10 @@ export class NotificationsState {
 
 interface NotificationsContext {
     state: NotificationsState
-    commit: any
+    commit: (string, ...unknown) => void
 }
 
-export function makeNotificationsModule(): StoreModule<NotificationsState> {
+export function makeNotificationsModule(): StoreModule<NotificationsState, NotificationsContext> {
     return {
         state: new NotificationsState(),
         mutations: {

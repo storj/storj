@@ -71,7 +71,7 @@ exports[`OverviewStep.vue renders correctly 1`] = `
       <div class="container" style="width: 100%; height: 64px; border-radius: 62px;"><span class="label">CONTINUE IN CLI</span></div>
     </div>
   </div>
-  <div on-press="function () { [native code] }" class="overview-area__skip-button">
+  <div class="overview-area__skip-button">
     Skip and go directly to dashboard
   </div>
 </div>

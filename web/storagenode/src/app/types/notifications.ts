@@ -1,8 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { NotificationIcon } from '@/app/utils/notificationIcons';
+import Vue, {VueConstructor} from 'vue';
+
 import { Notification, NotificationTypes } from '@/storagenode/notifications/notifications';
+
+import DisqualificationIcon from "@/../static/images/notifications/disqualified.svg";
+import FailIcon from "@/../static/images/notifications/fail.svg";
+import InfoIcon from "@/../static/images/notifications/info.svg";
+import SuspendedIcon from "@/../static/images/notifications/suspended.svg";
 
 /**
  * Holds all notifications module state.
@@ -21,7 +27,6 @@ export class NotificationsState {
  * Describes notification entity.
  */
 export class UINotification {
-    public icon: NotificationIcon;
     public isRead: boolean;
     public id: string;
     public senderId: string;
@@ -33,7 +38,6 @@ export class UINotification {
 
     public constructor(notification: Partial<UINotification> = new Notification()) {
         Object.assign(this, notification);
-        this.setIcon();
         this.isRead = !!this.readAt;
     }
 
@@ -67,19 +71,16 @@ export class UINotification {
     /**
      * setIcon selects notification icon depends on type.
      */
-    private setIcon(): void {
+    public get icon(): VueConstructor<Vue> {
         switch (this.type) {
         case NotificationTypes.AuditCheckFailure:
-            this.icon = NotificationIcon.FAIL;
-            break;
+            return FailIcon;
         case NotificationTypes.Disqualification:
-            this.icon = NotificationIcon.SOFTWARE_UPDATE;
-            break;
+            return DisqualificationIcon;
         case NotificationTypes.Suspension:
-            this.icon = NotificationIcon.SUSPENDED;
-            break;
+            return SuspendedIcon;
         default:
-            this.icon = NotificationIcon.INFO;
+            return InfoIcon;
         }
     }
 }

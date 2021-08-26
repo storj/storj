@@ -6,7 +6,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import LogoIcon from '@/../static/images/dcs-logo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
 import MainIcon from '@/../static/images/errors/404.svg';
 
 @Component({

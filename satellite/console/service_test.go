@@ -388,7 +388,7 @@ func TestMFA(t *testing.T) {
 			require.Empty(t, token)
 
 			// Expect no token due to bad MFA passcode.
-			wrongCode, err := console.NewMFAPasscode(key, time.Now().Add(time.Minute))
+			wrongCode, err := console.NewMFAPasscode(key, time.Now().Add(time.Hour))
 			require.NoError(t, err)
 
 			request.MFAPasscode = wrongCode

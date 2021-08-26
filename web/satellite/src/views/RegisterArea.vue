@@ -234,7 +234,7 @@ import SelectInput from '@/components/common/SelectInput.vue';
 import AuthIcon from '@/../static/images/AuthImage.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
-import LogoIcon from '@/../static/images/dcs-logo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
 import InfoIcon from '@/../static/images/info.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';

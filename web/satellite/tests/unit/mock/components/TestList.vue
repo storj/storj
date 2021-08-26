@@ -27,7 +27,7 @@ export default class TestList extends Vue {
             console.error('onItemClick is not initialized');
         },
     })
-    private readonly onItemClick: (item: any) => Promise<void>;
+    private readonly onItemClick: (item: unknown) => Promise<void>;
 
     private items: string[] = ['1', '2', '3'];
 

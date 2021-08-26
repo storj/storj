@@ -227,7 +227,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      *
      * @param page anonymous object from json
      */
-    private getProjectsPage(page: any): ProjectsPage {
+    private getProjectsPage(page: any): ProjectsPage { // eslint-disable-line @typescript-eslint/no-explicit-any
         if (!page) {
             return new ProjectsPage();
         }
