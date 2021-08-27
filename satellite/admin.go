@@ -133,11 +133,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
 			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.BonusRate)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

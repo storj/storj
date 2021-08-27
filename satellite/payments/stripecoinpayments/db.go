@@ -13,6 +13,4 @@ type DB interface {
 	Transactions() TransactionsDB
 	// ProjectRecords is getter for invoice project records db.
 	ProjectRecords() ProjectRecordsDB
-	// Coupons is getter for coupons db.
-	Coupons() CouponsDB
 }
