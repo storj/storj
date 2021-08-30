@@ -44,7 +44,7 @@
             </div>
             <div v-else class="pm-area__add-modal__tokens">
                 <p class="pm-area__add-modal__tokens__banner">
-                    Deposit STORJ Token to your account and recieve a 10% bonus, or $10 for every $100.
+                    Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
                 </p>
                 <TokenDepositSelection
                     class="pm-area__add-modal__tokens__selection"
