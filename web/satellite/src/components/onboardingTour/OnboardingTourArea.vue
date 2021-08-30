@@ -21,6 +21,6 @@ export default class OnboardingTourArea extends Vue {}
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 110px 0 80px 0;
+        padding: 45px 0 60px 0;
     }
 </style>

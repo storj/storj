@@ -109,7 +109,7 @@ export default class HeaderArea extends Vue {
      * Redirects to onboarding tour.
      */
     public async onStartTourButtonClick(): Promise<void> {
-        await this.$router.push(RouteConfig.OnboardingTour.path)
+        await this.$router.push(RouteConfig.OnboardingTour.path).catch(() => {return; })
     }
 
     /**

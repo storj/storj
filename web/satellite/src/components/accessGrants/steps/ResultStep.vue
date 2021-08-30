@@ -57,6 +57,7 @@ import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
+import { Download } from "@/utils/download";
 
 // @vue/component
 @Component({
@@ -106,22 +107,10 @@ export default class ResultStep extends Vue {
      * Downloads a file with the access called access-grant-<timestamp>.key
      */
     public onDownloadGrantClick(): void {
-        // this code is based on this Stackoverflow response: https://stackoverflow.com/a/33542499
-        // It works for downloading a file in IE 10+, Firefox, and Chrome without any additional libraries
-        const blob = new Blob([this.access], {type: 'text/plain'});
         const ts = new Date();
         const filename = 'access-grant-' + ts.toJSON() + '.key';
 
-        if (window.navigator.msSaveBlob) {
-            window.navigator.msSaveBlob(blob, filename);
-        } else {
-            const elem = window.document.createElement('a');
-            elem.href = window.URL.createObjectURL(blob);
-            elem.download = filename;
-            document.body.appendChild(elem);
-            elem.click();
-            document.body.removeChild(elem);
-        }
+        Download.file(this.access, filename);
 
         this.$notify.success('Token was downloaded successfully');
     }

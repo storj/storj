@@ -70,9 +70,8 @@ exports[`OverviewStep.vue renders correctly 1`] = `
       <p class="overview-container__encryption-container">The Uplink CLI uses end-to-end encryption for object data, metadata and path data.</p>
       <div class="container" style="width: 100%; height: 64px; border-radius: 62px;"><span class="label">CONTINUE IN CLI</span></div>
     </div>
-  </div>
-  <div class="overview-area__skip-button">
+  </div> <a href="/project-dashboard" class="overview-area__skip-button">
     Skip and go directly to dashboard
-  </div>
+  </a>
 </div>
 `;
