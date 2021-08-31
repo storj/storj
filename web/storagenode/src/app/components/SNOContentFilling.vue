@@ -185,6 +185,7 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { Size } from '@/private/memory/size';
 import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
 
+// @vue/component
 @Component ({
     components: {
         AllSatellitesAuditsArea,

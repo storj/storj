@@ -16,6 +16,7 @@ import VList from '@/components/common/VList.vue';
 
 import TestListItem from './TestListItem.vue';
 
+// @vue/component
 @Component({
     components: {
         VList,

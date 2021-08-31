@@ -45,6 +45,7 @@ import {
     StoredMonthsByYear,
 } from '@/app/types/payout';
 
+// @vue/component
 @Component({
     components: {
         GrayArrowLeftIcon,

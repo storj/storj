@@ -52,6 +52,7 @@ import WalletDetailsTable from '@/app/components/wallets/tables/walletDetails/Wa
 
 import { Config as RouterConfig } from '@/app/router';
 
+// @vue/component
 @Component({
     components: {
         WalletDetailsTable,

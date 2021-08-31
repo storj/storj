@@ -49,6 +49,7 @@ import MailIcon from '@/../static/images/register/mail.svg';
 import { AuthHttpApi } from '@/api/auth';
 import { LocalData } from '@/utils/localData';
 
+// @vue/component
 @Component({
     components: {
         VButton,

@@ -12,6 +12,7 @@ import VDropdown, { Option } from '@/app/components/common/VDropdown.vue';
 
 import { Node } from '@/nodes';
 
+// @vue/component
 @Component({
     components: { VDropdown },
 })

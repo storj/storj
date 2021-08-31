@@ -66,6 +66,7 @@ import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component ({
     components: {
         TotalHeldArea,

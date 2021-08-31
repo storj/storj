@@ -13,6 +13,7 @@ import { Component, Vue } from 'vue-property-decorator';
 /**
  * AccountArea is a container for all account related routes.
  */
+// @vue/component
 @Component
 export default class AccountArea extends Vue {}
 </script>

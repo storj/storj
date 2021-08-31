@@ -52,6 +52,7 @@ import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 import HeaderlessInput from './HeaderlessInput.vue';
 
 // Custom input component with labeled header
+// @vue/component
 @Component({
     components: {
         ErrorIcon,

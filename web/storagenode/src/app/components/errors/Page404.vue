@@ -8,6 +8,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 
+// @vue/component
 @Component
 // 404 component on page not found error
 export default class Page404 extends Vue {

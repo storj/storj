@@ -32,6 +32,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import ResourcesDropdown from './ResourcesDropdown.vue';
 
+// @vue/component
 @Component({
     components: {
         ResourcesDropdown,

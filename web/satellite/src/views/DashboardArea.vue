@@ -61,6 +61,7 @@ const {
     GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         NavigationArea,

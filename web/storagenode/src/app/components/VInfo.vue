@@ -25,6 +25,7 @@ declare interface MessageBoxStyle {
     bottom: string;
 }
 
+// @vue/component
 @Component
 export default class VInfo extends Vue {
     private isVisible = false;

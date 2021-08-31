@@ -35,6 +35,7 @@ import VModal from '@/app/components/common/VModal.vue';
 
 import { UpdateNodeModel } from '@/nodes';
 
+// @vue/component
 @Component({
     components: {
         VButton,

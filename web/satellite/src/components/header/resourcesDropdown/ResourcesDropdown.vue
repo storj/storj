@@ -44,6 +44,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
+// @vue/component
 @Component({
     components: {
         DocsIcon,

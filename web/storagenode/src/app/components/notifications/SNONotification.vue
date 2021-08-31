@@ -34,6 +34,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { UINotification } from '@/app/types/notifications';
 
+// @vue/component
 @Component
 export default class SNONotification extends Vue {
     @Prop({default: () => new UINotification()})

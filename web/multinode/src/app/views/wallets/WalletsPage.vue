@@ -44,6 +44,7 @@ import WalletsTable from '@/app/components/wallets/tables/walletsSummary/Wallets
 import { UnauthorizedError } from '@/api';
 import { OperatorsState } from '@/app/store/operators';
 
+// @vue/component
 @Component({
     components: {
         VPagination,

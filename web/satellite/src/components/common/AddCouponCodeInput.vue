@@ -80,6 +80,7 @@ import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
+// @vue/component
 @Component({
     components: {
         VButton,

@@ -9,6 +9,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import LogoIcon from '@/../static/images/logo.svg';
 import MainIcon from '@/../static/images/errors/50X.svg';
 
+// @vue/component
 @Component({
     components: {
         LogoIcon,

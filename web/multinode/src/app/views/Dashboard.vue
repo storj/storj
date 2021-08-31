@@ -25,6 +25,7 @@ import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
 
 import { UnauthorizedError } from '@/api';
 
+// @vue/component
 @Component({
     components: {
         AddNewNode,

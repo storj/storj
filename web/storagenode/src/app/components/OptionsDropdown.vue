@@ -21,6 +21,7 @@ import SunIcon from '@/../static/images/LightSun.svg';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { SNO_THEME } from '@/app/types/theme';
 
+// @vue/component
 @Component({
     components: {
         SunIcon,

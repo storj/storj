@@ -58,6 +58,7 @@ const {
     TOGGLE_CARD_SELECTION,
 } = PAYMENTS_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         CardDialog,

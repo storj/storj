@@ -66,6 +66,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { PaymentAmountOption } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component
 export default class TokenDepositSelection extends Vue {
     @Prop({default: () => []})

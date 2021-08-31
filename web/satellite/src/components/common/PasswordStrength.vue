@@ -63,6 +63,7 @@ class StrengthLabelColor {
     }
 }
 
+// @vue/component
 @Component({
     components: {
         VectorIcon,

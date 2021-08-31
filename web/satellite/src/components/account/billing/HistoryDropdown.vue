@@ -12,6 +12,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+// @vue/component
 @Component
 export default class HistoryDropdown extends Vue {
     @Prop({ default: '' })

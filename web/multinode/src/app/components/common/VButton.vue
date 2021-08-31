@@ -23,6 +23,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 /**
  * Custom button component with label.
  */
+// @vue/component
 @Component
 export default class VButton extends Vue {
     @Prop({ default: 'Default' })

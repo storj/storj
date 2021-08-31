@@ -24,6 +24,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { ProjectMember } from '@/types/projectMembers';
 import { getColor } from '@/utils/avatarColorManager';
 
+// @vue/component
 @Component
 export default class ProjectMemberListItem extends Vue {
     @Prop({default: new ProjectMember('', '', '', new Date(), '')})

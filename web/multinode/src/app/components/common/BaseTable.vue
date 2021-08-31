@@ -11,6 +11,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+// @vue/component
 @Component
 export default class BaseTable extends Vue {}
 </script>

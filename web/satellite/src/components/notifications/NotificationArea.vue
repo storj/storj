@@ -18,6 +18,7 @@ import NotificationItem from '@/components/notifications/NotificationItem.vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
 
+// @vue/component
 @Component({
     components: {
         NotificationItem,

@@ -15,6 +15,7 @@ import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         UnselectIcon,

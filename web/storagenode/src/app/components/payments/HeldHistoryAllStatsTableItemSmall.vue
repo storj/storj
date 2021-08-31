@@ -43,6 +43,7 @@ import BaseSmallHeldHistoryTable from '@/app/components/payments/BaseSmallHeldHi
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component
 export default class HeldHistoryAllStatsTableSmall extends BaseSmallHeldHistoryTable {
     @Prop({default: () => new SatelliteHeldHistory()})

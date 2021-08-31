@@ -17,6 +17,7 @@ import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
 
 import { UnauthorizedError } from '@/api';
 
+// @vue/component
 @Component({
     components: {
         SatelliteSelectionDropdown,

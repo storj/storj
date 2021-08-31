@@ -150,6 +150,7 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+// @vue/component
 @Component({
     components: {
         StripeCardInput,

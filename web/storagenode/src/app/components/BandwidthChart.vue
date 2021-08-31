@@ -46,6 +46,7 @@ class BandwidthTooltip {
     }
 }
 
+// @vue/component
 @Component
 export default class BandwidthChart extends BaseChart {
     private get chartBackgroundColor(): string {

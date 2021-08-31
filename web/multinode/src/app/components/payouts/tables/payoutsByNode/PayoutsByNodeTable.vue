@@ -61,6 +61,7 @@ import BaseTable from '@/app/components/common/BaseTable.vue';
 
 import { Paystub } from '@/payouts';
 
+// @vue/component
 @Component({
     components: {
         BaseTable,

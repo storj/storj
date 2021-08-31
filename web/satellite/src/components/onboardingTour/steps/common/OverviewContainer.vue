@@ -27,6 +27,7 @@ import VButton from '@/components/common/VButton.vue';
 import WebIcon from '@/../static/images/onboardingTour/web.svg';
 import CLIIcon from '@/../static/images/onboardingTour/cli.svg';
 
+// @vue/component
 @Component({
     components: {
         VButton,

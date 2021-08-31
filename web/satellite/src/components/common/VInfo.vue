@@ -29,6 +29,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
+// @vue/component
 @Component({
     components: {
         VButton,

@@ -82,6 +82,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { DurationPermission } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         BackIcon,

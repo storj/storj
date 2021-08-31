@@ -42,6 +42,7 @@ class EgressTooltip {
     }
 }
 
+// @vue/component
 @Component
 export default class EgressChart extends BaseChart {
     private get allBandwidth(): BandwidthRollup[] {

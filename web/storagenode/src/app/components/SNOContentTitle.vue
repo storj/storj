@@ -92,6 +92,7 @@ class NodeInfo {
     }
 }
 
+// @vue/component
 @Component ({
     components: {
         VInfo,

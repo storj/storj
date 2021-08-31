@@ -14,6 +14,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+// @vue/component
 @Component
 export default class VLink extends Vue {
     @Prop({ default: '' })

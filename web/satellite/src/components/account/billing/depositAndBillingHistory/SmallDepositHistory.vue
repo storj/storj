@@ -25,6 +25,7 @@ import SortingHeader from '@/components/account/billing/depositAndBillingHistory
 import { RouteConfig } from '@/router';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
+// @vue/component
 @Component({
     components: {
         PaymentsItem,

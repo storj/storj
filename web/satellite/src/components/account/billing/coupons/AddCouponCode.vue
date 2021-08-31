@@ -29,6 +29,7 @@ import CheckIcon from '@/../static/images/common/successCheck.svg';
 
 import { RouteConfig } from '@/router';
 
+// @vue/component
 @Component({
     components: {
         HeaderlessInput,

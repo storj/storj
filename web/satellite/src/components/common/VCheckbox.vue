@@ -12,6 +12,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 // Custom checkbox component
+// @vue/component
 @Component
 export default class VCheckbox extends Vue {
     @Prop({default: false})

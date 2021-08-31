@@ -176,6 +176,7 @@ class EstimationTableRow {
     ) {}
 }
 
+// @vue/component
 @Component ({
     components: {
         EstimationPeriodDropdown,

@@ -45,6 +45,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         HeaderedInput,

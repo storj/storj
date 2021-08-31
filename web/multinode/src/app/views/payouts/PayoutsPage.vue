@@ -47,6 +47,7 @@ import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/P
 import { UnauthorizedError } from '@/api';
 import { PayoutsState } from '@/app/store/payouts';
 
+// @vue/component
 @Component({
     components: {
         BalanceArea,

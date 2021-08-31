@@ -24,6 +24,7 @@ declare interface ClearSearch {
     clearSearch(): void;
 }
 
+// @vue/component
 @Component({
     components: {
         VSearch,

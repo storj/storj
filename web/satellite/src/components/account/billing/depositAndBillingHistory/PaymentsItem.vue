@@ -39,6 +39,7 @@ import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBill
 
 import { PaymentsHistoryItem } from '@/types/payments';
 
+// @vue/component
 @Component({
     components: {
         PaymentsHistoryItemDate,

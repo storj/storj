@@ -75,6 +75,7 @@ import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 
+// @vue/component
 @Component({
     components: {
         BucketIcon,

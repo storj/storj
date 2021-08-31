@@ -35,6 +35,7 @@ import VerticalArrows from '@/components/common/VerticalArrows.vue';
 import { SortDirection } from '@/types/common';
 import { OnHeaderClickCallback, ProjectMemberOrderBy } from '@/types/projectMembers';
 
+// @vue/component
 @Component({
     components: {
         VerticalArrows,

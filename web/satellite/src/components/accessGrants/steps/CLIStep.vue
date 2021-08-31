@@ -60,6 +60,7 @@ import BackIcon from '@/../static/images/accessGrants/back.svg';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         BackIcon,

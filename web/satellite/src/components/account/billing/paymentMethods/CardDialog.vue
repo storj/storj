@@ -20,6 +20,7 @@ const {
     REMOVE_CARD,
 } = PAYMENTS_ACTIONS;
 
+// @vue/component
 @Component
 export default class CardDialog extends Vue {
     @Prop({default: ''})

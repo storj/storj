@@ -96,6 +96,7 @@ import { UnauthorizedError } from '@/api';
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayouts } from '@/payouts';
 
+// @vue/component
 @Component({
     components: {
         HeldHistory,

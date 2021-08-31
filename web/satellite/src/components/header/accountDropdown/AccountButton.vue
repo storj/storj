@@ -27,6 +27,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import AccountDropdown from './AccountDropdown.vue';
 
+// @vue/component
 @Component({
     components: {
         AccountDropdown,

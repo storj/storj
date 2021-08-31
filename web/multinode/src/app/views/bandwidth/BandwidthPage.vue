@@ -81,6 +81,7 @@ import DiskStatChart from '@/app/components/storage/DiskStatChart.vue';
 import { UnauthorizedError } from '@/api';
 import { BandwidthTraffic } from '@/bandwidth';
 
+// @vue/component
 @Component({
     components: {
         DiskStatChart,

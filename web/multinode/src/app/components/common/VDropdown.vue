@@ -40,6 +40,7 @@ export class Option {
     ) {}
 }
 
+// @vue/component
 @Component
 export default class VDropdown extends Vue {
     @Prop({ default: [] })

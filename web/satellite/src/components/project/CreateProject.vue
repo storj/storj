@@ -69,6 +69,7 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 
+// @vue/component
 @Component({
     components: {
         HeaderedInput,

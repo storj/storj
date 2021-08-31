@@ -75,6 +75,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AccountBalance } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         PeriodSelection,

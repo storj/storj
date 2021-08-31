@@ -47,6 +47,7 @@ import DoughnutChart from '@/app/components/DoughnutChart.vue';
 import {DiskStatChartData, DiskStatDataSet} from '@/app/types/chart';
 import { Traffic } from '@/storagenode/sno/sno';
 
+// @vue/component
 @Component({
     components: {
         DoughnutChart,

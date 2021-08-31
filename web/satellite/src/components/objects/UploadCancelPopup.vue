@@ -35,6 +35,7 @@ import WarningIcon from '@/../static/images/objects/cancelWarning.svg';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         WarningIcon,

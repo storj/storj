@@ -24,6 +24,7 @@ import VInfo from '@/app/components/VInfo.vue';
 
 import { Size } from '@/private/memory/size';
 
+// @vue/component
 @Component ({
     components: {
         VBar,

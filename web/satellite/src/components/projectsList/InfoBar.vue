@@ -36,6 +36,7 @@ import { MetaUtils } from '@/utils/meta';
 /**
  * VBanner is common banner for needed pages
  */
+// @vue/component
 @Component({
     components: {
         VLoader,

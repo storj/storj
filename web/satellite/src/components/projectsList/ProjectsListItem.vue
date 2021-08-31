@@ -14,6 +14,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { Project } from '@/types/projects';
 
+// @vue/component
 @Component
 export default class ProjectsListItem extends Vue {
     @Prop({default: () => new Project('123', 'name', 'desc')})

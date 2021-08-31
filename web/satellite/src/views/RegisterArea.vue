@@ -249,6 +249,7 @@ import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 
+// @vue/component
 @Component({
     components: {
         HeaderlessInput,

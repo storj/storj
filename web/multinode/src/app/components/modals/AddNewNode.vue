@@ -46,6 +46,7 @@ import VModal from '@/app/components/common/VModal.vue';
 
 import { CreateNodeFields } from '@/nodes';
 
+// @vue/component
 @Component({
     components: {
         VButton,

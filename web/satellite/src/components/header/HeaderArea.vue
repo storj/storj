@@ -69,6 +69,7 @@ import { RouteConfig } from '@/router';
 
 import AccountButton from './accountDropdown/AccountButton.vue';
 
+// @vue/component
 @Component({
     components: {
         AccountButton,

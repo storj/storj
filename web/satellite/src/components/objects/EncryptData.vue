@@ -80,6 +80,7 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import EncryptIcon from '@/../static/images/objects/encrypt.svg';
 import InfoIcon from '@/../static/images/common/greyInfo.svg';
 
+// @vue/component
 @Component({
     components: {
         EncryptIcon,

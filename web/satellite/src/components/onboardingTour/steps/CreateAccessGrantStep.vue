@@ -29,6 +29,7 @@ import ProgressBar from '@/components/accessGrants/ProgressBar.vue';
 
 import { RouteConfig } from '@/router';
 
+// @vue/component
 @Component({
     components: {
         ProgressBar,

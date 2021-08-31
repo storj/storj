@@ -40,6 +40,7 @@ class IngressTooltip {
     }
 }
 
+// @vue/component
 @Component
 export default class IngressChart extends BaseChart {
     private get allBandwidth(): BandwidthRollup[] {

@@ -21,6 +21,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+// @vue/component
 @Component
 export default class ConfirmMFAInput extends Vue {
     @Prop({default: () => false})

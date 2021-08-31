@@ -56,6 +56,7 @@ import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 
+// @vue/component
 @Component({
     components: {
         SelectionIcon,

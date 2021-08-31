@@ -19,6 +19,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import PayoutPeriodCalendar from './PayoutPeriodCalendar.vue';
 
+// @vue/component
 @Component({
     components: { PayoutPeriodCalendar },
 })

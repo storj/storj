@@ -26,6 +26,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+// @vue/component
 @Component
 export default class VModal extends Vue {
     public close(): void {

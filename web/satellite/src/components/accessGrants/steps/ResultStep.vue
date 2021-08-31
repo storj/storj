@@ -60,6 +60,7 @@ import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         BackIcon,

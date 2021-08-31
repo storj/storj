@@ -14,6 +14,7 @@ import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component
 export default class ObjectsArea extends Vue {
     /**

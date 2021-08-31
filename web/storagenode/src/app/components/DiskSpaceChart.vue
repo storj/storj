@@ -38,6 +38,7 @@ class StampTooltip {
     }
 }
 
+// @vue/component
 @Component
 export default class DiskSpaceChart extends BaseChart {
     private get chartBackgroundColor(): string {

@@ -42,6 +42,7 @@ const elementsClassesToRemoveOnScroll: string[] = [
     'notification-popup-container',
 ];
 
+// @vue/component
 @Component({
     components: {
         LoadingScreen,

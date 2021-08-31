@@ -23,6 +23,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 
+// @vue/component
 @Component({ components: { BaseTable } })
 export default class WalletDetailsTable extends Vue {}
 </script>

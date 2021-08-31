@@ -36,6 +36,7 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { MONTHS_NAMES } from '@/utils/constants/date';
 
+// @vue/component
 @Component({
     components: {
         VButton,

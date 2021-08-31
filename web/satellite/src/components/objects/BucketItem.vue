@@ -30,6 +30,7 @@ import BucketIcon from '@/../static/images/objects/bucketItem.svg';
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
 
+// @vue/component
 @Component({
     components: {
         BucketIcon,

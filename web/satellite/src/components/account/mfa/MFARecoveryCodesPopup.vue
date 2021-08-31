@@ -37,6 +37,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
+// @vue/component
 @Component({
     components: {
         CloseCrossIcon,

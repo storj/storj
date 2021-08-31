@@ -62,6 +62,7 @@ import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
 
+// @vue/component
 @Component({
     components: {
         HeaderlessInput,

@@ -93,6 +93,7 @@ import GreenWarningIcon from '@/../static/images/accessGrants/greenWarning.svg';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
+// @vue/component
 @Component({
     components: {
         GreenWarningIcon,

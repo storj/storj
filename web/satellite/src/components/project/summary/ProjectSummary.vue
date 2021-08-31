@@ -48,6 +48,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import VLoader from '@/components/common/VLoader.vue';
 import SummaryItem from '@/components/project/summary/SummaryItem.vue';
 
+// @vue/component
 @Component({
     components: {
         SummaryItem,

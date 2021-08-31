@@ -59,6 +59,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         VButton,

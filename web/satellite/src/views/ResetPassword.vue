@@ -70,6 +70,7 @@ import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 
+// @vue/component
 @Component({
     components: {
         LogoIcon,

@@ -57,6 +57,7 @@ interface ClearInput {
     clearInput(): void;
 }
 
+// @vue/component
 @Component({
     components: {
         ConfirmMFAInput,

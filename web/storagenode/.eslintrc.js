@@ -41,5 +41,8 @@ module.exports = {
         "vue/no-unused-properties": ["warn"],
         "vue/no-unused-refs": ["warn"],
         "vue/no-useless-v-bind": ["warn"],
+
+        "vue/one-component-per-file": ["off"],
+        "vue/no-unused-components": ["off"],
     },
 }

@@ -33,6 +33,7 @@ import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTable
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component ({
     components: {
         PayoutHistoryPeriodDropdown,

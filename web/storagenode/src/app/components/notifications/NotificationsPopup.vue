@@ -36,6 +36,7 @@ import SNONotification from '@/app/components/notifications/SNONotification.vue'
 import { RouteConfig } from '@/app/router';
 import { UINotification } from '@/app/types/notifications';
 
+// @vue/component
 @Component({
     components: {
         SNONotification,

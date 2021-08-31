@@ -40,6 +40,7 @@ export class NavigationLink {
     ) {}
 }
 
+// @vue/component
 @Component({
     components: {
         StorjLogo,

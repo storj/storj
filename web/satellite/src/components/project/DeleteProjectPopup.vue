@@ -66,6 +66,7 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         VButton,

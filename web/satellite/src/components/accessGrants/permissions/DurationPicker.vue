@@ -37,6 +37,7 @@ import 'vue2-datepicker/index.css';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { DurationPermission } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         DatePicker,

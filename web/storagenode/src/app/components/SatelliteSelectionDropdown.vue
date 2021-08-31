@@ -35,6 +35,7 @@ import { PayoutInfoRange } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 import { SatelliteInfo } from '@/storagenode/sno/sno';
 
+// @vue/component
 @Component({
     components: {
         SatelliteSelectionDropdownItem,

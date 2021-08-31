@@ -141,6 +141,7 @@ import {
     ProjectFields, ProjectLimits
 } from '@/types/projects';
 
+// @vue/component
 @Component({
     components: {
         VButton,

@@ -63,6 +63,7 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 
+// @vue/component
 @Component({
     components: {
         VButton,

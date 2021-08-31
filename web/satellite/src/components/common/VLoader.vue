@@ -12,6 +12,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import LoaderImage from '@/../static/images/common/loader.svg';
 
+// @vue/component
 @Component({
     components: {
         LoaderImage,

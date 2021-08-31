@@ -25,6 +25,7 @@ import PayoutsSummaryItem from '@/app/components/payouts/tables/payoutSummary/Pa
 
 import { NodePayoutsSummary } from '@/payouts';
 
+// @vue/component
 @Component({
     components: {
         BaseTable,
