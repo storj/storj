@@ -40,7 +40,6 @@ module.exports = {
         "vue/no-unused-refs": ["warn"],
         "vue/no-useless-v-bind": ["warn"],
 
-        "vue/one-component-per-file": ["off"],
-        "vue/no-unused-components": ["off"],
+        'vue/no-unregistered-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
     },
 }

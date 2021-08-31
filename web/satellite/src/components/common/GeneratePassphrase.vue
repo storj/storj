@@ -87,7 +87,6 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import BackIcon from '@/../static/images/accessGrants/back.svg';
 import GreenWarningIcon from '@/../static/images/accessGrants/greenWarning.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -97,7 +96,6 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 @Component({
     components: {
         GreenWarningIcon,
-        BackIcon,
         VButton,
         HeaderedInput,
     },

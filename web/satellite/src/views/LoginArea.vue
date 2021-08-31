@@ -97,7 +97,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-import AuthIcon from '@/../static/images/AuthImage.svg';
 import WarningIcon from '@/../static/images/common/greyWarning.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
@@ -119,7 +118,6 @@ interface ClearInput {
 @Component({
     components: {
         HeaderlessInput,
-        AuthIcon,
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,

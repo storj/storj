@@ -51,7 +51,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
-import HeldHistoryTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 import HeldProgress from '@/app/components/payments/HeldProgress.vue';
 import PayoutHistoryTable from '@/app/components/payments/PayoutHistoryTable.vue';
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
@@ -73,7 +72,6 @@ import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode
         PayoutHistoryTable,
         HeldHistoryArea,
         HeldProgress,
-        HeldHistoryTable,
         SingleInfo,
         SatelliteSelection,
         EstimationArea,

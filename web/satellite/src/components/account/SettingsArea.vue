@@ -91,7 +91,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
-import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
 import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
 import DisableMFAPopup from '@/components/account/mfa/DisableMFAPopup.vue';
 import EnableMFAPopup from '@/components/account/mfa/EnableMFAPopup.vue';
@@ -113,7 +112,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         ChangePasswordIcon,
         EmailIcon,
         VButton,
-        DeleteAccountPopup,
         ChangePasswordPopup,
         EditProfilePopup,
         EnableMFAPopup,

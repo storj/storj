@@ -54,8 +54,6 @@ import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
@@ -66,8 +64,6 @@ import { MetaUtils } from '@/utils/meta';
         BackIcon,
         WarningIcon,
         VButton,
-        ExpandIcon,
-        HideIcon,
     },
 })
 export default class ResultStep extends Vue {

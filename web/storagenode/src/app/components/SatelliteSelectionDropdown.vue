@@ -25,9 +25,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
 
-import DisqualificationIcon from '@/../static/images/disqualify.svg';
-import SuspensionIcon from '@/../static/images/suspend.svg';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
@@ -39,8 +36,6 @@ import { SatelliteInfo } from '@/storagenode/sno/sno';
 @Component({
     components: {
         SatelliteSelectionDropdownItem,
-        DisqualificationIcon,
-        SuspensionIcon,
     },
 })
 export default class SatelliteSelectionDropdown extends Vue {

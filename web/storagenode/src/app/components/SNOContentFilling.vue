@@ -165,13 +165,11 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
-import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
 import DiskStatChart from '@/app/components/DiskStatChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
 import IngressChart from '@/app/components/IngressChart.vue';
-import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
 import WalletArea from '@/app/components/WalletArea.vue';
@@ -191,13 +189,11 @@ import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno
         AllSatellitesAuditsArea,
         DiskStatChart,
         TotalPayoutArea,
-        EstimationArea,
         EgressChart,
         IngressChart,
         SatelliteSelection,
         BandwidthChart,
         DiskSpaceChart,
-        BarInfo,
         ChecksArea,
         WalletArea,
         LargeDisqualificationIcon,

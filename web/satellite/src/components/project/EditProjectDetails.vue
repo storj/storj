@@ -130,7 +130,6 @@
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -145,7 +144,6 @@ import {
 @Component({
     components: {
         VButton,
-        HeaderedInput,
     },
 })
 export default class EditProjectDetails extends Vue {

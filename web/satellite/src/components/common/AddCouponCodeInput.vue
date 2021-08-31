@@ -73,7 +73,6 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import CloseIcon from '@/../static/images/common/closeCross.svg';
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
 import { PaymentsHttpApi } from '@/api/payments';
@@ -85,7 +84,6 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
     components: {
         VButton,
         HeaderlessInput,
-        CloseIcon,
         CheckIcon,
         ValidationMessage,
     },

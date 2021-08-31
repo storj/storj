@@ -24,8 +24,6 @@
 import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
-
 import BucketIcon from '@/../static/images/objects/bucketItem.svg';
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
@@ -36,7 +34,6 @@ import DotsIcon from '@/../static/images/objects/dots.svg';
         BucketIcon,
         DotsIcon,
         DeleteIcon,
-        ObjectsPopup,
     },
 })
 export default class BucketItem extends Vue {

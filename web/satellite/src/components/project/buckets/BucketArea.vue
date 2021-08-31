@@ -54,7 +54,6 @@ const {FETCH, SET_SEARCH} = BUCKET_ACTIONS;
 @Component({
     components: {
         SortingHeader,
-        BucketItem,
         NoBucketArea,
         VHeader,
         VPagination,

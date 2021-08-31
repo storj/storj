@@ -231,11 +231,9 @@ import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 import SelectInput from '@/components/common/SelectInput.vue';
 
-import AuthIcon from '@/../static/images/AuthImage.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/logo.svg';
-import InfoIcon from '@/../static/images/info.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
 import RegisterGlobeSmall from '@/../static/images/register/RegisterGlobeSmall.svg';
@@ -254,12 +252,10 @@ import { Validator } from '@/utils/validation';
     components: {
         HeaderlessInput,
         RegistrationSuccess,
-        AuthIcon,
         BottomArrowIcon,
         ErrorIcon,
         SelectedCheckIcon,
         LogoIcon,
-        InfoIcon,
         PasswordStrength,
         AddCouponCodeInput,
         SelectInput,

@@ -100,9 +100,6 @@ import VInfo from '@/components/common/VInfo.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import InfoIcon from '@/../static/images/accessGrants/info.svg';
-import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -113,12 +110,9 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 // @vue/component
 @Component({
     components: {
-        BackIcon,
-        WarningIcon,
         VButton,
-        ExpandIcon,
-        HideIcon,
         VInfo,
+        BackIcon,
         InfoIcon,
     },
 })

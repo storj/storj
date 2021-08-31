@@ -87,7 +87,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
-import VLink from '@/app/components/common/VLink.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
 import HeldHistory from '@/app/components/payouts/tables/heldHistory/HeldHistory.vue';
 import PayoutsByNodeTable from '@/app/components/payouts/tables/payoutsByNode/PayoutsByNodeTable.vue';
@@ -102,7 +101,6 @@ import { NodePayouts } from '@/payouts';
         HeldHistory,
         PayoutsByNodeTable,
         InfoBlock,
-        VLink,
         PayoutPeriodCalendarButton,
         SatelliteSelectionDropdown,
     },

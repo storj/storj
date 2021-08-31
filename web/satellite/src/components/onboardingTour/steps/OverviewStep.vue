@@ -44,7 +44,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 import WelcomeLeft from '@/../static/images/onboardingTour/welcome-left.svg';
 import WelcomeRight from '@/../static/images/onboardingTour/welcome-right.svg';
@@ -56,7 +55,6 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 // @vue/component
 @Component({
     components: {
-        VButton,
         OverviewContainer,
         WelcomeLeft,
         WelcomeRight

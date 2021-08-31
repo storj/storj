@@ -39,12 +39,20 @@
 <script lang="ts">
 import { Component, Prop } from 'vue-property-decorator';
 
+import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
+import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';
+
 import BaseSmallHeldHistoryTable from '@/app/components/payments/BaseSmallHeldHistoryTable.vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 
 // @vue/component
-@Component
+@Component({
+    components: {
+        BlueHideIcon,
+        BlueExpandIcon,
+    },
+})
 export default class HeldHistoryMonthlyBreakdownTableSmall extends BaseSmallHeldHistoryTable {
     @Prop({default: () => new SatelliteHeldHistory()})
     public readonly heldHistoryItem: SatelliteHeldHistory;

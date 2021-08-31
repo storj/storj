@@ -19,6 +19,7 @@
 import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/BaseChart.vue';
+import VChart from '@/app/components/VChart.vue';
 
 import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
@@ -41,7 +42,9 @@ class IngressTooltip {
 }
 
 // @vue/component
-@Component
+@Component({
+    components: { VChart }
+})
 export default class IngressChart extends BaseChart {
     private get chartBackgroundColor(): string {
         return this.isDarkMode ? '#E1A128' : '#fff4df';

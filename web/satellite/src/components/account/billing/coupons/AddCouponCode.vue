@@ -22,19 +22,15 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
 import CloseIcon from '@/../static/images/common/closeCross.svg';
-import CheckIcon from '@/../static/images/common/successCheck.svg';
 
 import { RouteConfig } from '@/router';
 
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
         CloseIcon,
-        CheckIcon,
         AddCouponCodeInput,
     },
 })
