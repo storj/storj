@@ -32,7 +32,6 @@ const projectsModule = makeProjectsModule(projectsApi);
 const notificationsModule = makeNotificationsModule();
 const store = new Vuex.Store({ modules: { usersModule, paymentsModule, projectsModule, appStateModule, notificationsModule }});
 store.commit(USER_MUTATIONS.SET_USER, new User('id', 'name', 'short', 'test@test.test', 'partner', 'pass'));
-
 class NotificatorPlugin {
     public install() {
         localVue.prototype.$notify = new Notificator(store);

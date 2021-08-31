@@ -30,7 +30,7 @@ export class PayoutService {
      * @param end period end
      * @param satelliteId
      */
-    public async paystubSummaryForPeriod(start: PayoutPeriod, end: PayoutPeriod, satelliteId?: string): Promise<TotalPaystubForPeriod> {
+    public async paystubSummaryForPeriod(start: PayoutPeriod | null, end: PayoutPeriod, satelliteId?: string): Promise<TotalPaystubForPeriod> {
         const paystubs: Paystub[] = await this.payouts.getPaystubsForPeriod(new PaymentInfoParameters(start, end, satelliteId));
 
         return new TotalPaystubForPeriod(paystubs);

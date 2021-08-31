@@ -24,8 +24,6 @@ module.exports = {
         "indent": ["warn", 4],
         "vue/html-indent": ["warn", 4],
 
-        "@typescript-eslint/no-explicit-any": "off", // TODO: fix
-
         "@typescript-eslint/no-unused-vars": [
             "warn", {
                 "vars": "all",

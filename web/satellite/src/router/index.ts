@@ -346,13 +346,6 @@ export const router = new Router({
                             path: RouteConfig.UploadFile.path,
                             name: RouteConfig.UploadFile.name,
                             component: UploadFile,
-                            children: [
-                                {
-                                    path: '*',
-                                    name: RouteConfig.UploadFile.name,
-                                    component: UploadFile,
-                                },
-                            ],
                         },
                     ],
                 },

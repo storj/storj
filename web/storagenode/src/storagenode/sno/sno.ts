@@ -361,28 +361,28 @@ export class SatelliteByDayInfo {
     public ingressDaily: IngressUsed[];
 
     public constructor(json: unknown) {
-        const data = json as any;
+        const data = json as any; // eslint-disable-line @typescript-eslint/no-explicit-any
         const storageDailyJson = data.storageDaily || [];
         const bandwidthDailyJson = data.bandwidthDaily || [];
 
-        this.storageDaily = storageDailyJson.map((stamp: any) => {
+        this.storageDaily = storageDailyJson.map((stamp: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
         });
 
-        this.bandwidthDaily = bandwidthDailyJson.map((bandwidth: any) => {
+        this.bandwidthDaily = bandwidthDailyJson.map((bandwidth: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
             const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
 
             return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
         });
 
-        this.egressDaily = bandwidthDailyJson.map((bandwidth: any) => {
+        this.egressDaily = bandwidthDailyJson.map((bandwidth: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
 
             return new EgressUsed(egress, new Date(bandwidth.intervalStart));
         });
 
-        this.ingressDaily = bandwidthDailyJson.map((bandwidth: any) => {
+        this.ingressDaily = bandwidthDailyJson.map((bandwidth: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
 
             return new IngressUsed(ingress, new Date(bandwidth.intervalStart));
