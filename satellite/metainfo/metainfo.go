@@ -300,11 +300,35 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 
 	now := time.Now()
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:     macaroon.ActionDelete,
-		Bucket: req.Name,
-		Time:   now,
-	})
+	var canRead, canList bool
+
+	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
+		verifyPermission{
+			action: macaroon.Action{
+				Op:     macaroon.ActionDelete,
+				Bucket: req.Name,
+				Time:   now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:     macaroon.ActionRead,
+				Bucket: req.Name,
+				Time:   now,
+			},
+			actionPermitted: &canRead,
+			optional:        true,
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:     macaroon.ActionList,
+				Bucket: req.Name,
+				Time:   now,
+			},
+			actionPermitted: &canList,
+			optional:        true,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -313,20 +337,6 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
-
-	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:     macaroon.ActionRead,
-		Bucket: req.Name,
-		Time:   now,
-	})
-	canRead := err == nil
-
-	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:     macaroon.ActionList,
-		Bucket: req.Name,
-		Time:   now,
-	})
-	canList := err == nil
 
 	var (
 		bucket     storj.Bucket
@@ -598,12 +608,30 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionWrite,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
-		Time:          time.Now(),
-	})
+	now := time.Now()
+
+	var canDelete bool
+
+	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionWrite,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedPath,
+				Time:          now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedPath,
+				Time:          now,
+			},
+			actionPermitted: &canDelete,
+			optional:        true,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -625,14 +653,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	} else if !exists {
 		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
-
-	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionDelete,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
-		Time:          time.Now(),
-	})
-	canDelete := err == nil
 
 	if canDelete {
 		_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
@@ -1419,12 +1439,38 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	now := time.Now()
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionDelete,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
-		Time:          now,
-	})
+	var canRead, canList bool
+
+	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedPath,
+				Time:          now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionRead,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedPath,
+				Time:          now,
+			},
+			actionPermitted: &canRead,
+			optional:        true,
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionList,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedPath,
+				Time:          now,
+			},
+			actionPermitted: &canList,
+			optional:        true,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1433,22 +1479,6 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
-
-	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionRead,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
-		Time:          now,
-	})
-	canRead := err == nil
-
-	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionList,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
-		Time:          now,
-	})
-	canList := err == nil
 
 	var deletedObjects []*pb.Object
 
