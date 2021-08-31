@@ -70,6 +70,52 @@ export class Admin {
       ? baseURL.substring(0, baseURL.length - 1)
       : baseURL;
   }
+
+  protected async fetch(
+    method: "DELETE" | "GET" | "POST" | "PUT",
+    path: string,
+    query?: string,
+    data?: object
+  ): Promise<object | null> {
+    const url = this.apiURL(path, query);
+    const headers = new window.Headers({
+      Authorization: this.authToken,
+    });
+
+    let body: string;
+    if (data) {
+      headers.set("Content-Type", "application/json");
+      body = JSON.stringify(data);
+    }
+
+    const resp = await window.fetch(url, { method, headers, body });
+    if (!resp.ok) {
+      let body: object;
+      if (resp.headers.get("Content-Type") === "application/json") {
+        body = await resp.json();
+      }
+
+      throw new APIError("server response error", resp.status, body);
+    }
+
+    if (resp.headers.get("Content-Type") === "application/json") {
+      return resp.json();
+    }
+
+    return null;
+  }
+
+  protected apiURL(path: string, query?: string): string {
+    path = path.startsWith("/") ? path.substring(1) : path;
+
+    if (!query) {
+      query = "";
+    } else {
+      query = "?" + query;
+    }
+
+    return `${this.baseURL}/${path}${query}`;
+  }
 }
 
 class APIError extends Error {
