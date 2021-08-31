@@ -154,8 +154,6 @@ CREATE TABLE nodes (
 	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
 	release boolean NOT NULL DEFAULT false,
 	latency_90 bigint NOT NULL DEFAULT 0,
-	audit_success_count bigint NOT NULL DEFAULT 0,
-	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,

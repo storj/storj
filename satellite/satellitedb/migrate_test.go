@@ -232,19 +232,6 @@ func migrateTest(t *testing.T, connStr string) {
 		finalSchema = currentSchema
 	}
 
-	// TODO(yingrong): remove this check with the migration step to drop the columns
-	// to keep backwards compatibility for older satellite API during rolling
-	// upgrade, we need to first remove the dbx reference before doing the actual migration to
-	// drop these columns.
-	nodes, ok := finalSchema.FindTable("nodes")
-	if ok {
-		nodes.RemoveColumn("online_score")
-		nodes.RemoveColumn("audit_reputation_alpha")
-		nodes.RemoveColumn("audit_reputation_beta")
-		nodes.RemoveColumn("unknown_audit_reputation_alpha")
-		nodes.RemoveColumn("unknown_audit_reputation_beta")
-	}
-
 	// verify that we also match the dbx version
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }
