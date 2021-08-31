@@ -427,7 +427,7 @@ router.beforeEach(async (to, from, next) => {
         return;
     }
 
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.CLIStep))) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep))) {
         next(RouteConfig.OnboardingTour.path);
 
         return;

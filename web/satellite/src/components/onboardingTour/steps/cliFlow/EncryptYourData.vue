@@ -90,7 +90,7 @@ export default class EncryptYourData extends Vue {
             }
 
             await this.$store.commit(ACCESS_GRANTS_MUTATIONS.SET_ONBOARDING_ACCESS_GRANT, accessGrantEvent.data.value);
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep.with(RouteConfig.GeneratedAG)).path);
+            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.GeneratedAG)).path);
         } catch (error) {
             await this.$notify.error(error.message)
         }
@@ -111,7 +111,7 @@ export default class EncryptYourData extends Vue {
             const restrictedKey = await this.generateRestrictedKey();
 
             await this.$store.commit(ACCESS_GRANTS_MUTATIONS.SET_ONBOARDING_CLI_API_KEY, restrictedKey);
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep.with(RouteConfig.APIKey)).path);
+            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
         } catch (error) {
             await this.$notify.error(error.message)
         }
