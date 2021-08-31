@@ -379,7 +379,9 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	project.Name = input.ProjectName
-	project.Description = input.Description
+	if input.Description != "" {
+		project.Description = input.Description
+	}
 
 	err = server.db.Console().Projects().Update(ctx, project)
 	if err != nil {
