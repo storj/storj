@@ -11,7 +11,6 @@ module.exports = {
         "stylelint-scss"
     ],
     "extends": "stylelint-config-standard",
-    "ignoreFiles": ["dist/**"],
     "rules": {
         "indentation": 4,
         "string-quotes": "single",
