@@ -20,7 +20,8 @@ pipeline {
             steps {
                 checkout scm
                 sh 'mkdir -p .build'
-                // make a backup of the mod file in case, for later linting
+                // make a backup of the mod file, because sometimes they get modified by tools
+                // this allows to lint the unmodified files
                 sh 'cp go.mod .build/go.mod.orig'
                 sh 'cp testsuite/go.mod .build/testsuite.go.mod.orig'
 
@@ -128,7 +129,6 @@ pipeline {
                             sh 'check-errs ./...'
                             sh 'staticcheck ./...'
                             sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                            // Why don't we run mod tidy on the actual mod instead.
                             sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
                         }
                      }
