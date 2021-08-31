@@ -894,6 +894,10 @@ func TestStorageDirVerification(t *testing.T) {
 	// test nonexistent file returns error
 	require.Error(t, store.VerifyStorageDir(ctx, ident0.ID))
 
+	// test VerifyWrite doesn't interfere
+	require.NoError(t, store.CheckWritability(ctx))
+	require.Error(t, store.VerifyStorageDir(ctx, ident0.ID))
+
 	require.NoError(t, dir.CreateVerificationFile(ctx, ident0.ID))
 
 	// test correct ID returns no error
