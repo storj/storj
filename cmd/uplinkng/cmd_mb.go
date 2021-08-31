@@ -8,6 +8,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplinkng/ulext"
+	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdMb struct {
@@ -25,7 +26,14 @@ func newCmdMb(ex ulext.External) *cmdMb {
 func (c *cmdMb) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to use", "").(string)
 
-	c.name = params.Arg("name", "Bucket name (sj://BUCKET)").(string)
+	c.name = params.Arg("name", "Bucket name (sj://BUCKET)", clingy.Transform(ulloc.Parse),
+		clingy.Transform(func(location ulloc.Location) (string, error) {
+			if bucket, key, ok := location.RemoteParts(); key == "" && ok {
+				return bucket, nil
+			}
+			return "", errs.New("invalid bucket name")
+		}),
+	).(string)
 }
 
 func (c *cmdMb) Execute(ctx clingy.Context) error {
