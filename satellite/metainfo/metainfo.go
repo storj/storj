@@ -2979,3 +2979,85 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 		SegmentKeys: keys,
 	}, nil
 }
+
+// FinishMoveObject accepts new encryption keys for moved object and updates the corresponding object ObjectKey and segments EncryptedKey.
+func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFinishMoveRequest) (resp *pb.ObjectFinishMoveResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Time:          time.Now(),
+		Bucket:        req.NewBucket,
+		EncryptedPath: req.NewEncryptedObjectKey,
+	})
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	streamUUID, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.metabase.FinishMoveObject(ctx, metabase.FinishMoveObject{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(streamID.Bucket),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			Version:    metabase.DefaultVersion,
+			StreamID:   streamUUID,
+		},
+		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
+		NewEncryptedObjectKey:        req.NewEncryptedObjectKey,
+		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce[:],
+		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
+	})
+	if err != nil {
+		switch {
+		case storj.ErrObjectNotFound.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		case metabase.ErrSegmentNotFound.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		case metabase.ErrInvalidRequest.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		default:
+			endpoint.log.Error("internal", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+	}
+
+	return &pb.ObjectFinishMoveResponse{}, nil
+}
+
+// protobufkeysToMetabase converts []*pb.EncryptedKeyAndNonce to []metabase.EncryptedKeyAndNonce.
+func protobufkeysToMetabase(protoKeys []*pb.EncryptedKeyAndNonce) []metabase.EncryptedKeyAndNonce {
+	keys := make([]metabase.EncryptedKeyAndNonce, len(protoKeys))
+	for i, key := range protoKeys {
+		position := metabase.SegmentPosition{}
+
+		if key.Position != nil {
+			position = metabase.SegmentPosition{
+				Part:  uint32(key.Position.PartNumber),
+				Index: uint32(key.Position.Index),
+			}
+		}
+
+		keys[i] = metabase.EncryptedKeyAndNonce{
+			EncryptedKeyNonce: key.EncryptedKeyNonce.Bytes(),
+			EncryptedKey:      key.EncryptedKey,
+			Position:          position,
+		}
+	}
+
+	return keys
+}
