@@ -15,13 +15,14 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
+	"storj.io/common/identity"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/private/version"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
-	"storj.io/storj/storagenode"
+	"storj.io/storj/private/version/checker"
 )
 
 const (
@@ -53,7 +54,8 @@ var (
 	}
 
 	runCfg struct {
-		storagenode.Config
+		Identity identity.Config
+		Version  checker.Config
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
