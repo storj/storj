@@ -4,9 +4,15 @@
 <template>
     <div class="os">
         <div class="os__tabs">
-            <p class="os__tabs__choice" :class="{active: isWindows}" @click="setIsWindows">Windows</p>
-            <p class="os__tabs__choice" :class="{active: isLinux}" @click="setIsLinux">Linux</p>
-            <p class="os__tabs__choice" :class="{active: isMacOS}" @click="setIsMacOS">macOS</p>
+            <p class="os__tabs__choice" :class="{active: isWindows && !isInstallStep, 'active-install-step': isWindows && isInstallStep}" @click="setIsWindows">
+                Windows
+            </p>
+            <p class="os__tabs__choice" :class="{active: isLinux && !isInstallStep, 'active-install-step': isLinux && isInstallStep}" @click="setIsLinux">
+                Linux
+            </p>
+            <p class="os__tabs__choice" :class="{active: isMacOS && !isInstallStep, 'active-install-step': isMacOS && isInstallStep}" @click="setIsMacOS">
+                macOS
+            </p>
         </div>
         <slot v-if="isWindows" name="windows" />
         <slot v-if="isLinux" name="linux" />
@@ -15,11 +21,14 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 // @vue/component
 @Component
 export default class OSContainer extends Vue {
+    @Prop({ default: false })
+    public readonly isInstallStep: boolean;
+
     public isWindows = false;
     public isLinux = false;
     public isMacOS = false;
@@ -82,6 +91,7 @@ export default class OSContainer extends Vue {
             border-top: 1px solid rgb(230, 236, 241);
             border-left: 1px solid rgb(230, 236, 241);
             border-right: 1px solid rgb(230, 236, 241);
+            margin-bottom: -1px;
 
             &__choice {
                 background-color: #f5f7f9;
@@ -104,5 +114,10 @@ export default class OSContainer extends Vue {
     .active {
         background: rgb(24, 48, 85);
         color: #e6ecf1;
+    }
+
+    .active-install-step {
+        background: #fff;
+        color: #242a31;
     }
 </style>

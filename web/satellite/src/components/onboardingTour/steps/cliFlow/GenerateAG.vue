@@ -36,12 +36,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from "@/router";
+
 import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
 import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
 import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vue";
 
 import Icon from '@/../static/images/onboardingTour/generateAGStep.svg';
-import {RouteConfig} from "@/router";
 
 // @vue/component
 @Component({

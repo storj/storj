@@ -9,14 +9,14 @@
         <div class="flow-container__buttons">
             <VButton
                 class="flow-container__buttons__back"
-                label="< Back>"
+                label="< Back"
                 height="64px"
                 border-radius="52px"
                 is-grey-blue="true"
                 :on-press="onBackClick"
             />
             <VButton
-                label="Next >>"
+                label="Next >"
                 height="64px"
                 border-radius="52px"
                 :on-press="onNextClick"
