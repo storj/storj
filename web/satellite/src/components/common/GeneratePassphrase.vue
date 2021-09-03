@@ -18,11 +18,16 @@
                 <p class="encrypt-container__header__row__gen" :class="{ active: isGenerate }" @click="setToGenerate">Generate Phrase</p>
                 <div class="encrypt-container__header__row__right">
                     <p class="encrypt-container__header__row__right__enter" :class="{ active: !isGenerate }" @click="setToEnter">Enter Your Own Passphrase</p>
-                    <VInfo
-                        class="encrypt-container__header__row__right__info-button"
-                        text="We strongly encourage you to use a mnemonic phrase, which is automatically generated one on the client-side for you. Alternatively, you can enter your own passphrase."
-                    >
-                        <InfoIcon class="encrypt-container__header__row__right__info-button__image" />
+                    <VInfo class="encrypt-container__header__row__right__info-button">
+                        <template #icon>
+                            <InfoIcon class="encrypt-container__header__row__right__info-button__image" />
+                        </template>
+                        <template #message>
+                            <p class="encrypt-container__header__row__right__info-button__message">
+                                We strongly encourage you to use a mnemonic phrase, which is automatically generated one
+                                on the client-side for you. Alternatively, you can enter your own passphrase.
+                            </p>
+                        </template>
                     </VInfo>
                 </div>
             </div>
@@ -290,6 +295,12 @@ export default class GeneratePassphrase extends Vue {
                         &__image {
                             cursor: pointer;
                         }
+
+                        &__message {
+                            color: #586c86;
+                            font-size: 16px;
+                            line-height: 21px;
+                        }
                     }
                 }
             }
@@ -369,9 +380,5 @@ export default class GeneratePassphrase extends Vue {
 
     ::v-deep .info__box__message {
         min-width: 440px;
-
-        &__regular-text {
-            line-height: 32px;
-        }
     }
 </style>

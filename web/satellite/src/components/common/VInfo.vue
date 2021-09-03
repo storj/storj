@@ -3,14 +3,13 @@
 
 <template>
     <div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
-        <slot />
+        <slot name="icon" />
         <div v-if="isVisible" class="info__box">
-            <div v-if="buttonLabel" class="info__box__click-mock" />
+            <div v-if="isClickable" class="info__box__click-mock" />
             <div class="info__box__arrow" />
             <div class="info__box__message">
                 <h1 v-if="title" class="info__box__message__title">{{ title }}</h1>
-                <p class="info__box__message__regular-text">{{ text }}</p>
-                <p class="info__box__message__bold-text">{{ boldText }}</p>
+                <slot name="message" />
                 <VButton
                     v-if="buttonLabel"
                     class="info__box__message__button"
@@ -38,10 +37,8 @@ import VButton from '@/components/common/VButton.vue';
 export default class VInfo extends Vue {
     @Prop({default: ''})
     private readonly title: string;
-    @Prop({default: ''})
-    private readonly text: string;
-    @Prop({default: ''})
-    private readonly boldText: string;
+    @Prop({default: false})
+    private readonly isClickable: boolean;
     @Prop({default: ''})
     private readonly buttonLabel: string;
     @Prop({default: () => false})
@@ -107,19 +104,6 @@ export default class VInfo extends Vue {
                     line-height: 32px;
                     color: #000;
                     margin-bottom: 10px;
-                }
-
-                &__bold-text,
-                &__regular-text {
-                    color: #586c86;
-                    font-family: 'font_medium', sans-serif;
-                    margin: 0;
-                    font-size: 16px;
-                    line-height: 18px;
-                }
-
-                &__regular-text {
-                    font-family: 'font_regular', sans-serif;
                 }
 
                 &__button {

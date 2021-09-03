@@ -19,9 +19,16 @@
                 <VInfo
                     class="generated__download__info-button"
                     title="Download the access grant"
-                    text="This will make a text file with the access grant, so that you can easily import it later into the Uplink CLI."
                 >
-                    <InfoIcon class="generated__download__info-button__image" />
+                    <template #icon>
+                        <InfoIcon class="generated__download__info-button__image" />
+                    </template>
+                    <template #message>
+                        <p class="generated__download__info-button__message">
+                            This will make a text file with the access grant, so that you can easily import it later
+                            into the Uplink CLI.
+                        </p>
+                    </template>
                 </VInfo>
             </div>
             <h3 class="generated__label">Access Grant</h3>
@@ -140,6 +147,13 @@ export default class GeneratedAG extends Vue {
                 &__image {
                     cursor: pointer;
                 }
+
+                &__message {
+                    color: #586c86;
+                    font-family: 'font_regular', sans-serif;
+                    font-size: 12px;
+                    line-height: 21px;
+                }
             }
         }
     }
@@ -149,11 +163,6 @@ export default class GeneratedAG extends Vue {
 
         &__title {
             margin-bottom: 5px;
-        }
-
-        &__regular-text {
-            font-size: 12px;
-            line-height: 21px;
         }
     }
 </style>
