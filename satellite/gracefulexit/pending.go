@@ -51,7 +51,6 @@ func (promise *PendingFinishedPromise) finishCalled(err error) {
 // PendingTransfer is the representation of work on the pending map.
 // It contains information about a transfer request that has been sent to a storagenode by the satellite.
 type PendingTransfer struct {
-	Key                 metabase.SegmentKey
 	StreamID            uuid.UUID
 	Position            metabase.SegmentPosition
 	PieceSize           int64
