@@ -729,7 +729,7 @@ func TestBeginCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		project := planet.Uplinks[0].Projects[0]
-		allObjects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, project.ID, object.Bucket)
+		allObjects, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, project.ID, object.Bucket)
 		require.NoError(t, err)
 		require.Len(t, allObjects, 1)
 	})
@@ -1454,17 +1454,17 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)
 			require.Len(t, segments, 1)
 			require.Zero(t, segments[0].Redundancy)
 			require.NotEmpty(t, segments[0].InlineData)
 
 			// clean up - delete the uploaded object
-			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, objects, 1)
-			_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+			_, err = planet.Satellites[0].Metabase.DB.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
 				ObjectLocation: objects[0].Location(),
 			})
 			require.NoError(t, err)
@@ -1475,17 +1475,17 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)
 			require.Len(t, segments, 1)
 			require.NotZero(t, segments[0].Redundancy)
 			require.Empty(t, segments[0].InlineData)
 
 			// clean up - delete the uploaded object
-			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, objects, 1)
-			_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+			_, err = planet.Satellites[0].Metabase.DB.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
 				ObjectLocation: objects[0].Location(),
 			})
 			require.NoError(t, err)
@@ -1761,7 +1761,7 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-first")
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-first")
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
 
@@ -1779,7 +1779,7 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		objects, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-second")
+		objects, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-second")
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
 
@@ -1798,7 +1798,7 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Used uplink version cannot download multipart objects.")
 
-		objects, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-third")
+		objects, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-third")
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
 
@@ -1949,7 +1949,7 @@ func TestObjectSegmentExpiresAt(t *testing.T) {
 		err = planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "hohoho", "remote_object", remoteData, remoteExpiration)
 		require.NoError(t, err)
 
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 2)
 

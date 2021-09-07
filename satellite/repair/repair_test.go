@@ -960,7 +960,7 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 		require.NoError(t, err)
 
 		// get a remote segment from metainfo
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 		require.False(t, segments[0].Inline())
@@ -1016,7 +1016,7 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 		require.NoError(t, err)
 		require.Equal(t, newData, testData)
 
-		segments, err = satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err = satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 
@@ -1479,11 +1479,11 @@ func getRemoteSegment(
 ) (_ metabase.Segment, key metabase.SegmentKey) {
 	t.Helper()
 
-	objects, err := satellite.Metainfo.Metabase.TestingAllObjects(ctx)
+	objects, err := satellite.Metabase.DB.TestingAllObjects(ctx)
 	require.NoError(t, err)
 	require.Len(t, objects, 1)
 
-	segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+	segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 	require.NoError(t, err)
 	require.Len(t, segments, 1)
 	require.False(t, segments[0].Inline())
@@ -1600,7 +1600,7 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := testSatellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := testSatellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -1671,7 +1671,7 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := testSatellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := testSatellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})

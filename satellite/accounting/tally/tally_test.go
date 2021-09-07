@@ -96,7 +96,7 @@ func TestOnlyInline(t *testing.T) {
 
 		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
-			collector := tally.NewBucketTallyCollector(planet.Satellites[0].Log.Named("bucket tally"), time.Now(), planet.Satellites[0].Metainfo.Metabase, planet.Satellites[0].Config.Tally)
+			collector := tally.NewBucketTallyCollector(planet.Satellites[0].Log.Named("bucket tally"), time.Now(), planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.Tally)
 			err := collector.Run(ctx)
 			require.NoError(t, err)
 
@@ -139,10 +139,10 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		err = planet.Uplinks[1].Upload(ctx, satellite, "alpha", "remote", make([]byte, 30*memory.KiB))
 		require.NoError(t, err)
 
-		objects, err := satellite.Metainfo.Metabase.TestingAllObjects(ctx)
+		objects, err := satellite.Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		expectedTotal := map[metabase.BucketLocation]*accounting.BucketTally{}
@@ -171,7 +171,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		}
 		require.Len(t, expectedTotal, 3)
 
-		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), time.Now(), satellite.Metainfo.Metabase, planet.Satellites[0].Config.Tally)
+		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), time.Now(), satellite.Metabase.DB, planet.Satellites[0].Config.Tally)
 		err = collector.Run(ctx)
 		require.NoError(t, err)
 		require.Equal(t, expectedTotal, collector.Bucket)
@@ -188,7 +188,7 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "bucket", "path", []byte{1}, now.Add(12*time.Hour))
 		require.NoError(t, err)
 
-		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), now.Add(24*time.Hour), satellite.Metainfo.Metabase, planet.Satellites[0].Config.Tally)
+		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), now.Add(24*time.Hour), satellite.Metabase.DB, planet.Satellites[0].Config.Tally)
 		err = collector.Run(ctx)
 		require.NoError(t, err)
 
@@ -210,7 +210,7 @@ func TestTallyLiveAccounting(t *testing.T) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 

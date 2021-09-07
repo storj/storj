@@ -130,7 +130,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		bucket := metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: "testbucket"}
 
-		segments, err := satellitePeer.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellitePeer.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(segments))
 

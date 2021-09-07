@@ -86,7 +86,7 @@ func TestGarbageCollection(t *testing.T) {
 		require.NotZero(t, keptPieceID)
 
 		// Delete one object from metainfo service on satellite
-		_, err = satellite.Metainfo.Metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{
+		_, err = satellite.Metabase.DB.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{
 			Locations: []metabase.ObjectLocation{objectLocationToDelete},
 		})
 		require.NoError(t, err)
@@ -150,7 +150,7 @@ func getSegment(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Sa
 			ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
 		}
 
-	lastSegment, err := satellite.Metainfo.Metabase.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
+	lastSegment, err := satellite.Metabase.DB.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
 		ObjectLocation: objectLocation,
 	})
 	require.NoError(t, err)
@@ -203,7 +203,7 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 		testData := testrand.Bytes(15 * memory.KiB)
 		pendingStreamID := startMultipartUpload(ctx, t, upl, satellite, "testbucket", "multi", testData)
 
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 		require.Len(t, segments[0].Pieces, 1)
@@ -220,7 +220,7 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 			InitialPieces:     10,
 		}, lastPieceCounts)
 
-		err = satellite.Metainfo.SegmentLoop.Join(ctx, pieceTracker)
+		err = satellite.Metabase.SegmentLoop.Join(ctx, pieceTracker)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, pieceTracker.RetainInfos)

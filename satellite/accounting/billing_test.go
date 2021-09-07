@@ -241,10 +241,10 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		require.NotZero(t, projectTotal.Egress)
 
 		// get the only metainfo record (our upload)
-		objectsBefore, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+		objectsBefore, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 
-		segmentsBefore, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segmentsBefore, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		// Cause repair traffic
@@ -269,7 +269,7 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		require.NoError(t, err)
 
 		// get the only metainfo record (our upload)
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		require.NotEqual(t, segmentsBefore[0], segments[0])

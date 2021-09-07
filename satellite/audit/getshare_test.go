@@ -58,7 +58,7 @@ func reformVerifierWithMockConnector(t testing.TB, sat *testplanet.Satellite, mo
 
 	verifier := audit.NewVerifier(
 		zaptest.NewLogger(t).Named("a-special-verifier"),
-		sat.Metainfo.Metabase,
+		sat.Metabase.DB,
 		newDialer,
 		sat.Overlay.Service,
 		sat.DB.Containment(),
@@ -92,7 +92,7 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := testSatellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := testSatellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -146,7 +146,7 @@ func TestGetSharePrefers(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := testSatellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := testSatellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})

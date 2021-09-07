@@ -67,7 +67,7 @@ func TestZombieDeletion(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify that all objects are in the metabase
-		objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 		require.Len(t, objects, 3)
 
@@ -79,7 +79,7 @@ func TestZombieDeletion(t *testing.T) {
 		zombieChore.Loop.TriggerWait()
 
 		// Verify that only one object remain in the metabase
-		objects, err = planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+		objects, err = planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
 		require.Equal(t, metabase.Committed, objects[0].Status)
@@ -125,17 +125,17 @@ func TestZombieDeletion_LastSegmentActive(t *testing.T) {
 		err = partUpload.Commit()
 		require.NoError(t, err)
 
-		objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
 		require.Equal(t, metabase.Pending, objects[0].Status)
 
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 3)
 
 		// now we need to change creation dates for all segments
-		db := planet.Satellites[0].Metainfo.Metabase.UnderlyingTagSQL()
+		db := planet.Satellites[0].Metabase.DB.UnderlyingTagSQL()
 
 		// change object zombie_deletion_deadline to trigger full segments verification before deletion
 		zombieDeletionDeadline := now.Add(-12 * time.Hour)
@@ -163,7 +163,7 @@ func TestZombieDeletion_LastSegmentActive(t *testing.T) {
 		zombieChore.Loop.TriggerWait()
 
 		// no changes in DB, no segment or object was deleted as last segment was uploaded less then 24h ago
-		afterObjects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+		afterObjects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 
 		// Diff is used because DB manipulation changes value time zone and require.Equal
@@ -172,7 +172,7 @@ func TestZombieDeletion_LastSegmentActive(t *testing.T) {
 			cmpopts.EquateApproxTime(1*time.Second))
 		require.Zero(t, diff)
 
-		afterSegments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		afterSegments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		diff = cmp.Diff(segments, afterSegments,
 			cmpopts.EquateApproxTime(1*time.Second))

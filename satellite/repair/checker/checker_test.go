@@ -154,7 +154,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedLocation.ObjectKey = "piece"
-		_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+		_, err = planet.Satellites[0].Metabase.DB.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
 			ObjectLocation: expectedLocation.Object(),
 		})
 		require.NoError(t, err)
@@ -284,7 +284,7 @@ func createLostPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) meta
 }
 
 func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expiresAt *time.Time) uuid.UUID {
-	metabaseDB := planet.Satellites[0].Metainfo.Metabase
+	metabaseDB := planet.Satellites[0].Metabase.DB
 
 	obj := metabase.ObjectStream{
 		ProjectID:  location.ProjectID,

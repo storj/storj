@@ -196,7 +196,7 @@ func TestDurabilityRatio(t *testing.T) {
 		require.Len(t, nodeIDs, 1)
 
 		// retrieve remote segment
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 2)
 
@@ -210,7 +210,7 @@ func TestDurabilityRatio(t *testing.T) {
 					idx++
 				}
 			}
-			err = satellite.Metainfo.Metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+			err = satellite.Metabase.DB.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
 				StreamID: segment.StreamID,
 				Position: segment.Position,
 
