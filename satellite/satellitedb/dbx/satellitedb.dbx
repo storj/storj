@@ -1040,59 +1040,6 @@ read one (
 	where graceful_exit_segment_transfer.piece_num = ?
 )
 
-//--- graceful exit transfer queue ---//
-
-model graceful_exit_transfer_queue (
-	table graceful_exit_transfer_queue
-	key node_id path piece_num
-
-	field node_id                blob
-	field path                   blob
-	field piece_num              int
-	field root_piece_id          blob      ( nullable )
-	field durability_ratio       float64   ( updatable )
-	field queued_at              timestamp ( autoinsert )
-	field requested_at           timestamp ( updatable, nullable )
-	field last_failed_at         timestamp ( updatable, nullable )
-	field last_failed_code       int       ( updatable, nullable )
-	field failed_count           int       ( updatable, nullable )
-	field finished_at            timestamp ( updatable, nullable )
-	field order_limit_send_count int       ( updatable, default 0 )
-
-	index (
-		name graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index
-		fields node_id durability_ratio queued_at finished_at last_failed_at
-	)
-)
-
-update graceful_exit_transfer_queue (
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.path = ?
-	where graceful_exit_transfer_queue.piece_num = ?
-	noreturn
-)
-delete graceful_exit_transfer_queue (
-	where graceful_exit_transfer_queue.node_id = ?
-)
-
-delete graceful_exit_transfer_queue (
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.path = ?
-	where graceful_exit_transfer_queue.piece_num = ?
-)
-
-delete graceful_exit_transfer_queue (
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.finished_at != null
-)
-
-read one (
-	select graceful_exit_transfer_queue
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.path = ?
-	where graceful_exit_transfer_queue.piece_num = ?
-)
-
 //--- satellite payments ---//
 
 model stripe_customer (

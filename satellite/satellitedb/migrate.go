@@ -1635,6 +1635,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN burst_limit int;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop graceful_exit_transfer_queue table",
+				Version:     173,
+				Action: migrate.SQL{
+					`DROP TABLE graceful_exit_transfer_queue`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
