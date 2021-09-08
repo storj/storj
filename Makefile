@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.16.0
+GO_VERSION ?= 1.15.7
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -59,6 +59,19 @@ goimports-fix: ## Applies goimports to every go file (excluding vendored files)
 .PHONY: goimports-st
 goimports-st: ## Applies goimports to every go file in `git status` (ignores untracked files)
 	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
+
+.PHONY: build-packages
+build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm build-multinode-npm ## Test docker images locally
+build-packages-race:
+	go build -v ./...
+build-packages-normal:
+	go build -v -race ./...
+build-satellite-npm:
+	cd web/satellite && npm ci
+build-storagenode-npm:
+	cd web/storagenode && npm ci
+build-multinode-npm:
+	cd web/multinode && npm ci
 
 ##@ Simulator
 
@@ -165,7 +178,7 @@ multinode-console:
 .PHONY: satellite-wasm
 satellite-wasm:
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
-	-e GOOS=js -e GOARCH=wasm -e GOARM=6 -e CGO_ENABLED=0 \
+	-e GOOS=js -e GOARCH=wasm -e GOARM=6 -e CGO_ENABLED=1 \
 	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
 	-w /go/src/storj.io/storj -e GOPROXY -e TAG=${TAG} -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/build-wasm.sh ;\
@@ -224,36 +237,31 @@ binary:
 	mkdir -p release/${TAG}
 	mkdir -p /tmp/go-cache /tmp/go-pkg
 	rm -f cmd/${COMPONENT}/resource.syso
-
-	@if [[ "${GOOS}" = "darwin" ]] && [[ "${COMPONENT}" = "storagenode" || "${COMPONENT}" = "storagenode-updater" ]]; then \
-		echo "Skipping ${COMPONENT} for ${GOOS}_${GOARCH}"; \
-		exit 0; \
-	else \
-		echo "No skip ${COMPONENT} for ${GOOS}_${GOARCH}"; \
-	fi;
-
-	if [[ "${GOARCH}" = "amd64" ]]; then sixtyfour="-64"; fi; \
-	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && \
-		goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
-			-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
-			-description "${COMPONENT} program for Storj" \
-		        -product-ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
-		                -ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
-		        -product-ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
-		                -ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
-		        -product-ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}' | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}')" \
-		                -ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}' | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}')" \
-		        -product-version "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}' || echo "dev" )" \
-		        -special-build "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$2} END {print v}' )" \
-			resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
-
-	if [ "${GOOS}"="darwin" ]; then usecgo="0"; else usecgo="1"; fi; \
+	if [ "${GOARCH}" = "amd64" ]; then sixtyfour="-64"; fi; \
+	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
+	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
+	-description "${COMPONENT} program for Storj" \
+        -product-ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
+                -ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
+        -product-ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
+                -ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
+        -product-ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}' | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}')" \
+                -ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}' | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}')" \
+        -product-version "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}' || echo "dev" )" \
+        -special-build "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$2} END {print v}' )" \
+	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
-		-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=$$usecgo \
-		-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
-		-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
-		scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
-		storj.io/storj/cmd/${COMPONENT}
+	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
+	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
+	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
+	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
+	storj.io/storj/cmd/${COMPONENT}
+
+	if [ "${COMPONENT}" = "satellite" ] && [ "${GOOS}" = "linux" ] && [ "${GOARCH}" = "amd64" ]; \
+	then \
+		echo "Building wasm code"; \
+		$(MAKE) satellite-wasm; \
+	fi
 
 	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
 	[ "${FILEEXT}" = ".exe" ] && storj-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
@@ -279,7 +287,7 @@ identity_%:
 inspector_%:
 	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: satellite_%
-satellite_%: satellite-wasm
+satellite_%:
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
@@ -299,9 +307,8 @@ multinode_%: multinode-console
 
 
 COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode
-OSARCHLIST    := darwin_amd64 darwin_arm64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
+OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
-
 .PHONY: binaries
 binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
 
