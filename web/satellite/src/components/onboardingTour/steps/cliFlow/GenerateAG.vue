@@ -37,6 +37,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from "@/router";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
 import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
@@ -65,6 +66,10 @@ export default class GenerateAG extends Vue {
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
+        this.$store.commit(
+            APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_CREATE_BUCKET_BACK_ROUTE,
+            RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.GenerateAG)).path,
+        )
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
     }
 }
