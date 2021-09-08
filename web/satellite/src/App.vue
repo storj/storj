@@ -31,7 +31,11 @@ export default class App extends Vue {
      */
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
-        const partneredSatellitesJson = JSON.parse(MetaUtils.getMetaContent('partnered-satellites'));
+        const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
+        let partneredSatellitesJson = [];
+        if(partneredSatellitesData) {
+            partneredSatellitesJson = JSON.parse(partneredSatellitesData);
+        }
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');

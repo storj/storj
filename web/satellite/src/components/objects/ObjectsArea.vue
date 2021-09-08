@@ -22,7 +22,8 @@ export default class ObjectsArea extends Vue {
      * Redirects if flow is disabled.
      */
     public async mounted(): Promise<void> {
-        if (await JSON.parse(MetaUtils.getMetaContent('file-browser-flow-disabled'))) {
+        const value = MetaUtils.getMetaContent('file-browser-flow-disabled');
+        if (value === "true") {
             await this.$router.push(RouteConfig.ProjectDashboard.path);
         }
     }

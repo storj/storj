@@ -50,8 +50,9 @@ export default class NavigationArea extends Vue {
      * Lifecycle hook before initial render.
      * Sets navigation side bar list.
      */
-    public async beforeMount(): Promise<void> {
-        if (await JSON.parse(MetaUtils.getMetaContent('file-browser-flow-disabled'))) {
+    public beforeMount(): void {
+        const value = MetaUtils.getMetaContent('file-browser-flow-disabled');
+        if (value === "true") {
             this.navigation = [
                 RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
                 RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
