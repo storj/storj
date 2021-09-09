@@ -7,7 +7,6 @@
         <h1 class="enter-passphrase__title">Enter Encryption Passphrase</h1>
         <p class="enter-passphrase__sub-title">Enter the passphrase you most recently generated for Access Grants</p>
         <HeaderedInput
-            class="enter-passphrase__input"
             label="Encryption Passphrase"
             placeholder="Enter your passphrase here"
             :error="errorMessage"
@@ -192,10 +191,6 @@ export default class EnterPassphraseStep extends Vue {
             text-align: center;
             margin: 0 0 75px 0;
             max-width: 340px;
-        }
-
-        &__input {
-            width: calc(100% - 2px);
         }
 
         &__next-button {

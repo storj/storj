@@ -47,7 +47,6 @@
                 </div>
                 <div v-else class="create-passphrase__container__value-area__password">
                     <HeaderedInput
-                        class="create-passphrase__container__value-area__password__input"
                         placeholder="Enter encryption passphrase here"
                         :error="errorMessage"
                         @setData="onChangePassphrase"
@@ -448,10 +447,6 @@ export default class CreatePassphraseStep extends Vue {
                 &__password {
                     width: 100%;
                     margin: 10px 0 20px 0;
-
-                    &__input {
-                        width: calc(100% - 2px);
-                    }
                 }
             }
         }

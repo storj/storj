@@ -16,8 +16,6 @@
                             label="Password"
                             placeholder="Enter Password"
                             :error="passwordError"
-                            width="100%"
-                            height="46px"
                             is-password="true"
                             @setData="setPassword"
                             @showPasswordStrength="showPasswordStrength"
@@ -33,8 +31,6 @@
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
-                            width="100%"
-                            height="46px"
                             is-password="true"
                             @setData="setRepeatedPassword"
                         />

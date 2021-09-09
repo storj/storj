@@ -27,12 +27,9 @@
                 <p class="forgot-area__content-area__container__message">If you’ve forgotten your account password, you can reset it here. Make sure you’re signing in to the right satellite.</p>
                 <div class="forgot-area__content-area__container__input-wrapper">
                     <HeaderlessInput
-                        class="full-input"
                         label="Email Address"
                         placeholder="example@email.com"
                         :error="emailError"
-                        width="calc(100% - 2px)"
-                        height="46px"
                         @setData="setEmail"
                     />
                 </div>

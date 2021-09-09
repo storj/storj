@@ -65,55 +65,40 @@
                     </div>
                     <div class="register-area__input-wrapper first-input">
                         <HeaderlessInput
-                            class="full-input"
                             label="Full Name"
                             placeholder="Enter Full Name"
                             :error="fullNameError"
-                            width="calc(100% - 2px)"
-                            height="46px"
                             @setData="setFullName"
                         />
                     </div>
                     <div class="register-area__input-wrapper">
                         <HeaderlessInput
-                            class="full-input"
                             label="Email Address"
                             placeholder="example@email.com"
                             :error="emailError"
-                            width="calc(100% - 2px)"
-                            height="46px"
                             @setData="setEmail"
                         />
                     </div>
                     <div v-if="isProfessional">
                         <div class="register-area__input-wrapper">
                             <HeaderlessInput
-                                class="full-input"
                                 label="Company Name"
                                 placeholder="Acme Corp."
                                 :error="companyNameError"
-                                width="calc(100% - 2px)"
-                                height="46px"
                                 @setData="setCompanyName"
                             />
                         </div>
                         <div class="register-area__input-wrapper">
                             <HeaderlessInput
-                                class="full-input"
                                 label="Position"
                                 placeholder="Position Title"
                                 :error="positionError"
-                                width="calc(100% - 2px)"
-                                height="46px"
                                 @setData="setPosition"
                             />
                         </div>
                         <div class="register-area__input-wrapper">
                             <SelectInput
-                                class="full-input"
                                 label="Employees"
-                                width="calc(100% - 2px)"
-                                height="46px"
                                 :options-list="employeeCountOptions"
                                 @setData="setEmployeeCount"
                             />
@@ -122,12 +107,9 @@
                     <div class="register-input">
                         <div class="register-area__input-wrapper">
                             <HeaderlessInput
-                                class="full-input"
                                 label="Password"
                                 placeholder="Enter Password"
                                 :error="passwordError"
-                                width="calc(100% - 2px)"
-                                height="46px"
                                 is-password="true"
                                 @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
@@ -141,12 +123,9 @@
                     </div>
                     <div class="register-area__input-wrapper">
                         <HeaderlessInput
-                            class="full-input"
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
-                            width="calc(100% - 2px)"
-                            height="46px"
                             is-password="true"
                             @setData="setRepeatedPassword"
                         />
@@ -954,10 +933,6 @@ export default class RegisterArea extends Vue {
     .register-input {
         position: relative;
         width: 100%;
-    }
-
-    .input-wrap.full-input {
-        width: calc(100% - 2px);
     }
 
     .container {

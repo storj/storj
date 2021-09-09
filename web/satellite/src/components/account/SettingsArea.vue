@@ -190,13 +190,6 @@ export default class SettingsArea extends Vue {
     }
 
     /**
-     * Opens delete account popup.
-     */
-    public toggleDeleteAccountPopup(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
-    }
-
-    /**
      * Opens change password popup.
      */
     public toggleChangePasswordPopup(): void {
