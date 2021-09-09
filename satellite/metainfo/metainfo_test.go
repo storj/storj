@@ -621,13 +621,13 @@ func TestBeginCommit(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		metainfoService := planet.Satellites[0].Metainfo.Service
+		bucketsDB := planet.Satellites[0].DB.Buckets()
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := metainfoService.CreateBucket(ctx, bucket)
+		_, err := bucketsDB.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -741,7 +741,7 @@ func TestInlineSegment(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		metainfoService := planet.Satellites[0].Metainfo.Service
+		bucketsDB := planet.Satellites[0].DB.Buckets()
 
 		// TODO maybe split into separate cases
 		// Test:
@@ -758,7 +758,7 @@ func TestInlineSegment(t *testing.T) {
 			Name:      "inline-segments-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := metainfoService.CreateBucket(ctx, bucket)
+		_, err := bucketsDB.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -1502,13 +1502,13 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		metainfoService := planet.Satellites[0].Metainfo.Service
+		bucketsDB := planet.Satellites[0].DB.Buckets()
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := metainfoService.CreateBucket(ctx, bucket)
+		_, err := bucketsDB.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)

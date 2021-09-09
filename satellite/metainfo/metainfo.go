@@ -49,6 +49,8 @@ var (
 	Error = errs.Class("metainfo")
 	// ErrNodeAlreadyExists pointer already has a piece for a node err.
 	ErrNodeAlreadyExists = errs.Class("metainfo: node already exists")
+	// ErrBucketNotEmpty is returned when bucket is required to be empty for an operation.
+	ErrBucketNotEmpty = errs.Class("bucket not empty")
 )
 
 // APIKeys is api keys store methods used by endpoint.
@@ -65,7 +67,8 @@ type Endpoint struct {
 	pb.DRPCMetainfoUnimplementedServer
 
 	log                  *zap.Logger
-	metainfo             *Service
+	buckets              BucketsDB
+	metabase             *metabase.DB
 	deletePieces         *piecedeletion.Service
 	orders               *orders.Service
 	overlay              *overlay.Service
@@ -85,9 +88,9 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
-func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion.Service,
-	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
-	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
+func NewEndpoint(log *zap.Logger, buckets BucketsDB, metabase *metabase.DB,
+	deletePieces *piecedeletion.Service, orders *orders.Service, cache *overlay.Service,
+	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
@@ -111,7 +114,8 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 
 	return &Endpoint{
 		log:                 log,
-		metainfo:            metainfo,
+		buckets:             buckets,
+		metabase:            metabase,
 		deletePieces:        deletePieces,
 		orders:              orders,
 		overlay:             cache,
@@ -184,7 +188,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		return nil, err
 	}
 
-	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -228,7 +232,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
-	exists, err := endpoint.metainfo.HasBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	exists, err := endpoint.buckets.HasBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -249,7 +253,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		defaultMaxBuckets := endpoint.config.ProjectLimits.MaxBuckets
 		maxBuckets = &defaultMaxBuckets
 	}
-	bucketCount, err := endpoint.metainfo.CountBuckets(ctx, keyInfo.ProjectID)
+	bucketCount, err := endpoint.buckets.CountBuckets(ctx, keyInfo.ProjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +266,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	bucket, err := endpoint.metainfo.CreateBucket(ctx, bucketReq)
+	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
 	if err != nil {
 		endpoint.log.Error("error while creating bucket", zap.String("bucketName", bucketReq.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
@@ -330,7 +334,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	)
 	if canRead || canList {
 		// Info about deleted bucket is returned only if either Read, or List permission is granted.
-		bucket, err = endpoint.metainfo.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+		bucket, err = endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
 		if err != nil {
 			if storj.ErrBucketNotFound.Has(err) {
 				return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -344,7 +348,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		}
 	}
 
-	err = endpoint.metainfo.DeleteBucket(ctx, req.Name, keyInfo.ProjectID)
+	err = endpoint.deleteBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted.
@@ -373,6 +377,30 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 }
 
+// deleteBucket deletes a bucket from the bucekts db.
+func (endpoint *Endpoint) deleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	empty, err := endpoint.isBucketEmpty(ctx, projectID, bucketName)
+	if err != nil {
+		return err
+	}
+	if !empty {
+		return ErrBucketNotEmpty.New("")
+	}
+
+	return endpoint.buckets.DeleteBucket(ctx, bucketName, projectID)
+}
+
+// isBucketEmpty returns whether bucket is empty.
+func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) (bool, error) {
+	empty, err := endpoint.metabase.BucketEmpty(ctx, metabase.BucketEmpty{
+		ProjectID:  projectID,
+		BucketName: string(bucketName),
+	})
+	return empty, Error.Wrap(err)
+}
+
 // deleteBucketNotEmpty deletes all objects from bucket and deletes this bucket.
 // On success, it returns only the number of deleted objects.
 func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int64, error) {
@@ -382,7 +410,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.DeleteBucket(ctx, bucketName, projectID)
+	err = endpoint.deleteBucket(ctx, bucketName, projectID)
 	if err != nil {
 		if ErrBucketNotEmpty.Has(err) {
 			return nil, deletedCount, rpcstatus.Error(rpcstatus.FailedPrecondition, "cannot delete the bucket because it's being used by another process")
@@ -402,7 +430,7 @@ func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uui
 	defer mon.Task()(&ctx)(&err)
 
 	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: string(bucketName)}
-	deletedObjects, err := endpoint.metainfo.metabaseDB.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+	deletedObjects, err := endpoint.metabase.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 		Bucket: bucketLocation,
 		DeletePieces: func(ctx context.Context, deleted []metabase.DeletedSegmentInfo) error {
 			endpoint.deleteSegmentPieces(ctx, deleted)
@@ -443,7 +471,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		Limit:     int(req.Limit),
 		Direction: storj.ListDirection(req.Direction),
 	}
-	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts, allowedBuckets)
+	bucketList, err := endpoint.buckets.ListBuckets(ctx, keyInfo.ProjectID, listOpts, allowedBuckets)
 	if err != nil {
 		return nil, err
 	}
@@ -465,7 +493,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 // CountBuckets returns the number of buckets a project currently has.
 // TODO: add this to the uplink client side.
 func (endpoint *Endpoint) CountBuckets(ctx context.Context, projectID uuid.UUID) (count int, err error) {
-	count, err = endpoint.metainfo.CountBuckets(ctx, projectID)
+	count, err = endpoint.buckets.CountBuckets(ctx, projectID)
 	if err != nil {
 		return 0, err
 	}
@@ -590,7 +618,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	exists, err := endpoint.metainfo.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	exists, err := endpoint.buckets.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -616,7 +644,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			return nil, err
 		}
 	} else {
-		_, err = endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+		_, err = endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
@@ -654,7 +682,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		expiresAt = &req.ExpiresAt
 	}
 
-	object, err := endpoint.metainfo.metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+	object, err := endpoint.metabase.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
@@ -742,7 +770,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		encryption.BlockSize = streamMeta.EncryptionBlockSize
 	}
 
-	_, err = endpoint.metainfo.metabaseDB.CommitObject(ctx, metabase.CommitObject{
+	_, err = endpoint.metabase.CommitObject(ctx, metabase.CommitObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
@@ -788,7 +816,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	mbObject, err := endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+	mbObject, err := endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
@@ -807,7 +835,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	// TODO we may try to avoid additional request for inline objects
 	if !req.RedundancySchemePerSegment && mbObject.SegmentCount > 0 {
 		segmentRS = endpoint.defaultRS
-		segment, err := endpoint.metainfo.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: mbObject.StreamID,
 			Position: metabase.SegmentPosition{
 				Index: 0,
@@ -880,7 +908,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 
 	// get the object information
 
-	object, err := endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+	object, err := endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
@@ -902,7 +930,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	segments, err := endpoint.metainfo.metabaseDB.ListStreamPositions(ctx, metabase.ListStreamPositions{
+	segments, err := endpoint.metabase.ListStreamPositions(ctx, metabase.ListStreamPositions{
 		StreamID: object.StreamID,
 		Range:    streamRange,
 		Limit:    int(req.Limit),
@@ -924,7 +952,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			return nil, nil
 		}
 
-		segment, err := endpoint.metainfo.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: object.StreamID,
 			Position: segments.Segments[0].Position,
 		})
@@ -1208,7 +1236,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	exists, err := endpoint.metainfo.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	exists, err := endpoint.buckets.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1248,7 +1276,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 
 	resp = &pb.ObjectListResponse{}
 	// TODO: Replace with IterateObjectsLatestVersion when ready
-	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersionsWithStatus(ctx,
+	err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
 		metabase.IterateObjectsWithStatus{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
@@ -1313,7 +1341,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	exists, err := endpoint.metainfo.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	exists, err := endpoint.buckets.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1342,7 +1370,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 
 	resp = &pb.ObjectListPendingStreamsResponse{}
 	resp.Items = []*pb.ObjectListItem{}
-	err = endpoint.metainfo.metabaseDB.IteratePendingObjectsByKey(ctx,
+	err = endpoint.metabase.IteratePendingObjectsByKey(ctx,
 		metabase.IteratePendingObjectsByKey{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
@@ -1509,7 +1537,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	}
 
 	// TODO we may need custom metabase request to avoid two DB calls
-	object, err := endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+	object, err := endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
@@ -1524,7 +1552,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	pieceCountByNodeID, err := endpoint.metainfo.metabaseDB.GetStreamPieceCountByNodeID(ctx,
+	pieceCountByNodeID, err := endpoint.metabase.GetStreamPieceCountByNodeID(ctx,
 		metabase.GetStreamPieceCountByNodeID{
 			StreamID: object.StreamID,
 		})
@@ -1601,7 +1629,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.metabaseDB.UpdateObjectMetadata(ctx, metabase.UpdateObjectMetadata{
+	err = endpoint.metabase.UpdateObjectMetadata(ctx, metabase.UpdateObjectMetadata{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
@@ -1694,7 +1722,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 			StorageNode: limit.Limit.StorageNodeId,
 		})
 	}
-	err = endpoint.metainfo.metabaseDB.BeginSegment(ctx, metabase.BeginSegment{
+	err = endpoint.metabase.BeginSegment(ctx, metabase.BeginSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
@@ -1907,7 +1935,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		)
 	}
 
-	err = endpoint.metainfo.metabaseDB.CommitSegment(ctx, mbCommitSegment)
+	err = endpoint.metabase.CommitSegment(ctx, mbCommitSegment)
 	if err != nil {
 		if metabase.ErrInvalidRequest.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -1979,7 +2007,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		expiresAt = &streamID.ExpirationDate
 	}
 
-	err = endpoint.metainfo.metabaseDB.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
+	err = endpoint.metabase.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
@@ -2052,7 +2080,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	result, err := endpoint.metainfo.metabaseDB.ListStreamPositions(ctx, metabase.ListStreamPositions{
+	result, err := endpoint.metabase.ListStreamPositions(ctx, metabase.ListStreamPositions{
 		StreamID: id,
 		Cursor: metabase.SegmentPosition{
 			Part:  uint32(cursor.PartNumber),
@@ -2153,7 +2181,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Used uplink version cannot download multipart objects.")
 		}
 
-		segment, err = endpoint.metainfo.metabaseDB.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
+		segment, err = endpoint.metabase.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(streamID.Bucket),
@@ -2161,7 +2189,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			},
 		})
 	} else {
-		segment, err = endpoint.metainfo.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err = endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: id,
 			Position: metabase.SegmentPosition{
 				Part:  uint32(req.CursorPosition.PartNumber),
@@ -2297,7 +2325,7 @@ func (endpoint *Endpoint) DeletePart(ctx context.Context, req *pb.PartDeleteRequ
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.metabaseDB.DeletePart(ctx, metabase.DeletePart{
+	err = endpoint.metabase.DeletePart(ctx, metabase.DeletePart{
 		StreamID:   id,
 		PartNumber: uint32(req.PartNumber),
 
@@ -2433,7 +2461,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		ObjectKey:  object,
 	}
 
-	result, err := endpoint.metainfo.metabaseDB.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+	result, err := endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
 	if err != nil {
 		return nil, err
 	}
@@ -2461,7 +2489,7 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 ) (deletedObjects []*pb.Object, err error) {
 	defer mon.Task()(&ctx, location.ProjectID.String(), location.BucketName, location.ObjectKey)(&err)
 
-	result, err := endpoint.metainfo.metabaseDB.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
+	result, err := endpoint.metabase.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
 		ObjectLocation: location,
 	})
 	if err != nil {
@@ -2491,7 +2519,7 @@ func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metaba
 	req := metabase.DeletePendingObject{
 		ObjectStream: stream,
 	}
-	result, err := endpoint.metainfo.metabaseDB.DeletePendingObject(ctx, req)
+	result, err := endpoint.metabase.DeletePendingObject(ctx, req)
 	if err != nil {
 		return nil, err
 	}

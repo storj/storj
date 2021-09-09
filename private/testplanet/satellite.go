@@ -98,7 +98,6 @@ type Satellite struct {
 	Metainfo struct {
 		// TODO remove when uplink will be adjusted to use Metabase.DB
 		Metabase *metabase.DB
-		Service  *metainfo.Service
 		Endpoint *metainfo.Endpoint
 		// TODO remove when uplink will be adjusted to use Metabase.SegmentLoop
 		SegmentLoop *segmentloop.Service
@@ -570,7 +569,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Reputation.Service = peer.Reputation.Service
 
 	// system.Metainfo.Metabase = api.Metainfo.Metabase
-	system.Metainfo.Service = peer.Metainfo.Service
 	system.Metainfo.Endpoint = api.Metainfo.Endpoint
 	// system.Metainfo.SegmentLoop = peer.Metainfo.SegmentLoop
 

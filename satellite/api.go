@@ -103,7 +103,6 @@ type API struct {
 
 	Metainfo struct {
 		Metabase      *metabase.DB
-		Service       *metainfo.Service
 		PieceDeletion *piecedeletion.Service
 		Endpoint      *metainfo.Endpoint
 	}
@@ -378,10 +377,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
-		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
-			peer.DB.Buckets(),
-			peer.Metainfo.Metabase,
-		)
 
 		peer.Metainfo.PieceDeletion, err = piecedeletion.NewService(
 			peer.Log.Named("metainfo:piecedeletion"),
@@ -400,7 +395,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
-			peer.Metainfo.Service,
+			peer.DB.Buckets(),
+			peer.Metainfo.Metabase,
 			peer.Metainfo.PieceDeletion,
 			peer.Orders.Service,
 			peer.Overlay.Service,

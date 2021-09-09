@@ -54,7 +54,6 @@ type Repairer struct {
 		Server   *debug.Server
 	}
 
-	Metainfo   *metainfo.Service
 	Overlay    *overlay.Service
 	Reputation *reputation.Service
 	Orders     struct {
@@ -125,10 +124,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
-	}
-
-	{ // setup metainfo
-		peer.Metainfo = metainfo.NewService(log.Named("metainfo"), bucketsDB, metabaseDB)
 	}
 
 	{ // setup overlay
