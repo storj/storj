@@ -14,7 +14,7 @@ import (
 	"storj.io/private/tagsql"
 )
 
-const loopIteratorBatchSizeLimit = 2500
+const loopIteratorBatchSizeLimit = intLimitRange(5000)
 
 // IterateLoopObjects contains arguments necessary for listing objects in metabase.
 type IterateLoopObjects struct {
@@ -72,10 +72,7 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 		asOfSystemInterval: opts.AsOfSystemInterval,
 	}
 
-	// ensure batch size is reasonable
-	if it.batchSize <= 0 || it.batchSize > loopIteratorBatchSizeLimit {
-		it.batchSize = loopIteratorBatchSizeLimit
-	}
+	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
 
 	it.curRows, err = it.doNextQuery(ctx)
 	if err != nil {
@@ -256,10 +253,7 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 		cursor:   loopSegmentIteratorCursor{},
 	}
 
-	// ensure batch size is reasonable
-	if it.batchSize <= 0 || it.batchSize > loopIteratorBatchSizeLimit {
-		it.batchSize = loopIteratorBatchSizeLimit
-	}
+	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
 
 	it.curRows, err = it.doNextQuery(ctx)
 	if err != nil {
