@@ -1888,6 +1888,9 @@ func (s *Service) authorize(ctx context.Context, claims *consoleauth.Claims) (_ 
 		return nil, ErrValidation.New("authorization failed. no user with id: %s", claims.ID.String())
 	}
 
+	if user.Status != Active {
+		return nil, ErrValidation.New("authorization failed. no active user with id: %s", claims.ID.String())
+	}
 	return user, nil
 }
 
