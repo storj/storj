@@ -17,7 +17,6 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -347,36 +346,6 @@ func (step GetStreamPieceCountByNodeID) Check(ctx *testcontext.Context, t testin
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, result)
-	require.Zero(t, diff)
-}
-
-// IterateLoopStreams is for testing metabase.IterateLoopStreams.
-type IterateLoopStreams struct {
-	Opts     metabase.IterateLoopStreams
-	Result   map[uuid.UUID][]metabase.LoopSegmentEntry
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step IterateLoopStreams) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result := make(map[uuid.UUID][]metabase.LoopSegmentEntry)
-	err := db.IterateLoopStreams(ctx, step.Opts,
-		func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error {
-			var segments []metabase.LoopSegmentEntry
-			for {
-				var segment metabase.LoopSegmentEntry
-				if !next(ctx, &segment) {
-					break
-				}
-				segments = append(segments, segment)
-			}
-			result[streamID] = segments
-			return nil
-		})
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }
 
