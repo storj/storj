@@ -1255,7 +1255,7 @@ func TestMaxReverifyCount(t *testing.T) {
 		node := planet.FindNode(slowNode)
 		slowNodeDB := node.DB.(*testblobs.SlowDB)
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
-		delay := 1 * time.Second
+		delay := 3 * time.Second
 		slowNodeDB.SetLatency(delay)
 
 		oldRep, err := satellite.Reputation.Service.Get(ctx, slowNode)

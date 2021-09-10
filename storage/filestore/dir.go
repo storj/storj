@@ -99,7 +99,7 @@ func (dir *Dir) garbagedir() string { return filepath.Join(dir.path, "garbage") 
 func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
-func (dir *Dir) CreateVerificationFile(id storj.NodeID) error {
+func (dir *Dir) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
 	f, err := os.Create(filepath.Join(dir.path, verificationFileName))
 	if err != nil {
 		return err
@@ -113,7 +113,7 @@ func (dir *Dir) CreateVerificationFile(id storj.NodeID) error {
 
 // Verify verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
-func (dir *Dir) Verify(id storj.NodeID) error {
+func (dir *Dir) Verify(ctx context.Context, id storj.NodeID) error {
 	content, err := ioutil.ReadFile(filepath.Join(dir.path, verificationFileName))
 	if err != nil {
 		return err
@@ -836,7 +836,7 @@ type DiskInfo struct {
 }
 
 // Info returns information about the current state of the dir.
-func (dir *Dir) Info() (DiskInfo, error) {
+func (dir *Dir) Info(ctx context.Context) (DiskInfo, error) {
 	path, err := filepath.Abs(dir.path)
 	if err != nil {
 		return DiskInfo{}, err

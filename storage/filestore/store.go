@@ -251,8 +251,8 @@ func (store *blobStore) SpaceUsedForTrash(ctx context.Context) (total int64, err
 }
 
 // FreeSpace returns how much space left in underlying directory.
-func (store *blobStore) FreeSpace() (int64, error) {
-	info, err := store.dir.Info()
+func (store *blobStore) FreeSpace(ctx context.Context) (int64, error) {
+	info, err := store.dir.Info(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -260,7 +260,7 @@ func (store *blobStore) FreeSpace() (int64, error) {
 }
 
 // CheckWritability tests writability of the storage directory by creating and deleting a file.
-func (store *blobStore) CheckWritability() error {
+func (store *blobStore) CheckWritability(ctx context.Context) error {
 	f, err := ioutil.TempFile(store.dir.Path(), "write-test")
 	if err != nil {
 		return err
@@ -296,12 +296,12 @@ func (store *blobStore) TestCreateV0(ctx context.Context, ref storage.BlobRef) (
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
-func (store *blobStore) CreateVerificationFile(id storj.NodeID) error {
-	return store.dir.CreateVerificationFile(id)
+func (store *blobStore) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
+	return store.dir.CreateVerificationFile(ctx, id)
 }
 
 // VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
-func (store *blobStore) VerifyStorageDir(id storj.NodeID) error {
-	return store.dir.Verify(id)
+func (store *blobStore) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
+	return store.dir.Verify(ctx, id)
 }
