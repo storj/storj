@@ -10,48 +10,6 @@ import "pointerdb.proto";
 
 package satellite.inspector;
 
-service OverlayInspector {
-  // CountNodes returns the number of nodes in the cache
-  rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
-  // DumpNodes returns all the nodes in the cache
-  rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
-}
-
-message CountNodesRequest {
-}
-
-message CountNodesResponse {
-  int64 count = 1;
-}
-
-message DumpNodesRequest {}
-
-message DumpNodesResponse {
-  repeated node.Node nodes = 1;
-}
-
-service IrreparableInspector {
-  // ListIrreparableSegments returns damaged segments
-  rpc ListIrreparableSegments(ListIrreparableSegmentsRequest) returns (ListIrreparableSegmentsResponse);
-}
-
-message ListIrreparableSegmentsRequest {
-  int32 limit = 1;
-  bytes last_seen_segment_path = 2;
-}
-
-message ListIrreparableSegmentsResponse {
-  repeated IrreparableSegment segments = 1;
-}
-
-message IrreparableSegment {
-  bytes path = 1;
-  pointerdb.Pointer segment_detail = 2;
-  int32 lost_pieces = 3;
-  int64 last_repair_attempt = 4;
-  int64 repair_attempt_count = 5;
-}
-
 service HealthInspector {
   // ObjectHealth will return stats about the health of an object
   rpc ObjectHealth(ObjectHealthRequest) returns (ObjectHealthResponse) {}

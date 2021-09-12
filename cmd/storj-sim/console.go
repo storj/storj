@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -101,27 +102,27 @@ func (ce *consoleEndpoints) graphqlDo(request *http.Request, jsonResponse interf
 	return json.NewDecoder(bytes.NewReader(response.Data)).Decode(jsonResponse)
 }
 
-func (ce *consoleEndpoints) createOrGetAPIKey() (string, error) {
-	authToken, err := ce.tryLogin()
+func (ce *consoleEndpoints) createOrGetAPIKey(ctx context.Context) (string, error) {
+	authToken, err := ce.tryLogin(ctx)
 	if err != nil {
-		_ = ce.tryCreateAndActivateUser()
-		authToken, err = ce.tryLogin()
+		_ = ce.tryCreateAndActivateUser(ctx)
+		authToken, err = ce.tryLogin(ctx)
 		if err != nil {
 			return "", errs.Wrap(err)
 		}
 	}
 
-	err = ce.setupAccount(authToken)
+	err = ce.setupAccount(ctx, authToken)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
 
-	err = ce.addCreditCard(authToken, "test")
+	err = ce.addCreditCard(ctx, authToken, "test")
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
 
-	cards, err := ce.listCreditCards(authToken)
+	cards, err := ce.listCreditCards(ctx, authToken)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
@@ -129,17 +130,17 @@ func (ce *consoleEndpoints) createOrGetAPIKey() (string, error) {
 		return "", errs.New("no credit card(s) found")
 	}
 
-	err = ce.makeCreditCardDefault(authToken, cards[0].ID)
+	err = ce.makeCreditCardDefault(ctx, authToken, cards[0].ID)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
 
-	projectID, err := ce.getOrCreateProject(authToken)
+	projectID, err := ce.getOrCreateProject(ctx, authToken)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
 
-	apiKey, err := ce.createAPIKey(authToken, projectID)
+	apiKey, err := ce.createAPIKey(ctx, authToken, projectID)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
@@ -147,7 +148,7 @@ func (ce *consoleEndpoints) createOrGetAPIKey() (string, error) {
 	return apiKey, nil
 }
 
-func (ce *consoleEndpoints) tryLogin() (string, error) {
+func (ce *consoleEndpoints) tryLogin(ctx context.Context) (string, error) {
 	var authToken struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -161,7 +162,8 @@ func (ce *consoleEndpoints) tryLogin() (string, error) {
 		return "", errs.Wrap(err)
 	}
 
-	request, err := http.NewRequest(
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodPost,
 		ce.Token(),
 		bytes.NewReader(res))
@@ -191,20 +193,21 @@ func (ce *consoleEndpoints) tryLogin() (string, error) {
 	return token, nil
 }
 
-func (ce *consoleEndpoints) tryCreateAndActivateUser() error {
-	regToken, err := ce.createRegistrationToken()
+func (ce *consoleEndpoints) tryCreateAndActivateUser(ctx context.Context) error {
+	regToken, err := ce.createRegistrationToken(ctx)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	userID, err := ce.createUser(regToken)
+	userID, err := ce.createUser(ctx, regToken)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	return errs.Wrap(ce.activateUser(userID))
+	return errs.Wrap(ce.activateUser(ctx, userID))
 }
 
-func (ce *consoleEndpoints) createRegistrationToken() (string, error) {
-	request, err := http.NewRequest(
+func (ce *consoleEndpoints) createRegistrationToken(ctx context.Context) (string, error) {
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodGet,
 		ce.RegToken(),
 		nil)
@@ -237,7 +240,7 @@ func (ce *consoleEndpoints) createRegistrationToken() (string, error) {
 	return createTokenResponse.Secret, nil
 }
 
-func (ce *consoleEndpoints) createUser(regToken string) (string, error) {
+func (ce *consoleEndpoints) createUser(ctx context.Context, regToken string) (string, error) {
 	var registerData struct {
 		FullName  string `json:"fullName"`
 		ShortName string `json:"shortName"`
@@ -257,7 +260,8 @@ func (ce *consoleEndpoints) createUser(regToken string) (string, error) {
 		return "", errs.Wrap(err)
 	}
 
-	request, err := http.NewRequest(
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodPost,
 		ce.Register(),
 		bytes.NewReader(res))
@@ -285,7 +289,7 @@ func (ce *consoleEndpoints) createUser(regToken string) (string, error) {
 	return userID, nil
 }
 
-func (ce *consoleEndpoints) activateUser(userID string) error {
+func (ce *consoleEndpoints) activateUser(ctx context.Context, userID string) error {
 	userUUID, err := uuid.FromString(userID)
 	if err != nil {
 		return errs.Wrap(err)
@@ -296,7 +300,8 @@ func (ce *consoleEndpoints) activateUser(userID string) error {
 		return err
 	}
 
-	request, err := http.NewRequest(
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodGet,
 		ce.Activation(activationToken),
 		nil)
@@ -318,8 +323,9 @@ func (ce *consoleEndpoints) activateUser(userID string) error {
 	return nil
 }
 
-func (ce *consoleEndpoints) setupAccount(token string) error {
-	request, err := http.NewRequest(
+func (ce *consoleEndpoints) setupAccount(ctx context.Context, token string) error {
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodPost,
 		ce.SetupAccount(),
 		nil)
@@ -346,8 +352,9 @@ func (ce *consoleEndpoints) setupAccount(token string) error {
 	return nil
 }
 
-func (ce *consoleEndpoints) addCreditCard(token, cctoken string) error {
-	request, err := http.NewRequest(
+func (ce *consoleEndpoints) addCreditCard(ctx context.Context, token, cctoken string) error {
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodPost,
 		ce.CreditCards(),
 		strings.NewReader(cctoken))
@@ -374,8 +381,9 @@ func (ce *consoleEndpoints) addCreditCard(token, cctoken string) error {
 	return nil
 }
 
-func (ce *consoleEndpoints) listCreditCards(token string) ([]payments.CreditCard, error) {
-	request, err := http.NewRequest(
+func (ce *consoleEndpoints) listCreditCards(ctx context.Context, token string) ([]payments.CreditCard, error) {
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodGet,
 		ce.CreditCards(),
 		nil)
@@ -410,8 +418,9 @@ func (ce *consoleEndpoints) listCreditCards(token string) ([]payments.CreditCard
 	return list, nil
 }
 
-func (ce *consoleEndpoints) makeCreditCardDefault(token, ccID string) error {
-	request, err := http.NewRequest(
+func (ce *consoleEndpoints) makeCreditCardDefault(ctx context.Context, token, ccID string) error {
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodPatch,
 		ce.CreditCards(),
 		strings.NewReader(ccID))
@@ -438,20 +447,21 @@ func (ce *consoleEndpoints) makeCreditCardDefault(token, ccID string) error {
 	return nil
 }
 
-func (ce *consoleEndpoints) getOrCreateProject(token string) (string, error) {
-	projectID, err := ce.getProject(token)
+func (ce *consoleEndpoints) getOrCreateProject(ctx context.Context, token string) (string, error) {
+	projectID, err := ce.getProject(ctx, token)
 	if err == nil {
 		return projectID, nil
 	}
-	projectID, err = ce.createProject(token)
+	projectID, err = ce.createProject(ctx, token)
 	if err == nil {
 		return projectID, nil
 	}
-	return ce.getProject(token)
+	return ce.getProject(ctx, token)
 }
 
-func (ce *consoleEndpoints) getProject(token string) (string, error) {
-	request, err := http.NewRequest(
+func (ce *consoleEndpoints) getProject(ctx context.Context, token string) (string, error) {
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodGet,
 		ce.GraphQL(),
 		nil)
@@ -485,13 +495,14 @@ func (ce *consoleEndpoints) getProject(token string) (string, error) {
 	return getProjects.MyProjects[0].ID, nil
 }
 
-func (ce *consoleEndpoints) createProject(token string) (string, error) {
+func (ce *consoleEndpoints) createProject(ctx context.Context, token string) (string, error) {
 	rng := rand.NewSource(time.Now().UnixNano())
 	createProjectQuery := fmt.Sprintf(
 		`mutation {createProject(input:{name:"TestProject-%d",description:""}){id}}`,
 		rng.Int63())
 
-	request, err := http.NewRequest(
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodPost,
 		ce.GraphQL(),
 		bytes.NewReader([]byte(createProjectQuery)))
@@ -518,13 +529,14 @@ func (ce *consoleEndpoints) createProject(token string) (string, error) {
 	return createProject.CreateProject.ID, nil
 }
 
-func (ce *consoleEndpoints) createAPIKey(token, projectID string) (string, error) {
+func (ce *consoleEndpoints) createAPIKey(ctx context.Context, token, projectID string) (string, error) {
 	rng := rand.NewSource(time.Now().UnixNano())
 	createAPIKeyQuery := fmt.Sprintf(
 		`mutation {createAPIKey(projectID:%q,name:"TestKey-%d"){key}}`,
 		projectID, rng.Int63())
 
-	request, err := http.NewRequest(
+	request, err := http.NewRequestWithContext(
+		ctx,
 		http.MethodPost,
 		ce.GraphQL(),
 		bytes.NewReader([]byte(createAPIKeyQuery)))

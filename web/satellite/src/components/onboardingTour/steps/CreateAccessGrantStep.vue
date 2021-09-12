@@ -90,7 +90,7 @@ export default class CreateAccessGrantStep extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-left: -195px;
+            margin-left: -205px;
         }
     }
 
@@ -99,11 +99,11 @@ export default class CreateAccessGrantStep extends Vue {
     }
 
     .passphrase-margin {
-        margin-left: -180px;
+        margin-left: -190px;
     }
 
     .result-margin {
-        margin-left: -175px;
+        margin-left: -195px;
     }
 
     .cli-margin {

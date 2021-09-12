@@ -13,7 +13,6 @@ import { makeUsersModule, USER_MUTATIONS } from '@/store/modules/users';
 import { CreditCard } from '@/types/payments';
 import { User } from '@/types/users';
 import { Notificator } from '@/utils/plugins/notificator';
-import { SegmentioPlugin } from '@/utils/plugins/segment';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 import { PaymentsMock } from '../../../mock/api/payments';
@@ -21,10 +20,8 @@ import { ProjectsApiMock } from '../../../mock/api/projects';
 import { UsersApiMock } from '../../../mock/api/users';
 
 const localVue = createLocalVue();
-const segmentioPlugin = new SegmentioPlugin();
 
 localVue.use(Vuex);
-localVue.use(segmentioPlugin);
 
 const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
@@ -48,11 +45,13 @@ localVue.use(notificationsPlugin);
 const ANIMATION_COMPLETE_TIME = 600;
 
 describe('PaymentMethods', () => {
-    it('renders correctly without card', () => {
+    it('renders correctly without card', async (): Promise<void> => {
         const wrapper = mount(PaymentMethods, {
             store,
             localVue,
         });
+
+        await wrapper.setData({ areCardsFetching: false });
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -62,6 +61,8 @@ describe('PaymentMethods', () => {
             store,
             localVue,
         });
+
+        await wrapper.setData({ areCardsFetching: false });
 
         await wrapper.find('.add-card-button').trigger('click');
 
@@ -85,6 +86,8 @@ describe('PaymentMethods', () => {
             localVue,
         });
 
+        await wrapper.setData({ areCardsFetching: false });
+
         await wrapper.find('.add-storj-button').trigger('click');
 
         await new Promise(resolve => {
@@ -101,7 +104,7 @@ describe('PaymentMethods', () => {
         });
     });
 
-    it('renders correctly with card', () => {
+    it('renders correctly with card', async (): Promise<void> => {
         const card = new CreditCard('cardId', 12, 2100, 'test', '0000', true);
         store.commit(PAYMENTS_MUTATIONS.SET_CREDIT_CARDS, [card]);
 
@@ -109,6 +112,8 @@ describe('PaymentMethods', () => {
             store,
             localVue,
         });
+
+        await wrapper.setData({ areCardsFetching: false });
 
         expect(wrapper).toMatchSnapshot();
     });

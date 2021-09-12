@@ -10,13 +10,15 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgxutil"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -46,56 +48,79 @@ type ordersDB struct {
 func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		statement := tx.Rebind(
+	return pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
+		var batch pgx.Batch
+
+		// TODO decide if we need to have transaction here
+		batch.Queue(`START TRANSACTION`)
+
+		statement := db.db.Rebind(
 			`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(bucket_name, project_id, interval_start, action)
-			DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					ON CONFLICT(bucket_name, project_id, interval_start, action)
+					DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
 		)
-		_, err = tx.Tx.ExecContext(ctx, statement,
-			bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount),
-		)
-		if err != nil {
-			return err
-		}
+		batch.Queue(statement, bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount))
 
 		if action == pb.PieceAction_GET {
-			projectInterval := time.Date(intervalStart.Year(), intervalStart.Month(), 1, 0, 0, 0, 0, time.UTC)
-			statement = tx.Rebind(
-				`INSERT INTO project_bandwidth_rollups (project_id, interval_month, egress_allocated)
-				VALUES (?, ?, ?)
-				ON CONFLICT(project_id, interval_month)
-				DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint`,
+			dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
+			statement = db.db.Rebind(
+				`INSERT INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled)
+				VALUES (?, ?, ?, ?)
+				ON CONFLICT(project_id, interval_day)
+				DO UPDATE SET egress_allocated = project_bandwidth_daily_rollups.egress_allocated + EXCLUDED.egress_allocated::BIGINT`,
 			)
-			_, err = tx.Tx.ExecContext(ctx, statement, projectID[:], projectInterval, uint64(amount))
-			if err != nil {
-				return err
-			}
+			batch.Queue(statement, projectID[:], dailyInterval, uint64(amount), 0)
 		}
-		return nil
-	})
 
-	return nil
+		batch.Queue(`COMMIT TRANSACTION`)
+
+		results := conn.SendBatch(ctx, &batch)
+		defer func() { err = errs.Combine(err, results.Close()) }()
+
+		var errlist errs.Group
+		for i := 0; i < batch.Len(); i++ {
+			_, err := results.Exec()
+			errlist.Add(err)
+		}
+
+		return errlist.Err()
+	})
 }
 
 // UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket.
 func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	statement := db.db.Rebind(
-		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(bucket_name, project_id, interval_start, action)
-		DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?`,
-	)
-	_, err = db.db.ExecContext(ctx, statement,
-		bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, 0, uint64(amount), uint64(amount),
-	)
-	if err != nil {
-		return ErrUpdateBucketBandwidthSettle.Wrap(err)
-	}
-	return nil
+	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		statement := db.db.Rebind(
+			`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(bucket_name, project_id, interval_start, action)
+			DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?`,
+		)
+		_, err = db.db.ExecContext(ctx, statement,
+			bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, 0, uint64(amount), uint64(amount),
+		)
+		if err != nil {
+			return ErrUpdateBucketBandwidthSettle.Wrap(err)
+		}
+
+		if action == pb.PieceAction_GET {
+			dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
+			statement = tx.Rebind(
+				`INSERT INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled)
+				VALUES (?, ?, ?, ?)
+				ON CONFLICT(project_id, interval_day)
+				DO UPDATE SET egress_settled = project_bandwidth_daily_rollups.egress_settled + EXCLUDED.egress_settled::BIGINT`,
+			)
+			_, err = tx.Tx.ExecContext(ctx, statement, projectID[:], dailyInterval, 0, uint64(amount))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket.
@@ -201,7 +226,12 @@ func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStar
 		var inlineSlice []int64
 		var allocatedSlice []int64
 		var settledSlice []int64
-		projectRUMap := make(map[string]int64)
+
+		type bandwidth struct {
+			Allocated int64
+			Settled   int64
+		}
+		projectRUMap := make(map[uuid.UUID]bandwidth)
 
 		for _, rollup := range rollups {
 			rollup := rollup
@@ -213,7 +243,10 @@ func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStar
 			settledSlice = append(settledSlice, rollup.Settled)
 
 			if rollup.Action == pb.PieceAction_GET {
-				projectRUMap[rollup.ProjectID.String()] += rollup.Allocated
+				b := projectRUMap[rollup.ProjectID]
+				b.Allocated += rollup.Allocated
+				b.Settled += rollup.Settled
+				projectRUMap[rollup.ProjectID] = b
 			}
 		}
 
@@ -238,30 +271,28 @@ func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStar
 			db.db.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
 		}
 
-		var projectRUIDs [][]byte
+		projectRUIDs := make([]uuid.UUID, 0, len(projectRUMap))
 		var projectRUAllocated []int64
-		projectInterval := time.Date(intervalStart.Year(), intervalStart.Month(), 1, intervalStart.Hour(), 0, 0, 0, time.UTC)
+		var projectRUSettled []int64
+		dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
 
-		for k, v := range projectRUMap {
-			projectID, err := uuid.FromString(k)
-			if err != nil {
-				db.db.log.Error("Could not parse project UUID.", zap.Error(err))
-				continue
-			}
-			projectRUIDs = append(projectRUIDs, projectID[:])
-			projectRUAllocated = append(projectRUAllocated, v)
+		for projectID, v := range projectRUMap {
+			projectRUIDs = append(projectRUIDs, projectID)
+			projectRUAllocated = append(projectRUAllocated, v.Allocated)
+			projectRUSettled = append(projectRUSettled, v.Settled)
 		}
 
 		if len(projectRUIDs) > 0 {
 			_, err = tx.Tx.ExecContext(ctx, `
-		INSERT INTO project_bandwidth_rollups(project_id, interval_month, egress_allocated)
-			SELECT unnest($1::bytea[]), $2, unnest($3::bigint[])
-		ON CONFLICT(project_id, interval_month)
-		DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint;
-		`,
-				pgutil.ByteaArray(projectRUIDs), projectInterval, pgutil.Int8Array(projectRUAllocated))
+				INSERT INTO project_bandwidth_daily_rollups(project_id, interval_day, egress_allocated, egress_settled)
+					SELECT unnest($1::bytea[]), $2, unnest($3::bigint[]), unnest($4::bigint[])
+				ON CONFLICT(project_id, interval_day)
+				DO UPDATE SET
+					egress_allocated = project_bandwidth_daily_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint,
+					egress_settled   = project_bandwidth_daily_rollups.egress_settled   + EXCLUDED.egress_settled::bigint
+			`, pgutil.UUIDArray(projectRUIDs), dailyInterval, pgutil.Int8Array(projectRUAllocated), pgutil.Int8Array(projectRUSettled))
 			if err != nil {
-				db.db.log.Error("Project bandwidth rollup batch flush failed.", zap.Error(err))
+				db.db.log.Error("Project bandwidth daily rollup batch flush failed.", zap.Error(err))
 			}
 		}
 		return err
@@ -328,7 +359,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Conte
 			batchStatus = pb.SettlementWithWindowResponse_ACCEPTED
 			return nil
 		})
-		if errs.IsFunc(err, dbx.IsConstraintError) {
+		if dbx.IsConstraintError(err) {
 			retryCount++
 			if retryCount > 5 {
 				return 0, alreadyProcessed, errs.New("process order with window retry count too high")

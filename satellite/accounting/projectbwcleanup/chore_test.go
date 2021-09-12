@@ -39,6 +39,7 @@ func testProjectAllocatedBandwidthRetain(t *testing.T, retain int) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.ProjectBWCleanup.RetainMonths = retain
+				config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -63,7 +64,7 @@ func testProjectAllocatedBandwidthRetain(t *testing.T, retain int) {
 		}
 		for i := 0; i <= months; i++ {
 			newDate := time.Date(now.Year(), now.Month()-time.Month(i), 15, 12, 0, 0, 0, time.UTC)
-			bytes, err := satellite.Accounting.ProjectUsage.GetProjectAllocatedBandwidth(ctx, projectID, newDate.Year(), newDate.Month())
+			bytes, err := satellite.Accounting.ProjectUsage.GetProjectBandwidth(ctx, projectID, newDate.Year(), newDate.Month(), newDate.Day())
 			require.NoError(t, err)
 			require.EqualValues(t, testBytes, bytes)
 		}
@@ -72,7 +73,7 @@ func testProjectAllocatedBandwidthRetain(t *testing.T, retain int) {
 
 		for i := 0; i <= months; i++ {
 			newDate := time.Date(now.Year(), now.Month()-time.Month(i), 15, 12, 0, 0, 0, time.UTC)
-			bytes, err := satellite.Accounting.ProjectUsage.GetProjectAllocatedBandwidth(ctx, projectID, newDate.Year(), newDate.Month())
+			bytes, err := satellite.Accounting.ProjectUsage.GetProjectBandwidth(ctx, projectID, newDate.Year(), newDate.Month(), newDate.Day())
 
 			if i < months || retain < 0 { // there should always be the current month
 				require.NoError(t, err)

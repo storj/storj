@@ -155,6 +155,7 @@ type SatelliteUsage struct {
 // Config is configuration for Store.
 type Config struct {
 	WritePreallocSize memory.Size `help:"file preallocated for uploading" default:"4MiB"`
+	DeleteToTrash     bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
 }
 
 // DefaultConfig is the default value for the Config.
@@ -503,7 +504,7 @@ func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.Nod
 			// this is not a real piece blob. the blob store can't distinguish between actual piece
 			// blobs and stray files whose names happen to decode as valid base32. skip this
 			// "blob".
-			return nil
+			return nil //nolint: nilerr // we ignore other files
 		}
 		return walkFunc(pieceAccess)
 	})

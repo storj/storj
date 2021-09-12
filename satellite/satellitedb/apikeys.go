@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/cache"
+	"storj.io/storj/private/lrucache"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -21,7 +21,7 @@ var _ console.APIKeys = (*apikeys)(nil)
 // apikeys is an implementation of satellite.APIKeys.
 type apikeys struct {
 	methods dbx.Methods
-	lru     *cache.ExpiringLRU
+	lru     *lrucache.ExpiringLRU
 	db      *satelliteDB
 }
 

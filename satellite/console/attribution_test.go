@@ -96,9 +96,10 @@ func TestUsers(t *testing.T) {
 			DefaultSegmentsSize: int64(100),
 		})
 		require.NoError(t, err)
+		require.Equal(t, proj.ID, bucket.PartnerID)
+
 		bucket, err = db.Buckets().GetBucket(ctx, []byte("testbucket"), proj.ID)
 		require.NoError(t, err)
-
 		require.Equal(t, proj.ID, bucket.PartnerID)
 	})
 }

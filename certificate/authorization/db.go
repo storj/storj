@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
-	"storj.io/storj/private/dbutil"
+	"storj.io/private/dbutil"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
@@ -20,19 +20,19 @@ import (
 
 var (
 	// ErrDB is used when an error occurs involving the authorization database.
-	ErrDB = errs.Class("authorization db error")
+	ErrDB = errs.Class("authorizationdb")
 	// ErrEmptyUserID is used when a user ID is required but not provided.
 	ErrEmptyUserID = ErrDB.New("userID cannot be empty")
 	// ErrCount is used when attempting to create an invalid number of authorizations.
 	ErrCount = ErrDB.New("cannot add less than one authorization")
 	// ErrInvalidClaim is used when a claim is invalid due to some user input.
-	ErrInvalidClaim = errs.Class("authorization claim error")
+	ErrInvalidClaim = errs.Class("invalid authorization claim")
 	// ErrAlreadyClaimed is used when a valid claim is attempted with a token that's been used already.
 	ErrAlreadyClaimed = errs.Class("authorization already claimed")
 	// ErrNotFound is used when there is no matching authorization in the DB for a given userID and token.
 	ErrNotFound = errs.Class("authorization not found")
 	// ErrDBInternal is used when an internal error occurs involving the authorization database.
-	ErrDBInternal = errs.Class("internal authorization db error")
+	ErrDBInternal = errs.Class("internal authorization db")
 )
 
 // DB stores authorizations which may be claimed in exchange for a

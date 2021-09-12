@@ -1,0 +1,59 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+import { HttpClient } from '@/utils/httpClient';
+
+/**
+ * AnalyticsHttpApi is a console Analytics API.
+ * Exposes all analytics-related functionality
+ */
+export class AnalyticsHttpApi {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v0/analytics';
+
+    /**
+     * Used to notify the satellite about arbitrary events that occur.
+     * Does not throw any errors so that expected UI behavior is not interrupted if the API call fails.
+     *
+     * @param eventName - name of the event
+     */
+    public async eventTriggered(eventName: string): Promise<void> {
+        try {
+            const path = `${this.ROOT_PATH}/event`;
+            const body = {
+                eventName: eventName,
+            };
+            const response = await this.http.post(path, JSON.stringify(body));
+            if (response.ok) {
+                return;
+            }
+            console.error('Attempted to notify Satellite that ' + eventName + ' occurred. Got bad response status code: ' + response.status);
+        } catch (error) {
+            console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
+        }
+    }
+
+    /**
+     * Used to notify the satellite about arbitrary external link clicked events that occur.
+     * Does not throw any errors so that expected UI behavior is not interrupted if the API call fails.
+     *
+     * @param eventName - name of the event
+     * @param link - link that was clicked
+     */
+    public async linkEventTriggered(eventName: string, link: string): Promise<void> {
+        try {
+            const path = `${this.ROOT_PATH}/event`;
+            const body = {
+                eventName: eventName,
+                link: link,
+            };
+            const response = await this.http.post(path, JSON.stringify(body));
+            if (response.ok) {
+                return;
+            }
+            console.error('Attempted to notify Satellite that ' + eventName + ' occurred. Got bad response status code: ' + response.status);
+        } catch (error) {
+            console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
+        }
+    }
+}

@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -30,12 +29,12 @@ import (
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -70,10 +69,6 @@ type Core struct {
 	}
 
 	// services and endpoints
-	Contact struct {
-		Service *contact.Service
-	}
-
 	Overlay struct {
 		DB           overlay.DB
 		Service      *overlay.Service
@@ -81,10 +76,10 @@ type Core struct {
 	}
 
 	Metainfo struct {
-		Database metainfo.PointerDB // TODO: move into pointerDB
-		Metabase metainfo.MetabaseDB
-		Service  *metainfo.Service
-		Loop     *metaloop.Service
+		Metabase    *metabase.DB
+		Service     *metainfo.Service
+		Loop        *metaloop.Service
+		SegmentLoop *segmentloop.Service
 	}
 
 	Orders struct {
@@ -103,10 +98,6 @@ type Core struct {
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
 		Reporter *audit.Reporter
-	}
-
-	GarbageCollection struct {
-		Service *gc.Service
 	}
 
 	ExpiredDeletion struct {
@@ -140,7 +131,7 @@ type Core struct {
 
 // New creates a new satellite.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	metabaseDB *metabase.DB, revocationDB extensions.RevocationDB,
 	liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Core, error) {
 	peer := &Core{
@@ -159,7 +150,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			if err != nil {
 				withoutStack := errors.New(err.Error())
 				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-				err = nil
 			}
 		}
 		debugConfig := config.Debug
@@ -199,29 +189,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
-	}
-
-	{ // setup contact service
-		pbVersion, err := versionInfo.Proto()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		self := &overlay.NodeDossier{
-			Node: pb.Node{
-				Id: peer.ID(),
-				Address: &pb.NodeAddress{
-					Address: config.Contact.ExternalAddress,
-				},
-			},
-			Type:    pb.NodeType_SATELLITE,
-			Version: *pbVersion,
-		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact.Timeout)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "contact:service",
-			Close: peer.Contact.Service.Close,
-		})
 	}
 
 	{ // setup overlay
@@ -274,10 +241,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup metainfo
-		peer.Metainfo.Database = pointerDB // for logging: storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Metabase = metabaseDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
-			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 			peer.Metainfo.Metabase,
 		)
@@ -290,6 +255,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Metainfo.Loop.Run,
 			Close: peer.Metainfo.Loop.Close,
 		})
+		peer.Metainfo.SegmentLoop = segmentloop.New(
+			config.Metainfo.SegmentLoop,
+			peer.Metainfo.Metabase,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "metainfo:segmentloop",
+			Run:   peer.Metainfo.SegmentLoop.Run,
+			Close: peer.Metainfo.SegmentLoop.Close,
+		})
 	}
 
 	{ // setup datarepair
@@ -297,9 +271,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
-			peer.DB.Irreparable(),
 			peer.Metainfo.Metabase,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 			peer.Overlay.Service,
 			config.Checker)
 		peer.Services.Add(lifecycle.Item{
@@ -309,8 +282,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Repair Checker", peer.Repair.Checker.Loop))
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Repair Checker Irreparable", peer.Repair.Checker.IrreparableLoop))
 	}
 
 	{ // setup audit
@@ -356,7 +327,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
 			peer.Audit.Queues,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 			config,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -366,24 +337,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
-	}
-
-	{ // setup garbage collection if configured to run with the core
-		if config.GarbageCollection.RunInCore {
-			peer.GarbageCollection.Service = gc.NewService(
-				peer.Log.Named("core-garbage-collection"),
-				config.GarbageCollection,
-				peer.Dialer,
-				peer.Overlay.DB,
-				peer.Metainfo.Loop,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name: "core-garbage-collection",
-				Run:  peer.GarbageCollection.Service.Run,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Core Garbage Collection", peer.GarbageCollection.Service.Loop))
-		}
 	}
 
 	{ // setup expired segment cleanup
@@ -473,10 +426,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.ObjectPrice,
 			pc.BonusRate,
 			pc.CouponValue,
-			pc.CouponDuration,
+			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

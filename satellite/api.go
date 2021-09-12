@@ -25,10 +25,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/post/oauth2"
+	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
@@ -41,14 +41,15 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/snopayouts"
 )
@@ -84,9 +85,8 @@ type API struct {
 	}
 
 	Overlay struct {
-		DB        overlay.DB
-		Service   *overlay.Service
-		Inspector *overlay.Inspector
+		DB      overlay.DB
+		Service *overlay.Service
 	}
 
 	Orders struct {
@@ -97,19 +97,14 @@ type API struct {
 	}
 
 	Metainfo struct {
-		Database      metainfo.PointerDB
-		Metabase      metainfo.MetabaseDB
+		Metabase      *metabase.DB
 		Service       *metainfo.Service
 		PieceDeletion *piecedeletion.Service
-		Endpoint2     *metainfo.Endpoint
+		Endpoint      *metainfo.Endpoint
 	}
 
 	Inspector struct {
 		Endpoint *inspector.Endpoint
-	}
-
-	Repair struct {
-		Inspector *irreparable.Inspector
 	}
 
 	Accounting struct {
@@ -129,10 +124,10 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts payments.Accounts
-		Version  *stripecoinpayments.VersionService
-		Service  *stripecoinpayments.Service
-		Stripe   stripecoinpayments.StripeClient
+		Accounts   payments.Accounts
+		Conversion *stripecoinpayments.ConversionService
+		Service    *stripecoinpayments.Service
+		Stripe     stripecoinpayments.StripeClient
 	}
 
 	Console struct {
@@ -166,7 +161,7 @@ type API struct {
 
 // NewAPI creates a new satellite API process.
 func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	metabaseDB *metabase.DB, revocationDB extensions.RevocationDB,
 	liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
 	peer := &API{
@@ -186,7 +181,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			if err != nil {
 				withoutStack := errors.New(err.Error())
 				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-				err = nil
 			}
 		}
 		debugConfig := config.Debug
@@ -262,11 +256,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "overlay",
 			Close: peer.Overlay.Service.Close,
 		})
-
-		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
-		if err := internalpb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup contact service
@@ -285,7 +274,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Type:    pb.NodeType_SATELLITE,
 			Version: *pbVersion,
 		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact.Timeout)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
 		if err := pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -315,6 +304,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.LiveAccounting.Cache,
 			peer.ProjectLimits.Cache,
 			config.LiveAccounting.BandwidthCacheTTL,
+			config.LiveAccounting.AsOfSystemInterval,
 		)
 	}
 
@@ -360,19 +350,21 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Marketing.PartnersService = rewards.NewPartnersService(
 			peer.Log.Named("partners"),
 			rewards.DefaultPartnersDB,
-			[]string{
-				"https://us-central-1.tardigrade.io/",
-				"https://asia-east-1.tardigrade.io/",
-				"https://europe-west-1.tardigrade.io/",
-			},
 		)
 	}
 
+	{ // setup analytics service
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
 	{ // setup metainfo
-		peer.Metainfo.Database = pointerDB
 		peer.Metainfo.Metabase = metabaseDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
-			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 			peer.Metainfo.Metabase,
 		)
@@ -392,7 +384,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Close: peer.Metainfo.PieceDeletion.Close,
 		})
 
-		peer.Metainfo.Endpoint2, err = metainfo.NewEndpoint(
+		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
 			peer.Metainfo.PieceDeletion,
@@ -412,21 +404,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2); err != nil {
+		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:endpoint",
-			Close: peer.Metainfo.Endpoint2.Close,
+			Close: peer.Metainfo.Endpoint.Close,
 		})
-	}
-
-	{ // setup datarepair
-		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
-		if err := internalpb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup inspector
@@ -538,10 +523,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.ObjectPrice,
 			pc.BonusRate,
 			pc.CouponValue,
-			pc.CouponDuration,
+			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -549,24 +533,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
-		peer.Payments.Version = stripecoinpayments.NewVersionService(
+		peer.Payments.Conversion = stripecoinpayments.NewConversionService(
 			peer.Log.Named("payments.stripe:version"),
 			peer.Payments.Service,
 			pc.StripeCoinPayments.ConversionRatesCycleInterval)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "payments.stripe:version",
-			Run:   peer.Payments.Version.Run,
-			Close: peer.Payments.Version.Close,
-		})
-	}
-
-	{ // setup analytics service
-		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "analytics:service",
-			Close: peer.Analytics.Service.Close,
+			Run:   peer.Payments.Conversion.Run,
+			Close: peer.Payments.Conversion.Close,
 		})
 	}
 
@@ -589,11 +564,18 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
+			peer.Analytics.Service,
 			consoleConfig.Config,
 			config.Payments.MinCoinPayment,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
+		}
+
+		pricing := paymentsconfig.PricingValues{
+			StorageTBPrice: config.Payments.StorageTBPrice,
+			EgressTBPrice:  config.Payments.EgressTBPrice,
+			ObjectPrice:    config.Payments.ObjectPrice,
 		}
 
 		peer.Console.Endpoint = consoleweb.NewServer(
@@ -605,6 +587,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
+			pricing,
 			peer.URL(),
 		)
 

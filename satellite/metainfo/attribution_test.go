@@ -28,7 +28,7 @@ func TestResolvePartnerID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		endpoint := planet.Satellites[0].Metainfo.Endpoint2
+		endpoint := planet.Satellites[0].Metainfo.Endpoint
 
 		zenkoPartnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 		require.NoError(t, err)
@@ -327,5 +327,50 @@ func TestAttributionReport(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, rows)
 		}
+	})
+}
+
+func TestBucketAttributionConcurrentUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		err := planet.Uplinks[0].CreateBucket(ctx, satellite, "attr-bucket")
+		require.NoError(t, err)
+
+		config := uplink.Config{
+			UserAgent: "Minio",
+		}
+		project, err := config.OpenProject(ctx, planet.Uplinks[0].Access[satellite.ID()])
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			i := i
+			ctx.Go(func() error {
+				upload, err := project.UploadObject(ctx, "attr-bucket", "key"+strconv.Itoa(i), nil)
+				require.NoError(t, err)
+
+				_, err = upload.Write([]byte("content"))
+				require.NoError(t, err)
+
+				err = upload.Commit()
+				require.NoError(t, err)
+				return nil
+			})
+		}
+
+		ctx.Wait()
+
+		expectedPartnerID, err := satellite.Metainfo.Endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
+			UserAgent: []byte("Minio"),
+		})
+		require.NoError(t, err)
+
+		attributionInfo, err := planet.Satellites[0].DB.Attribution().Get(ctx, planet.Uplinks[0].Projects[0].ID, []byte("attr-bucket"))
+		require.NoError(t, err)
+		require.Equal(t, expectedPartnerID, attributionInfo.PartnerID)
 	})
 }

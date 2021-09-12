@@ -33,9 +33,11 @@ func TestCoupon_ExpirationDate(t *testing.T) {
 		},
 	} {
 		coupon := Coupon{
-			Duration: tt.duration,
+			Duration: &tt.duration,
 			Created:  tt.created,
 		}
-		require.Equal(t, tt.expires, coupon.ExpirationDate())
+		expirationDate := coupon.ExpirationDate()
+		require.NotNil(t, expirationDate)
+		require.Equal(t, tt.expires, *expirationDate)
 	}
 }

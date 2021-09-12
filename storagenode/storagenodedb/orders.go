@@ -13,13 +13,13 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/tagsql"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
 )
 
 // ErrOrders represents errors from the ordersdb database.
-var ErrOrders = errs.Class("ordersdb error")
+var ErrOrders = errs.Class("ordersdb")
 
 // OrdersDBName represents the database name.
 const OrdersDBName = "orders"

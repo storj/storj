@@ -16,7 +16,7 @@ import (
 
 var (
 	// ErrBucketsAPI - console buckets api error type.
-	ErrBucketsAPI = errs.Class("console buckets api error")
+	ErrBucketsAPI = errs.Class("console api buckets")
 )
 
 // Buckets is an api controller that exposes all buckets related functionality.
@@ -68,22 +68,5 @@ func (b *Buckets) AllBucketNames(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (b *Buckets) serveJSONError(w http.ResponseWriter, status int, err error) {
-	if status == http.StatusInternalServerError {
-		b.log.Error("returning error to client", zap.Int("code", status), zap.Error(err))
-	} else {
-		b.log.Debug("returning error to client", zap.Int("code", status), zap.Error(err))
-	}
-
-	w.WriteHeader(status)
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		b.log.Error("failed to write json error response", zap.Error(ErrBucketsAPI.Wrap(err)))
-	}
+	serveJSONError(b.log, w, status, err)
 }

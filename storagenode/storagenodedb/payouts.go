@@ -18,7 +18,7 @@ import (
 var _ payouts.DB = (*payoutDB)(nil)
 
 // ErrPayout represents errors from the payouts database.
-var ErrPayout = errs.Class("payouts error")
+var ErrPayout = errs.Class("payouts")
 
 // HeldAmountDBName represents the database name.
 const HeldAmountDBName = "heldamount"
@@ -227,7 +227,7 @@ func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payouts
 }
 
 // SatellitesHeldbackHistory retrieves heldback history for specific satellite.
-func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []payouts.HoldForPeriod, err error) {
+func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []payouts.HeldForPeriod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT
@@ -242,9 +242,9 @@ func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.Node
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var heldback []payouts.HoldForPeriod
+	var heldback []payouts.HeldForPeriod
 	for rows.Next() {
-		var held payouts.HoldForPeriod
+		var held payouts.HeldForPeriod
 
 		err := rows.Scan(&held.Period, &held.Amount)
 		if err != nil {
@@ -434,47 +434,335 @@ func (db *payoutDB) GetTotalEarned(ctx context.Context) (_ int64, err error) {
 // GetEarnedAtSatellite returns total earned value for node from specific satellite.
 func (db *payoutDB) GetEarnedAtSatellite(ctx context.Context, id storj.NodeID) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	query := `SELECT comp_at_rest, comp_get, comp_get_repair, comp_get_audit FROM paystubs WHERE satellite_id = ?`
+
 	rows, err := db.QueryContext(ctx, query, id)
 	if err != nil {
 		return 0, err
 	}
+
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	var totalEarned int64
 	for rows.Next() {
 		var compAtRest, compGet, compGetRepair, compGetAudit int64
+
 		err := rows.Scan(&compAtRest, &compGet, &compGetRepair, &compGetAudit)
 		if err != nil {
 			return 0, ErrPayout.Wrap(err)
 		}
+
 		totalEarned += compGetAudit + compGet + compGetRepair + compAtRest
 	}
+
 	if err = rows.Err(); err != nil {
 		return 0, ErrPayout.Wrap(err)
 	}
+
 	return totalEarned, nil
 }
 
 // GetPayingSatellitesIDs returns list of satellite ID's that ever paid to storagenode.
 func (db *payoutDB) GetPayingSatellitesIDs(ctx context.Context) (_ []storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	query := `SELECT DISTINCT (satellite_id) FROM paystubs`
+
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	var satelliteIDs []storj.NodeID
 	for rows.Next() {
 		var satelliteID storj.NodeID
+
 		err := rows.Scan(&satelliteID)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return []storj.NodeID{}, nil
+			}
+
 			return nil, ErrPayout.Wrap(err)
 		}
+
 		satelliteIDs = append(satelliteIDs, satelliteID)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, ErrPayout.Wrap(err)
 	}
+
 	return satelliteIDs, nil
+}
+
+// GetSatelliteSummary returns satellite all time paid and held amounts.
+func (db *payoutDB) GetSatelliteSummary(ctx context.Context, satelliteID storj.NodeID) (_, _ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT paid, held FROM paystubs WHERE satellite_id = ?`
+
+	rows, err := db.QueryContext(ctx, query, satelliteID)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var paid, held int64
+	for rows.Next() {
+		var paidPeriod, heldPeriod int64
+
+		err := rows.Scan(&paidPeriod, &heldPeriod)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return 0, 0, nil
+			}
+
+			return 0, 0, ErrPayout.Wrap(err)
+		}
+
+		paid += paidPeriod
+		held += heldPeriod
+	}
+	if err = rows.Err(); err != nil {
+		return 0, 0, ErrPayout.Wrap(err)
+	}
+
+	return paid, held, nil
+}
+
+// GetSatellitePeriodSummary returns satellite paid and held amounts for specific period.
+func (db *payoutDB) GetSatellitePeriodSummary(ctx context.Context, satelliteID storj.NodeID, period string) (_, _ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT paid, held FROM paystubs WHERE satellite_id = ? AND period = ?`
+
+	rows, err := db.QueryContext(ctx, query, satelliteID, period)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var paid, held int64
+	for rows.Next() {
+		err := rows.Scan(&paid, &held)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return 0, 0, nil
+			}
+
+			return 0, 0, ErrPayout.Wrap(err)
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return 0, 0, ErrPayout.Wrap(err)
+	}
+
+	return paid, held, nil
+}
+
+// GetUndistributed returns total undistributed amount.
+func (db *payoutDB) GetUndistributed(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var distributed, paid int64
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(distributed),0), COALESCE(SUM(paid), 0) FROM paystubs`)
+
+	err = rowPayment.Scan(&distributed, &paid)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, payouts.ErrNoPayStubForPeriod.Wrap(err)
+		}
+
+		return 0, ErrPayout.Wrap(err)
+	}
+
+	return paid - distributed, nil
+}
+
+// GetSatellitePaystubs returns summed paystubs for specific satellite.
+func (db *payoutDB) GetSatellitePaystubs(ctx context.Context, satelliteID storj.NodeID) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) from paystubs WHERE satellite_id = $1`, satelliteID)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+		&paystub.Disposed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}
+
+// GetPaystubs returns summed all paystubs.
+func (db *payoutDB) GetPaystubs(ctx context.Context) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) from paystubs`)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+		&paystub.Disposed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}
+
+// GetPeriodPaystubs returns all satellites paystubs for specific period.
+func (db *payoutDB) GetPeriodPaystubs(ctx context.Context, period string) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) from paystubs WHERE period = $1`, period)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+		&paystub.Disposed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}
+
+// GetSatellitePeriodPaystubs returns summed satellite paystubs for specific period.
+func (db *payoutDB) GetSatellitePeriodPaystubs(ctx context.Context, period string, satelliteID storj.NodeID) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) from paystubs WHERE period = $1 AND satellite_id = $2`, period, satelliteID)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+		&paystub.Disposed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}
+
+// HeldAmountHistory retrieves held amount history for all satellites.
+func (db *payoutDB) HeldAmountHistory(ctx context.Context) (_ []payouts.HeldAmountHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `
+		SELECT
+			satellite_id,
+			period,
+			held
+		FROM paystubs 
+		ORDER BY satellite_id, period ASC`
+
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	cache := make(map[storj.NodeID]payouts.HeldAmountHistory)
+
+	for rows.Next() {
+		var idBytes []byte
+		var held payouts.HeldForPeriod
+
+		err := rows.Scan(&idBytes, &held.Period, &held.Amount)
+		if err != nil {
+			return nil, ErrPayout.Wrap(err)
+		}
+
+		satelliteID, err := storj.NodeIDFromBytes(idBytes)
+		if err != nil {
+			return nil, ErrPayout.Wrap(err)
+		}
+
+		satelliteHeldHistory := cache[satelliteID]
+		satelliteHeldHistory.HeldAmounts = append(satelliteHeldHistory.HeldAmounts, held)
+		cache[satelliteID] = satelliteHeldHistory
+	}
+	if err = rows.Err(); err != nil {
+		return nil, ErrPayout.Wrap(err)
+	}
+
+	var heldHistories []payouts.HeldAmountHistory
+	for satelliteID, heldHistory := range cache {
+		heldHistory.SatelliteID = satelliteID
+		heldHistories = append(heldHistories, heldHistory)
+	}
+
+	return heldHistories, nil
 }

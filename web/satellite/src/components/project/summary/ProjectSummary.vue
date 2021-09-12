@@ -4,7 +4,8 @@
 <template>
     <section class="project-summary">
         <h1 class="project-summary__title">Details</h1>
-        <div class="project-summary__items">
+        <VLoader v-if="isDataFetching"/>
+        <div v-else class="project-summary__items">
             <SummaryItem
                 class="right-indent"
                 background-color="#f5f6fa"
@@ -42,35 +43,20 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import VLoader from '@/components/common/VLoader.vue';
 import SummaryItem from '@/components/project/summary/SummaryItem.vue';
-
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 @Component({
     components: {
         SummaryItem,
+        VLoader,
     },
 })
 export default class ProjectSummary extends Vue {
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches buckets and project usage and charges for current rollup.
-     */
-    public async mounted(): Promise<void> {
-        if (!this.$store.getters.selectedProject.id) return;
-
-        const FIRST_PAGE = 1;
-
-        try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-    }
+    @Prop({ default: true })
+    public readonly isDataFetching: boolean;
 
     /**
      * teamSize returns project members amount for selected project.
@@ -105,8 +91,8 @@ export default class ProjectSummary extends Vue {
 <style scoped lang="scss">
     .project-summary {
         margin-top: 30px;
-        padding: 25px;
-        width: calc(100% - 50px);
+        padding: 20px;
+        width: calc(100% - 40px);
         background-color: #fff;
         border-radius: 6px;
 

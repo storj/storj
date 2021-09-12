@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 )
 
 // Counter implements the metainfo loop observer interface for data science metrics collection.
@@ -23,6 +23,11 @@ type Counter struct {
 // NewCounter instantiates a new counter to be subscribed to the metainfo loop.
 func NewCounter() *Counter {
 	return &Counter{}
+}
+
+// LoopStarted is called at each start of a loop.
+func (counter *Counter) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+	return nil
 }
 
 // Object increments the count for total objects and for inline objects in case the object has no segments.

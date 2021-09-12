@@ -19,7 +19,7 @@ import (
 var mon = monkit.Package()
 
 // Error is the default boltdb errs class.
-var Error = errs.Class("boltdb error")
+var Error = errs.Class("boltdb")
 
 // Client is the entrypoint into a bolt data store.
 type Client struct {

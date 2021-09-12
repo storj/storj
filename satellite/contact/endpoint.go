@@ -19,13 +19,15 @@ import (
 )
 
 var (
-	errPingBackDial    = errs.Class("pingback dialing error")
-	errCheckInIdentity = errs.Class("check-in identity error")
-	errCheckInNetwork  = errs.Class("check-in network error")
+	errPingBackDial     = errs.Class("pingback dialing")
+	errCheckInIdentity  = errs.Class("check-in identity")
+	errCheckInRateLimit = errs.Class("check-in ratelimit")
+	errCheckInNetwork   = errs.Class("check-in network")
 )
 
 // Endpoint implements the contact service Endpoints.
 type Endpoint struct {
+	pb.DRPCNodeUnimplementedServer
 	log     *zap.Logger
 	service *Service
 }
@@ -53,6 +55,13 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}
 	nodeID := peerID.ID
 
+	// we need a string as a key for the limiter, but nodeID.String() has base58 encoding overhead
+	nodeIDBytesAsString := string(nodeID.Bytes())
+	if !endpoint.service.idLimiter.IsAllowed(nodeIDBytesAsString) {
+		endpoint.log.Info("node rate limited by id", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, errCheckInRateLimit.New("node rate limited by id").Error())
+	}
+
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
 		endpoint.log.Info("failed to add peer identity entry for ID", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
@@ -69,7 +78,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		ID:      nodeID,
 		Address: req.Address,
 	}
-	pingNodeSuccess, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
+	pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
 	if err != nil {
 		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		if errPingBackDial.Has(err) {
@@ -112,10 +121,11 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
-	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess), zap.String("ping node err msg", pingErrorMessage))
+	endpoint.log.Debug("checking in", zap.Stringer("Node ID", nodeID), zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess), zap.String("ping node err msg", pingErrorMessage))
 	return &pb.CheckInResponse{
-		PingNodeSuccess:  pingNodeSuccess,
-		PingErrorMessage: pingErrorMessage,
+		PingNodeSuccess:     pingNodeSuccess,
+		PingNodeSuccessQuic: pingNodeSuccessQUIC,
+		PingErrorMessage:    pingErrorMessage,
 	}, nil
 }
 

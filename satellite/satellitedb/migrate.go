@@ -6,15 +6,16 @@ package satellitedb
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/cockroachutil"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/private/tagsql"
 )
 
 //go:generate go run migrate_gen.go
@@ -33,7 +34,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	// will need to create the database it was told to connect to. These things should
 	// not really be here, and instead should be assumed to exist.
 	// This is tracked in jira ticket SM-200
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
 		if err != nil {
@@ -60,7 +61,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		}
 	}
 
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 		// since we merged migration steps 0-69, the current db version should never be
@@ -84,7 +85,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 
 // TestingMigrateToLatest is a method for creating all tables for database for testing.
 func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
 		if err != nil {
@@ -110,7 +111,7 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 		}
 	}
 
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 
@@ -131,7 +132,7 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 
 // CheckVersion confirms the database is at the desired version.
 func (db *satelliteDB) CheckVersion(ctx context.Context) error {
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 		return migration.ValidateVersions(ctx, db.log)
@@ -256,10 +257,10 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						exit_initiated_at timestamp with time zone,
 						exit_finished_at timestamp with time zone,
 						exit_success boolean NOT NULL DEFAULT FALSE,
-						last_ip_port text,
-						suspended timestamp with time zone,
 						unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
 						unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						suspended timestamp with time zone,
+						last_ip_port text,
 						vetted_at timestamp with time zone,
 						PRIMARY KEY ( id )
 					);`,
@@ -1199,7 +1200,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "add storagenode_bandwidth_rollups_archives and bucket_bandwidth_rollup_archives",
 				Version:     143,
 				SeparateTx:  true,
-				Action: migrate.SQL{`
+				Action: migrate.SQL{
+					`
                     CREATE TABLE storagenode_bandwidth_rollup_archives (
                         storagenode_id bytea NOT NULL,
                         interval_start timestamp with time zone NOT NULL,
@@ -1318,6 +1320,220 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_off_exit_fin_last_success_index ON nodes (disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success);`,
 					`DROP INDEX IF EXISTS nodes_dis_unk_exit_fin_last_success_index;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add nullable coupons.duration_new, migrate coupon_codes.duration to be nullable",
+				Version:     153,
+				Action: migrate.SQL{
+					`ALTER TABLE coupons ADD COLUMN billing_periods bigint;`,
+					`ALTER TABLE coupon_codes ADD COLUMN billing_periods bigint;`,
+					`ALTER TABLE coupon_codes DROP COLUMN duration;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "move duration over to billing_periods",
+				Version:     154,
+				Action: migrate.SQL{
+					`UPDATE coupons SET billing_periods = duration;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add have_sales_contact column on users",
+				Version:     155,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN have_sales_contact boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create indexes used in production",
+				Version:     156,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					storingClause := func(fields ...string) string {
+						if db.impl == dbutil.Cockroach {
+							return fmt.Sprintf("STORING (%s)", strings.Join(fields, ", "))
+						}
+
+						return ""
+					}
+					indexes := [3]string{
+						`CREATE INDEX IF NOT EXISTS injuredsegments_num_healthy_pieces_attempted_index
+							ON injuredsegments (segment_health, attempted NULLS FIRST)`,
+						`CREATE INDEX IF NOT EXISTS  nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index
+							ON nodes (type, last_contact_success, free_disk, major, minor, patch, vetted_at)
+							` + storingClause("last_net", "address", "last_ip_port") + `
+							WHERE disqualified IS NULL AND
+							unknown_audit_suspended IS NULL AND
+							exit_initiated_at IS NULL AND
+							release = true AND
+							last_net != ''`,
+						`CREATE INDEX IF NOT EXISTS  nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index
+							ON nodes (disqualified ASC, unknown_audit_suspended ASC, exit_initiated_at ASC, release ASC, type ASC, last_contact_success DESC)
+							` + storingClause("free_disk", "minor", "major", "patch", "vetted_at", "last_net", "address", "last_ip_port") + `
+							WHERE disqualified IS NULL AND
+							unknown_audit_suspended IS NULL AND
+							exit_initiated_at IS NULL AND
+							release = true`,
+					}
+
+					for _, s := range indexes {
+						_, err := tx.ExecContext(ctx, s)
+						if err != nil {
+							return err
+						}
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop unused columns total_uptime_count and uptime_success_count on nodes table",
+				Version:     157,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN total_uptime_count;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_success_count;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new table for computing project bandwidth daily usage.",
+				Version:     158,
+				Action: migrate.SQL{
+					`CREATE TABLE project_bandwidth_daily_rollups (
+						project_id bytea NOT NULL,
+						interval_day date NOT NULL,
+						egress_allocated bigint NOT NULL,
+						egress_settled bigint NOT NULL,
+						PRIMARY KEY ( project_id, interval_day )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "migrate non-expiring coupons to expire in 2 billing periods",
+				Version:     159,
+				Action: migrate.SQL{
+					`UPDATE coupons SET billing_periods = 2 WHERE billing_periods is NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to track dead allocated bandwidth",
+				Version:     160,
+				Action: migrate.SQL{
+					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN egress_dead bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add table for node reputation",
+				Version:     161,
+				Action: migrate.SQL{
+					`CREATE TABLE reputations (
+						id bytea NOT NULL,
+						audit_success_count bigint NOT NULL DEFAULT 0,
+						total_audit_count bigint NOT NULL DEFAULT 0,
+						vetted_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						contained boolean NOT NULL DEFAULT false,
+						disqualified timestamp with time zone,
+						suspended timestamp with time zone,
+						unknown_audit_suspended timestamp with time zone,
+						offline_suspended timestamp with time zone,
+						under_review timestamp with time zone,
+						online_score double precision NOT NULL DEFAULT 1,
+						audit_history bytea NOT NULL,
+						audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add stream_id and position columns to graceful_exit_transfer_queue",
+				Version:     162,
+				Action: migrate.SQL{
+					`CREATE TABLE graceful_exit_segment_transfer_queue (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_num integer NOT NULL,
+						root_piece_id bytea,
+						durability_ratio double precision NOT NULL,
+						queued_at timestamp with time zone NOT NULL,
+						requested_at timestamp with time zone,
+						last_failed_at timestamp with time zone,
+						last_failed_code integer,
+						failed_count integer,
+						finished_at timestamp with time zone,
+						order_limit_send_count integer NOT NULL DEFAULT 0,
+						PRIMARY KEY ( node_id, stream_id, position, piece_num )
+					);`,
+					`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;`,
+					`ALTER TABLE graceful_exit_progress
+						ADD COLUMN uses_segment_transfer_queue boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create segment_pending_audits table, replacement for pending_audits",
+				Version:     163,
+				Action: migrate.SQL{
+					`CREATE TABLE segment_pending_audits (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_id bytea NOT NULL,
+						stripe_index bigint NOT NULL,
+						share_size bigint NOT NULL,
+						expected_share_hash bytea NOT NULL,
+						reverify_count bigint NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add paid_tier column to users table",
+				Version:     164,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN paid_tier bool NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add repair_queue table, replacement for injuredsegments table",
+				Version:     165,
+				Action: migrate.SQL{
+					`CREATE TABLE repair_queue (
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						attempted_at timestamp with time zone,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						segment_health double precision NOT NULL DEFAULT 1,
+						PRIMARY KEY ( stream_id, position )
+					)`,
+					`CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at )`,
+					`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at NULLS FIRST)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add total_bytes table and total_segments_count for bucket_storage_tallies table",
+				Version:     166,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_bytes bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_segments_count integer NOT NULL DEFAULT 0;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

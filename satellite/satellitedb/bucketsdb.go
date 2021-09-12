@@ -11,7 +11,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -71,6 +71,17 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
+}
+
+// HasBucket returns if a bucket exists.
+func (db *bucketsDB) HasBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (exists bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	exists, err = db.db.Has_BucketMetainfo_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	return exists, storj.ErrBucket.Wrap(err)
 }
 
 // GetBucketID returns an existing bucket id.

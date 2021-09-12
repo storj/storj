@@ -5,20 +5,25 @@
     <div class="buckets-view">
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title">Buckets</h1>
-            <div class="buckets-view__title-area__button" @click="showCreateBucketPopup">
+            <div class="buckets-view__title-area__button" :class="{ disabled: isLoading }" @click="showCreateBucketPopup">
                 <BucketIcon/>
                 <p class="buckets-view__title-area__button__label">New Bucket</p>
             </div>
         </div>
-        <div class="buckets-view__loader" v-if="isLoading"/>
-        <p class="buckets-view__no-buckets" v-if="!(isLoading || buckets.length)">No Buckets</p>
-        <div class="buckets-view__list" v-if="!isLoading && buckets.length">
+        <VLoader
+            width="100px"
+            height="100px"
+            class="buckets-view__loader"
+            v-if="isLoading"
+        />
+        <p class="buckets-view__no-buckets" v-if="!(isLoading || bucketsList.length)">No Buckets</p>
+        <div class="buckets-view__list" v-if="!isLoading && bucketsList.length">
             <div class="buckets-view__list__sorting-header">
                 <p class="buckets-view__list__sorting-header__name">Name</p>
                 <p class="buckets-view__list__sorting-header__date">Date Added</p>
                 <p class="buckets-view__list__sorting-header__empty"/>
             </div>
-            <div class="buckets-view__list__item" v-for="(bucket, key) in buckets" :key="key" @click.stop="openBucket">
+            <div class="buckets-view__list__item" v-for="(bucket, key) in bucketsList" :key="key" @click.stop="openBucket(bucket.Name)">
                 <BucketItem
                     :item-data="bucket"
                     :show-delete-bucket-popup="showDeleteBucketPopup"
@@ -47,7 +52,6 @@
             title="Are you sure?"
             sub-title="Deleting this bucket will delete all metadata related to this bucket."
             button-label="Confirm Delete Bucket"
-            :default-input-value="deleteBucketName"
             :error-message="errorMessage"
             :is-loading="isRequestProcessing"
         />
@@ -55,8 +59,10 @@
 </template>
 
 <script lang="ts">
+import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Vue } from 'vue-property-decorator';
 
+import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
 
@@ -67,13 +73,14 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
-import { Bucket } from '@aws-sdk/client-s3';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
         BucketIcon,
         ObjectsPopup,
         BucketItem,
+        VLoader,
     },
 })
 export default class BucketsView extends Vue {
@@ -102,85 +109,80 @@ export default class BucketsView extends Vue {
             return;
         }
 
-        await this.removeTemporaryAccessGrant();
-
         try {
-            const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
+            await this.setWorker();
+            await this.removeTemporaryAccessGrant();
+            await this.setAccess();
+            await this.fetchBuckets();
 
-            this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-            this.worker.onmessage = (event: MessageEvent) => {
-                const data = event.data;
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-
-                this.grantWithPermissions = data.value;
-            };
-
-            const now = new Date();
-            const inADay = new Date(now.setDate(now.getDate() + 1));
-
-            await this.worker.postMessage({
-                'type': 'SetPermission',
-                'isDownload': true,
-                'isUpload': true,
-                'isList': true,
-                'isDelete': true,
-                'buckets': [],
-                'apiKey': cleanAPIKey.secret,
-                'notBefore': now.toISOString(),
-                'notAfter': inADay.toISOString(),
-            });
-
-            // Timeout is used to give some time for web worker to return value.
-            setTimeout(() => {
-                this.worker.onmessage = (event: MessageEvent) => {
-                    const data = event.data;
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-
-                    this.accessGrant = data.value;
-                };
-
-                const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
-                this.worker.postMessage({
-                    'type': 'GenerateAccess',
-                    'apiKey': this.grantWithPermissions,
-                    'passphrase': this.$route.params.passphrase,
-                    'projectID': this.$store.getters.selectedProject.id,
-                    'satelliteNodeURL': satelliteNodeURL,
-                });
-
-                // Timeout is used to give some time for web worker to return value.
-                setTimeout(async () => {
-                    await this.$store.dispatch(OBJECTS_ACTIONS.SET_ACCESS_GRANT, this.accessGrant);
-
-                    // TODO: use this value until all the satellites will have this URL set.
-                    const gatewayURL = 'https://auth.tardigradeshare.io';
-                    const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.accessGrant, optionalURL: gatewayURL});
-                    await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
-                    await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-                    await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
-
-                    this.isLoading = false;
-
-                    if (!this.buckets.length) this.showCreateBucketPopup();
-                }, 1000);
-            }, 1000);
+            if (!this.bucketsList.length) this.showCreateBucketPopup();
         } catch (error) {
-            await this.$notify.error(`Failed to setup Objects view. ${error.message}`);
-
-            return;
+            await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
         }
+
+        this.isLoading = false;
     }
 
     /**
-     * Lifecycle hook before component destroying.
-     * Remove temporary created access grant.
+     * Sets access to S3 client.
      */
-    public async beforeDestroy(): Promise<void> {
-        await this.removeTemporaryAccessGrant();
+    public async setAccess(): Promise<void> {
+        const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
+
+        await this.worker.postMessage({
+            'type': 'SetPermission',
+            'isDownload': true,
+            'isUpload': true,
+            'isList': true,
+            'isDelete': true,
+            'buckets': [],
+            'apiKey': cleanAPIKey.secret,
+        });
+
+        const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        this.grantWithPermissions = grantEvent.data.value;
+        if (grantEvent.data.error) {
+            throw new Error(grantEvent.data.error);
+        }
+
+        const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        this.worker.postMessage({
+            'type': 'GenerateAccess',
+            'apiKey': this.grantWithPermissions,
+            'passphrase': this.passphrase,
+            'projectID': this.$store.getters.selectedProject.id,
+            'satelliteNodeURL': satelliteNodeURL,
+        });
+
+        const accessGrantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        this.accessGrant = accessGrantEvent.data.value;
+        if (accessGrantEvent.data.error) {
+            throw new Error(accessGrantEvent.data.error);
+        }
+
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_ACCESS_GRANT, this.accessGrant);
+
+        const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.accessGrant});
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+    }
+
+    /**
+     * Fetches bucket using S3 client.
+     */
+    public async fetchBuckets(): Promise<void> {
+        await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+    }
+
+    /**
+     * Sets local worker with worker instantiated in store.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
+        this.worker.onerror = (error: ErrorEvent) => {
+            this.$notify.error(error.message);
+        };
     }
 
     /**
@@ -189,9 +191,7 @@ export default class BucketsView extends Vue {
     public async onCreateBucketClick(): Promise<void> {
         if (this.isRequestProcessing) return;
 
-        if (!this.createBucketName) {
-            this.errorMessage = 'Bucket name can\'t be empty';
-        }
+        if (!this.isBucketNameValid(this.createBucketName)) return;
 
         this.isRequestProcessing = true;
 
@@ -199,12 +199,24 @@ export default class BucketsView extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
-            await this.$notify.error(error.message);
+            const BUCKET_ALREADY_EXISTS_ERROR = 'BucketAlreadyExists';
+
+            if (error.name === BUCKET_ALREADY_EXISTS_ERROR) {
+                await this.$notify.error('Bucket with provided name already exists.');
+            } else {
+                await this.$notify.error(error.message);
+            }
+
+            this.isRequestProcessing = false;
+
+            return;
         }
 
-        this.isRequestProcessing = false;
+        const bucket = this.createBucketName;
         this.createBucketName = '';
-        this.hideCreateBucketPopup();
+        this.isRequestProcessing = false;
+
+        this.openBucket(bucket);
     }
 
     /**
@@ -213,9 +225,7 @@ export default class BucketsView extends Vue {
     public async onDeleteBucketClick(): Promise<void> {
         if (this.isRequestProcessing) return;
 
-        if (!this.deleteBucketName) {
-            this.errorMessage = 'Bucket name can\'t be empty';
-        }
+        if (!this.isBucketNameValid(this.deleteBucketName)) return;
 
         this.isRequestProcessing = true;
 
@@ -224,6 +234,10 @@ export default class BucketsView extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
             await this.$notify.error(error.message);
+
+            this.isRequestProcessing = false;
+
+            return;
         }
 
         this.isRequestProcessing = false;
@@ -235,6 +249,12 @@ export default class BucketsView extends Vue {
      * Opens utils dropdown.
      */
     public openDropdown(key: number): void {
+        if (this.activeDropdown === key) {
+            this.activeDropdown = -1;
+
+            return;
+        }
+
         this.activeDropdown = key;
     }
 
@@ -294,15 +314,48 @@ export default class BucketsView extends Vue {
         }
     }
 
-    public openBucket(): void {
+    /**
+     * Holds on bucket click. Proceeds to file browser.
+     */
+    public openBucket(bucketName: string): void {
+        this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
         this.$router.push(RouteConfig.Objects.with(RouteConfig.UploadFile).path);
     }
 
     /**
      * Returns fetched buckets from store.
      */
-    public get buckets(): Bucket[] {
-        return this.$store.state.objectsModule.buckets;
+    public get bucketsList(): Bucket[] {
+        return this.$store.state.objectsModule.bucketsList;
+    }
+
+    /**
+     * Returns passphrase from store.
+     */
+    private get passphrase(): string {
+        return this.$store.state.objectsModule.passphrase;
+    }
+
+    /**
+     * Returns validation status of a bucket name.
+     */
+    private isBucketNameValid(name: string): boolean {
+        switch (true) {
+            case name.length < 3 || name.length > 63:
+                this.errorMessage = 'Name must be not less than 3 and not more than 63 characters length';
+
+                return false;
+            case !Validator.bucketName(name):
+                this.errorMessage = 'Name must include only lowercase latin characters';
+
+                return false;
+            case !Validator.oneWordString(name):
+                this.errorMessage = 'Name must be 1-word string';
+
+                return false;
+            default:
+                return true;
+        }
     }
 }
 </script>
@@ -359,12 +412,6 @@ export default class BucketsView extends Vue {
 
         &__loader {
             margin-top: 100px;
-            border: 16px solid #f3f3f3;
-            border-top: 16px solid #3498db;
-            border-radius: 50%;
-            width: 120px;
-            height: 120px;
-            animation: spin 2s linear infinite;
         }
 
         &__no-buckets {
@@ -411,8 +458,9 @@ export default class BucketsView extends Vue {
         }
     }
 
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    .disabled {
+        pointer-events: none;
+        background-color: #dadde5;
+        border-color: #dadde5;
     }
 </style>

@@ -9,6 +9,7 @@ import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
 import CLIStep from '@/components/accessGrants/steps/CLIStep.vue';
 import CreatePassphraseStep from '@/components/accessGrants/steps/CreatePassphraseStep.vue';
 import EnterPassphraseStep from '@/components/accessGrants/steps/EnterPassphraseStep.vue';
+import GatewayStep from '@/components/accessGrants/steps/GatewayStep.vue';
 import NameStep from '@/components/accessGrants/steps/NameStep.vue';
 import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
 import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
@@ -24,8 +25,8 @@ import CreatePassphrase from '@/components/objects/CreatePassphrase.vue';
 import EnterPassphrase from '@/components/objects/EnterPassphrase.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
 import UploadFile from '@/components/objects/UploadFile.vue';
+import WarningView from '@/components/objects/WarningView.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
-import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue';
 import CreateAccessGrantStep from '@/components/onboardingTour/steps/CreateAccessGrantStep.vue';
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
@@ -35,6 +36,7 @@ import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { NavigationLink } from '@/types/navigation';
 
 const DashboardArea = () => import('@/views/DashboardArea.vue');
@@ -78,19 +80,21 @@ export abstract class RouteConfig {
     public static CreatePassphraseStep = new NavigationLink('create-passphrase', 'Access Grant Create Passphrase');
     public static EnterPassphraseStep = new NavigationLink('enter-passphrase', 'Access Grant Enter Passphrase');
     public static ResultStep = new NavigationLink('result', 'Access Grant Result');
+    public static GatewayStep = new NavigationLink('gateway', 'Access Grant Gateway');
     public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
 
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
-    public static PaymentStep = new NavigationLink('payment', 'Onboarding Payment');
     public static AccessGrant = new NavigationLink('access', 'Onboarding Access Grant');
     public static AccessGrantName = new NavigationLink('name', 'Onboarding Name Access Grant');
     public static AccessGrantPermissions = new NavigationLink('permissions', 'Onboarding Access Grant Permissions');
     public static AccessGrantCLI = new NavigationLink('cli', 'Onboarding Access Grant CLI');
     public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
     public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
+    public static AccessGrantGateway = new NavigationLink('gateway', 'Onboarding Access Grant Gateway');
 
     // objects child paths.
+    public static Warning = new NavigationLink('warning', 'Objects Warning');
     public static CreatePassphrase = new NavigationLink('create-passphrase', 'Objects Create Passphrase');
     public static EnterPassphrase = new NavigationLink('enter-passphrase', 'Objects Enter Passphrase');
     public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
@@ -178,11 +182,6 @@ export const router = new Router({
                     component: ProjectDashboard,
                 },
                 {
-                    path: RouteConfig.Root.path,
-                    name: 'default',
-                    component: ProjectDashboard,
-                },
-                {
                     path: RouteConfig.Users.path,
                     name: RouteConfig.Users.name,
                     component: ProjectMembersArea,
@@ -196,11 +195,6 @@ export const router = new Router({
                             path: RouteConfig.OverviewStep.path,
                             name: RouteConfig.OverviewStep.name,
                             component: OverviewStep,
-                        },
-                        {
-                            path: RouteConfig.PaymentStep.path,
-                            name: RouteConfig.PaymentStep.name,
-                            component: AddPaymentStep,
                         },
                         {
                             path: RouteConfig.AccessGrant.path,
@@ -234,6 +228,12 @@ export const router = new Router({
                                     path: RouteConfig.AccessGrantResult.path,
                                     name: RouteConfig.AccessGrantResult.name,
                                     component: ResultStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantGateway.path,
+                                    name: RouteConfig.AccessGrantGateway.name,
+                                    component: GatewayStep,
                                     props: true,
                                 },
                             ],
@@ -290,6 +290,12 @@ export const router = new Router({
                                     props: true,
                                 },
                                 {
+                                    path: RouteConfig.GatewayStep.path,
+                                    name: RouteConfig.GatewayStep.name,
+                                    component: GatewayStep,
+                                    props: true,
+                                },
+                                {
                                     path: RouteConfig.CLIStep.path,
                                     name: RouteConfig.CLIStep.name,
                                     component: CLIStep,
@@ -309,6 +315,11 @@ export const router = new Router({
                     name: RouteConfig.Objects.name,
                     component: ObjectsArea,
                     children: [
+                        {
+                            path: RouteConfig.Warning.path,
+                            name: RouteConfig.Warning.name,
+                            component: WarningView,
+                        },
                         {
                             path: RouteConfig.CreatePassphrase.path,
                             name: RouteConfig.CreatePassphrase.name,
@@ -332,6 +343,7 @@ export const router = new Router({
                             children: [
                                 {
                                     path: '*',
+                                    name: RouteConfig.UploadFile.name,
                                     component: UploadFile,
                                 },
                             ],
@@ -348,7 +360,12 @@ export const router = new Router({
     ],
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
+    if (from.name === RouteConfig.UploadFile.name && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+        const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
+        if (areUploadsInProgress) return;
+    }
+
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Billing).path);
 
@@ -373,8 +390,8 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
-    if (to.name === 'default') {
-        next(RouteConfig.ProjectDashboard.path);
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
+        next(RouteConfig.Objects.with(RouteConfig.Warning).path);
 
         return;
     }
@@ -403,7 +420,6 @@ router.afterEach(({ name }, from) => {
  * if our route is a tab and has no sub tab route - we will navigate to default subtab.
  * F.E. /account/ -> /account/billing/;
  * @param routes - array of RouteRecord from vue-router
- * @param next - callback to process next route
  * @param tabRoute - tabNavigator route
  */
 function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {

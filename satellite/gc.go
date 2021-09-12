@@ -23,9 +23,8 @@ import (
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/gc"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metaloop"
-	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -57,22 +56,17 @@ type GarbageCollection struct {
 	}
 
 	Metainfo struct {
-		Database metainfo.PointerDB
-		Loop     *metaloop.Service
+		SegmentLoop *segmentloop.Service
 	}
 
 	GarbageCollection struct {
 		Service *gc.Service
 	}
-
-	Metrics struct {
-		Chore *metrics.Chore
-	}
 }
 
 // NewGarbageCollection creates a new satellite garbage collection process.
 func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	metabaseDB *metabase.DB, revocationDB extensions.RevocationDB,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*GarbageCollection, error) {
 	peer := &GarbageCollection{
 		Log:      log,
@@ -90,7 +84,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 			if err != nil {
 				withoutStack := errors.New(err.Error())
 				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-				err = nil
 			}
 		}
 		debugConfig := config.Debug
@@ -135,20 +128,18 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup metainfo
-		peer.Metainfo.Database = pointerDB
-
-		// Garbage Collection creates its own instance of the metainfo loop here. Since
-		// GC runs infrequently, this shouldn't add too much extra load on the metainfo db.
-		// As long as garbage collection is the only observer joining the metainfo loop, then by default
-		// the metainfo loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
-		peer.Metainfo.Loop = metaloop.New(
-			config.Metainfo.Loop,
+		// Garbage Collection creates its own instance of the loop here. Since
+		// GC runs infrequently, this shouldn't add too much extra load on the metabase db.
+		// As long as garbage collection is the only observer joining the loop, then by default
+		// the loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
+		peer.Metainfo.SegmentLoop = segmentloop.New(
+			config.Metainfo.SegmentLoop,
 			metabaseDB,
 		)
 		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:loop",
-			Run:   peer.Metainfo.Loop.Run,
-			Close: peer.Metainfo.Loop.Close,
+			Name:  "metainfo:segmentloop",
+			Run:   peer.Metainfo.SegmentLoop.Run,
+			Close: peer.Metainfo.SegmentLoop.Close,
 		})
 	}
 
@@ -158,7 +149,7 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.GarbageCollection,
 			peer.Dialer,
 			peer.Overlay.DB,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name: "garbage-collection",
@@ -166,21 +157,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Garbage Collection", peer.GarbageCollection.Service.Loop))
-	}
-
-	{ // setup metrics service
-		peer.Metrics.Chore = metrics.NewChore(
-			peer.Log.Named("metrics"),
-			config.Metrics,
-			peer.Metainfo.Loop,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metrics",
-			Run:   peer.Metrics.Chore.Run,
-			Close: peer.Metrics.Chore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
 	}
 
 	return peer, nil

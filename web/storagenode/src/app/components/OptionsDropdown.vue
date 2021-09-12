@@ -3,11 +3,11 @@
 
 <template>
     <div class="options-dropdown" v-click-outside="close">
-        <input id="theme-switch" type="checkbox" v-model="darkMode" />
+        <input id="theme-switch" type="checkbox" v-model="isDarkMode" @change="close" />
         <label class="options-dropdown__mode" for="theme-switch">
-            <SunIcon class="icon" v-if="darkMode" />
+            <SunIcon class="icon" v-if="isDarkMode" />
             <MoonIcon class="icon" v-else />
-            {{ darkMode ? 'Light Mode' : 'Dark Mode' }}
+            {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
         </label>
     </div>
 </template>
@@ -31,7 +31,7 @@ export default class OptionsDropdown extends Vue {
     /**
      * Uses for switching mode.
      */
-    public darkMode: boolean = false;
+    public isDarkMode: boolean = false;
 
     /**
      * Lifecycle hook after initial render.
@@ -52,7 +52,7 @@ export default class OptionsDropdown extends Vue {
 
         htmlElement.setAttribute('theme', theme);
         const isDarkMode = theme === SNO_THEME.DARK;
-        this.darkMode = isDarkMode;
+        this.isDarkMode = isDarkMode;
         this.$store.dispatch(APPSTATE_ACTIONS.SET_DARK_MODE, isDarkMode);
     }
 
@@ -63,12 +63,12 @@ export default class OptionsDropdown extends Vue {
         this.$emit('closeDropdown');
     }
 
-    @Watch('darkMode')
+    @Watch('isDarkMode')
     private changeMode(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.SET_DARK_MODE, this.darkMode);
+        this.$store.dispatch(APPSTATE_ACTIONS.SET_DARK_MODE, this.isDarkMode);
         const htmlElement = document.documentElement;
 
-        if (this.darkMode) {
+        if (this.isDarkMode) {
             localStorage.setItem('theme', SNO_THEME.DARK);
             htmlElement.setAttribute('theme', SNO_THEME.DARK);
 
@@ -96,6 +96,7 @@ export default class OptionsDropdown extends Vue {
         font-family: 'font_regular', sans-serif;
         font-size: 14px;
         color: var(--regular-text-color);
+        cursor: pointer;
 
         &__mode {
             display: flex;

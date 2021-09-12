@@ -14,26 +14,24 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
 )
 
 // Error is a standard error class for this package.
 var (
-	Error = errs.Class("repairer error")
+	Error = errs.Class("repairer")
 	mon   = monkit.Package()
 )
 
 // Config contains configurable values for repairer.
 type Config struct {
-	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
-	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"5m0s" devDefault:"1m0s"`
-	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"5m0s"`
-	DownloadTimeout               time.Duration `help:"time limit for downloading pieces from a node for repair" default:"5m0s"`
-	TotalTimeout                  time.Duration `help:"time limit for an entire repair job, from queue pop to upload completion" default:"45m"`
-	MaxBufferMem                  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
+	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1" testDefault:"10"`
+	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"5m0s" devDefault:"1m0s" testDefault:"$TESTINTERVAL"`
+	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"5m0s" testDefault:"1m"`
+	DownloadTimeout               time.Duration `help:"time limit for downloading pieces from a node for repair" default:"5m0s" testDefault:"1m"`
+	TotalTimeout                  time.Duration `help:"time limit for an entire repair job, from queue pop to upload completion" default:"45m" testDefault:"10m"`
+	MaxBufferMem                  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4.0 MiB"`
 	MaxExcessRateOptimalThreshold float64       `help:"ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload" default:"0.05"`
 	InMemoryRepair                bool          `help:"whether to download pieces for repair in memory (true) or download to disk (false)" default:"false"`
 }
@@ -48,13 +46,12 @@ type Service struct {
 	JobLimiter *semaphore.Weighted
 	Loop       *sync2.Cycle
 	repairer   *SegmentRepairer
-	irrDB      irreparable.DB
 
 	nowFn func() time.Time
 }
 
 // NewService creates repairing service.
-func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer, irrDB irreparable.DB) *Service {
+func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer) *Service {
 	return &Service{
 		log:        log,
 		queue:      queue,
@@ -62,7 +59,6 @@ func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repair
 		JobLimiter: semaphore.NewWeighted(int64(config.MaxRepair)),
 		Loop:       sync2.NewCycle(config.Interval),
 		repairer:   repairer,
-		irrDB:      irrDB,
 
 		nowFn: time.Now,
 	}
@@ -153,31 +149,17 @@ func (service *Service) process(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegment) (err error) {
+func (service *Service) worker(ctx context.Context, seg *queue.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	workerStartTime := service.nowFn().UTC()
 
 	service.log.Debug("Limiter running repair on segment")
 	// note that shouldDelete is used even in the case where err is not null
-	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
+	shouldDelete, err := service.repairer.Repair(ctx, seg)
 	if shouldDelete {
-		if irreparableErr, ok := err.(*irreparableError); ok {
-			service.log.Error("segment could not be repaired! adding to irreparableDB for more attention",
-				zap.Error(err))
-			segmentInfo := &internalpb.IrreparableSegment{
-				Path:               seg.GetPath(),
-				LostPieces:         irreparableErr.piecesRequired - irreparableErr.piecesAvailable,
-				LastRepairAttempt:  service.nowFn().Unix(),
-				RepairAttemptCount: int64(1),
-			}
-			if err := service.irrDB.IncrementRepairAttempts(ctx, segmentInfo); err != nil {
-				service.log.Error("failed to add segment to irreparableDB! will leave in repair queue", zap.Error(err))
-				shouldDelete = false
-			}
-		} else if err != nil {
-			service.log.Error("unexpected error repairing segment!",
-				zap.Error(err))
+		if err != nil {
+			service.log.Error("unexpected error repairing segment!", zap.Error(err))
 		} else {
 			service.log.Debug("removing repaired segment from repair queue")
 		}
@@ -196,7 +178,7 @@ func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegme
 	timeForRepair := repairedTime.Sub(workerStartTime)
 	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //mon:locked
 
-	insertedTime := seg.GetInsertedTime()
+	insertedTime := seg.InsertedAt
 	// do not send metrics if segment was added before the InsertedTime field was added
 	if !insertedTime.IsZero() {
 		timeSinceQueued := workerStartTime.Sub(insertedTime)

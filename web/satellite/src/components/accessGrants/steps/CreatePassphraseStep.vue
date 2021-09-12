@@ -43,6 +43,12 @@ export default class CreatePassphraseStep extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$route.params.key && !this.$route.params.restrictedKey) {
+            if (this.isOnboardingTour) {
+                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
+
+                return;
+            }
+
             await this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -62,18 +68,6 @@ export default class CreatePassphraseStep extends Vue {
      */
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onmessage = (event: MessageEvent) => {
-            const data = event.data;
-            if (data.error) {
-                this.$notify.error(data.error);
-
-                return;
-            }
-
-            this.access = data.value;
-
-            this.$notify.success('Access Grant was generated successfully');
-        };
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
@@ -90,7 +84,7 @@ export default class CreatePassphraseStep extends Vue {
      * Holds on next button click logic.
      * Generates access grant and redirects to next step.
      */
-    public onNextClick(): void {
+    public async onNextClick(): Promise<void> {
         if (this.isLoading) return;
 
         this.isLoading = true;
@@ -105,32 +99,40 @@ export default class CreatePassphraseStep extends Vue {
             'satelliteNodeURL': satelliteNodeURL,
         });
 
-        // Give time for web worker to return value.
-        setTimeout(() => {
+        const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        if (accessEvent.data.error) {
+            await this.$notify.error(accessEvent.data.error);
             this.isLoading = false;
 
-            if (this.isOnboardingTour) {
-                this.$router.push({
-                    name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantResult)).name,
-                    params: {
-                        access: this.access,
-                        key: this.key,
-                        restrictedKey: this.restrictedKey,
-                    },
-                });
+            return;
+        }
 
-                return;
-            }
+        this.access = accessEvent.data.value;
+        await this.$notify.success('Access Grant was generated successfully');
 
-            this.$router.push({
-                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
+        this.isLoading = false;
+
+        if (this.isOnboardingTour) {
+            await this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantResult)).name,
                 params: {
                     access: this.access,
                     key: this.key,
                     restrictedKey: this.restrictedKey,
                 },
             });
-        }, 1000);
+
+            return;
+        }
+
+        await this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
+            params: {
+                access: this.access,
+                key: this.key,
+                restrictedKey: this.restrictedKey,
+            },
+        });
     }
 
     /**

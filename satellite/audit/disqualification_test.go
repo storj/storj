@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -133,7 +133,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err = satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode)
 		require.NoError(t, err)
 
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment)
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0)
 		require.NoError(t, err)
 		assert.Len(t, limits, len(segment.Pieces)-1)
 

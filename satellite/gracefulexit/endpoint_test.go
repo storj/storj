@@ -4,7 +4,6 @@
 package gracefulexit_test
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"strconv"
@@ -30,12 +29,11 @@ import (
 	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
-	"storj.io/uplink/private/multipart"
 )
 
 const numObjects = 6
@@ -1104,13 +1102,18 @@ func TestSegmentChangedOrDeletedMultipart(t *testing.T) {
 		// TODO: activate when an object part can be overwritten
 		// info0, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path0", nil)
 		// require.NoError(t, err)
-		// _, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path0", info0.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+		// _, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path0", info0.StreamID, 1,
+		//	etag.NewHashReader(bytes.NewReader(testrand.Bytes(5*memory.KiB)), sha256.New()))
 		// require.NoError(t, err)
 
-		info1, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path1", nil)
+		info1, err := project.BeginUpload(ctx, "testbucket", "test/path1", nil)
 		require.NoError(t, err)
-		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path1", info1.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+
+		upload, err := project.UploadPart(ctx, "testbucket", "test/path1", info1.UploadID, 1)
 		require.NoError(t, err)
+		_, err = upload.Write(testrand.Bytes(5 * memory.KiB))
+		require.NoError(t, err)
+		require.NoError(t, upload.Commit())
 
 		// check that there are no exiting nodes.
 		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
@@ -1150,7 +1153,7 @@ func TestSegmentChangedOrDeletedMultipart(t *testing.T) {
 		// TODO: activate when an object part can be overwritten
 		// _, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path0", info0.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
 		// require.NoError(t, err)
-		err = multipart.AbortMultipartUpload(ctx, project, "testbucket", "test/path1", info1.StreamID)
+		err = project.AbortUpload(ctx, "testbucket", "test/path1", info1.UploadID)
 		require.NoError(t, err)
 
 		// reconnect to the satellite.
@@ -1472,11 +1475,14 @@ func testTransfers(t *testing.T, objects int, multipartObjects int, verifier fun
 		for i := 0; i < multipartObjects; i++ {
 			objectName := "test/multipart" + strconv.Itoa(i)
 
-			info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", objectName, nil)
+			info, err := project.BeginUpload(ctx, "testbucket", objectName, nil)
 			require.NoError(t, err)
 
-			_, err = multipart.PutObjectPart(ctx, project, "testbucket", objectName, info.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+			upload, err := project.UploadPart(ctx, "testbucket", objectName, info.UploadID, 1)
 			require.NoError(t, err)
+			_, err = upload.Write(testrand.Bytes(5 * memory.KiB))
+			require.NoError(t, err)
+			require.NoError(t, upload.Commit())
 		}
 
 		// check that there are no exiting nodes.

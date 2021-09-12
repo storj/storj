@@ -19,10 +19,10 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/private/dbutil/cockroachutil"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 	"storj.io/private/version"
-	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -56,11 +56,10 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	asOf := cache.db.AsOfSystemTimeClause(selectionCfg.AsOfSystemTime.DefaultInterval)
-
 	query := `
 		SELECT id, address, last_net, last_ip_port, vetted_at
-			FROM nodes ` + asOf + `
+			FROM nodes
+			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.DefaultInterval) + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND offline_suspended IS NULL
@@ -139,11 +138,10 @@ func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, on
 func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOfConfig overlay.AsOfSystemTimeConfig) (_ []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	asOf := cache.db.AsOfSystemTimeClause(asOfConfig.DefaultInterval)
-
 	query := `
 		SELECT id, address, last_net, last_ip_port
-			FROM nodes ` + asOf + `
+			FROM nodes
+			` + cache.db.impl.AsOfSystemInterval(asOfConfig.DefaultInterval) + `
 			WHERE disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $1
@@ -312,12 +310,11 @@ func (cache *overlaycache) knownOffline(ctx context.Context, criteria *overlay.N
 		return nil, Error.New("no ids provided")
 	}
 
-	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
-
 	// get offline nodes
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes `+asOf+`
+		SELECT id FROM nodes
+		`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
 			WHERE id = any($1::bytea[])
 			AND last_contact_success < $2
 		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
@@ -361,12 +358,12 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 		return nil, Error.New("no ids provided")
 	}
 
-	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
-
 	// get reliable and online nodes
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes `+asOf+`
+			SELECT id
+			FROM nodes
+			`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
@@ -469,11 +466,11 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 }
 
 func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
-	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
-
 	// get reliable and online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes `+asOf+`
+		SELECT id
+		FROM nodes
+		`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
 		WHERE disqualified IS NULL
 		AND unknown_audit_suspended IS NULL
 		AND offline_suspended IS NULL
@@ -496,6 +493,27 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 		nodes = append(nodes, id)
 	}
 	return nodes, Error.Wrap(rows.Err())
+}
+
+// UpdateReputation updates the DB columns for any of the reputation fields in UpdateReputationRequest.
+func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request *overlay.ReputationStatus) (err error) {
+	mon.Task()(&ctx)(&err)
+
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.Contained = dbx.Node_Contained(request.Contained)
+	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
+	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
+	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
+	updateFields.VettedAt = dbx.Node_VettedAt_Raw(request.VettedAt)
+
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateFields)
+	if err != nil {
+		return err
+	}
+	if dbNode == nil {
+		return errs.New("unable to get node by ID: %v", id)
+	}
+	return nil
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction.
@@ -549,7 +567,7 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 
 				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
 
-				sql := buildUpdateStatement(updateNodeStats)
+				sql := buildUpdateStatement(updateNodeStats, isUp)
 
 				allSQL += sql
 			}
@@ -1137,7 +1155,7 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	return newAlpha, newBeta, totalCount + 1
 }
 
-func buildUpdateStatement(update updateNodeStats) string {
+func buildUpdateStatement(update updateNodeStats, isUp bool) string {
 	if update.NodeID.IsZero() {
 		return ""
 	}
@@ -1264,7 +1282,6 @@ func buildUpdateStatement(update updateNodeStats) string {
 	hexNodeID := hex.EncodeToString(update.NodeID.Bytes())
 
 	sql += fmt.Sprintf(" WHERE nodes.id = decode('%v', 'hex');\n", hexNodeID)
-	sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = decode('%v', 'hex');\n", hexNodeID)
 
 	return sql
 }
@@ -1569,7 +1586,7 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 }
 
 // DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
-// or gracefully exited.
+// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
 func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1596,6 +1613,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success < $2
+			AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
 		RETURNING id, last_contact_success;
 	`), pgutil.NodeIDArray(nodeIDs), cutoff)
 	if err != nil {
@@ -1666,7 +1684,53 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return Error.Wrap(err)
 	}
 
-	query := `
+	// First try the fast path.
+	var res sql.Result
+	res, err = cache.db.ExecContext(ctx, `
+		UPDATE nodes
+		SET
+			address=$2,
+			last_net=$3,
+			protocol=$4,
+			email=$5,
+			wallet=$6,
+			free_disk=$7,
+			major=$9, minor=$10, patch=$11, hash=$12, timestamp=$13, release=$14,
+			last_contact_success = CASE WHEN $8::bool IS TRUE
+				THEN $15::timestamptz
+				ELSE nodes.last_contact_success
+			END,
+			last_contact_failure = CASE WHEN $8::bool IS FALSE
+				THEN $15::timestamptz
+				ELSE nodes.last_contact_failure
+			END,
+			last_ip_port=$16,
+			wallet_features=$17
+		WHERE id = $1
+	`, // args $1 - $4
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(),
+		// args $5 - $7
+		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
+		// args $8
+		node.IsUp,
+		// args $9 - $14
+		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
+		// args $15
+		timestamp,
+		// args $16
+		node.LastIPPort,
+		// args $17,
+		walletFeatures,
+	)
+
+	if err == nil {
+		affected, affectedErr := res.RowsAffected()
+		if affectedErr == nil && affected > 0 {
+			return nil
+		}
+	}
+
+	_, err = cache.db.ExecContext(ctx, `
 			INSERT INTO nodes
 			(
 				id, address, last_net, protocol, type,
@@ -1714,8 +1778,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END,
 				last_ip_port=$19,
 				wallet_features=$20;
-			`
-	_, err = cache.db.ExecContext(ctx, query,
+			`,
 		// args $1 - $5
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
 		// args $6 - $8
@@ -1742,7 +1805,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 
 var (
 	// ErrVetting is the error class for the following test methods.
-	ErrVetting = errs.Class("vetting error")
+	ErrVetting = errs.Class("vetting")
 )
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
@@ -1801,4 +1864,34 @@ func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.
 	}
 
 	return rows.Err()
+}
+
+// IterateAllNodeDossiers will call cb on all known nodes (used for invoice generation).
+func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(context.Context, *overlay.NodeDossier) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const nodesPerPage = 1000
+	var cont *dbx.Paged_Node_Continuation
+	var dbxNodes []*dbx.Node
+
+	for {
+		dbxNodes, cont, err = cache.db.Paged_Node(ctx, nodesPerPage, cont)
+		if err != nil {
+			return err
+		}
+
+		for _, node := range dbxNodes {
+			dossier, err := convertDBNode(ctx, node)
+			if err != nil {
+				return err
+			}
+			if err := cb(ctx, dossier); err != nil {
+				return err
+			}
+		}
+
+		if cont == nil {
+			return nil
+		}
+	}
 }

@@ -23,6 +23,7 @@
                         width="122px"
                         height="48px"
                         :on-press="onAddUsersClick"
+                        :is-disabled="isAddButtonDisabled"
                     />
                 </div>
                 <div class="header-selected-members" v-if="areProjectMembersSelected">
@@ -84,6 +85,7 @@ import InfoIcon from '@/../static/images/team/infoTooltip.svg';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
+import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 declare interface ClearSearch {
@@ -104,6 +106,8 @@ export default class HeaderArea extends Vue {
     private readonly headerState: ProjectMemberHeaderState;
     @Prop({default: 0})
     public readonly selectedProjectMembersCount: number;
+    @Prop({default: false})
+    public readonly isAddButtonDisabled: boolean;
 
     private FIRST_PAGE = 1;
 
@@ -202,14 +206,17 @@ export default class HeaderArea extends Vue {
     }
 
     private async setProjectState(): Promise<void> {
-        const projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+        const projects: Project[] = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         if (!projects.length) {
-            await this.$router.push(RouteConfig.OnboardingTour.path);
+            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
             return;
         }
 
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+        if (!projects.includes(this.$store.getters.selectedProject)) {
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+        }
+
         await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         this.$refs.headerComponent.clearSearch();
     }

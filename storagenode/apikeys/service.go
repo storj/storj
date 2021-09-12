@@ -15,7 +15,7 @@ import (
 
 var (
 	// ErrService defines secret service error.
-	ErrService = errs.Class("secret service error")
+	ErrService = errs.Class("secret service")
 
 	mon = monkit.Package()
 )
@@ -41,7 +41,7 @@ func (service *Service) Issue(ctx context.Context) (apiKey APIKey, err error) {
 	}
 
 	apiKey.Secret = secret
-	apiKey.CreatedAt = time.Now()
+	apiKey.CreatedAt = time.Now().UTC()
 
 	err = service.store.Store(ctx, apiKey)
 	if err != nil {

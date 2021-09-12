@@ -21,6 +21,8 @@ import (
 
 // Endpoint implements private inspector for Graceful Exit.
 type Endpoint struct {
+	internalpb.DRPCNodeGracefulExitUnimplementedServer
+
 	log        *zap.Logger
 	usageCache *pieces.BlobsUsageCache
 	trust      *trust.Pool

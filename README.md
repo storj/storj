@@ -8,7 +8,7 @@
 <img src="https://github.com/storj/storj/raw/main/resources/logo.png" width="100">
 
 Storj is building a decentralized cloud storage network.
-[Check out our white paper for more info!](https://storj.io/white-paper)
+[Check out our white paper for more info!](https://storj.io/storj.pdf)
 
 ----
 
@@ -98,10 +98,10 @@ Use Github to open a pull request!
 
 ### A Note about Versioning
 
-While we are practicing [semantic versioning](https://semver.org/) for our client 
-libraries such as [uplink](https://github.com/storj/uplink), we are *not* practicing 
-semantic versioning in this repo, as we do not intend for it to be used via 
-[Go modules](https://blog.golang.org/using-go-modules). We may have 
+While we are practicing [semantic versioning](https://semver.org/) for our client
+libraries such as [uplink](https://github.com/storj/uplink), we are *not* practicing
+semantic versioning in this repo, as we do not intend for it to be used via
+[Go modules](https://blog.golang.org/using-go-modules). We may have
 backwards-incompatible changes between minor and patch releases in this repo.
 
 # Start using Storj
@@ -127,5 +127,5 @@ code under Apache v2, or other licenses in the future.
 # Support
 
 If you have any questions or suggestions please reach out to us on
-[our community forum](https://forum.storj.io/) or
-email us at support@tardigrade.io.
+[our community forum](https://forum.storj.io/) or file a ticket at
+https://support.storj.io/.

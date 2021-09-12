@@ -21,8 +21,8 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
@@ -40,13 +40,15 @@ var (
 
 // Endpoint for handling the transfer of pieces for Graceful Exit.
 type Endpoint struct {
+	pb.DRPCSatelliteGracefulExitUnimplementedServer
+
 	log            *zap.Logger
 	interval       time.Duration
 	signer         signing.Signer
 	db             DB
 	overlaydb      overlay.DB
 	overlay        *overlay.Service
-	metabase       metainfo.MetabaseDB
+	metabase       *metabase.DB
 	orders         *orders.Service
 	connections    *connectionsTracker
 	peerIdentities overlay.PeerIdentities
@@ -89,7 +91,7 @@ func (pm *connectionsTracker) delete(nodeID storj.NodeID) {
 }
 
 // NewEndpoint creates a new graceful exit endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, metabase metainfo.MetabaseDB, orders *orders.Service,
+func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, metabase *metabase.DB, orders *orders.Service,
 	peerIdentities overlay.PeerIdentities, config Config) *Endpoint {
 	return &Endpoint{
 		log:            log,

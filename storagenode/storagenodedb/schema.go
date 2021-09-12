@@ -4,7 +4,7 @@
 
 package storagenodedb
 
-import "storj.io/storj/private/dbutil/dbschema"
+import "storj.io/private/dbutil/dbschema"
 
 func Schema() map[string]*dbschema.Schema {
 	return map[string]*dbschema.Schema{

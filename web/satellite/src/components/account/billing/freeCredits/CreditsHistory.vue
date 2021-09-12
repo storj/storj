@@ -16,12 +16,15 @@
                 <div class="credit-history__title-area">
                     <h1 class="credit-history__title">Credit History</h1>
                 </div>
-                <SortingHeader/>
-                <CreditsItem
-                    v-for="(item, index) in historyItems"
-                    :key="index"
-                    :credits-item="item"
-                />
+                <VLoader v-if="isHistoryFetching"/>
+                <template v-else>
+                    <SortingHeader/>
+                    <CreditsItem
+                        v-for="(item, index) in historyItems"
+                        :key="index"
+                        :credits-item="item"
+                    />
+                </template>
             </div>
         </div>
     </div>
@@ -30,12 +33,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import AddCouponCode from '@/components/account/billing/freeCredits/AddCouponCode.vue';
 import CreditsItem from '@/components/account/billing/freeCredits/CreditsItem.vue';
 import SortingHeader from '@/components/account/billing/freeCredits/SortingHeader.vue';
 import VButton from '@/components/common/VButton.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
 @Component({
@@ -43,9 +47,25 @@ import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
         CreditsItem,
         SortingHeader,
         VButton,
+        VLoader,
     },
 })
 export default class CreditsHistory extends Vue {
+    public isHistoryFetching: boolean = true;
+
+    /**
+     * Lifecycle hook after initial render.
+     * Fetches payments history.
+     */
+    public async mounted(): Promise<void> {
+        try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
+
+            this.isHistoryFetching = false;
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
 
     /**
      * Returns list of free credit history items.
@@ -78,7 +98,6 @@ export default class CreditsHistory extends Vue {
     public get couponCodeUIEnabled(): boolean {
         return this.$store.state.appStateModule.couponCodeUIEnabled;
     }
-
 }
 </script>
 

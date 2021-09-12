@@ -6,16 +6,15 @@ package satellitedb
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/cache"
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
+	"storj.io/storj/private/lrucache"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -28,7 +27,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -49,11 +47,11 @@ type satelliteDB struct {
 
 	migrationDB tagsql.DB
 
-	opts           Options
-	log            *zap.Logger
-	driver         string
-	implementation dbutil.Implementation
-	source         string
+	opts   Options
+	log    *zap.Logger
+	driver string
+	impl   dbutil.Implementation
+	source string
 
 	consoleDBOnce sync.Once
 	consoleDB     *ConsoleDB
@@ -65,8 +63,8 @@ type satelliteDB struct {
 // Options includes options for how a satelliteDB runs.
 type Options struct {
 	ApplicationName      string
-	APIKeysLRUOptions    cache.Options
-	RevocationLRUOptions cache.Options
+	APIKeysLRUOptions    lrucache.Options
+	RevocationLRUOptions lrucache.Options
 
 	// How many storage node rollups to save/read in one batch.
 	SaveRollupBatchSize int
@@ -108,11 +106,11 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 }
 
 func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options, override string) (*satelliteDB, error) {
-	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
+	driver, source, impl, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
 	}
-	if implementation != dbutil.Postgres && implementation != dbutil.Cockroach {
+	if impl != dbutil.Postgres && impl != dbutil.Cockroach {
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
@@ -137,11 +135,11 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	core := &satelliteDB{
 		DB: dbxDB,
 
-		opts:           opts,
-		log:            log,
-		driver:         driver,
-		implementation: implementation,
-		source:         source,
+		opts:   opts,
+		log:    log,
+		driver: driver,
+		impl:   impl,
+		source: source,
 	}
 
 	core.migrationDB = core
@@ -156,16 +154,6 @@ func (dbc *satelliteDBCollection) getByName(name string) *satelliteDB {
 		}
 	}
 	return dbc.dbs[""]
-}
-
-// AsOfSystemTimeClause returns the "AS OF SYSTEM TIME" clause if the DB implementation
-// is CockroachDB and the interval is less than 0.
-func (db *satelliteDB) AsOfSystemTimeClause(interval time.Duration) (asOf string) {
-	if db.implementation == dbutil.Cockroach && interval < 0 {
-		asOf = " AS OF SYSTEM TIME '" + interval.String() + "' "
-	}
-
-	return asOf
 }
 
 // TestDBAccess for raw database access,
@@ -212,18 +200,13 @@ func (dbc *satelliteDBCollection) ProjectAccounting() accounting.ProjectAccounti
 	return &ProjectAccounting{db: dbc.getByName("projectaccounting")}
 }
 
-// Irreparable returns database for storing segments that failed repair.
-func (dbc *satelliteDBCollection) Irreparable() irreparable.DB {
-	return &irreparableDB{db: dbc.getByName("irreparable")}
-}
-
 // Revocation returns the database to deal with macaroon revocation.
 func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 	db := dbc.getByName("revocation")
 	db.revocationDBOnce.Do(func() {
 		db.revocationDB = &revocationDB{
 			db:      db,
-			lru:     cache.New(db.opts.RevocationLRUOptions),
+			lru:     lrucache.New(db.opts.RevocationLRUOptions),
 			methods: db,
 		}
 	})

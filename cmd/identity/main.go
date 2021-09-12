@@ -24,7 +24,7 @@ import (
 	"storj.io/private/process"
 	"storj.io/private/version"
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/private/version/checker"
 )

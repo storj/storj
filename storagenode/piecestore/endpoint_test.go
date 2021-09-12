@@ -160,6 +160,80 @@ func TestUpload(t *testing.T) {
 	})
 }
 
+// TestSlowUpload tries to mock a SlowLoris attack.
+func TestSlowUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+
+			StorageNode: func(index int, config *storagenode.Config) {
+				// Set MinUploadSpeed to extremely high to indicates that
+				// client upload rate is slow (relative to node's standards)
+				config.Storage2.MinUploadSpeed = 10000000 * memory.MB
+
+				// Storage Node waits only few microsecond before starting the measurement
+				// of upload rate to flag unsually slow connection
+				config.Storage2.MinUploadSpeedGraceDuration = 500 * time.Microsecond
+
+				config.Storage2.MinUploadSpeedCongestionThreshold = 0.8
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
+
+		for _, tt := range []struct {
+			pieceID       storj.PieceID
+			contentLength memory.Size
+			action        pb.PieceAction
+			err           string
+		}{
+			{ // connection should be aborted
+				pieceID: storj.PieceID{1},
+				// As the server node only starts flagging unusually slow connection
+				// after 500 micro seconds, the file should be big enough to ensure the connection is still open.
+				contentLength: 50 * memory.MB,
+				action:        pb.PieceAction_PUT,
+				err:           "speed too low",
+			},
+		} {
+			data := testrand.Bytes(tt.contentLength)
+
+			serialNumber := testrand.SerialNumber()
+
+			orderLimit, piecePrivateKey := GenerateOrderLimit(
+				t,
+				planet.Satellites[0].ID(),
+				planet.StorageNodes[0].ID(),
+				tt.pieceID,
+				tt.action,
+				serialNumber,
+				24*time.Hour,
+				24*time.Hour,
+				int64(len(data)),
+			)
+			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+			require.NoError(t, err)
+
+			pieceHash, err := client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(data))
+
+			if tt.err != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.err)
+			} else {
+				require.NoError(t, err)
+
+				expectedHash := pkcrypto.SHA256Hash(data)
+				assert.Equal(t, expectedHash, pieceHash.Hash)
+
+				signee := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
+				require.NoError(t, signing.VerifyPieceHashSignature(ctx, signee, pieceHash))
+			}
+		}
+	})
+}
 func TestUploadOverAvailable(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
@@ -256,6 +330,7 @@ func TestDownload(t *testing.T) {
 				errs:    []string{"expected get or get repair or audit action got PUT"},
 			},
 		} {
+			tt := tt
 			serialNumber := testrand.SerialNumber()
 
 			orderLimit, piecePrivateKey := GenerateOrderLimit(
@@ -277,20 +352,31 @@ func TestDownload(t *testing.T) {
 			require.NoError(t, err)
 
 			buffer := make([]byte, len(expectedData))
-			n, err := downloader.Read(buffer)
+			n, readErr := downloader.Read(buffer)
 
 			if len(tt.errs) > 0 {
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, readErr)
 				require.Equal(t, expectedData, buffer[:n])
 			}
 
-			err = downloader.Close()
-			if len(tt.errs) > 0 {
-				require.Error(t, err)
-				require.True(t, strings.Contains(err.Error(), tt.errs[0]) || strings.Contains(err.Error(), tt.errs[1]), err.Error())
-			} else {
+			closeErr := downloader.Close()
+			err = errs.Combine(readErr, closeErr)
+
+			switch len(tt.errs) {
+			case 0:
 				require.NoError(t, err)
+			case 1:
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errs[0])
+			case 2:
+				require.Error(t, err)
+				require.Conditionf(t, func() bool {
+					return strings.Contains(err.Error(), tt.errs[0]) ||
+						strings.Contains(err.Error(), tt.errs[1])
+				}, "expected error to contain %q or %q, but it does not: %v", tt.errs[0], tt.errs[1], err)
+			default:
+				require.FailNow(t, "unexpected number of error cases")
 			}
 
 			// these should only be not-nil if action = pb.PieceAction_GET_REPAIR
@@ -554,7 +640,7 @@ func TestTooManyRequests(t *testing.T) {
 				storageNode := planet.StorageNodes[0]
 				config := piecestore.DefaultConfig
 
-				client, err := piecestore.DialNodeURL(ctx, uplink.Dialer, storageNode.NodeURL(), uplink.Log, config)
+				client, err := piecestore.Dial(ctx, uplink.Dialer, storageNode.NodeURL(), config)
 				if err != nil {
 					return err
 				}

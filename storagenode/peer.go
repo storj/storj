@@ -26,9 +26,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/multinodepb"
+	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
@@ -313,7 +313,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			if err != nil {
 				withoutStack := errors.New(err.Error())
 				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-				err = nil
 			}
 		}
 		debugConfig := config.Debug
@@ -420,7 +419,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.Contact.Chore.Close,
 		})
 
-		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
+		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Storage2.Trust, peer.Contact.PingStats)
 		if err := pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -564,8 +563,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
-	{ // setup payouts service.
-		service, err := payouts.NewService(
+	{ // setup payouts.
+		peer.Payout.Service, err = payouts.NewService(
 			peer.Log.Named("payouts:service"),
 			peer.DB.Payout(),
 			peer.DB.Reputation(),
@@ -575,7 +574,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-		peer.Payout.Service = service
+
 		peer.Payout.Endpoint = payouts.NewEndpoint(
 			peer.Log.Named("payouts:endpoint"),
 			peer.Dialer,
@@ -787,25 +786,33 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Multinode.Storage = multinode.NewStorageEndpoint(
 			peer.Log.Named("multinode:storage-endpoint"),
 			apiKeys,
-			peer.Storage2.Monitor)
+			peer.Storage2.Monitor,
+			peer.DB.StorageUsage(),
+		)
 
 		peer.Multinode.Bandwidth = multinode.NewBandwidthEndpoint(
 			peer.Log.Named("multinode:bandwidth-endpoint"),
 			apiKeys,
-			peer.DB.Bandwidth())
+			peer.DB.Bandwidth(),
+		)
 
 		peer.Multinode.Node = multinode.NewNodeEndpoint(
 			peer.Log.Named("multinode:node-endpoint"),
+			config.Operator,
 			apiKeys,
 			peer.Version.Service.Info,
 			peer.Contact.PingStats,
 			peer.DB.Reputation(),
-			peer.Storage2.Trust)
+			peer.Storage2.Trust,
+		)
 
 		peer.Multinode.Payout = multinode.NewPayoutEndpoint(
 			peer.Log.Named("multinode:payout-endpoint"),
 			apiKeys,
-			peer.DB.Payout())
+			peer.DB.Payout(),
+			peer.Estimation.Service,
+			peer.Payout.Service,
+		)
 
 		if err = multinodepb.DRPCRegisterStorage(peer.Server.DRPC(), peer.Multinode.Storage); err != nil {
 			return nil, errs.Combine(err, peer.Close())

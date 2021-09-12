@@ -1,0 +1,12 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`PayoutsSummaryItem renders correctly 1`] = `
+<tr class="table-item payouts-summary-item">
+  <th class="align-left node-name">name1</th>
+  <th>$50.00</th>
+  <th>$40.00</th>
+  <th class="overflow-visible options">
+    <node-options-stub id="1"></node-options-stub>
+  </th>
+</tr>
+`;

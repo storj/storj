@@ -26,7 +26,7 @@ var (
 	// Error is the default error class for contact package.
 	Error = errs.Class("contact")
 
-	errPingSatellite = errs.Class("ping satellite error")
+	errPingSatellite = errs.Class("ping satellite")
 )
 
 const initialBackOff = time.Second
@@ -139,6 +139,9 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	}
 	if resp != nil && !resp.PingNodeSuccess {
 		return errPingSatellite.New("%s", resp.PingErrorMessage)
+	}
+	if resp.PingErrorMessage != "" {
+		service.log.Warn("Your node is still considered to be online but encountered an error.", zap.Stringer("Satellite ID", id), zap.String("Error", resp.GetPingErrorMessage()))
 	}
 	return nil
 }

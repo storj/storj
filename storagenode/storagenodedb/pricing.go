@@ -18,7 +18,7 @@ import (
 var _ pricing.DB = (*pricingDB)(nil)
 
 // ErrPricing represents errors from the pricing database.
-var ErrPricing = errs.Class("pricing error")
+var ErrPricing = errs.Class("pricing")
 
 // PricingDBName represents the database name.
 const PricingDBName = "pricing"

@@ -5,17 +5,18 @@ package queue_test
 
 import (
 	"sort"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/errs2"
-	"storj.io/common/pb"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
 )
@@ -24,18 +25,26 @@ func TestInsertSelect(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
-		seg := &internalpb.InjuredSegment{
-			Path:       []byte("abc"),
-			LostPieces: []int32{int32(1), int32(3)},
+		seg := &queue.InjuredSegment{
+			StreamID: testrand.UUID(),
+			Position: metabase.SegmentPosition{
+				Part:  uint32(testrand.Intn(1000)),
+				Index: uint32(testrand.Intn(1000)),
+			},
+			SegmentHealth: 0.4,
 		}
-		alreadyInserted, err := q.Insert(ctx, seg, 10)
+		alreadyInserted, err := q.Insert(ctx, seg)
 		require.NoError(t, err)
 		require.False(t, alreadyInserted)
 		s, err := q.Select(ctx)
 		require.NoError(t, err)
 		err = q.Delete(ctx, s)
 		require.NoError(t, err)
-		require.True(t, pb.Equal(s, seg))
+		require.Equal(t, seg.StreamID, s.StreamID)
+		require.Equal(t, seg.Position, s.Position)
+		require.Equal(t, seg.SegmentHealth, s.SegmentHealth)
+		require.WithinDuration(t, time.Now(), s.InsertedAt, 5*time.Second)
+		require.NotZero(t, s.UpdatedAt)
 	})
 }
 
@@ -43,14 +52,18 @@ func TestInsertDuplicate(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
-		seg := &internalpb.InjuredSegment{
-			Path:       []byte("abc"),
-			LostPieces: []int32{int32(1), int32(3)},
+		seg := &queue.InjuredSegment{
+			StreamID: testrand.UUID(),
+			Position: metabase.SegmentPosition{
+				Part:  uint32(testrand.Intn(1000)),
+				Index: uint32(testrand.Intn(1000)),
+			},
+			SegmentHealth: 10,
 		}
-		alreadyInserted, err := q.Insert(ctx, seg, 10)
+		alreadyInserted, err := q.Insert(ctx, seg)
 		require.NoError(t, err)
 		require.False(t, alreadyInserted)
-		alreadyInserted, err = q.Insert(ctx, seg, 10)
+		alreadyInserted, err = q.Insert(ctx, seg)
 		require.NoError(t, err)
 		require.True(t, alreadyInserted)
 	})
@@ -71,13 +84,13 @@ func TestSequential(t *testing.T) {
 		q := db.RepairQueue()
 
 		const N = 20
-		var addSegs []*internalpb.InjuredSegment
+		var addSegs []*queue.InjuredSegment
 		for i := 0; i < N; i++ {
-			seg := &internalpb.InjuredSegment{
-				Path:       []byte(strconv.Itoa(i)),
-				LostPieces: []int32{int32(i)},
+			seg := &queue.InjuredSegment{
+				StreamID:      uuid.UUID{byte(i)},
+				SegmentHealth: 6,
 			}
-			alreadyInserted, err := q.Insert(ctx, seg, 10)
+			alreadyInserted, err := q.Insert(ctx, seg)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
 			addSegs = append(addSegs, seg)
@@ -87,20 +100,15 @@ func TestSequential(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, list, N)
 
-		sort.SliceStable(list, func(i, j int) bool { return list[i].LostPieces[0] < list[j].LostPieces[0] })
-
-		for i := 0; i < N; i++ {
-			require.True(t, pb.Equal(addSegs[i], &list[i]))
-		}
-
-		// TODO: fix out of order issue
 		for i := 0; i < N; i++ {
 			s, err := q.Select(ctx)
 			require.NoError(t, err)
 			err = q.Delete(ctx, s)
 			require.NoError(t, err)
-			expected := s.LostPieces[0]
-			require.True(t, pb.Equal(addSegs[expected], s))
+
+			require.Equal(t, addSegs[i].StreamID, s.StreamID)
+			require.Equal(t, addSegs[i].Position, s.Position)
+			require.Equal(t, addSegs[i].SegmentHealth, s.SegmentHealth)
 		}
 	})
 }
@@ -109,17 +117,23 @@ func TestParallel(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 		const N = 20
-		entries := make(chan *internalpb.InjuredSegment, N)
+		entries := make(chan *queue.InjuredSegment, N)
+
+		expectedSegments := make([]*queue.InjuredSegment, N)
+		for i := 0; i < N; i++ {
+			expectedSegments[i] = &queue.InjuredSegment{
+				StreamID:      testrand.UUID(),
+				SegmentHealth: float64(i),
+			}
+		}
 
 		var inserts errs2.Group
 		// Add to queue concurrently
 		for i := 0; i < N; i++ {
 			i := i
 			inserts.Go(func() error {
-				_, err := q.Insert(ctx, &internalpb.InjuredSegment{
-					Path:       []byte(strconv.Itoa(i)),
-					LostPieces: []int32{int32(i)},
-				}, 10)
+				alreadyInserted, err := q.Insert(ctx, expectedSegments[i])
+				require.False(t, alreadyInserted)
 				return err
 			})
 		}
@@ -147,19 +161,25 @@ func TestParallel(t *testing.T) {
 		require.Empty(t, remove.Wait(), "unexpected queue.Select/Delete errors")
 		close(entries)
 
-		var items []*internalpb.InjuredSegment
+		var items []*queue.InjuredSegment
 		for segment := range entries {
 			items = append(items, segment)
 		}
 
 		sort.Slice(items, func(i, k int) bool {
-			return items[i].LostPieces[0] < items[k].LostPieces[0]
+			return items[i].SegmentHealth < items[k].SegmentHealth
 		})
 
 		// check if the enqueued and dequeued elements match
 		for i := 0; i < N; i++ {
-			require.Equal(t, items[i].LostPieces[0], int32(i))
+			require.Equal(t, expectedSegments[i].StreamID, items[i].StreamID)
+			require.Equal(t, expectedSegments[i].Position, items[i].Position)
+			require.Equal(t, expectedSegments[i].SegmentHealth, items[i].SegmentHealth)
 		}
+
+		count, err := q.Count(ctx)
+		require.NoError(t, err)
+		require.Zero(t, count)
 	})
 }
 
@@ -167,29 +187,26 @@ func TestClean(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
-		seg1 := &internalpb.InjuredSegment{
-			Path:       []byte("seg1"),
-			LostPieces: []int32{int32(1), int32(3)},
+		seg1 := &queue.InjuredSegment{
+			StreamID: testrand.UUID(),
 		}
-		seg2 := &internalpb.InjuredSegment{
-			Path:       []byte("seg2"),
-			LostPieces: []int32{int32(1), int32(3)},
+		seg2 := &queue.InjuredSegment{
+			StreamID: testrand.UUID(),
 		}
-		seg3 := &internalpb.InjuredSegment{
-			Path:       []byte("seg3"),
-			LostPieces: []int32{int32(1), int32(3)},
+		seg3 := &queue.InjuredSegment{
+			StreamID: testrand.UUID(),
 		}
 
 		timeBeforeInsert1 := time.Now()
 
 		segmentHealth := 1.3
-		_, err := q.Insert(ctx, seg1, segmentHealth)
+		_, err := q.Insert(ctx, seg1)
 		require.NoError(t, err)
 
-		_, err = q.Insert(ctx, seg2, segmentHealth)
+		_, err = q.Insert(ctx, seg2)
 		require.NoError(t, err)
 
-		_, err = q.Insert(ctx, seg3, segmentHealth)
+		_, err = q.Insert(ctx, seg3)
 		require.NoError(t, err)
 
 		count, err := q.Count(ctx)
@@ -208,11 +225,12 @@ func TestClean(t *testing.T) {
 
 		// seg1 "becomes healthy", so do not update it
 		// seg2 stays at the same health
-		_, err = q.Insert(ctx, seg2, segmentHealth)
+		_, err = q.Insert(ctx, seg2)
 		require.NoError(t, err)
 
 		// seg3 has a lower health
-		_, err = q.Insert(ctx, seg3, segmentHealth-0.1)
+		seg3.SegmentHealth = segmentHealth - 0.1
+		_, err = q.Insert(ctx, seg3)
 		require.NoError(t, err)
 
 		count, err = q.Count(ctx)

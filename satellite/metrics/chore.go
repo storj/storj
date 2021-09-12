@@ -12,18 +12,17 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 )
 
 var (
 	// Error defines the metrics chore errors class.
-	Error = errs.Class("metrics chore error")
+	Error = errs.Class("metrics")
 	mon   = monkit.Package()
 )
 
 // Config contains configurable values for metrics collection.
 type Config struct {
-	ChoreInterval time.Duration `help:"the time between each metrics chore run" releaseDefault:"15m" devDefault:"15m"`
 }
 
 // Chore implements the metrics chore.
@@ -40,9 +39,10 @@ type Chore struct {
 // NewChore creates a new instance of the metrics chore.
 func NewChore(log *zap.Logger, config Config, loop *metaloop.Service) *Chore {
 	return &Chore{
-		log:          log,
-		config:       config,
-		Loop:         sync2.NewCycle(config.ChoreInterval),
+		log:    log,
+		config: config,
+		// This chore monitors metainfo loop, so it's fine to use very small cycle time.
+		Loop:         sync2.NewCycle(time.Nanosecond),
 		metainfoLoop: loop,
 	}
 }
@@ -56,7 +56,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		chore.Counter = NewCounter()
 
-		err = chore.metainfoLoop.Join(ctx, chore.Counter)
+		err = chore.metainfoLoop.Monitor(ctx, chore.Counter)
 		if err != nil {
 			chore.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil

@@ -34,10 +34,10 @@ type DB interface {
 }
 
 // ErrNoDataForPeriod represents errors from the payouts database.
-var ErrNoDataForPeriod = errs.Class("no payStub/payments for period error")
+var ErrNoDataForPeriod = errs.Class("no payStub/payments for period")
 
 // Error is the default error class for payouts package.
-var Error = errs.Class("payouts db error")
+var Error = errs.Class("payoutsdb")
 
 // Paystub is an entity that holds held amount of cash that will be paid to storagenode operator after some period.
 type Paystub struct {

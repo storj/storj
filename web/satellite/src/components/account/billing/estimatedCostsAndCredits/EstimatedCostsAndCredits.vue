@@ -3,17 +3,24 @@
 
 <template>
     <div class="current-month-area">
-        <h1 class="current-month-area__costs">{{ priceSummary | centsToDollars }}</h1>
-        <span class="current-month-area__title">Estimated Charges for {{ chosenPeriod }}</span>
-        <div class="current-month-area__content">
-            <p class="current-month-area__content__title">DETAILS</p>
-            <UsageAndChargesItem
-                v-for="usageAndCharges in projectUsageAndCharges"
-                :item="usageAndCharges"
-                :key="usageAndCharges.projectId"
-                class="item"
-            />
-        </div>
+        <VLoader class="consts-loader" v-if="isDataFetching"/>
+        <template v-else>
+            <h1 class="current-month-area__costs">{{ priceSummary | centsToDollars }}</h1>
+            <span class="current-month-area__title">Estimated Charges for {{ chosenPeriod }}</span>
+            <p class="current-month-area__info">
+                If you still have Storage and Bandwidth remaining in your free tier, you won’t be charged. This information
+                is to help you estimate what charges would have been had you graduated to the paid tier.
+            </p>
+            <div class="current-month-area__content">
+                <p class="current-month-area__content__title">DETAILS</p>
+                <UsageAndChargesItem
+                    v-for="usageAndCharges in projectUsageAndCharges"
+                    :item="usageAndCharges"
+                    :key="usageAndCharges.projectId"
+                    class="item"
+                />
+            </div>
+        </template>
     </div>
 </template>
 
@@ -22,8 +29,10 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { MONTHS_NAMES } from '@/utils/constants/date';
 
@@ -31,17 +40,22 @@ import { MONTHS_NAMES } from '@/utils/constants/date';
     components: {
         VButton,
         UsageAndChargesItem,
+        VLoader,
     },
 })
 export default class EstimatedCostsAndCredits extends Vue {
+    public isDataFetching: boolean = true;
+
     /**
      * Lifecycle hook after initial render.
-     * Fetches current project usage rollup.
+     * Fetches projects and usage rollup.
      */
     public async mounted(): Promise<void> {
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+
+            this.isDataFetching = false;
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -101,6 +115,13 @@ export default class EstimatedCostsAndCredits extends Vue {
             color: #909090;
         }
 
+        &__info {
+            font-size: 14px;
+            line-height: 20px;
+            color: #909090;
+            margin: 15px 0 0 0;
+        }
+
         &__content {
             margin-top: 35px;
 
@@ -124,5 +145,9 @@ export default class EstimatedCostsAndCredits extends Vue {
 
     .item {
         border-top: 1px solid #c7cdd2;
+    }
+
+    .consts-loader {
+        padding-bottom: 40px;
     }
 </style>

@@ -1,0 +1,26 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DetailsArea renders correctly 1`] = `
+<info-block-stub>
+  <div class="details-area">
+    <header class="details-area__header">
+      <h3 class="details-area__header__title">Details</h3>
+      <p class="details-area__header__period">April, 2021</p>
+    </header>
+    <div class="details-area__content">
+      <div class="details-area__content__item">
+        <p class="details-area__content__item__label">EARNED</p>
+        <p class="details-area__content__item__value">$50.00</p>
+      </div>
+      <div class="details-area__content__item">
+        <p class="details-area__content__item__label">HELD</p>
+        <p class="details-area__content__item__value">$7.00</p>
+      </div>
+      <div class="details-area__content__item">
+        <p class="details-area__content__item__label">PAID</p>
+        <p class="details-area__content__item__value">$600.00</p>
+      </div>
+    </div>
+  </div>
+</info-block-stub>
+`;

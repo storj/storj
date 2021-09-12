@@ -38,16 +38,12 @@ func NewService(db overlay.PeerIdentities) *Service {
 	}
 }
 
-// VerifySizes verifies that the remote piece sizes in pointer match each other.
-func (service *Service) VerifySizes(ctx context.Context, pointer *pb.Pointer) (err error) {
+// VerifySizes verifies that the remote piece sizes in commitSegment match each other.
+func (service *Service) VerifySizes(ctx context.Context, redundancy storj.RedundancyScheme, encryptedSize int64, uploadResponses []*pb.SegmentPieceUploadResult) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if pointer.Type != pb.Pointer_REMOTE {
-		return nil
-	}
-
 	commonSize := int64(-1)
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+	for _, piece := range uploadResponses {
 		if piece.Hash == nil {
 			continue
 		}
@@ -66,12 +62,12 @@ func (service *Service) VerifySizes(ctx context.Context, pointer *pb.Pointer) (e
 		return Error.New("no remote pieces")
 	}
 
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	redundancyScheme, err := eestream.NewRedundancyStrategyFromStorj(redundancy)
 	if err != nil {
 		return Error.New("invalid redundancy strategy: %v", err)
 	}
 
-	expectedSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
+	expectedSize := eestream.CalcPieceSize(encryptedSize, redundancyScheme)
 	if expectedSize != commonSize {
 		return Error.New("expected size is different from provided (%d != %d)", expectedSize, commonSize)
 	}
@@ -87,15 +83,23 @@ type InvalidPiece struct {
 }
 
 // SelectValidPieces selects pieces that are have correct hashes and match the original limits.
-func (service *Service) SelectValidPieces(ctx context.Context, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (valid []*pb.RemotePiece, invalid []InvalidPiece, err error) {
+func (service *Service) SelectValidPieces(ctx context.Context, uploadResponses []*pb.SegmentPieceUploadResult, originalLimits []*pb.OrderLimit) (valid []*pb.SegmentPieceUploadResult, invalid []InvalidPiece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = service.identities.EnsureCached(ctx, pointer.GetRemote().GetRemotePieces())
+	nodeIDs := make([]storj.NodeID, 0, len(originalLimits))
+	for _, limit := range originalLimits {
+		if limit == nil {
+			continue
+		}
+		nodeIDs = append(nodeIDs, limit.StorageNodeId)
+	}
+
+	err = service.identities.EnsureCached(ctx, nodeIDs)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+	for _, piece := range uploadResponses {
 		if int(piece.PieceNum) >= len(originalLimits) {
 			return nil, nil, Error.New("invalid piece number")
 		}
@@ -153,7 +157,7 @@ func (service *Service) SelectValidPieces(ctx context.Context, pointer *pb.Point
 }
 
 // VerifyPieceAndLimit verifies that the piece and limit match.
-func VerifyPieceAndLimit(ctx context.Context, piece *pb.RemotePiece, limit *pb.OrderLimit) (err error) {
+func VerifyPieceAndLimit(ctx context.Context, piece *pb.SegmentPieceUploadResult, limit *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// ensure that we have a hash

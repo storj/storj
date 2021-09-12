@@ -14,7 +14,7 @@ var mon = monkit.Package()
 
 func init() {
 	// catch dbx errors
-	class := errs.Class("multinodedb dbx error")
+	class := errs.Class("multinodedb dbx")
 	WrapErr = func(e *Error) error {
 		if e.Code == ErrorCode_NoRows {
 			return e.Err

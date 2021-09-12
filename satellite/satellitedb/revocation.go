@@ -9,13 +9,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/cache"
+	"storj.io/storj/private/lrucache"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type revocationDB struct {
 	db      *satelliteDB
-	lru     *cache.ExpiringLRU
+	lru     *lrucache.ExpiringLRU
 	methods dbx.Methods
 }
 

@@ -29,6 +29,8 @@ import ReputationIcon from '@/../static/images/icons/navigation/reputation.svg';
 import TrafficIcon from '@/../static/images/icons/navigation/traffic.svg';
 import StorjLogo from '@/../static/images/Logo.svg';
 
+import { Config as RouterConfig } from '@/app/router';
+
 export class NavigationLink {
     constructor(
         public name: string = '',
@@ -51,11 +53,11 @@ export default class NavigationArea extends Vue {
     /**
      * Array of navigation links with icons.
      */
-    // TODO: add actual routes
     public readonly navigation: NavigationLink[] = [
-        new NavigationLink('My Nodes', '/my-nodes', MyNodesIcon),
-        new NavigationLink('Payouts', '/payouts', PayoutsIcon),
-        new NavigationLink('Bandwidth & Disk', '/traffic', TrafficIcon),
+        new NavigationLink(RouterConfig.MyNodes.name, RouterConfig.MyNodes.path, MyNodesIcon),
+        new NavigationLink(RouterConfig.Wallets.name, RouterConfig.Wallets.with(RouterConfig.WalletsSummary).path, PayoutsIcon),
+        new NavigationLink(RouterConfig.Payouts.name, RouterConfig.Payouts.path, PayoutsIcon),
+        new NavigationLink(RouterConfig.Bandwidth.name, RouterConfig.Bandwidth.path, TrafficIcon),
         new NavigationLink('Reputation', '/reputation', ReputationIcon),
         new NavigationLink('Notifications', '/notifications', NotificationIcon),
     ];

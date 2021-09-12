@@ -30,19 +30,18 @@ import (
 	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
-	"storj.io/storj/pkg/cache"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/lrucache"
+	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // Satellite defines satellite configuration.
@@ -64,16 +63,16 @@ type Satellite struct {
 }
 
 // APIKeysLRUOptions returns a cache.Options based on the APIKeys LRU config.
-func (s *Satellite) APIKeysLRUOptions() cache.Options {
-	return cache.Options{
+func (s *Satellite) APIKeysLRUOptions() lrucache.Options {
+	return lrucache.Options{
 		Expiration: s.DatabaseOptions.APIKeysCache.Expiration,
 		Capacity:   s.DatabaseOptions.APIKeysCache.Capacity,
 	}
 }
 
 // RevocationLRUOptions returns a cache.Options based on the Revocations LRU config.
-func (s *Satellite) RevocationLRUOptions() cache.Options {
-	return cache.Options{
+func (s *Satellite) RevocationLRUOptions() lrucache.Options {
+	return lrucache.Options{
 		Expiration: s.DatabaseOptions.RevocationsCache.Expiration,
 		Capacity:   s.DatabaseOptions.RevocationsCache.Capacity,
 	}
@@ -376,15 +375,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL, "satellite-core")
-	if err != nil {
-		return errs.New("Error creating metainfodb connection: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, pointerDB.Close())
-	}()
-
-	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
 	}
@@ -419,7 +410,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
 	}()
 
-	peer, err := satellite.New(log, identity, db, pointerDB, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
+	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -434,14 +425,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher", zap.Error(err))
 	}
 
-	err = pointerDB.MigrateToLatest(ctx)
+	err = metabaseDB.CheckVersion(ctx)
 	if err != nil {
-		return errs.New("Error creating metainfodb tables: %+v", err)
-	}
-
-	err = metabaseDB.MigrateToLatest(ctx)
-	if err != nil {
-		return errs.New("Error creating metabase tables: %+v", err)
+		log.Error("Failed metabase database version check.", zap.Error(err))
+		return errs.New("failed metabase version check: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)
@@ -472,19 +459,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	pdb, err := metainfo.OpenStore(ctx, log.Named("migration"), runCfg.Metainfo.DatabaseURL, "satellite-migration")
-	if err != nil {
-		return errs.New("Error creating pointer database connection on satellite: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, pdb.Close())
-	}()
-	err = pdb.MigrateToLatest(ctx)
-	if err != nil {
-		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
-	}
-
-	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
 	}
@@ -541,11 +516,11 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "Path\tLost Pieces\t")
+	fmt.Fprintln(w, "Segment StreamID\tSegment Position\tSegment Health\t")
 
 	// populate the row fields
 	for _, v := range list {
-		fmt.Fprint(w, v.GetPath(), "\t", v.GetLostPieces(), "\t")
+		fmt.Fprint(w, v.StreamID.String(), "\t", v.Position.Encode(), "\t", v.SegmentHealth, "\t")
 	}
 
 	// display the data
@@ -710,7 +685,7 @@ func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err er
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.PrepareInvoiceProjectRecords(ctx, period)
 	})
 }
@@ -723,7 +698,7 @@ func cmdCreateCustomerInvoiceItems(cmd *cobra.Command, args []string) (err error
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyProjectRecords(ctx, period)
 	})
 }
@@ -736,7 +711,7 @@ func cmdCreateCustomerInvoiceCoupons(cmd *cobra.Command, args []string) (err err
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyCoupons(ctx, period)
 	})
 }
@@ -749,7 +724,7 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.CreateInvoices(ctx, period)
 	})
 }
@@ -757,7 +732,7 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.FinalizeInvoices(ctx)
 	})
 }
@@ -779,8 +754,7 @@ func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {
 	if before.After(time.Now()) {
 		return errs.New("before flag value cannot be newer than the current time.")
 	}
-
-	return cleanupGEOrphanedData(ctx, before.UTC())
+	return cleanupGEOrphanedData(ctx, before.UTC(), runCfg.GracefulExit)
 }
 
 func cmdRestoreTrash(cmd *cobra.Command, args []string) error {

@@ -12,7 +12,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestOrderLimitsEncryptedMetadata(t *testing.T) {
@@ -38,7 +38,7 @@ func TestOrderLimitsEncryptedMetadata(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(segments))
 
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segments[0])
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segments[0], 0)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(limits))
 

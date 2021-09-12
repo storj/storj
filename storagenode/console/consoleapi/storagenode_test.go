@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"testing"
 	"time"
@@ -106,9 +105,9 @@ func TestStorageNodeApi(t *testing.T) {
 
 			t.Run("test EstimatedPayout", func(t *testing.T) {
 				// should return estimated payout for both satellites in current month and empty for previous
-				url := fmt.Sprintf("%s/estimated-payout", baseURL)
-
-				res, err := http.Get(url)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/estimated-payout", baseURL), nil)
+				require.NoError(t, err)
+				res, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -131,10 +130,6 @@ func TestStorageNodeApi(t *testing.T) {
 					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
 				}
 				require.NoError(t, err)
-
-				// round CurrentMonthExpectations to 3 decimal places to resolve precision issues
-				bodyPayout.CurrentMonthExpectations = math.Round(bodyPayout.CurrentMonthExpectations*100) / 100
-				expectedPayout.CurrentMonthExpectations = math.Round(expectedPayout.CurrentMonthExpectations*100) / 100
 
 				require.EqualValues(t, expectedPayout, bodyPayout)
 			})

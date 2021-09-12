@@ -5,7 +5,7 @@
     <div class="create-project-area">
         <div class="create-project-area__container">
             <img src="@/../static/images/project/createProject.png" alt="create project image">
-            <h2 class="create-project-area__title">Create a Project</h2>
+            <h2 class="create-project-area__container__title">Create a Project</h2>
             <HeaderedInput
                 label="Project Name"
                 additional-label="Up To 20 Characters"
@@ -65,16 +65,8 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
-import {
-    APP_STATE_ACTIONS,
-    PM_ACTIONS,
-} from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 
 @Component({
@@ -144,9 +136,6 @@ export default class NewProjectPopup extends Vue {
         try {
             const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
             this.createdProjectId = createdProject.id;
-            this.$segment.track(SegmentEvent.PROJECT_CREATED, {
-                project_id: this.createdProjectId,
-            });
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
@@ -155,18 +144,6 @@ export default class NewProjectPopup extends Vue {
         }
 
         this.selectCreatedProject();
-
-        try {
-            await this.fetchProjectMembers();
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.createdProjectId);
-        } catch (error) {
-            await this.$notify.error(`Unable to create project. ${error.message}`);
-        }
-
-        this.clearAccessGrants();
-
-        this.clearBucketUsage();
 
         await this.$notify.success('Project created successfully!');
 
@@ -181,33 +158,6 @@ export default class NewProjectPopup extends Vue {
     private selectCreatedProject(): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
         LocalData.setSelectedProjectId(this.createdProjectId);
-
-        if (this.$store.getters.projectsCount >= this.$store.getters.user.projectLimit) {
-            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
-        }
-    }
-
-    /**
-     * Clears project members store and fetches new.
-     */
-    private async fetchProjectMembers(): Promise<void> {
-        await this.$store.dispatch(PM_ACTIONS.CLEAR);
-        const fistPage = 1;
-        await this.$store.dispatch(PM_ACTIONS.FETCH, fistPage);
-    }
-
-    /**
-     * Clears access grants store.
-     */
-    private clearAccessGrants(): void {
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
-    }
-
-    /**
-     * Clears bucket usage store.
-     */
-    private clearBucketUsage(): void {
-        this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
     }
 }
 </script>
@@ -215,6 +165,7 @@ export default class NewProjectPopup extends Vue {
 <style scoped lang="scss">
     .full-input {
         width: 100%;
+        margin-top: 20px;
     }
 
     .create-project-area {
@@ -240,6 +191,7 @@ export default class NewProjectPopup extends Vue {
                 line-height: 34px;
                 color: #384b65;
                 font-family: 'font_bold', sans-serif;
+                margin: 15px 0 30px 0;
             }
 
             &__button-container {

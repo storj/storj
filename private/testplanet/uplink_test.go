@@ -23,12 +23,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/revocation"
+	"storj.io/storj/private/server"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
-	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metaclient"
 )
 
 func TestUplinksParallel(t *testing.T) {
@@ -88,31 +87,19 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		// get a remote segment from pointerdb
-		pdb := satellite.Metainfo.Service
-		listResponse, _, err := pdb.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
+		// get a remote segment
+		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
-		var path string
-		var pointer *pb.Pointer
-		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = pdb.Get(ctx, metabase.SegmentKey(path))
-			require.NoError(t, err)
-			if pointer.GetType() == pb.Pointer_REMOTE {
-				break
-			}
-		}
-
 		// calculate how many storagenodes to kill
-		redundancy := pointer.GetRemote().GetRedundancy()
-		remotePieces := pointer.GetRemote().GetRemotePieces()
-		minReq := redundancy.GetMinReq()
+		redundancy := segments[0].Redundancy
+		remotePieces := segments[0].Pieces
+		minReq := redundancy.RequiredShares
 		numPieces := len(remotePieces)
 		toKill := numPieces - int(minReq)
 
 		for _, piece := range remotePieces[:toKill] {
-			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.NodeId))
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
 			require.NoError(t, err)
 		}
 
@@ -259,7 +246,7 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		objects, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+		objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 			Bucket: []byte("test-bucket"),
 		})
 		require.NoError(t, err)

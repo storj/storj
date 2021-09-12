@@ -5,3 +5,10 @@ export enum SortDirection {
     ASCENDING = 1,
     DESCENDING,
 }
+
+export class PartneredSatellite {
+    constructor(
+        public name: string = '',
+        public address: string = '',
+    ) {}
+}

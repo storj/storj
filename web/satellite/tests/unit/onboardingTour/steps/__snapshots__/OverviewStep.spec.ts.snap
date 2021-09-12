@@ -2,52 +2,58 @@
 
 exports[`OverviewStep.vue renders correctly 1`] = `
 <div class="overview-area">
-  <h1 class="overview-area__title">
-    Welcome to Storj.
-    <br>
-    Let’s Get Started.
-  </h1>
-  <p class="overview-area__sub-title">
-    Follow the docs to start storing data using method below.
-  </p>
-  <div class="overview-area__steps-area">
-    <div class="overview-area__steps-area__step"><img src="@/../static/images/onboardingTour/cli.png" alt="cli image" class="overview-area__steps-area__step__image">
-      <h2 class="overview-area__steps-area__step__title">CLI Tool</h2>
-      <p class="overview-area__steps-area__step__info">
-        Quickly upload data directly through the command line interface.
-      </p> <a href="https://documentation.storj.io/setup/cli" target="_blank" class="overview-area__steps-area__step__link">
-        CLI Docs &gt;
-      </a>
+  <h2 class="overview-area__header">Welcome to Storj DCS</h2>
+  <div class="overview-area__continue__area"><img src="@/../static/images/onboardingTour/continue-bg.png" alt="continue image" class="overview-area__continue__img">
+    <div class="overview-area__continue__text-area">
+      <div class="overview-area__continue__container">
+        <p class="overview-area__label continue-label server-side-label">Server-Side Encrypted</p>
+        <h3 class="overview-area__continue__header">Upload in Browser</h3>
+        <p class="overview-area__continue__text">
+          Start uploading files in the browser and instantly see how your data gets distributed over our
+          global storage network. You can always use other upload methods later.
+        </p>
+        <div class="overview-area__continue__button container" style="width: 234px; height: 48px;"><span class="label">Upload in Browser</span></div>
+      </div>
     </div>
   </div>
-  <div class="overview-area__divider"></div>
-  <p class="overview-area__next-label">Next</p>
-  <div class="overview-area__cta container" style="width: 252px; height: 48px;"><span class="label">Add a Payment Method</span></div>
-</div>
-`;
-
-exports[`OverviewStep.vue renders correctly 2`] = `
-<div class="overview-area">
-  <h1 class="overview-area__title">
-    Welcome to Storj.
-    <br>
-    Let’s Get Started.
-  </h1>
-  <p class="overview-area__sub-title">
-    Follow the docs to start storing data using method below.
-  </p>
-  <div class="overview-area__steps-area">
-    <div class="overview-area__steps-area__step"><img src="@/../static/images/onboardingTour/cli.png" alt="cli image" class="overview-area__steps-area__step__image">
-      <h2 class="overview-area__steps-area__step__title">CLI Tool</h2>
-      <p class="overview-area__steps-area__step__info">
-        Quickly upload data directly through the command line interface.
-      </p> <a href="https://documentation.storj.io/setup/cli" target="_blank" class="overview-area__steps-area__step__link">
-        CLI Docs &gt;
+  <h3 class="overview-area__second-header">More Ways To Upload</h3>
+  <div class="overview-area__path-area">
+    <div class="overview-area__path-section"><svg width="57" height="57" viewBox="0 0 57 57" fill="none" xmlns="http://www.w3.org/2000/svg" class="overview-area__path-section__icon">
+        <g clip-path="url(#clip0)">
+          <path d="M28.5606 41.3316L4.18677 49.5986V14.7212L28.5606 19.6944V41.3316Z" fill="#0046A5"></path>
+          <path d="M27.1045 18.0503L21.6953 18.4123L4.18676 14.7212L21.5304 11.8601L26.9508 13.6279L27.1045 18.0503Z" fill="#001D44"></path>
+          <path d="M0.61591 7.56298L0.631838 7.55864L4.1877 6.32031L28.5606 0.2229V11.063V55.7488L20.2017 54.1285V12.0347L4.1877 14.7212V49.6514L0.631838 48.414V15.465L0.61591 15.4674V7.56298Z" fill="#4494FF"></path>
+          <path d="M43.4352 46.8003L28.5606 55.5275V0L43.4352 8.72781V46.8003Z" fill="#0046A5"></path>
+          <path d="M48.6571 44.3283L56.4912 40.6448V15.3264L48.6571 11.644V44.3283Z" fill="#0046A5"></path>
+          <path d="M43.4352 44.1108L48.6571 44.2272V11.644L43.4352 11.7614V44.1108Z" fill="#4494FF"></path>
+        </g>
+        <defs>
+          <clipPath id="clip0">
+            <rect width="57" height="57" fill="white"></rect>
+          </clipPath>
+        </defs>
+      </svg>
+      <p class="overview-area__label server-side-label">Server-Side Encrypted</p>
+      <h4 class="overview-area__path-section__title">GatewayMT</h4>
+      <p class="overview-area__path-section__text">Backwards S3-Compatible API for uploading data programatically.</p>
+      <div class="overview-area__path-section__button container blue-white" style="height: inherit;"><span class="label">Continue</span></div>
+    </div>
+    <div class="overview-area__path-section"><img src="@/../static/images/onboardingTour/command-line-icon.png" alt="uplink icon">
+      <p class="overview-area__label">End-to-End Encrypted</p>
+      <h4 class="overview-area__path-section__title">Uplink CLI</h4>
+      <p class="overview-area__path-section__text">Natively installed client for interacting with the Storj Network.</p>
+      <div class="overview-area__path-section__button container blue-white" style="height: inherit;"><span class="label">Continue</span></div>
+    </div>
+    <div class="overview-area__path-section"><img src="@/../static/images/onboardingTour/rclone.png" alt="rclone image" class="overview-area__path-section__icon">
+      <p class="overview-area__label">End-to-End Encrypted</p>
+      <h4 class="overview-area__path-section__title">Sync with Rclone</h4>
+      <p class="overview-area__path-section__text">Map your filesystem to the decentralized cloud.</p> <a href="https://docs.storj.io/how-tos/sync-files-with-rclone" target="_blank" rel="noopener noreferrer" class="overview-area__path-section__button">
+        Continue
       </a>
     </div>
-  </div>
-  <div class="overview-area__divider"></div>
-  <p class="overview-area__next-label">Next</p>
-  <div class="overview-area__cta container" style="width: 252px; height: 48px;"><span class="label">Create an Access Grant</span></div>
+  </div> <a href="https://storj.io/integrations/" target="_blank" rel="noopener noreferrer" class="overview-area__integrations-button">
+    More Integrations
+  </a>
+  <div class="overview-area__skip-button container blue-white" style="width: 100px; height: inherit;"><span class="label">Skip</span></div>
 </div>
 `;

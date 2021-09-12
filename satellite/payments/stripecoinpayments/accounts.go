@@ -47,6 +47,10 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	params := &stripe.CustomerParams{
 		Email: stripe.String(email),
 	}
+	// If a free tier coupon is provided, apply this on account creation.
+	if accounts.service.StripeFreeTierCouponID != "" {
+		params.Coupon = stripe.String(accounts.service.StripeFreeTierCouponID)
+	}
 
 	customer, err := accounts.service.stripeClient.Customers().New(params)
 	if err != nil {
@@ -77,7 +81,7 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ paym
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
-	var couponsAmount int64 = 0
+	var couponsAmount int64
 	for _, coupon := range coupons {
 		alreadyUsed, err := accounts.service.db.Coupons().TotalUsage(ctx, coupon.ID)
 		if err != nil {
@@ -154,8 +158,7 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
 		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
 		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
-		switch err {
-		case ErrProjectRecordExists:
+		if errors.Is(err, ErrProjectRecordExists) {
 			record, err := accounts.service.db.ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 			if err != nil {
 				return true, err
@@ -164,11 +167,13 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 			if record.State == 0 {
 				return true, errors.New("unapplied project invoice record exist")
 			}
-		case nil:
-			return true, errors.New("usage for last month exist, but is not billed yet")
-		default:
+			// Record has been applied, so project can be deleted.
+			return false, nil
+		}
+		if err != nil {
 			return true, err
 		}
+		return true, errors.New("usage for last month exist, but is not billed yet")
 	}
 	return false, nil
 }
@@ -228,15 +233,4 @@ func (accounts *accounts) StorjTokens() payments.StorjTokens {
 // Coupons exposes all needed functionality to manage coupons.
 func (accounts *accounts) Coupons() payments.Coupons {
 	return &coupons{service: accounts.service}
-}
-
-// PaywallEnabled returns a true if a credit card or account
-// balance is required to create projects.
-func (accounts *accounts) PaywallEnabled(userID uuid.UUID) bool {
-	return BytesAreWithinProportion(userID, accounts.service.PaywallProportion)
-}
-
-// BytesAreWithinProportion returns true if first byte is less than the normalized proportion [0..1].
-func BytesAreWithinProportion(uuidBytes [16]byte, proportion float64) bool {
-	return int(uuidBytes[0]) < int(proportion*256)
 }

@@ -21,6 +21,7 @@ func TestSatellite_AddProject(t *testing.T) {
 		user, err := planet.Satellites[0].AddUser(ctx, console.CreateUser{
 			FullName: "test user",
 			Email:    "test-email@test",
+			Password: "password",
 		}, 4)
 		require.NoError(t, err)
 

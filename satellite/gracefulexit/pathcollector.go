@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -49,13 +49,21 @@ func NewPathCollector(db DB, nodeIDs storj.NodeIDList, log *zap.Logger, batchSiz
 	return collector
 }
 
+// LoopStarted is called at each start of a loop.
+func (collector *PathCollector) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+	return nil
+}
+
 // Flush persists the current buffer items to the database.
 func (collector *PathCollector) Flush(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return collector.flush(ctx, 1)
 }
 
 // RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already.
 func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(collector.nodeIDStorage) == 0 {
 		return nil
 	}
@@ -109,8 +117,10 @@ func (collector *PathCollector) InlineSegment(ctx context.Context, segment *meta
 }
 
 func (collector *PathCollector) flush(ctx context.Context, limit int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(collector.buffer) >= limit {
-		err = collector.db.Enqueue(ctx, collector.buffer)
+		err = collector.db.Enqueue(ctx, collector.buffer, collector.batchSize)
 		collector.buffer = collector.buffer[:0]
 
 		return errs.Wrap(err)

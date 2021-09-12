@@ -11,16 +11,16 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	lrucache "storj.io/storj/pkg/cache"
+	"storj.io/storj/private/lrucache"
 )
 
 var (
 	// ErrProjectLimitType error for project limit type.
-	ErrProjectLimitType = errs.Class("project limit type error")
+	ErrProjectLimitType = errs.Class("project limit type")
 	// ErrGetProjectLimit error for getting project limits from database.
-	ErrGetProjectLimit = errs.Class("get project limits error")
+	ErrGetProjectLimit = errs.Class("get project limits")
 	// ErrGetProjectLimitCache error for getting project limits from cache.
-	ErrGetProjectLimitCache = errs.Class("get project limits from cache error")
+	ErrGetProjectLimitCache = errs.Class("get project limits from cache")
 )
 
 // ProjectLimitDB stores information about projects limits for storage and bandwidth limits.

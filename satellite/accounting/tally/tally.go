@@ -15,19 +15,19 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metaloop"
 )
 
 // Error is a standard error class for this package.
 var (
-	Error = errs.Class("tally error")
+	Error = errs.Class("tally")
 	mon   = monkit.Package()
 )
 
 // Config contains configurable values for the tally service.
 type Config struct {
-	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
+	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s" testDefault:"$TESTINTERVAL"`
 	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
 	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
 }
@@ -273,8 +273,15 @@ func (observer *Observer) ensureBucket(ctx context.Context, location metabase.Ob
 	return bucket
 }
 
+// LoopStarted is called at each start of a loop.
+func (observer *Observer) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+	return nil
+}
+
 // Object is called for each object once.
 func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if object.Expired(observer.Now) {
 		return nil
 	}
@@ -288,6 +295,8 @@ func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (
 
 // InlineSegment is called for each inline segment.
 func (observer *Observer) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if segment.Expired(observer.Now) {
 		return nil
 	}
@@ -301,6 +310,8 @@ func (observer *Observer) InlineSegment(ctx context.Context, segment *metaloop.S
 
 // RemoteSegment is called for each remote segment.
 func (observer *Observer) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if segment.Expired(observer.Now) {
 		return nil
 	}

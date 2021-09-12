@@ -86,6 +86,8 @@ func TestParseSatelliteURL_Invalid(t *testing.T) {
 			errs: []string{
 				`invalid satellite URL: node URL error: parse ://: missing protocol scheme`,
 				`invalid satellite URL: node URL error: parse "://": missing protocol scheme`,
+				`invalid satellite URL: node URL: parse ://: missing protocol scheme`,
+				`invalid satellite URL: node URL: parse "://": missing protocol scheme`,
 			},
 		},
 		{
@@ -96,7 +98,10 @@ func TestParseSatelliteURL_Invalid(t *testing.T) {
 		{
 			name: "short ID",
 			url:  "121RTSDpy@127.0.0.1:7777",
-			errs: []string{"invalid satellite URL: node URL error: node ID error: checksum error"},
+			errs: []string{
+				"invalid satellite URL: node URL error: node ID error: checksum error",
+				"invalid satellite URL: node URL: node ID: checksum error",
+			},
 		},
 		{
 			name: "missing host:port",

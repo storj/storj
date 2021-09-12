@@ -4,20 +4,24 @@
 package metainfo_test
 
 import (
-	"bytes"
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/uplink/private/multipart"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/uplink"
+	"storj.io/uplink/private/metaclient"
 )
 
 func TestEndpoint_DeleteCommittedObject(t *testing.T) {
@@ -32,7 +36,7 @@ func TestEndpoint_DeleteCommittedObject(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
-		_, err = planet.Satellites[0].Metainfo.Endpoint2.DeleteCommittedObject(ctx, projectID, bucketName, items[0].ObjectKey)
+		_, err = planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucketName, items[0].ObjectKey)
 		require.NoError(t, err)
 
 		items, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, bucketName)
@@ -46,17 +50,20 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 	bucketName := "a-bucket"
 	createObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
 		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
-		project, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
 
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.NoError(t, err, "failed to create bucket")
 
-		info, err := multipart.NewMultipartUpload(ctx, project, bucketName, "object-filename", &multipart.UploadOptions{})
+		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1, bytes.NewReader(data))
+		upload, err := project.UploadPart(ctx, bucketName, bucketName, info.UploadID, 1)
 		require.NoError(t, err, "failed to put object part")
+		_, err = upload.Write(data)
+		require.NoError(t, err, "failed to put object part")
+		require.NoError(t, upload.Commit(), "failed to put object part")
 	}
 	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
@@ -64,7 +71,14 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeletePendingObject(ctx, projectID, bucketName, items[0].ObjectKey, 1, items[0].StreamID)
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeletePendingObject(ctx,
+			metabase.ObjectStream{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				ObjectKey:  items[0].ObjectKey,
+				Version:    1,
+				StreamID:   items[0].StreamID,
+			})
 		require.NoError(t, err)
 		require.Len(t, deletedObjects, 1)
 
@@ -87,7 +101,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
 			ProjectID:  projectID,
 			BucketName: bucketName,
 			ObjectKey:  items[0].ObjectKey,
@@ -103,17 +117,20 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 
 	createPendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
 		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
-		project, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
 
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.NoError(t, err, "failed to create bucket")
 
-		info, err := multipart.NewMultipartUpload(ctx, project, bucketName, "object-filename", &multipart.UploadOptions{})
+		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1, bytes.NewReader(data))
+		upload, err := project.UploadPart(ctx, bucketName, bucketName, info.UploadID, 1)
 		require.NoError(t, err, "failed to put object part")
+		_, err = upload.Write(data)
+		require.NoError(t, err, "failed to start multipart upload")
+		require.NoError(t, upload.Commit(), "failed to start multipart upload")
 	}
 
 	deletePendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
@@ -122,7 +139,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
 			ProjectID:  projectID,
 			BucketName: bucketName,
 			ObjectKey:  items[0].ObjectKey,
@@ -349,7 +366,7 @@ func TestDeleteBucket(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, objects, 3)
 
-		delResp, err := satelliteSys.API.Metainfo.Endpoint2.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+		delResp, err := satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
@@ -360,7 +377,7 @@ func TestDeleteBucket(t *testing.T) {
 		require.Equal(t, int64(3), delResp.DeletedObjectsCount)
 
 		// confirm the bucket is deleted
-		buckets, err := satelliteSys.Metainfo.Endpoint2.ListBuckets(ctx, &pb.BucketListRequest{
+		buckets, err := satelliteSys.Metainfo.Endpoint.ListBuckets(ctx, &pb.BucketListRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
@@ -368,5 +385,186 @@ func TestDeleteBucket(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Len(t, buckets.GetItems(), 0)
+	})
+}
+
+func TestCommitSegment_Validation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(1, 1, 1, 1),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
+
+		err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket")
+		require.NoError(t, err)
+
+		beginObjectResponse, err := client.BeginObject(ctx, metaclient.BeginObjectParams{
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: []byte("a/b/testobject"),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.EncAESGCM,
+				BlockSize:   256,
+			},
+		})
+		require.NoError(t, err)
+
+		response, err := client.BeginSegment(ctx, metaclient.BeginSegmentParams{
+			StreamID: beginObjectResponse.StreamID,
+			Position: storj.SegmentPosition{
+				Index: 0,
+			},
+			MaxOrderLimit: memory.MiB.Int64(),
+		})
+		require.NoError(t, err)
+
+		// the number of results of uploaded pieces (0) is below the optimal threshold (1)
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
+			SegmentID:    response.SegmentID,
+			UploadResult: []*pb.SegmentPieceUploadResult{},
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// piece sizes are invalid: pointer verification: no remote pieces
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
+			SegmentID: response.SegmentID,
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				{},
+			},
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// piece sizes are invalid: pointer verification: size is invalid (-1)
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
+			SegmentID: response.SegmentID,
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				{
+					Hash: &pb.PieceHash{
+						PieceSize: -1,
+					},
+				},
+			},
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// piece sizes are invalid: pointer verification: expected size is different from provided (768 != 10000)
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
+			SegmentID:         response.SegmentID,
+			SizeEncryptedData: 512,
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				{
+					Hash: &pb.PieceHash{
+						PieceSize: 10000,
+					},
+				},
+			},
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// piece sizes are invalid: pointer verification: sizes do not match (10000 != 9000)
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
+			SegmentID: response.SegmentID,
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				{
+					Hash: &pb.PieceHash{
+						PieceSize: 10000,
+					},
+				},
+				{
+					Hash: &pb.PieceHash{
+						PieceSize: 9000,
+					},
+				},
+			},
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// pointer verification failed: pointer verification: invalid piece number
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
+			SegmentID:         response.SegmentID,
+			SizeEncryptedData: 512,
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				{
+					PieceNum: 10,
+					NodeId:   response.Limits[0].Limit.StorageNodeId,
+					Hash: &pb.PieceHash{
+						PieceSize: 768,
+						PieceId:   response.Limits[0].Limit.PieceId,
+						Timestamp: time.Now(),
+					},
+				},
+			},
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// signature verification error (no signature)
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
+			SegmentID:         response.SegmentID,
+			SizeEncryptedData: 512,
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				{
+					PieceNum: 0,
+					NodeId:   response.Limits[0].Limit.StorageNodeId,
+					Hash: &pb.PieceHash{
+						PieceSize: 768,
+						PieceId:   response.Limits[0].Limit.PieceId,
+						Timestamp: time.Now(),
+					},
+				},
+			},
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		signer := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
+		signedHash, err := signing.SignPieceHash(ctx, signer, &pb.PieceHash{
+			PieceSize: 768,
+			PieceId:   response.Limits[0].Limit.PieceId,
+			Timestamp: time.Now(),
+		})
+		require.NoError(t, err)
+
+		// pointer verification failed: pointer verification: nil identity returned
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
+			SegmentID:         response.SegmentID,
+			SizeEncryptedData: 512,
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				{
+					PieceNum: 0,
+					NodeId:   testrand.NodeID(), // random node ID
+					Hash:     signedHash,
+				},
+			},
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// plain segment size 513 is out of range, maximum allowed is 512
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
+			SegmentID:         response.SegmentID,
+			PlainSize:         513,
+			SizeEncryptedData: 512,
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				{
+					PieceNum: 0,
+					NodeId:   response.Limits[0].Limit.StorageNodeId,
+					Hash:     signedHash,
+				},
+			},
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 	})
 }

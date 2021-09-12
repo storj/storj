@@ -15,7 +15,7 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/revocation"
 )
 
 var (
@@ -131,10 +131,9 @@ func cmdGetID(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("node ID bytes:\t\t%v\n", p.ID[:])
 
 	difficulty, err := p.ID.Difficulty()
-	if err != nil {
-		return nil
+	if err == nil {
+		fmt.Printf("difficulty:\t\t%d\n", difficulty)
 	}
-	fmt.Printf("difficulty:\t\t%d\n", difficulty)
 	return nil
 }
 

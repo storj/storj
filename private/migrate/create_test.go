@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgtest"
-	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/private/dbutil/pgtest"
+	"storj.io/private/dbutil/tempdb"
+	"storj.io/private/tagsql"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/private/tagsql"
 )
 
 func TestCreate_Sqlite(t *testing.T) {

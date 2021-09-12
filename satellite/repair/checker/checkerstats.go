@@ -8,7 +8,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/common/uuid"
 )
 
 // statsCollector holds a *stats for each redundancy scheme
@@ -84,7 +84,7 @@ type aggregateStats struct {
 	newRemoteSegmentsNeedingRepair int64
 	remoteSegmentsLost             int64
 	remoteSegmentsFailedToCheck    int64
-	remoteSegmentInfo              []metabase.ObjectLocation
+	objectsLost                    []uuid.UUID
 
 	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
 	remoteSegmentsOverThreshold [5]int64
@@ -122,7 +122,7 @@ func (stats *stats) collectAggregates() {
 	stats.remoteSegmentsNeedingRepair.Observe(stats.iterationAggregates.remoteSegmentsNeedingRepair)
 	stats.newRemoteSegmentsNeedingRepair.Observe(stats.iterationAggregates.newRemoteSegmentsNeedingRepair)
 	stats.remoteSegmentsLost.Observe(stats.iterationAggregates.remoteSegmentsLost)
-	stats.objectsLost.Observe(int64(len(stats.iterationAggregates.remoteSegmentInfo)))
+	stats.objectsLost.Observe(int64(len(stats.iterationAggregates.objectsLost)))
 	stats.remoteSegmentsFailedToCheck.Observe(stats.iterationAggregates.remoteSegmentsFailedToCheck)
 	stats.remoteSegmentsOverThreshold1.Observe(stats.iterationAggregates.remoteSegmentsOverThreshold[0])
 	stats.remoteSegmentsOverThreshold2.Observe(stats.iterationAggregates.remoteSegmentsOverThreshold[1])

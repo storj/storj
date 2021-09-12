@@ -36,11 +36,6 @@ var (
 		Short: "Run the multinode dashboard",
 		RunE:  cmdRun,
 	}
-	createSchemaCmd = &cobra.Command{
-		Use:   "create-schema",
-		Short: "Create schemas for multinode dashboard databases",
-		RunE:  cmdCreateSchema,
-	}
 	setupCmd = &cobra.Command{
 		Use:         "setup",
 		Short:       "Create config files",
@@ -67,10 +62,8 @@ func init() {
 
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(runCmd)
-	rootCmd.AddCommand(createSchemaCmd)
 
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(createSchemaCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 }
 
@@ -112,6 +105,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		err = errs.Combine(err, db.Close())
 	}()
+	if err := db.MigrateToLatest(ctx); err != nil {
+		return err
+	}
 
 	peer, err := multinode.New(log, identity, runCfg.Config, db)
 	if err != nil {
@@ -121,24 +117,4 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
 	return errs.Combine(runError, closeError)
-}
-
-func cmdCreateSchema(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-	log := zap.L()
-
-	db, err := multinodedb.Open(ctx, log.Named("db"), runCfg.Database)
-	if err != nil {
-		return errs.New("error connecting to master database on multinode: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, db.Close())
-	}()
-
-	err = db.CreateSchema(ctx)
-	if err != nil {
-		return errs.New("error creating database schemas for multinode dashboard db: %+v", err)
-	}
-
-	return nil
 }

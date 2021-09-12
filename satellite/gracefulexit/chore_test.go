@@ -4,7 +4,6 @@
 package gracefulexit_test
 
 import (
-	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -19,10 +18,9 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/uplink/private/multipart"
 )
 
 func TestChore(t *testing.T) {
@@ -56,11 +54,15 @@ func TestChore(t *testing.T) {
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path2", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path3", nil)
+		info, err := project.BeginUpload(ctx, "testbucket", "test/path3", nil)
 		require.NoError(t, err)
 
-		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path3", info.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+		upload, err := project.UploadPart(ctx, "testbucket", "test/path3", info.UploadID, 1)
 		require.NoError(t, err)
+
+		_, err = upload.Write(testrand.Bytes(5 * memory.KiB))
+		require.NoError(t, err)
+		require.NoError(t, upload.Commit())
 
 		exitStatusRequest := overlay.ExitStatusRequest{
 			NodeID:          exitingNode.ID(),
@@ -165,11 +167,15 @@ func TestDurabilityRatio(t *testing.T) {
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path2", nil)
+		info, err := project.BeginUpload(ctx, "testbucket", "test/path2", nil)
 		require.NoError(t, err)
 
-		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path2", info.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+		upload, err := project.UploadPart(ctx, "testbucket", "test/path2", info.UploadID, 1)
 		require.NoError(t, err)
+
+		_, err = upload.Write(testrand.Bytes(5 * memory.KiB))
+		require.NoError(t, err)
+		require.NoError(t, upload.Commit())
 
 		exitStatusRequest := overlay.ExitStatusRequest{
 			NodeID:          exitingNode.ID(),
@@ -263,7 +269,8 @@ func batch(ctx context.Context, b *testing.B, db gracefulexit.DB, size int) {
 			}
 			transferQueueItems = append(transferQueueItems, item)
 		}
-		err := db.Enqueue(ctx, transferQueueItems)
+		batchSize := 1000
+		err := db.Enqueue(ctx, transferQueueItems, batchSize)
 		require.NoError(b, err)
 	}
 }

@@ -14,7 +14,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/uplink/private/multipart"
 )
 
 func TestLsPending(t *testing.T) {
@@ -55,10 +54,10 @@ func TestLsPending(t *testing.T) {
 			require.NoError(t, err)
 			defer ctx.Check(project.Close)
 
-			_, err = multipart.NewMultipartUpload(ctx, project, bucketName, "pending-object", nil)
+			_, err = project.BeginUpload(ctx, bucketName, "pending-object", nil)
 			require.NoError(t, err)
 
-			_, err = multipart.NewMultipartUpload(ctx, project, bucketName, "prefixed/pending-object", nil)
+			_, err = project.BeginUpload(ctx, bucketName, "prefixed/pending-object", nil)
 			require.NoError(t, err)
 
 			err = uplinkPeer.Upload(ctx, satellite, "testbucket", "committed-object", testrand.Bytes(5*memory.KiB))

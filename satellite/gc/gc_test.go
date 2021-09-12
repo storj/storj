@@ -4,7 +4,6 @@
 package gc_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -24,10 +23,9 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gc"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
-	"storj.io/uplink/private/multipart"
 	"storj.io/uplink/private/testuplink"
 )
 
@@ -222,7 +220,7 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 			InitialPieces:     10,
 		}, lastPieceCounts)
 
-		err = satellite.Metainfo.Loop.Join(ctx, pieceTracker)
+		err = satellite.Metainfo.SegmentLoop.Join(ctx, pieceTracker)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, pieceTracker.RetainInfos)
@@ -250,13 +248,16 @@ func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.
 	_, err = project.EnsureBucket(ctx, bucketName)
 	require.NoError(t, err)
 
-	info, err := multipart.NewMultipartUpload(ctx, project, bucketName, path, nil)
+	info, err := project.BeginUpload(ctx, bucketName, path, nil)
 	require.NoError(t, err)
 
-	_, err = multipart.PutObjectPart(ctx, project, bucketName, path, info.StreamID, 1, bytes.NewReader(data))
+	upload, err := project.UploadPart(ctx, bucketName, path, info.UploadID, 1)
 	require.NoError(t, err)
+	_, err = upload.Write(data)
+	require.NoError(t, err)
+	require.NoError(t, upload.Commit())
 
-	return info.StreamID
+	return info.UploadID
 }
 
 func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storj.Path, streamID string) {
@@ -269,6 +270,6 @@ func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplan
 	require.NoError(t, err)
 	defer func() { require.NoError(t, project.Close()) }()
 
-	_, err = multipart.CompleteMultipartUpload(ctx, project, bucketName, path, streamID, nil)
+	_, err = project.CommitUpload(ctx, bucketName, path, streamID, nil)
 	require.NoError(t, err)
 }

@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 // Chore populates reservoirs and the audit queue.
@@ -23,20 +23,20 @@ type Chore struct {
 	queues *Queues
 	Loop   *sync2.Cycle
 
-	metainfoLoop *metaloop.Service
-	config       Config
+	segmentLoop *segmentloop.Service
+	config      Config
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, queues *Queues, metaLoop *metaloop.Service, config Config) *Chore {
+func NewChore(log *zap.Logger, queues *Queues, loop *segmentloop.Service, config Config) *Chore {
 	return &Chore{
 		log:    log,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),
 		queues: queues,
 		Loop:   sync2.NewCycle(config.ChoreInterval),
 
-		metainfoLoop: metaLoop,
-		config:       config,
+		segmentLoop: loop,
+		config:      config,
 	}
 }
 
@@ -53,9 +53,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		collector := NewCollector(chore.config.Slots, chore.rand)
-		err = chore.metainfoLoop.Join(ctx, collector)
+		err = chore.segmentLoop.Join(ctx, collector)
 		if err != nil {
-			chore.log.Error("error joining metainfoloop", zap.Error(err))
+			chore.log.Error("error joining segmentloop", zap.Error(err))
 			return nil
 		}
 

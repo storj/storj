@@ -25,88 +25,25 @@
                     height="30px"
                     :on-press="onCopyGrantClick"
                 />
-            </div>
-        </div>
-        <div class="generate-grant__gateway-area" v-if="isGatewayDropdownVisible">
-            <div class="generate-grant__gateway-area__toggle" @click="toggleCredentialsVisibility">
-                <h3 class="generate-grant__gateway-area__toggle__label">Gateway Credentials</h3>
-                <ExpandIcon v-if="!areGatewayCredentialsVisible"/>
-                <HideIcon v-else/>
-            </div>
-            <div class="generate-grant__gateway-area__container" v-if="areGatewayCredentialsVisible">
-                <div class="generate-grant__gateway-area__container__beta">
-                    <p class="generate-grant__gateway-area__container__beta__message">This feature is currently in Beta</p>
-                    <a
-                        class="generate-grant__gateway-area__container__beta__link"
-                        href="https://forum.storj.io/t/gateway-mt-beta-looking-for-testers/11324"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Learn More >
-                    </a>
-                </div>
-                <div class="generate-grant__gateway-area__container__warning" v-if="!areKeysVisible">
-                    <h3 class="generate-grant__gateway-area__container__warning__title">
-                        Using Gateway Credentials Enables Server-Side Encryption.
-                    </h3>
-                    <p class="generate-grant__gateway-area__container__warning__disclaimer">
-                        By generating gateway credentials, you are opting in to Server-side encryption
-                    </p>
-                    <VButton
-                        class="generate-grant__gateway-area__container__warning__button"
-                        label="Generate Gateway Credentials"
-                        width="calc(100% - 4px)"
-                        height="48px"
-                        :is-blue-white="true"
-                        :on-press="onGenerateCredentialsClick"
-                        :is-disabled="isLoading"
-                    />
-                </div>
-                <div class="generate-grant__gateway-area__container__keys-area" v-else>
-                    <h3 class="generate-grant__gateway-area__container__keys-area__label">Access Key</h3>
-                    <div class="generate-grant__gateway-area__container__keys-area__key">
-                        <p class="generate-grant__gateway-area__container__keys-area__key__value">{{ gatewayCredentials.accessKeyId }}</p>
-                        <VButton
-                            class="generate-grant__gateway-area__container__keys-area__key__button"
-                            label="Copy"
-                            width="66px"
-                            height="30px"
-                            :on-press="onCopyAccessClick"
-                        />
-                    </div>
-                    <h3 class="generate-grant__gateway-area__container__keys-area__label">Secret Key</h3>
-                    <div class="generate-grant__gateway-area__container__keys-area__key">
-                        <p class="generate-grant__gateway-area__container__keys-area__key__value">{{ gatewayCredentials.secretKey }}</p>
-                        <VButton
-                            class="generate-grant__gateway-area__container__keys-area__key__button"
-                            label="Copy"
-                            width="66px"
-                            height="30px"
-                            :on-press="onCopySecretClick"
-                        />
-                    </div>
-                    <h3 class="generate-grant__gateway-area__container__keys-area__label">End Point</h3>
-                    <div class="generate-grant__gateway-area__container__keys-area__key">
-                        <p class="generate-grant__gateway-area__container__keys-area__key__value">{{ gatewayCredentials.endpoint }}</p>
-                        <VButton
-                            class="generate-grant__gateway-area__container__keys-area__key__button"
-                            label="Copy"
-                            width="66px"
-                            height="30px"
-                            :on-press="onCopyEndpointClick"
-                        />
-                    </div>
-                </div>
+                <VButton
+                    class="generate-grant__grant-area__container__button"
+                    label="Download"
+                    width="80px"
+                    height="30px"
+                    :on-press="onDownloadGrantClick"
+                />
             </div>
         </div>
         <VButton
             class="generate-grant__done-button"
-            :class="{ 'extra-margin-top': !(isOnboardingTour || areGatewayCredentialsVisible) }"
             label="Done"
             width="100%"
             height="48px"
             :on-press="onDoneClick"
         />
+        <p class="generate-grant__gateway-link" v-if="isGatewayLinkVisible" @click="navigateToGatewayStep">
+            Generate S3 Gateway Credentials
+        </p>
     </div>
 </template>
 
@@ -121,9 +58,6 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { GatewayCredentials } from '@/types/accessGrants';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 
 @Component({
@@ -140,10 +74,7 @@ export default class ResultStep extends Vue {
     private restrictedKey: string = '';
 
     public access: string = '';
-    public isGatewayDropdownVisible: boolean = false;
-    public areGatewayCredentialsVisible: boolean = false;
-    public areKeysVisible: boolean = false;
-    public isLoading: boolean = false;
+    public isGatewayLinkVisible: boolean = false;
 
     /**
      * Lifecycle hook after initial render.
@@ -151,6 +82,12 @@ export default class ResultStep extends Vue {
      */
     public mounted(): void {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
+            if (this.isOnboardingTour) {
+                this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
+
+                return;
+            }
+
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -161,14 +98,7 @@ export default class ResultStep extends Vue {
         this.restrictedKey = this.$route.params.restrictedKey;
 
         const requestURL = MetaUtils.getMetaContent('gateway-credentials-request-url');
-        if (requestURL) this.isGatewayDropdownVisible = true;
-    }
-
-    /**
-     * Toggles gateway credentials section visibility.
-     */
-    public toggleCredentialsVisibility(): void {
-        this.areGatewayCredentialsVisible = !this.areGatewayCredentialsVisible;
+        if (requestURL) this.isGatewayLinkVisible = true;
     }
 
     /**
@@ -181,30 +111,28 @@ export default class ResultStep extends Vue {
     }
 
     /**
-     * Holds on copy access key button click logic.
-     * Copies key to clipboard.
+     * Holds on download access grant button click logic.
+     * Downloads a file with the access called access-grant-<timestamp>.key
      */
-    public onCopyAccessClick(): void {
-        this.$copyText(this.gatewayCredentials.accessKeyId);
-        this.$notify.success('Key was copied successfully');
-    }
+    public onDownloadGrantClick(): void {
+        // this code is based on this Stackoverflow response: https://stackoverflow.com/a/33542499
+        // It works for downloading a file in IE 10+, Firefox, and Chrome without any additional libraries
+        const blob = new Blob([this.access], {type: 'text/plain'});
+        const ts = new Date();
+        const filename = 'access-grant-' + ts.toJSON() + '.key';
 
-    /**
-     * Holds on copy secret key button click logic.
-     * Copies secret to clipboard.
-     */
-    public onCopySecretClick(): void {
-        this.$copyText(this.gatewayCredentials.secretKey);
-        this.$notify.success('Secret was copied successfully');
-    }
+        if (window.navigator.msSaveBlob) {
+            window.navigator.msSaveBlob(blob, filename);
+        } else {
+            const elem = window.document.createElement('a');
+            elem.href = window.URL.createObjectURL(blob);
+            elem.download = filename;
+            document.body.appendChild(elem);
+            elem.click();
+            document.body.removeChild(elem);
+        }
 
-    /**
-     * Holds on copy endpoint button click logic.
-     * Copies endpoint to clipboard.
-     */
-    public onCopyEndpointClick(): void {
-        this.$copyText(this.gatewayCredentials.endpoint);
-        this.$notify.success('Endpoint was copied successfully');
+        this.$notify.success('Token was downloaded successfully');
     }
 
     /**
@@ -254,30 +182,31 @@ export default class ResultStep extends Vue {
     }
 
     /**
-     * Holds on generate credentials button click logic.
-     * Generates gateway credentials.
+     * Holds on link click logic.
+     * Proceed to gateway step.
      */
-    public async onGenerateCredentialsClick(): Promise<void> {
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
-
-            await this.$notify.success('Gateway credentials were generated successfully');
-            this.areKeysVisible = true;
-
-            const satelliteName: string = MetaUtils.getMetaContent('satellite-name');
-
-            this.$segment.track(SegmentEvent.GENERATE_GATEWAY_CREDENTIALS_CLICKED, {
-                satelliteName: satelliteName,
-                email: this.$store.getters.user.email,
+    public navigateToGatewayStep(): void {
+        if (this.isOnboardingTour) {
+            this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantGateway)).name,
+                params: {
+                    access: this.access,
+                    key: this.key,
+                    restrictedKey: this.restrictedKey,
+                },
             });
 
-            this.isLoading = false;
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
+            return;
         }
+
+        this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.GatewayStep)).name,
+            params: {
+                access: this.access,
+                key: this.key,
+                restrictedKey: this.restrictedKey,
+            },
+        });
     }
 
     /**
@@ -285,13 +214,6 @@ export default class ResultStep extends Vue {
      */
     public get isOnboardingTour(): boolean {
         return this.$route.path.includes(RouteConfig.OnboardingTour.path);
-    }
-
-    /**
-     * Returns generated gateway credentials from store.
-     */
-    public get gatewayCredentials(): GatewayCredentials {
-        return this.$store.state.accessGrantsModule.gatewayCredentials;
     }
 
     /**
@@ -391,123 +313,9 @@ export default class ResultStep extends Vue {
                 }
 
                 &__button {
-                    min-width: 66px;
+                    min-width: 85px;
                     min-height: 30px;
                     margin-left: 10px;
-                }
-            }
-        }
-
-        &__gateway-area {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-
-            &__toggle {
-                display: flex;
-                align-items: center;
-                cursor: pointer;
-                justify-content: center;
-
-                &__label {
-                    font-family: 'font_bold', sans-serif;
-                    font-size: 16px;
-                    line-height: 23px;
-                    color: #49515c;
-                    margin: 0 15px 0 0;
-                }
-            }
-
-            &__container {
-                width: 100%;
-
-                &__beta {
-                    background-color: #effff9;
-                    border: 1px solid #1a9666;
-                    border-radius: 6px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 12px 20px;
-                    margin-top: 20px;
-
-                    &__message {
-                        font-weight: bold;
-                        font-size: 14px;
-                        line-height: 19px;
-                        color: #000;
-                        margin: 0;
-                    }
-
-                    &__link {
-                        font-weight: bold;
-                        font-size: 14px;
-                        line-height: 19px;
-                        color: #1a9666;
-                    }
-                }
-
-                &__warning {
-                    margin-top: 20px;
-                    background: #f5f6fa;
-                    border-radius: 6px;
-                    padding: 40px 50px;
-                    width: calc(100% - 100px);
-
-                    &__title {
-                        font-family: 'font_bold', sans-serif;
-                        font-size: 18px;
-                        line-height: 24px;
-                        color: #000;
-                        margin: 0 0 20px 0;
-                        text-align: center;
-                    }
-
-                    &__disclaimer {
-                        font-size: 16px;
-                        line-height: 28px;
-                        color: #000;
-                        margin: 0 0 25px 0;
-                        text-align: center;
-                    }
-                }
-
-                &__keys-area {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: flex-start;
-
-                    &__label {
-                        font-family: 'font_bold', sans-serif;
-                        font-size: 16px;
-                        line-height: 21px;
-                        color: #354049;
-                        margin: 20px 0 10px 0;
-                    }
-
-                    &__key {
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        border-radius: 9px;
-                        padding: 10px;
-                        width: calc(100% - 20px);
-                        border: 1px solid rgba(56, 75, 101, 0.4);
-
-                        &__value {
-                            text-overflow: ellipsis;
-                            overflow: hidden;
-                            white-space: nowrap;
-                            margin: 0;
-                        }
-
-                        &__button {
-                            min-width: 66px;
-                            min-height: 30px;
-                            margin-left: 10px;
-                        }
-                    }
                 }
             }
         }
@@ -515,13 +323,23 @@ export default class ResultStep extends Vue {
         &__done-button {
             margin-top: 20px;
         }
+
+        &__gateway-link {
+            font-weight: 600;
+            font-size: 16px;
+            line-height: 23px;
+            text-align: center;
+            color: #0068dc;
+            margin: 30px 0 0 0;
+            cursor: pointer;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
     }
 
     .border-radius {
         border-radius: 6px;
-    }
-
-    .extra-margin-top {
-        margin-top: 76px;
     }
 </style>

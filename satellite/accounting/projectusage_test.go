@@ -6,6 +6,7 @@ package accounting_test
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -17,10 +18,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -28,9 +27,10 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/uplink"
 )
 
 func TestProjectUsageStorage(t *testing.T) {
@@ -88,7 +88,7 @@ func TestProjectUsageStorage(t *testing.T) {
 		// upload fails due to storage limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
 		require.Error(t, err)
-		if !errs2.IsRPC(err, rpcstatus.ResourceExhausted) {
+		if !errors.Is(err, uplink.ErrBandwidthLimitExceeded) {
 			t.Fatal("Expected resource exhausted error. Got", err.Error())
 		}
 
@@ -104,10 +104,10 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		name             string
 		expectedExceeded bool
 		expectedResource string
-		expectedStatus   rpcstatus.StatusCode
+		expectedError    error
 	}{
-		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedStatus: 0},
-		{name: "exceeds bandwidth project limit", expectedExceeded: true, expectedResource: "bandwidth", expectedStatus: rpcstatus.ResourceExhausted},
+		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedError: nil},
+		{name: "exceeds bandwidth project limit", expectedExceeded: true, expectedResource: "bandwidth", expectedError: uplink.ErrBandwidthLimitExceeded},
 	}
 
 	for _, tt := range cases {
@@ -115,27 +115,45 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+						config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
+					},
+				},
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
 
+				now := time.Now()
+
+				// make sure we don't end up with a flaky test if we are in the beginning of the month as we have to add expired bandwidth allocations
+				if now.Day() < 5 {
+					now = time.Date(now.Year(), now.Month(), 5, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location())
+				}
 				bucket := metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: "testbucket"}
 				projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if testCase.expectedResource == "bandwidth" {
-					now := time.Now()
 					err := setUpBucketBandwidthAllocations(ctx, bucket.ProjectID, orderDB, now)
 					require.NoError(t, err)
 				}
+
+				// Setup: create a BucketBandwidthRollup record that should not be taken into account as
+				// it is expired.
+				err := setUpBucketBandwidthAllocations(ctx, bucket.ProjectID, orderDB, now.Add(-72*time.Hour))
+				require.NoError(t, err)
 
 				// Setup: create some bytes for the uplink to upload to test the download later
 				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				filePath := "test/path"
-				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
+				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
 				require.NoError(t, err)
 
+				projectUsage.SetNow(func() time.Time {
+					return now
+				})
 				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
 				require.NoError(t, err)
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)
@@ -143,7 +161,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
 				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucket.BucketName, filePath)
 				if testCase.expectedResource == "bandwidth" {
-					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
+					require.True(t, errors.Is(actualErr, testCase.expectedError))
 				} else {
 					require.NoError(t, actualErr)
 				}
@@ -167,8 +185,13 @@ func TestProjectBandwidthRollups(t *testing.T) {
 			time.Sleep(timeBuf)
 			now = time.Now().UTC()
 		}
-
+		// make sure we don't end up with a flaky test if we are in the beginning of the month as we have to add expired bandwidth allocations
+		if now.Day() < 5 {
+			now = time.Date(now.Year(), now.Month(), 5, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location())
+		}
 		hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+		expired := time.Date(now.Year(), now.Month(), now.Day()-3, now.Hour(), 0, 0, 0, now.Location())
+
 		// things that should be counted
 		err := db.Orders().UpdateBucketBandwidthAllocation(ctx, p1, b1, pb.PieceAction_GET, 1000, hour)
 		require.NoError(t, err)
@@ -207,6 +230,11 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		require.NoError(t, err)
 		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, p2, b2, pb.PieceAction_GET_REPAIR, 1000, hour)
 		require.NoError(t, err)
+		// these two should not be counted. They are expired and have no corresponding rollup
+		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, p1, b1, pb.PieceAction_GET, 1000, expired)
+		require.NoError(t, err)
+		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, p1, b2, pb.PieceAction_GET, 1000, expired)
+		require.NoError(t, err)
 
 		rollups = []orders.BucketBandwidthRollup{
 			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
@@ -225,7 +253,7 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
 		require.NoError(t, err)
 
-		alloc, err := db.ProjectAccounting().GetProjectAllocatedBandwidth(ctx, p1, now.Year(), now.Month())
+		alloc, err := db.ProjectAccounting().GetProjectBandwidth(ctx, p1, now.Year(), now.Month(), now.Day(), 0)
 		require.NoError(t, err)
 		require.EqualValues(t, 4000, alloc)
 	})
@@ -301,8 +329,7 @@ func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UU
 		// that sum greater than the defaultMaxUsage
 		amount := 15 * memory.GB.Int64()
 		action := pb.PieceAction_GET
-		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-		err := orderDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), action, amount, intervalStart)
+		err := orderDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), action, amount, now)
 		if err != nil {
 			return err
 		}
@@ -580,7 +607,7 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		// we used limit so we should get error
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "3", data)
 		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 
 		// delete object to free some storage space
 		err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "bucket", "2")
@@ -596,8 +623,59 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		// should fail because we once again used space up to limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "2", data)
 		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 	})
+}
+
+func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UsageLimits.DefaultStorageLimit = 1 * memory.MB
+				config.Console.UsageLimits.DefaultBandwidthLimit = 1 * memory.MB
+				config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		orderDB := planet.Satellites[0].DB.Orders()
+		bucket := metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: "testbucket"}
+		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
+
+		now := time.Now()
+
+		allocationTime := time.Date(now.Year(), now.Month(), 2, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location())
+
+		amount := 1 * memory.MB.Int64()
+		err := orderDB.UpdateBucketBandwidthAllocation(ctx, bucket.ProjectID, []byte(bucket.BucketName), pb.PieceAction_GET, amount, allocationTime)
+		require.NoError(t, err)
+
+		beforeResetDay := allocationTime.Add(2 * time.Hour * 24)
+		resetDay := allocationTime.Add(3 * time.Hour * 24)
+		endOfMonth := time.Date(now.Year(), now.Month()+1, 0, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location())
+
+		for _, tt := range []struct {
+			description     string
+			now             time.Time
+			expectedExceeds bool
+		}{
+			{"allocation day", allocationTime, true},
+			{"day before reset", beforeResetDay, true},
+			{"reset day", resetDay, false},
+			{"end of month", endOfMonth, false},
+		} {
+			projectUsage.SetNow(func() time.Time {
+				return tt.now
+			})
+
+			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedExceeds, actualExceeded, tt.description)
+
+		}
+	})
+
 }
 
 func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
@@ -623,7 +701,7 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		// verify that storage limit is all used
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path2", data)
 		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.NoError(t, err)
@@ -639,7 +717,7 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		// verify that bandwidth limit is all used
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 
 		now := time.Now()
 		planet.Satellites[0].API.Accounting.ProjectUsage.SetNow(func() time.Time {
@@ -649,7 +727,7 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		// verify that storage limit is all used even at the new billing cycle
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path3", data)
 		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 
 		// verify that new billing cycle reset bandwidth limit
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
@@ -715,12 +793,22 @@ func TestProjectUsage_BandwidthDownloadLimit(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// send orders so we get the egress settled
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+		tomorrow := time.Now().Add(24 * time.Hour)
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
+		}
+
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
 		// An extra download should return 'Exceeded Usage Limit' error
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 
-		// Simulate new billing cycle (newxt month)
+		// Simulate new billing cycle (next month)
 		planet.Satellites[0].API.Accounting.ProjectUsage.SetNow(func() time.Time {
 			return time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})

@@ -22,7 +22,7 @@ import (
 
 var (
 	// NodeStatsServiceErr defines node stats service error.
-	NodeStatsServiceErr = errs.Class("node stats service error")
+	NodeStatsServiceErr = errs.Class("nodestats")
 
 	mon = monkit.Package()
 )

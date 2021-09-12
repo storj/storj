@@ -23,7 +23,7 @@ type DB interface {
 	// AllPayStubs retrieves paystubs from all satellites in specific period from DB.
 	AllPayStubs(ctx context.Context, period string) ([]PayStub, error)
 	// SatellitesHeldbackHistory retrieves heldback history for specific satellite from DB.
-	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]HoldForPeriod, error)
+	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]HeldForPeriod, error)
 	// SatellitesDisposedHistory returns all disposed amount for specific satellite from DB.
 	SatellitesDisposedHistory(ctx context.Context, satelliteID storj.NodeID) (int64, error)
 	// SatellitePeriods retrieves all periods for concrete satellite in which we have some payouts data.
@@ -40,10 +40,26 @@ type DB interface {
 	GetEarnedAtSatellite(ctx context.Context, id storj.NodeID) (int64, error)
 	// GetPayingSatellitesIDs returns list of satellite ID's that ever paid to storagenode.
 	GetPayingSatellitesIDs(ctx context.Context) ([]storj.NodeID, error)
+	// GetSatelliteSummary returns satellite all time paid and held amounts.
+	GetSatelliteSummary(ctx context.Context, satelliteID storj.NodeID) (paid, held int64, err error)
+	// GetSatellitePeriodSummary returns satellite paid and held amounts for specific period.
+	GetSatellitePeriodSummary(ctx context.Context, satelliteID storj.NodeID, period string) (paid, held int64, err error)
+	// GetUndistributed returns total undistributed amount.
+	GetUndistributed(ctx context.Context) (int64, error)
+	// GetSatellitePaystubs returns summed paystubs for specific satellite.
+	GetSatellitePaystubs(ctx context.Context, satelliteID storj.NodeID) (*PayStub, error)
+	// GetPaystubs returns summed all paystubs.
+	GetPaystubs(ctx context.Context) (*PayStub, error)
+	// GetSatellitesPeriodPaystubs returns summed all satellites paystubs for specific period.
+	GetPeriodPaystubs(ctx context.Context, period string) (*PayStub, error)
+	// GetSatellitePeriodPaystubs returns summed satellite paystubs for specific period.
+	GetSatellitePeriodPaystubs(ctx context.Context, period string, satelliteID storj.NodeID) (*PayStub, error)
+	// HeldAmountHistory retrieves held amount history for all satellites.
+	HeldAmountHistory(ctx context.Context) ([]HeldAmountHistory, error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the payouts database.
-var ErrNoPayStubForPeriod = errs.Class("no payStub for period error")
+var ErrNoPayStubForPeriod = errs.Class("no payStub for period")
 
 // PayStub is node payouts data for satellite by specific period.
 type PayStub struct {
@@ -71,10 +87,17 @@ type PayStub struct {
 	Distributed    int64        `json:"distributed"`
 }
 
-// HoldForPeriod is node's held amount for period.
-type HoldForPeriod struct {
-	Period string `json:"period"`
-	Amount int64  `json:"amount"`
+// GetEarnedWithSurge returns paystub's total earned and surge.
+func (paystub *PayStub) GetEarnedWithSurge() (earned int64, surge int64) {
+	earned = paystub.CompGetAudit + paystub.CompGet + paystub.CompGetRepair + paystub.CompAtRest
+	surge = earned * paystub.SurgePercent / 100
+
+	return earned, surge
+}
+
+// UsageAtRestTbM converts paystub's usage_at_rest from tbh to tbm.
+func (paystub *PayStub) UsageAtRestTbM() {
+	paystub.UsageAtRest /= 720
 }
 
 // Payment is node payment data for specific period.
@@ -118,23 +141,22 @@ type SatellitePayoutForPeriod struct {
 	Distributed    int64   `json:"distributed"`
 }
 
+// HeldAmountHistory contains held amount history for satellite.
+type HeldAmountHistory struct {
+	SatelliteID storj.NodeID    `json:"satelliteId"`
+	HeldAmounts []HeldForPeriod `json:"heldAmounts"`
+}
+
+// HeldForPeriod is node's held amount for period.
+type HeldForPeriod struct {
+	Period string `json:"period"`
+	Amount int64  `json:"amount"`
+}
+
 // Period is a string that represents paystub period type in format yyyy-mm.
 type Period string
 
 // Time returns period in time.Time type from string.
 func (p Period) Time() (time.Time, error) {
 	return time.Parse("2006-01", string(p))
-}
-
-// GetEarnedWithSurge returns paystub's total earned and surge.
-func (paystub *PayStub) GetEarnedWithSurge() (earned int64, surge int64) {
-	earned = paystub.CompGetAudit + paystub.CompGet + paystub.CompGetRepair + paystub.CompAtRest
-	surge = earned * paystub.SurgePercent / 100
-
-	return earned, surge
-}
-
-// UsageAtRestTbM converts paystub's usage_at_rest from tbh to tbm.
-func (paystub *PayStub) UsageAtRestTbM() {
-	paystub.UsageAtRest /= 720
 }

@@ -31,6 +31,7 @@ import TeamIcon from '@/../static/images/navigation/team.svg';
 
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
@@ -42,16 +43,30 @@ import { NavigationLink } from '@/types/navigation';
     },
 })
 export default class NavigationArea extends Vue {
+    public navigation: NavigationLink[] = [];
+
     /**
-     * Array of navigation links with icons.
+     * Lifecycle hook before initial render.
+     * Sets navigation side bar list.
      */
-    public readonly navigation: NavigationLink[] = [
-        RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-        // TODO: enable when the flow will be finished
-        // RouteConfig.Objects.withIcon(ObjectsIcon),
-        RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
-        RouteConfig.Users.withIcon(TeamIcon),
-    ];
+    public async beforeMount(): Promise<void> {
+        if (await JSON.parse(MetaUtils.getMetaContent('file-browser-flow-disabled'))) {
+            this.navigation = [
+                RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
+                RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
+                RouteConfig.Users.withIcon(TeamIcon),
+            ];
+
+            return;
+        }
+
+        this.navigation = [
+            RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
+            RouteConfig.Objects.withIcon(ObjectsIcon),
+            RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
+            RouteConfig.Users.withIcon(TeamIcon),
+        ];
+    }
 
     /**
      * Indicates if navigation side bar is hidden.
@@ -68,7 +83,8 @@ export default class NavigationArea extends Vue {
     }
 
     /**
-     * Indicates if current route is onboarding tour.
+     * Indicates  if current route is onboarding tour.
+     * Overviewstep needs navigation.
      */
     private get isOnboardingTour(): boolean {
         return this.$route.path.includes(RouteConfig.OnboardingTour.path);

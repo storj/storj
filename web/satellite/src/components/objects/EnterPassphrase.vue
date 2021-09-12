@@ -13,14 +13,6 @@
                 </div>
                 <p class="enter-pass__container__warning__message">
                     Entering your encryption passphrase here will share encryption data with your browser.
-                    <a
-                        class="enter-pass__container__warning__message__link"
-                        :href="docsLink"
-                        target="_blank"
-                        rel="noopener norefferer"
-                    >
-                        Learn More
-                    </a>
                 </p>
             </div>
             <label class="enter-pass__container__textarea" for="enter-pass-textarea">
@@ -31,15 +23,15 @@
                     id="enter-pass-textarea"
                     placeholder="Enter encryption passphrase here"
                     rows="2"
-                    v-model="passphrase"
-                    @input="resetErrors"
+                    @input="onChangePassphrase"
                 />
             </label>
             <div class="enter-pass__container__error" v-if="isError">
                 <h2 class="enter-pass__container__error__title">Encryption Passphrase Does not Match</h2>
                 <p class="enter-pass__container__error__message">
-                    This passphrase hasn’t yet been used in the browser. Please ensure this is the encryption passphrase
-                    used in libulink or the Uplink CLI.
+                    A previous fingerprint of a passphrase-based-key-derivation-function created in this browser doesn't
+                    match the passphrase you just entered. Objects uploaded with a different encryption passphrase will
+                    NOT be accessible.
                 </p>
                 <label class="enter-pass__container__error__check-area" :class="{ error: isCheckboxError }" for="error-checkbox">
                     <input
@@ -84,10 +76,32 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class EnterPassphrase extends Vue {
+    private hashFromInput: string = '';
+
     public passphrase: string = '';
     public isError: boolean = false;
     public isCheckboxChecked: boolean = false;
     public isCheckboxError: boolean = false;
+
+    /**
+     * Lifecycle hook after initial render.
+     * Chooses correct route.
+     */
+    public mounted(): void {
+        const idPassSalt: UserIDPassSalt | null = LocalData.getUserIDPassSalt();
+        if (!idPassSalt) {
+            this.$router.push({name: RouteConfig.CreatePassphrase.name});
+        }
+    }
+
+    /**
+     * Changes passphrase data from input value.
+     * @param event
+     */
+    public onChangePassphrase(event): void {
+        this.passphrase = event.target.value.trim();
+        this.resetErrors();
+    }
 
     /**
      * Returns docs link from config.
@@ -99,38 +113,43 @@ export default class EnterPassphrase extends Vue {
     /**
      * Holds on access data button click logic.
      */
-    public onAccessDataClick(): void {
+    public async onAccessDataClick(): Promise<void> {
         if (!this.passphrase) return;
 
         const hashFromStorage: UserIDPassSalt | null = LocalData.getUserIDPassSalt();
         if (!hashFromStorage) return;
 
-        pbkdf2.pbkdf2(this.passphrase, hashFromStorage.salt, 1, 64, (error, key) => {
-            if (error) return this.$notify.error(error.message);
+        const result: Buffer | Error = await this.pbkdf2Async(hashFromStorage.salt);
 
-            const hashFromInput: string = key.toString('hex');
-            const areHashesEqual = () => {
-                return hashFromStorage.passwordHash === hashFromInput;
-            };
+        if (result instanceof Error) {
+            await this.$notify.error(result.message);
 
-            switch (true) {
-                case areHashesEqual() ||
-                !areHashesEqual() && this.isError && this.isCheckboxChecked:
-                    this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
-                    this.$router.push({name: RouteConfig.BucketsManagement.name});
+            return;
+        }
 
-                    return;
-                case !areHashesEqual() && this.isError && !this.isCheckboxChecked:
-                    this.isCheckboxError = true;
+        this.hashFromInput = await result.toString('hex');
 
-                    return;
-                case !areHashesEqual():
-                    this.isError = true;
+        const areHashesEqual = () => {
+            return hashFromStorage.passwordHash === this.hashFromInput;
+        };
 
-                    return;
-                default:
-            }
-        });
+        switch (true) {
+            case areHashesEqual() ||
+            !areHashesEqual() && this.isError && this.isCheckboxChecked:
+                await this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
+                await this.$router.push({name: RouteConfig.BucketsManagement.name});
+
+                return;
+            case !areHashesEqual() && this.isError && !this.isCheckboxChecked:
+                this.isCheckboxError = true;
+
+                return;
+            case !areHashesEqual():
+                this.isError = true;
+
+                return;
+            default:
+        }
     }
 
     /**
@@ -140,6 +159,20 @@ export default class EnterPassphrase extends Vue {
         this.isCheckboxError = false;
         this.isCheckboxChecked = false;
         this.isError = false;
+    }
+
+    /**
+     * Generates passphrase fingerprint asynchronously.
+     */
+    private pbkdf2Async(salt: string): Promise<Buffer | Error> {
+        const ITERATIONS = 1;
+        const KEY_LENGTH = 64;
+
+        return new Promise((response, reject) => {
+            pbkdf2.pbkdf2(this.passphrase, salt, ITERATIONS, KEY_LENGTH, (error, key) => {
+                error ? reject(error) : response(key);
+            });
+        });
     }
 }
 </script>
@@ -212,12 +245,6 @@ export default class EnterPassphrase extends Vue {
                     line-height: 19px;
                     color: #1b2533;
                     margin: 10px 0 0 0;
-
-                    &__link {
-                        font-family: 'font_medium', sans-serif;
-                        color: #0068dc;
-                        text-decoration: underline;
-                    }
                 }
             }
 

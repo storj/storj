@@ -84,7 +84,7 @@ export default class EnterPassphraseStep extends Vue {
      * Holds on next button click logic.
      * Generates access grant and redirects to next step.
      */
-    public onNextClick(): void {
+    public async onNextClick(): Promise<void> {
         if (!this.passphrase) {
             this.errorMessage = 'Passphrase can`t be empty';
 
@@ -103,19 +103,27 @@ export default class EnterPassphraseStep extends Vue {
             'satelliteNodeURL': satelliteNodeURL,
         });
 
-        // Give time for web worker to return value.
-        setTimeout(() => {
+        const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        if (accessEvent.data.error) {
+            await this.$notify.error(accessEvent.data.error);
             this.isLoading = false;
 
-            this.$router.push({
-                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
-                params: {
-                    access: this.access,
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-        }, 1000);
+            return;
+        }
+
+        this.access = accessEvent.data.value;
+        await this.$notify.success('Access Grant was generated successfully');
+
+        this.isLoading = false;
+
+        await this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
+            params: {
+                access: this.access,
+                key: this.key,
+                restrictedKey: this.restrictedKey,
+            },
+        });
     }
 
     /**
@@ -124,18 +132,6 @@ export default class EnterPassphraseStep extends Vue {
      */
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onmessage = (event: MessageEvent) => {
-            const data = event.data;
-            if (data.error) {
-                this.$notify.error(data.error);
-
-                return;
-            }
-
-            this.access = data.value;
-
-            this.$notify.success('Access Grant was generated successfully');
-        };
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
@@ -198,7 +194,7 @@ export default class EnterPassphraseStep extends Vue {
         }
 
         &__input {
-            width: calc(100% - 12px);
+            width: calc(100% - 2px);
         }
 
         &__next-button {

@@ -151,6 +151,7 @@ export default class ConfirmDeletePopup extends Vue {
                 line-height: 21px;
                 text-align: center;
                 color: #000;
+                margin: 20px 0;
             }
 
             &__list-label {
@@ -160,6 +161,7 @@ export default class ConfirmDeletePopup extends Vue {
                 color: #e30011;
                 font-family: 'font_medium', sans-serif;
                 white-space: nowrap;
+                margin-bottom: 30px;
             }
 
             &__list {
@@ -173,6 +175,7 @@ export default class ConfirmDeletePopup extends Vue {
                     &__item {
                         padding: 25px;
                         width: calc(100% - 50px);
+                        max-width: calc(100% - 50px);
                         background: rgba(245, 246, 250, 0.6);
 
                         &__name {
@@ -182,6 +185,7 @@ export default class ConfirmDeletePopup extends Vue {
                             font-size: 14px;
                             line-height: 19px;
                             color: #1b2533;
+                            overflow: hidden;
                             text-overflow: ellipsis;
                             white-space: nowrap;
                         }

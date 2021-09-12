@@ -4,7 +4,6 @@
 package checker_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -15,9 +14,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/storage"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestIdentifyInjuredSegments(t *testing.T) {
@@ -50,21 +49,22 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		// add some valid pointers
 		for x := 0; x < 10; x++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("a-%d", x))
-			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
 		// add pointer that needs repair
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-0")
-		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
+		b0StreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
 
 		// add pointer that is unhealthy, but is expired
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-1")
-		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Now().Add(-time.Hour))
+		expiresAt := time.Now().Add(-time.Hour)
+		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
 
 		// add some valid pointers
 		for x := 0; x < 10; x++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("c-%d", x))
-			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
 		checker.Loop.TriggerWait()
@@ -76,12 +76,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 
-		expectedLocation.ObjectKey = "b-0"
-		require.Equal(t, string(expectedLocation.Encode()), string(injuredSegment.Path))
-		require.Equal(t, int(rs.OptimalShares-rs.RequiredShares), len(injuredSegment.LostPieces))
-		for _, lostPiece := range injuredSegment.LostPieces {
-			require.True(t, int32(rs.RequiredShares) <= lostPiece && lostPiece < int32(rs.OptimalShares), fmt.Sprintf("%v", lostPiece))
-		}
+		require.Equal(t, b0StreamID, injuredSegment.StreamID)
 
 		_, err = repairQueue.Select(ctx)
 		require.Error(t, err)
@@ -94,7 +89,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Loop.Stop()
-		checker.IrreparableLoop.Stop()
 
 		const numberOfNodes = 10
 		pieces := make(metabase.Pieces, 0, numberOfNodes)
@@ -134,48 +128,30 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		}
 
 		// when number of healthy piece is less than minimum required number of piece in redundancy,
-		// the piece is considered irreparable and will be put into irreparable DB
+		// the piece is considered irreparable but also will be put into repair queue
 
 		expectedLocation.ObjectKey = "piece"
-		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Time{})
-		pointerKey := expectedLocation.Encode()
+		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, nil)
 
 		expectedLocation.ObjectKey = "piece-expired"
-		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Now().Add(-time.Hour))
-		pointerExpiredKey := expectedLocation.Encode()
+		expiresAt := time.Now().Add(-time.Hour)
+		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, &expiresAt)
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		// check if nothing was added to repair queue
+		// check that single irreparable segment was added repair queue
 		repairQueue := planet.Satellites[0].DB.RepairQueue()
 		_, err = repairQueue.Select(ctx)
-		require.True(t, storage.ErrEmptyQueue.Has(err))
-
-		// check if the expected segments were added to the irreparable DB
-		irreparable := planet.Satellites[0].DB.Irreparable()
-		remoteSegmentInfo, err := irreparable.Get(ctx, pointerKey)
 		require.NoError(t, err)
-		// check that the expired segment was not added to the irreparable DB
-		_, err = irreparable.Get(ctx, pointerExpiredKey)
-		require.Error(t, err)
-
-		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
-		require.Equal(t, 1, int(remoteSegmentInfo.RepairAttemptCount))
-		firstRepair := remoteSegmentInfo.LastRepairAttempt
+		count, err := repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
 
 		// check irreparable once again but wait a second
 		time.Sleep(1 * time.Second)
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
-
-		remoteSegmentInfo, err = irreparable.Get(ctx, pointerKey)
-		require.NoError(t, err)
-
-		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
-		// check if repair attempt count was incremented
-		require.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
-		require.True(t, firstRepair < remoteSegmentInfo.LastRepairAttempt)
 
 		expectedLocation.ObjectKey = "piece"
 		_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
@@ -183,15 +159,12 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		rs.RequiredShares = 2
-		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Time{})
-		pointerKey = expectedLocation.Encode()
-
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		_, err = irreparable.Get(ctx, pointerKey)
-		require.Error(t, err)
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
 	})
 }
 
@@ -225,12 +198,14 @@ func TestCleanRepairQueue(t *testing.T) {
 		healthyCount := 5
 		for i := 0; i < healthyCount; i++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("healthy-%d", i))
-			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 		unhealthyCount := 5
+		unhealthyIDs := make(map[uuid.UUID]struct{})
 		for i := 0; i < unhealthyCount; i++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("unhealthy-%d", i))
-			insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
+			unhealthyStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
+			unhealthyIDs[unhealthyStreamID] = struct{}{}
 		}
 
 		// suspend enough nodes to make healthy pointers unhealthy
@@ -271,9 +246,11 @@ func TestCleanRepairQueue(t *testing.T) {
 
 		segs, err := repairQueue.SelectN(ctx, count)
 		require.NoError(t, err)
+		require.Equal(t, len(unhealthyIDs), len(segs))
 
 		for _, s := range segs {
-			require.True(t, bytes.Contains(s.GetPath(), []byte("unhealthy")))
+			_, ok := unhealthyIDs[s.StreamID]
+			require.True(t, ok)
 		}
 	})
 }
@@ -306,12 +283,7 @@ func createLostPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) meta
 	return pieces
 }
 
-func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expire time.Time) {
-	var expiresAt *time.Time
-	if !expire.IsZero() {
-		expiresAt = &expire
-	}
-
+func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expiresAt *time.Time) uuid.UUID {
 	metabaseDB := planet.Satellites[0].Metainfo.Metabase
 
 	obj := metabase.ObjectStream{
@@ -349,6 +321,7 @@ func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		PlainSize:         1,
 		EncryptedSize:     1,
 		Redundancy:        rs,
+		ExpiresAt:         expiresAt,
 	})
 	require.NoError(t, err)
 
@@ -356,4 +329,6 @@ func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		ObjectStream: obj,
 	})
 	require.NoError(t, err)
+
+	return obj.StreamID
 }

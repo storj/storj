@@ -10,12 +10,12 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/tagsql"
 	"storj.io/storj/storagenode/satellites"
 )
 
 // ErrSatellitesDB represents errors from the satellites database.
-var ErrSatellitesDB = errs.Class("satellitesdb error")
+var ErrSatellitesDB = errs.Class("satellitesdb")
 
 // SatellitesDBName represents the database name.
 const SatellitesDBName = "satellites"

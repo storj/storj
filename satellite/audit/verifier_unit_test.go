@@ -15,7 +15,7 @@ import (
 	"storj.io/common/pkcrypto"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestFailingAudit(t *testing.T) {
@@ -129,7 +129,7 @@ func TestCreatePendingAudits(t *testing.T) {
 	contained := make(map[int]storj.NodeID)
 	contained[1] = testNodeID
 
-	segment := testSegment("test")
+	segment := testSegment()
 	segmentInfo := metabase.Segment{
 		StreamID:    segment.StreamID,
 		RootPieceID: testrand.PieceID(),

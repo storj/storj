@@ -23,10 +23,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/dbschema"
-	"storj.io/storj/private/dbutil/pgtest"
-	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/private/dbutil/dbschema"
+	"storj.io/private/dbutil/pgtest"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -63,7 +63,7 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 				if errors.As(err, &pgErr) {
 					return fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pgErr, pgErr.Detail, pgErr.Hint)
 				}
-				return fmt.Errorf("Version %d error: %+v", version, err)
+				return fmt.Errorf("Version %d error: %w", version, err)
 			}
 			snapshot.Version = version
 
@@ -239,6 +239,7 @@ func migrateTest(t *testing.T, connStr string) {
 func TestMigrateGeneratedPostgres(t *testing.T) {
 	migrateGeneratedTest(t, pgtest.PickPostgres(t), pgtest.PickPostgres(t))
 }
+
 func TestMigrateGeneratedCockroach(t *testing.T) {
 	migrateGeneratedTest(t, pgtest.PickCockroachAlt(t), pgtest.PickCockroachAlt(t))
 }

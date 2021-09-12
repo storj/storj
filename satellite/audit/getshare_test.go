@@ -19,7 +19,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 type mockConnector struct {
@@ -98,7 +98,7 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
+		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
 		require.NoError(t, err)
 
 		// find any non-nil limit
@@ -152,7 +152,7 @@ func TestGetSharePrefers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
+		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(orderLimits), 1)
 

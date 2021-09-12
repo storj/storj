@@ -15,17 +15,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/dbutil/txutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/txutil"
+	"storj.io/private/tagsql"
 )
 
 var (
 	// ErrValidateVersionQuery is when there is an error querying version table.
-	ErrValidateVersionQuery = errs.Class("validate db version query error")
+	ErrValidateVersionQuery = errs.Class("validate db version query")
 	// ErrValidateVersionMismatch is when the migration version does not match the current database version.
-	ErrValidateVersionMismatch = errs.Class("validate db version mismatch error")
+	ErrValidateVersionMismatch = errs.Class("validate db version mismatch")
 	// ErrValidateMinVersion is when the migration version does not match the current database version.
-	ErrValidateMinVersion = errs.Class("validate minimum version error")
+	ErrValidateMinVersion = errs.Class("validate minimum version")
 )
 
 /*
@@ -226,6 +226,10 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 
 // ensureVersionTable creates migration.Table table if not exists.
 func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) error {
+	if err := migration.ValidTableName(); err != nil {
+		return Error.Wrap(err)
+	}
+
 	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		_, err := tx.Exec(ctx, rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
 		return err

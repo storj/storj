@@ -77,7 +77,6 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			if err != nil {
 				withoutStack := errors.New(err.Error())
 				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-				err = nil
 			}
 		}
 		debugConfig := config.Debug
@@ -136,10 +135,9 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.ObjectPrice,
 			pc.BonusRate,
 			pc.CouponValue,
-			pc.CouponDuration,
+			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

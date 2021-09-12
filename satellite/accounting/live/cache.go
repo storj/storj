@@ -23,8 +23,9 @@ var (
 
 // Config contains configurable values for the live accounting service.
 type Config struct {
-	StorageBackend    string        `help:"what to use for storing real-time accounting data"`
-	BandwidthCacheTTL time.Duration `default:"5m" help:"bandwidth cache key time to live"`
+	StorageBackend     string        `help:"what to use for storing real-time accounting data"`
+	BandwidthCacheTTL  time.Duration `default:"5m" help:"bandwidth cache key time to live"`
+	AsOfSystemInterval time.Duration `default:"-10s" help:"as of system interval"`
 }
 
 // OpenCache creates a new accounting.Cache instance using the type specified backend in

@@ -54,12 +54,11 @@ type service struct {
 
 // NewService is a constructor for Service.
 func NewService(log *zap.Logger, store *pieces.Store, trust *trust.Pool, dialer rpc.Dialer, minDownloadTimeout time.Duration, minBytesPerSecond memory.Size) Service {
-	ecClient := ecclient.NewClient(log, dialer, 0)
 	return &service{
 		log:                log,
 		store:              store,
 		trust:              trust,
-		ecClient:           ecClient,
+		ecClient:           ecclient.New(dialer, 0),
 		minDownloadTimeout: minDownloadTimeout,
 		minBytesPerSecond:  minBytesPerSecond,
 	}

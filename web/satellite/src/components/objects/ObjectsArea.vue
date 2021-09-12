@@ -11,40 +11,27 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
-import { LocalData, UserIDPassSalt } from '@/utils/localData';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { MetaUtils } from '@/utils/meta';
 
 @Component
 export default class ObjectsArea extends Vue {
     /**
      * Lifecycle hook after initial render.
-     * Chooses correct route.
+     * Redirects if flow is disabled.
      */
     public async mounted(): Promise<void> {
-        const DUPLICATE_NAV_ERROR: string = 'NavigationDuplicated';
-        const idPassSalt: UserIDPassSalt | null = LocalData.getUserIDPassSalt();
-        if (idPassSalt && idPassSalt.userId === this.$store.getters.user.id) {
-            try {
-                await this.$router.push(RouteConfig.Objects.with(RouteConfig.EnterPassphrase).path);
-
-                return;
-            } catch (error) {
-                if (error.name === DUPLICATE_NAV_ERROR) {
-                    return;
-                }
-
-                await this.$notify.error(error.message);
-            }
+        if (await JSON.parse(MetaUtils.getMetaContent('file-browser-flow-disabled'))) {
+            await this.$router.push(RouteConfig.ProjectDashboard.path);
         }
+    }
 
-        try {
-            await this.$router.push(RouteConfig.Objects.with(RouteConfig.CreatePassphrase).path);
-        } catch (error) {
-            if (error.name === DUPLICATE_NAV_ERROR) {
-                return;
-            }
-
-            await this.$notify.error(error.message);
-        }
+    /**
+     * Lifecycle hook before component destroying.
+     * Clears objects VUEX state.
+     */
+    public beforeDestroy() {
+        this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
     }
 }
 </script>

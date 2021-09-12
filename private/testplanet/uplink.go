@@ -24,7 +24,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
-	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/piecestore"
 	"storj.io/uplink/private/testuplink"
 )
@@ -39,6 +39,7 @@ type Uplink struct {
 
 	APIKey map[storj.NodeID]*macaroon.APIKey
 	Access map[storj.NodeID]*uplink.Access
+	User   map[storj.NodeID]UserLogin
 
 	// Projects is indexed by the satellite number.
 	Projects []*Project
@@ -63,8 +64,14 @@ type ProjectOwner struct {
 	Email string
 }
 
+// UserLogin contains information about the user login.
+type UserLogin struct {
+	Email    string
+	Password string
+}
+
 // DialMetainfo dials the satellite with the appropriate api key.
-func (project *Project) DialMetainfo(ctx context.Context) (*metainfo.Client, error) {
+func (project *Project) DialMetainfo(ctx context.Context) (*metaclient.Client, error) {
 	return project.client.DialMetainfo(ctx, project.Satellite, project.RawAPIKey)
 }
 
@@ -106,6 +113,7 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (*Uplink, erro
 		Identity: identity,
 		APIKey:   map[storj.NodeID]*macaroon.APIKey{},
 		Access:   map[storj.NodeID]*uplink.Access{},
+		User:     map[storj.NodeID]UserLogin{},
 	}
 
 	planetUplink.Log.Debug("id=" + identity.ID.String())
@@ -122,6 +130,11 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (*Uplink, erro
 		}, 10)
 		if err != nil {
 			return nil, err
+		}
+
+		planetUplink.User[satellite.ID()] = UserLogin{
+			Email:    user.Email,
+			Password: user.FullName,
 		}
 
 		project, err := satellite.AddProject(ctx, user.ID, projectName)
@@ -171,13 +184,13 @@ func (client *Uplink) Addr() string { return "" }
 func (client *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client.
-func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metainfo.Client, error) {
-	return metainfo.DialNodeURL(ctx, client.Dialer, destination.NodeURL().String(), apikey, "Test/1.0")
+func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metaclient.Client, error) {
+	return metaclient.DialNodeURL(ctx, client.Dialer, destination.NodeURL().String(), apikey, "Test/1.0")
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.
 func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
-	return piecestore.DialNodeURL(ctx, client.Dialer, destination.NodeURL(), client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, client.Dialer, destination.NodeURL(), piecestore.DefaultConfig)
 }
 
 // OpenProject opens project with predefined access grant and gives access to pure uplink API.
@@ -349,6 +362,22 @@ func (client *Uplink) ListBuckets(ctx context.Context, satellite *Satellite) ([]
 		buckets = append(buckets, iter.Item())
 	}
 	return buckets, iter.Err()
+}
+
+// ListObjects returns a list of all objects in a bucket.
+func (client *Uplink) ListObjects(ctx context.Context, satellite *Satellite, bucketName string) ([]*uplink.Object, error) {
+	var objects = []*uplink.Object{}
+	project, err := client.GetProject(ctx, satellite)
+	if err != nil {
+		return objects, err
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	iter := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{})
+	for iter.Next() {
+		objects = append(objects, iter.Item())
+	}
+	return objects, iter.Err()
 }
 
 // GetProject returns a uplink.Project which allows interactions with a specific project.

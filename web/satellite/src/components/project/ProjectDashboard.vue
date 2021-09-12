@@ -4,63 +4,79 @@
 <template>
     <div class="dashboard-area">
         <div class="dashboard-area__header-wrapper">
-            <h1 class="dashboard-area__title">{{projectName}} Dashboard</h1>
-            <VInfo
-                class="dashboard-area__tooltip__wrapper"
-                bold-text="Expect a delay of a few hours between network activity and the latest dashboard stats.">
-                <InfoIcon class="dashboard-area__tooltip__icon"/>
-            </VInfo>
+            <h1 class="dashboard-area__header-wrapper__title">{{projectName}} Dashboard</h1>
+            <p class="dashboard-area__header-wrapper__message">
+                Expect a delay of a few hours between network activity and the latest dashboard stats.
+            </p>
         </div>
         <ProjectUsage/>
-        <ProjectSummary/>
-        <BucketArea/>
+        <ProjectSummary :is-data-fetching="isSummaryDataFetching"/>
+        <div v-if="areBucketsFetching" class="dashboard-area__container">
+            <p class="dashboard-area__container__title">Buckets</p>
+            <VLoader/>
+        </div>
+        <BucketArea v-else/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInfo from '@/components/common/VInfo.vue';
+import VLoader from '@/components/common/VLoader.vue';
 import BucketArea from '@/components/project/buckets/BucketArea.vue';
 import ProjectSummary from '@/components/project/summary/ProjectSummary.vue';
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
-import InfoIcon from '@/../static/images/common/infoTooltipSm.svg';
-
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
         BucketArea,
-        InfoIcon,
         ProjectUsage,
         ProjectSummary,
-        VInfo,
+        VLoader,
     },
 })
 export default class ProjectDashboard extends Vue {
+    public areBucketsFetching: boolean = true;
+    public isSummaryDataFetching: boolean = true;
+
     /**
      * Lifecycle hook after initial render.
-     * Segment tracking is processed.
+     * Fetches buckets, usage rollup, project members and access grants.
      */
-    public mounted(): void {
+    public async mounted(): Promise<void> {
         if (!this.$store.getters.selectedProject.id) {
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
             return;
         }
 
-        const projectLimit: number = this.$store.getters.user.projectLimit;
-        if (projectLimit && this.$store.getters.projectsCount < projectLimit) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-        }
+        const FIRST_PAGE = 1;
 
-        this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
-            project_id: this.$store.getters.selectedProject.id,
-        });
+        try {
+            await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADING);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_TOTAL_LIMITS);
+            await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADED);
+
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
+
+            this.areBucketsFetching = false;
+
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
+
+            this.isSummaryDataFetching = false;
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
     }
 
     /**
@@ -81,43 +97,42 @@ export default class ProjectDashboard extends Vue {
 
 <style scoped lang="scss">
     .dashboard-area {
-        padding: 50px 30px 30px 30px;
+        padding: 30px 30px 60px 30px;
         font-family: 'font_regular', sans-serif;
-
-        &__title {
-            font-family: 'font_bold', sans-serif;
-            font-size: 22px;
-            line-height: 27px;
-            color: #384b65;
-            margin: 0 0 30px 0;
-        }
 
         &__header-wrapper {
             display: flex;
-            margin-top: 10px;
+            flex-direction: column;
+            margin: 10px 0 30px 0;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 22px;
+                line-height: 27px;
+                color: #384b65;
+                margin: 0;
+            }
+
+            &__message {
+                font-size: 16px;
+                line-height: 20px;
+                color: #384b65;
+                margin: 10px 0 0 0;
+            }
         }
 
-        &__tooltip {
+        &__container {
+            background-color: #fff;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 30px;
 
-            &__wrapper {
-                margin: 7px 0 0 10px;
-
-                /deep/ .info__message-box {
-                    background-image: url('../../../static/images/tooltipMessageBg.png');
-                    min-width: 300px;
-                    text-align: left;
-                    left: 195px;
-                    bottom: 15px;
-                    padding: 10px 10px 10px 35px;
-
-                    &__text {
-
-                        &__bold-text {
-                            font-family: 'font_medium', sans-serif;
-                            color: #354049;
-                        }
-                    }
-                }
+            &__title {
+                margin: 0 0 20px 0;
+                font-family: 'font_bold', sans-serif;
+                font-size: 16px;
+                line-height: 16px;
+                color: #1b2533;
             }
         }
     }

@@ -61,7 +61,7 @@ goimports-st: ## Applies goimports to every go file in `git status` (ignores unt
 	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
 
 .PHONY: build-packages
-build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm ## Test docker images locally
+build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm build-multinode-npm ## Test docker images locally
 build-packages-race:
 	go build -v ./...
 build-packages-normal:
@@ -70,6 +70,8 @@ build-satellite-npm:
 	cd web/satellite && npm ci
 build-storagenode-npm:
 	cd web/storagenode && npm ci
+build-multinode-npm:
+	cd web/multinode && npm ci
 
 ##@ Simulator
 
@@ -88,12 +90,12 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/versioncontrol \
 		storj.io/storj/cmd/uplink \
 		storj.io/storj/cmd/identity \
-		storj.io/storj/cmd/certificates
+		storj.io/storj/cmd/certificates \
+		storj.io/storj/cmd/multinode
 
 	## install exact version of storj/gateway
-	mkdir -p ${GATEWAYPATH}
-	-cd ${GATEWAYPATH} && go mod init gatewaybuild
-	cd ${GATEWAYPATH} && GO111MODULE=on go get storj.io/gateway@multipart-upload
+	## TODO replace 'main' with 'latest' when gateway with multipart will be released
+	go install -race -v storj.io/gateway@main
 
 ##@ Test
 
@@ -117,11 +119,6 @@ test-sim-redis-unavailability: ## Test source with Redis availability with storj
 test-certificates: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-certificates.sh
-
-.PHONY: test-docker
-test-docker: ## Run tests in Docker
-	docker-compose up -d --remove-orphans test
-	docker-compose run test make test
 
 .PHONY: test-sim-backwards-compatible
 test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
@@ -324,7 +321,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	cd "release/${TAG}"; for f in *; do \
 		zipname=$$(echo $${f} | sed 's/.exe//g') \
-		&& filename=$$(echo $${f} | sed 's/_.*\.exe/.exe/g' | sed 's/_.*//g') \
+		&& filename=$$(echo $${f} | sed 's/_.*\.exe/.exe/g' | sed 's/_.*\.msi/.msi/g' | sed 's/_.*//g') \
 		&& if [ "$${f}" != "$${filename}" ]; then \
 			ln $${f} $${filename} \
 			&& zip -r "$${zipname}.zip" "$${filename}" \
@@ -338,7 +335,7 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 ##@ Clean
 
 .PHONY: clean
-clean: test-docker-clean binaries-clean clean-images ## Clean docker test environment, local release binaries, and local Docker images
+clean: binaries-clean clean-images ## Clean docker test environment, local release binaries, and local Docker images
 
 .PHONY: binaries-clean
 binaries-clean: ## Remove all local release binaries (jenkins)
@@ -350,11 +347,6 @@ clean-images:
 	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
-
-.PHONY: test-docker-clean
-test-docker-clean: ## Clean up Docker environment used in test-docker target
-	-docker-compose down --rmi all
-
 
 ##@ Tooling
 
@@ -376,5 +368,8 @@ diagrams-graphml:
 
 .PHONY: bump-dependencies
 bump-dependencies:
-	go get storj.io/common@main storj.io/private@main storj.io/uplink@multipart-upload
+	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
+
+update-proto-lock:
+	protolock commit --ignore "satellite/internalpb,storagenode/internalpb"

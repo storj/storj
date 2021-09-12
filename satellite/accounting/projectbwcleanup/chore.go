@@ -19,7 +19,7 @@ var mon = monkit.Package()
 
 // Config is a configuration struct for the Chore.
 type Config struct {
-	Interval     time.Duration `help:"how often to remove unused project bandwidth rollups" default:"168h"`
+	Interval     time.Duration `help:"how often to remove unused project bandwidth rollups" default:"168h" testDefault:"$TESTINTERVAL"`
 	RetainMonths int           `help:"number of months of project bandwidth rollups to retain, not including the current month" default:"2"`
 }
 
@@ -69,7 +69,7 @@ func (chore *Chore) RunOnce(ctx context.Context) (err error) {
 	now := time.Now().UTC()
 	beforeMonth := time.Date(now.Year(), now.Month()-time.Month(chore.config.RetainMonths), 1, 0, 0, 0, 0, time.UTC)
 
-	return chore.db.DeleteProjectAllocatedBandwidthBefore(ctx, beforeMonth)
+	return chore.db.DeleteProjectBandwidthBefore(ctx, beforeMonth)
 }
 
 // Close stops the chore.

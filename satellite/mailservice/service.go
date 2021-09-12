@@ -9,18 +9,20 @@ import (
 	htmltemplate "html/template"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
+	"storj.io/common/context2"
 	"storj.io/storj/private/post"
 )
 
 // Config defines values needed by mailservice service.
 type Config struct {
-	SMTPServerAddress string `help:"smtp server address" default:""`
+	SMTPServerAddress string `help:"smtp server address" default:"" testDefault:"smtp.mail.test:587"`
 	TemplatePath      string `help:"path to email templates source" default:""`
-	From              string `help:"sender email address" default:""`
+	From              string `help:"sender email address" default:"" testDefault:"Labs <storj@mail.test>"`
 	AuthType          string `help:"smtp authentication type" releaseDefault:"login" devDefault:"simulate"`
 	Login             string `help:"plain/login auth user login" default:""`
 	Password          string `help:"plain/login auth user password" default:""`
@@ -99,6 +101,9 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 	service.sending.Add(1)
 	go func() {
 		defer service.sending.Done()
+
+		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 5*time.Second)
+		defer cancel()
 
 		err := service.SendRendered(ctx, to, msg)
 

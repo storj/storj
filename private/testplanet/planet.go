@@ -24,7 +24,7 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/versioncontrol"
@@ -60,8 +60,7 @@ type Config struct {
 
 // DatabaseConfig defines connection strings for database.
 type DatabaseConfig struct {
-	SatelliteDB        string
-	SatellitePointerDB string
+	SatelliteDB string
 }
 
 // Planet is a full storj system setup.

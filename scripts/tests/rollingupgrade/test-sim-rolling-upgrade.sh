@@ -117,8 +117,13 @@ install_sim(){
         rm -rf .build/gateway-tmp
         mkdir -p .build/gateway-tmp
         pushd .build/gateway-tmp
-            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@multipart-upload
+        	## TODO replace 'main' with 'latest' when gateway with multipart will be released
+            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@main
         popd
+    fi
+
+    if [ -d "${work_dir}/cmd/multinode" ]; then
+        go build -race -v -o ${bin_dir}/multinode storj.io/storj/cmd/multinode >/dev/null 2>&1
     fi
 }
 
@@ -136,19 +141,24 @@ setup_stage(){
 
     PATH=$src_sat_version_dir/bin:$PATH src_sat_cfg_dir=$(storj-sim network env --config-dir=${src_sat_version_dir}/local-network/ SATELLITE_0_DIR)
     PATH=$test_dir/bin:$PATH dest_sat_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ SATELLITE_0_DIR)
+    PATH=$src_sat_version_dir/bin:$PATH src_mnd_cfg_dir=$(storj-sim network env --config-dir=${src_sat_version_dir}/local-network/ MULTINODE_0_DIR)
+    PATH=$src_sat_version_dir/bin:$PATH dst_mnd_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ MULTINODE_0_DIR)
 
     # if stage 2, move old satellite binary to old_satellite
     if [[ $stage == "2" ]]
     then
         mv $dest_sat_cfg_dir/satellite $dest_sat_cfg_dir/old_satellite
+    fi
 
-        go build -v -o $test_dir/bin storj.io/storj/cmd/metainfo-migration >/dev/null 2>&1
-        STORJ_MIGRATION_DB=${STORJ_MIGRATION_DB:-$STORJ_SIM_POSTGRES}
-        $test_dir/bin/metainfo-migration --pointerdb "${STORJ_MIGRATION_DB}" --metabasedb "${STORJ_MIGRATION_DB}"
+    # if using multinode, copy its configuration if none to be backwards compatible
+    if [[ "$src_mnd_cfg_dir" != "" && ! -f "$dst_mnd_cfg_dir/config.yaml" ]]; then
+        cp -r $src_mnd_cfg_dir/. $dst_mnd_cfg_dir
+        # use most recent multinode version to avoid failure when UI was not build
+        ln -f $src_sat_version_dir/bin/multinode $test_dir/bin/multinode
     fi
 
     # ln binary and copy config.yaml for desired version
-    ln -f $(version_dir ${sat_version})/bin/storj-sim $test_dir/bin/storj-sim
+    ln -f $src_sat_version_dir/bin/storj-sim $test_dir/bin/storj-sim
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"

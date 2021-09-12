@@ -3,13 +3,13 @@
 
 <template>
   <div class="dashboard-area">
-      <div class="dashboard-area__navigation-area">
+      <nav class="dashboard-area__navigation-area">
           <navigation-area />
-      </div>
+      </nav>
       <div class="dashboard-area__right-area">
-          <div class="dashboard-area__right-area__header">
+          <header class="dashboard-area__right-area__header">
               <add-new-node />
-          </div>
+          </header>
           <div class="dashboard-area__right-area__content">
               <router-view />
           </div>
@@ -23,13 +23,26 @@ import { Component, Vue } from 'vue-property-decorator';
 import AddNewNode from '@/app/components/modals/AddNewNode.vue';
 import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
 
+import { UnauthorizedError } from '@/api';
+
 @Component({
     components: {
         AddNewNode,
         NavigationArea,
     },
 })
-export default class Dashboard extends Vue {}
+export default class Dashboard extends Vue {
+    public async mounted(): Promise<void> {
+        try {
+            await this.$store.dispatch('nodes/trustedSatellites');
+        } catch (error) {
+            if (error instanceof UnauthorizedError) {
+                // TODO: redirect to login screen.
+            }
+            // TODO: notify error
+        }
+    }
+}
 </script>
 
 <style lang="scss" scoped>

@@ -28,7 +28,7 @@ import (
 
 var (
 	// Error defines stripecoinpayments service error.
-	Error = errs.Class("stripecoinpayments service error")
+	Error = errs.Class("stripecoinpayments service")
 	// ErrNoCouponUsages indicates that there are no coupon usages.
 	ErrNoCouponUsages = errs.Class("stripecoinpayments no coupon usages")
 
@@ -42,11 +42,12 @@ const hoursPerMonth = 24 * 30
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`
 	StripePublicKey              string        `help:"stripe API public key" default:""`
+	StripeFreeTierCouponID       string        `help:"stripe free tier coupon ID" default:""`
 	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
 	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
-	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" default:"2m"`
-	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" default:"2m"`
-	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" default:"10m"`
+	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" default:"2m" testDefault:"$TESTINTERVAL"`
+	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" default:"2m" testDefault:"$TESTINTERVAL"`
+	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" default:"10m" testDefault:"$TESTINTERVAL"`
 	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit                 int           `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 }
@@ -68,9 +69,10 @@ type Service struct {
 	// BonusRate amount of percents
 	BonusRate int64
 	// Coupon Values
-	CouponValue        int64
-	CouponDuration     int64
-	CouponProjectLimit memory.Size
+	StripeFreeTierCouponID string
+	CouponValue            int64
+	CouponDuration         *int64
+	CouponProjectLimit     memory.Size
 	// Minimum CoinPayment to create a coupon
 	MinCoinPayment int64
 
@@ -81,13 +83,12 @@ type Service struct {
 	rates    coinpayments.CurrencyRateInfos
 	ratesErr error
 
-	listingLimit      int
-	nowFn             func() time.Time
-	PaywallProportion float64
+	listingLimit int
+	nowFn        func() time.Time
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64, paywallProportion float64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue int64, couponDuration *int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -125,6 +126,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		EgressMBPriceCents:       egressMBPriceCents,
 		ObjectMonthPriceCents:    objectMonthPriceCents,
 		BonusRate:                bonusRate,
+		StripeFreeTierCouponID:   config.StripeFreeTierCouponID,
 		CouponValue:              couponValue,
 		CouponDuration:           couponDuration,
 		CouponProjectLimit:       couponProjectLimit,
@@ -132,7 +134,6 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		AutoAdvance:              config.AutoAdvance,
 		listingLimit:             config.ListingLimit,
 		nowFn:                    time.Now,
-		PaywallProportion:        paywallProportion,
 	}, nil
 }
 
@@ -207,28 +208,6 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 			// monkit currently does not have a DurationVal
 			mon.IntVal("coinpayment_duration").Observe(int64(time.Since(creationTimes[id])))
 			applies = append(applies, id)
-		}
-
-		userID := ids[id]
-
-		if !service.Accounts().PaywallEnabled(userID) {
-			continue
-		}
-
-		rate, err := service.db.Transactions().GetLockedRate(ctx, id)
-		if err != nil {
-			service.log.Error(fmt.Sprintf("could not add promotional coupon for user %s", userID.String()), zap.Error(err))
-			continue
-		}
-
-		cents := convertToCents(rate, &info.Received)
-
-		if cents >= service.MinCoinPayment {
-			err = service.Accounts().Coupons().AddPromotionalCoupon(ctx, userID)
-			if err != nil {
-				service.log.Error(fmt.Sprintf("could not add promotional coupon for user %s", userID.String()), zap.Error(err))
-				continue
-			}
 		}
 	}
 
@@ -413,7 +392,8 @@ func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.C
 }
 
 // PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if
-// none exists.
+// none exists. Before creating invoice records, it ensures that all eligible users have a
+// free tier coupon.
 func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -491,7 +471,10 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 				continue
 			}
 
-			if end.After(coupon.ExpirationDate()) {
+			expirationDate := coupon.ExpirationDate()
+			if expirationDate != nil &&
+				end.After(*expirationDate) {
+
 				// this coupon is identified as expired for first time, mark it in the database
 				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
 					return 0, 0, err
@@ -521,7 +504,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 				leftToCharge -= amountToChargeFromCoupon
 			}
 
-			if amountToChargeFromCoupon < remaining && end.Equal(coupon.ExpirationDate()) {
+			if amountToChargeFromCoupon < remaining && expirationDate != nil && end.Equal(*expirationDate) {
 				// the coupon was not fully spent, but this is the last month
 				// it is valid for, so mark it as expired in database
 				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
@@ -764,6 +747,7 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 	}
 
 	service.log.Info("Number of processed coupons usages.", zap.Int("Coupons Usages", couponsUsages))
+
 	return nil
 }
 
@@ -897,7 +881,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	description := fmt.Sprintf("Tardigrade Cloud Storage for %s %d", period.Month(), period.Year())
+	description := fmt.Sprintf("Storj DCS Cloud Storage for %s %d", period.Month(), period.Year())
 
 	_, err = service.stripeClient.Invoices().New(
 		&stripe.InvoiceParams{
@@ -908,14 +892,13 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 	)
 
 	if err != nil {
-		if stripeErr, ok := err.(*stripe.Error); ok {
-			switch stripeErr.Code {
-			case stripe.ErrorCodeInvoiceNoCustomerLineItems:
+		var stripErr *stripe.Error
+		if errors.As(err, &stripErr) {
+			if stripErr.Code == stripe.ErrorCodeInvoiceNoCustomerLineItems {
 				return nil
-			default:
-				return err
 			}
 		}
+		return err
 	}
 
 	return nil

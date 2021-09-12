@@ -16,23 +16,21 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/piecestore"
 )
 
 var (
 	// Error defines the gc service errors class.
-	Error = errs.Class("gc service error")
+	Error = errs.Class("gc")
 	mon   = monkit.Package()
 )
 
 // Config contains configurable values for garbage collection.
 type Config struct {
-	Interval  time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m"`
-	Enabled   bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
-	SkipFirst bool          `help:"if true, skip the first run of GC" releaseDefault:"true" devDefault:"false"`
-	RunInCore bool          `help:"if true, run garbage collection as part of the core" releaseDefault:"false" devDefault:"false"`
+	Interval time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m" testDefault:"$TESTINTERVAL"`
+	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
 
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int           `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
@@ -49,9 +47,9 @@ type Service struct {
 	config Config
 	Loop   *sync2.Cycle
 
-	dialer       rpc.Dialer
-	overlay      overlay.DB
-	metainfoLoop *metaloop.Service
+	dialer      rpc.Dialer
+	overlay     overlay.DB
+	segmentLoop *segmentloop.Service
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data.
@@ -62,14 +60,14 @@ type RetainInfo struct {
 }
 
 // NewService creates a new instance of the gc service.
-func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *metaloop.Service) *Service {
+func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *segmentloop.Service) *Service {
 	return &Service{
-		log:          log,
-		config:       config,
-		Loop:         sync2.NewCycle(config.Interval),
-		dialer:       dialer,
-		overlay:      overlay,
-		metainfoLoop: loop,
+		log:         log,
+		config:      config,
+		Loop:        sync2.NewCycle(config.Interval),
+		dialer:      dialer,
+		overlay:     overlay,
+		segmentLoop: loop,
 	}
 }
 
@@ -79,14 +77,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	if !service.config.Enabled {
 		return nil
-	}
-
-	if service.config.SkipFirst {
-		// make sure the metainfo loop runs once
-		err = service.metainfoLoop.Join(ctx, metaloop.NullObserver{})
-		if err != nil {
-			return err
-		}
 	}
 
 	// load last piece counts from overlay db
@@ -104,7 +94,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		pieceTracker := NewPieceTracker(service.log.Named("gc observer"), service.config, lastPieceCounts)
 
 		// collect things to retain
-		err = service.metainfoLoop.Join(ctx, pieceTracker)
+		err = service.segmentLoop.Join(ctx, pieceTracker)
 		if err != nil {
 			service.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
@@ -150,8 +140,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, info *RetainInfo) (err error) {
 	defer mon.Task()(&ctx, id.String())(&err)
 
-	log := service.log.Named(id.String())
-
 	dossier, err := service.overlay.Get(ctx, id)
 	if err != nil {
 		return Error.Wrap(err)
@@ -168,7 +156,7 @@ func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, 
 		Address: dossier.Address.Address,
 	}
 
-	client, err := piecestore.DialNodeURL(ctx, service.dialer, nodeurl, log, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(ctx, service.dialer, nodeurl, piecestore.DefaultConfig)
 	if err != nil {
 		return Error.Wrap(err)
 	}

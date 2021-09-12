@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/private/debug"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/revocation"
@@ -79,8 +78,6 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
-	// Irreparable returns database for failed repairs
-	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
 	// Orders returns database for orders

@@ -17,7 +17,7 @@ import (
 )
 
 // Error is error class API errors.
-var Error = errs.Class("coinpayments client error")
+var Error = errs.Class("coinpayments client")
 
 // ErrMissingPublicKey is returned when Coinpayments client is missing public key.
 var ErrMissingPublicKey = errs.Class("missing public key")
@@ -70,7 +70,7 @@ func (c *Client) do(ctx context.Context, cmd string, values url.Values) (_ json.
 
 	buff := bytes.NewBufferString(encoded)
 
-	req, err := http.NewRequest(http.MethodPost, "https://www.coinpayments.net/api.php", buff)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://www.coinpayments.net/api.php", buff)
 	if err != nil {
 		return nil, err
 	}

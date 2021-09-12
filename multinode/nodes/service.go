@@ -20,7 +20,7 @@ var (
 	mon = monkit.Package()
 
 	// Error is an error class for nodes service error.
-	Error = errs.Class("nodes service error")
+	Error = errs.Class("nodes")
 )
 
 // Service exposes all nodes related logic.
@@ -45,6 +45,18 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodes DB) *Service {
 func (service *Service) Add(ctx context.Context, id storj.NodeID, apiSecret []byte, publicAddress string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return Error.Wrap(service.nodes.Add(ctx, id, apiSecret, publicAddress))
+}
+
+// List returns list of all nodes.
+func (service *Service) List(ctx context.Context) (_ []Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes, err := service.nodes.List(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return nodes, nil
 }
 
 // UpdateName will update name of the specified node.

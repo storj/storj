@@ -43,24 +43,13 @@ func init() {
 }
 
 // upload transfers src from local machine to s3 compatible object dst.
-func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
+func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, expiration time.Time, metadata []byte, showProgress bool) (err error) {
 	if !src.IsLocal() {
 		return fmt.Errorf("source must be local path: %s", src)
 	}
 
 	if dst.IsLocal() {
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
-	}
-
-	var expiration time.Time
-	if *expires != "" {
-		expiration, err = time.Parse(time.RFC3339, *expires)
-		if err != nil {
-			return err
-		}
-		if expiration.Before(time.Now()) {
-			return fmt.Errorf("invalid expiration date: (%s) has already passed", *expires)
-		}
 	}
 
 	// if object name not specified, default to filename
@@ -103,8 +92,8 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	}
 
 	var customMetadata uplink.CustomMetadata
-	if *metadata != "" {
-		err := json.Unmarshal([]byte(*metadata), &customMetadata)
+	if len(metadata) > 0 {
+		err := json.Unmarshal(metadata, &customMetadata)
 		if err != nil {
 			return err
 		}
@@ -141,9 +130,6 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 
 	if bar != nil {
 		bar.Finish()
-	}
-	if err != nil {
-		return err
 	}
 
 	fmt.Printf("Created %s\n", dst.String())
@@ -318,7 +304,18 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if uploading
 	if src.IsLocal() {
-		return upload(ctx, src, dst, *progress)
+		var expiration time.Time
+		if *expires != "" {
+			expiration, err = time.Parse(time.RFC3339, *expires)
+			if err != nil {
+				return err
+			}
+			if expiration.Before(time.Now()) {
+				return fmt.Errorf("invalid expiration date: (%s) has already passed", *expires)
+			}
+		}
+
+		return upload(ctx, src, dst, expiration, []byte(*metadata), *progress)
 	}
 
 	// if downloading

@@ -3,11 +3,6 @@ set -euo pipefail
 
 SETUP_PARAMS=""
 
-if [[ -n "${STORJ_DATABASE:-}" ]]; then
-  export STORJ_POINTER_DB_DATABASE_URL="${STORJ_DATABASE}"
-fi
-
-
 if [[ -n "${IDENTITY_ADDR:-}" ]]; then
 	export STORJ_SERVER_ADDRESS="${IDENTITY_ADDR}"
 fi

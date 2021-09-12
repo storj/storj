@@ -5,7 +5,7 @@
     <div class="input-container">
         <div v-if="!isOptional" class="label-container">
             <div class="label-container__main">
-                <ErrorIcon v-if="error"/>
+                <ErrorIcon class="label-container__error-icon" v-if="error"/>
                 <h3 v-if="!error" class="label-container__main__label">{{label}}</h3>
                 <h3 v-if="!error" class="label-container__main__label add-label">{{additionalLabel}}</h3>
                 <h3 class="label-container__main__error" v-if="error">{{error}}</h3>
@@ -98,6 +98,12 @@ export default class HeaderedInput extends HeaderlessInput {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        margin-bottom: 10px;
+
+        &__error-icon {
+            min-height: 20px;
+            min-width: 20px;
+        }
 
         &__main {
             display: flex;
@@ -146,11 +152,16 @@ export default class HeaderedInput extends HeaderlessInput {
         resize: none;
         height: 48px;
         width: 100%;
+        padding: 0;
         text-indent: 20px;
         border-color: rgba(56, 75, 101, 0.4);
         border-radius: 6px;
         outline: none;
         box-shadow: none;
+
+        &::placeholder {
+            font-family: 'font_medium', sans-serif;
+        }
     }
 
     .headered-textarea {

@@ -8,29 +8,33 @@
                 :header-state="headerState"
                 :selected-project-members-count="selectedProjectMembersLength"
                 @onSuccessAction="resetPaginator"
+                :is-add-button-disabled="areMembersFetching"
             />
         </div>
-        <div class="team-area__container" id="team-container" v-if="isTeamAreaShown">
-            <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
-            <div class="team-area__container__content">
-                <VList
-                    :data-set="projectMembers"
-                    :item-component="getItemComponent"
-                    :on-item-click="onMemberClick"
-                />
+        <VLoader v-if="areMembersFetching" width="100px" height="100px"/>
+        <template v-else>
+            <div class="team-area__container" id="team-container" v-if="isTeamAreaShown">
+                <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
+                <div class="team-area__container__content">
+                    <VList
+                        :data-set="projectMembers"
+                        :item-component="getItemComponent"
+                        :on-item-click="onMemberClick"
+                    />
+                </div>
             </div>
-        </div>
-        <VPagination
-            v-if="totalPageCount > 1"
-            class="pagination-area"
-            ref="pagination"
-            :total-page-count="totalPageCount"
-            :on-page-click-callback="onPageClick"
-        />
-        <div class="team-area__empty-search-result-area" v-if="isEmptySearchResultShown">
-            <h1 class="team-area__empty-search-result-area__title">No results found</h1>
-            <EmptySearchResultIcon class="team-area__empty-search-result-area__image"/>
-        </div>
+            <VPagination
+                v-if="totalPageCount > 1"
+                class="pagination-area"
+                ref="pagination"
+                :total-page-count="totalPageCount"
+                :on-page-click-callback="onPageClick"
+            />
+            <div class="team-area__empty-search-result-area" v-if="isEmptySearchResultShown">
+                <h1 class="team-area__empty-search-result-area__title">No results found</h1>
+                <EmptySearchResultIcon class="team-area__empty-search-result-area__image"/>
+            </div>
+        </template>
     </div>
 </template>
 
@@ -38,6 +42,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VList from '@/components/common/VList.vue';
+import VLoader from '@/components/common/VLoader.vue';
 import VPagination from '@/components/common/VPagination.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
 import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
@@ -48,7 +53,6 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
     FETCH,
@@ -71,10 +75,13 @@ declare interface ResetPagination {
         VPagination,
         SortingListHeader,
         EmptySearchResultIcon,
+        VLoader,
     },
 })
 export default class ProjectMembersArea extends Vue {
     private FIRST_PAGE = 1;
+
+    public areMembersFetching: boolean = true;
 
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
@@ -85,11 +92,13 @@ export default class ProjectMembersArea extends Vue {
      * Fetches first page of team members list of current project.
      */
     public async mounted(): Promise<void> {
-        await this.$store.dispatch(FETCH, 1);
-        this.$segment.track(SegmentEvent.TEAM_VIEWED, {
-            project_id: this.$store.getters.selectedProject.id,
-            team_member_count: this.projectMembersTotalCount,
-        });
+        try {
+            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
+
+            this.areMembersFetching = false;
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
     }
 
     /**

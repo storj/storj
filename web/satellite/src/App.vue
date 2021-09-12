@@ -14,6 +14,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
+import { PartneredSatellite } from '@/types/common.ts';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 
@@ -29,12 +30,25 @@ export default class App extends Vue {
      */
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
+        const partneredSatellitesJson = JSON.parse(MetaUtils.getMetaContent('partnered-satellites'));
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
-        const segmentioId = MetaUtils.getMetaContent('segment-io');
         const couponCodeUIEnabled = MetaUtils.getMetaContent('coupon-code-ui-enabled');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
+
+            if (partneredSatellitesJson) {
+                const partneredSatellites: PartneredSatellite[] = [];
+                partneredSatellitesJson.forEach((partner) => {
+                    const name = partner[0];
+                    const address = partner[1];
+                    // skip current satellite
+                    if (name !== satelliteName) {
+                        partneredSatellites.push(new PartneredSatellite(name, address));
+                    }
+                });
+                this.$store.dispatch(APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
+            }
         }
 
         if (isBetaSatellite) {
@@ -45,9 +59,6 @@ export default class App extends Vue {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_UI_STATUS, couponCodeUIEnabled === 'true');
         }
 
-        if (segmentioId) {
-            this.$segment.init(segmentioId);
-        }
     }
 }
 </script>
@@ -71,20 +82,35 @@ export default class App extends Vue {
 
     @font-face {
         font-family: 'font_regular';
+        font-style: normal;
+        font-weight: 400;
         font-display: swap;
-        src: url('../static/fonts/font_regular.ttf');
+        src: local(''),
+            url('../static/fonts/inter-v3-latin-regular.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-regular.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-regular.ttf') format('truetype');
     }
 
     @font-face {
         font-family: 'font_medium';
+        font-style: normal;
+        font-weight: 600;
         font-display: swap;
-        src: url('../static/fonts/font_medium.ttf');
+        src: local(''),
+            url('../static/fonts/inter-v3-latin-600.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-600.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-600.ttf') format('truetype');
     }
 
     @font-face {
         font-family: 'font_bold';
+        font-style: normal;
+        font-weight: 800;
         font-display: swap;
-        src: url('../static/fonts/font_bold.ttf');
+        src: local(''),
+            url('../static/fonts/inter-v3-latin-800.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-800.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-800.ttf') format('truetype');
     }
 
     a {
@@ -96,7 +122,6 @@ export default class App extends Vue {
     input,
     textarea {
         font-family: inherit;
-        font-weight: 600;
         border: 1px solid rgba(56, 75, 101, 0.4);
         color: #354049;
         caret-color: #2683ff;

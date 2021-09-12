@@ -33,12 +33,12 @@ var shareCfg struct {
 	NotAfter          string   `help:"disallow access after this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	AllowedPathPrefix []string `help:"whitelist of path prefixes to require, overrides the [allowed-path-prefix] arguments"`
 	ExportTo          string   `default:"" help:"path to export the shared access to" basic-help:"true"`
-	BaseURL           string   `default:"https://link.tardigradeshare.io" help:"the base url for link sharing" basic-help:"true"`
+	BaseURL           string   `default:"https://link.us1.storjshare.io" help:"the base url for link sharing" basic-help:"true"`
 
 	Register    bool   `default:"false" help:"if true, creates and registers access grant" basic-help:"true"`
 	URL         bool   `default:"false" help:"if true, returns a url for the shared path. implies --register and --public" basic-help:"true"`
 	DNS         string `default:"" help:"specify your custom hostname. if set, returns dns settings for web hosting. implies --register and --public" basic-help:"true"`
-	AuthService string `default:"https://auth.tardigradeshare.io" help:"url for shared auth service" basic-help:"true"`
+	AuthService string `default:"https://auth.us1.storjshare.io" help:"url for shared auth service" basic-help:"true"`
 	Public      bool   `default:"false" help:"if true, the access will be public. --dns and --url override this" basic-help:"true"`
 
 	// Share requires information about the current access
@@ -61,6 +61,8 @@ func init() {
 }
 
 func shareMain(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := withTelemetry(cmd)
+
 	newAccess, newAccessData, sharePrefixes, permission, err := createAccessGrant(args)
 	if err != nil {
 		return err
@@ -68,7 +70,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 
 	if shareCfg.Register || shareCfg.URL || shareCfg.DNS != "" {
 		isPublic := (shareCfg.Public || shareCfg.URL || shareCfg.DNS != "")
-		accessKey, secretKey, endpoint, err := RegisterAccess(newAccess, shareCfg.AuthService, isPublic, defaultAccessRegisterTimeout)
+		accessKey, secretKey, endpoint, err := RegisterAccess(ctx, newAccess, shareCfg.AuthService, isPublic, defaultAccessRegisterTimeout)
 		if err != nil {
 			return err
 		}

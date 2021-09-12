@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/testcontext"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/testredis"
 	"storj.io/storj/storage"
 )

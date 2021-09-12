@@ -7,7 +7,7 @@
             class="resources-selection__toggle-container"
             @click.stop="toggleDropdown"
         >
-            <h1 class="resources-selection__toggle-container__name" :class="{ white: isDropdownShown }">Resources</h1>
+            <p class="resources-selection__toggle-container__name" :class="{ white: isDropdownShown }">Resources</p>
             <ExpandIcon
                 class="resources-selection__toggle-container__expand-icon"
                 :class="{ expanded: isDropdownShown }"

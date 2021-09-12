@@ -23,10 +23,10 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 )
@@ -66,10 +66,10 @@ type Repairer struct {
 
 // NewRepairer creates a new repairer peer.
 func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
-	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB,
+	metabaseDB *metabase.DB,
 	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
 	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB,
-	rollupsWriteCache *orders.RollupsWriteCache, irrDB irreparable.DB,
+	rollupsWriteCache *orders.RollupsWriteCache,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Repairer, error) {
 	peer := &Repairer{
 		Log:      log,
@@ -86,7 +86,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			if err != nil {
 				withoutStack := errors.New(err.Error())
 				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-				err = nil
 			}
 		}
 		debugConfig := config.Debug
@@ -127,7 +126,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup metainfo
-		peer.Metainfo = metainfo.NewService(log.Named("metainfo"), pointerDB, bucketsDB, metabaseDB)
+		peer.Metainfo = metainfo.NewService(log.Named("metainfo"), bucketsDB, metabaseDB)
 	}
 
 	{ // setup overlay
@@ -181,7 +180,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			config.Repairer.InMemoryRepair,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
-		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer, irrDB)
+		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "repair",

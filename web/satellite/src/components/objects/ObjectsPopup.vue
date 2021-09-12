@@ -6,12 +6,15 @@
         <div class="objects-popup__container">
             <h1 class="objects-popup__container__title">{{title}}</h1>
             <p class="objects-popup__container__sub-title">{{subTitle}}</p>
+            <div class="objects-popup__container__info">
+                <WarningIcon/>
+                <p class="objects-popup__container__info__msg">Only lowercase alphanumeric characters are allowed.</p>
+            </div>
             <HeaderedInput
                 class="objects-popup__container__input"
-                label="Bucket Name (lowercase letters)"
+                label="Bucket Name"
                 placeholder="Enter bucket name"
                 @setData="onChangeName"
-                :init-value="defaultInputValue"
                 :error="errorMessage"
                 :is-loading="isLoading"
             />
@@ -36,23 +39,23 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import WarningIcon from '@/../static/images/objects/warning.svg';
 
 @Component({
     components: {
         HeaderedInput,
         VButton,
         CloseCrossIcon,
+        WarningIcon,
     },
 })
 export default class ObjectsPopup extends Vue {
     @Prop({ default: () => ''})
-    public readonly onClick;
+    public readonly onClick: () => void;
     @Prop({ default: ''})
     public readonly title: string;
     @Prop({ default: ''})
     public readonly subTitle: string;
-    @Prop({ default: ''})
-    public readonly defaultInputValue: string;
     @Prop({ default: ''})
     public readonly buttonLabel: string;
     @Prop({ default: ''})
@@ -116,6 +119,24 @@ export default class ObjectsPopup extends Vue {
                 letter-spacing: -0.100741px;
                 color: rgba(37, 37, 37, 0.7);
                 margin: 0;
+            }
+
+            &__info {
+                display: flex;
+                align-items: center;
+                padding: 23px 14px;
+                background: #f5f6fa;
+                border: 1px solid #a9b5c1;
+                margin: 20px 0;
+                border-radius: 9px;
+
+                &__msg {
+                    font-family: 'font_medium', sans-serif;
+                    font-size: 16px;
+                    line-height: 19px;
+                    color: #1b2533;
+                    margin: 0 0 0 10px;
+                }
             }
 
             &__input {

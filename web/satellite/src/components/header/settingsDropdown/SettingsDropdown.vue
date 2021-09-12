@@ -61,7 +61,10 @@ export default class SettingsDropdown extends Vue {
      * Redirects to account settings page.
      */
     public onAccountSettingsClick(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path);
+        if (this.$route.name !== RouteConfig.Settings.name) {
+            this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path);
+        }
+
         this.closeDropdown();
     }
 
@@ -69,7 +72,10 @@ export default class SettingsDropdown extends Vue {
      * Redirects to billing page.
      */
     public onBillingClick(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
+        if (this.$route.name !== RouteConfig.Billing.name) {
+            this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
+        }
+
         this.closeDropdown();
     }
 

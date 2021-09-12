@@ -13,8 +13,9 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -29,7 +30,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit
 		return nil, audit.ContainError.New("node ID empty")
 	}
 
-	pending, err := containment.db.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
+	pending, err := containment.db.Get_SegmentPendingAudits_By_NodeId(ctx, dbx.SegmentPendingAudits_NodeId(id.Bytes()))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, audit.ErrContainedNotFound.New("%v", id)
@@ -43,27 +44,36 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit
 // IncrementPending creates a new pending audit entry, or increases its reverify count if it already exists.
 func (containment *containment) IncrementPending(ctx context.Context, pendingAudit *audit.PendingAudit) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	err = containment.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		existingAudit, err := tx.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(pendingAudit.NodeID.Bytes()))
-		switch err {
-		case sql.ErrNoRows:
+		existingAudit, err := tx.Get_SegmentPendingAudits_By_NodeId(ctx, dbx.SegmentPendingAudits_NodeId(pendingAudit.NodeID.Bytes()))
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			statement := containment.db.Rebind(
-				`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count, path)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT INTO segment_pending_audits (
+					node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count, stream_id, position
+				)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			)
-			_, err = tx.Tx.ExecContext(ctx, statement, pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex,
-				pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount, []byte(pendingAudit.Segment.Encode()))
+			_, err = tx.Tx.ExecContext(ctx, statement,
+				pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex,
+				pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount,
+				pendingAudit.StreamID, pendingAudit.Position.Encode())
 			if err != nil {
 				return err
 			}
-		case nil:
+		case err == nil:
 			if !bytes.Equal(existingAudit.ExpectedShareHash, pendingAudit.ExpectedShareHash) {
-				containment.db.log.Info("pending audit already exists", zap.String("node id", pendingAudit.NodeID.String()), zap.ByteString("segment", []byte(pendingAudit.Segment.Encode())))
+				containment.db.log.Info("pending audit already exists",
+					zap.String("node id", pendingAudit.NodeID.String()),
+					zap.String("segment streamid", pendingAudit.StreamID.String()),
+					zap.Uint64("segment position", pendingAudit.Position.Encode()),
+				)
 				return nil
 			}
 			statement := containment.db.Rebind(
-				`UPDATE pending_audits SET reverify_count = pending_audits.reverify_count + 1
-			WHERE pending_audits.node_id=?`,
+				`UPDATE segment_pending_audits SET reverify_count = segment_pending_audits.reverify_count + 1
+				WHERE segment_pending_audits.node_id=?`,
 			)
 			_, err = tx.Tx.ExecContext(ctx, statement, pendingAudit.NodeID.Bytes())
 			if err != nil {
@@ -90,7 +100,7 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (isDel
 	}
 
 	err = containment.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		isDeleted, err = tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
+		isDeleted, err = tx.Delete_SegmentPendingAudits_By_NodeId(ctx, dbx.SegmentPendingAudits_NodeId(id.Bytes()))
 		if err != nil {
 			return err
 		}
@@ -104,7 +114,7 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (isDel
 	return isDeleted, audit.ContainError.Wrap(err)
 }
 
-func convertDBPending(ctx context.Context, info *dbx.PendingAudits) (_ *audit.PendingAudit, err error) {
+func convertDBPending(ctx context.Context, info *dbx.SegmentPendingAudits) (_ *audit.PendingAudit, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if info == nil {
 		return nil, Error.New("missing info")
@@ -120,10 +130,12 @@ func convertDBPending(ctx context.Context, info *dbx.PendingAudits) (_ *audit.Pe
 		return nil, audit.ContainError.Wrap(err)
 	}
 
-	segment, err := metabase.ParseSegmentKey(info.Path)
+	streamID, err := uuid.FromBytes(info.StreamId)
 	if err != nil {
 		return nil, audit.ContainError.Wrap(err)
 	}
+
+	position := metabase.SegmentPositionFromEncoded(info.Position)
 
 	pending := &audit.PendingAudit{
 		NodeID:            nodeID,
@@ -132,7 +144,8 @@ func convertDBPending(ctx context.Context, info *dbx.PendingAudits) (_ *audit.Pe
 		ShareSize:         int32(info.ShareSize),
 		ExpectedShareHash: info.ExpectedShareHash,
 		ReverifyCount:     int32(info.ReverifyCount),
-		Segment:           segment,
+		StreamID:          streamID,
+		Position:          position,
 	}
 	return pending, nil
 }

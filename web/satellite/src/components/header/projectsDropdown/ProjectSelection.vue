@@ -7,7 +7,7 @@
             class="project-selection__toggle-container"
             @click.stop="toggleSelection"
         >
-            <h1 class="project-selection__toggle-container__name" :class="{ white: isDropdownShown }">Projects</h1>
+            <p class="project-selection__toggle-container__name" :class="{ white: isDropdownShown }">Projects</p>
             <ExpandIcon
                 class="project-selection__toggle-container__expand-icon"
                 :class="{ expanded: isDropdownShown }"
@@ -15,6 +15,7 @@
             />
             <ProjectDropdown
                 v-show="isDropdownShown"
+                :is-loading="isLoading"
                 @close="closeDropdown"
                 v-click-outside="closeDropdown"
             />
@@ -43,20 +44,6 @@ export default class ProjectSelection extends Vue {
     private isLoading: boolean = false;
 
     /**
-     * Life cycle hook before initial render.
-     * Toggles new project button visibility depending on user reaching project count limit or having payment method.
-     */
-    public beforeMount(): void {
-        if (this.isProjectLimitReached || !this.$store.getters.canUserCreateFirstProject) {
-            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
-
-            return;
-        }
-
-        this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-    }
-
-    /**
      * Indicates if current route is onboarding tour.
      */
     public get isOnboardingTour(): boolean {
@@ -74,7 +61,11 @@ export default class ProjectSelection extends Vue {
      * Fetches projects related information and than toggles selection popup.
      */
     public async toggleSelection(): Promise<void> {
-        if (this.isLoading || this.isOnboardingTour) return;
+        if (this.isOnboardingTour) return;
+
+        this.toggleDropdown();
+
+        if (this.isLoading || !this.isDropdownShown) return;
 
         this.isLoading = true;
 
@@ -83,10 +74,8 @@ export default class ProjectSelection extends Vue {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(error.message);
-            this.isLoading = false;
         }
 
-        this.toggleDropdown();
         this.isLoading = false;
     }
 
@@ -104,13 +93,6 @@ export default class ProjectSelection extends Vue {
         if (!this.isDropdownShown) return;
 
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
-
-    /**
-     * Indicates if project count limit is reached.
-     */
-    private get isProjectLimitReached(): boolean {
-        return this.$store.getters.projectsCount >= this.$store.getters.user.projectLimit;
     }
 }
 </script>

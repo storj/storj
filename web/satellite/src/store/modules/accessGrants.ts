@@ -68,8 +68,8 @@ export class AccessGrantsState {
     public page: AccessGrantsPage = new AccessGrantsPage();
     public selectedAccessGrantsIds: string[] = [];
     public selectedBucketNames: string[] = [];
-    public permissionNotBefore: Date = new Date();
-    public permissionNotAfter: Date = new Date('2200-01-01');
+    public permissionNotBefore: Date | null = null;
+    public permissionNotAfter: Date | null = null;
     public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
     public accessGrantsWebWorker: Worker | null = null;
     public isAccessGrantsWebWorkerReady: boolean = false;
@@ -182,8 +182,8 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 state.page = new AccessGrantsPage();
                 state.selectedAccessGrantsIds = [];
                 state.selectedBucketNames = [];
-                state.permissionNotBefore = new Date();
-                state.permissionNotAfter = new Date('2200-01-01');
+                state.permissionNotBefore = null;
+                state.permissionNotAfter = null;
                 state.gatewayCredentials = new GatewayCredentials();
             },
         },
@@ -215,7 +215,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 await api.deleteByNameAndProjectID(name, rootGetters.selectedProject.id);
             },
             getGatewayCredentials: async function({commit}: any, payload): Promise<GatewayCredentials> {
-                const credentials: GatewayCredentials = await api.getGatewayCredentials(payload.accessGrant, payload.optionalURL);
+                const credentials: GatewayCredentials = await api.getGatewayCredentials(payload.accessGrant, payload.optionalURL, payload.isPublic);
 
                 commit(SET_GATEWAY_CREDENTIALS, credentials);
 

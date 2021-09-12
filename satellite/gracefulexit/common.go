@@ -27,15 +27,18 @@ var (
 type Config struct {
 	Enabled bool `help:"whether or not graceful exit is enabled on the satellite side." default:"true"`
 
-	ChoreBatchSize int           `help:"size of the buffer used to batch inserts into the transfer queue." default:"500"`
-	ChoreInterval  time.Duration `help:"how often to run the transfer queue chore." releaseDefault:"30s" devDefault:"10s"`
+	ChoreBatchSize int           `help:"size of the buffer used to batch inserts into the transfer queue." default:"500" testDefault:"10"`
+	ChoreInterval  time.Duration `help:"how often to run the transfer queue chore." releaseDefault:"30s" devDefault:"10s" testDefault:"$TESTINTERVAL"`
 
-	EndpointBatchSize int `help:"size of the buffer used to batch transfer queue reads and sends to the storage node." default:"300"`
+	EndpointBatchSize int `help:"size of the buffer used to batch transfer queue reads and sends to the storage node." default:"300" testDefault:"100"`
 
 	MaxFailuresPerPiece          int           `help:"maximum number of transfer failures per piece." default:"5"`
 	OverallMaxFailuresPercentage int           `help:"maximum percentage of transfer failures per node." default:"10"`
-	MaxInactiveTimeFrame         time.Duration `help:"maximum inactive time frame of transfer activities per node." default:"168h"`
-	RecvTimeout                  time.Duration `help:"the minimum duration for receiving a stream from a storage node before timing out" default:"2h"`
-	MaxOrderLimitSendCount       int           `help:"maximum number of order limits a satellite sends to a node before marking piece transfer failed" default:"10"`
-	NodeMinAgeInMonths           int           `help:"minimum age for a node on the network in order to initiate graceful exit" default:"6"`
+	MaxInactiveTimeFrame         time.Duration `help:"maximum inactive time frame of transfer activities per node." default:"168h" testDefault:"10s"`
+	RecvTimeout                  time.Duration `help:"the minimum duration for receiving a stream from a storage node before timing out" default:"2h" testDefault:"1m"`
+	MaxOrderLimitSendCount       int           `help:"maximum number of order limits a satellite sends to a node before marking piece transfer failed" default:"10" testDefault:"3"`
+	NodeMinAgeInMonths           int           `help:"minimum age for a node on the network in order to initiate graceful exit" default:"6" testDefault:"0"`
+
+	AsOfSystemTimeInterval time.Duration `help:"interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past" default:"-10s" testDefault:"-1µs"`
+	TransferQueueBatchSize int           `help:"batch size (crdb specific) for deleting and adding items to the transfer queue" default:"1000"`
 }

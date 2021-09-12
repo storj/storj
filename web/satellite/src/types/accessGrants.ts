@@ -47,7 +47,7 @@ export interface AccessGrantsApi {
      * @returns GatewayCredentials
      * @throws Error
      */
-    getGatewayCredentials(accessGrant: string, optionalURL?: string): Promise<GatewayCredentials>;
+    getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<GatewayCredentials>;
 }
 
 /**
@@ -115,8 +115,8 @@ export class AccessGrant {
  */
 export class DurationPermission {
     constructor(
-        public notBefore: Date = new Date(),
-        public notAfter: Date = new Date(),
+        public notBefore: Date | null = null,
+        public notAfter: Date | null = null,
     ) {}
 }
 

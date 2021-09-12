@@ -26,7 +26,7 @@ import (
 var (
 	mon = monkit.Package()
 	// Error is storagenode console web error type.
-	Error = errs.Class("storagenode console web error")
+	Error = errs.Class("consoleserver")
 )
 
 // Config contains configuration for storagenode console web server.

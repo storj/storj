@@ -24,7 +24,7 @@ import (
 
 var (
 	// ErrAuthAPI - console auth api error type.
-	ErrAuthAPI = errs.Class("console auth api error")
+	ErrAuthAPI = errs.Class("consoleapi auth")
 
 	// errNotImplemented is the error value used by handlers of this package to
 	// response with status Not Implemented.
@@ -112,18 +112,19 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var registerData struct {
-		FullName       string `json:"fullName"`
-		ShortName      string `json:"shortName"`
-		Email          string `json:"email"`
-		Partner        string `json:"partner"`
-		PartnerID      string `json:"partnerId"`
-		Password       string `json:"password"`
-		SecretInput    string `json:"secret"`
-		ReferrerUserID string `json:"referrerUserId"`
-		IsProfessional bool   `json:"isProfessional"`
-		Position       string `json:"position"`
-		CompanyName    string `json:"companyName"`
-		EmployeeCount  string `json:"employeeCount"`
+		FullName         string `json:"fullName"`
+		ShortName        string `json:"shortName"`
+		Email            string `json:"email"`
+		Partner          string `json:"partner"`
+		PartnerID        string `json:"partnerId"`
+		Password         string `json:"password"`
+		SecretInput      string `json:"secret"`
+		ReferrerUserID   string `json:"referrerUserId"`
+		IsProfessional   bool   `json:"isProfessional"`
+		Position         string `json:"position"`
+		CompanyName      string `json:"companyName"`
+		EmployeeCount    string `json:"employeeCount"`
+		HaveSalesContact bool   `json:"haveSalesContact"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -149,15 +150,16 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.service.CreateUser(ctx,
 		console.CreateUser{
-			FullName:       registerData.FullName,
-			ShortName:      registerData.ShortName,
-			Email:          registerData.Email,
-			PartnerID:      registerData.PartnerID,
-			Password:       registerData.Password,
-			IsProfessional: registerData.IsProfessional,
-			Position:       registerData.Position,
-			CompanyName:    registerData.CompanyName,
-			EmployeeCount:  registerData.EmployeeCount,
+			FullName:         registerData.FullName,
+			ShortName:        registerData.ShortName,
+			Email:            registerData.Email,
+			PartnerID:        registerData.PartnerID,
+			Password:         registerData.Password,
+			IsProfessional:   registerData.IsProfessional,
+			Position:         registerData.Position,
+			CompanyName:      registerData.CompanyName,
+			EmployeeCount:    registerData.EmployeeCount,
+			HaveSalesContact: registerData.HaveSalesContact,
 		},
 		secret,
 	)
@@ -167,16 +169,18 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	trackCreateUserFields := analytics.TrackCreateUserFields{
-		ID:       user.ID,
-		FullName: user.FullName,
-		Email:    user.Email,
-		Type:     analytics.Personal,
+		ID:          user.ID,
+		AnonymousID: loadSession(r),
+		FullName:    user.FullName,
+		Email:       user.Email,
+		Type:        analytics.Personal,
 	}
 	if user.IsProfessional {
 		trackCreateUserFields.Type = analytics.Professional
 		trackCreateUserFields.EmployeeCount = user.EmployeeCount
 		trackCreateUserFields.CompanyName = user.CompanyName
 		trackCreateUserFields.JobTitle = user.Position
+		trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 	}
 	a.analytics.TrackCreateUser(trackCreateUserFields)
 
@@ -210,6 +214,16 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// loadSession looks for a cookie for the session id.
+// this cookie is set from the reverse proxy if the user opts into cookies from Storj.
+func loadSession(req *http.Request) string {
+	sessionCookie, err := req.Cookie("webtraf-sid")
+	if err != nil {
+		return ""
+	}
+	return sessionCookie.Value
+}
+
 // UpdateAccount updates user's full name and short name.
 func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -239,16 +253,18 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID             uuid.UUID `json:"id"`
-		FullName       string    `json:"fullName"`
-		ShortName      string    `json:"shortName"`
-		Email          string    `json:"email"`
-		PartnerID      uuid.UUID `json:"partnerId"`
-		ProjectLimit   int       `json:"projectLimit"`
-		IsProfessional bool      `json:"isProfessional"`
-		Position       string    `json:"position"`
-		CompanyName    string    `json:"companyName"`
-		EmployeeCount  string    `json:"employeeCount"`
+		ID               uuid.UUID `json:"id"`
+		FullName         string    `json:"fullName"`
+		ShortName        string    `json:"shortName"`
+		Email            string    `json:"email"`
+		PartnerID        uuid.UUID `json:"partnerId"`
+		ProjectLimit     int       `json:"projectLimit"`
+		IsProfessional   bool      `json:"isProfessional"`
+		Position         string    `json:"position"`
+		CompanyName      string    `json:"companyName"`
+		EmployeeCount    string    `json:"employeeCount"`
+		HaveSalesContact bool      `json:"haveSalesContact"`
+		PaidTier         bool      `json:"paidTier"`
 	}
 
 	auth, err := console.GetAuth(ctx)
@@ -267,6 +283,8 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.CompanyName = auth.User.CompanyName
 	user.Position = auth.User.Position
 	user.EmployeeCount = auth.User.EmployeeCount
+	user.HaveSalesContact = auth.User.HaveSalesContact
+	user.PaidTier = auth.User.PaidTier
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
@@ -439,18 +457,8 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
-	w.WriteHeader(a.getStatusCode(err))
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		a.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
-	}
+	status := a.getStatusCode(err)
+	serveJSONError(a.log, w, status, err)
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.

@@ -150,8 +150,9 @@ func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdent
 	return writeVerificationMessage(true, completed.SatelliteId, completed.NodeId, completed.Completed)
 }
 
-func cleanupGEOrphanedData(ctx context.Context, before time.Time) (err error) {
-	db, err := satellitedb.Open(ctx, zap.L().Named("db"), consistencyGECleanupCfg.Database, satellitedb.Options{ApplicationName: "satellite-gracefulexit"})
+func cleanupGEOrphanedData(ctx context.Context, before time.Time, config gracefulexit.Config) (err error) {
+	db, err := satellitedb.Open(ctx, zap.L().Named("db"), consistencyGECleanupCfg.Database,
+		satellitedb.Options{ApplicationName: "satellite-gracefulexit"})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -159,7 +160,7 @@ func cleanupGEOrphanedData(ctx context.Context, before time.Time) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	nodesItems, err := db.GracefulExit().CountFinishedTransferQueueItemsByNode(ctx, before)
+	nodesItems, err := db.GracefulExit().CountFinishedTransferQueueItemsByNode(ctx, before, config.AsOfSystemTimeInterval)
 	if err != nil {
 		return err
 	}
@@ -211,12 +212,12 @@ func cleanupGEOrphanedData(ctx context.Context, before time.Time) (err error) {
 		return nil
 	}
 
-	queueTotal, err := db.GracefulExit().DeleteAllFinishedTransferQueueItems(ctx, before)
+	queueTotal, err := db.GracefulExit().DeleteAllFinishedTransferQueueItems(ctx, before, config.AsOfSystemTimeInterval, config.TransferQueueBatchSize)
 	if err != nil {
 		fmt.Println("Error, NO ITEMS have been deleted from transfer queue")
 		return err
 	}
-	progressTotal, err := db.GracefulExit().DeleteFinishedExitProgress(ctx, before)
+	progressTotal, err := db.GracefulExit().DeleteFinishedExitProgress(ctx, before, config.AsOfSystemTimeInterval)
 	if err != nil {
 		fmt.Printf("Error, %d stale entries were deleted from exit progress table. More stale entries might remain.\n", progressTotal)
 		return err

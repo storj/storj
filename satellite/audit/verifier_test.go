@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/storagenode"
 )
 
@@ -64,7 +64,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 
 		shareSize := segment.Redundancy.ShareSize
 
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
 		require.NoError(t, err)
 
 		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
@@ -117,7 +117,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 
 		shareSize := segment.Redundancy.ShareSize
 
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
 		require.NoError(t, err)
 
 		// stop the first node in the segment
@@ -182,7 +182,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 
 		shareSize := segment.Redundancy.ShareSize
 
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
 		require.NoError(t, err)
 
 		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
@@ -261,7 +261,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 
 		shareSize := segment.Redundancy.ShareSize
 
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
 		require.NoError(t, err)
 
 		shares, err := verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
@@ -336,7 +336,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 
 		shareSize := segment.Redundancy.ShareSize
 
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
 		require.NoError(t, err)
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares

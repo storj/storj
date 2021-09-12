@@ -5,14 +5,15 @@ package dbx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/txutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/cockroachutil"
+	"storj.io/private/dbutil/txutil"
+	"storj.io/private/tagsql"
 )
 
 //go:generate sh gen.sh
@@ -58,8 +59,8 @@ func (err *constraintError) Cause() error { return err.err }
 
 // IsConstraintError returns true if the error is a constraint error.
 func IsConstraintError(err error) bool {
-	_, ok := err.(*constraintError)
-	return ok
+	var cerr *constraintError
+	return errors.As(err, &cerr)
 }
 
 // Error implements the error interface.

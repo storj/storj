@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/cockroachutil"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -157,7 +157,7 @@ func (db *StoragenodeAccounting) getBandwidthByNodeSince(ctx context.Context, la
 				return err
 			}
 		}
-		if len(rollups) < pageLimit {
+		if cursor == nil {
 			return nil
 		}
 	}
@@ -196,7 +196,7 @@ func (db *StoragenodeAccounting) getBandwidthPhase2ByNodeSince(ctx context.Conte
 				return err
 			}
 		}
-		if len(rollups) < pageLimit {
+		if cursor == nil {
 			return nil
 		}
 	}
@@ -534,7 +534,7 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		return 0, nil
 	}
 
-	switch db.db.implementation {
+	switch db.db.impl {
 	case dbutil.Cockroach:
 		for {
 			row := db.db.QueryRow(ctx, `
@@ -559,6 +559,8 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 				break
 			}
 		}
+		return nodeRollupsDeleted, nil
+
 	case dbutil.Postgres:
 		storagenodeStatement := `
 			WITH rollups_to_move AS (
@@ -571,14 +573,12 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 			SELECT count(*) FROM moved_rollups
 		`
 		row := db.db.DB.QueryRow(ctx, storagenodeStatement, before)
-		var rowCount int
-		err = row.Scan(&rowCount)
-		if err != nil {
-			return nodeRollupsDeleted, err
-		}
-		nodeRollupsDeleted = rowCount
+		err = row.Scan(&nodeRollupsDeleted)
+		return nodeRollupsDeleted, err
+
+	default:
+		return 0, Error.New("unsupported database: %v", db.db.impl)
 	}
-	return nodeRollupsDeleted, err
 }
 
 // GetRollupsSince retrieves all archived bandwidth rollup records since a given time.
@@ -611,7 +611,7 @@ func (db *StoragenodeAccounting) GetRollupsSince(ctx context.Context, since time
 				Settled:       dbxRollup.Settled,
 			})
 		}
-		if len(dbxRollups) < pageLimit {
+		if cursor == nil {
 			return bwRollups, nil
 		}
 	}
@@ -647,7 +647,7 @@ func (db *StoragenodeAccounting) GetArchivedRollupsSince(ctx context.Context, si
 				Settled:       dbxRollup.Settled,
 			})
 		}
-		if len(dbxRollups) < pageLimit {
+		if cursor == nil {
 			return bwRollups, nil
 		}
 	}

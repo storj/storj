@@ -51,7 +51,7 @@ func TestGetUser(t *testing.T) {
 				fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}],`, project.ID, project.Owner.ID) +
 				fmt.Sprintf(`"coupons":%s}`, couponsMarshaled)
 
-			req, err := http.NewRequest(http.MethodGet, userLink, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, userLink, nil)
 			require.NoError(t, err)
 
 			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
@@ -84,7 +84,7 @@ func TestAddUser(t *testing.T) {
 		email := "alice+2@mail.test"
 
 		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
-		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user", body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/user", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -121,7 +121,7 @@ func TestAddUserSameEmail(t *testing.T) {
 		email := "alice+2@mail.test"
 
 		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
-		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user", body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/user", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -143,7 +143,7 @@ func TestAddUserSameEmail(t *testing.T) {
 
 		// Add same user again, this should fail
 		body = strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
-		req, err = http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user", body)
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/user", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -170,7 +170,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		body := strings.NewReader(`{"email":"alice+2@mail.test", "shortName":"Newbie"}`)
-		req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -212,7 +212,7 @@ func TestUpdateUserRateLimit(t *testing.T) {
 		newLimit := 50
 
 		body := strings.NewReader(fmt.Sprintf(`{"projectLimit":%d}`, newLimit))
-		req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -249,7 +249,7 @@ func TestDeleteUser(t *testing.T) {
 		require.NoError(t, err)
 
 		// Deleting the user should fail, as project exists
-		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -265,7 +265,7 @@ func TestDeleteUser(t *testing.T) {
 		require.NoError(t, err)
 
 		// Deleting the user should pass, as no project exists for given user
-		req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), nil)
+		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 

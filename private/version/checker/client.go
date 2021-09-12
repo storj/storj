@@ -22,8 +22,8 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the error class for version control client errors.
-	Error = errs.Class("version control client error")
+	// Error is the error class for version checker client errors.
+	Error = errs.Class("version checker client")
 )
 
 // ClientConfig is the config struct for the version control client.

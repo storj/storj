@@ -18,7 +18,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/pkg/quic"
+	"storj.io/storj/private/quic"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/storagenode"

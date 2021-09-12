@@ -9,7 +9,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
-import LogoIcon from '@/../static/images/Logo.svg';
+import LogoIcon from '@/../static/images/dcs-logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -30,6 +30,8 @@ export default class ForgotPassword extends Vue {
 
     // tardigrade logic
     public isDropdownShown: boolean = false;
+
+    public readonly loginPath: string = RouteConfig.Login.path;
 
     /**
      * Checks if page is inside iframe

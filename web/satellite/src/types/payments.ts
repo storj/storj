@@ -69,14 +69,6 @@ export interface PaymentsApi {
      * @throws Error
      */
     makeTokenDeposit(amount: number): Promise<TokenDeposit>;
-
-    /**
-     * Indicates if paywall is enabled.
-     *
-     * @param userId
-     * @throws Error
-    */
-    getPaywallStatus(userId: string): Promise<boolean>;
 }
 
 export class AccountBalance {
@@ -137,6 +129,17 @@ export class PaymentsHistoryItem {
 
     public get formattedStatus(): string {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
+    }
+
+    public get hasExpiration(): boolean {
+        // Go's zero date is passed in if the coupon does not expire
+        // Go's zero date is 0001-01-01 00:00:00 +0000 UTC
+        // Javascript's zero date is 1970-01-01 00:00:00 +0000 UTC
+        if (this.end.valueOf() <= 0) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

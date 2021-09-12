@@ -19,7 +19,7 @@ var mon = monkit.Package()
 
 var (
 	// ErrProjectUsage general error for project usage.
-	ErrProjectUsage = errs.Class("project usage error")
+	ErrProjectUsage = errs.Class("project usage")
 )
 
 // Service is handling project usage related logic.
@@ -31,16 +31,18 @@ type Service struct {
 	projectLimitCache   *ProjectLimitCache
 	bandwidthCacheTTL   time.Duration
 	nowFn               func() time.Time
+	asOfSystemInterval  time.Duration
 }
 
 // NewService created new instance of project usage service.
-func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, limitCache *ProjectLimitCache, bandwidthCacheTTL time.Duration) *Service {
+func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, limitCache *ProjectLimitCache, bandwidthCacheTTL, asOfSystemInterval time.Duration) *Service {
 	return &Service{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
 		projectLimitCache:   limitCache,
 		bandwidthCacheTTL:   bandwidthCacheTTL,
 		nowFn:               time.Now,
+		asOfSystemInterval:  asOfSystemInterval,
 	}
 }
 
@@ -74,7 +76,7 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 
 				// Get current bandwidth value from database.
 				now := usage.nowFn()
-				bandwidthGetTotal, err = usage.GetProjectAllocatedBandwidth(ctx, projectID, now.Year(), now.Month())
+				bandwidthGetTotal, err = usage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
 				if err != nil {
 					return err
 				}
@@ -162,11 +164,11 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 	return total, ErrProjectUsage.Wrap(err)
 }
 
-// GetProjectAllocatedBandwidth returns project allocated bandwidth for the specified year and month.
-func (usage *Service) GetProjectAllocatedBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month) (_ int64, err error) {
+// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.
+func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (_ int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
-	total, err := usage.projectAccountingDB.GetProjectAllocatedBandwidth(ctx, projectID, year, month)
+	total, err := usage.projectAccountingDB.GetProjectBandwidth(ctx, projectID, year, month, day, usage.asOfSystemInterval)
 	return total, ErrProjectUsage.Wrap(err)
 }
 

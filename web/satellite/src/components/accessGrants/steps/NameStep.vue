@@ -48,7 +48,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
 import { ProjectFields } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
@@ -102,29 +101,7 @@ export default class NameStep extends Vue {
         // Used like backwards compatibility for the old accounts without any project.
         if (this.$store.getters.projects.length === 0) {
             try {
-                const FIRST_PAGE = 1;
-                const UNTITLED_PROJECT_NAME = 'Untitled Project';
-                const UNTITLED_PROJECT_DESCRIPTION = '___';
-                const project = new ProjectFields(
-                    UNTITLED_PROJECT_NAME,
-                    UNTITLED_PROJECT_DESCRIPTION,
-                    this.$store.getters.user.id,
-                );
-                const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-
-                this.$segment.track(SegmentEvent.PROJECT_CREATED, {
-                    project_id: createdProject.id,
-                });
-
-                await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProject.id);
-                await this.$store.dispatch(PM_ACTIONS.CLEAR);
-                await this.$store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
-                await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
-                await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
-                await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-                await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProject.id);
-                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
-                await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+                await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
             } catch (error) {
                 await this.$notify.error(error.message);
                 this.isLoading = false;
@@ -215,7 +192,7 @@ export default class NameStep extends Vue {
         }
 
         &__input {
-            width: calc(100% - 12px);
+            width: calc(100% - 2px);
         }
 
         &__buttons-area {

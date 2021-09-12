@@ -8,11 +8,13 @@ import (
 	"context"
 	"crypto/subtle"
 	"regexp"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 
+	"storj.io/common/encryption"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -20,6 +22,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/metabase"
 )
 
 var (
@@ -202,91 +205,74 @@ func isDigit(r byte) bool {
 	return r >= '0' && r <= '9'
 }
 
-// func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (err error) {
-// 	defer mon.Task()(&ctx)(&err)
+func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitRequest metabase.CommitSegment, originalLimits []*pb.OrderLimit) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-// 	if pointer == nil {
-// 		return Error.New("no pointer specified")
-// 	}
+	if len(originalLimits) == 0 {
+		return Error.New("no order limits")
+	}
+	if len(originalLimits) != int(commitRequest.Redundancy.TotalShares) {
+		return Error.New("invalid no order limit for piece")
+	}
 
-// 	if pointer.Type == pb.Pointer_INLINE && pointer.Remote != nil {
-// 		return Error.New("pointer type is INLINE but remote segment is set")
-// 	}
+	maxAllowed, err := encryption.CalcEncryptedSize(endpoint.config.MaxSegmentSize.Int64(), storj.EncryptionParameters{
+		CipherSuite: storj.EncAESGCM,
+		BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
+	})
+	if err != nil {
+		return err
+	}
 
-// 	if pointer.Type == pb.Pointer_REMOTE {
-// 		switch {
-// 		case pointer.Remote == nil:
-// 			return Error.New("no remote segment specified")
-// 		case pointer.Remote.RemotePieces == nil:
-// 			return Error.New("no remote segment pieces specified")
-// 		case pointer.Remote.Redundancy == nil:
-// 			return Error.New("no redundancy scheme specified")
-// 		}
+	if int64(commitRequest.EncryptedSize) > maxAllowed || commitRequest.EncryptedSize < 0 {
+		return Error.New("encrypted segment size %v is out of range, maximum allowed is %v", commitRequest.EncryptedSize, maxAllowed)
+	}
 
-// 		remote := pointer.Remote
+	// TODO more validation for plain size and plain offset
+	if commitRequest.PlainSize > commitRequest.EncryptedSize {
+		return Error.New("plain segment size %v is out of range, maximum allowed is %v", commitRequest.PlainSize, commitRequest.EncryptedSize)
+	}
 
-// 		if len(originalLimits) == 0 {
-// 			return Error.New("no order limits")
-// 		}
-// 		if int32(len(originalLimits)) != remote.Redundancy.Total {
-// 			return Error.New("invalid no order limit for piece")
-// 		}
+	pieceNums := make(map[uint16]struct{})
+	nodeIds := make(map[storj.NodeID]struct{})
+	for _, piece := range commitRequest.Pieces {
+		if int(piece.Number) >= len(originalLimits) {
+			return Error.New("invalid piece number")
+		}
 
-// 		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.config.MaxSegmentSize.Int64(), storj.EncryptionParameters{
-// 			CipherSuite: storj.EncAESGCM,
-// 			BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
-// 		})
-// 		if err != nil {
-// 			return err
-// 		}
+		limit := originalLimits[piece.Number]
+		if limit == nil {
+			return Error.New("empty order limit for piece")
+		}
 
-// 		if pointer.SegmentSize > maxAllowed || pointer.SegmentSize < 0 {
-// 			return Error.New("segment size %v is out of range, maximum allowed is %v", pointer.SegmentSize, maxAllowed)
-// 		}
+		err := endpoint.orders.VerifyOrderLimitSignature(ctx, limit)
+		if err != nil {
+			return err
+		}
 
-// 		pieceNums := make(map[int32]struct{})
-// 		nodeIds := make(map[storj.NodeID]struct{})
-// 		for _, piece := range remote.RemotePieces {
-// 			if piece.PieceNum >= int32(len(originalLimits)) {
-// 				return Error.New("invalid piece number")
-// 			}
+		// expect that too much time has not passed between order limit creation and now
+		if time.Since(limit.OrderCreation) > endpoint.config.MaxCommitInterval {
+			return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.config.MaxCommitInterval.Minutes())
+		}
 
-// 			limit := originalLimits[piece.PieceNum]
+		derivedPieceID := commitRequest.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+		if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
+			return Error.New("invalid order limit piece id")
+		}
+		if piece.StorageNode != limit.StorageNodeId {
+			return Error.New("piece NodeID != order limit NodeID")
+		}
 
-// 			if limit == nil {
-// 				return Error.New("empty order limit for piece")
-// 			}
+		if _, ok := pieceNums[piece.Number]; ok {
+			return Error.New("piece num %d is duplicated", piece.Number)
+		}
 
-// 			err := endpoint.orders.VerifyOrderLimitSignature(ctx, limit)
-// 			if err != nil {
-// 				return err
-// 			}
+		if _, ok := nodeIds[piece.StorageNode]; ok {
+			return Error.New("node id %s for piece num %d is duplicated", piece.StorageNode.String(), piece.Number)
+		}
 
-// 			// expect that too much time has not passed between order limit creation and now
-// 			if time.Since(limit.OrderCreation) > endpoint.config.MaxCommitInterval {
-// 				return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.config.MaxCommitInterval.Minutes())
-// 			}
+		pieceNums[piece.Number] = struct{}{}
+		nodeIds[piece.StorageNode] = struct{}{}
+	}
 
-// 			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-// 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
-// 				return Error.New("invalid order limit piece id")
-// 			}
-// 			if piece.NodeId != limit.StorageNodeId {
-// 				return Error.New("piece NodeID != order limit NodeID")
-// 			}
-
-// 			if _, ok := pieceNums[piece.PieceNum]; ok {
-// 				return Error.New("piece num %d is duplicated", piece.PieceNum)
-// 			}
-
-// 			if _, ok := nodeIds[piece.NodeId]; ok {
-// 				return Error.New("node id %s for piece num %d is duplicated", piece.NodeId.String(), piece.PieceNum)
-// 			}
-
-// 			pieceNums[piece.PieceNum] = struct{}{}
-// 			nodeIds[piece.NodeId] = struct{}{}
-// 		}
-// 	}
-
-// 	return nil
-// }
+	return nil
+}

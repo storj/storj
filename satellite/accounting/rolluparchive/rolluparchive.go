@@ -17,15 +17,15 @@ import (
 
 // Error is a standard error class for this package.
 var (
-	Error = errs.Class("rolluparchive error")
+	Error = errs.Class("rolluparchive")
 	mon   = monkit.Package()
 )
 
 // Config contains configurable values for rollup archiver.
 type Config struct {
-	Interval   time.Duration `help:"how frequently rollup archiver should run" releaseDefault:"24h" devDefault:"120s"`
-	ArchiveAge time.Duration `help:"age at which a rollup is archived" releaseDefault:"2160h" devDefault:"24h"`
-	BatchSize  int           `help:"number of records to delete per delete execution. Used only for crdb which is slow without limit." default:"500"`
+	Interval   time.Duration `help:"how frequently rollup archiver should run" releaseDefault:"24h" devDefault:"120s" testDefault:"$TESTINTERVAL"`
+	ArchiveAge time.Duration `help:"age at which a rollup is archived" default:"2160h" testDefault:"24h"`
+	BatchSize  int           `help:"number of records to delete per delete execution. Used only for crdb which is slow without limit." default:"500" testDefault:"1000"`
 	Enabled    bool          `help:"whether or not the rollup archive is enabled." default:"true"`
 }
 

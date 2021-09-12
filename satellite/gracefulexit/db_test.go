@@ -15,7 +15,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -100,7 +100,8 @@ func TestTransferQueueItem(t *testing.T) {
 
 		// test basic create, update, get delete
 		{
-			err := geDB.Enqueue(ctx, items)
+			batchSize := 1000
+			err := geDB.Enqueue(ctx, items, batchSize)
 			require.NoError(t, err)
 
 			for _, tqi := range items {

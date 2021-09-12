@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"storj.io/storj/private/dbutil/dbschema"
-	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/private/dbutil/dbschema"
+	"storj.io/private/dbutil/sqliteutil"
 )
 
 // States is the global variable that stores all the states for testing.

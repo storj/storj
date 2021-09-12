@@ -14,13 +14,13 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/private/dbutil"
 	"storj.io/storj/private/date"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/storagenode/bandwidth"
 )
 
 // ErrBandwidth represents errors from the bandwidthdb database.
-var ErrBandwidth = errs.Class("bandwidthdb error")
+var ErrBandwidth = errs.Class("bandwidthdb")
 
 // BandwidthDBName represents the database name.
 const BandwidthDBName = "bandwidth"

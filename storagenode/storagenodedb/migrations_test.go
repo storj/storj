@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/dbschema"
-	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/private/dbutil/dbschema"
+	"storj.io/private/dbutil/sqliteutil"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storagenodedb/testdata"

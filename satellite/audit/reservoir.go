@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 const maxReservoirSize = 3
@@ -37,34 +37,34 @@ func NewReservoir(size int) *Reservoir {
 // Sample makes sure that for every segment in metainfo from index i=size..n-1,
 // pick a random number r = rand(0..i), and if r < size, replace reservoir.Segments[r] with segment.
 func (reservoir *Reservoir) Sample(r *rand.Rand, segment Segment) {
-	reservoir.index++
 	if reservoir.index < int64(reservoir.size) {
 		reservoir.Segments[reservoir.index] = segment
 	} else {
-		random := r.Int63n(reservoir.index)
+		random := r.Int63n(reservoir.index + 1)
 		if random < int64(reservoir.size) {
 			reservoir.Segments[random] = segment
 		}
 	}
+	reservoir.index++
 }
 
 // Segment is a segment to audit.
 type Segment struct {
-	metabase.SegmentLocation
-	StreamID       uuid.UUID
-	ExpirationDate time.Time
+	StreamID  uuid.UUID
+	Position  metabase.SegmentPosition
+	ExpiresAt *time.Time
 }
 
 // NewSegment creates a new segment to audit from a metainfo loop segment.
-func NewSegment(loopSegment *metaloop.Segment) Segment {
+func NewSegment(loopSegment *segmentloop.Segment) Segment {
 	return Segment{
-		SegmentLocation: loopSegment.Location,
-		StreamID:        loopSegment.StreamID,
-		ExpirationDate:  loopSegment.ExpirationDate,
+		StreamID:  loopSegment.StreamID,
+		Position:  loopSegment.Position,
+		ExpiresAt: loopSegment.ExpiresAt,
 	}
 }
 
 // Expired checks if segment is expired relative to now.
 func (segment *Segment) Expired(now time.Time) bool {
-	return !segment.ExpirationDate.IsZero() && segment.ExpirationDate.Before(now)
+	return segment.ExpiresAt != nil && segment.ExpiresAt.Before(now)
 }

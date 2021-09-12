@@ -20,8 +20,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
+	"storj.io/storj/certificate/certificatepb"
 )
 
 const (
@@ -38,9 +38,9 @@ const (
 var (
 	mon = monkit.Package()
 	// Error is used when an error occurs involving an authorization.
-	Error = errs.Class("authorization error")
+	Error = errs.Class("authorization")
 	// ErrInvalidToken is used when a token is invalid.
-	ErrInvalidToken = errs.Class("authorization token error")
+	ErrInvalidToken = errs.Class("authorization token")
 )
 
 // Group is a slice of authorizations for convenient de/serialization.
@@ -63,7 +63,7 @@ type Token struct {
 
 // ClaimOpts hold parameters for claiming an authorization.
 type ClaimOpts struct {
-	Req           *pb.SigningRequest
+	Req           *certificatepb.SigningRequest
 	Peer          *rpcpeer.Peer
 	ChainBytes    [][]byte
 	MinDifficulty uint16
