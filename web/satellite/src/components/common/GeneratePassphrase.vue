@@ -50,13 +50,12 @@
                 @setData="setPassphrase"
             />
         </div>
-        <div class="encrypt-container__save">
-            <h2 class="encrypt-container__save__title">Save your encryption passphrase</h2>
-            <p class="encrypt-container__save__msg">
-                Please note that Storj does not know or store your encryption passphrase. If you lose it, you will
-                not be able to recover your files.
+        <p class="encrypt-container__download" @click="onDownloadClick">Download as a text file</p>
+        <div class="encrypt-container__warning">
+            <h2 class="encrypt-container__warning__title">The object browser uses server side encryption.</h2>
+            <p class="encrypt-container__warning__msg">
+                If you want to use our product with only end-to-end encryption, you may want to use our command line solution.
             </p>
-            <p class="encrypt-container__save__download" @click="onDownloadClick">Download as a text file</p>
         </div>
         <div class="encrypt-container__buttons">
             <VButton
@@ -329,17 +328,25 @@ export default class GeneratePassphrase extends Vue {
             margin-top: 25px;
         }
 
-        &__save {
+        &__download {
+            font-family: 'font_bold', sans-serif;
+            font-size: 16px;
+            line-height: 19px;
+            color: #0068dc;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+
+        &__warning {
             border: 1px solid #e6e9ef;
             border-radius: 10px;
             padding: 25px;
-            margin-top: 35px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;
                 font-size: 16px;
                 line-height: 19px;
-                color: #1b2533;
+                color: #df1616;
                 margin-bottom: 10px;
             }
 
@@ -348,14 +355,6 @@ export default class GeneratePassphrase extends Vue {
                 line-height: 20px;
                 color: #1b2533;
                 margin-bottom: 10px;
-            }
-
-            &__download {
-                font-family: 'font_bold', sans-serif;
-                font-size: 16px;
-                line-height: 19px;
-                color: #0068dc;
-                cursor: pointer;
             }
         }
 
