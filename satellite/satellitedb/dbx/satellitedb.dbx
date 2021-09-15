@@ -134,8 +134,6 @@ model node (
 	field release           bool ( updatable, default false )
 
 	field latency_90           int64   ( updatable, default 0 )
-	field audit_success_count  int64   ( updatable, default 0 )
-	field total_audit_count    int64   ( updatable, default 0 )
 	field vetted_at            timestamp ( updatable, nullable )
 
 	field created_at           timestamp ( autoinsert, default current_timestamp )
