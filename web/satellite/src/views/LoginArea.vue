@@ -263,7 +263,7 @@ export default class Login extends Vue {
         }
 
         try {
-            await this.auth.token(this.email, this.password, this.passcode, this.recoveryCode);
+            await this.auth.token(this.email.trim(), this.password, this.passcode.trim(), this.recoveryCode.trim());
         } catch (error) {
             if (error instanceof ErrorMFARequired) {
                 if (this.isMFARequired) this.isMFAError = true;
