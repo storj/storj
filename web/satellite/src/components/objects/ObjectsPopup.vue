@@ -41,6 +41,7 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import WarningIcon from '@/../static/images/objects/warning.svg';
 
+// @vue/component
 @Component({
     components: {
         HeaderedInput,
@@ -140,7 +141,6 @@ export default class ObjectsPopup extends Vue {
             }
 
             &__input {
-                width: calc(100% - 4px);
                 margin-bottom: 18px;
             }
 

@@ -58,6 +58,7 @@ const {
     FETCH_OWNED,
 } = PROJECTS_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         SortProjectsListHeader,

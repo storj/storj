@@ -28,6 +28,7 @@ import VerticalArrows from '@/components/common/VerticalArrows.vue';
 import { AccessGrantsOrderBy, OnHeaderClickCallback } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 
+// @vue/component
 @Component({
     components: {
         VerticalArrows,

@@ -45,6 +45,8 @@ export const ACCESS_GRANTS_MUTATIONS = {
     SET_SEARCH_QUERY: 'setAccessGrantsSearchQuery',
     SET_PAGE_NUMBER: 'setAccessGrantsPage',
     SET_DURATION_PERMISSION: 'setAccessGrantsDurationPermission',
+    SET_ONBOARDING_CLI_API_KEY: 'setOnboardingCLIApiKey',
+    SET_ONBOARDING_ACCESS_GRANT: 'setOnboardingAccessGrant',
 };
 
 const {
@@ -61,6 +63,8 @@ const {
     SET_GATEWAY_CREDENTIALS,
     SET_ACCESS_GRANTS_WEB_WORKER,
     STOP_ACCESS_GRANTS_WEB_WORKER,
+    SET_ONBOARDING_CLI_API_KEY,
+    SET_ONBOARDING_ACCESS_GRANT,
 } = ACCESS_GRANTS_MUTATIONS;
 
 export class AccessGrantsState {
@@ -73,6 +77,8 @@ export class AccessGrantsState {
     public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
     public accessGrantsWebWorker: Worker | null = null;
     public isAccessGrantsWebWorkerReady = false;
+    public onboardingCLIApiKey: string;
+    public onboardingAccessGrant: string;
 }
 
 interface AccessGrantsContext {
@@ -139,6 +145,12 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             [SET_DURATION_PERMISSION](state: AccessGrantsState, permission: DurationPermission) {
                 state.permissionNotBefore = permission.notBefore;
                 state.permissionNotAfter = permission.notAfter;
+            },
+            [SET_ONBOARDING_CLI_API_KEY](state: AccessGrantsState, apiKey: string) {
+                state.onboardingCLIApiKey = apiKey;
+            },
+            [SET_ONBOARDING_ACCESS_GRANT](state: AccessGrantsState, accessGrant: string) {
+                state.onboardingAccessGrant = accessGrant;
             },
             [CHANGE_SORT_ORDER](state: AccessGrantsState, order: AccessGrantsOrderBy) {
                 state.cursor.order = order;

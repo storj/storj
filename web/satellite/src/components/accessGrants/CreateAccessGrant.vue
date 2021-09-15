@@ -23,6 +23,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         ProgressBar,

@@ -201,19 +201,19 @@ func (bad *BadBlobs) ListNamespaces(ctx context.Context) ([][]byte, error) {
 }
 
 // FreeSpace return how much free space left for writing.
-func (bad *BadBlobs) FreeSpace() (int64, error) {
+func (bad *BadBlobs) FreeSpace(ctx context.Context) (int64, error) {
 	if err := bad.err.Err(); err != nil {
 		return 0, err
 	}
-	return bad.blobs.FreeSpace()
+	return bad.blobs.FreeSpace(ctx)
 }
 
 // CheckWritability tests writability of the storage directory by creating and deleting a file.
-func (bad *BadBlobs) CheckWritability() error {
+func (bad *BadBlobs) CheckWritability(ctx context.Context) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}
-	return bad.blobs.CheckWritability()
+	return bad.blobs.CheckWritability(ctx)
 }
 
 // SpaceUsedForBlobs adds up how much is used in all namespaces.
@@ -241,18 +241,18 @@ func (bad *BadBlobs) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
-func (bad *BadBlobs) CreateVerificationFile(id storj.NodeID) error {
+func (bad *BadBlobs) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}
-	return bad.blobs.CreateVerificationFile(id)
+	return bad.blobs.CreateVerificationFile(ctx, id)
 }
 
 // VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
-func (bad *BadBlobs) VerifyStorageDir(id storj.NodeID) error {
+func (bad *BadBlobs) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}
-	return bad.blobs.VerifyStorageDir(id)
+	return bad.blobs.VerifyStorageDir(ctx, id)
 }

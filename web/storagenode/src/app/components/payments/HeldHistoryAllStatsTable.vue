@@ -52,6 +52,7 @@ import HeldHistoryAllStatsTableItemSmall from '@/app/components/payments/HeldHis
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component({
     components: {
         HeldHistoryAllStatsTableItemSmall,

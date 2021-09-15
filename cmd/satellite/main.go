@@ -231,12 +231,6 @@ var (
 		Long:  "Ensures that we have a stripe customer for every satellite user.",
 		RunE:  cmdStripeCustomer,
 	}
-	checkPaidTierCmd = &cobra.Command{
-		Use:   "check-paid-tier",
-		Short: "Ensures that all customers with a credit card are in the paid tier.",
-		Long:  "Ensures that all customers with a credit card are in the paid tier.",
-		RunE:  cmdCheckPaidTier,
-	}
 	consistencyCmd = &cobra.Command{
 		Use:   "consistency",
 		Short: "Readdress DB consistency issues",
@@ -332,7 +326,6 @@ func init() {
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
-	billingCmd.AddCommand(checkPaidTierCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -357,7 +350,6 @@ func init() {
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(checkPaidTierCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
@@ -757,12 +749,6 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return generateStripeCustomers(ctx)
-}
-
-func cmdCheckPaidTier(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-
-	return checkPaidTier(ctx)
 }
 
 func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {

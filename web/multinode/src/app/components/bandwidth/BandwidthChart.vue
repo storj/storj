@@ -19,6 +19,7 @@
 import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/common/BaseChart.vue';
+import VChart from '@/app/components/common/VChart.vue';
 
 import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
@@ -46,7 +47,10 @@ class BandwidthTooltip {
     }
 }
 
-@Component
+// @vue/component
+@Component({
+    components: {VChart},
+})
 export default class BandwidthChart extends BaseChart {
     private get allBandwidth(): BandwidthRollup[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.bandwidth.traffic.bandwidthDaily);

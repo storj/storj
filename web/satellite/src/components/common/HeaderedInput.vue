@@ -52,6 +52,7 @@ import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 import HeaderlessInput from './HeaderlessInput.vue';
 
 // Custom input component with labeled header
+// @vue/component
 @Component({
     components: {
         ErrorIcon,
@@ -89,7 +90,7 @@ export default class HeaderedInput extends HeaderlessInput {
         flex-direction: column;
         align-items: flex-start;
         margin-top: 10px;
-        width: 48%;
+        width: 100%;
         font-family: 'font_regular', sans-serif;
     }
 
@@ -158,9 +159,12 @@ export default class HeaderedInput extends HeaderlessInput {
         border-radius: 6px;
         outline: none;
         box-shadow: none;
+        -webkit-box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        box-sizing: border-box;
 
         &::placeholder {
-            font-family: 'font_medium', sans-serif;
+            opacity: 0.6;
         }
     }
 

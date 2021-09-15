@@ -24,6 +24,22 @@
             <SettingsSelection class="settings-selection" />
         </div>
         <div class="header-container__right-area">
+            <VInfo
+                v-if="!isOnboardingTour"
+                class="header-container__right-area__info"
+                title="Need some help?"
+                button-label="START TOUR"
+                :on-button-click="onStartTourButtonClick"
+            >
+                <template #icon>
+                    <InfoIcon class="header-container__right-area__info__icon" />
+                </template>
+                <template #message>
+                    <p class="header-container__right-area__info__message">
+                        You can always start the onboarding tour and go through all the steps to get you started again.
+                    </p>
+                </template>
+            </VInfo>
             <div class="header-container__right-area__satellite-area">
                 <div class="header-container__right-area__satellite-area__checkmark">
                     <CheckmarkIcon />
@@ -47,8 +63,10 @@ import ProjectSelection from '@/components/header/projectsDropdown/ProjectSelect
 import ResourcesSelection from '@/components/header/resourcesDropdown/ResourcesSelection.vue';
 import SettingsSelection from '@/components/header/settingsDropdown/SettingsSelection.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import VInfo from '@/components/common/VInfo.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
+import InfoIcon from '@/../static/images/header/info.svg';
 import CheckmarkIcon from '@/../static/images/header/checkmark.svg';
 import NavigationCloseIcon from '@/../static/images/header/navigationClose.svg';
 import NavigationMenuIcon from '@/../static/images/header/navigationMenu.svg';
@@ -57,13 +75,16 @@ import { RouteConfig } from '@/router';
 
 import AccountButton from './accountDropdown/AccountButton.vue';
 
+// @vue/component
 @Component({
     components: {
         AccountButton,
         NavigationArea,
+        VInfo,
         NavigationMenuIcon,
         NavigationCloseIcon,
         LogoIcon,
+        InfoIcon,
         CheckmarkIcon,
         ProjectSelection,
         ResourcesSelection,
@@ -88,6 +109,13 @@ export default class HeaderArea extends Vue {
      */
     public onLogoClick(): void {
         location.reload();
+    }
+
+    /**
+     * Redirects to onboarding tour.
+     */
+    public async onStartTourButtonClick(): Promise<void> {
+        await this.$router.push(RouteConfig.OnboardingTour.path).catch(() => {return; })
     }
 
     /**
@@ -148,6 +176,22 @@ export default class HeaderArea extends Vue {
             display: flex;
             align-items: center;
 
+            &__info {
+                max-height: 24px;
+                margin-right: 17px;
+
+                &__icon {
+                    cursor: pointer;
+                }
+
+                &__message {
+                    color: #586c86;
+                    font-family: 'font_regular', sans-serif;
+                    font-size: 12px;
+                    line-height: 21px;
+                }
+            }
+
             &__satellite-area {
                 height: 36px;
                 background: #f6f6fa;
@@ -203,6 +247,14 @@ export default class HeaderArea extends Vue {
     .project-selection,
     .resources-selection {
         margin-right: 35px;
+    }
+
+    ::v-deep .info__box {
+        top: 100%;
+
+        &__message {
+            min-width: 335px;
+        }
     }
 
     @media screen and (min-width: 1281px) {

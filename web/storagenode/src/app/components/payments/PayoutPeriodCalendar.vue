@@ -50,6 +50,7 @@ import {
 } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component({
     components: {
         GrayArrowLeftIcon,

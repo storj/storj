@@ -25,8 +25,11 @@ func TestPendingBasic(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	streamID := testrand.UUID()
+	position := metabase.SegmentPosition{Part: 3, Index: 10}
 	newWork := &gracefulexit.PendingTransfer{
-		Key:              metabase.SegmentKey("testbucket/testfile"),
+		StreamID:         streamID,
+		Position:         position,
 		PieceSize:        10,
 		SatelliteMessage: &pb.SatelliteMessage{},
 		PieceNum:         1,
@@ -47,7 +50,8 @@ func TestPendingBasic(t *testing.T) {
 	// get should work
 	w, ok := pending.Get(pieceID)
 	require.True(t, ok)
-	require.True(t, bytes.Equal(newWork.Key, w.Key))
+	require.True(t, bytes.Equal(newWork.StreamID[:], w.StreamID[:]))
+	require.Equal(t, position, w.Position)
 
 	invalidPieceID := testrand.PieceID()
 	_, ok = pending.Get(invalidPieceID)
@@ -99,8 +103,11 @@ func TestPendingIsFinishedWorkAdded(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	streamID := testrand.UUID()
+	position := metabase.SegmentPosition{Part: 3, Index: 10}
 	newWork := &gracefulexit.PendingTransfer{
-		Key:              metabase.SegmentKey("testbucket/testfile"),
+		StreamID:         streamID,
+		Position:         position,
 		PieceSize:        10,
 		SatelliteMessage: &pb.SatelliteMessage{},
 		PieceNum:         1,

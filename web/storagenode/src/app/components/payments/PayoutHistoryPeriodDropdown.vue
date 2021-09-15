@@ -25,6 +25,7 @@ import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { monthNames } from '@/app/types/payout';
 
+// @vue/component
 @Component({
     components: {
         PayoutHistoryPeriodCalendar,

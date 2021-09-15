@@ -44,6 +44,7 @@ import VCheckbox from '@/components/common/VCheckbox.vue';
 import { RouteConfig } from '@/router';
 import { LocalData } from '@/utils/localData';
 
+// @vue/component
 @Component({
     components: {
         VCheckbox,

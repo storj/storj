@@ -379,7 +379,9 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	project.Name = input.ProjectName
-	project.Description = input.Description
+	if input.Description != "" {
+		project.Description = input.Description
+	}
 
 	err = server.db.Console().Projects().Update(ctx, project)
 	if err != nil {
@@ -475,10 +477,12 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	}
 
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
-		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
-		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
+		// time passed into the check function need to be the UTC midnight dates
+		// of the first day of the current month and the first day of the last
+		// month
+		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		if errors.Is(err, stripecoinpayments.ErrProjectRecordExists) {
-			record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
+			record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 			if err != nil {
 				httpJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
 				return true

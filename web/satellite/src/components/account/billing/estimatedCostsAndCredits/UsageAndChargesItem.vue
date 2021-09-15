@@ -64,6 +64,7 @@ import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { MetaUtils } from '@/utils/meta';
 import { Time } from '@/utils/time';
 
+// @vue/component
 @Component({
     components: {
         ChargesHideIcon,

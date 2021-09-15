@@ -88,6 +88,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 
+// @vue/component
 @Component({
     components: {
         ConfirmMFAInput,

@@ -31,6 +31,7 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 import { RouteConfig } from '@/router';
 
+// @vue/component
 @Component({
     components: {
         ExpandIcon,

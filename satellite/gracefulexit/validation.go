@@ -25,8 +25,8 @@ func (endpoint *Endpoint) validatePendingTransfer(ctx context.Context, transfer 
 	if transfer.SatelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit() == nil {
 		return Error.New("Addressed order limit on transfer piece cannot be nil")
 	}
-	if transfer.Key == nil && transfer.StreamID.IsZero() {
-		return Error.New("Transfer key and StreamID cannot be both empty")
+	if transfer.StreamID.IsZero() {
+		return Error.New("StreamID cannot be zero")
 	}
 	if transfer.OriginalRootPieceID.IsZero() {
 		return Error.New("could not get original root piece ID from transfer item")

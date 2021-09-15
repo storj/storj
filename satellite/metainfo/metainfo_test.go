@@ -621,13 +621,13 @@ func TestBeginCommit(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		metainfoService := planet.Satellites[0].Metainfo.Service
+		bucketsDB := planet.Satellites[0].DB.Buckets()
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := metainfoService.CreateBucket(ctx, bucket)
+		_, err := bucketsDB.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -729,7 +729,7 @@ func TestBeginCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		project := planet.Uplinks[0].Projects[0]
-		allObjects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, project.ID, object.Bucket)
+		allObjects, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, project.ID, object.Bucket)
 		require.NoError(t, err)
 		require.Len(t, allObjects, 1)
 	})
@@ -741,7 +741,7 @@ func TestInlineSegment(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		metainfoService := planet.Satellites[0].Metainfo.Service
+		bucketsDB := planet.Satellites[0].DB.Buckets()
 
 		// TODO maybe split into separate cases
 		// Test:
@@ -758,7 +758,7 @@ func TestInlineSegment(t *testing.T) {
 			Name:      "inline-segments-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := metainfoService.CreateBucket(ctx, bucket)
+		_, err := bucketsDB.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -1454,17 +1454,17 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)
 			require.Len(t, segments, 1)
 			require.Zero(t, segments[0].Redundancy)
 			require.NotEmpty(t, segments[0].InlineData)
 
 			// clean up - delete the uploaded object
-			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, objects, 1)
-			_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+			_, err = planet.Satellites[0].Metabase.DB.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
 				ObjectLocation: objects[0].Location(),
 			})
 			require.NoError(t, err)
@@ -1475,17 +1475,17 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)
 			require.Len(t, segments, 1)
 			require.NotZero(t, segments[0].Redundancy)
 			require.Empty(t, segments[0].InlineData)
 
 			// clean up - delete the uploaded object
-			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, objects, 1)
-			_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+			_, err = planet.Satellites[0].Metabase.DB.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
 				ObjectLocation: objects[0].Location(),
 			})
 			require.NoError(t, err)
@@ -1502,13 +1502,13 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		metainfoService := planet.Satellites[0].Metainfo.Service
+		bucketsDB := planet.Satellites[0].DB.Buckets()
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := metainfoService.CreateBucket(ctx, bucket)
+		_, err := bucketsDB.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -1610,6 +1610,46 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+}
+
+// TestBeginObjectEncryptedObjectKeyLength ensures that BeginObject returns an error when the encrypted key provided by the user is too large.
+func TestBeginObjectEncryptedObjectKeyLength(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.MaxObjectKeyLength(1024),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "initial-bucket")
+		require.NoError(t, err)
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		params := metaclient.BeginObjectParams{
+			Bucket: []byte("initial-bucket"),
+			EncryptionParameters: storj.EncryptionParameters{
+				BlockSize:   256,
+				CipherSuite: storj.EncNull,
+			},
+		}
+
+		params.EncryptedPath = testrand.Bytes(500)
+		_, err = metainfoClient.BeginObject(ctx, params)
+		require.NoError(t, err)
+
+		params.EncryptedPath = testrand.Bytes(1024)
+		_, err = metainfoClient.BeginObject(ctx, params)
+		require.NoError(t, err)
+
+		params.EncryptedPath = testrand.Bytes(2048)
+		_, err = metainfoClient.BeginObject(ctx, params)
+		require.Error(t, err)
+		require.True(t, rpcstatus.Code(err) == rpcstatus.InvalidArgument)
+	})
 }
 
 func TestDeleteRightsOnUpload(t *testing.T) {
@@ -1761,7 +1801,7 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-first")
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-first")
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
 
@@ -1779,7 +1819,7 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		objects, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-second")
+		objects, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-second")
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
 
@@ -1798,7 +1838,7 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Used uplink version cannot download multipart objects.")
 
-		objects, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-third")
+		objects, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-third")
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
 
@@ -1949,7 +1989,7 @@ func TestObjectSegmentExpiresAt(t *testing.T) {
 		err = planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "hohoho", "remote_object", remoteData, remoteExpiration)
 		require.NoError(t, err)
 
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 2)
 

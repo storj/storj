@@ -590,7 +590,7 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "1", data)
 		require.NoError(t, err)
 
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		usage, err := accounting.ProjectUsage.GetProjectStorageTotals(ctx, project.ID)

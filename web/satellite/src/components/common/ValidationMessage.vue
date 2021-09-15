@@ -14,6 +14,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import ErrorIcon from '@/../static/images/common/errorNotice.svg';
 
+// @vue/component
 @Component({
     components: {
         ErrorIcon,

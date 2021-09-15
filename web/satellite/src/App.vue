@@ -18,6 +18,7 @@ import { PartneredSatellite } from '@/types/common.ts';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         NotificationArea,

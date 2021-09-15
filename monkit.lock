@@ -27,6 +27,7 @@ storj.io/storj/satellite/audit."audit_unknown_nodes" IntVal
 storj.io/storj/satellite/audit."audit_unknown_nodes_global" Meter
 storj.io/storj/satellite/audit."audit_unknown_percentage" FloatVal
 storj.io/storj/satellite/audit."audited_percentage" FloatVal
+storj.io/storj/satellite/audit."could_not_verify_audit_shares" Counter
 storj.io/storj/satellite/audit."reverify_contained" IntVal
 storj.io/storj/satellite/audit."reverify_contained_global" Meter
 storj.io/storj/satellite/audit."reverify_contained_in_segment" IntVal

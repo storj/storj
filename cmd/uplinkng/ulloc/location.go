@@ -18,13 +18,11 @@ type Location struct {
 	std    bool   // if refers to stdin/stdout
 }
 
-// cleanPath is used to normalize all the filepath separators, remove
+// CleanPath is used to normalize all the filepath separators, remove
 // any .. or . components, and keep the trailing slash if necessary.
-func cleanPath(path string) string {
+func CleanPath(path string) string {
 	// convert path to only filepath.Separator
-	if filepath.Separator != '/' {
-		path = strings.ReplaceAll(path, `/`, `\`)
-	}
+	path = filepath.FromSlash(path)
 
 	// now we can use the filepath.Clean routine
 	cleaned := filepath.Clean(path)
@@ -33,18 +31,17 @@ func cleanPath(path string) string {
 	}
 
 	// convert all slashes to forward slashes from now on
-	if filepath.Separator != '/' {
-		cleaned = strings.ReplaceAll(cleaned, `\`, `/`)
-	}
+	cleaned = filepath.ToSlash(cleaned)
 
 	// if cleaned at this point is either the current working
 	// directory (meaning the empty string) or the root directory
-	// meaning "/", then we don't need to add a slash, so return now.
-	if cleaned == "" || cleaned == "/" {
+	// meaning (from the docs of filepath.Clean) ends with a "/",
+	// then we don't need to add a slash, so return now.
+	if cleaned == "" || strings.HasSuffix(cleaned, "/") {
 		return cleaned
 	}
 
-	// if the passed in path ended with a slash, clean should, too.
+	// if the original passed in path ended with a slash, clean should, too.
 	if strings.HasSuffix(path, string(filepath.Separator)) {
 		cleaned += "/"
 	}
@@ -54,7 +51,7 @@ func cleanPath(path string) string {
 
 // NewLocal returns a new Location that refers to a local path.
 func NewLocal(path string) Location {
-	return Location{loc: cleanPath(path)}
+	return Location{loc: CleanPath(path)}
 }
 
 // NewRemote returns a new location that refers to a remote path.
@@ -177,8 +174,8 @@ func (p Location) AppendKey(key string) Location {
 	}
 
 	// clean up the key so that it can't create a location beneath p.loc
-	key = cleanPath("/" + key)[1:]
-	p.loc = cleanPath(p.loc + key)
+	key = CleanPath("/" + key)[1:]
+	p.loc = CleanPath(p.loc + key)
 
 	return p
 }

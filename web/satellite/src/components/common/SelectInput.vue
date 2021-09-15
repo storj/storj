@@ -31,6 +31,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import InputCaret from '@/../static/images/common/caret.svg';
 
 // Custom input component for login page
+// @vue/component
 @Component({
     components: {
         InputCaret,

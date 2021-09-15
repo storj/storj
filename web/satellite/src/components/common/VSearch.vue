@@ -24,6 +24,7 @@ declare interface SearchStyle {
     width: string;
 }
 
+// @vue/component
 @Component
 export default class VSearch extends Vue {
     @Prop({default: ''})

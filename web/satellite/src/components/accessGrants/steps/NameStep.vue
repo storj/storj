@@ -2,11 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="name-step" :class="{ 'border-radius': isOnboardingTour }">
+    <div class="name-step">
         <h1 class="name-step__title">Name Your Access Grant</h1>
         <p class="name-step__sub-title">Enter a name for your new Access grant to get started.</p>
         <HeaderedInput
-            class="name-step__input"
             label="Access Grant Name"
             placeholder="Enter a name here..."
             :error="errorMessage"
@@ -14,7 +13,6 @@
         />
         <div class="name-step__buttons-area">
             <VButton
-                v-if="!isOnboardingTour"
                 class="cancel-button"
                 label="Cancel"
                 width="50%"
@@ -45,6 +43,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         HeaderedInput,
@@ -129,30 +128,12 @@ export default class NameStep extends Vue {
 
         this.isLoading = false;
 
-        if (this.isOnboardingTour) {
-            await this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPermissions)).name,
-                params: {
-                    key: this.key,
-                },
-            });
-
-            return;
-        }
-
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {
                 key: this.key,
             },
         });
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
@@ -185,10 +166,6 @@ export default class NameStep extends Vue {
             color: #000;
             text-align: center;
             margin: 0 0 80px 0;
-        }
-
-        &__input {
-            width: calc(100% - 2px);
         }
 
         &__buttons-area {

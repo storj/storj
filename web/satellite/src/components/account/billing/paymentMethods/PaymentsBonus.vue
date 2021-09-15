@@ -30,6 +30,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import CardIcon from '@/../static/images/account/billing/card.svg';
 import LogoIcon from '@/../static/images/logo.svg';
 
+// @vue/component
 @Component({
     components: {
         LogoIcon,

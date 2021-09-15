@@ -49,6 +49,7 @@ import VButton from '@/app/components/common/VButton.vue';
 import { Config as RouterConfig } from '@/app/router';
 import { CreateNodeFields } from '@/nodes';
 
+// @vue/component
 @Component({
     components: {
         HeaderedInput,

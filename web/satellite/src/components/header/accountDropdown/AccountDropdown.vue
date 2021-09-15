@@ -32,6 +32,7 @@ import {
 } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 
+// @vue/component
 @Component
 export default class AccountDropdown extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();

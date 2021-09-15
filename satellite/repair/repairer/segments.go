@@ -221,6 +221,18 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	// Create the order limits for the GET_REPAIR action
 	getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := repairer.orders.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, healthyPieces)
 	if err != nil {
+		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+			mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
+			stats.repairerSegmentsBelowMinReq.Inc(1)
+			mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
+			stats.repairerNodesUnavailable.Mark(1)
+
+			repairer.log.Warn("irreparable segment",
+				zap.String("StreamID", queueSegment.StreamID.String()),
+				zap.Uint64("Position", queueSegment.Position.Encode()),
+				zap.Error(err),
+			)
+		}
 		return false, orderLimitFailureError.New("could not create GET_REPAIR order limits: %w", err)
 	}
 
@@ -277,6 +289,10 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 			StorageNode: piece.NodeId,
 		}
 	}
+
+	// ensure we get values, even if only zero values, so that redash can have an alert based on this
+	mon.Meter("repair_too_many_nodes_failed").Mark(0) //mon:locked
+	stats.repairTooManyNodesFailed.Mark(0)
 
 	// update audit status for nodes that failed piece hash verification during downloading
 	failedNum, updateErr := repairer.updateAuditFailStatus(ctx, failedNodeIDs)

@@ -56,6 +56,7 @@ import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { UINotification } from '@/app/types/notifications';
 
+// @vue/component
 @Component ({
     components: {
         VPagination,

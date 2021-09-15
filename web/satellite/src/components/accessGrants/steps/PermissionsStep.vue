@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="permissions" :class="{ 'border-radius': isOnboardingTour }">
+    <div class="permissions">
         <BackIcon class="permissions__back-icon" @click="onBackClick" />
         <h1 class="permissions__title">Access Permissions</h1>
         <p class="permissions__sub-title">
@@ -82,6 +82,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { DurationPermission } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         BackIcon,
@@ -111,12 +112,6 @@ export default class PermissionsStep extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$route.params.key) {
-            if (this.isOnboardingTour) {
-                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
-
-                return;
-            }
-
             this.onBackClick();
 
             return;
@@ -142,9 +137,7 @@ export default class PermissionsStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
-        this.isOnboardingTour ?
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path) :
-            this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
     }
 
     /**
@@ -177,18 +170,6 @@ export default class PermissionsStep extends Vue {
 
         this.isLoading = false;
 
-        if (this.isOnboardingTour) {
-            await this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantCLI)).name,
-                params: {
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-
-            return;
-        }
-
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
             params: {
@@ -217,18 +198,6 @@ export default class PermissionsStep extends Vue {
 
         this.isLoading = false;
 
-        if (this.isOnboardingTour) {
-            await this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
-                params: {
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-
-            return;
-        }
-
         if (this.accessGrantsAmount > 1) {
             await this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
@@ -255,13 +224,6 @@ export default class PermissionsStep extends Vue {
      */
     public get isAccessGrantsWebWorkerReady(): boolean {
         return this.$store.state.accessGrantsModule.isAccessGrantsWebWorkerReady;
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**

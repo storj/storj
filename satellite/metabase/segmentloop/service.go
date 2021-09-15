@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
-const batchsizeLimit = 2500
+const batchsizeLimit = 5000
 
 var (
 	mon = monkit.Package()

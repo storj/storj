@@ -27,6 +27,7 @@ import UsageArea from '@/components/project/usage/UsageArea.vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
+// @vue/component
 @Component({
     components: {
         UsageArea,

@@ -18,6 +18,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import StorjLogo from '@/../static/images/LogoWithoutText.svg';
 
+// @vue/component
 @Component({
     components: {
         StorjLogo,

@@ -51,6 +51,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import CheckIcon from '@/../static/images/common/greenCheck.svg';
 import WalletIcon from '@/../static/images/wallet.svg';
 
+// @vue/component
 @Component({
     components: {
         CheckIcon,

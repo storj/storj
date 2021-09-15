@@ -40,6 +40,7 @@ export class NavigationLink {
     ) {}
 }
 
+// @vue/component
 @Component({
     components: {
         StorjLogo,
@@ -59,8 +60,6 @@ export default class NavigationArea extends Vue {
         new NavigationLink(RouterConfig.Wallets.name, RouterConfig.Wallets.with(RouterConfig.WalletsSummary).path, PayoutsIcon),
         new NavigationLink(RouterConfig.Payouts.name, RouterConfig.Payouts.path, PayoutsIcon),
         new NavigationLink(RouterConfig.Bandwidth.name, RouterConfig.Bandwidth.path, TrafficIcon),
-        new NavigationLink('Reputation', '/reputation', ReputationIcon),
-        new NavigationLink('Notifications', '/notifications', NotificationIcon),
     ];
 }
 </script>

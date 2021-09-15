@@ -29,6 +29,7 @@ import DurationPicker from '@/components/accessGrants/permissions/DurationPicker
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
+// @vue/component
 @Component({
     components: {
         ExpandIcon,

@@ -30,6 +30,7 @@ import NodeOptions from '@/app/components/common/NodeOptions.vue';
 
 import { Node } from '@/nodes';
 
+// @vue/component
 @Component({
     components: {
         NodeOptions,

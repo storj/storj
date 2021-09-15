@@ -14,7 +14,10 @@ module.exports = {
     parserOptions: {
         ecmaVersion: 2020
     },
+    plugins: ["storj"],
     rules: {
+        "linebreak-style": ["error", "unix"],
+
         'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
         'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
 
@@ -39,5 +42,9 @@ module.exports = {
         "vue/no-unused-properties": ["warn"],
         "vue/no-unused-refs": ["warn"],
         "vue/no-useless-v-bind": ["warn"],
+
+        'vue/no-unregistered-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
+
+        'storj/vue/require-annotation': 'warn',
     },
 }

@@ -62,6 +62,7 @@ import PasswordShownIcon from '@/../static/images/common/passwordShown.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 
 // Custom input component for login page
+// @vue/component
 @Component({
     components: {
         InputCaret,

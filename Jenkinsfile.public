@@ -20,10 +20,14 @@ pipeline {
             steps {
                 checkout scm
                 sh 'mkdir -p .build'
-                // make a backup of the mod file in case, for later linting
+                // make a backup of the mod file, because sometimes they get modified by tools
+                // this allows to lint the unmodified files
                 sh 'cp go.mod .build/go.mod.orig'
+                sh 'cp testsuite/go.mod .build/testsuite.go.mod.orig'
+
                 // download dependencies
                 sh 'go mod download'
+                sh 'cd testsuite && go mod download'
 
                 // add a stub go.mod file to node projects to prevent go build ./... from scanning them
                 sh 'mkdir -p web/satellite/node_modules web/storagenode/node_modules web/multinode/node_modules'
@@ -117,9 +121,18 @@ pipeline {
                         sh 'make test-wasm-size'
 
                         sh 'protolock status'
-                    }
-                }
 
+                        dir("testsuite") {
+                            sh 'check-imports ./...'
+                            sh 'check-atomic-align ./...'
+                            sh 'check-monkit ./...'
+                            sh 'check-errs ./...'
+                            sh 'staticcheck ./...'
+                            sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+                            sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
+                        }
+                     }
+                }
                 stage('Tests') {
                     environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +

@@ -27,6 +27,7 @@ import Key from '@/../static/images/accessGrants/key.svg';
 
 import { RouteConfig } from '@/router';
 
+// @vue/component
 @Component({
     components: {
         Key,

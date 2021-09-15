@@ -41,6 +41,7 @@ import PagesBlock from '@/app/components/common/PagesBlock.vue';
 
 import { OnPageClickCallback, Page } from '@/app/types/pagination';
 
+// @vue/component
 @Component({
     components: {
         PagesBlock,

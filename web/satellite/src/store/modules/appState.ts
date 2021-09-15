@@ -20,8 +20,6 @@ class ViewsState {
         public isFreeCreditsDropdownShown = false,
         public isAvailableBalanceDropdownShown = false,
         public isPeriodsDropdownShown = false,
-        public isDeleteProjectPopupShown = false,
-        public isDeleteAccountPopupShown = false,
         public isSuccessfulRegistrationShown = false,
         public isEditProfilePopupShown = false,
         public isChangePasswordPopupShown = false,
@@ -31,6 +29,8 @@ class ViewsState {
 
         public setDefaultPaymentMethodID: string = "",
         public deletePaymentMethodID: string = "",
+
+        public onbCLIFlowCreateBucketBackRoute: string = "",
     ) {}
 }
 
@@ -89,14 +89,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_PERIODS_DROPDOWN](state: State): void {
             state.appState.isPeriodsDropdownShown = !state.appState.isPeriodsDropdownShown;
         },
-        // Mutation changing delete project popup visibility
-        [APP_STATE_MUTATIONS.TOGGLE_DELETE_PROJECT_DROPDOWN](state: State): void {
-            state.appState.isDeleteProjectPopupShown = !state.appState.isDeleteProjectPopupShown;
-        },
-        // Mutation changing delete account popup visibility
-        [APP_STATE_MUTATIONS.TOGGLE_DELETE_ACCOUNT_DROPDOWN](state: State): void {
-            state.appState.isDeleteAccountPopupShown = !state.appState.isDeleteAccountPopupShown;
-        },
         // Mutation changing 'successful registration' area visibility.
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION](state: State): void {
             state.appState.isSuccessfulRegistrationShown = !state.appState.isSuccessfulRegistrationShown;
@@ -119,6 +111,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.deletePaymentMethodID = id;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_CREATE_BUCKET_BACK_ROUTE](state: State, route: string): void {
+            state.appState.onbCLIFlowCreateBucketBackRoute = route;
         },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: State): void {
@@ -226,20 +221,6 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION, value);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_DEL_PROJ]: function ({commit, state}: AppContext): void {
-            if (!state.appState.isDeleteProjectPopupShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_DELETE_PROJECT_DROPDOWN);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT]: function ({commit, state}: AppContext): void {
-            if (!state.appState.isDeleteAccountPopupShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_DELETE_ACCOUNT_DROPDOWN);
         },
         [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION]: function ({commit, state}: AppContext): void {
             if (!state.appState.isSuccessfulRegistrationShown) {

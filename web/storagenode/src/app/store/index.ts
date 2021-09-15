@@ -27,9 +27,9 @@ Vue.use(Vuex);
 
 export class StoreModule<S> {
     public state: S;
-    public mutations: any;
-    public actions: any;
-    public getters?: any;
+    public mutations: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    public actions: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    public getters?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 /**

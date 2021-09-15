@@ -94,6 +94,7 @@ import { EmailInput } from '@/types/EmailInput';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 
+// @vue/component
 @Component({
     components: {
         VButton,

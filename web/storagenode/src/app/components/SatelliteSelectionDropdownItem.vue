@@ -74,6 +74,7 @@ import SuspensionIcon from '@/../static/images/suspend.svg';
 
 import { SatelliteInfo } from '@/storagenode/sno/sno';
 
+// @vue/component
 @Component({
     components: {
         DisqualificationIcon,

@@ -28,7 +28,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
-import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -36,9 +35,9 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { MONTHS_NAMES } from '@/utils/constants/date';
 
+// @vue/component
 @Component({
     components: {
-        VButton,
         UsageAndChargesItem,
         VLoader,
     },

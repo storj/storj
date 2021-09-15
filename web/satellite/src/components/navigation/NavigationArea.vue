@@ -33,6 +33,7 @@ import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         DashboardIcon,

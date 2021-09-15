@@ -136,6 +136,11 @@
                     :amount="audits.auditScore.label"
                     info-text="Percentage of successful pings/communication between the node & satellite."
                 />
+                <ChecksArea
+                    label="Online Score"
+                    :amount="audits.onlineScore.label"
+                    info-text="Online checks occur to make sure your node is still online. This is the percentage of online checks you’ve passed."
+                />
             </div>
             <AllSatellitesAuditsArea v-else />
         </div>
@@ -160,13 +165,11 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
-import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
 import DiskStatChart from '@/app/components/DiskStatChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
 import IngressChart from '@/app/components/IngressChart.vue';
-import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
 import WalletArea from '@/app/components/WalletArea.vue';
@@ -180,18 +183,17 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { Size } from '@/private/memory/size';
 import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
 
+// @vue/component
 @Component ({
     components: {
         AllSatellitesAuditsArea,
         DiskStatChart,
         TotalPayoutArea,
-        EstimationArea,
         EgressChart,
         IngressChart,
         SatelliteSelection,
         BandwidthChart,
         DiskSpaceChart,
-        BarInfo,
         ChecksArea,
         WalletArea,
         LargeDisqualificationIcon,

@@ -87,12 +87,22 @@ func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, over
 func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[storj.NodeID]bool) (report Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var segmentInfo metabase.Segment
+	defer func() {
+		if err == nil {
+			report.Completed = true
+		}
+		if len(segmentInfo.Pieces) != 0 {
+			report.TotalPieces = len(segmentInfo.Pieces)
+		}
+	}()
+
 	if segment.Expired(verifier.nowFn()) {
 		verifier.log.Debug("segment expired before Verify")
 		return Report{}, nil
 	}
 
-	segmentInfo, err := verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segmentInfo, err = verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 		StreamID: segment.StreamID,
 		Position: segment.Position,
 	})
@@ -117,6 +127,10 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 
 	orderLimits, privateKey, cachedIPsAndPorts, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentInfo, skip)
 	if err != nil {
+		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+			mon.Counter("not_enough_shares_for_audit").Inc(1)
+			err = ErrNotEnoughShares.Wrap(err)
+		}
 		return Report{}, err
 	}
 
@@ -212,7 +226,6 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			zap.String("Segment", segmentInfoString(segment)),
 			zap.Error(share.Error))
 	}
-
 	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit))) //mon:locked
 
 	required := segmentInfo.Redundancy.RequiredShares
@@ -232,9 +245,12 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Counter("not_enough_shares_for_audit").Inc(0)
+	mon.Counter("could_not_verify_audit_shares").Inc(0) //mon:locked
 
 	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
+		mon.Counter("could_not_verify_audit_shares").Inc(1) //mon:locked
+		verifier.log.Error("could not verify shares", zap.Error(err))
 		return Report{
 			Fails:    failedNodes,
 			Offlines: offlineNodes,
@@ -250,49 +266,6 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}
 
 	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, unknownNodes, containedNodes)
-
-	totalInSegment := len(segmentInfo.Pieces)
-	numOffline := len(offlineNodes)
-	numSuccessful := len(successNodes)
-	numFailed := len(failedNodes)
-	numContained := len(containedNodes)
-	numUnknown := len(unknownNodes)
-	totalAudited := numSuccessful + numFailed + numOffline + numContained
-	auditedPercentage := float64(totalAudited) / float64(totalInSegment)
-	offlinePercentage := float64(0)
-	successfulPercentage := float64(0)
-	failedPercentage := float64(0)
-	containedPercentage := float64(0)
-	unknownPercentage := float64(0)
-	if totalAudited > 0 {
-		offlinePercentage = float64(numOffline) / float64(totalAudited)
-		successfulPercentage = float64(numSuccessful) / float64(totalAudited)
-		failedPercentage = float64(numFailed) / float64(totalAudited)
-		containedPercentage = float64(numContained) / float64(totalAudited)
-		unknownPercentage = float64(numUnknown) / float64(totalAudited)
-	}
-
-	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)        //mon:locked
-	mon.Meter("audit_fail_nodes_global").Mark(numFailed)               //mon:locked
-	mon.Meter("audit_offline_nodes_global").Mark(numOffline)           //mon:locked
-	mon.Meter("audit_contained_nodes_global").Mark(numContained)       //mon:locked
-	mon.Meter("audit_unknown_nodes_global").Mark(numUnknown)           //mon:locked
-	mon.Meter("audit_total_nodes_global").Mark(totalAudited)           //mon:locked
-	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInSegment) //mon:locked
-
-	mon.IntVal("audit_success_nodes").Observe(int64(numSuccessful))           //mon:locked
-	mon.IntVal("audit_fail_nodes").Observe(int64(numFailed))                  //mon:locked
-	mon.IntVal("audit_offline_nodes").Observe(int64(numOffline))              //mon:locked
-	mon.IntVal("audit_contained_nodes").Observe(int64(numContained))          //mon:locked
-	mon.IntVal("audit_unknown_nodes").Observe(int64(numUnknown))              //mon:locked
-	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))              //mon:locked
-	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalInSegment))    //mon:locked
-	mon.FloatVal("audited_percentage").Observe(auditedPercentage)             //mon:locked
-	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)       //mon:locked
-	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage) //mon:locked
-	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)         //mon:locked
-	mon.FloatVal("audit_contained_percentage").Observe(containedPercentage)   //mon:locked
-	mon.FloatVal("audit_unknown_percentage").Observe(unknownPercentage)       //mon:locked
 
 	pendingAudits, err := createPendingAudits(ctx, containedNodes, correctedShares, segment, segmentInfo, randomIndex)
 	if err != nil {
@@ -862,7 +835,7 @@ func GetRandomStripe(ctx context.Context, segment metabase.Segment) (index int32
 
 	var src cryptoSource
 	rnd := rand.New(src)
-	numStripes := segment.EncryptedSize / segment.Redundancy.StripeSize()
+	numStripes := segment.Redundancy.StripeCount(segment.EncryptedSize)
 	randomStripeIndex := rnd.Int31n(numStripes)
 
 	return randomStripeIndex, nil

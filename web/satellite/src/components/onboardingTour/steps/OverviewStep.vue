@@ -32,31 +32,29 @@
                 :is-disabled="isLoading"
             />
         </div>
-        <div
+        <router-link
             class="overview-area__skip-button"
-            @click.prevent="onSkipClick"
+            :to="projectDashboardPath"
         >
             Skip and go directly to dashboard
-        </div>
+        </router-link>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 import WelcomeLeft from '@/../static/images/onboardingTour/welcome-left.svg';
 import WelcomeRight from '@/../static/images/onboardingTour/welcome-right.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
+// @vue/component
 @Component({
     components: {
-        VButton,
         OverviewContainer,
         WelcomeLeft,
         WelcomeRight
@@ -64,22 +62,13 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 })
 export default class OverviewStep extends Vue {
     public isLoading = false;
+    public projectDashboardPath = RouteConfig.ProjectDashboard.path;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
-     * Lifecycle hook after initial render.
-     * Sets area to needed state.
-     */
-    public mounted(): void {
-        if (this.userHasProject) {
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path).catch(() => {return; });
-        }
-    }
-
-    /**
      * Holds button click logic.
-     * Creates untitled project and redirects to next step (creating access grant).
+     * Redirects to next step (creating access grant).
      */
     public async onUplinkCLIClick(): Promise<void> {
         if (this.isLoading) return;
@@ -87,21 +76,13 @@ export default class OverviewStep extends Vue {
         this.isLoading = true;
 
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.EncryptYourData).path);
 
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
-
-            this.isLoading = false;
-
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.AccessGrantName).path);
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
-        }
+        this.isLoading = false;
     }
 
     /**
-     * Creates untitled project and redirects to objects page.
+     * Redirects to objects page.
      */
     public async onUploadInBrowserClick(): Promise<void> {
         if (this.isLoading) return;
@@ -109,45 +90,9 @@ export default class OverviewStep extends Vue {
         this.isLoading = true;
 
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
+        await this.$router.push(RouteConfig.Objects.path).catch(() => {return; });
 
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
-
-            this.isLoading = false;
-
-            await this.$router.push(RouteConfig.Objects.path).catch(() => {return; });
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
-        }
-    }
-
-    /**
-     * Holds button click logic.
-     * Creates untitled project and redirects to project dashboard.
-     */
-    public async onSkipClick(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
-
-            this.isLoading = false;
-
-            await this.$router.push(RouteConfig.ProjectDashboard.path);
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
-        }
-    }
-
-    /**
-     * Indicates if user has at least one project.
-     */
-    private get userHasProject(): boolean {
-        return this.$store.state.projectsModule.projects.length > 0;
+        this.isLoading = false;
     }
 }
 </script>
@@ -197,7 +142,7 @@ export default class OverviewStep extends Vue {
         }
 
         &__skip-button {
-            margin: 50px 0 40px 0;
+            margin-top: 50px;
             color: #b7c1ca;
             cursor: pointer;
             text-decoration: underline !important;

@@ -68,6 +68,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 /**
  * Custom input component for login page.
  */
+// @vue/component
 @Component
 export default class HeaderlessInput extends Vue {
     private readonly textType: string = 'text';

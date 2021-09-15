@@ -103,6 +103,7 @@ interface AddCardConfirm {
     onConfirmAddStripe(): Promise<void>;
 }
 
+// @vue/component
 @Component({
     components: {
         AddStorjForm,

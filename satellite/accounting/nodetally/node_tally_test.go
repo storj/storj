@@ -44,7 +44,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		require.NoError(t, err)
 
 		obs := nodetally.NewObserver(planet.Satellites[0].Log.Named("observer"), time.Now())
-		err = planet.Satellites[0].Metainfo.SegmentLoop.Join(ctx, obs)
+		err = planet.Satellites[0].Metabase.SegmentLoop.Join(ctx, obs)
 		require.NoError(t, err)
 
 		// Confirm the correct number of shares were stored

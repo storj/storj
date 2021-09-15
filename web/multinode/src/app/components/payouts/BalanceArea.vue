@@ -26,6 +26,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import InfoBlock from '../common/InfoBlock.vue';
 
+// @vue/component
 @Component({
     components: { InfoBlock },
 })

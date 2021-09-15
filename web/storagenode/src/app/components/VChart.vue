@@ -29,6 +29,7 @@ class DayShowingConditions {
     }
 }
 
+// @vue/component
 @Component({
     extends: VueChart.Line,
 })

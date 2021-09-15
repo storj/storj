@@ -1613,6 +1613,20 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE audit_histories`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop audit and unknown audit reputation alpha and beta from nodes table",
+				Version:     171,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN audit_reputation_alpha;`,
+					`ALTER TABLE nodes DROP COLUMN audit_reputation_beta;`,
+					`ALTER TABLE nodes DROP COLUMN unknown_audit_reputation_alpha;`,
+					`ALTER TABLE nodes DROP COLUMN unknown_audit_reputation_beta;`,
+					`ALTER TABLE nodes DROP COLUMN audit_success_count`,
+					`ALTER TABLE nodes DROP COLUMN online_score`,
+					`ALTER TABLE nodes DROP COLUMN total_audit_count`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

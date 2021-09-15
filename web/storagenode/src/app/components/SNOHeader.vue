@@ -74,6 +74,7 @@ const {
     SELECT_SATELLITE,
 } = NODE_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         OptionsDropdown,

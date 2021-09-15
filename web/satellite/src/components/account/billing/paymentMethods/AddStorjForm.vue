@@ -44,6 +44,7 @@ const {
     GET_PAYMENTS_HISTORY,
 } = PAYMENTS_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         TokenDepositSelection,

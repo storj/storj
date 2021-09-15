@@ -65,55 +65,40 @@
                     </div>
                     <div class="register-area__input-wrapper first-input">
                         <HeaderlessInput
-                            class="full-input"
                             label="Full Name"
                             placeholder="Enter Full Name"
                             :error="fullNameError"
-                            width="calc(100% - 2px)"
-                            height="46px"
                             @setData="setFullName"
                         />
                     </div>
                     <div class="register-area__input-wrapper">
                         <HeaderlessInput
-                            class="full-input"
                             label="Email Address"
                             placeholder="example@email.com"
                             :error="emailError"
-                            width="calc(100% - 2px)"
-                            height="46px"
                             @setData="setEmail"
                         />
                     </div>
                     <div v-if="isProfessional">
                         <div class="register-area__input-wrapper">
                             <HeaderlessInput
-                                class="full-input"
                                 label="Company Name"
                                 placeholder="Acme Corp."
                                 :error="companyNameError"
-                                width="calc(100% - 2px)"
-                                height="46px"
                                 @setData="setCompanyName"
                             />
                         </div>
                         <div class="register-area__input-wrapper">
                             <HeaderlessInput
-                                class="full-input"
                                 label="Position"
                                 placeholder="Position Title"
                                 :error="positionError"
-                                width="calc(100% - 2px)"
-                                height="46px"
                                 @setData="setPosition"
                             />
                         </div>
                         <div class="register-area__input-wrapper">
                             <SelectInput
-                                class="full-input"
                                 label="Employees"
-                                width="calc(100% - 2px)"
-                                height="46px"
                                 :options-list="employeeCountOptions"
                                 @setData="setEmployeeCount"
                             />
@@ -122,12 +107,9 @@
                     <div class="register-input">
                         <div class="register-area__input-wrapper">
                             <HeaderlessInput
-                                class="full-input"
                                 label="Password"
                                 placeholder="Enter Password"
                                 :error="passwordError"
-                                width="calc(100% - 2px)"
-                                height="46px"
                                 is-password="true"
                                 @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
@@ -141,12 +123,9 @@
                     </div>
                     <div class="register-area__input-wrapper">
                         <HeaderlessInput
-                            class="full-input"
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
-                            width="calc(100% - 2px)"
-                            height="46px"
                             is-password="true"
                             @setData="setRepeatedPassword"
                         />
@@ -200,10 +179,11 @@
                             <ErrorIcon />
                             <p class="register-area__input-area__container__recaptcha-wrapper__label-container__error">reCAPTCHA is required</p>
                         </div>
-                        <vue-recaptcha
+                        <VueRecaptcha
                             ref="recaptcha"
                             :sitekey="recaptchaSiteKey"
                             load-recaptcha-script="true"
+                            size="invisible"
                             @verify="onRecaptchaVerified"
                             @expired="onRecaptchaError"
                             @error="onRecaptchaError"
@@ -231,11 +211,9 @@ import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 import SelectInput from '@/components/common/SelectInput.vue';
 
-import AuthIcon from '@/../static/images/AuthImage.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/logo.svg';
-import InfoIcon from '@/../static/images/info.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
 import RegisterGlobeSmall from '@/../static/images/register/RegisterGlobeSmall.svg';
@@ -249,16 +227,15 @@ import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 
+// @vue/component
 @Component({
     components: {
         HeaderlessInput,
         RegistrationSuccess,
-        AuthIcon,
         BottomArrowIcon,
         ErrorIcon,
         SelectedCheckIcon,
         LogoIcon,
-        InfoIcon,
         PasswordStrength,
         AddCouponCodeInput,
         SelectInput,
@@ -312,6 +289,10 @@ export default class RegisterArea extends Vue {
     public optionsShown = false;
 
     public readonly loginPath: string = RouteConfig.Login.path;
+
+    public $refs!: {
+        recaptcha: VueRecaptcha;
+    }
 
     /**
      * Lifecycle hook on component destroy.
@@ -376,20 +357,12 @@ export default class RegisterArea extends Vue {
      * Validates input fields and proceeds user creation.
      */
     public async onCreateClick(): Promise<void> {
-        if (this.isLoading) {
+        if (this.$refs.recaptcha && !this.recaptchaResponseToken) {
+            this.$refs.recaptcha.execute();
             return;
         }
 
-        this.isLoading = true;
-
-        if (!this.validateFields()) {
-            this.isLoading = false;
-
-            return;
-        }
         await this.createUser();
-
-        this.isLoading = false;
     }
 
     /**
@@ -504,6 +477,7 @@ export default class RegisterArea extends Vue {
     public onRecaptchaVerified(response: string): void {
         this.recaptchaResponseToken = response;
         this.recaptchaError = false;
+        this.createUser();
     }
 
     /**
@@ -511,6 +485,7 @@ export default class RegisterArea extends Vue {
      */
     public onRecaptchaError(): void {
         this.recaptchaResponseToken = '';
+        this.recaptchaError = true;
     }
 
     /**
@@ -569,11 +544,6 @@ export default class RegisterArea extends Vue {
             isNoErrors = false;
         }
 
-        if (this.recaptchaEnabled && !this.recaptchaResponseToken) {
-            this.recaptchaError = true;
-            isNoErrors = false;
-        }
-
         return isNoErrors;
     }
 
@@ -581,6 +551,16 @@ export default class RegisterArea extends Vue {
      * Creates user and toggles successful registration area visibility.
      */
     private async createUser(): Promise<void> {
+        if (this.isLoading) {
+            return;
+        }
+
+        if (!this.validateFields()) {
+            return;
+        }
+
+        this.isLoading = true;
+
         this.user.isProfessional = this.isProfessional;
         this.user.haveSalesContact = this.haveSalesContact;
 
@@ -591,11 +571,11 @@ export default class RegisterArea extends Vue {
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         } catch (error) {
             if (this.$refs.recaptcha) {
-                (this.$refs.recaptcha as VueRecaptcha).reset();
+                this.$refs.recaptcha.reset();
             }
             await this.$notify.error(error.message);
-            this.isLoading = false;
         }
+        this.isLoading = false;
     }
 }
 </script>
@@ -955,10 +935,6 @@ export default class RegisterArea extends Vue {
         width: 100%;
     }
 
-    .input-wrap.full-input {
-        width: calc(100% - 2px);
-    }
-
     .container {
         display: block;
         position: relative;
@@ -1205,6 +1181,10 @@ export default class RegisterArea extends Vue {
                 }
             }
         }
+    }
+
+    ::v-deep .grecaptcha-badge {
+        z-index: 99;
     }
 
     @media screen and (max-width: 414px) {

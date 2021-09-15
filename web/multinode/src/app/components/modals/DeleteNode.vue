@@ -25,6 +25,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
+// @vue/component
 @Component({
     components: {
         VButton,

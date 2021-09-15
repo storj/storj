@@ -20,7 +20,7 @@ export const NOTIFICATIONS_ACTIONS = {
 
 interface NotificationsContext {
     state: NotificationsState;
-    commit: any;
+    commit: (string, ...unknown) => void;
 }
 
 /**

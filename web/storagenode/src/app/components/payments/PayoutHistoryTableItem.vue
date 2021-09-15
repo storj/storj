@@ -113,6 +113,7 @@ import ShareIcon from '@/../static/images/payments/Share.svg';
 
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component ({
     components: {
         ExpandIcon,

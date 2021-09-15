@@ -13,7 +13,6 @@
                     class="full-input"
                     label="Old Password"
                     placeholder="Enter Old Password"
-                    width="100%"
                     is-password="true"
                     :error="oldPasswordError"
                     @setData="setOldPassword"
@@ -23,7 +22,6 @@
                         class="full-input"
                         label="New Password"
                         placeholder="Enter New Password"
-                        width="100%"
                         is-password="true"
                         :error="newPasswordError"
                         @setData="setNewPassword"
@@ -39,7 +37,6 @@
                     class="full-input"
                     label="Confirm Password"
                     placeholder="Confirm Password"
-                    width="100%"
                     is-password="true"
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation"
@@ -81,6 +78,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 
+// @vue/component
 @Component({
     components: {
         ChangePasswordIcon,
@@ -195,7 +193,6 @@ export default class ChangePasswordPopup extends Vue {
     }
 
     .full-input {
-        width: 100%;
         margin-bottom: 15px;
     }
 

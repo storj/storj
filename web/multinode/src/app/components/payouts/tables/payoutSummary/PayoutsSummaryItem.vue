@@ -20,6 +20,7 @@ import NodeOptions from '@/app/components/common/NodeOptions.vue';
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayoutsSummary } from '@/payouts';
 
+// @vue/component
 @Component({
     components: {
         NodeOptions,

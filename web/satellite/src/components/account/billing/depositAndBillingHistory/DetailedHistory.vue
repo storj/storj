@@ -37,6 +37,7 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
+// @vue/component
 @Component({
     components: {
         PaymentsItem,

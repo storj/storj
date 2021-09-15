@@ -28,6 +28,7 @@ import VLoader from '@/components/common/VLoader.vue';
 
 import { Dimensions, Size } from '@/utils/bytesSize';
 
+// @vue/component
 @Component({
     components: {
         VBar,

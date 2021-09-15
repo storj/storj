@@ -25,6 +25,7 @@ import CloseIcon from '@/../static/images/notifications/close.svg';
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         CloseIcon,

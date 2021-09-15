@@ -133,16 +133,17 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	empty, err := endpoint.metainfo.IsBucketEmpty(ctx, projectID, bucketName)
+	empty, err := endpoint.isBucketEmpty(ctx, projectID, bucketName)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+		endpoint.log.Error("internal", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 	if !empty {
 		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
-	bucket, err := endpoint.metainfo.GetBucket(ctx, bucketName, projectID)
+	bucket, err := endpoint.buckets.GetBucket(ctx, bucketName, projectID)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
 			return rpcstatus.Errorf(rpcstatus.NotFound, "bucket %q does not exist", bucketName)
@@ -156,7 +157,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 
 	// update bucket information
 	bucket.PartnerID = partnerID
-	_, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
+	_, err = endpoint.buckets.UpdateBucket(ctx, bucket)
 	if err != nil {
 		endpoint.log.Error("error while updating bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")

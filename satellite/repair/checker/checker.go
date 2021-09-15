@@ -6,6 +6,7 @@ package checker
 import (
 	"bytes"
 	"context"
+	"strings"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -320,6 +321,12 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentl
 
 			mon.Counter("checker_segments_below_min_req").Inc(1) //mon:locked
 			stats.segmentsBelowMinReq.Inc(1)
+			var unhealthyNodes []string
+			for _, p := range missingPieces {
+				unhealthyNodes = append(unhealthyNodes, p.StorageNode.String())
+			}
+			obs.log.Warn("checker found irreparable segment", zap.String("Segment StreamID", segment.StreamID.String()), zap.Int("Segment Position",
+				int(segment.Position.Encode())), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.String("unhealthy node IDs", strings.Join(unhealthyNodes, ",")))
 		}
 	} else {
 		if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(obs.monStats.remoteSegmentsOverThreshold)) {

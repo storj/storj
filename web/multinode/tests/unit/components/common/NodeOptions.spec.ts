@@ -9,6 +9,9 @@ describe('NodeOptions', (): void => {
     it('renders correctly', async(): Promise<void> => {
         const wrapper = shallowMount(NodeOptions, {
             propsData: { id: 'id' },
+            directives: {
+                clickOutside: {},
+            },
         });
 
         expect(wrapper).toMatchSnapshot();

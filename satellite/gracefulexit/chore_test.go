@@ -84,7 +84,7 @@ func TestChore(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
-		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, true)
+		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 3)
 		for _, incomplete := range incompleteTransfers {
@@ -97,7 +97,7 @@ func TestChore(t *testing.T) {
 			if node.ID() == exitingNode.ID() {
 				continue
 			}
-			incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, node.ID(), 20, 0, true)
+			incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, node.ID(), 20, 0)
 			require.NoError(t, err)
 			require.Len(t, incompleteTransfers, 0)
 		}
@@ -116,7 +116,7 @@ func TestChore(t *testing.T) {
 		err = satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
 		require.NoError(t, err)
 
-		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, true)
+		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 3)
 
@@ -129,7 +129,7 @@ func TestChore(t *testing.T) {
 		require.False(t, exitStatus.ExitSuccess)
 		require.NotNil(t, exitStatus.ExitFinishedAt)
 
-		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, true)
+		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 0)
 
@@ -196,7 +196,7 @@ func TestDurabilityRatio(t *testing.T) {
 		require.Len(t, nodeIDs, 1)
 
 		// retrieve remote segment
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 2)
 
@@ -210,7 +210,7 @@ func TestDurabilityRatio(t *testing.T) {
 					idx++
 				}
 			}
-			err = satellite.Metainfo.Metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+			err = satellite.Metabase.DB.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
 				StreamID: segment.StreamID,
 				Position: segment.Position,
 
@@ -223,7 +223,7 @@ func TestDurabilityRatio(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
-		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, true)
+		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 2)
 		for _, incomplete := range incompleteTransfers {
@@ -263,14 +263,15 @@ func batch(ctx context.Context, b *testing.B, db gracefulexit.DB, size int) {
 		for j := 0; j < size; j++ {
 			item := gracefulexit.TransferQueueItem{
 				NodeID:          testrand.NodeID(),
-				Key:             testrand.Bytes(memory.B * 256),
+				StreamID:        testrand.UUID(),
+				Position:        metabase.SegmentPosition{},
 				PieceNum:        0,
 				DurabilityRatio: 1.0,
 			}
 			transferQueueItems = append(transferQueueItems, item)
 		}
 		batchSize := 1000
-		err := db.Enqueue(ctx, transferQueueItems, batchSize, true)
+		err := db.Enqueue(ctx, transferQueueItems, batchSize)
 		require.NoError(b, err)
 	}
 }

@@ -12,10 +12,8 @@
                     <h2 class="edit-profile-popup__form-container__main-label-text">Edit Profile</h2>
                 </div>
                 <HeaderedInput
-                    class="full-input"
                     label="Full Name"
                     placeholder="Enter Full Name"
-                    width="100%"
                     :error="fullNameError"
                     :init-value="userInfo.fullName"
                     @setData="setFullName"
@@ -55,6 +53,7 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         CloseCrossIcon,
@@ -134,10 +133,6 @@ export default class EditProfilePopup extends Vue {
         justify-content: center;
         align-items: center;
         font-family: 'font_regular', sans-serif;
-    }
-
-    .input-container.full-input {
-        width: 100%;
     }
 
     .edit-profile-popup {

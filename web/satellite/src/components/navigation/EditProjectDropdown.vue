@@ -25,6 +25,7 @@ import EditImage from '@/../static/images/navigation/edit.svg';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         DotsImage,

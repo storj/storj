@@ -34,6 +34,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import ProjectDropdown from './ProjectDropdown.vue';
 
+// @vue/component
 @Component({
     components: {
         ProjectDropdown,

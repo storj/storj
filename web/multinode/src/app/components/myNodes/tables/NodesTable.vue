@@ -36,6 +36,7 @@ import NodeItem from '@/app/components/myNodes/tables/NodeItem.vue';
 
 import { Node } from '@/nodes';
 
+// @vue/component
 @Component({
     components: {
         BaseTable,

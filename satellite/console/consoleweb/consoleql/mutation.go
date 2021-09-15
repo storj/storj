@@ -108,7 +108,10 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					var projectInput = fromMapProjectInfoProjectLimits(p.Args[ProjectFields].(map[string]interface{}), p.Args[ProjectLimits].(map[string]interface{}))
+					var projectInput, err = fromMapProjectInfoProjectLimits(p.Args[ProjectFields].(map[string]interface{}), p.Args[ProjectLimits].(map[string]interface{}))
+					if err != nil {
+						return nil, err
+					}
 
 					inputID := p.Args[FieldID].(string)
 					projectID, err := uuid.FromString(inputID)

@@ -26,6 +26,7 @@ import VButton from '@/app/components/common/VButton.vue';
 
 import { Config as RouterConfig } from '@/app/router';
 
+// @vue/component
 @Component({
     components: { VButton },
 })

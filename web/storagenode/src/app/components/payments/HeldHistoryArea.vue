@@ -42,6 +42,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeldHistoryAllStatsTable from '@/app/components/payments/HeldHistoryAllStatsTable.vue';
 import HeldHistoryMonthlyBreakdownTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 
+// @vue/component
 @Component({
     components: {
         HeldHistoryAllStatsTable,

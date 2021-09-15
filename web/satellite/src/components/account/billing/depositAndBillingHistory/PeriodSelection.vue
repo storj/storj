@@ -41,6 +41,7 @@ import { Route } from 'vue-router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         DatePickerIcon,

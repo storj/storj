@@ -220,7 +220,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		return nil, err
 	}
 
-	if err := db.Pieces().CreateVerificationFile(identity.ID); err != nil {
+	if err := db.Pieces().CreateVerificationFile(ctx, identity.ID); err != nil {
 		return nil, err
 	}
 

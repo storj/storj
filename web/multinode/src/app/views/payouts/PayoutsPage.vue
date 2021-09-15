@@ -37,25 +37,22 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
-import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
 import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
 import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
-import PayoutHistoryBlock from '@/app/components/payouts/PayoutHistoryBlock.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
 import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
 
 import { UnauthorizedError } from '@/api';
 import { PayoutsState } from '@/app/store/payouts';
 
+// @vue/component
 @Component({
     components: {
         BalanceArea,
         PayoutPeriodCalendarButton,
-        PayoutHistoryBlock,
         DetailsArea,
         PayoutsSummaryTable,
         SatelliteSelectionDropdown,
-        NodesTable,
     },
 })
 export default class PayoutsPage extends Vue {

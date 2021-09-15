@@ -37,6 +37,7 @@ import DisqualifyIcon from '@/../static/images/disqualify.svg';
 
 import { SatelliteScores } from '@/storagenode/sno/sno';
 
+// @vue/component
 @Component({
     components: { DisqualifyIcon },
 })

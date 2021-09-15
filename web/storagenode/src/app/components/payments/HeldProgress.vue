@@ -38,6 +38,7 @@ class HeldStep {
     }
 }
 
+// @vue/component
 @Component
 export default class HeldProgress extends Vue {
     public steps: HeldStep[] = [];

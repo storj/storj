@@ -24,6 +24,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
+// @vue/component
 @Component ({
     components: {
         ChecksInfoIcon,

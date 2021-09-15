@@ -16,6 +16,7 @@ import TopArrowIcon from '@/../static/images/common/topArrow.svg';
 
 import { SortingDirectionEnum } from '@/types/sortingArrows';
 
+// @vue/component
 @Component({
     components: {
         TopArrowIcon,

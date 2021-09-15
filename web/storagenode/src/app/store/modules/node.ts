@@ -41,7 +41,7 @@ const STATUS_TRESHHOLD_MINUTES = 120;
 
 interface StorageNodeContext {
     state: StorageNodeState;
-    commit: any;
+    commit: (string, ...unknown) => void;
 }
 
 export function newNodeModule(service: StorageNodeService): StoreModule<StorageNodeState> {

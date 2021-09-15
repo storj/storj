@@ -20,6 +20,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 declare type listItemClickCallback = (item: unknown) => Promise<void>;
 
+// @vue/component
 @Component
 export default class VList extends Vue {
     @Prop({default: ''})

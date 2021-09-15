@@ -31,6 +31,7 @@ import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 
+// @vue/component
 @Component({
     components: {
         PayoutPeriodCalendar,

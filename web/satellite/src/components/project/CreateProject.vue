@@ -11,7 +11,6 @@
                 additional-label="Up To 20 Characters"
                 placeholder="Enter Project Name"
                 class="full-input"
-                width="100%"
                 is-limit-shown="true"
                 :current-limit="projectName.length"
                 :max-symbols="20"
@@ -24,8 +23,7 @@
                 additional-label="Optional"
                 class="full-input"
                 is-multiline="true"
-                height="60px"
-                width="calc(100% - 42px)"
+                height="100px"
                 is-limit-shown="true"
                 :current-limit="description.length"
                 :max-symbols="100"
@@ -69,6 +67,7 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 
+// @vue/component
 @Component({
     components: {
         HeaderedInput,
@@ -163,11 +162,6 @@ export default class NewProjectPopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .full-input {
-        width: 100%;
-        margin-top: 20px;
-    }
-
     .create-project-area {
         display: flex;
         align-items: center;
@@ -221,5 +215,9 @@ export default class NewProjectPopup extends Vue {
                 }
             }
         }
+    }
+
+    .full-input {
+        margin-top: 20px;
     }
 </style>

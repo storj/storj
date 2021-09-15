@@ -197,14 +197,14 @@ func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB,
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.
-func (store *Store) CreateVerificationFile(id storj.NodeID) error {
-	return store.blobs.CreateVerificationFile(id)
+func (store *Store) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
+	return store.blobs.CreateVerificationFile(ctx, id)
 }
 
 // VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
-func (store *Store) VerifyStorageDir(id storj.NodeID) error {
-	return store.blobs.VerifyStorageDir(id)
+func (store *Store) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
+	return store.blobs.VerifyStorageDir(ctx, id)
 }
 
 // Writer returns a new piece writer.
@@ -697,7 +697,7 @@ type StorageStatus struct {
 // StorageStatus returns information about the disk.
 func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
-	diskFree, err := store.blobs.FreeSpace()
+	diskFree, err := store.blobs.FreeSpace(ctx)
 	if err != nil {
 		return StorageStatus{}, err
 	}
@@ -708,8 +708,8 @@ func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err err
 }
 
 // CheckWritability tests writability of the storage directory by creating and deleting a file.
-func (store *Store) CheckWritability() error {
-	return store.blobs.CheckWritability()
+func (store *Store) CheckWritability(ctx context.Context) error {
+	return store.blobs.CheckWritability(ctx)
 }
 
 type storedPieceAccess struct {

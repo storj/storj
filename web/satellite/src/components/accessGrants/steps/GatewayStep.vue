@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="gateway" :class="{ 'border-radius': isOnboardingTour }">
+    <div class="gateway">
         <BackIcon class="gateway__back-icon" @click="onBackClick" />
         <h1 class="gateway__title">S3 Gateway</h1>
         <div class="gateway__container">
@@ -25,11 +25,15 @@
             <div v-else class="gateway__container__keys-area">
                 <div class="gateway__container__keys-area__label-area">
                     <h3 class="gateway__container__keys-area__label-area__label">Access Key</h3>
-                    <VInfo
-                        class="gateway__container__keys-area__label-area__info-button"
-                        bold-text="The access key ID uniquely identifies your account."
-                    >
-                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image" />
+                    <VInfo class="gateway__container__keys-area__label-area__info-button">
+                        <template #icon>
+                            <InfoIcon />
+                        </template>
+                        <template #message>
+                            <p class="gateway__container__keys-area__label-area__info-button__message">
+                                The access key ID uniquely identifies your account.
+                            </p>
+                        </template>
                     </VInfo>
                 </div>
                 <div class="gateway__container__keys-area__key">
@@ -44,11 +48,15 @@
                 </div>
                 <div class="gateway__container__keys-area__label-area">
                     <h3 class="gateway__container__keys-area__label-area__label">Secret Key</h3>
-                    <VInfo
-                        class="gateway__container__keys-area__label-area__info-button"
-                        bold-text="Secret access keys are—as the name implies—secrets, like your password."
-                    >
-                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image" />
+                    <VInfo class="gateway__container__keys-area__label-area__info-button">
+                        <template #icon>
+                            <InfoIcon />
+                        </template>
+                        <template #message>
+                            <p class="gateway__container__keys-area__label-area__info-button__message">
+                                Secret access keys are—as the name implies—secrets, like your password.
+                            </p>
+                        </template>
                     </VInfo>
                 </div>
                 <div class="gateway__container__keys-area__key">
@@ -63,11 +71,15 @@
                 </div>
                 <div class="gateway__container__keys-area__label-area">
                     <h3 class="gateway__container__keys-area__label-area__label">End Point</h3>
-                    <VInfo
-                        class="gateway__container__keys-area__label-area__info-button"
-                        bold-text="The service to which you want to establish the connection."
-                    >
-                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image" />
+                    <VInfo class="gateway__container__keys-area__label-area__info-button">
+                        <template #icon>
+                            <InfoIcon />
+                        </template>
+                        <template #message>
+                            <p class="gateway__container__keys-area__label-area__info-button__message">
+                                The service to which you want to establish the connection.
+                            </p>
+                        </template>
                     </VInfo>
                 </div>
                 <div class="gateway__container__keys-area__key">
@@ -100,9 +112,6 @@ import VInfo from '@/components/common/VInfo.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import InfoIcon from '@/../static/images/accessGrants/info.svg';
-import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -110,14 +119,12 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { GatewayCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
+// @vue/component
 @Component({
     components: {
-        BackIcon,
-        WarningIcon,
         VButton,
-        ExpandIcon,
-        HideIcon,
         VInfo,
+        BackIcon,
         InfoIcon,
     },
 })
@@ -136,12 +143,6 @@ export default class GatewayStep extends Vue {
      */
     public mounted(): void {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
-            if (this.isOnboardingTour) {
-                this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
-
-                return;
-            }
-
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -184,19 +185,6 @@ export default class GatewayStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
-        if (this.isOnboardingTour) {
-            this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantResult)).name,
-                params: {
-                    access: this.access,
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-
-            return;
-        }
-
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
             params: {
@@ -212,7 +200,7 @@ export default class GatewayStep extends Vue {
      * Proceed to upload data step.
      */
     public onDoneClick(): void {
-        this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
+        this.$router.push(RouteConfig.AccessGrants.path);
     }
 
     /**
@@ -237,13 +225,6 @@ export default class GatewayStep extends Vue {
         }
 
         this.isLoading = false;
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**
@@ -342,6 +323,13 @@ export default class GatewayStep extends Vue {
                             .ag-info-path {
                                 fill: #2683ff;
                             }
+                        }
+
+                        &__message {
+                            color: #586c86;
+                            font-family: 'font_medium', sans-serif;
+                            font-size: 16px;
+                            line-height: 18px;
                         }
                     }
                 }

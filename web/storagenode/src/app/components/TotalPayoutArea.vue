@@ -30,6 +30,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 
+// @vue/component
 @Component({
     components: {
         SingleInfo,

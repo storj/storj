@@ -58,6 +58,7 @@ import { SatelliteInfo } from '@/storagenode/sno/sno';
 
 import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
 
+// @vue/component
 @Component({
     components: {
         SatelliteSelectionDropdown,

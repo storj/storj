@@ -34,6 +34,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         BucketArea,

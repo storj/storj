@@ -81,6 +81,7 @@ declare interface ResetPagination {
     resetPageIndex(): void;
 }
 
+// @vue/component
 @Component({
     components: {
         EmptyState,

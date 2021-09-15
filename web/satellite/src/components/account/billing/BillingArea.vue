@@ -64,7 +64,6 @@ import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
-import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 import ExpandIcon from '@/../static/images/account/billing/expand.svg';
 import HideIcon from '@/../static/images/account/billing/hide.svg';
 import LowBalanceIcon from '@/../static/images/account/billing/lowBalance.svg';
@@ -75,13 +74,13 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AccountBalance } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         PeriodSelection,
         SmallDepositHistory,
         EstimatedCostsAndCredits,
         PaymentMethods,
-        DatePickerIcon,
         LowBalanceIcon,
         NegativeBalanceIcon,
         HistoryDropdown,

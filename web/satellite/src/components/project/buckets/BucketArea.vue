@@ -50,10 +50,10 @@ import { Bucket } from '@/types/buckets';
 
 const {FETCH, SET_SEARCH} = BUCKET_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         SortingHeader,
-        BucketItem,
         NoBucketArea,
         VHeader,
         VPagination,

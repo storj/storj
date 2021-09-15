@@ -15,6 +15,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { Bucket } from '@/types/buckets';
 
+// @vue/component
 @Component
 export default class BucketItem extends Vue {
     @Prop({default: () => new Bucket('', 0, 0, 0, new Date(), new Date())})

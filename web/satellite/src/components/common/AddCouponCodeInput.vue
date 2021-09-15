@@ -14,7 +14,6 @@
                 <HeaderlessInput
                     :label="inputLabel"
                     placeholder="Enter Coupon Code"
-                    class="add-coupon__input"
                     height="52px"
                     :with-icon="true"
                     @setData="setCouponCode"
@@ -73,18 +72,17 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import CloseIcon from '@/../static/images/common/closeCross.svg';
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
 import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
+// @vue/component
 @Component({
     components: {
         VButton,
         HeaderlessInput,
-        CloseIcon,
         CheckIcon,
         ValidationMessage,
     },

@@ -52,6 +52,7 @@ import HeldHistoryMonthlyBreakdownTableItemSmall from '@/app/components/payments
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component({
     components: {
         HeldHistoryMonthlyBreakdownTableItemSmall,

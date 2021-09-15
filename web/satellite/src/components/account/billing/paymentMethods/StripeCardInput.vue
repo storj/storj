@@ -28,6 +28,7 @@ interface StripeResponse {
 }
 
 // StripeCardInput encapsulates Stripe add card addition logic
+// @vue/component
 @Component
 export default class StripeCardInput extends Vue {
     @Prop({default: () => console.error('onStripeResponse is not reinitialized')})

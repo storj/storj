@@ -7,7 +7,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.13.3
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
-	github.com/calebcase/tmpfile v1.0.2
+	github.com/calebcase/tmpfile v1.0.3
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.7.1
@@ -23,7 +23,7 @@ require (
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/loov/hrtime v1.0.3
-	github.com/mattn/go-sqlite3 v2.0.3+incompatible
+	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
 	github.com/pkg/errors v0.9.1 // indirect
@@ -48,14 +48,14 @@ require (
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
+	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	storj.io/common v0.0.0-20210818163656-4667d2cafb27
+	storj.io/common v0.0.0-20210913064233-1b2b6b3e7a2f
 	storj.io/drpc v0.0.24
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20210625132526-af46b647eda5

@@ -19,6 +19,7 @@
 import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/BaseChart.vue';
+import VChart from '@/app/components/VChart.vue';
 
 import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
@@ -46,7 +47,10 @@ class BandwidthTooltip {
     }
 }
 
-@Component
+// @vue/component
+@Component({
+    components: { VChart }
+})
 export default class BandwidthChart extends BaseChart {
     private get chartBackgroundColor(): string {
         return this.isDarkMode ? '#4F97F7' : '#F2F6FC';

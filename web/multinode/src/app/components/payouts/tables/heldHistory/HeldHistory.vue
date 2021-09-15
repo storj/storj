@@ -32,6 +32,7 @@ import BaseTable from '@/app/components/common/BaseTable.vue';
 
 import { HeldAmountSummary } from '@/payouts';
 
+// @vue/component
 @Component({
     components: {
         BaseTable,

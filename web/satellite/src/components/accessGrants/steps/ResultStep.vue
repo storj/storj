@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="generate-grant" :class="{ 'border-radius': isOnboardingTour }">
+    <div class="generate-grant">
         <BackIcon class="generate-grant__back-icon" @click="onBackClick" />
         <h1 class="generate-grant__title">Generate Access Grant</h1>
         <div class="generate-grant__warning">
@@ -54,19 +54,17 @@ import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
+import { Download } from "@/utils/download";
 
+// @vue/component
 @Component({
     components: {
         BackIcon,
         WarningIcon,
         VButton,
-        ExpandIcon,
-        HideIcon,
     },
 })
 export default class ResultStep extends Vue {
@@ -82,12 +80,6 @@ export default class ResultStep extends Vue {
      */
     public mounted(): void {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
-            if (this.isOnboardingTour) {
-                this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
-
-                return;
-            }
-
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -115,22 +107,10 @@ export default class ResultStep extends Vue {
      * Downloads a file with the access called access-grant-<timestamp>.key
      */
     public onDownloadGrantClick(): void {
-        // this code is based on this Stackoverflow response: https://stackoverflow.com/a/33542499
-        // It works for downloading a file in IE 10+, Firefox, and Chrome without any additional libraries
-        const blob = new Blob([this.access], {type: 'text/plain'});
         const ts = new Date();
         const filename = 'access-grant-' + ts.toJSON() + '.key';
 
-        if (window.navigator.msSaveBlob) {
-            window.navigator.msSaveBlob(blob, filename);
-        } else {
-            const elem = window.document.createElement('a');
-            elem.href = window.URL.createObjectURL(blob);
-            elem.download = filename;
-            document.body.appendChild(elem);
-            elem.click();
-            document.body.removeChild(elem);
-        }
+        Download.file(this.access, filename);
 
         this.$notify.success('Token was downloaded successfully');
     }
@@ -140,18 +120,6 @@ export default class ResultStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
-        if (this.isOnboardingTour) {
-            this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
-                params: {
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-
-            return;
-        }
-
         if (this.accessGrantsAmount > 1) {
             this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
@@ -178,7 +146,7 @@ export default class ResultStep extends Vue {
      * Proceed to upload data step.
      */
     public onDoneClick(): void {
-        this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
+        this.$router.push(RouteConfig.AccessGrants.path);
     }
 
     /**
@@ -186,19 +154,6 @@ export default class ResultStep extends Vue {
      * Proceed to gateway step.
      */
     public navigateToGatewayStep(): void {
-        if (this.isOnboardingTour) {
-            this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantGateway)).name,
-                params: {
-                    access: this.access,
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-
-            return;
-        }
-
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.GatewayStep)).name,
             params: {
@@ -207,13 +162,6 @@ export default class ResultStep extends Vue {
                 restrictedKey: this.restrictedKey,
             },
         });
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**

@@ -27,12 +27,9 @@
                 <p class="forgot-area__content-area__container__message">If you’ve forgotten your account password, you can reset it here. Make sure you’re signing in to the right satellite.</p>
                 <div class="forgot-area__content-area__container__input-wrapper">
                     <HeaderlessInput
-                        class="full-input"
                         label="Email Address"
                         placeholder="example@email.com"
                         :error="emailError"
-                        width="calc(100% - 2px)"
-                        height="46px"
                         @setData="setEmail"
                     />
                 </div>
@@ -52,7 +49,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-import AuthIcon from '@/../static/images/AuthImage.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/logo.svg';
@@ -62,10 +58,10 @@ import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
 
+// @vue/component
 @Component({
     components: {
         HeaderlessInput,
-        AuthIcon,
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,

@@ -21,6 +21,7 @@ class BarFillStyle {
     }
 }
 
+// @vue/component
 @Component
 export default class VBar extends Vue {
     @Prop({default: ''})

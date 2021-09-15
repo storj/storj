@@ -104,6 +104,49 @@ func TestService(t *testing.T) {
 				})
 				require.Error(t, err)
 				require.Nil(t, updatedProject)
+
+				// attempting to update a project with bandwidth or storage limits set to 0 should fail
+				size0 := new(memory.Size)
+				*size0 = 0
+				size100 := new(memory.Size)
+				*size100 = memory.Size(100)
+
+				up1Pro1.StorageLimit = size0
+				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
+				require.NoError(t, err)
+
+				updateInfo := console.ProjectInfo{
+					Name:           "a b c",
+					Description:    "1 2 3",
+					StorageLimit:   memory.Size(123),
+					BandwidthLimit: memory.Size(123),
+				}
+				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
+				require.Error(t, err)
+				require.Nil(t, updatedProject)
+
+				up1Pro1.StorageLimit = size100
+				up1Pro1.BandwidthLimit = size0
+				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
+				require.NoError(t, err)
+
+				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
+				require.Error(t, err)
+				require.Nil(t, updatedProject)
+
+				up1Pro1.StorageLimit = size100
+				up1Pro1.BandwidthLimit = size100
+				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
+				require.NoError(t, err)
+
+				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
+				require.NoError(t, err)
+				require.Equal(t, updateInfo.Name, updatedProject.Name)
+				require.Equal(t, updateInfo.Description, updatedProject.Description)
+				require.NotNil(t, updatedProject.StorageLimit)
+				require.NotNil(t, updatedProject.BandwidthLimit)
+				require.Equal(t, updateInfo.StorageLimit, *updatedProject.StorageLimit)
+				require.Equal(t, updateInfo.BandwidthLimit, *updatedProject.BandwidthLimit)
 			})
 
 			t.Run("TestAddProjectMembers", func(t *testing.T) {

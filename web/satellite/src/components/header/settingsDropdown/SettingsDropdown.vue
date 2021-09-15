@@ -36,6 +36,7 @@ import SettingsIcon from '@/../static/images/header/settings.svg';
 
 import { RouteConfig } from '@/router';
 
+// @vue/component
 @Component({
     components: {
         BillingIcon,

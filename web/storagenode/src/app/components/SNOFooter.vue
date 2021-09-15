@@ -38,6 +38,7 @@ import StorjIcon from '@/../static/images/storjIcon.svg';
 
 import { RouteConfig } from '@/app/router';
 
+// @vue/component
 @Component({
     components: {
         StorjIcon,

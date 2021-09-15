@@ -96,9 +96,9 @@ type Blobs interface {
 	// when the format is already known.
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
 	// FreeSpace return how much free space is available to the blobstore.
-	FreeSpace() (int64, error)
+	FreeSpace(ctx context.Context) (int64, error)
 	// CheckWritability tests writability of the storage directory by creating and deleting a file.
-	CheckWritability() error
+	CheckWritability(ctx context.Context) error
 	// SpaceUsedForTrash returns the total space used by the trash.
 	SpaceUsedForTrash(ctx context.Context) (int64, error)
 	// SpaceUsedForBlobs adds up how much is used in all namespaces.
@@ -113,10 +113,10 @@ type Blobs interface {
 	// parameter is intended to allow canceling iteration early.
 	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
 	// CreateVerificationFile creates a file to be used for storage directory verification.
-	CreateVerificationFile(id storj.NodeID) error
+	CreateVerificationFile(ctx context.Context, id storj.NodeID) error
 	// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 	// of the verification file.
-	VerifyStorageDir(id storj.NodeID) error
+	VerifyStorageDir(ctx context.Context, id storj.NodeID) error
 	// Close closes the blob store and any resources associated with it.
 	Close() error
 }

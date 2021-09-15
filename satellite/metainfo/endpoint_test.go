@@ -33,14 +33,14 @@ func TestEndpoint_DeleteCommittedObject(t *testing.T) {
 	}
 	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, bucketName)
+		items, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
 		_, err = planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucketName, items[0].ObjectKey)
 		require.NoError(t, err)
 
-		items, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, bucketName)
+		items, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 0)
 	}
@@ -68,7 +68,7 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 	}
 	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metainfo.Metabase.TestingAllPendingObjects(ctx, projectID, bucketName)
+		items, err := planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
@@ -83,7 +83,7 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, deletedObjects, 1)
 
-		items, err = planet.Satellites[0].Metainfo.Metabase.TestingAllPendingObjects(ctx, projectID, bucketName)
+		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 0)
 	}
@@ -98,7 +98,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 	}
 	deleteCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, bucketName)
+		items, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
@@ -110,7 +110,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, deletedObjects, 1)
 
-		items, err = planet.Satellites[0].Metainfo.Metabase.TestingAllPendingObjects(ctx, projectID, bucketName)
+		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 0)
 	}
@@ -136,7 +136,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 
 	deletePendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metainfo.Metabase.TestingAllPendingObjects(ctx, projectID, bucketName)
+		items, err := planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
@@ -148,7 +148,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, deletedObjects, 1)
 
-		items, err = planet.Satellites[0].Metainfo.Metabase.TestingAllPendingObjects(ctx, projectID, bucketName)
+		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 0)
 	}

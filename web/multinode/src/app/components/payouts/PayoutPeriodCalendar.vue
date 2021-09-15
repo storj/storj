@@ -44,6 +44,7 @@ import { UnauthorizedError } from '@/api';
 import { monthNames } from '@/app/types/date';
 import { MonthButton, StoredMonthsByYear } from '@/app/types/payouts';
 
+// @vue/component
 @Component({
     components: {
         VButton,

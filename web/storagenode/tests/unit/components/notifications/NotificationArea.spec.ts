@@ -1,6 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import Router from 'vue-router';
 import Vuex from 'vuex';
 
 import { newNotificationsModule, NOTIFICATIONS_MUTATIONS } from '@/app/store/modules/notifications';
@@ -13,6 +14,7 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
+localVue.use(Router);
 
 const notificationsApi = new NotificationsHttpApi();
 const notificationsService = new NotificationsService(notificationsApi);

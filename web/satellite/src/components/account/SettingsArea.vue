@@ -91,7 +91,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
-import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
 import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
 import DisableMFAPopup from '@/components/account/mfa/DisableMFAPopup.vue';
 import EnableMFAPopup from '@/components/account/mfa/EnableMFAPopup.vue';
@@ -106,13 +105,13 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         EditIcon,
         ChangePasswordIcon,
         EmailIcon,
         VButton,
-        DeleteAccountPopup,
         ChangePasswordPopup,
         EditProfilePopup,
         EnableMFAPopup,
@@ -188,13 +187,6 @@ export default class SettingsArea extends Vue {
      */
     public toggleMFACodesPopup(): void {
         this.isMFACodesPopup = !this.isMFACodesPopup;
-    }
-
-    /**
-     * Opens delete account popup.
-     */
-    public toggleDeleteAccountPopup(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
     }
 
     /**

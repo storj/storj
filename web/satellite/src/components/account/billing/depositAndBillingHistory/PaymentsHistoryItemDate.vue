@@ -20,6 +20,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 
+// @vue/component
 @Component
 export default class PaymentsHistoryItemDate extends Vue {
     /**

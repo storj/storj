@@ -59,6 +59,7 @@ import { Component, Prop } from 'vue-property-decorator';
 import HeaderlessInput from './HeaderlessInput.vue';
 
 // Custom input component with labeled header.
+// @vue/component
 @Component
 export default class HeaderedInput extends HeaderlessInput {
     @Prop({ default: '' })

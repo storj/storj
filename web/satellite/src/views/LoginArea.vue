@@ -34,23 +34,17 @@
                     </div>
                     <div v-if="!isMFARequired" class="login-area__input-wrapper">
                         <HeaderlessInput
-                            class="full-input"
                             label="Email Address"
                             placeholder="example@email.com"
                             :error="emailError"
-                            height="46px"
-                            width="calc(100% - 2px)"
                             @setData="setEmail"
                         />
                     </div>
                     <div v-if="!isMFARequired" class="login-area__input-wrapper">
                         <HeaderlessInput
-                            class="full-input"
                             label="Password"
                             placeholder="Password"
                             :error="passwordError"
-                            width="calc(100% - 2px)"
-                            height="46px"
                             is-password="true"
                             @setData="setPassword"
                         />
@@ -97,7 +91,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-import AuthIcon from '@/../static/images/AuthImage.svg';
 import WarningIcon from '@/../static/images/common/greyWarning.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
@@ -115,10 +108,10 @@ interface ClearInput {
     clearInput(): void;
 }
 
+// @vue/component
 @Component({
     components: {
         HeaderlessInput,
-        AuthIcon,
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,
@@ -601,10 +594,6 @@ export default class Login extends Vue {
 
     .logo {
         cursor: pointer;
-    }
-
-    .input-wrap.full-input {
-        width: calc(100% - 2px);
     }
 
     .disabled,

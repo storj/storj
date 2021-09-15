@@ -20,6 +20,7 @@ import UpdateName from '@/app/components/modals/UpdateName.vue';
 
 import MoreIcon from '@/../static/images/icons/more.svg';
 
+// @vue/component
 @Component({
     components: {
         UpdateName,

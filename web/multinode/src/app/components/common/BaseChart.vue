@@ -6,6 +6,7 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
 import VChart from '@/app/components/common/VChart.vue';
 
+// @vue/component
 @Component({
     components: {
         VChart,

@@ -40,6 +40,7 @@ import PaginationRightIcon from '@/../static/images/common/paginationRight.svg';
 
 import { OnPageClickCallback, Page } from '@/types/pagination';
 
+// @vue/component
 @Component({
     components: {
         PagesBlock,

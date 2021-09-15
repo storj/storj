@@ -24,6 +24,7 @@ import CheckboxIcon from '@/../static/images/accessGrants/vector.svg';
 
 import { AccessGrant } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         CheckboxIcon,
