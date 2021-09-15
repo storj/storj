@@ -35,8 +35,6 @@ type Report struct {
 	Offlines      storj.NodeIDList
 	PendingAudits []*PendingAudit
 	Unknown       storj.NodeIDList
-	TotalPieces   int
-	Completed     bool
 }
 
 // NewReporter instantiates a reporter.
@@ -46,7 +44,8 @@ func NewReporter(log *zap.Logger, reputations *reputation.Service, containment C
 		reputations:      reputations,
 		containment:      containment,
 		maxRetries:       maxRetries,
-		maxReverifyCount: maxReverifyCount}
+		maxReverifyCount: maxReverifyCount,
+	}
 }
 
 // RecordAudits saves audit results to overlay. When no error, it returns
@@ -68,9 +67,6 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report) (_ Repor
 		zap.Int("offlines", len(offlines)),
 		zap.Int("pending", len(pendingAudits)),
 	)
-
-	// record monkit stats for audit result
-	req.recordStats()
 
 	var errlist errs.Group
 
@@ -230,57 +226,4 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}
 	return nil, nil
-}
-
-func (report Report) recordStats() {
-	// If an audit was able to complete without auditing any nodes, that means
-	// the segment has been altered.
-	if report.Completed && len(report.Successes) == 0 {
-		return
-	}
-
-	totalInSegment := report.TotalPieces
-	numOffline := len(report.Offlines)
-	numSuccessful := len(report.Successes)
-	numFailed := len(report.Fails)
-	numContained := len(report.PendingAudits)
-	numUnknown := len(report.Unknown)
-
-	totalAudited := numSuccessful + numFailed + numOffline + numContained
-	auditedPercentage := float64(totalAudited) / float64(totalInSegment)
-	offlinePercentage := float64(0)
-	successfulPercentage := float64(0)
-	failedPercentage := float64(0)
-	containedPercentage := float64(0)
-	unknownPercentage := float64(0)
-	if totalAudited > 0 {
-		offlinePercentage = float64(numOffline) / float64(totalAudited)
-		successfulPercentage = float64(numSuccessful) / float64(totalAudited)
-		failedPercentage = float64(numFailed) / float64(totalAudited)
-		containedPercentage = float64(numContained) / float64(totalAudited)
-		unknownPercentage = float64(numUnknown) / float64(totalAudited)
-	}
-
-	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)        //mon:locked
-	mon.Meter("audit_fail_nodes_global").Mark(numFailed)               //mon:locked
-	mon.Meter("audit_offline_nodes_global").Mark(numOffline)           //mon:locked
-	mon.Meter("audit_contained_nodes_global").Mark(numContained)       //mon:locked
-	mon.Meter("audit_unknown_nodes_global").Mark(numUnknown)           //mon:locked
-	mon.Meter("audit_total_nodes_global").Mark(totalAudited)           //mon:locked
-	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInSegment) //mon:locked
-
-	mon.IntVal("audit_success_nodes").Observe(int64(numSuccessful))           //mon:locked
-	mon.IntVal("audit_fail_nodes").Observe(int64(numFailed))                  //mon:locked
-	mon.IntVal("audit_offline_nodes").Observe(int64(numOffline))              //mon:locked
-	mon.IntVal("audit_contained_nodes").Observe(int64(numContained))          //mon:locked
-	mon.IntVal("audit_unknown_nodes").Observe(int64(numUnknown))              //mon:locked
-	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))              //mon:locked
-	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalInSegment))    //mon:locked
-	mon.FloatVal("audited_percentage").Observe(auditedPercentage)             //mon:locked
-	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)       //mon:locked
-	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage) //mon:locked
-	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)         //mon:locked
-	mon.FloatVal("audit_contained_percentage").Observe(containedPercentage)   //mon:locked
-	mon.FloatVal("audit_unknown_percentage").Observe(unknownPercentage)       //mon:locked
-
 }
