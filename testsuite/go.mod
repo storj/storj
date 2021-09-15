@@ -8,6 +8,6 @@ require (
 	github.com/go-rod/rod v0.100.0
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20210913064233-1b2b6b3e7a2f
+	storj.io/common v0.0.0-20210915201516-56ad343b6a7e
 	storj.io/storj v1.36.1
 )
