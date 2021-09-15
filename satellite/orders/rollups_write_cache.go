@@ -42,9 +42,9 @@ type RollupsWriteCache struct {
 
 	mu             sync.Mutex
 	pendingRollups RollupData
-	currentSize    int
 	latestTime     time.Time
 	stopped        bool
+	flushing       bool
 
 	nextFlushCompletion *sync2.Fence
 }
@@ -78,23 +78,42 @@ func (cache *RollupsWriteCache) UpdateBucketBandwidthSettle(ctx context.Context,
 // resetCache should only be called after you have acquired the cache lock. It
 // will reset the various cache values and return the pendingRollups,
 // latestTime, and currentSize.
-func (cache *RollupsWriteCache) resetCache() (RollupData, time.Time, int) {
+func (cache *RollupsWriteCache) resetCache() (RollupData, time.Time) {
 	pendingRollups := cache.pendingRollups
 	cache.pendingRollups = make(RollupData)
-	oldSize := cache.currentSize
-	cache.currentSize = 0
+
 	latestTime := cache.latestTime
 	cache.latestTime = time.Time{}
-	return pendingRollups, latestTime, oldSize
+
+	return pendingRollups, latestTime
 }
 
 // Flush resets cache then flushes the everything in the rollups write cache to the database.
 func (cache *RollupsWriteCache) Flush(ctx context.Context) {
 	defer mon.Task()(&ctx)(nil)
+
 	cache.mu.Lock()
-	pendingRollups, latestTime, oldSize := cache.resetCache()
+
+	// while we're already flushing, wait for it to complete.
+	for cache.flushing {
+		done := cache.nextFlushCompletion.Done()
+		cache.mu.Unlock()
+
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return
+		}
+
+		cache.mu.Lock()
+	}
+
+	cache.flushing = true
+	pendingRollups, latestTime := cache.resetCache()
+
 	cache.mu.Unlock()
-	cache.flush(ctx, pendingRollups, latestTime, oldSize)
+
+	cache.flush(ctx, pendingRollups, latestTime)
 }
 
 // CloseAndFlush flushes anything in the cache and marks the cache as stopped.
@@ -102,6 +121,7 @@ func (cache *RollupsWriteCache) CloseAndFlush(ctx context.Context) error {
 	cache.mu.Lock()
 	cache.stopped = true
 	cache.mu.Unlock()
+
 	cache.wg.Wait()
 
 	cache.Flush(ctx)
@@ -109,31 +129,35 @@ func (cache *RollupsWriteCache) CloseAndFlush(ctx context.Context) error {
 }
 
 // flush flushes the everything in the rollups write cache to the database.
-func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups RollupData, latestTime time.Time, oldSize int) {
+func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups RollupData, latestTime time.Time) {
 	defer mon.Task()(&ctx)(nil)
 
-	rollups := make([]BucketBandwidthRollup, 0, oldSize)
-	for cacheKey, cacheData := range pendingRollups {
-		rollups = append(rollups, BucketBandwidthRollup{
-			ProjectID:  cacheKey.ProjectID,
-			BucketName: cacheKey.BucketName,
-			Action:     cacheKey.Action,
-			Inline:     cacheData.Inline,
-			Allocated:  cacheData.Allocated,
-			Settled:    cacheData.Settled,
-		})
+	if len(pendingRollups) > 0 {
+		rollups := make([]BucketBandwidthRollup, 0, len(pendingRollups))
+		for cacheKey, cacheData := range pendingRollups {
+			rollups = append(rollups, BucketBandwidthRollup{
+				ProjectID:  cacheKey.ProjectID,
+				BucketName: cacheKey.BucketName,
+				Action:     cacheKey.Action,
+				Inline:     cacheData.Inline,
+				Allocated:  cacheData.Allocated,
+				Settled:    cacheData.Settled,
+			})
+		}
+
+		err := cache.DB.UpdateBucketBandwidthBatch(ctx, latestTime, rollups)
+		if err != nil {
+			mon.Event("rollups_write_cache_flush_lost")
+			cache.log.Error("MONEY LOST! Bucket bandwidth rollup batch flush failed.", zap.Error(err))
+		}
 	}
 
-	err := cache.DB.UpdateBucketBandwidthBatch(ctx, latestTime, rollups)
-	if err != nil {
-		cache.log.Error("MONEY LOST! Bucket bandwidth rollup batch flush failed.", zap.Error(err))
-	}
-
-	var completion *sync2.Fence
 	cache.mu.Lock()
-	cache.nextFlushCompletion, completion = new(sync2.Fence), cache.nextFlushCompletion
-	cache.mu.Unlock()
-	completion.Release()
+	defer cache.mu.Unlock()
+
+	cache.nextFlushCompletion.Release()
+	cache.nextFlushCompletion = new(sync2.Fence)
+	cache.flushing = false
 }
 
 func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, allocated, inline, settled int64, intervalStart time.Time) error {
@@ -146,35 +170,43 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 		return Error.New("RollupsWriteCache is stopped")
 	}
 
-	if intervalStart.After(cache.latestTime) {
-		cache.latestTime = intervalStart
-	}
-
 	key := CacheKey{
 		ProjectID:  projectID,
 		BucketName: string(bucketName),
 		Action:     action,
 	}
 
+	// pevent unbounded memory memory growth if we're not flushing fast enough
+	// to keep up with incoming writes.
 	data, ok := cache.pendingRollups[key]
-	if !ok {
-		cache.currentSize++
-	}
-	data.Allocated += allocated
-	data.Inline += inline
-	data.Settled += settled
-	cache.pendingRollups[key] = data
+	if !ok && len(cache.pendingRollups) >= cache.batchSize {
+		mon.Event("rollups_write_cache_update_lost")
+		cache.log.Error("MONEY LOST! Flushing too slow to keep up with demand.")
+	} else {
+		if cache.latestTime.IsZero() || intervalStart.After(cache.latestTime) {
+			cache.latestTime = intervalStart
+		}
 
-	if cache.currentSize < cache.batchSize {
+		data.Allocated += allocated
+		data.Inline += inline
+		data.Settled += settled
+		cache.pendingRollups[key] = data
+	}
+
+	if len(cache.pendingRollups) < cache.batchSize {
 		return nil
 	}
-	pendingRollups, latestTime, oldSize := cache.resetCache()
 
-	cache.wg.Add(1)
-	go func() {
-		cache.flush(ctx, pendingRollups, latestTime, oldSize)
-		cache.wg.Done()
-	}()
+	if !cache.flushing {
+		cache.flushing = true
+		pendingRollups, latestTime := cache.resetCache()
+
+		cache.wg.Add(1)
+		go func() {
+			defer cache.wg.Done()
+			cache.flush(ctx, pendingRollups, latestTime)
+		}()
+	}
 
 	return nil
 }
@@ -183,22 +215,24 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 // the returned channel.
 func (cache *RollupsWriteCache) OnNextFlush() <-chan struct{} {
 	cache.mu.Lock()
-	fence := cache.nextFlushCompletion
-	cache.mu.Unlock()
-	return fence.Done()
+	defer cache.mu.Unlock()
+
+	return cache.nextFlushCompletion.Done()
 }
 
 // CurrentSize returns the current size of the cache.
 func (cache *RollupsWriteCache) CurrentSize() int {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
-	return cache.currentSize
+
+	return len(cache.pendingRollups)
 }
 
 // CurrentData returns the contents of the cache.
 func (cache *RollupsWriteCache) CurrentData() RollupData {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
+
 	copyCache := RollupData{}
 	for k, v := range cache.pendingRollups {
 		copyCache[k] = v
