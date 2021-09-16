@@ -37,6 +37,7 @@
                             label="Email Address"
                             placeholder="example@email.com"
                             :error="emailError"
+                            role-description="email"
                             @setData="setEmail"
                         />
                     </div>
@@ -46,6 +47,7 @@
                             placeholder="Password"
                             :error="passwordError"
                             is-password="true"
+                            role-description="password"
                             @setData="setPassword"
                         />
                     </div>

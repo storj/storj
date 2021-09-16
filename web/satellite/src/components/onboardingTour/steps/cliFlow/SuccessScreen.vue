@@ -4,7 +4,7 @@
 <template>
     <div class="success-screen">
         <Icon />
-        <h1 class="success-screen__title">Wonderful</h1>
+        <h1 class="success-screen__title" aria-roledescription="title">Wonderful</h1>
         <p class="success-screen__msg">
             This was easy right :)
             <span v-if="!creditCards.length">

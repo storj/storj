@@ -14,7 +14,9 @@
             <div class="encrypt-container__header__row">
                 <p class="encrypt-container__header__row__gen" :class="{ active: isGenerate }" @click="setToGenerate">Generate Phrase</p>
                 <div class="encrypt-container__header__row__right">
-                    <p class="encrypt-container__header__row__right__enter" :class="{ active: !isGenerate }" @click="setToEnter">Enter Your Own Passphrase</p>
+                    <p class="encrypt-container__header__row__right__enter" :class="{ active: !isGenerate }" aria-roledescription="enter-passphrase-label" @click="setToEnter">
+                        Enter Your Own Passphrase
+                    </p>
                     <VInfo class="encrypt-container__header__row__right__info-button">
                         <template #icon>
                             <InfoIcon class="encrypt-container__header__row__right__info-button__image" />
@@ -44,12 +46,13 @@
             <HeaderlessInput
                 placeholder="Enter a passphrase here..."
                 :error="enterError"
+                role-description="passphrase"
                 @setData="setPassphrase"
             />
         </div>
         <p class="encrypt-container__download" @click="onDownloadClick">Download as a text file</p>
         <div class="encrypt-container__warning">
-            <h2 class="encrypt-container__warning__title">The object browser uses server side encryption.</h2>
+            <h2 class="encrypt-container__warning__title" aria-roledescription="warning-title">The object browser uses server side encryption.</h2>
             <p class="encrypt-container__warning__msg">
                 If you want to use our product with only end-to-end encryption, you may want to use our command line solution.
             </p>

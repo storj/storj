@@ -24,11 +24,11 @@ func TestLoginToAccount(t *testing.T) {
 		page := browser.Timeout(10 * time.Second).MustPage(loginPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
 
-		page.MustElement("[type=text]").MustInput(user.Email)
-		page.MustElement("[type=password]").MustInput(user.Password)
+		page.MustElement("[aria-roledescription=email]").MustInput(user.Email)
+		page.MustElement("[aria-roledescription=password]").MustInput(user.Password)
 		page.Keyboard.MustPress(input.Enter)
 
-		dashboardTitle := page.MustElement(".dashboard-area__header-wrapper__title").MustText()
+		dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, dashboardTitle, "Dashboard")
 	})
 }

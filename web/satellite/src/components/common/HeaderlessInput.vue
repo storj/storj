@@ -16,6 +16,7 @@
             :type="type"
             :style="style.inputStyle"
             :optionsShown="optionsShown"
+            :aria-roledescription="roleDescription"
             @input="onInput"
             @change="onInput"
             @focus="showPasswordStrength"
@@ -105,6 +106,8 @@ export default class HeaderlessInput extends Vue {
     private readonly isWhite: boolean;
     @Prop({default: false})
     private readonly withIcon: boolean;
+    @Prop({default: ''})
+    private readonly roleDescription: boolean;
 
     public constructor() {
         super();

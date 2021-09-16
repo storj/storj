@@ -4,7 +4,7 @@
 <template>
     <div class="dashboard-area">
         <div class="dashboard-area__header-wrapper">
-            <h1 class="dashboard-area__header-wrapper__title">{{ projectName }} Dashboard</h1>
+            <h1 class="dashboard-area__header-wrapper__title" aria-roledescription="title">{{ projectName }} Dashboard</h1>
             <p class="dashboard-area__header-wrapper__message">
                 Expect a delay of a few hours between network activity and the latest dashboard stats.
             </p>
@@ -32,7 +32,6 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { MetaUtils } from '@/utils/meta';
 
 // @vue/component
 @Component({
@@ -80,13 +79,6 @@ export default class ProjectDashboard extends Vue {
      */
     public get projectName(): string {
         return this.$store.getters.selectedProject.name;
-    }
-
-    /**
-     * Returns project limits increase request url from config.
-     */
-    public get projectLimitsIncreaseRequestURL(): string {
-        return MetaUtils.getMetaContent('project-limits-increase-request-url');
     }
 }
 </script>

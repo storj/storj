@@ -23,14 +23,15 @@ func TestPersonalUserCanSignUp(t *testing.T) {
 		password := "qazwsx123"
 		page := browser.MustPage(signupPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
+
 		// First time User signup
-		page.MustElement("[placeholder=\"Enter Full Name\"]").MustInput(fullName)
-		page.MustElement("[placeholder=\"example@email.com\"]").MustInput(emailAddress)
-		page.MustElement("[placeholder=\"Enter Password\"]").MustInput(password)
-		page.MustElement("[placeholder=\"Retype Password\"]").MustInput(password)
+		page.MustElement("[aria-roledescription=name]").MustInput(fullName)
+		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password]").MustInput(password)
+		page.MustElement("[aria-roledescription=retype-password]").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
 		page.Keyboard.MustPress(input.Enter)
-		confirmAccountEmailMessage := page.MustElement(".register-success-area__form-container__title").MustText()
+		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 	})
 }

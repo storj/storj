@@ -5,7 +5,7 @@
     <div class="pm-area">
         <div v-if="isAddModal" class="pm-area__add-modal">
             <div class="pm-area__add-modal__top">
-                <h1 class="pm-area__add-modal__top__title">Upgrade to Pro Account</h1>
+                <h1 class="pm-area__add-modal__top__title" aria-roledescription="modal-title">Upgrade to Pro Account</h1>
                 <div class="pm-area__add-modal__top__header">
                     <p class="pm-area__add-modal__top__header__sub-title">Add Payment Method</p>
                     <div class="pm-area__add-modal__top__header__choices">

@@ -4,7 +4,7 @@
 <template>
     <div class="buckets-view">
         <div class="buckets-view__title-area">
-            <h1 class="buckets-view__title-area__title">Buckets</h1>
+            <h1 class="buckets-view__title-area__title" aria-roledescription="title">Buckets</h1>
             <div class="buckets-view__title-area__button" :class="{ disabled: isLoading }" @click="showCreateBucketPopup">
                 <BucketIcon />
                 <p class="buckets-view__title-area__button__label">New Bucket</p>

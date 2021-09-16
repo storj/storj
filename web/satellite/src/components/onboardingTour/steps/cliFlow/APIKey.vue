@@ -15,9 +15,9 @@
             <template v-else>
                 <p class="key__msg">Now copy and save the Satellite Address and API Key as it will only appear once.</p>
                 <h3 class="key__label">Satellite Address</h3>
-                <ValueWithCopy label="Satellite Address" :value="satelliteAddress" />
+                <ValueWithCopy label="Satellite Address" role-description="satellite-address" :value="satelliteAddress" />
                 <h3 class="key__label">API Key</h3>
-                <ValueWithCopy label="API Key" :value="storedAPIKey || restrictedKey" />
+                <ValueWithCopy label="API Key" role-description="api-key" :value="storedAPIKey || restrictedKey" />
             </template>
         </template>
     </CLIFlowContainer>

@@ -24,27 +24,26 @@ func TestSkipOnboardingWizard(t *testing.T) {
 
 		page := browser.MustPage(signupPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
+
 		// First time User signup
-		page.MustElement("[placeholder=\"Enter Full Name\"]").MustInput(fullName)
-		page.MustElement("[placeholder=\"example@email.com\"]").MustInput(emailAddress)
-		page.MustElement("[placeholder=\"Enter Password\"]").MustInput(password)
-
-		page.MustElement("[placeholder=\"Retype Password\"]").MustInput(password)
+		page.MustElement("[aria-roledescription=name]").MustInput(fullName)
+		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password]").MustInput(password)
+		page.MustElement("[aria-roledescription=retype-password]").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
-
 		page.Keyboard.MustPress(input.Enter)
-		confirmAccountEmailMessage := page.MustElement(".register-success-area__form-container__title").MustText()
+		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 
 		// Login as first time User
 		page.MustElement("[href=\"/login\"]").MustClick()
-		page.MustElement("[type=text]").MustInput(emailAddress)
-		page.MustElement("[type=password]").MustInput(password)
+		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password]").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
 
 		// Checking out skip of onboarding process
-		page.MustElement(".overview-area__skip-button").MustClick()
-		dashboardTitle := page.MustElement(".dashboard-area__header-wrapper__title").MustText()
+		page.MustElement("[href=\"/project-dashboard\"]").MustClick()
+		dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, dashboardTitle, "Dashboard")
 	})
 }

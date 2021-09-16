@@ -57,6 +57,7 @@
                             <li
                                 class="register-area__input-area__toggle__professional"
                                 :class="{ 'active': isProfessional }"
+                                aria-roledescription="professional-label"
                                 @click.prevent="toggleAccountType(true)"
                             >
                                 Business
@@ -68,6 +69,7 @@
                             label="Full Name"
                             placeholder="Enter Full Name"
                             :error="fullNameError"
+                            role-description="name"
                             @setData="setFullName"
                         />
                     </div>
@@ -76,6 +78,7 @@
                             label="Email Address"
                             placeholder="example@email.com"
                             :error="emailError"
+                            role-description="email"
                             @setData="setEmail"
                         />
                     </div>
@@ -85,6 +88,7 @@
                                 label="Company Name"
                                 placeholder="Acme Corp."
                                 :error="companyNameError"
+                                role-description="company-name"
                                 @setData="setCompanyName"
                             />
                         </div>
@@ -93,6 +97,7 @@
                                 label="Position"
                                 placeholder="Position Title"
                                 :error="positionError"
+                                role-description="position"
                                 @setData="setPosition"
                             />
                         </div>
@@ -111,6 +116,7 @@
                                 placeholder="Enter Password"
                                 :error="passwordError"
                                 is-password="true"
+                                role-description="password"
                                 @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
                                 @hidePasswordStrength="hidePasswordStrength"
@@ -127,6 +133,7 @@
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
                             is-password="true"
+                            role-description="retype-password"
                             @setData="setRepeatedPassword"
                         />
                     </div>

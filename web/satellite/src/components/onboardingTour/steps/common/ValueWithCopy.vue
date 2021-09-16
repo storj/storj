@@ -3,7 +3,7 @@
 
 <template>
     <div class="value-copy">
-        <p class="value-copy__value">{{ value }}</p>
+        <p class="value-copy__value" :aria-roledescription="roleDescription">{{ value }}</p>
         <VButton
             class="value-copy__button"
             label="Copy"
@@ -31,6 +31,8 @@ export default class ValueWithCopy extends Vue {
     public readonly value: string;
     @Prop({ default: ''})
     public readonly label: string;
+    @Prop({ default: ''})
+    public readonly roleDescription: string;
 
     /**
      * Holds on copy button click logic.

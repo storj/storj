@@ -6,7 +6,7 @@
         <div class="warning-view__container">
             <h1 class="warning-view__container__title">Object Browser</h1>
             <div class="warning-view__container__message-container">
-                <h2 class="warning-view__container__message-container__sub-title">The object browser uses server side encryption.</h2>
+                <h2 class="warning-view__container__message-container__sub-title" aria-roledescription="sub-title">The object browser uses server side encryption.</h2>
                 <p class="warning-view__container__message-container__message">
                     If you want to use our product with only end-to-end encryption, you may want to skip this feature.
                 </p>
