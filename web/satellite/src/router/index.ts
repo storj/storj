@@ -43,9 +43,6 @@ import ListObject from "@/components/onboardingTour/steps/cliFlow/ListObject.vue
 import DownloadObject from "@/components/onboardingTour/steps/cliFlow/DownloadObject.vue";
 import ShareObject from "@/components/onboardingTour/steps/cliFlow/ShareObject.vue";
 import SuccessScreen from "@/components/onboardingTour/steps/cliFlow/SuccessScreen.vue";
-import EncryptYourData from "@/components/onboardingTour/steps/cliFlow/EncryptYourData.vue";
-import GeneratedAG from "@/components/onboardingTour/steps/cliFlow/GeneratedAG.vue";
-import ImportAG from "@/components/onboardingTour/steps/cliFlow/ImportAG.vue";
 
 import store from '@/store';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
@@ -100,12 +97,9 @@ export abstract class RouteConfig {
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
     public static OnbCLIStep = new NavigationLink('cli', 'Onboarding CLI');
-    public static EncryptYourData = new NavigationLink('encrypt', 'Onboarding Encrypt Data');
-    public static GeneratedAG = new NavigationLink('generated-ag', 'Onboarding Generated AG');
     public static APIKey = new NavigationLink('api-key', 'Onboarding API Key');
     public static CLIInstall = new NavigationLink('cli-install', 'Onboarding CLI Install');
     public static CLISetup = new NavigationLink('cli-setup', 'Onboarding CLI Setup');
-    public static ImportAG = new NavigationLink('import', 'Onboarding Import AG');
     public static GenerateAG = new NavigationLink('generate-ag', 'Onboarding Generate AG');
     public static CreateBucket = new NavigationLink('create-bucket', 'Onboarding Create Bucket');
     public static UploadObject = new NavigationLink('upload-object', 'Onboarding Upload Object');
@@ -232,21 +226,6 @@ export const router = new Router({
                             name: RouteConfig.OnbCLIStep.name,
                             component: OnbCLIStep,
                             children: [
-                                {
-                                    path: RouteConfig.EncryptYourData.path,
-                                    name: RouteConfig.EncryptYourData.name,
-                                    component: EncryptYourData,
-                                },
-                                {
-                                    path: RouteConfig.GeneratedAG.path,
-                                    name: RouteConfig.GeneratedAG.name,
-                                    component: GeneratedAG,
-                                },
-                                {
-                                    path: RouteConfig.ImportAG.path,
-                                    name: RouteConfig.ImportAG.name,
-                                    component: ImportAG,
-                                },
                                 {
                                     path: RouteConfig.APIKey.path,
                                     name: RouteConfig.APIKey.name,
