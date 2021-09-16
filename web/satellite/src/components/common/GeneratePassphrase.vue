@@ -8,9 +8,6 @@
         <p class="encrypt-container__info">
             The encryption passphrase is used to encrypt and access the data that you upload to Storj DCS. We strongly
             encourage you to use a mnemonic phrase, which is automatically generated one on the client-side for you.
-            <span v-if="isOnboardingTour">
-                Alternatively, you can skip this step and enter a passphrase later into the Uplink CLI during setup.
-            </span>
         </p>
         <div class="encrypt-container__header">
             <p class="encrypt-container__header__rec">RECOMMENDED</p>
@@ -59,26 +56,6 @@
         </div>
         <div class="encrypt-container__buttons">
             <VButton
-                v-if="isOnboardingTour"
-                class="encrypt-container__buttons__back"
-                label="< Back"
-                height="64px"
-                border-radius="62px"
-                :on-press="onBackClick"
-                is-grey-blue="true"
-                :is-disabled="isLoading"
-            />
-            <VButton
-                v-if="isOnboardingTour"
-                class="encrypt-container__buttons__skip"
-                label="Skip for now"
-                height="64px"
-                border-radius="62px"
-                :on-press="onSkipClick"
-                is-grey-blue="true"
-                :is-disabled="isLoading"
-            />
-            <VButton
                 label="Next >"
                 height="64px"
                 border-radius="62px"
@@ -93,7 +70,6 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 import * as bip39 from "bip39";
 
-import { RouteConfig } from "@/router";
 import { LocalData, UserIDPassSalt } from "@/utils/localData";
 import { Download } from "@/utils/download";
 
@@ -117,10 +93,6 @@ import InfoIcon from "@/../static/images/common/greyInfo.svg";
 export default class GeneratePassphrase extends Vue {
     @Prop({ default: () => null })
     public readonly onNextClick: () => unknown;
-    @Prop({ default: () => null })
-    public readonly onBackClick: () => unknown;
-    @Prop({ default: () => null })
-    public readonly onSkipClick: () => unknown;
     @Prop({ default: () => null })
     public readonly setParentPassphrase: (passphrase: string) => void;
     @Prop({ default: false })
@@ -210,13 +182,6 @@ export default class GeneratePassphrase extends Vue {
         }
 
         await this.onNextClick();
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>

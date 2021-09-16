@@ -60,7 +60,7 @@ export default class CLISetup extends Vue {
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
     }
 
     /**

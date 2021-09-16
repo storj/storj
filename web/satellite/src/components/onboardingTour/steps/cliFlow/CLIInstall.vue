@@ -128,14 +128,14 @@ export default class CLIInstall extends Vue {
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.GeneratedAG)).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
     }
 
     /**
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ImportAG)).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
     }
 }
 </script>

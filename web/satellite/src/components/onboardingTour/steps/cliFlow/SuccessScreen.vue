@@ -22,20 +22,21 @@
                 :on-press="onBackClick"
             />
             <VButton
-                v-if="!creditCards.length"
-                class="success-screen__buttons__upgrade"
-                label="Upgrade"
-                height="64px"
-                border-radius="52px"
-                :on-press="onUpgradeClick"
-            />
-            <VButton
+                class="success-screen__buttons__finish"
                 label="Finish"
                 height="64px"
                 border-radius="52px"
-                is-grey-blue="true"
                 :on-press="onFinishClick"
             />
+            <button
+                v-if="!creditCards.length"
+                class="success-screen__buttons__upgrade"
+                type="button"
+                @click="onUpgradeClick"
+            >
+                Upgrade
+                <UpgradeIcon class="success-screen__buttons__upgrade__icon" />
+            </button>
         </div>
     </div>
 </template>
@@ -50,12 +51,14 @@ import { PAYMENTS_MUTATIONS } from "@/store/modules/payments";
 import VButton from "@/components/common/VButton.vue";
 
 import Icon from "@/../static/images/onboardingTour/successStep.svg";
+import UpgradeIcon from "@/../static/images/onboardingTour/upgrade.svg";
 
 // @vue/component
 @Component({
     components: {
         Icon,
         VButton,
+        UpgradeIcon,
     }
 })
 export default class SuccessScreen extends Vue {
@@ -119,11 +122,42 @@ export default class SuccessScreen extends Vue {
             display: flex;
             align-items: center;
             width: 100%;
-            margin-top: 48px;
+            margin-top: 24px;
 
             &__back,
-            &__upgrade {
+            &__finish {
                 margin-right: 24px;
+            }
+
+            &__upgrade {
+                background-color: #fff;
+                border: 2px solid #d9dbe9;
+                color: #0149ff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                line-height: 23px;
+                white-space: nowrap;
+                width: inherit;
+                height: 64px;
+                border-radius: 52px;
+
+                &__icon {
+                    margin-left: 15px;
+                }
+
+                &:hover {
+                    background-color: #2683ff;
+                    border-color: #2683ff;
+                    color: #fff;
+
+                    .upgrade-svg-path {
+                        stroke: #fff;
+                    }
+                }
             }
         }
     }
