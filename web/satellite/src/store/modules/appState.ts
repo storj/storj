@@ -29,8 +29,6 @@ class ViewsState {
 
         public setDefaultPaymentMethodID: string = "",
         public deletePaymentMethodID: string = "",
-
-        public onbCLIFlowCreateBucketBackRoute: string = "",
     ) {}
 }
 
@@ -111,9 +109,6 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.deletePaymentMethodID = id;
-        },
-        [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_CREATE_BUCKET_BACK_ROUTE](state: State, route: string): void {
-            state.appState.onbCLIFlowCreateBucketBackRoute = route;
         },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: State): void {
