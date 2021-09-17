@@ -1627,6 +1627,18 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes DROP COLUMN total_audit_count`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_agent bytes to the value_attributions, users, projects, api_keys and bucket_metainfos tables",
+				Version:     172,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE users ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE projects ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE api_keys ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN user_agent bytea;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

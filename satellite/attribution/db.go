@@ -21,12 +21,14 @@ type Info struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
 	PartnerID  uuid.UUID
+	UserAgent  []byte
 	CreatedAt  time.Time
 }
 
 // CSVRow represents data from QueryAttribution without exposing dbx.
 type CSVRow struct {
 	PartnerID         []byte
+	UserAgent         []byte
 	ProjectID         []byte
 	BucketName        []byte
 	TotalBytesPerHour float64
@@ -42,5 +44,5 @@ type DB interface {
 	// Insert creates and stores new Info
 	Insert(ctx context.Context, info *Info) (*Info, error)
 	// QueryAttribution queries partner bucket attribution data
-	QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) ([]*CSVRow, error)
+	QueryAttribution(ctx context.Context, partnerID uuid.UUID,  userAgent []byte, start time.Time, end time.Time) ([]*CSVRow, error)
 }

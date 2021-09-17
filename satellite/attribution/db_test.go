@@ -29,6 +29,7 @@ const (
 type AttributionTestData struct {
 	name       string
 	partnerID  uuid.UUID
+	userAgent  uuid.UUID
 	projectID  uuid.UUID
 	bucketName []byte
 	bucketID   []byte
@@ -64,12 +65,13 @@ func TestDB(t *testing.T) {
 		attributionDB := db.Attribution()
 		project1, project2 := testrand.UUID(), testrand.UUID()
 		partner1, partner2 := testrand.UUID(), testrand.UUID()
+		agent1, agent2 := testrand.UUID(), testrand.UUID()
 
 		infos := []*attribution.Info{
-			{project1, []byte("alpha"), partner1, time.Time{}},
-			{project1, []byte("beta"), partner2, time.Time{}},
-			{project2, []byte("alpha"), partner2, time.Time{}},
-			{project2, []byte("beta"), partner1, time.Time{}},
+			{project1, []byte("alpha"), partner1, agent1, time.Time{}},
+			{project1, []byte("beta"), partner2, agent2, time.Time{}},
+			{project2, []byte("alpha"), partner2, agent2, time.Time{}},
+			{project2, []byte("beta"), partner1, agent1, time.Time{}},
 		}
 
 		for _, info := range infos {
@@ -84,6 +86,7 @@ func TestDB(t *testing.T) {
 			got, err := attributionDB.Get(ctx, info.ProjectID, info.BucketName)
 			require.NoError(t, err)
 			assert.Equal(t, info.PartnerID, got.PartnerID)
+			assert.Equal(t, info.UserAgent, got.UserAgent)
 		}
 	})
 }
@@ -94,12 +97,14 @@ func TestQueryAttribution(t *testing.T) {
 
 		projectID := testrand.UUID()
 		partnerID := testrand.UUID()
+		userAgent := testrand.UUID()
 		alphaBucket := []byte("alpha")
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
-				name:       "new partnerID, projectID, alpha",
+				name:       "new partnerID, userAgent, projectID, alpha",
 				partnerID:  testrand.UUID(),
+				userAgent:  testrand.UUID(),
 				projectID:  projectID,
 				bucketName: alphaBucket,
 
@@ -112,8 +117,9 @@ func TestQueryAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, new projectID, alpha",
+				name:       "partnerID, userAgent, new projectID, alpha",
 				partnerID:  partnerID,
+				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
 
@@ -126,8 +132,9 @@ func TestQueryAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "new partnerID, projectID, beta",
+				name:       "new partnerID, userAgent, projectID, beta",
 				partnerID:  testrand.UUID(),
+				userAgent:  testrand.UUID(),
 				projectID:  projectID,
 				bucketName: betaBucket,
 
@@ -140,8 +147,9 @@ func TestQueryAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, new projectID, beta",
+				name:       "partnerID, userAgent new projectID, beta",
 				partnerID:  partnerID,
+				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: betaBucket,
 
@@ -157,7 +165,7 @@ func TestQueryAttribution(t *testing.T) {
 		for _, td := range testData {
 			td := td
 			td.init()
-			info := attribution.Info{td.projectID, td.bucketName, td.partnerID, time.Time{}}
+			info := attribution.Info{td.projectID, td.bucketName, td.partnerID, td.userAgent, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
 
@@ -171,7 +179,7 @@ func TestQueryAttribution(t *testing.T) {
 }
 
 func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attribution.DB, testData *AttributionTestData) {
-	results, err := attributionDB.QueryAttribution(ctx, testData.partnerID, testData.start, testData.end)
+	results, err := attributionDB.QueryAttribution(ctx, testData.partnerID, testData.userAgent, testData.start, testData.end)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, len(results), "Results must not be empty.")
 	count := 0
@@ -184,6 +192,7 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 		count++
 
 		assert.Equal(t, testData.partnerID[:], r.PartnerID, testData.name)
+		assert.Equal(t, testData.userAgent[:], r.UserAgent, testData.name)
 		assert.Equal(t, testData.projectID[:], r.ProjectID, testData.name)
 		assert.Equal(t, testData.bucketName, r.BucketName, testData.name)
 		assert.Equal(t, float64(testData.expectedTotalBytes/testData.hours), r.TotalBytesPerHour, testData.name)

@@ -71,6 +71,7 @@ type Project struct {
 	Name           string       `json:"name"`
 	Description    string       `json:"description"`
 	PartnerID      uuid.UUID    `json:"partnerId"`
+	UserAgent      []byte    `json:"userAgent"`
 	OwnerID        uuid.UUID    `json:"ownerId"`
 	RateLimit      *int         `json:"rateLimit"`
 	MaxBuckets     *int         `json:"maxBuckets"`

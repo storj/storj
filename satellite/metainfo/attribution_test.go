@@ -107,6 +107,7 @@ func TestBucketAttribution(t *testing.T) {
 				FullName:  "Test User " + strconv.Itoa(i),
 				Email:     "user@test" + strconv.Itoa(i),
 				PartnerID: signupPartnerID,
+				UserAgent: []byte(tt.userAgent),
 			}, 1)
 			require.NoError(t, err, errTag)
 
@@ -169,12 +170,14 @@ func TestQueryAttribution(t *testing.T) {
 		tomorrow := now.Add(24 * time.Hour)
 
 		partner, err := satellite.API.Marketing.PartnersService.ByName(ctx, "Minio")
+		userAgent := "Minio"
 		require.NoError(t, err)
 
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName:  "user@test",
 			Email:     "user@test",
 			PartnerID: partner.ID,
+			UserAgent: []byte(userAgent),
 		}, 1)
 		require.NoError(t, err)
 
@@ -243,7 +246,10 @@ func TestQueryAttribution(t *testing.T) {
 			partner, err := planet.Satellites[0].API.Marketing.PartnersService.ByName(ctx, "Minio")
 			require.NoError(t, err)
 
-			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
+			userAgent := []byte("Minio")
+			require.NoError(t, err)
+
+			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
 			require.NoError(t, err)
 			require.NotZero(t, rows[0].TotalBytesPerHour)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
@@ -316,8 +322,10 @@ func TestAttributionReport(t *testing.T) {
 
 			partner, err := planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "Zenko")
 			require.NoError(t, err)
+			userAgent := []byte("Zenko/1.0")
+			require.NoError(t, err)
 
-			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
+			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
 			require.NoError(t, err)
 			require.NotZero(t, rows[0].TotalBytesPerHour)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
@@ -325,8 +333,10 @@ func TestAttributionReport(t *testing.T) {
 			// Minio should have no attribution because bucket was created by Zenko
 			partner, err = planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "Minio")
 			require.NoError(t, err)
+			userAgent = []byte("Minio/1.0")
+			require.NoError(t, err)
 
-			rows, err = planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
+			rows, err = planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
 			require.NoError(t, err)
 			require.Empty(t, rows)
 		}

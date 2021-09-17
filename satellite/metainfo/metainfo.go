@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -564,7 +565,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 }
 
 func convertBucketToProto(bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucket *pb.Bucket, err error) {
-	if bucket == (storj.Bucket{}) {
+	if reflect.DeepEqual(bucket, storj.Bucket{}) {
 		return nil, nil
 	}
 

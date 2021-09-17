@@ -209,6 +209,7 @@ CREATE TABLE projects (
 	rate_limit integer,
 	max_buckets integer,
 	partner_id bytea,
+	user_agent bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
@@ -391,6 +392,7 @@ CREATE TABLE users (
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
 	partner_id bytea,
+	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
 	paid_tier boolean NOT NULL DEFAULT false,
@@ -410,6 +412,7 @@ CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	partner_id bytea NOT NULL,
+	user_agent bytea NOT NULL,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
@@ -420,6 +423,7 @@ CREATE TABLE api_keys (
 	name text NOT NULL,
 	secret bytea NOT NULL,
 	partner_id bytea,
+	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
@@ -430,6 +434,7 @@ CREATE TABLE bucket_metainfos (
 	project_id bytea NOT NULL REFERENCES projects( id ),
 	name bytea NOT NULL,
 	partner_id bytea,
+	user_agent bytea,
 	path_cipher integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	default_segment_size integer NOT NULL,

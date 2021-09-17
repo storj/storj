@@ -22,6 +22,7 @@ const (
 	-- Should be 1 row per project/bucket by partner within the timeframe specified
 	SELECT 
 		o.partner_id as partner_id, 
+		o.user_agent as user_agent, 
 		o.project_id as project_id, 
 		o.bucket_name as bucket_name, 
 		SUM(o.total)  / SUM(o.hours) as total,
@@ -34,6 +35,7 @@ const (
 			-- Hours are used to calculate byte hours above
 			SELECT 
 				bsti.partner_id as partner_id, 
+				bsti.user_agent as user_agent, 
 				bsto.project_id as project_id, 
 				bsto.bucket_name as bucket_name,
 				SUM(bsto.total_bytes) as total,
@@ -47,6 +49,7 @@ const (
 					-- If there are more than 1 records within the hour, only the latest will be considered
 					SELECT 
 						va.partner_id, 
+						va.user_agent, 
 						date_trunc('hour', bst.interval_start) as hours,
 						bst.project_id, 
 						bst.bucket_name, 
@@ -59,10 +62,12 @@ const (
 						) 
 					WHERE 
 						va.partner_id = ? 
+						AND va.user_agent = ? 
 						AND bst.interval_start >= ? 
 						AND bst.interval_start < ? 
 					GROUP BY 
 						va.partner_id, 
+						va.user_agent, 
 						bst.project_id, 
 						bst.bucket_name, 
 						date_trunc('hour', bst.interval_start) 
@@ -76,12 +81,14 @@ const (
 				) 
 			GROUP BY 
 				bsti.partner_id, 
+				bsti.user_agent, 
 				bsto.project_id, 
 				bsto.bucket_name 
 			UNION 
-			-- SUM the bandwidth for the timeframe specified grouping by the partner_id, project_id, and bucket_name
+			-- SUM the bandwidth for the timeframe specified grouping by the partner_id, user_agent, project_id, and bucket_name
 			SELECT 
 				va.partner_id as partner_id, 
+				va.user_agent as user_agent, 
 				bbr.project_id as project_id, 
 				bbr.bucket_name as bucket_name, 
 				0 as total,
@@ -97,16 +104,19 @@ const (
 				) 
 			WHERE 
 				va.partner_id = ? 
+				AND va.user_agent = ? 
 				AND bbr.interval_start >= ? 
 				AND bbr.interval_start < ? 
 				AND bbr.action = 2 
 			GROUP BY 
 				va.partner_id, 
+				va.user_agent, 
 				bbr.project_id, 
 				bbr.bucket_name
 		) AS o 
 	GROUP BY 
 		o.partner_id, 
+		o.user_agent, 
 		o.project_id, 
 		o.bucket_name;
 	`
@@ -139,11 +149,11 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 	defer mon.Task()(&ctx)(&err)
 
 	err = keys.db.QueryRowContext(ctx, `
-		INSERT INTO value_attributions (project_id, bucket_name, partner_id, last_updated) 
-		VALUES ($1, $2, $3, now())
+		INSERT INTO value_attributions (project_id, bucket_name, partner_id, user_agent, last_updated) 
+		VALUES ($1, $2, $3, $4, now())
 		ON CONFLICT (project_id, bucket_name) DO NOTHING
 		RETURNING last_updated
-	`, info.ProjectID[:], info.BucketName, info.PartnerID[:]).Scan(&info.CreatedAt)
+	`, info.ProjectID[:], info.BucketName, info.PartnerID[:], info.UserAgent[:]).Scan(&info.CreatedAt)
 	// TODO when sql.ErrNoRows is returned then CreatedAt is not set
 	if errors.Is(err, sql.ErrNoRows) {
 		return info, nil
@@ -156,10 +166,10 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 }
 
 // QueryAttribution queries partner bucket attribution data.
-func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*attribution.CSVRow, err error) {
+func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.UUID, userAgent []byte, start time.Time, end time.Time) (_ []*attribution.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(valueAttrQuery), partnerID[:], start.UTC(), end.UTC(), partnerID[:], start.UTC(), end.UTC())
+	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(valueAttrQuery), partnerID[:], userAgent[:], start.UTC(), end.UTC(), partnerID[:], userAgent[:], start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -169,7 +179,7 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 	for rows.Next() {
 		r := &attribution.CSVRow{}
 		var inline, remote float64
-		err := rows.Scan(&r.PartnerID, &r.ProjectID, &r.BucketName, &r.TotalBytesPerHour, &inline, &remote, &r.EgressData)
+		err := rows.Scan(&r.PartnerID, &r.UserAgent, &r.ProjectID, &r.BucketName, &r.TotalBytesPerHour, &inline, &remote, &r.EgressData)
 		if err != nil {
 			return results, Error.Wrap(err)
 		}
@@ -188,6 +198,10 @@ func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+	userAgent := info.UserAgent
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	projectID, err := uuid.FromBytes(info.ProjectId)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -197,6 +211,7 @@ func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
 		ProjectID:  projectID,
 		BucketName: info.BucketName,
 		PartnerID:  partnerID,
+		UserAgent:  userAgent,
 		CreatedAt:  info.LastUpdated,
 	}, nil
 }
