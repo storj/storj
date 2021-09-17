@@ -19,9 +19,11 @@
                     @click.stop="onLogoClick"
                 />
             </div>
-            <ProjectSelection class="project-selection" />
-            <ResourcesSelection class="resources-selection" />
-            <SettingsSelection class="settings-selection" />
+            <div class="header-container__left-area__selection-wrapper">
+                <ProjectSelection class="project-selection" />
+                <ResourcesSelection class="resources-selection" />
+                <SettingsSelection class="settings-selection" />
+            </div>
         </div>
         <div class="header-container__right-area">
             <VInfo
@@ -170,6 +172,10 @@ export default class HeaderArea extends Vue {
                     }
                 }
             }
+
+            &__selection-wrapper {
+                display: flex;
+            }
         }
 
         &__right-area {
@@ -240,7 +246,7 @@ export default class HeaderArea extends Vue {
         position: absolute;
         top: 62px;
         left: 220px;
-        z-index: 100;
+        z-index: 99;
         background: rgba(134, 134, 148, 0.4);
     }
 
@@ -291,4 +297,36 @@ export default class HeaderArea extends Vue {
             margin-left: 0;
         }
     }
+
+    @media screen and (max-width: 1024px) {
+
+        .header-container {
+
+            &__left-area {
+
+                &__logo-area {
+                    width: 100px;
+                }
+            }
+        }
+
+        .project-selection,
+        .resources-selection {
+            margin-right: 15px;
+        }
+    }
+
+    @media screen and (max-width: 768px) {
+
+        .header-container {
+
+            &__left-area {
+
+                &__selection-wrapper {
+                    display: none;
+                }
+            }
+        }
+    }
+
 </style>
