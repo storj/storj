@@ -158,9 +158,8 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 
 	// from the beginning of the current month
 	year, month, _ := usage.nowFn().Date()
-	from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	total, err := usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
+	total, err := usage.projectAccountingDB.GetProjectBandwidth(ctx, projectID, year, month, 1, usage.asOfSystemInterval)
 	return total, ErrProjectUsage.Wrap(err)
 }
 
