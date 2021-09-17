@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="resources-selection" :class="{ disabled: isOnboardingTour, active: isDropdownShown }">
+    <div class="resources-selection" :class="{ disabled: isOnboardingTour, active: isDropdownShown, navigation: inNavigation  }">
         <div
             class="resources-selection__toggle-container"
             @click.stop="toggleDropdown"
@@ -17,13 +17,14 @@
                 v-show="isDropdownShown"
                 v-click-outside="closeDropdown"
                 @close="closeDropdown"
+                inNavigation="true"
             />
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
@@ -40,6 +41,10 @@ import ResourcesDropdown from './ResourcesDropdown.vue';
     },
 })
 export default class ResourcesSelection extends Vue {
+
+    @Prop({default: false})
+    protected readonly inNavigation: boolean;
+
     /**
      * Indicates if current route is onboarding tour.
      */
@@ -139,5 +144,50 @@ export default class ResourcesSelection extends Vue {
     .white {
         font-family: 'font_bold', sans-serif;
         color: #fff !important;
+    }
+
+    .navigation {
+        background: none;
+        -webkit-box-flex: 0;
+        -ms-flex: 0 0 auto;
+        flex: 0 0 auto;
+        padding: 10px;
+        width: calc(100% - 20px);
+        margin-bottom: 15px;
+        text-decoration: none;
+
+        .resources-selection {
+
+            &__toggle-container {
+
+                &__name {
+                    font-family: 'font_medium', sans-serif;
+                    font-size: 16px;
+                    line-height: 23px;
+                    color: #1b2533;
+                    white-space: nowrap;
+                }
+            }
+        }
+
+        &:hover {
+            background-color: #0068dc;
+
+            .resources-selection__toggle-container__name {
+                color: #fff;
+            }
+
+            .black-arrow-expand-path {
+                fill: #fff;
+            }
+        }
+
+        .active {
+            background: #0068dc !important;
+        }
+    }
+
+    .navigation.active {
+        background: #0068dc !important;
     }
 </style>
