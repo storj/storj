@@ -9,6 +9,8 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/calebcase/tmpfile v1.0.2
 	github.com/cheggaaa/pb/v3 v3.0.5
+	github.com/dvyukov/go-fuzz v0.0.0-20210602112143-b1f3d6f4ef4e // indirect
+	github.com/elazarl/go-bindata-assetfs v1.0.1 // indirect
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.7.1
 	github.com/go-rod/rod v0.100.0
@@ -36,6 +38,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
+	github.com/stephens2424/writerset v1.0.2 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/stripe/stripe-go/v72 v72.51.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
@@ -49,9 +52,10 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210420072515-93ed5bcd2bfe
+	golang.org/x/sys v0.0.0-20210806184541-e5e7981a1069
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	golang.org/x/tools v0.1.5 // indirect
 	google.golang.org/api v0.20.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
