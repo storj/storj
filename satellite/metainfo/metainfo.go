@@ -2947,6 +2947,10 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 		}
 
 		keys[i] = &pb.EncryptedKeyAndNonce{
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(key.Position.Part),
+				Index:      int32(key.Position.Index),
+			},
 			EncryptedKey:      key.EncryptedKey,
 			EncryptedKeyNonce: nonce,
 		}
