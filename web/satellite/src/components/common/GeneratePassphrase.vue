@@ -158,6 +158,7 @@ export default class GeneratePassphrase extends Vue {
      */
     public setToEnter(): void {
         this.passphrase = '';
+        this.setParentPassphrase(this.passphrase);
         this.isGenerate = false;
     }
 
@@ -168,6 +169,7 @@ export default class GeneratePassphrase extends Vue {
         if (this.enterError) this.enterError = '';
 
         this.passphrase = bip39.generateMnemonic();
+        this.setParentPassphrase(this.passphrase);
         this.isGenerate = true;
     }
 
