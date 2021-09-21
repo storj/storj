@@ -128,6 +128,12 @@ export default class CreatePassphraseStep extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$route.params.key && !this.$route.params.restrictedKey) {
+            if (this.isOnboardingTour) {
+                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
+                return;
+            }
+
+
             await this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -207,6 +213,18 @@ export default class CreatePassphraseStep extends Vue {
 
         this.isLoading = false;
 
+        if (this.isOnboardingTour) {
+            await this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantResult)).name,
+                params: {
+                    access: this.access,
+                    key: this.key,
+                    restrictedKey: this.restrictedKey,
+                },
+            });
+            return;
+        }
+
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
             params: {
@@ -272,12 +290,30 @@ export default class CreatePassphraseStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
+        if (this.isOnboardingTour) {
+            this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPermissions)).name,
+                params: {
+                    key: this.key,
+                },
+            });
+
+            return;
+        }
+
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {
                 key: this.key,
             },
         });
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    private get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
