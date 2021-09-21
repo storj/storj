@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="cli-container">
+    <div class="cli-container" :class="{ 'border-radius': isOnboardingTour }">
         <BackIcon class="cli-container__back-icon" @click="onBackClick" />
         <h1 class="cli-container__title">Create Access Grant in CLI</h1>
         <p class="cli-container__sub-title">
@@ -82,6 +82,12 @@ export default class CLIStep extends Vue {
      */
     public mounted(): void {
         if (!this.$route.params.key && !this.$route.params.restrictedKey) {
+            if (this.isOnboardingTour) {
+                this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
+
+                return;
+            }
+
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -96,6 +102,16 @@ export default class CLIStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
+        if (this.isOnboardingTour) {
+            this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPermissions)).name,
+                params: {
+                    key: this.key,
+                },
+            });
+            return;
+        }
+
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {
@@ -109,7 +125,7 @@ export default class CLIStep extends Vue {
      * Redirects to upload step.
      */
     public onDoneClick(): void {
-        this.$router.push(RouteConfig.AccessGrants.path);
+        this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
     }
 
     /**
@@ -143,6 +159,13 @@ export default class CLIStep extends Vue {
     public onCopyTokenClick(): void {
         this.$copyText(this.restrictedKey);
         this.$notify.success('Token was copied successfully');
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>

@@ -90,6 +90,7 @@ type Config struct {
 	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
+	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"false"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -368,6 +369,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		ObjectPrice                     string
 		RecaptchaEnabled                bool
 		RecaptchaSiteKey                string
+		NewOnboarding                   bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -393,6 +395,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.ObjectPrice = server.pricing.ObjectPrice
 	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
 	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
+	data.NewOnboarding = server.config.NewOnboarding
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

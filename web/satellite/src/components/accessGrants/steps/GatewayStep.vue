@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="gateway">
+    <div class="gateway" :class="{ 'border-radius': isOnboardingTour }">
         <BackIcon class="gateway__back-icon" @click="onBackClick" />
         <h1 class="gateway__title">S3 Gateway</h1>
         <div class="gateway__container">
@@ -143,6 +143,11 @@ export default class GatewayStep extends Vue {
      */
     public mounted(): void {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
+            if (this.isOnboardingTour) {
+                this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
+                return;
+            }
+
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -185,6 +190,18 @@ export default class GatewayStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
+        if (this.isOnboardingTour) {
+            this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantResult)).name,
+                params: {
+                    access: this.access,
+                    key: this.key,
+                    restrictedKey: this.restrictedKey,
+                },
+            });
+            return;
+        }
+
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
             params: {
@@ -200,7 +217,7 @@ export default class GatewayStep extends Vue {
      * Proceed to upload data step.
      */
     public onDoneClick(): void {
-        this.$router.push(RouteConfig.AccessGrants.path);
+        this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
     }
 
     /**
@@ -232,6 +249,13 @@ export default class GatewayStep extends Vue {
      */
     public get gatewayCredentials(): GatewayCredentials {
         return this.$store.state.accessGrantsModule.gatewayCredentials;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
