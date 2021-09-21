@@ -62,7 +62,7 @@ func TestDeleteTalliesBefore(t *testing.T) {
 
 func TestOnlyInline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 		uplink := planet.Uplinks[0]
@@ -178,9 +178,9 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 	})
 }
 
-func TestTallyIgnoresExpiredPointers(t *testing.T) {
+func TestIgnoresExpiredPointers(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -197,15 +197,18 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 	})
 }
 
-func TestTallyLiveAccounting(t *testing.T) {
+func TestLiveAccounting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.MaxSegmentSize(20 * memory.KiB),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tally := planet.Satellites[0].Accounting.Tally
 		projectID := planet.Uplinks[0].Projects[0].ID
 		tally.Loop.Pause()
 
-		expectedData := testrand.Bytes(5 * memory.MB)
+		expectedData := testrand.Bytes(19 * memory.KiB)
 
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
@@ -224,7 +227,7 @@ func TestTallyLiveAccounting(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedSize, total)
 
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 3; i++ {
 			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", fmt.Sprintf("test/path/%d", i), expectedData)
 			require.NoError(t, err)
 
@@ -239,15 +242,18 @@ func TestTallyLiveAccounting(t *testing.T) {
 	})
 }
 
-func TestTallyEmptyProjectUpdatesLiveAccounting(t *testing.T) {
+func TestEmptyProjectUpdatesLiveAccounting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.MaxSegmentSize(20 * memory.KiB),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
 		project1 := planet.Uplinks[1].Projects[0].ID
 
-		data := testrand.Bytes(1 * memory.MB)
+		data := testrand.Bytes(30 * memory.KiB)
 
 		// we need an extra bucket with data for this test. If no buckets are found at all,
 		// the update block is skipped in tally
