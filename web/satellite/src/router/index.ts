@@ -27,7 +27,9 @@ import UploadFile from '@/components/objects/UploadFile.vue';
 import WarningView from '@/components/objects/WarningView.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import OnbCLIStep from '@/components/onboardingTour/steps/CLIStep.vue';
+import CreateAccessGrantStep from "@/components/onboardingTour/steps/oldFlow/CreateAccessGrantStep.vue";
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
+import OldOverviewStep from '@/components/onboardingTour/steps/oldFlow/OldOverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
@@ -107,6 +109,16 @@ export abstract class RouteConfig {
     public static DownloadObject = new NavigationLink('download-object', 'Onboarding Download Object');
     public static ShareObject = new NavigationLink('share-object', 'Onboarding Share Object');
     public static SuccessScreen = new NavigationLink('success', 'Onboarding Success Screen');
+
+    // onboarding tour old child paths
+    public static OldOverviewStep = new NavigationLink('old-overview', 'Old Onboarding Overview');
+    public static AccessGrant = new NavigationLink('access', 'Onboarding Access Grant');
+    public static AccessGrantName = new NavigationLink('name', 'Onboarding Name Access Grant');
+    public static AccessGrantPermissions = new NavigationLink('permissions', 'Onboarding Access Grant Permissions');
+    public static AccessGrantCLI = new NavigationLink('cli', 'Onboarding Access Grant CLI');
+    public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
+    public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
+    public static AccessGrantGateway = new NavigationLink('gateway', 'Onboarding Access Grant Gateway');
 
     // objects child paths.
     public static Warning = new NavigationLink('warning', 'Objects Warning');
@@ -220,6 +232,53 @@ export const router = new Router({
                             path: RouteConfig.OverviewStep.path,
                             name: RouteConfig.OverviewStep.name,
                             component: OverviewStep,
+                        },
+                        {
+                            path: RouteConfig.OldOverviewStep.path,
+                            name: RouteConfig.OldOverviewStep.name,
+                            component: OldOverviewStep,
+                        },
+                        {
+                            path: RouteConfig.AccessGrant.path,
+                            name: RouteConfig.AccessGrant.name,
+                            component: CreateAccessGrantStep,
+                            children: [
+                                {
+                                    path: RouteConfig.AccessGrantName.path,
+                                    name: RouteConfig.AccessGrantName.name,
+                                    component: NameStep,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantPermissions.path,
+                                    name: RouteConfig.AccessGrantPermissions.name,
+                                    component: PermissionsStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantCLI.path,
+                                    name: RouteConfig.AccessGrantCLI.name,
+                                    component: CLIStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantPassphrase.path,
+                                    name: RouteConfig.AccessGrantPassphrase.name,
+                                    component: CreatePassphraseStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantResult.path,
+                                    name: RouteConfig.AccessGrantResult.name,
+                                    component: ResultStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantGateway.path,
+                                    name: RouteConfig.AccessGrantGateway.name,
+                                    component: GatewayStep,
+                                    props: true,
+                                },
+                            ]
                         },
                         {
                             path: RouteConfig.OnbCLIStep.path,
@@ -406,6 +465,12 @@ router.beforeEach(async (to, from, next) => {
         return;
     }
 
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant))) {
+        next(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.NameStep).path);
+
+        return;
+    }
+
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep))) {
         next(RouteConfig.OnboardingTour.path);
 
@@ -413,6 +478,12 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
+        if (!store.state.appStateModule.isNewOnbCLIFlow) {
+            next(RouteConfig.OnboardingTour.with(RouteConfig.OldOverviewStep).path);
+
+            return;
+        }
+
         next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
         return;
