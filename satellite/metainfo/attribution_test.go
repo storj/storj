@@ -288,6 +288,9 @@ func TestAttributionReport(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// Wait for the storage nodes to be done processing the download
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
 		{ // Flush all the pending information through the system.
 			// Calculate the usage used for upload
 			for _, sn := range planet.StorageNodes {
