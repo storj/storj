@@ -232,6 +232,9 @@ func (loop *Service) Run(ctx context.Context) (err error) {
 			if errs2.IsCanceled(err) {
 				return err
 			}
+			if ctx.Err() != nil {
+				return errs.Combine(err, ctx.Err())
+			}
 
 			mon.Event("segmentloop_error") //mon:locked
 		}
