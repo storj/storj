@@ -41,6 +41,7 @@ func Run(t *testing.T, test Test) {
 				}
 				config.Console.NewOnboarding = true
 				config.Console.NewNavigation = true
+				config.Console.NewBrowser = true
 				config.Console.CouponCodeBillingUIEnabled = true
 				config.Console.NewObjectsFlow = true
 			},

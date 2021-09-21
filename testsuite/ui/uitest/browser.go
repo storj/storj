@@ -46,7 +46,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, fn func(*rod.Browser)) {
 		Logger(zapWriter{Logger: logLauncher}).
 		Set("enable-logging").
 		Set("disable-gpu").
-		Set("disable-web-security") // TODO: ensure we have proper CORS for testing
+		Set("disable-web-security") // TODO: ensure we have proper CORS for testing.
 
 	if browserHost := os.Getenv("STORJ_TEST_BROWER_HOSTPORT"); browserHost != "" {
 		host, port, err := net.SplitHostPort(browserHost)
@@ -70,7 +70,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, fn func(*rod.Browser)) {
 
 	browser := rod.New().
 		Timeout(time.Minute).
-		Sleeper(func() utils.Sleeper { return timeoutSleeper(5*time.Second, 5) }).
+		Sleeper(MaxDuration(5 * time.Second)).
 		ControlURL(url).
 		Logger(utils.Log(func(msg ...interface{}) {
 			logBrowser.Info(fmt.Sprintln(msg...))
@@ -106,25 +106,38 @@ func browserTimeoutDetector(duration time.Duration) context.CancelFunc {
 	return cancel
 }
 
-func timeoutSleeper(totalSleep time.Duration, maxTries int) utils.Sleeper {
-	singleSleep := totalSleep / time.Duration(maxTries)
+// MaxDuration returns a sleeper constructor with the max duration.
+func MaxDuration(max time.Duration) func() utils.Sleeper {
+	return func() utils.Sleeper {
+		singleSleep := 50 * time.Millisecond
+		totalSlept := time.Duration(0)
+		return func(ctx context.Context) error {
+			if totalSlept > max {
+				return errMaxSleepDuration(max)
+			}
+			if singleSleep > 500*time.Millisecond {
+				singleSleep = 500 * time.Millisecond
+			}
 
-	var slept int
-	return func(ctx context.Context) error {
-		slept++
-		if slept > maxTries {
-			return &utils.ErrMaxSleepCount{Max: maxTries}
+			totalSlept += singleSleep
+			t := time.NewTimer(singleSleep)
+			defer t.Stop()
+			select {
+			case <-t.C:
+			case <-ctx.Done():
+			}
+
+			return nil
 		}
-
-		t := time.NewTimer(singleSleep)
-		defer t.Stop()
-		select {
-		case <-t.C:
-		case <-ctx.Done():
-		}
-
-		return nil
 	}
+}
+
+// errMaxSleepDuration is error for exceeding sleep duration.
+type errMaxSleepDuration time.Duration
+
+// Error implements error interface.
+func (e errMaxSleepDuration) Error() string {
+	return fmt.Sprintf("max sleep %v exceeded", time.Duration(e))
 }
 
 func avoidStall(maxDuration time.Duration, fn func()) {
