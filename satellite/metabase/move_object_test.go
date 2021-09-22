@@ -104,6 +104,7 @@ func TestBeginMoveObject(t *testing.T) {
 func TestFinishMoveObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
+		newBucketName := "New bucket name"
 
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
@@ -111,6 +112,7 @@ func TestFinishMoveObject(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 				metabasetest.FinishMoveObject{
 					Opts: metabase.FinishMoveObject{
+						NewBucket:    newBucketName,
 						ObjectStream: test.ObjectStream,
 					},
 					ErrClass: test.ErrClass,
@@ -121,11 +123,29 @@ func TestFinishMoveObject(t *testing.T) {
 			})
 		}
 
+		t.Run("invalid NewBucket", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:                 obj,
+					NewEncryptedObjectKey:        []byte{1, 2, 3},
+					NewEncryptedMetadataKey:      []byte{1, 2, 3},
+					NewEncryptedMetadataKeyNonce: []byte{1, 2, 3},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "NewBucket is missing",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
 		t.Run("invalid NewEncryptedObjectKey", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
+					NewBucket:    newBucketName,
 					ObjectStream: obj,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -140,6 +160,7 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
+					NewBucket:             newBucketName,
 					ObjectStream:          obj,
 					NewEncryptedObjectKey: []byte{0},
 				},
@@ -155,6 +176,7 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
+					NewBucket:                    newBucketName,
 					ObjectStream:                 obj,
 					NewEncryptedObjectKey:        []byte{0},
 					NewEncryptedMetadataKeyNonce: []byte{0},
@@ -178,6 +200,7 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
+					NewBucket:                    newBucketName,
 					ObjectStream:                 newObj,
 					NewSegmentKeys:               newEncryptedKeysNonces,
 					NewEncryptedObjectKey:        newObjectKey,
@@ -227,6 +250,7 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
+					NewBucket:                    newBucketName,
 					ObjectStream:                 obj,
 					NewSegmentKeys:               newEncryptedKeysNonces,
 					NewEncryptedObjectKey:        newObjectKey,
@@ -274,6 +298,7 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
+					NewBucket:                    newBucketName,
 					ObjectStream:                 obj,
 					NewSegmentKeys:               newEncryptedKeysNonces,
 					NewEncryptedObjectKey:        newObjectKey,
@@ -323,6 +348,7 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
+					NewBucket:                    newBucketName,
 					ObjectStream:                 obj,
 					NewSegmentKeys:               newEncryptedKeysNonces,
 					NewEncryptedObjectKey:        newObjectKey,
@@ -335,6 +361,7 @@ func TestFinishMoveObject(t *testing.T) {
 			newObj.ObjectKey = metabase.ObjectKey(newObjectKey)
 			newObj.EncryptedMetadataEncryptedKey = newEncryptedMetadataKey
 			newObj.EncryptedMetadataNonce = newEncryptedMetadataKeyNonce[:]
+			newObj.BucketName = newBucketName
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{

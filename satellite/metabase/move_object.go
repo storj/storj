@@ -112,6 +112,7 @@ func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (result
 // FinishMoveObject holds all data needed to finish object move.
 type FinishMoveObject struct {
 	ObjectStream
+	NewBucket                    string
 	NewSegmentKeys               []EncryptedKeyAndNonce
 	NewEncryptedObjectKey        []byte
 	NewEncryptedMetadataKeyNonce []byte
@@ -125,6 +126,8 @@ func (finishMove FinishMoveObject) Verify() error {
 	}
 
 	switch {
+	case len(finishMove.NewBucket) == 0:
+		return ErrInvalidRequest.New("NewBucket is missing")
 	case len(finishMove.NewEncryptedObjectKey) == 0:
 		return ErrInvalidRequest.New("NewEncryptedObjectKey is missing")
 	case len(finishMove.NewEncryptedMetadataKeyNonce) == 0:
@@ -147,21 +150,22 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		updateObjectsQuery := `
 			UPDATE objects SET
-				object_key = $1,
-				encrypted_metadata_encrypted_key = $2,
-				encrypted_metadata_nonce = $3
+				bucket_name = $1,
+				object_key = $2,
+				encrypted_metadata_encrypted_key = $3,
+				encrypted_metadata_nonce = $4
 			WHERE
-				project_id = $4 AND
-				bucket_name = $5 AND
-				object_key = $6 AND
-				version = $7 AND
-				stream_id = $8
+				project_id = $5 AND
+				bucket_name = $6 AND
+				object_key = $7 AND
+				version = $8 AND
+				stream_id = $9
 			RETURNING
 				segment_count;
         `
 
 		var segmentsCount int
-		row := db.db.QueryRowContext(ctx, updateObjectsQuery, opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID)
+		row := db.db.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID)
 		if err = row.Scan(&segmentsCount); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.New("object not found")
