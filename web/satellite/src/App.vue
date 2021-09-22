@@ -40,6 +40,10 @@ export default class App extends Vue {
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
         const isNewOnboardingFlow = MetaUtils.getMetaContent('new-onboarding-flow');
+        const defaultPaidBandwidthLimit = MetaUtils.getMetaContent('default-paid-bandwidth-limit');
+        const defaultPaidStorageLimit = MetaUtils.getMetaContent('default-paid-storage-limit');
+        const defaultPaidBandwidthLimit = MetaUtils.getMetaContent('default-paid-bandwidth-limit');
+        const defaultPaidStorageLimit = MetaUtils.getMetaContent('default-paid-storage-limit');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -65,12 +69,23 @@ export default class App extends Vue {
         if (couponCodeBillingUIEnabled) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled === 'true');
         }
+
         if (couponCodeSignupUIEnabled) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
         }
+
         if (isNewOnboardingFlow) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_ONB_CLI_FLOW_STATUS, isNewOnboardingFlow === 'true');
         }
+
+        if (defaultPaidBandwidthLimit) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_DEFAULT_PAID_BANDWIDTH_LIMIT, defaultPaidBandwidthLimit);
+        }
+
+        if (defaultPaidStorageLimit) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_DEFAULT_PAID_STORAGE_LIMIT, defaultPaidStorageLimit);
+        }
+
     }
 }
 </script>

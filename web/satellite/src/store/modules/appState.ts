@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { PartneredSatellite } from '@/types/common';
+import { Size } from '@/types/size';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 
@@ -41,6 +42,8 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewOnbCLIFlow = false,
+        public defaultPaidStorageLimit = new Size(),
+        public defaultPaidBandwidthLimit = new Size()
     ){}
 }
 
@@ -147,6 +150,12 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS](state: State, couponCodeSignupUIEnabled: boolean): void {
             state.couponCodeSignupUIEnabled = couponCodeSignupUIEnabled;
+        },
+        [APP_STATE_MUTATIONS.SET_DEFAULT_PAID_BANDWIDTH_LIMIT](state: State, defaultPaidBandwidthLimit: Size): void {
+            state.defaultPaidBandwidthLimit = defaultPaidBandwidthLimit;
+        },
+        [APP_STATE_MUTATIONS.SET_DEFAULT_PAID_STORAGE_LIMIT](state: State, defaultPaidStorageLimit: Size): void {
+            state.defaultPaidStorageLimit = defaultPaidStorageLimit;
         },
     },
     actions: {
@@ -281,6 +290,12 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS]: function ({commit}: AppContext, couponCodeSignupUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled);
+        },
+        [APP_STATE_ACTIONS.SET_DEFAULT_PAID_BANDWIDTH_LIMIT]: function ({commit}: AppContext, defaultPaidBandwidthLimit: Size): void {
+            commit(APP_STATE_MUTATIONS.SET_DEFAULT_PAID_BANDWIDTH_LIMIT, defaultPaidBandwidthLimit);
+        },
+        [APP_STATE_ACTIONS.SET_DEFAULT_PAID_STORAGE_LIMIT]: function ({commit}: AppContext, defaultPaidStorageLimit: Size): void {
+            commit(APP_STATE_MUTATIONS.SET_DEFAULT_PAID_STORAGE_LIMIT, defaultPaidStorageLimit);
         },
     },
 };
