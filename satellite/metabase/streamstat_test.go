@@ -54,7 +54,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			metabasetest.CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
@@ -90,7 +90,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			n01 := testrand.NodeID()
 			n02 := testrand.NodeID()

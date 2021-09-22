@@ -163,7 +163,7 @@ func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metaba
 
 					segmentSize := testrand.Intn(64*memory.MiB.Int()) + 1
 					encryptedKey := testrand.BytesInt(storj.KeySize)
-					encryptedKeyNonce := testrand.BytesInt(storj.NonceSize)
+					encryptedKeyNonce := testrand.Nonce()
 
 					err = db.CommitSegment(ctx, metabase.CommitSegment{
 						ObjectStream: objectStream,

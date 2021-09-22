@@ -691,7 +691,8 @@ func TestBeginCommit(t *testing.T) {
 		err = metainfoClient.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID: response.SegmentID,
 			Encryption: storj.SegmentEncryption{
-				EncryptedKey: testrand.Bytes(256),
+				EncryptedKey:      testrand.Bytes(256),
+				EncryptedKeyNonce: testrand.Nonce(),
 			},
 			PlainSize:         5000,
 			SizeEncryptedData: memory.MiB.Int64(),
@@ -798,7 +799,8 @@ func TestInlineSegment(t *testing.T) {
 				PlainSize:           1024,
 				EncryptedInlineData: segmentsData[i],
 				Encryption: storj.SegmentEncryption{
-					EncryptedKey: testrand.Bytes(256),
+					EncryptedKey:      testrand.Bytes(256),
+					EncryptedKeyNonce: testrand.Nonce(),
 				},
 			})
 			require.NoError(t, err)
@@ -1131,7 +1133,8 @@ func TestBatch(t *testing.T) {
 					PlainSize:           int64(len(expectedData[i])),
 					EncryptedInlineData: expectedData[i],
 					Encryption: storj.SegmentEncryption{
-						EncryptedKey: testrand.Bytes(256),
+						EncryptedKey:      testrand.Bytes(256),
+						EncryptedKeyNonce: testrand.Nonce(),
 					},
 				})
 			}
@@ -1206,7 +1209,8 @@ func TestBatch(t *testing.T) {
 					PlainSize:           int64(len(expectedData[i])),
 					EncryptedInlineData: expectedData[i],
 					Encryption: storj.SegmentEncryption{
-						EncryptedKey: testrand.Bytes(256),
+						EncryptedKey:      testrand.Bytes(256),
+						EncryptedKeyNonce: testrand.Nonce(),
 					},
 				})
 			}
@@ -1621,7 +1625,8 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		err = metainfoClient.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID: response.SegmentID,
 			Encryption: storj.SegmentEncryption{
-				EncryptedKey: []byte{1},
+				EncryptedKey:      []byte{1},
+				EncryptedKeyNonce: testrand.Nonce(),
 			},
 			PlainSize:         memory.MiB.Int64(),
 			SizeEncryptedData: memory.MiB.Int64(),

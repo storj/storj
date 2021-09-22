@@ -246,7 +246,7 @@ func TestGetObjectLatestVersion(t *testing.T) {
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataNonce:        encryptedMetadataNonce,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -263,7 +263,7 @@ func TestGetObjectLatestVersion(t *testing.T) {
 
 					Encryption: metabasetest.DefaultEncryption,
 
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataNonce:        encryptedMetadataNonce,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -277,7 +277,7 @@ func TestGetObjectLatestVersion(t *testing.T) {
 
 					Encryption: metabasetest.DefaultEncryption,
 
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataNonce:        encryptedMetadataNonce,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -388,7 +388,7 @@ func TestGetSegmentByLocation(t *testing.T) {
 				ExpiresAt:         &expectedExpiresAt,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: []byte{4},
+				EncryptedKeyNonce: metabasetest.DefaultNonce,
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
@@ -494,7 +494,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 					ExpiresAt:         obj.ExpiresAt,
 					RootPieceID:       storj.PieceID{1},
 					EncryptedKey:      []byte{3},
-					EncryptedKeyNonce: []byte{4},
+					EncryptedKeyNonce: metabasetest.DefaultNonce,
 					EncryptedETag:     []byte{5},
 					EncryptedSize:     1024,
 					PlainSize:         512,
@@ -613,7 +613,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				CreatedAt:         now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: []byte{4},
+				EncryptedKeyNonce: metabasetest.DefaultNonce,
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
@@ -723,7 +723,7 @@ func TestGetSegmentByOffset(t *testing.T) {
 					CreatedAt:         now,
 					RootPieceID:       storj.PieceID{1},
 					EncryptedKey:      []byte{3},
-					EncryptedKeyNonce: []byte{4},
+					EncryptedKeyNonce: metabasetest.DefaultNonce,
 					EncryptedETag:     []byte{5},
 					EncryptedSize:     1060,
 					PlainSize:         512,
