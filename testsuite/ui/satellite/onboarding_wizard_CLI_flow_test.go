@@ -42,7 +42,7 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 		page.Keyboard.MustPress(input.Enter)
 
 		// Testing onboarding workflow uplinkCLI method
-		page.MustElementX("(//span[text()=\"CONTINUE IN CLI\"])").MustClick()
+		page.MustElementX("(//span[text()=\"Continue in cli\"])").MustClick()
 		apiKeyGeneratedTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, apiKeyGeneratedTitle, "API Key Generated")
 		satelliteAddress := page.MustElement("[aria-roledescription=satellite-address]").MustText()

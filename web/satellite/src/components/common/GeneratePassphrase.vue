@@ -23,8 +23,8 @@
                         </template>
                         <template #message>
                             <p class="encrypt-container__header__row__right__info-button__message">
-                                We strongly encourage you to use a mnemonic phrase, which is automatically generated one
-                                on the client-side for you. Alternatively, you can enter your own passphrase.
+                                We strongly encourage you to use a mnemonic phrase, which is automatically generated on
+                                the client-side for you. Alternatively, you can enter your own passphrase.
                             </p>
                         </template>
                     </VInfo>

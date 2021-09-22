@@ -15,6 +15,7 @@
                     :label="buttonLabel"
                     height="42px"
                     border-radius="52px"
+                    is-uppercase="true"
                     :on-press="onClick"
                 />
             </div>

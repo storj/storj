@@ -28,7 +28,7 @@
                 v-if="!isOnboardingTour"
                 class="header-container__right-area__info"
                 title="Need some help?"
-                button-label="START TOUR"
+                button-label="Start tour"
                 :on-button-click="onStartTourButtonClick"
             >
                 <template #icon>

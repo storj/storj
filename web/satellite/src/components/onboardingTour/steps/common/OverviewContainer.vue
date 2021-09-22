@@ -14,6 +14,7 @@
             width="100%"
             height="64px"
             border-radius="62px"
+            is-uppercase="true"
             :is-disabled="isDisabled"
             :on-press="onClick"
         />
