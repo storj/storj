@@ -189,6 +189,17 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
+	signer.AddressedLimits, err = sortLimits(signer.AddressedLimits, segment)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, err
+	}
+	// workaround to avoid sending nil values on top level
+	for i := range signer.AddressedLimits {
+		if signer.AddressedLimits[i] == nil {
+			signer.AddressedLimits[i] = &pb.AddressedOrderLimit{}
+		}
+	}
+
 	return signer.AddressedLimits, signer.PrivateKey, nil
 }
 
@@ -196,6 +207,32 @@ func (service *Service) perm(n int) []int {
 	service.rngMu.Lock()
 	defer service.rngMu.Unlock()
 	return service.rng.Perm(n)
+}
+
+// sortLimits sorts order limits and fill missing ones with nil values.
+func sortLimits(limits []*pb.AddressedOrderLimit, segment metabase.Segment) ([]*pb.AddressedOrderLimit, error) {
+	sorted := make([]*pb.AddressedOrderLimit, segment.Redundancy.TotalShares)
+	for _, piece := range segment.Pieces {
+		if int16(piece.Number) >= segment.Redundancy.TotalShares {
+			return nil, Error.New("piece number is greater than redundancy total shares: got %d, max %d",
+				piece.Number, (segment.Redundancy.TotalShares - 1))
+		}
+		sorted[piece.Number] = getLimitByStorageNodeID(limits, piece.StorageNode)
+	}
+	return sorted, nil
+}
+
+func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID storj.NodeID) *pb.AddressedOrderLimit {
+	for _, limit := range limits {
+		if limit == nil || limit.GetLimit() == nil {
+			continue
+		}
+
+		if limit.GetLimit().StorageNodeId == storageNodeID {
+			return limit
+		}
+	}
+	return nil
 }
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.

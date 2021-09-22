@@ -40,11 +40,15 @@ func TestOrderLimitsEncryptedMetadata(t *testing.T) {
 
 		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segments[0], 0)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(limits))
+		require.Equal(t, 3, len(limits))
 
 		// Test: get the bucket name and project ID from the encrypted metadata and
 		// compare with the old method of getting the data from the serial numbers table.
 		orderLimit1 := limits[0].Limit
+		// from 3 order limits only one can be nil
+		if orderLimit1 == nil {
+			orderLimit1 = limits[1].Limit
+		}
 		require.True(t, len(orderLimit1.EncryptedMetadata) > 0)
 
 		_, err = metabase.ParseBucketPrefix(metabase.BucketPrefix(""))

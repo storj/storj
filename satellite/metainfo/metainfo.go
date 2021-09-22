@@ -1048,15 +1048,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
-		limits = sortLimits(limits, segment)
-
-		// workaround to avoid sending nil values on top level
-		for i := range limits {
-			if limits[i] == nil {
-				limits[i] = &pb.AddressedOrderLimit{}
-			}
-		}
-
 		endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
 		mon.Meter("req_get_remote").Mark(1)
 
@@ -2293,15 +2284,6 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	limits = sortLimits(limits, segment)
-
-	// workaround to avoid sending nil values on top level
-	for i := range limits {
-		if limits[i] == nil {
-			limits[i] = &pb.AddressedOrderLimit{}
-		}
-	}
-
 	endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
 	mon.Meter("req_get_remote").Mark(1)
 
@@ -2375,28 +2357,6 @@ func (endpoint *Endpoint) DeletePart(ctx context.Context, req *pb.PartDeleteRequ
 	}
 
 	return &pb.PartDeleteResponse{}, nil
-}
-
-// sortLimits sorts order limits and fill missing ones with nil values.
-func sortLimits(limits []*pb.AddressedOrderLimit, segment metabase.Segment) []*pb.AddressedOrderLimit {
-	sorted := make([]*pb.AddressedOrderLimit, segment.Redundancy.TotalShares)
-	for _, piece := range segment.Pieces {
-		sorted[piece.Number] = getLimitByStorageNodeID(limits, piece.StorageNode)
-	}
-	return sorted
-}
-
-func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID storj.NodeID) *pb.AddressedOrderLimit {
-	for _, limit := range limits {
-		if limit == nil || limit.GetLimit() == nil {
-			continue
-		}
-
-		if limit.GetLimit().StorageNodeId == storageNodeID {
-			return limit
-		}
-	}
-	return nil
 }
 
 func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *internalpb.StreamID) (streamID storj.StreamID, err error) {
