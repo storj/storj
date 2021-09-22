@@ -572,6 +572,7 @@ export default class RegisterArea extends Vue {
         } catch (error) {
             if (this.$refs.recaptcha) {
                 this.$refs.recaptcha.reset();
+                this.recaptchaResponseToken = '';
             }
             await this.$notify.error(error.message);
         }
