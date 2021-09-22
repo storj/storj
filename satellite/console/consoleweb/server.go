@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
@@ -370,6 +371,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		RecaptchaEnabled                bool
 		RecaptchaSiteKey                string
 		NewOnboarding                   bool
+		DefaultPaidStorageLimit         memory.Size
+		DefaultPaidBandwidthLimit       memory.Size
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -390,6 +393,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
 	data.LinksharingURL = server.config.LinksharingURL
 	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
+	data.DefaultPaidStorageLimit = server.config.UsageLimits.Storage.Paid
+	data.DefaultPaidBandwidthLimit = server.config.UsageLimits.Bandwidth.Paid
 	data.StorageTBPrice = server.pricing.StorageTBPrice
 	data.EgressTBPrice = server.pricing.EgressTBPrice
 	data.ObjectPrice = server.pricing.ObjectPrice
