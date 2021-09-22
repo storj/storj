@@ -94,6 +94,9 @@ pipeline {
                             sh 'npm ci --prefer-offline --no-audit'
                             sh 'npm run build'
                         }
+
+                        sh 'cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" web/satellite/static/wasm/wasm_exec.js'
+                        sh 'GOOS=js GOARCH=wasm go build -o web/satellite/static/wasm/access.wasm storj.io/storj/satellite/console/wasm'
                     }
                 }
                 stage('web/storagenode') {
@@ -336,6 +339,39 @@ pipeline {
                             sh 'npm run test'
                         }
                     }
+                }
+            }
+        }
+
+        stage('UI') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch pattern: "release-.*", comparator: "REGEXP"
+                    changeset "testsuite/**"
+                    changeset "web/**"
+                    changeset "satellite/console/**"
+                    changeset "storagenode/console/**"
+                    changeset "multinode/console/**"
+                }
+            }
+            environment {
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
+                STORJ_TEST_BROWSER  = '/usr/bin/chromium'
+                STORJ_TEST_SATELLITE_WEB = "${pwd()}/web/satellite"
+            }
+            steps {
+                sh 'psql -U postgres -c \'create database testui;\''
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'cd testsuite && go test -parallel 1 -p 1 -vet=off -timeout 32m -json -race ./... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
+                }
+            }
+            post {
+                always {
+                    sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
+                    archiveArtifacts artifacts: '.build/ui-tests.json'
+                    junit '.build/ui-tests.xml'
                 }
             }
         }

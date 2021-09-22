@@ -5,7 +5,7 @@ go 1.16
 replace storj.io/storj => ../
 
 require (
-	github.com/go-rod/rod v0.100.0
+	github.com/go-rod/rod v0.101.8
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
 	storj.io/common v0.0.0-20210928143209-230bee624465

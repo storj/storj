@@ -1,15 +1,17 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellite
+package satellite_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/testsuite/ui/uitest"
@@ -22,8 +24,7 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 		emailAddress := "test@email.com"
 		password := "qazwsx123"
 
-		page := browser.MustPage(signupPageURL)
-		page.MustSetViewport(1350, 600, 1, false)
+		page := openPage(browser, signupPageURL)
 
 		// First time User signup
 		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
@@ -32,6 +33,8 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
 		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
+
 		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 
@@ -40,13 +43,20 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
 		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
 
 		// Testing onboarding workflow uplinkCLI method
 		// Welcome screen
 		page.MustElementX("(//span[text()=\"Continue in cli\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 
 		// API key generated screen
+
+		// TODO: Using sleep here, because waiting for the next tick and element
+		// does not work properly. The loading of WASM seems to take a bunch of time
+		// throwing things off.
+		require.True(t, sync2.Sleep(ctx, time.Second))
+
 		apiKeyGeneratedTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, apiKeyGeneratedTitle, "API Key Generated")
 		satelliteAddress := page.MustElement("[aria-roledescription=satellite-address]").MustText()
@@ -54,12 +64,12 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 		apiKey := page.MustElement("[aria-roledescription=api-key]").MustText()
 		require.NotEmpty(t, apiKey)
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		welcomeTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, welcomeTitle, "Welcome")
 		page.MustElementX("(//span[text()=\"Continue in cli\"])").MustClick()
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 
 		// API key generated screen
 		cliInstallTitle := page.MustElement("[aria-roledescription=title]").MustText()
@@ -84,13 +94,13 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// Back and forth click test
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		apiKeyGeneratedTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, apiKeyGeneratedTitle1, "API Key Generated")
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 
 		// CLI setup screen
 		cliSetupTitle := page.MustElement("[aria-roledescription=title]").MustText()
@@ -109,13 +119,13 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// Back and forth click test
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		cliInstallTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, cliInstallTitle1, "Install Uplink CLI")
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 
 		// Create bucket screen
 		createBucketTitle := page.MustElement("[aria-roledescription=title]").MustText()
@@ -134,13 +144,13 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// Back and forth click test
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		cliSetupTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, cliSetupTitle1, "CLI Setup")
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 
 		// Ready to upload screen
 		readyToUploadTitle := page.MustElement("[aria-roledescription=title]").MustText()
@@ -159,13 +169,13 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// Back and forth click test
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		createBucketTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, createBucketTitle1, "Create a bucket")
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 
 		// List a bucket screen
 		listTitle := page.MustElement("[aria-roledescription=title]").MustText()
@@ -184,13 +194,13 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// Back and forth click test
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		readyToUploadTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, readyToUploadTitle1, "Ready to upload")
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 
 		// Download screen
 		downloadTitle := page.MustElement("[aria-roledescription=title]").MustText()
@@ -209,13 +219,13 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// Back and forth click test
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		listTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, listTitle1, "Listing a bucket")
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 
 		// Share link screen
 		shareLinkTitle := page.MustElement("[aria-roledescription=title]").MustText()
@@ -234,19 +244,19 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// Back and forth click test
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		downloadTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, downloadTitle1, "Download")
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 
 		// Success screen
 		successTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, successTitle, "Wonderful")
 		page.MustElementX("(//span[text()=\"Finish\"])").MustClick()
-		page.MustWaitNavigation()
+		waitVueTick(page)
 		dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, dashboardTitle, "My First Project Dashboard")
 		page.MustNavigateBack()

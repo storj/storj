@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellite
+package satellite_test
 
 import (
 	"testing"
@@ -22,8 +22,7 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		emailAddress := "test@email.com"
 		password := "qazwsx123"
 
-		page := browser.MustPage(signupPageURL)
-		page.MustSetViewport(1350, 600, 1, false)
+		page := openPage(browser, signupPageURL)
 
 		// first time User signup
 		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
@@ -32,20 +31,26 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
 		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
 		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 
 		// first time user log in
 		page.MustElement("[href=\"/login\"]").MustClick()
+		waitVueTick(page)
 		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
 		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
 
 		// testing onboarding workflow browser
 		page.MustElementX("(//span[text()=\"Continue in web\"])").MustClick()
+		waitVueTick(page)
+
 		objectBrowserWarning := page.MustElement("[aria-roledescription=sub-title]").MustText()
 		require.Contains(t, objectBrowserWarning, "The object browser uses server side encryption.")
 		page.MustElementX("(//span[text()=\"Continue\"])").MustClick()
+		waitVueTick(page)
 
 		encryptionPassphraseWarningTitle := page.MustElement("[aria-roledescription=warning-title]").MustText()
 		require.Contains(t, encryptionPassphraseWarningTitle, "The object browser uses server side encryption.")
@@ -53,9 +58,11 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		customPassphraseLabel := customPassphrase.MustText()
 		require.Contains(t, customPassphraseLabel, "Enter Your Own Passphrase")
 		customPassphrase.MustClick()
+		waitVueTick(page)
 
 		page.MustElement("[aria-roledescription=passphrase] input").MustInput("password123")
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
+		waitVueTick(page)
 
 		// Buckets Page
 		bucketsTitle := page.MustElement("[aria-roledescription=title]").MustText()

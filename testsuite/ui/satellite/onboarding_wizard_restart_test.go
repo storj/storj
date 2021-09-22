@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellite
+package satellite_test
 
 import (
 	"testing"
@@ -22,8 +22,7 @@ func TestRestartOnboardingWizard(t *testing.T) {
 		emailAddress := "test@email.com"
 		password := "qazwsx123"
 
-		page := browser.MustPage(signupPageURL)
-		page.MustSetViewport(1350, 600, 1, false)
+		page := openPage(browser, signupPageURL)
 
 		// First time User signup
 		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
@@ -32,6 +31,8 @@ func TestRestartOnboardingWizard(t *testing.T) {
 		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
 		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
+
 		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 
@@ -40,6 +41,7 @@ func TestRestartOnboardingWizard(t *testing.T) {
 		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
 		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
 
 		// Checking out skip of onboarding process
 		page.MustElement("[href=\"/project-dashboard\"]").MustClick()
@@ -49,6 +51,8 @@ func TestRestartOnboardingWizard(t *testing.T) {
 		// Testing restart tour functionality
 		page.MustElement("[aria-roledescription=restart-onb-icon]").MustHover()
 		page.MustElementX("(//span[text()=\"Start tour\"])").MustClick()
+		waitVueTick(page)
+
 		welcomeTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, welcomeTitle, "Welcome")
 	})

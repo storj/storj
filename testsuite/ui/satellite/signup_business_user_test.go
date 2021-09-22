@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellite
+package satellite_test
 
 import (
 	"testing"
@@ -24,8 +24,7 @@ func TestBusinessUserCanSignUp(t *testing.T) {
 		companyName := "company"
 		positionTitle := "tester"
 
-		page := browser.MustPage(signupPageURL)
-		page.MustSetViewport(1350, 600, 1, false)
+		page := openPage(browser, signupPageURL)
 
 		// First time User signup
 		page.MustElement("[aria-roledescription=professional-label]").MustClick()
@@ -37,6 +36,8 @@ func TestBusinessUserCanSignUp(t *testing.T) {
 		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElementX("(//*[@class=\"checkmark\"])[2]").MustClick()
 		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
+
 		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 	})

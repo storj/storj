@@ -11,6 +11,10 @@ import App from './App.vue';
 import { router } from './router';
 import { store } from './store';
 
+window['VueNextTick'] = function(callback) {
+    return Vue.nextTick(callback);
+};
+
 Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
