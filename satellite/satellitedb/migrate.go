@@ -1643,6 +1643,18 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE graceful_exit_transfer_queue`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_agent bytes to the value_attributions, users, projects, api_keys and bucket_metainfos tables",
+				Version:     174,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE users ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE projects ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE api_keys ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN user_agent bytea;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

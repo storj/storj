@@ -136,6 +136,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		Email             string `json:"email"`
 		Partner           string `json:"partner"`
 		PartnerID         string `json:"partnerId"`
+		UserAgent         []byte `json:"userAgent"`
 		Password          string `json:"password"`
 		SecretInput       string `json:"secret"`
 		ReferrerUserID    string `json:"referrerUserId"`
@@ -160,12 +161,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if registerData.Partner != "" {
-		info, err := a.partners.ByName(ctx, registerData.Partner)
-		if err != nil {
-			a.log.Warn("Invalid partner name", zap.String("Partner name", registerData.Partner), zap.String("User email", registerData.Email), zap.Error(err))
-		} else {
-			registerData.PartnerID = info.ID
-		}
+		registerData.UserAgent = []byte(registerData.Partner)
 	}
 
 	ip, err := web.GetRequestIP(r)
@@ -180,6 +176,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			ShortName:         registerData.ShortName,
 			Email:             registerData.Email,
 			PartnerID:         registerData.PartnerID,
+			UserAgent:         registerData.UserAgent,
 			Password:          registerData.Password,
 			IsProfessional:    registerData.IsProfessional,
 			Position:          registerData.Position,
@@ -286,6 +283,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		ShortName            string    `json:"shortName"`
 		Email                string    `json:"email"`
 		PartnerID            uuid.UUID `json:"partnerId"`
+		UserAgent            []byte    `json:"userAgent"`
 		ProjectLimit         int       `json:"projectLimit"`
 		IsProfessional       bool      `json:"isProfessional"`
 		Position             string    `json:"position"`
@@ -308,6 +306,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.Email = auth.User.Email
 	user.ID = auth.User.ID
 	user.PartnerID = auth.User.PartnerID
+	user.UserAgent = auth.User.UserAgent
 	user.ProjectLimit = auth.User.ProjectLimit
 	user.IsProfessional = auth.User.IsProfessional
 	user.CompanyName = auth.User.CompanyName

@@ -24,9 +24,10 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 	defer mon.Task()(&ctx)(&err)
 
 	partnerID := dbx.BucketMetainfo_Create_Fields{}
-	if !bucket.PartnerID.IsZero() {
+	if !bucket.PartnerID.IsZero() || bucket.UserAgent != nil {
 		partnerID = dbx.BucketMetainfo_Create_Fields{
 			PartnerId: dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:]),
+			UserAgent: dbx.BucketMetainfo_UserAgent(bucket.UserAgent),
 		}
 	}
 
@@ -109,12 +110,18 @@ func (db *bucketsDB) GetBucketID(ctx context.Context, bucket metabase.BucketLoca
 func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if bucket.PartnerID.IsZero() {
-		return storj.Bucket{}, Error.New("partnerId is zero")
+	if bucket.PartnerID.IsZero() && bucket.UserAgent == nil {
+		return storj.Bucket{}, Error.New("no partner ID or user agent found")
 	}
 
 	var updateFields dbx.BucketMetainfo_Update_Fields
-	updateFields.PartnerId = dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:])
+	if !bucket.PartnerID.IsZero() {
+		updateFields.PartnerId = dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:])
+	}
+
+	if bucket.UserAgent != nil {
+		updateFields.UserAgent = dbx.BucketMetainfo_UserAgent(bucket.UserAgent)
+	}
 
 	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]), dbx.BucketMetainfo_Name([]byte(bucket.Name)), updateFields)
 	if err != nil {
@@ -262,6 +269,10 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 			return bucket, storj.ErrBucket.Wrap(err)
 		}
 		bucket.PartnerID = partnerID
+	}
+
+	if dbxBucket.UserAgent != nil {
+		bucket.UserAgent = dbxBucket.UserAgent
 	}
 
 	return bucket, nil

@@ -61,6 +61,9 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	if !user.PartnerID.IsZero() {
 		optional.PartnerId = dbx.User_PartnerId(user.PartnerID[:])
 	}
+	if user.UserAgent != nil {
+		optional.UserAgent = dbx.User_UserAgent(user.UserAgent)
+	}
 	if user.ProjectLimit != 0 {
 		optional.ProjectLimit = dbx.User_ProjectLimit(user.ProjectLimit)
 	}
@@ -207,6 +210,10 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if user.UserAgent != nil {
+		result.UserAgent = user.UserAgent
 	}
 
 	if user.ShortName != nil {

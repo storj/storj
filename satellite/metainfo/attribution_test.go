@@ -82,31 +82,25 @@ func TestBucketAttribution(t *testing.T) {
 		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		for i, tt := range []struct {
-			signupPartner       string
-			userAgent           string
-			expectedAttribution string
+			signupPartner       []byte
+			userAgent           []byte
+			expectedAttribution []byte
 		}{
-			{signupPartner: "", userAgent: "", expectedAttribution: ""},
-			{signupPartner: "Minio", userAgent: "", expectedAttribution: "Minio"},
-			{signupPartner: "Minio", userAgent: "Minio", expectedAttribution: "Minio"},
-			{signupPartner: "Minio", userAgent: "Zenko", expectedAttribution: "Minio"},
-			{signupPartner: "", userAgent: "Zenko", expectedAttribution: "Zenko"},
+			{signupPartner: nil, userAgent: nil, expectedAttribution: nil},
+			{signupPartner: []byte("Minio"), userAgent: nil, expectedAttribution: []byte("Minio")},
+			{signupPartner: []byte("Minio"), userAgent: []byte("Minio"), expectedAttribution: []byte("Minio")},
+			{signupPartner: []byte("Minio"), userAgent: []byte("Zenko"), expectedAttribution: []byte("Minio")},
+			{signupPartner: nil, userAgent: []byte("Zenko"), expectedAttribution: []byte("Zenko")},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
 			satellite := planet.Satellites[0]
 
-			var signupPartnerID string
-			if tt.signupPartner != "" {
-				partner, err := satellite.API.Marketing.PartnersService.ByName(ctx, tt.signupPartner)
-				require.NoError(t, err, errTag)
-				signupPartnerID = partner.ID
-			}
-
 			user, err := satellite.AddUser(ctx, console.CreateUser{
 				FullName:  "Test User " + strconv.Itoa(i),
 				Email:     "user@test" + strconv.Itoa(i),
-				PartnerID: signupPartnerID,
+				PartnerID: "",
+				UserAgent: tt.signupPartner,
 			}, 1)
 			require.NoError(t, err, errTag)
 
@@ -120,7 +114,7 @@ func TestBucketAttribution(t *testing.T) {
 			require.NoError(t, err, errTag)
 
 			config := uplink.Config{
-				UserAgent: tt.userAgent,
+				UserAgent: string(tt.userAgent),
 			}
 			access, err := config.RequestAccessWithPassphrase(ctx, satellite.NodeURL().String(), apiKeyInfo.Serialize(), "mypassphrase")
 			require.NoError(t, err, errTag)
@@ -131,23 +125,16 @@ func TestBucketAttribution(t *testing.T) {
 			_, err = project.CreateBucket(ctx, "bucket")
 			require.NoError(t, err, errTag)
 
-			var expectedPartnerID uuid.UUID
-			if tt.expectedAttribution != "" {
-				expectedPartner, err := planet.Satellites[0].API.Marketing.PartnersService.ByName(ctx, tt.expectedAttribution)
-				require.NoError(t, err, errTag)
-				expectedPartnerID = expectedPartner.UUID
-			}
-
 			bucketInfo, err := satellite.DB.Buckets().GetBucket(ctx, []byte("bucket"), satProject.ID)
 			require.NoError(t, err, errTag)
-			assert.Equal(t, expectedPartnerID, bucketInfo.PartnerID, errTag)
+			assert.Equal(t, tt.expectedAttribution, bucketInfo.UserAgent, errTag)
 
 			attributionInfo, err := planet.Satellites[0].DB.Attribution().Get(ctx, satProject.ID, []byte("bucket"))
-			if tt.expectedAttribution == "" {
+			if tt.expectedAttribution == nil {
 				assert.True(t, attribution.ErrBucketNotAttributed.Has(err), errTag)
 			} else {
 				require.NoError(t, err, errTag)
-				assert.Equal(t, expectedPartnerID, attributionInfo.PartnerID, errTag)
+				assert.Equal(t, tt.expectedAttribution, attributionInfo.UserAgent, errTag)
 			}
 		}
 	})
@@ -168,13 +155,13 @@ func TestQueryAttribution(t *testing.T) {
 		now := time.Now()
 		tomorrow := now.Add(24 * time.Hour)
 
-		partner, err := satellite.API.Marketing.PartnersService.ByName(ctx, "Minio")
-		require.NoError(t, err)
+		userAgent := "Minio"
 
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName:  "user@test",
 			Email:     "user@test",
-			PartnerID: partner.ID,
+			PartnerID: "",
+			UserAgent: []byte(userAgent),
 		}, 1)
 		require.NoError(t, err)
 
@@ -240,10 +227,12 @@ func TestQueryAttribution(t *testing.T) {
 			require.NoError(t, err)
 			require.NotZero(t, usage.Egress)
 
-			partner, err := planet.Satellites[0].API.Marketing.PartnersService.ByName(ctx, "Minio")
+			partner, _ := planet.Satellites[0].API.Marketing.PartnersService.ByName(ctx, "")
+
+			userAgent := []byte("Minio")
 			require.NoError(t, err)
 
-			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
+			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
 			require.NoError(t, err)
 			require.NotZero(t, rows[0].TotalBytesPerHour)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
@@ -314,19 +303,19 @@ func TestAttributionReport(t *testing.T) {
 			require.NoError(t, err)
 			require.NotZero(t, usage.Egress)
 
-			partner, err := planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "Zenko")
-			require.NoError(t, err)
+			partner, _ := planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "")
+			userAgent := []byte("Zenko/1.0")
 
-			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
+			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
 			require.NoError(t, err)
 			require.NotZero(t, rows[0].TotalBytesPerHour)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
 
 			// Minio should have no attribution because bucket was created by Zenko
-			partner, err = planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "Minio")
-			require.NoError(t, err)
+			partner, _ = planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "")
+			userAgent = []byte("Minio/1.0")
 
-			rows, err = planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
+			rows, err = planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
 			require.NoError(t, err)
 			require.Empty(t, rows)
 		}
@@ -367,13 +356,8 @@ func TestBucketAttributionConcurrentUpload(t *testing.T) {
 
 		ctx.Wait()
 
-		expectedPartnerID, err := satellite.Metainfo.Endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
-			UserAgent: []byte("Minio"),
-		})
-		require.NoError(t, err)
-
 		attributionInfo, err := planet.Satellites[0].DB.Attribution().Get(ctx, planet.Uplinks[0].Projects[0].ID, []byte("attr-bucket"))
 		require.NoError(t, err)
-		require.Equal(t, expectedPartnerID, attributionInfo.PartnerID)
+		require.Equal(t, []byte(config.UserAgent), attributionInfo.UserAgent)
 	})
 }

@@ -58,7 +58,7 @@ func TestAuth_Register(t *testing.T) {
 					ShortName      string `json:"shortName"`
 					Email          string `json:"email"`
 					Partner        string `json:"partner"`
-					PartnerID      string `json:"partnerId"`
+					UserAgent      []byte `json:"userAgent"`
 					Password       string `json:"password"`
 					SecretInput    string `json:"secret"`
 					ReferrerUserID string `json:"referrerUserId"`
@@ -103,14 +103,7 @@ func TestAuth_Register(t *testing.T) {
 
 				user, err := planet.Satellites[0].API.Console.Service.GetUser(ctx, userID)
 				require.NoError(t, err)
-
-				if test.ValidPartner {
-					info, err := planet.Satellites[0].API.Marketing.PartnersService.ByName(ctx, test.Partner)
-					require.NoError(t, err)
-					require.Equal(t, info.UUID, user.PartnerID)
-				} else {
-					require.Equal(t, uuid.UUID{}, user.PartnerID)
-				}
+				require.Equal(t, []byte(test.Partner), user.UserAgent)
 			}()
 		}
 	})

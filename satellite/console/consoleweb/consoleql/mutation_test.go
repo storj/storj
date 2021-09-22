@@ -125,7 +125,7 @@ func TestGraphqlMutation(t *testing.T) {
 			FullName:  "John Roll",
 			ShortName: "Roll",
 			Email:     "test@mail.test",
-			PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
+			UserAgent: []byte("120bf202-8252-437e-ac12-0e364bee852e"),
 			Password:  "123a123",
 		}
 
@@ -134,7 +134,7 @@ func TestGraphqlMutation(t *testing.T) {
 
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		require.NoError(t, err)
-		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
+		require.Equal(t, createUser.UserAgent, rootUser.UserAgent)
 
 		err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)

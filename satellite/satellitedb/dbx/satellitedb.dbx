@@ -7,6 +7,7 @@ model value_attribution (
 	field project_id	blob
 	field bucket_name	blob
 	field partner_id	blob
+	field user_agent	blob       ( nullable )
 	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )
 
@@ -283,6 +284,7 @@ model user (
 
     field status             int       ( updatable, autoinsert )
     field partner_id         blob      ( nullable )
+    field user_agent         blob      ( nullable )
     field created_at         timestamp ( autoinsert )
     field project_limit      int       ( updatable, default 0 )
     field paid_tier          bool      ( updatable, default false )
@@ -331,6 +333,7 @@ model project (
     field burst_limit     int       ( nullable, updatable )
     field max_buckets     int       ( nullable, updatable )
     field partner_id      blob      ( nullable )
+    field user_agent      blob      ( nullable )
     field owner_id        blob
 
     field created_at      timestamp ( autoinsert )
@@ -418,6 +421,7 @@ model api_key (
     field  name        text       (updatable)
     field  secret      blob
     field  partner_id  blob       (nullable)
+    field  user_agent  blob       (nullable)
     field  created_at  timestamp  (autoinsert)
 )
 
@@ -897,6 +901,7 @@ model bucket_metainfo (
 	field project_id     project.id restrict
 	field name           blob
 	field partner_id     blob   (nullable, updatable)
+	field user_agent     blob   (nullable, updatable)
 
 	field path_cipher    int
 

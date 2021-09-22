@@ -646,6 +646,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.Combine(errs.New("Invalid Partner ID format. %s", args[0]), err)
 	}
+	userAgent := []byte(args[0])
 
 	start, end, err := reports.ParseRange(args[1], args[2])
 	if err != nil {
@@ -654,7 +655,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if partnerAttribtionCfg.Output == "" {
-		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, start, end, os.Stdout)
+		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, userAgent, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -673,7 +674,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, start, end, file)
+	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, userAgent, start, end, file)
 }
 
 func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {

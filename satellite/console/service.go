@@ -622,11 +622,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			HaveSalesContact: user.HaveSalesContact,
 		}
 
-		if user.PartnerID != "" {
-			newUser.PartnerID, err = uuid.FromString(user.PartnerID)
-			if err != nil {
-				return Error.Wrap(err)
-			}
+		if user.UserAgent != nil {
+			newUser.UserAgent = user.UserAgent
 		}
 
 		if registrationToken != nil {
@@ -1111,6 +1108,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				Name:           projectInfo.Name,
 				OwnerID:        auth.User.ID,
 				PartnerID:      auth.User.PartnerID,
+				UserAgent:      auth.User.UserAgent,
 				StorageLimit:   &storageLimit,
 				BandwidthLimit: &bandwidthLimit,
 			},
@@ -1392,6 +1390,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		ProjectID: projectID,
 		Secret:    secret,
 		PartnerID: auth.User.PartnerID,
+		UserAgent: auth.User.UserAgent,
 	}
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
