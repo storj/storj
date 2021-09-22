@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-enum Memory {
+export enum Memory {
     Bytes = 1e0,
     KB = 1e3,
     MB = 1e6,

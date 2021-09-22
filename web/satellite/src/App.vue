@@ -65,12 +65,15 @@ export default class App extends Vue {
         if (couponCodeBillingUIEnabled) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled === 'true');
         }
+
         if (couponCodeSignupUIEnabled) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
         }
+
         if (isNewOnboardingFlow) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_ONB_CLI_FLOW_STATUS, isNewOnboardingFlow === 'true');
         }
+
     }
 }
 </script>
