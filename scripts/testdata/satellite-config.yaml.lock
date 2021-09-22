@@ -97,6 +97,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
 
+# default paid-tier bandwidth usage limit
+# console.default-paid-bandwidth-limit: 0 B
+
+# default paid-tier storage usage limit
+# console.default-paid-storage-limit: 0 B
+
 # default project limits for users
 # console.default-project-limit: 3
 
