@@ -95,7 +95,7 @@ install-sim: ## install storj-sim
 
 	## install exact version of storj/gateway
 	## TODO replace 'main' with 'latest' when gateway with multipart will be released
-	go install -race -v storj.io/gateway@main
+	go install -race -v storj.io/gateway@5da0ff79b964560906bab67ce6f1eb16b89a93de
 
 ##@ Test
 

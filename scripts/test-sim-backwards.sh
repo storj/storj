@@ -68,6 +68,7 @@ EOF
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+sed -i -e 's#storj.io/gateway@main#storj.io/gateway@5da0ff79b964560906bab67ce6f1eb16b89a93de#g' "$RELEASE_DIR"/Makefile
 GOBIN="$RELEASE_DIR"/bin make -C "$RELEASE_DIR" install-sim
 GOBIN="$BRANCH_DIR"/bin  make -C "$BRANCH_DIR" install-sim
 

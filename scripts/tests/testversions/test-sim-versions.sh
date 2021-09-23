@@ -93,7 +93,7 @@ install_sim(){
     else
 	mkdir -p ${work_dir}/build/gateway-tmp
     ## TODO replace 'main' with 'latest' when gateway with multipart will be released
-	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@main;)
+	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@5da0ff79b964560906bab67ce6f1eb16b89a93de;)
         rm -rf ${work_dir}/build/gateway-tmp
     fi
     if [ -d "${work_dir}/cmd/multinode" ]; then

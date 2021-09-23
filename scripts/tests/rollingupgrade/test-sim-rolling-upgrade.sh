@@ -118,7 +118,7 @@ install_sim(){
         mkdir -p .build/gateway-tmp
         pushd .build/gateway-tmp
         	## TODO replace 'main' with 'latest' when gateway with multipart will be released
-            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@main
+            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@5da0ff79b964560906bab67ce6f1eb16b89a93de
         popd
     fi
 
