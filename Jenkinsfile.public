@@ -19,7 +19,9 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+
                 sh 'mkdir -p .build'
+
                 // make a backup of the mod file, because sometimes they get modified by tools
                 // this allows to lint the unmodified files
                 sh 'cp go.mod .build/go.mod.orig'
@@ -28,6 +30,9 @@ pipeline {
                 // download dependencies
                 sh 'go mod download'
                 sh 'cd testsuite && go mod download'
+
+                // pre-check that we cannot do at a later stage reliably
+                sh 'check-large-files'
 
                 // add a stub go.mod file to node projects to prevent go build ./... from scanning them
                 sh 'mkdir -p web/satellite/node_modules web/storagenode/node_modules web/multinode/node_modules'
@@ -108,7 +113,6 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'check-copyright'
-                        sh 'check-large-files'
                         sh 'check-imports -race ./...'
                         sh 'check-peer-constraints -race'
                         sh 'check-atomic-align ./...'
@@ -172,8 +176,6 @@ pipeline {
                         sh 'use-ports -from 1024 -to 10000 &'
 
                         sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-
-                        sh 'check-clean-directory'
                     }
 
                     post {
@@ -326,6 +328,16 @@ pipeline {
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
+                    }
+                }
+            }
+        }
+
+        stage('Post') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh 'check-clean-directory'
                     }
                 }
             }
