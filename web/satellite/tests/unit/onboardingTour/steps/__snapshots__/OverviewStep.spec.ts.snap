@@ -22,7 +22,7 @@ exports[`OverviewStep.vue renders correctly 1`] = `
       </defs>
     </svg>
   </div>
-  <p class="overview-area__subtitle">Let's get you started using Storj DCS</p>
+  <p class="overview-area__subtitle">Let's get you started using Storj</p>
   <p class="overview-area__question">Do you want to use web browser or command-line interface?</p>
   <div class="overview-area__routes">
     <div class="overview-container overview-area__routes__left-cont"><svg width="78" height="64" viewBox="0 0 78 64" fill="none" xmlns="http://www.w3.org/2000/svg" alt="web" class="overview-container__img">

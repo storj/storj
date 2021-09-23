@@ -8,7 +8,7 @@
             <h1 class="overview-area__header__title" aria-roledescription="title">Welcome</h1>
             <WelcomeRight />
         </div>
-        <p class="overview-area__subtitle">Let's get you started using Storj DCS</p>
+        <p class="overview-area__subtitle">Let's get you started using Storj</p>
         <p class="overview-area__question">Do you want to use web browser or command-line interface?</p>
         <div class="overview-area__routes">
             <OverviewContainer

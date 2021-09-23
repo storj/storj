@@ -6,8 +6,8 @@
         <EncryptIcon />
         <h1 class="encrypt-container__title">Encrypt your data</h1>
         <p class="encrypt-container__info">
-            The encryption passphrase is used to encrypt and access the data that you upload to Storj DCS. We strongly
-            encourage you to use a mnemonic phrase, which is automatically generated one on the client-side for you.
+            The encryption passphrase is used to encrypt and access the data that you upload to Storj. We strongly
+            encourage you to use a mnemonic phrase, which is automatically generated on the client-side for you.
         </p>
         <div class="encrypt-container__header">
             <p class="encrypt-container__header__rec">RECOMMENDED</p>

@@ -4,7 +4,7 @@
 <template>
     <div class="pt-bar">
         <p>
-            Upload up to 75TB by upgrading to a Storj DCS Pro Account.
+            Upload up to 75TB by upgrading to a Storj Pro Account.
         </p>
         <p class="pt-bar__functional" @click.stop="openAddPMModal">
             Upgrade now.
