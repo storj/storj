@@ -71,7 +71,7 @@ pipeline {
                 stage('go -race gateway') {
                     steps {
                         // install gateway for storj-sim
-                        sh 'go install -race -v storj.io/gateway@5da0ff79b964560906bab67ce6f1eb16b89a93de'
+                        sh 'go install -race -v storj.io/gateway@main'
                     }
                 }
 

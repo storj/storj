@@ -91,10 +91,8 @@ install_sim(){
     if [ -d "${work_dir}/cmd/gateway" ]; then
         (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
     else
-	mkdir -p ${work_dir}/build/gateway-tmp
-    ## TODO replace 'main' with 'latest' when gateway with multipart will be released
-	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@5da0ff79b964560906bab67ce6f1eb16b89a93de;)
-        rm -rf ${work_dir}/build/gateway-tmp
+        # TODO(artur): replace 'main' with 'latest' after the gateway is being released again
+        GOBIN=${bin_dir} go install -race storj.io/gateway@main
     fi
     if [ -d "${work_dir}/cmd/multinode" ]; then
         # as storj-sim is most likely installed from $PWD and contains storj-sim version which requires multinode
