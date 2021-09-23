@@ -42,7 +42,7 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		page.Keyboard.MustPress(input.Enter)
 
 		// testing onboarding workflow browser
-		page.MustElementX("(//span[text()=\"CONTINUE IN WEB\"])").MustClick()
+		page.MustElementX("(//span[text()=\"Continue in web\"])").MustClick()
 		objectBrowserWarning := page.MustElement("[aria-roledescription=sub-title]").MustText()
 		require.Contains(t, objectBrowserWarning, "The object browser uses server side encryption.")
 		page.MustElementX("(//span[text()=\"Continue\"])").MustClick()

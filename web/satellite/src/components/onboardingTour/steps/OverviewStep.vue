@@ -5,7 +5,7 @@
     <div class="overview-area">
         <div class="overview-area__header">
             <WelcomeLeft />
-            <h1 class="overview-area__header__title">Welcome</h1>
+            <h1 class="overview-area__header__title" aria-roledescription="title">Welcome</h1>
             <WelcomeRight />
         </div>
         <p class="overview-area__subtitle">Let's get you started using Storj DCS</p>

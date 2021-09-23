@@ -67,7 +67,7 @@ export default class CLISetup extends Vue {
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.GenerateAG)).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
     }
 }
 </script>

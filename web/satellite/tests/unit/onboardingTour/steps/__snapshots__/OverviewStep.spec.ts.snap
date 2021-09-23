@@ -8,7 +8,7 @@ exports[`OverviewStep.vue renders correctly 1`] = `
       <path d="M16.7741 6.11976L22.209 11.5547L27.6439 6.11976L22.209 0.68483L16.7741 6.11976Z" fill="#FF458B"></path>
       <path d="M0 16.5204L0 21.4116H4.89119V16.5204H0Z" fill="#0149FF"></path>
     </svg>
-    <h1 class="overview-area__header__title">Welcome</h1> <svg width="77" height="35" viewBox="0 0 77 35" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <h1 aria-roledescription="title" class="overview-area__header__title">Welcome</h1> <svg width="77" height="35" viewBox="0 0 77 35" fill="none" xmlns="http://www.w3.org/2000/svg">
       <g clip-path="url(#clip0)">
         <path d="M18.7226 18.9985L9.8291 10.105L0.935606 18.9985L9.8291 27.892L18.7226 18.9985Z" fill="#FFC600"></path>
         <path d="M40.8472 8.51281L40.8472 0.82666L33.161 0.826659L33.161 8.51281L40.8472 8.51281Z" fill="#00E567"></path>

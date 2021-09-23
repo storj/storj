@@ -38,7 +38,6 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import CLIInstall from "@/components/onboardingTour/steps/cliFlow/CLIInstall.vue";
 import APIKey from "@/components/onboardingTour/steps/cliFlow/APIKey.vue";
 import CLISetup from "@/components/onboardingTour/steps/cliFlow/CLISetup.vue";
-import GenerateAG from "@/components/onboardingTour/steps/cliFlow/GenerateAG.vue";
 import CreateBucket from "@/components/onboardingTour/steps/cliFlow/CreateBucket.vue";
 import UploadObject from "@/components/onboardingTour/steps/cliFlow/UploadObject.vue";
 import ListObject from "@/components/onboardingTour/steps/cliFlow/ListObject.vue";
@@ -102,7 +101,6 @@ export abstract class RouteConfig {
     public static APIKey = new NavigationLink('api-key', 'Onboarding API Key');
     public static CLIInstall = new NavigationLink('cli-install', 'Onboarding CLI Install');
     public static CLISetup = new NavigationLink('cli-setup', 'Onboarding CLI Setup');
-    public static GenerateAG = new NavigationLink('generate-ag', 'Onboarding Generate AG');
     public static CreateBucket = new NavigationLink('create-bucket', 'Onboarding Create Bucket');
     public static UploadObject = new NavigationLink('upload-object', 'Onboarding Upload Object');
     public static ListObject = new NavigationLink('list-object', 'Onboarding List Object');
@@ -299,11 +297,6 @@ export const router = new Router({
                                     path: RouteConfig.CLISetup.path,
                                     name: RouteConfig.CLISetup.name,
                                     component: CLISetup,
-                                },
-                                {
-                                    path: RouteConfig.GenerateAG.path,
-                                    name: RouteConfig.GenerateAG.name,
-                                    component: GenerateAG,
                                 },
                                 {
                                     path: RouteConfig.CreateBucket.path,
