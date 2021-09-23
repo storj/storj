@@ -8,7 +8,8 @@ pipeline {
         }
     }
     options {
-          timeout(time: 36, unit: 'MINUTES')
+        timeout(time: 36, unit: 'MINUTES')
+        skipDefaultCheckout(true)
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
@@ -18,6 +19,11 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                cleanWs(
+                    deleteDirs: true,
+                    disableDeferredWipeout: true,
+                )
+
                 checkout scm
 
                 sh 'mkdir -p .build'
@@ -64,7 +70,7 @@ pipeline {
                 stage('go -race gateway') {
                     steps {
                         // install gateway for storj-sim
-                        sh 'go install -race -v storj.io/gateway@latest'
+                        sh 'go install -race -v storj.io/gateway@5da0ff79b964560906bab67ce6f1eb16b89a93de'
                     }
                 }
 
