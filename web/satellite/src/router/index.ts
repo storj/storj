@@ -123,6 +123,7 @@ export abstract class RouteConfig {
     public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
+    public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
 }
 
 export const notProjectRelatedRoutes = [
@@ -429,8 +430,8 @@ export const router = new Router({
                             component: UploadFile,
                             children: [
                                 {
-                                    path: '*',
-                                    name: RouteConfig.UploadFile.name,
+                                    path: RouteConfig.UploadFileChildren.path,
+                                    name: RouteConfig.UploadFileChildren.name,
                                     component: UploadFile,
                                 },
                             ],
@@ -448,7 +449,8 @@ export const router = new Router({
 });
 
 router.beforeEach(async (to, from, next) => {
-    if (from.name === RouteConfig.UploadFile.name && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+    if (((from.name === RouteConfig.UploadFile.name) || (from.name === RouteConfig.UploadFileChildren.name))
+        && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
         if (areUploadsInProgress) return;
     }
