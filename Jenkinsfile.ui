@@ -70,6 +70,13 @@ pipeline {
     }
 
     post {
+        success {
+            echo 'Successfully!'
+        }
+        failure {
+            echo 'Failed!'
+            slackSend color: 'danger', message: "@qa UI tests build failed"
+        }
         always {
             sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
             deleteDir()
