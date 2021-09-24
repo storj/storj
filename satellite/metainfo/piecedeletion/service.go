@@ -137,8 +137,9 @@ func (service *Service) Run(ctx context.Context) error {
 
 // Close shuts down the service.
 func (service *Service) Close() error {
-	<-service.running.Done()
-	service.combiner.Close()
+	if service.combiner != nil {
+		service.combiner.Close()
+	}
 	return nil
 }
 
