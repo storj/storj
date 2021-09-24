@@ -6,15 +6,19 @@ package metabasetest
 import (
 	"testing"
 
+	"github.com/spf13/pflag"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/memory"
 	"storj.io/common/testcontext"
+	"storj.io/private/cfgstruct"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-// Run runs tests against all configured databases.
-func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
+// RunWithConfig runs tests with specific metabase configuration.
+func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
 	for _, dbinfo := range satellitedbtest.Databases() {
 		dbinfo := dbinfo
 		t.Run(dbinfo.Name, func(t *testing.T) {
@@ -23,7 +27,7 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
-			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB)
+			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, config)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -42,6 +46,19 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 	}
 }
 
+// Run runs tests against all configured databases.
+func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
+	var config metainfo.Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
+		cfgstruct.UseTestDefaults(),
+	)
+
+	RunWithConfig(t, metabase.Config{
+		MinPartSize:      config.MinPartSize,
+		MaxNumberOfParts: config.MaxNumberOfParts,
+	}, fn)
+}
+
 // Bench runs benchmark for all configured databases.
 func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *metabase.DB)) {
 	for _, dbinfo := range satellitedbtest.Databases() {
@@ -49,8 +66,10 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 		b.Run(dbinfo.Name, func(b *testing.B) {
 			ctx := testcontext.New(b)
 			defer ctx.Cleanup()
-
-			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB)
+			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
+				MinPartSize:      5 * memory.MiB,
+				MaxNumberOfParts: 10000,
+			})
 			if err != nil {
 				b.Fatal(err)
 			}

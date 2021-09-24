@@ -114,6 +114,8 @@ type Config struct {
 	MaxSegmentSize              memory.Size          `default:"64MiB" help:"maximum segment size"`
 	MaxMetadataSize             memory.Size          `default:"2KiB" help:"maximum segment metadata size"`
 	MaxCommitInterval           time.Duration        `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
+	MinPartSize                 memory.Size          `default:"5MiB" testDefault:"0" help:"minimum allowed part size (last part has no minimum size limit)"`
+	MaxNumberOfParts            int                  `default:"10000" help:"maximum number of parts object can contain"`
 	Overlay                     bool                 `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                          RSConfig             `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
 	SegmentLoop                 segmentloop.Config   `help:"segment loop configuration"`

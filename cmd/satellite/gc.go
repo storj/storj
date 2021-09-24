@@ -36,7 +36,10 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
+		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
+		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
+	})
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
 	}

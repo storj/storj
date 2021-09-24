@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
@@ -25,6 +26,12 @@ import (
 var (
 	mon = monkit.Package()
 )
+
+// Config is a configuration struct for part validation.
+type Config struct {
+	MinPartSize      memory.Size
+	MaxNumberOfParts int
+}
 
 // DB implements a database for storing objects and segments.
 type DB struct {
@@ -36,10 +43,12 @@ type DB struct {
 	aliasCache *NodeAliasCache
 
 	testCleanup func() error
+
+	config Config
 }
 
 // Open opens a connection to metabase.
-func Open(ctx context.Context, log *zap.Logger, connstr string) (*DB, error) {
+func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (*DB, error) {
 	var driverName string
 	_, _, impl, err := dbutil.SplitConnStr(connstr)
 	if err != nil {
@@ -66,6 +75,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string) (*DB, error) {
 		connstr:     connstr,
 		impl:        impl,
 		testCleanup: func() error { return nil },
+		config:      config,
 	}
 	db.aliasCache = NewNodeAliasCache(db)
 

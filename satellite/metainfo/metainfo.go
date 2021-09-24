@@ -88,7 +88,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
-func NewEndpoint(log *zap.Logger, buckets BucketsDB, metabase *metabase.DB,
+func NewEndpoint(log *zap.Logger, buckets BucketsDB, metabaseDB *metabase.DB,
 	deletePieces *piecedeletion.Service, orders *orders.Service, cache *overlay.Service,
 	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
@@ -115,7 +115,7 @@ func NewEndpoint(log *zap.Logger, buckets BucketsDB, metabase *metabase.DB,
 	return &Endpoint{
 		log:                 log,
 		buckets:             buckets,
-		metabase:            metabase,
+		metabase:            metabaseDB,
 		deletePieces:        deletePieces,
 		orders:              orders,
 		overlay:             cache,

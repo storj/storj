@@ -12,6 +12,7 @@ import (
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/txutil"
@@ -435,6 +436,10 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			return Error.New("failed to fetch segments: %w", err)
 		}
 
+		if err = db.validateParts(segments); err != nil {
+			return err
+		}
+
 		finalSegments := convertToFinalSegments(segments)
 		err = updateSegmentOffsets(ctx, tx, opts.StreamID, finalSegments)
 		if err != nil {
@@ -539,4 +544,33 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
 
 	return object, nil
+}
+
+func (db *DB) validateParts(segments []segmentInfoForCommit) error {
+	partSize := make(map[uint32]memory.Size)
+
+	var lastPart uint32
+	for _, segment := range segments {
+		partSize[segment.Position.Part] += memory.Size(segment.PlainSize)
+		if lastPart < segment.Position.Part {
+			lastPart = segment.Position.Part
+		}
+	}
+
+	if len(partSize) > db.config.MaxNumberOfParts {
+		return Error.New("exceeded maximum number of parts: %d", db.config.MaxNumberOfParts)
+	}
+
+	for part, size := range partSize {
+		// Last part has no minimum size.
+		if part == lastPart {
+			continue
+		}
+
+		if size < db.config.MinPartSize {
+			return Error.New("size of part number %d is below minimum threshold, got: %s, min: %s", part, size, db.config.MinPartSize)
+		}
+	}
+
+	return nil
 }

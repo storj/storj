@@ -388,8 +388,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum segment metadata size
 # metainfo.max-metadata-size: 2.0 KiB
 
+# maximum number of parts object can contain
+# metainfo.max-number-of-parts: 10000
+
 # maximum segment size
 # metainfo.max-segment-size: 64.0 MiB
+
+# minimum allowed part size (last part has no minimum size limit)
+# metainfo.min-part-size: 5.0 MiB
 
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
