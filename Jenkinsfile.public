@@ -19,7 +19,12 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                sh "chmod -R 777 ." // ensure Jenkins can delete the working directory, with before-checkout hook
+                // Delete any content left over from a previous run.
+                sh "chmod -R 777 ."
+                // Bash requires extglob option to support !(.git) syntax,
+                // and we don't want to delete .git to have faster clones.
+                sh 'bash -O extglob -c "rm -r !(.git)"'
+
                 checkout scm
 
                 sh 'mkdir -p .build'
