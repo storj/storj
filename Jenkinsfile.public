@@ -19,6 +19,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                sh "chmod -R 777 ." // ensure Jenkins can delete the working directory, with before-checkout hook
                 checkout scm
 
                 sh 'mkdir -p .build'
