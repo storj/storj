@@ -19,11 +19,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                cleanWs(
-                    deleteDirs: true,
-                    disableDeferredWipeout: true,
-                )
-
                 checkout scm
 
                 sh 'mkdir -p .build'
@@ -347,13 +342,6 @@ pipeline {
                     }
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
-            deleteDir()
         }
     }
 }
