@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// Package monitor is responsible for monitoring the disk is well-behaved.
+// It checks whether there's sufficient space and whether directories are writable.
 package monitor
 
 import (
