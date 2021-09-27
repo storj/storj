@@ -3035,6 +3035,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 			StreamID:   streamUUID,
 		},
 		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
+		NewBucket:                    string(req.NewBucket),
 		NewEncryptedObjectKey:        req.NewEncryptedObjectKey,
 		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce[:],
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
