@@ -476,11 +476,12 @@ func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID
 
 	err = db.IterateObjectsAllVersionsWithStatus(ctx,
 		IterateObjectsWithStatus{
-			ProjectID:       projectID,
-			BucketName:      bucketName,
-			Recursive:       true,
-			Status:          status,
-			IncludeMetadata: true,
+			ProjectID:             projectID,
+			BucketName:            bucketName,
+			Recursive:             true,
+			Status:                status,
+			IncludeCustomMetadata: true,
+			IncludeSystemMetadata: true,
 		}, func(ctx context.Context, it ObjectsIterator) error {
 			entry := ObjectEntry{}
 			for it.Next(ctx, &entry) {
