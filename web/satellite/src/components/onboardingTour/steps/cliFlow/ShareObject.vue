@@ -45,13 +45,13 @@
             </div>
             <OSContainer>
                 <template #windows>
-                    <TabWithCopy value="./uplink.exe share --url sj://cakes/cheesecake.jpg" />
+                    <TabWithCopy value="./uplink.exe share --url sj://cakes/cheesecake.jpg" aria-role-description="windows-share" />
                 </template>
                 <template #linux>
-                    <TabWithCopy value="uplink share --url sj://cakes/cheesecake.jpg" />
+                    <TabWithCopy value="uplink share --url sj://cakes/cheesecake.jpg" aria-role-description="linux-share" />
                 </template>
                 <template #macos>
-                    <TabWithCopy value="uplink share --url sj://cakes/cheesecake.jpg" />
+                    <TabWithCopy value="uplink share --url sj://cakes/cheesecake.jpg" aria-role-description="macos-share" />
                 </template>
             </OSContainer>
             <p class="share-object__msg">

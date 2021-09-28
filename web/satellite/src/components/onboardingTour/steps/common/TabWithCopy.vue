@@ -3,7 +3,7 @@
 
 <template>
     <div class="tab-copy">
-        <p class="tab-copy__value">{{ value }}</p>
+        <p class="tab-copy__value" :aria-roledescription="ariaRoleDescription">{{ value }}</p>
         <CopyIcon class="tab-copy__icon" @click="onCopyClick" />
     </div>
 </template>
@@ -22,6 +22,8 @@ import CopyIcon from '@/../static/images/onboardingTour/copy.svg';
 export default class TabWithCopy extends Vue {
     @Prop({ default: ''})
     public readonly value: string;
+    @Prop({ default: ''})
+    public readonly ariaRoleDescription: string;
 
     /**
      * Holds on copy button click logic.

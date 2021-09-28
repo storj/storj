@@ -17,7 +17,10 @@
                     <div class="cli-install__windows">
                         <h2 class="cli-install__macos__sub-title">
                             1. Download the
-                            <a href="https://github.com/storj/storj/releases/download/v1.34.3/uplink_windows_amd64.zip">
+                            <a
+                                href="https://github.com/storj/storj/releases/latest/download/uplink_windows_amd64.zip"
+                                aria-roledescription="windows-binary-link"
+                            >
                                 Windows Uplink Binary
                             </a>
                             zip file
@@ -54,7 +57,11 @@
                                 sudo mv uplink /usr/local/bin/uplink
                             </p>
                         </div>
-                        <a class="cli-install__linux__link" href="https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip">
+                        <a
+                            class="cli-install__linux__link"
+                            href="https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip"
+                            aria-roledescription="linux-amd-binary-link"
+                        >
                             Linux AMD64 Uplink Binary
                         </a>
                         <h1 class="cli-install__linux__title margin-top">ARM</h1>
@@ -73,7 +80,11 @@
                                 sudo mv uplink /usr/local/bin/uplink
                             </p>
                         </div>
-                        <a class="cli-install__linux__link" href="https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip">
+                        <a
+                            class="cli-install__linux__link"
+                            href="https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip"
+                            aria-roledescription="linux-arm-binary-link"
+                        >
                             Linux ARM Uplink Binary
                         </a>
                     </div>
@@ -95,7 +106,11 @@
                                 sudo mv uplink /usr/local/bin/uplink
                             </p>
                         </div>
-                        <a class="cli-install__macos__link" href="https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip">
+                        <a
+                            class="cli-install__macos__link"
+                            href="https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip"
+                            aria-roledescription="macos-binary-link"
+                        >
                             macOS Uplink Binary
                         </a>
                     </div>
