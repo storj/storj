@@ -1230,9 +1230,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		cursor = string(prefix) + cursor
 	}
 
-	includeMetadata := true
+	includeCustomMetadata := true
+	includeSystemMetadata := true
 	if req.UseObjectIncludes {
-		includeMetadata = req.ObjectIncludes.Metadata
+		includeCustomMetadata = req.ObjectIncludes.Metadata
+		includeSystemMetadata = !req.ObjectIncludes.ExcludeSystemMetadata
 	}
 
 	resp = &pb.ObjectListResponse{}
@@ -1246,14 +1248,15 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				Key:     metabase.ObjectKey(cursor),
 				Version: 1, // TODO: set to a the version from the protobuf request when it supports this
 			},
-			Recursive:       req.Recursive,
-			BatchSize:       limit + 1,
-			Status:          status,
-			IncludeMetadata: includeMetadata,
+			Recursive:             req.Recursive,
+			BatchSize:             limit + 1,
+			Status:                status,
+			IncludeCustomMetadata: includeCustomMetadata,
+			IncludeSystemMetadata: includeSystemMetadata,
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeMetadata)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata)
 				if err != nil {
 					return err
 				}

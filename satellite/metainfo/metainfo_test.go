@@ -561,7 +561,8 @@ func TestListGetObjects(t *testing.T) {
 
 		expectedBucketName := "testbucket"
 		items, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte(expectedBucketName),
+			Bucket:                []byte(expectedBucketName),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Equal(t, len(files), len(items))
@@ -714,7 +715,8 @@ func TestBeginCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte(bucket.Name),
+			Bucket:                []byte(bucket.Name),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
@@ -815,7 +817,8 @@ func TestInlineSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte(bucket.Name),
+			Bucket:                []byte(bucket.Name),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
@@ -1978,9 +1981,10 @@ func TestStableUploadID(t *testing.T) {
 
 		// List the root of the bucket recursively
 		listResp, _, err := client.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:    []byte("testbucket"),
-			Status:    int32(metabase.Pending),
-			Recursive: true,
+			Bucket:                []byte("testbucket"),
+			Status:                int32(metabase.Pending),
+			Recursive:             true,
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp, 1)
@@ -1989,9 +1993,10 @@ func TestStableUploadID(t *testing.T) {
 
 		// List with prefix non-recursively
 		listResp2, _, err := client.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:          []byte("testbucket"),
-			Status:          int32(metabase.Pending),
-			EncryptedPrefix: []byte("a/b/"),
+			Bucket:                []byte("testbucket"),
+			Status:                int32(metabase.Pending),
+			EncryptedPrefix:       []byte("a/b/"),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp2, 1)
@@ -2000,10 +2005,11 @@ func TestStableUploadID(t *testing.T) {
 
 		// List with prefix recursively
 		listResp3, _, err := client.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:          []byte("testbucket"),
-			Status:          int32(metabase.Pending),
-			EncryptedPrefix: []byte("a/b/"),
-			Recursive:       true,
+			Bucket:                []byte("testbucket"),
+			Status:                int32(metabase.Pending),
+			EncryptedPrefix:       []byte("a/b/"),
+			Recursive:             true,
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp3, 1)
