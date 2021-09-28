@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/testsuite/ui/uitest"
 )
 
-func TestSkipOnboardingWizard(t *testing.T) {
+func TestRestartOnboardingWizard(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
 		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
 		fullName := "John Doe"
@@ -45,5 +45,11 @@ func TestSkipOnboardingWizard(t *testing.T) {
 		page.MustElement("[href=\"/project-dashboard\"]").MustClick()
 		dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, dashboardTitle, "Dashboard")
+
+		// Testing restart tour functionality
+		page.MustElement("[aria-roledescription=restart-onb-icon]").MustHover()
+		page.MustElementX("(//span[text()=\"Start tour\"])").MustClick()
+		welcomeTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, welcomeTitle, "Welcome")
 	})
 }

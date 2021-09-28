@@ -32,7 +32,7 @@
                 :on-button-click="onStartTourButtonClick"
             >
                 <template #icon>
-                    <InfoIcon class="header-container__right-area__info__icon" />
+                    <InfoIcon class="header-container__right-area__info__icon" aria-roledescription="restart-onb-icon" />
                 </template>
                 <template #message>
                     <p class="header-container__right-area__info__message">
