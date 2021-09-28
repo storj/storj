@@ -15,6 +15,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"storj.io/common/errs2"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -76,8 +77,9 @@ func (NullObserver) InlineSegment(context.Context, *Segment) error {
 }
 
 type observerContext struct {
-	trigger  bool
-	observer Observer
+	immediate bool
+	trigger   bool
+	observer  Observer
 
 	ctx  context.Context
 	done chan error
@@ -206,7 +208,8 @@ func (loop *Service) joinObserver(ctx context.Context, trigger bool, obs Observe
 	defer mon.Task()(&ctx)(&err)
 
 	obsctx := newObserverContext(ctx, obs)
-	obsctx.trigger = trigger
+	obsctx.immediate = sync2.IsManuallyTriggeredCycle(ctx)
+	obsctx.trigger = trigger || obsctx.immediate
 
 	select {
 	case loop.join <- obsctx:
@@ -290,8 +293,13 @@ waitformore:
 					timerStarted = true
 				}
 			}
+
 			observers = append(observers, obsctx)
 			go monitorEarlyExit(obsctx)
+
+			if obsctx.immediate {
+				break waitformore
+			}
 
 		// remove an observer from waiting when it's canceled before the loop starts.
 		case obsctx := <-earlyExit:
