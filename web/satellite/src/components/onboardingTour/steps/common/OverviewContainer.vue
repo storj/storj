@@ -6,9 +6,29 @@
         <WebIcon v-if="isWeb" class="overview-container__img" alt="web" />
         <CLIIcon v-else class="overview-container__img" alt="cli" />
         <h2 class="overview-container__title">{{ title }}</h2>
-        <p class="overview-container__enc">{{ encryption }}</p>
+        <p v-if="isWeb" class="overview-container__enc" aria-roledescription="server-side-encryption-title">Server-side encrypted</p>
+        <p v-else class="overview-container__enc" aria-roledescription="end-to-end-encryption-title">End-to-end encrypted</p>
         <p class="overview-container__info">{{ info }}</p>
-        <p class="overview-container__encryption-container">{{ encryptionContainer }}</p>
+        <p v-if="isWeb" class="overview-container__encryption-container">
+            By using the web browser you are opting in to
+            <a
+                class="overview-container__encryption-container__link"
+                href="https://docs.storj.io/concepts/encryption-key/design-decision-server-side-encryption"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-roledescription="server-side-encryption-link"
+            >server-side encryption</a>.
+        </p>
+        <p v-else class="overview-container__encryption-container">
+            The Uplink CLI uses
+            <a
+                class="overview-container__encryption-container__link"
+                href="https://docs.storj.io/concepts/encryption-key/design-decision-end-to-end-encryption"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-roledescription="end-to-end-encryption-link"
+            >end-to-end</a> encryption for object data, metadata and path data.
+        </p>
         <VButton
             :label="buttonLabel"
             width="100%"
@@ -42,11 +62,7 @@ export default class OverviewContainer extends Vue {
     @Prop({ default: ''})
     public readonly title: string;
     @Prop({ default: ''})
-    public readonly encryption: string;
-    @Prop({ default: ''})
     public readonly info: string;
-    @Prop({ default: '' })
-    public readonly encryptionContainer: string;
     @Prop({ default: false})
     public readonly isDisabled: boolean;
     @Prop({ default: ''})
@@ -86,6 +102,7 @@ export default class OverviewContainer extends Vue {
             color: #14142b;
             font-weight: 300;
             margin: 0 0 10px 0;
+            text-transform: uppercase;
         }
 
         &__info {
@@ -106,6 +123,15 @@ export default class OverviewContainer extends Vue {
             line-height: 20px;
             letter-spacing: 0.75px;
             color: #14142a;
+
+            &__link {
+                text-decoration: underline !important;
+                text-underline-position: under;
+
+                &:visited {
+                    color: #14142a;
+                }
+            }
         }
     }
 </style>

@@ -15,18 +15,14 @@
                 class="overview-area__routes__left-cont"
                 is-web="true"
                 title="Web browser"
-                encryption="SERVER-SIDE ENCRYPTED"
                 info="Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world."
-                encryption-container="By using the web browser you are opting in to server-side encryption."
                 button-label="Continue in web"
                 :on-click="onUploadInBrowserClick"
                 :is-disabled="isLoading"
             />
             <OverviewContainer
                 title="Command line"
-                encryption="END-TO-END ENCRYPTED"
                 info="The Uplink CLI is a command-line interface which allows you to upload and download files from the network, manage permissions and sharing."
-                encryption-container="The Uplink CLI uses end-to-end encryption for object data, metadata and path data."
                 button-label="Continue in cli"
                 :on-click="onUplinkCLIClick"
                 :is-disabled="isLoading"

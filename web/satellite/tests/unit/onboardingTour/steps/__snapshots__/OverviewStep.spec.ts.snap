@@ -45,9 +45,12 @@ exports[`OverviewStep.vue renders correctly 1`] = `
         <path d="M34.0488 14.481C36.1054 14.481 37.7725 12.8139 37.7725 10.7573C37.7725 8.70083 36.1054 7.03369 34.0488 7.03369C31.9923 7.03369 30.3252 8.70083 30.3252 10.7573C30.3252 12.8139 31.9923 14.481 34.0488 14.481Z" fill="#00E567"></path>
       </svg>
       <h2 class="overview-container__title">Web browser</h2>
-      <p class="overview-container__enc">SERVER-SIDE ENCRYPTED</p>
+      <p aria-roledescription="server-side-encryption-title" class="overview-container__enc">Server-side encrypted</p>
       <p class="overview-container__info">Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world.</p>
-      <p class="overview-container__encryption-container">By using the web browser you are opting in to server-side encryption.</p>
+      <p class="overview-container__encryption-container">
+        By using the web browser you are opting in to
+        <a href="https://docs.storj.io/concepts/encryption-key/design-decision-server-side-encryption" target="_blank" rel="noopener noreferrer" aria-roledescription="server-side-encryption-link" class="overview-container__encryption-container__link">server-side encryption</a>.
+      </p>
       <div class="container" style="width: 100%; height: 64px; border-radius: 62px;"><span class="label uppercase">Continue in web</span></div>
     </div>
     <div class="overview-container"><svg width="78" height="64" viewBox="0 0 78 64" fill="none" xmlns="http://www.w3.org/2000/svg" alt="cli" class="overview-container__img">
@@ -65,9 +68,12 @@ exports[`OverviewStep.vue renders correctly 1`] = `
         <path fill-rule="evenodd" clip-rule="evenodd" d="M52.0155 50.5068H59.9188C61.5382 50.5068 62.8542 51.8057 62.882 53.4184L62.8825 53.4706C62.8825 55.1074 61.5556 56.4343 59.9188 56.4343H52.0155C50.3961 56.4343 49.08 55.1355 49.0522 53.5227L49.0518 53.4706C49.0518 51.8337 50.3787 50.5068 52.0155 50.5068Z" fill="#FF458B"></path>
       </svg>
       <h2 class="overview-container__title">Command line</h2>
-      <p class="overview-container__enc">END-TO-END ENCRYPTED</p>
+      <p aria-roledescription="end-to-end-encryption-title" class="overview-container__enc">End-to-end encrypted</p>
       <p class="overview-container__info">The Uplink CLI is a command-line interface which allows you to upload and download files from the network, manage permissions and sharing.</p>
-      <p class="overview-container__encryption-container">The Uplink CLI uses end-to-end encryption for object data, metadata and path data.</p>
+      <p class="overview-container__encryption-container">
+        The Uplink CLI uses
+        <a href="https://docs.storj.io/concepts/encryption-key/design-decision-end-to-end-encryption" target="_blank" rel="noopener noreferrer" aria-roledescription="end-to-end-encryption-link" class="overview-container__encryption-container__link">end-to-end</a> encryption for object data, metadata and path data.
+      </p>
       <div class="container" style="width: 100%; height: 64px; border-radius: 62px;"><span class="label uppercase">Continue in cli</span></div>
     </div>
   </div> <a href="/project-dashboard" class="overview-area__skip-button">
