@@ -23,7 +23,7 @@ pipeline {
                 sh "chmod -R 777 ."
                 // Bash requires extglob option to support !(.git) syntax,
                 // and we don't want to delete .git to have faster clones.
-                sh 'bash -O extglob -c "rm -r !(.git)"'
+                sh 'bash -O extglob -c "rm -rf !(.git)"'
 
                 checkout scm
 
