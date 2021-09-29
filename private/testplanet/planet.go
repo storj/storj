@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -29,6 +30,8 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/versioncontrol"
 )
+
+var mon = monkit.Package()
 
 const defaultInterval = 15 * time.Second
 
@@ -180,6 +183,8 @@ func NewCustom(ctx context.Context, log *zap.Logger, config Config, satelliteDat
 
 // Start starts all the nodes.
 func (planet *Planet) Start(ctx context.Context) {
+	defer mon.Task()(&ctx)(nil)
+
 	ctx, cancel := context.WithCancel(ctx)
 	planet.cancel = cancel
 
@@ -234,8 +239,10 @@ func (planet *Planet) StopPeer(peer Peer) error {
 }
 
 // StopNodeAndUpdate stops storage node and updates satellite overlay.
-func (planet *Planet) StopNodeAndUpdate(ctx context.Context, node *StorageNode) error {
-	err := planet.StopPeer(node)
+func (planet *Planet) StopNodeAndUpdate(ctx context.Context, node *StorageNode) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = planet.StopPeer(node)
 	if err != nil {
 		return err
 	}
