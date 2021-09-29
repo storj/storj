@@ -6,7 +6,7 @@
         <div class="label-container">
             <ErrorIcon v-if="error" />
             <p v-if="isLabelShown" class="label-container__label" :style="style.labelStyle">{{ label }}</p>
-            <p v-if="error" class="label-container__error" :style="style.errorStyle">{{ error }}</p>
+            <p v-if="error" class="label-container__error" :aria-roledescription="errorRoleDescription" :style="style.errorStyle">{{ error }}</p>
         </div>
         <input
             v-model="value"
@@ -108,6 +108,8 @@ export default class HeaderlessInput extends Vue {
     private readonly withIcon: boolean;
     @Prop({default: ''})
     private readonly roleDescription: boolean;
+    @Prop({default: ''})
+    protected readonly errorRoleDescription: string;
 
     public constructor() {
         super();

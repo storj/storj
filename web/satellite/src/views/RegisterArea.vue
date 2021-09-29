@@ -31,7 +31,7 @@
                         <div class="register-area__input-area__container__title-container">
                             <h1 class="register-area__input-area__container__title-area__title">Get 150 GB Free</h1>
                         </div>
-                        <div class="register-area__input-area__expand" @click.stop="toggleDropdown">
+                        <div class="register-area__input-area__expand" aria-roledescription="satellites-dropdown" @click.stop="toggleDropdown">
                             <span class="register-area__input-area__expand__value">{{ satelliteName }}</span>
                             <BottomArrowIcon />
                             <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="register-area__input-area__expand__dropdown">
@@ -39,7 +39,13 @@
                                     <SelectedCheckIcon />
                                     <span class="register-area__input-area__expand__dropdown__item__name">{{ satelliteName }}</span>
                                 </div>
-                                <a v-for="sat in partneredSatellites" :key="sat.id" class="register-area__input-area__expand__dropdown__item" :href="sat.address + '/signup'">
+                                <a
+                                    v-for="(sat, index) in partneredSatellites"
+                                    :key="index"
+                                    class="register-area__input-area__expand__dropdown__item"
+                                    :href="`${sat.address}/signup`"
+                                    :aria-roledescription="`satellite-option-${sat.name}`"
+                                >
                                     {{ sat.name }}
                                 </a>
                             </div>
@@ -79,6 +85,7 @@
                             placeholder="example@email.com"
                             :error="emailError"
                             role-description="email"
+                            error-role-description="email-error"
                             @setData="setEmail"
                         />
                     </div>
@@ -117,6 +124,7 @@
                                 :error="passwordError"
                                 is-password="true"
                                 role-description="password"
+                                error-role-description="password-error"
                                 @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
                                 @hidePasswordStrength="hidePasswordStrength"

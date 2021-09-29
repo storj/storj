@@ -33,7 +33,7 @@ export default class App extends Vue {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
         const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
         let partneredSatellitesJson = [];
-        if(partneredSatellitesData) {
+        if (partneredSatellitesData) {
             partneredSatellitesJson = JSON.parse(partneredSatellitesData);
         }
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
