@@ -77,7 +77,18 @@ func (rateInfo *CurrencyRateInfo) UnmarshalJSON(b []byte) error {
 }
 
 // CurrencyRateInfos maps currency to currency rate info.
-type CurrencyRateInfos map[*monetary.Currency]CurrencyRateInfo
+type CurrencyRateInfos map[CurrencySymbol]CurrencyRateInfo
+
+// ForCurrency allows lookup into a CurrencyRateInfos map by currency
+// object, instead of by its coinpayments.net-specific symbol.
+func (infos CurrencyRateInfos) ForCurrency(currency *monetary.Currency) (info CurrencyRateInfo, ok bool) {
+	coinpaymentsSymbol, ok := currencySymbols[currency]
+	if !ok {
+		return info, false
+	}
+	info, ok = infos[coinpaymentsSymbol]
+	return info, ok
+}
 
 // ConversionRates collection of API methods for retrieving currency
 // conversion rates.
