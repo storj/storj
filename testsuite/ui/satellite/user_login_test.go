@@ -24,8 +24,8 @@ func TestLoginToAccount(t *testing.T) {
 		page := browser.Timeout(10 * time.Second).MustPage(loginPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
 
-		page.MustElement("[aria-roledescription=email]").MustInput(user.Email)
-		page.MustElement("[aria-roledescription=password]").MustInput(user.Password)
+		page.MustElement("[aria-roledescription=email] input").MustInput(user.Email)
+		page.MustElement("[aria-roledescription=password] input").MustInput(user.Password)
 		page.Keyboard.MustPress(input.Enter)
 
 		dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()

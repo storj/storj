@@ -17,10 +17,7 @@
                     <div class="cli-install__windows">
                         <h2 class="cli-install__macos__sub-title">
                             1. Download the
-                            <a
-                                href="https://github.com/storj/storj/releases/latest/download/uplink_windows_amd64.zip"
-                                aria-roledescription="windows-binary-link"
-                            >
+                            <a href="https://github.com/storj/storj/releases/latest/download/uplink_windows_amd64.zip">
                                 Windows Uplink Binary
                             </a>
                             zip file
@@ -60,7 +57,6 @@
                         <a
                             class="cli-install__linux__link"
                             href="https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip"
-                            aria-roledescription="linux-amd-binary-link"
                         >
                             Linux AMD64 Uplink Binary
                         </a>
@@ -83,7 +79,6 @@
                         <a
                             class="cli-install__linux__link"
                             href="https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip"
-                            aria-roledescription="linux-arm-binary-link"
                         >
                             Linux ARM Uplink Binary
                         </a>
@@ -109,7 +104,6 @@
                         <a
                             class="cli-install__macos__link"
                             href="https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip"
-                            aria-roledescription="macos-binary-link"
                         >
                             macOS Uplink Binary
                         </a>

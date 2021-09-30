@@ -26,10 +26,10 @@ func TestRestartOnboardingWizard(t *testing.T) {
 		page.MustSetViewport(1350, 600, 1, false)
 
 		// First time User signup
-		page.MustElement("[aria-roledescription=name]").MustInput(fullName)
-		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
-		page.MustElement("[aria-roledescription=password]").MustInput(password)
-		page.MustElement("[aria-roledescription=retype-password]").MustInput(password)
+		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
+		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
 		page.Keyboard.MustPress(input.Enter)
 		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
@@ -37,8 +37,8 @@ func TestRestartOnboardingWizard(t *testing.T) {
 
 		// Login as first time User
 		page.MustElement("[href=\"/login\"]").MustClick()
-		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
-		page.MustElement("[aria-roledescription=password]").MustInput(password)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
 
 		// Checking out skip of onboarding process

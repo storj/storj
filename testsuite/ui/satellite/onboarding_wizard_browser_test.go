@@ -26,10 +26,10 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		page.MustSetViewport(1350, 600, 1, false)
 
 		// first time User signup
-		page.MustElement("[aria-roledescription=name]").MustInput(fullName)
-		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
-		page.MustElement("[aria-roledescription=password]").MustInput(password)
-		page.MustElement("[aria-roledescription=retype-password]").MustInput(password)
+		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
+		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
 		page.Keyboard.MustPress(input.Enter)
 		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
@@ -37,8 +37,8 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 
 		// first time user log in
 		page.MustElement("[href=\"/login\"]").MustClick()
-		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
-		page.MustElement("[aria-roledescription=password]").MustInput(password)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
 
 		// testing onboarding workflow browser
@@ -54,7 +54,7 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		require.Contains(t, customPassphraseLabel, "Enter Your Own Passphrase")
 		customPassphrase.MustClick()
 
-		page.MustElement("[aria-roledescription=passphrase]").MustInput("password123")
+		page.MustElement("[aria-roledescription=passphrase] input").MustInput("password123")
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
 
 		// Buckets Page

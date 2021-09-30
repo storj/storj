@@ -44,7 +44,6 @@
                                     :key="index"
                                     class="register-area__input-area__expand__dropdown__item"
                                     :href="`${sat.address}/signup`"
-                                    :aria-roledescription="`satellite-option-${sat.name}`"
                                 >
                                     {{ sat.name }}
                                 </a>
@@ -85,7 +84,6 @@
                             placeholder="example@email.com"
                             :error="emailError"
                             role-description="email"
-                            error-role-description="email-error"
                             @setData="setEmail"
                         />
                     </div>
@@ -124,7 +122,6 @@
                                 :error="passwordError"
                                 is-password="true"
                                 role-description="password"
-                                error-role-description="password-error"
                                 @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
                                 @hidePasswordStrength="hidePasswordStrength"

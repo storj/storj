@@ -29,12 +29,12 @@ func TestBusinessUserCanSignUp(t *testing.T) {
 
 		// First time User signup
 		page.MustElement("[aria-roledescription=professional-label]").MustClick()
-		page.MustElement("[aria-roledescription=name]").MustInput(fullName)
-		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
-		page.MustElement("[aria-roledescription=company-name]").MustInput(companyName)
-		page.MustElement("[aria-roledescription=position]").MustInput(positionTitle)
-		page.MustElement("[aria-roledescription=password]").MustInput(password)
-		page.MustElement("[aria-roledescription=retype-password]").MustInput(password)
+		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=company-name] input").MustInput(companyName)
+		page.MustElement("[aria-roledescription=position] input").MustInput(positionTitle)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
+		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElementX("(//*[@class=\"checkmark\"])[2]").MustClick()
 		page.Keyboard.MustPress(input.Enter)
 		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()

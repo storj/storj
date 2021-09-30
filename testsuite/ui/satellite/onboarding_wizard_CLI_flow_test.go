@@ -26,10 +26,10 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 		page.MustSetViewport(1350, 600, 1, false)
 
 		// First time User signup
-		page.MustElement("[aria-roledescription=name]").MustInput(fullName)
-		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
-		page.MustElement("[aria-roledescription=password]").MustInput(password)
-		page.MustElement("[aria-roledescription=retype-password]").MustInput(password)
+		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
+		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
 		page.Keyboard.MustPress(input.Enter)
 		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
@@ -37,8 +37,8 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// First time User log in
 		page.MustElement("[href=\"/login\"]").MustClick()
-		page.MustElement("[aria-roledescription=email]").MustInput(emailAddress)
-		page.MustElement("[aria-roledescription=password]").MustInput(password)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
 
 		// Testing onboarding workflow uplinkCLI method
@@ -67,24 +67,20 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// OS tabs
 		page.MustElement("[aria-roledescription=windows]").MustClick()
-		windowsBinaryCTA := page.MustElement("[aria-roledescription=windows-binary-link]")
-		windowsBinaryURL, err := windowsBinaryCTA.Attribute("href")
+		windowsBinaryLink, err := page.MustElementX("(//a[text()=\" Windows Uplink Binary \"])").Attribute("href")
 		require.NoError(t, err)
-		require.Equal(t, "https://github.com/storj/storj/releases/latest/download/uplink_windows_amd64.zip", *windowsBinaryURL)
+		require.Equal(t, *windowsBinaryLink, "https://github.com/storj/storj/releases/latest/download/uplink_windows_amd64.zip")
 		page.MustElement("[aria-roledescription=linux]").MustClick()
-		linuxAMDBinaryCTA := page.MustElement("[aria-roledescription=linux-amd-binary-link]")
-		linuxAMDBinaryURL, err := linuxAMDBinaryCTA.Attribute("href")
+		linuxAMDBinaryLink, err := page.MustElementX("(//a[text()=\" Linux AMD64 Uplink Binary \"])").Attribute("href")
 		require.NoError(t, err)
-		require.Equal(t, "https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip", *linuxAMDBinaryURL)
-		linuxARMBinaryCTA := page.MustElement("[aria-roledescription=linux-arm-binary-link]")
-		linuxARMBinaryURL, err := linuxARMBinaryCTA.Attribute("href")
+		require.Equal(t, *linuxAMDBinaryLink, "https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip")
+		linuxARMBinaryLink, err := page.MustElementX("(//a[text()=\" Linux ARM Uplink Binary \"])").Attribute("href")
 		require.NoError(t, err)
-		require.Equal(t, "https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip", *linuxARMBinaryURL)
+		require.Equal(t, *linuxARMBinaryLink, "https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip")
 		page.MustElement("[aria-roledescription=macos]").MustClick()
-		macOSBinaryCTA := page.MustElement("[aria-roledescription=macos-binary-link]")
-		macOSBinaryURL, err := macOSBinaryCTA.Attribute("href")
+		macOSBinaryLink, err := page.MustElementX("(//a[text()=\" macOS Uplink Binary \"])").Attribute("href")
 		require.NoError(t, err)
-		require.Equal(t, "https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip", *macOSBinaryURL)
+		require.Equal(t, *macOSBinaryLink, "https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip")
 
 		// Back and forth click test
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
