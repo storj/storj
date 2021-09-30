@@ -380,11 +380,11 @@ func (service *Service) GetRate(ctx context.Context, curr1, curr2 *monetary.Curr
 		return decimal.Decimal{}, Error.Wrap(err)
 	}
 
-	info1, ok := service.rates[curr1]
+	info1, ok := service.rates.ForCurrency(curr1)
 	if !ok {
 		return decimal.Decimal{}, Error.New("no rate for currency %s", curr1.Name())
 	}
-	info2, ok := service.rates[curr2]
+	info2, ok := service.rates.ForCurrency(curr2)
 	if !ok {
 		return decimal.Decimal{}, Error.New("no rate for currency %s", curr2.Name())
 	}
