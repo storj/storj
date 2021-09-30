@@ -28,17 +28,21 @@ type Credentials struct {
 	PrivateKey string
 }
 
+type httpClient interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 // Client handles base API processing.
 type Client struct {
 	creds Credentials
-	http  http.Client
+	http  httpClient
 }
 
 // NewClient creates new instance of client with provided credentials.
 func NewClient(creds Credentials) *Client {
 	client := &Client{
 		creds: creds,
-		http: http.Client{
+		http: &http.Client{
 			Timeout: 0,
 		},
 	}
