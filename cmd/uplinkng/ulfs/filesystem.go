@@ -16,14 +16,29 @@ import (
 	"storj.io/uplink"
 )
 
+// ListOptions describes options to the List command.
+type ListOptions struct {
+	Recursive bool
+	Pending   bool
+}
+
+func (lo *ListOptions) isRecursive() bool { return lo != nil && lo.Recursive }
+func (lo *ListOptions) isPending() bool   { return lo != nil && lo.Pending }
+
+// RemoveOptions describes options to the Remove command.
+type RemoveOptions struct {
+	Pending bool
+}
+
+func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
+
 // Filesystem represents either the local Filesystem or the data backed by a project.
 type Filesystem interface {
 	Close() error
 	Open(ctx clingy.Context, loc ulloc.Location) (ReadHandle, error)
 	Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, error)
-	Remove(ctx context.Context, loc ulloc.Location) error
-	ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error)
-	ListUploads(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error)
+	Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error
+	List(ctx context.Context, prefix ulloc.Location, opts *ListOptions) (ObjectIterator, error)
 	IsLocalDir(ctx context.Context, loc ulloc.Location) bool
 }
 

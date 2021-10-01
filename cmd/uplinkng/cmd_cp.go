@@ -110,7 +110,9 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 		return errs.New("cannot recursively copy to stdin/stdout")
 	}
 
-	iter, err := fs.ListObjects(ctx, c.source, true)
+	iter, err := fs.List(ctx, c.source, &ulfs.ListOptions{
+		Recursive: true,
+	})
 	if err != nil {
 		return err
 	}

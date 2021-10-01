@@ -91,12 +91,10 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 	defer tw.Done()
 
 	// create the object iterator of either existing objects or pending multipart uploads
-	var iter ulfs.ObjectIterator
-	if c.pending {
-		iter, err = fs.ListUploads(ctx, prefix, c.recursive)
-	} else {
-		iter, err = fs.ListObjects(ctx, prefix, c.recursive)
-	}
+	iter, err := fs.List(ctx, prefix, &ulfs.ListOptions{
+		Recursive: c.recursive,
+		Pending:   c.pending,
+	})
 	if err != nil {
 		return err
 	}

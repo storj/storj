@@ -60,6 +60,19 @@ func (tfs *testFilesystem) Files() (files []File) {
 	return files
 }
 
+func (tfs *testFilesystem) Pending() (files []File) {
+	for loc, mh := range tfs.pending {
+		for _, h := range mh {
+			files = append(files, File{
+				Loc:      loc.String(),
+				Contents: h.buf.String(),
+			})
+		}
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].less(files[j]) })
+	return files
+}
+
 func (tfs *testFilesystem) Close() error {
 	return nil
 }
@@ -105,17 +118,28 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 		cre: tfs.created,
 	}
 
-	tfs.pending[loc] = append(tfs.pending[loc], wh)
+	if loc.Remote() {
+		tfs.pending[loc] = append(tfs.pending[loc], wh)
+	}
 
 	return wh, nil
 }
 
-func (tfs *testFilesystem) Remove(ctx context.Context, loc ulloc.Location) error {
-	delete(tfs.files, loc)
+func (tfs *testFilesystem) Remove(ctx context.Context, loc ulloc.Location, opts *ulfs.RemoveOptions) error {
+	if opts == nil || !opts.Pending {
+		delete(tfs.files, loc)
+	} else {
+		// TODO: Remove needs an API that understands that multiple pending files may exist
+		delete(tfs.pending, loc)
+	}
 	return nil
 }
 
-func (tfs *testFilesystem) ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ulfs.ObjectIterator, error) {
+func (tfs *testFilesystem) List(ctx context.Context, prefix ulloc.Location, opts *ulfs.ListOptions) (ulfs.ObjectIterator, error) {
+	if opts != nil && opts.Pending {
+		return tfs.listPending(ctx, prefix, opts)
+	}
+
 	prefixDir := prefix.AsDirectoryish()
 
 	var infos []ulfs.ObjectInfo
@@ -130,19 +154,23 @@ func (tfs *testFilesystem) ListObjects(ctx context.Context, prefix ulloc.Locatio
 
 	sort.Sort(objectInfos(infos))
 
-	if !recursive {
+	if opts == nil || !opts.Recursive {
 		infos = collapseObjectInfos(prefix, infos)
 	}
 
 	return &objectInfoIterator{infos: infos}, nil
 }
 
-func (tfs *testFilesystem) ListUploads(ctx context.Context, prefix ulloc.Location, recursive bool) (ulfs.ObjectIterator, error) {
+func (tfs *testFilesystem) listPending(ctx context.Context, prefix ulloc.Location, opts *ulfs.ListOptions) (ulfs.ObjectIterator, error) {
+	if prefix.Local() {
+		return &objectInfoIterator{}, nil
+	}
+
 	prefixDir := prefix.AsDirectoryish()
 
 	var infos []ulfs.ObjectInfo
 	for loc, whs := range tfs.pending {
-		if loc.Remote() && loc.HasPrefix(prefixDir) || loc == prefix {
+		if loc.HasPrefix(prefixDir) || loc == prefix {
 			for _, wh := range whs {
 				infos = append(infos, ulfs.ObjectInfo{
 					Loc:     loc,
@@ -154,7 +182,7 @@ func (tfs *testFilesystem) ListUploads(ctx context.Context, prefix ulloc.Locatio
 
 	sort.Sort(objectInfos(infos))
 
-	if !recursive {
+	if opts == nil || !opts.Recursive {
 		infos = collapseObjectInfos(prefix, infos)
 	}
 

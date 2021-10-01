@@ -93,11 +93,12 @@ func (st State) Run(t *testing.T, args ...string) Result {
 	}
 
 	return Result{
-		Stdout: stdout.String(),
-		Stderr: stderr.String(),
-		Ok:     ok,
-		Err:    err,
-		Files:  tfs.Files(),
+		Stdout:  stdout.String(),
+		Stderr:  stderr.String(),
+		Ok:      ok,
+		Err:     err,
+		Files:   tfs.Files(),
+		Pending: tfs.Pending(),
 	}
 }
 
@@ -164,6 +165,8 @@ func WithPendingFile(location string) ExecuteOption {
 
 		if bucket, _, ok := loc.RemoteParts(); ok {
 			tfs.ensureBucket(bucket)
+		} else {
+			t.Fatalf("Invalid pending local file: %s", loc)
 		}
 
 		_, err = tfs.Create(ctx, loc)
