@@ -7,7 +7,9 @@ package admin
 import (
 	"context"
 	"crypto/subtle"
+	"embed"
 	"errors"
+	"io/fs"
 	"net"
 	"net/http"
 	"time"
@@ -24,9 +26,13 @@ import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
+//go:embed ui/public
+var ui embed.FS
+
 // Config defines configuration for debug server.
 type Config struct {
-	Address string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
+	Address   string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
+	StaticDir string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
 
 	AuthorizationToken string `internal:"true"`
 }
@@ -49,7 +55,6 @@ type Server struct {
 
 	listener net.Listener
 	server   http.Server
-	mux      *mux.Router
 
 	db       DB
 	payments payments.Accounts
@@ -63,7 +68,6 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 		log: log,
 
 		listener: listener,
-		mux:      mux.NewRouter(),
 
 		db:       db,
 		payments: accounts,
@@ -71,57 +75,43 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 		nowFn: time.Now,
 	}
 
-	server.server.Handler = &protectedServer{
-		allowedAuthorization: config.AuthorizationToken,
-		next:                 server.mux,
-	}
+	root := mux.NewRouter()
+
+	api := root.PathPrefix("/api/").Subrouter()
+	api.Use(allowedAuthorization(config.AuthorizationToken))
 
 	// When adding new options, also update README.md
-	server.mux.HandleFunc("/api/users", server.addUser).Methods("POST")
-	server.mux.HandleFunc("/api/users/{useremail}", server.updateUser).Methods("PUT")
-	server.mux.HandleFunc("/api/users/{useremail}", server.userInfo).Methods("GET")
-	server.mux.HandleFunc("/api/users/{useremail}", server.deleteUser).Methods("DELETE")
-	server.mux.HandleFunc("/api/projects", server.addProject).Methods("POST")
-	server.mux.HandleFunc("/api/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
-	server.mux.HandleFunc("/api/projects/{project}/limit", server.getProjectLimit).Methods("GET")
-	server.mux.HandleFunc("/api/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
-	server.mux.HandleFunc("/api/projects/{project}", server.getProject).Methods("GET")
-	server.mux.HandleFunc("/api/projects/{project}", server.renameProject).Methods("PUT")
-	server.mux.HandleFunc("/api/projects/{project}", server.deleteProject).Methods("DELETE")
-	server.mux.HandleFunc("/api/projects/{project}/apikeys", server.listAPIKeys).Methods("GET")
-	server.mux.HandleFunc("/api/projects/{project}/apikeys", server.addAPIKey).Methods("POST")
-	server.mux.HandleFunc("/api/projects/{project}/apikeys/{name}", server.deleteAPIKeyByName).Methods("DELETE")
-	server.mux.HandleFunc("/api/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
+	api.HandleFunc("/users", server.addUser).Methods("POST")
+	api.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
+	api.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
+	api.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
+	api.HandleFunc("/projects", server.addProject).Methods("POST")
+	api.HandleFunc("/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
+	api.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
+	api.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
+	api.HandleFunc("/projects/{project}", server.getProject).Methods("GET")
+	api.HandleFunc("/projects/{project}", server.renameProject).Methods("PUT")
+	api.HandleFunc("/projects/{project}", server.deleteProject).Methods("DELETE")
+	api.HandleFunc("/projects/{project}/apikeys", server.listAPIKeys).Methods("GET")
+	api.HandleFunc("/projects/{project}/apikeys", server.addAPIKey).Methods("POST")
+	api.HandleFunc("/projects/{project}/apikeys/{name}", server.deleteAPIKeyByName).Methods("DELETE")
+	api.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
 
+	// This handler must be the last one because it uses the root as prefix,
+	// otherwise will try to serve all the handlers set after this one.
+	if config.StaticDir == "" {
+		uiAssets, err := fs.Sub(ui, "ui/public")
+		if err != nil {
+			log.Error("invalid embbeded static assets directory, the Admin UI is not enabled")
+		} else {
+			root.PathPrefix("/").Handler(http.FileServer(http.FS(uiAssets))).Methods("GET")
+		}
+	} else {
+		root.PathPrefix("/").Handler(http.FileServer(http.Dir(config.StaticDir))).Methods("GET")
+	}
+
+	server.server.Handler = root
 	return server
-}
-
-type protectedServer struct {
-	allowedAuthorization string
-
-	next http.Handler
-}
-
-func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if server.allowedAuthorization == "" {
-		sendJSONError(w, "Authorization not enabled.",
-			"", http.StatusForbidden)
-		return
-	}
-
-	equality := subtle.ConstantTimeCompare(
-		[]byte(r.Header.Get("Authorization")),
-		[]byte(server.allowedAuthorization),
-	)
-	if equality != 1 {
-		sendJSONError(w, "Forbidden",
-			"", http.StatusForbidden)
-		return
-	}
-
-	r.Header.Set("Cache-Control", "must-revalidate")
-
-	server.next.ServeHTTP(w, r)
 }
 
 // Run starts the admin endpoint.
@@ -155,4 +145,29 @@ func (server *Server) SetNow(nowFn func() time.Time) {
 // Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return Error.Wrap(server.server.Close())
+}
+
+func allowedAuthorization(token string) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if token == "" {
+				sendJSONError(w, "Authorization not enabled.",
+					"", http.StatusForbidden)
+				return
+			}
+
+			equality := subtle.ConstantTimeCompare(
+				[]byte(r.Header.Get("Authorization")),
+				[]byte(token),
+			)
+			if equality != 1 {
+				sendJSONError(w, "Forbidden",
+					"", http.StatusForbidden)
+				return
+			}
+
+			r.Header.Set("Cache-Control", "must-revalidate")
+			next.ServeHTTP(w, r)
+		})
+	}
 }
