@@ -13,7 +13,7 @@ import (
 // Error is default error class for admin package.
 var Error = errs.Class("admin")
 
-func httpJSONError(w http.ResponseWriter, errMsg, detail string, statusCode int) {
+func sendJSONError(w http.ResponseWriter, errMsg, detail string, statusCode int) {
 	errStr := struct {
 		Error  string `json:"error"`
 		Detail string `json:"detail"`

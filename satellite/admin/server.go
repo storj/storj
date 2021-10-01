@@ -107,7 +107,7 @@ type protectedServer struct {
 
 func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if server.allowedAuthorization == "" {
-		httpJSONError(w, "Authorization not enabled.",
+		sendJSONError(w, "Authorization not enabled.",
 			"", http.StatusForbidden)
 		return
 	}
@@ -117,7 +117,7 @@ func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		[]byte(server.allowedAuthorization),
 	)
 	if equality != 1 {
-		httpJSONError(w, "Forbidden",
+		sendJSONError(w, "Forbidden",
 			"", http.StatusForbidden)
 		return
 	}

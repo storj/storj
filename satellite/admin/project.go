@@ -30,22 +30,20 @@ func (server *Server) checkProjectUsage(w http.ResponseWriter, r *http.Request) 
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
 	if !ok {
-		httpJSONError(w, "project-uuid missing",
+		sendJSONError(w, "project-uuid missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
-		httpJSONError(w, "invalid project-uuid",
+		sendJSONError(w, "invalid project-uuid",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if !server.checkUsage(ctx, w, projectUUID) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		_, _ = w.Write([]byte(`{"result":"no project usage exist"}`))
+		sendJSONData(w, http.StatusOK, []byte(`{"result":"no project usage exist"}`))
 	}
 }
 
@@ -55,40 +53,39 @@ func (server *Server) getProject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
 	if !ok {
-		httpJSONError(w, "project-uuid missing",
+		sendJSONError(w, "project-uuid missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
-		httpJSONError(w, "invalid project-uuid",
+		sendJSONError(w, "invalid project-uuid",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		httpJSONError(w, "invalid form",
+		sendJSONError(w, "invalid form",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
 	if err != nil {
-		httpJSONError(w, "unable to fetch project details",
+		sendJSONError(w, "unable to fetch project details",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	data, err := json.Marshal(project)
 	if err != nil {
-		httpJSONError(w, "json encoding failed",
+		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+	sendJSONData(w, http.StatusOK, data)
 }
 
 func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
@@ -97,21 +94,21 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
 	if !ok {
-		httpJSONError(w, "project-uuid missing",
+		sendJSONError(w, "project-uuid missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
-		httpJSONError(w, "invalid project-uuid",
+		sendJSONError(w, "invalid project-uuid",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
 	if err != nil {
-		httpJSONError(w, "failed to get project",
+		sendJSONError(w, "failed to get project",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -147,13 +144,12 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 
 	data, err := json.Marshal(output)
 	if err != nil {
-		httpJSONError(w, "json encoding failed",
+		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+	sendJSONData(w, http.StatusOK, data)
 }
 
 func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
@@ -162,14 +158,14 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
 	if !ok {
-		httpJSONError(w, "project-uuid missing",
+		sendJSONError(w, "project-uuid missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
-		httpJSONError(w, "invalid project-uuid",
+		sendJSONError(w, "invalid project-uuid",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -183,7 +179,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		httpJSONError(w, "invalid form",
+		sendJSONError(w, "invalid form",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -191,21 +187,21 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	decoder := schema.NewDecoder()
 	err = decoder.Decode(&arguments, r.Form)
 	if err != nil {
-		httpJSONError(w, "invalid arguments",
+		sendJSONError(w, "invalid arguments",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if arguments.Usage != nil {
 		if *arguments.Usage < 0 {
-			httpJSONError(w, "negative usage",
+			sendJSONError(w, "negative usage",
 				fmt.Sprintf("%v", arguments.Usage), http.StatusBadRequest)
 			return
 		}
 
 		err = server.db.ProjectAccounting().UpdateProjectUsageLimit(ctx, projectUUID, *arguments.Usage)
 		if err != nil {
-			httpJSONError(w, "failed to update usage",
+			sendJSONError(w, "failed to update usage",
 				err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -213,14 +209,14 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 
 	if arguments.Bandwidth != nil {
 		if *arguments.Bandwidth < 0 {
-			httpJSONError(w, "negative bandwidth",
+			sendJSONError(w, "negative bandwidth",
 				fmt.Sprintf("%v", arguments.Usage), http.StatusBadRequest)
 			return
 		}
 
 		err = server.db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, projectUUID, *arguments.Bandwidth)
 		if err != nil {
-			httpJSONError(w, "failed to update bandwidth",
+			sendJSONError(w, "failed to update bandwidth",
 				err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -228,14 +224,14 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 
 	if arguments.Rate != nil {
 		if *arguments.Rate < 0 {
-			httpJSONError(w, "negative rate",
+			sendJSONError(w, "negative rate",
 				fmt.Sprintf("%v", arguments.Rate), http.StatusBadRequest)
 			return
 		}
 
 		err = server.db.Console().Projects().UpdateRateLimit(ctx, projectUUID, *arguments.Rate)
 		if err != nil {
-			httpJSONError(w, "failed to update rate",
+			sendJSONError(w, "failed to update rate",
 				err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -243,14 +239,14 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 
 	if arguments.Burst != nil {
 		if *arguments.Burst < 0 {
-			httpJSONError(w, "negative burst rate",
+			sendJSONError(w, "negative burst rate",
 				fmt.Sprintf("%v", arguments.Burst), http.StatusBadRequest)
 			return
 		}
 
 		err = server.db.Console().Projects().UpdateBurstLimit(ctx, projectUUID, *arguments.Burst)
 		if err != nil {
-			httpJSONError(w, "failed to update burst",
+			sendJSONError(w, "failed to update burst",
 				err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -258,14 +254,14 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 
 	if arguments.Buckets != nil {
 		if *arguments.Buckets < 0 {
-			httpJSONError(w, "negative bucket coun",
+			sendJSONError(w, "negative bucket coun",
 				fmt.Sprintf("t: %v", arguments.Buckets), http.StatusBadRequest)
 			return
 		}
 
 		err = server.db.Console().Projects().UpdateBucketLimit(ctx, projectUUID, *arguments.Buckets)
 		if err != nil {
-			httpJSONError(w, "failed to update bucket limit",
+			sendJSONError(w, "failed to update bucket limit",
 				err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -277,7 +273,7 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		httpJSONError(w, "failed to read body",
+		sendJSONError(w, "failed to read body",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -293,19 +289,19 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
-		httpJSONError(w, "failed to unmarshal request",
+		sendJSONError(w, "failed to unmarshal request",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if input.OwnerID.IsZero() {
-		httpJSONError(w, "OwnerID is not set",
+		sendJSONError(w, "OwnerID is not set",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	if input.ProjectName == "" {
-		httpJSONError(w, "ProjectName is not set",
+		sendJSONError(w, "ProjectName is not set",
 			"", http.StatusBadRequest)
 		return
 	}
@@ -315,14 +311,14 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 		OwnerID: input.OwnerID,
 	})
 	if err != nil {
-		httpJSONError(w, "failed to insert project",
+		sendJSONError(w, "failed to insert project",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	_, err = server.db.Console().ProjectMembers().Insert(ctx, project.OwnerID, project.ID)
 	if err != nil {
-		httpJSONError(w, "failed to insert project member",
+		sendJSONError(w, "failed to insert project member",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -330,13 +326,12 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 	output.ProjectID = project.ID
 	data, err := json.Marshal(output)
 	if err != nil {
-		httpJSONError(w, "json encoding failed",
+		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+	sendJSONData(w, http.StatusOK, data)
 }
 
 func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
@@ -345,33 +340,33 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
 	if !ok {
-		httpJSONError(w, "project-uuid missing",
+		sendJSONError(w, "project-uuid missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
-		httpJSONError(w, "invalid project-uuid",
+		sendJSONError(w, "invalid project-uuid",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
 	if errors.Is(err, sql.ErrNoRows) {
-		httpJSONError(w, "project with specified uuid does not exist",
+		sendJSONError(w, "project with specified uuid does not exist",
 			"", http.StatusBadRequest)
 		return
 	}
 	if err != nil {
-		httpJSONError(w, "error getting project",
+		sendJSONError(w, "error getting project",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		httpJSONError(w, "ailed to read body",
+		sendJSONError(w, "ailed to read body",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -383,13 +378,13 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
-		httpJSONError(w, "failed to unmarshal request",
+		sendJSONError(w, "failed to unmarshal request",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if input.ProjectName == "" {
-		httpJSONError(w, "ProjectName is not set",
+		sendJSONError(w, "ProjectName is not set",
 			"", http.StatusBadRequest)
 		return
 	}
@@ -401,7 +396,7 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 
 	err = server.db.Console().Projects().Update(ctx, project)
 	if err != nil {
-		httpJSONError(w, "error renaming project",
+		sendJSONError(w, "error renaming project",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -413,20 +408,20 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
 	if !ok {
-		httpJSONError(w, "project-uuid missing",
+		sendJSONError(w, "project-uuid missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
-		httpJSONError(w, "invalid project-uuid",
+		sendJSONError(w, "invalid project-uuid",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		httpJSONError(w, "invalid form",
+		sendJSONError(w, "invalid form",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -434,24 +429,24 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	options := storj.BucketListOptions{Limit: 1, Direction: storj.Forward}
 	buckets, err := server.db.Buckets().ListBuckets(ctx, projectUUID, options, macaroon.AllowedBuckets{All: true})
 	if err != nil {
-		httpJSONError(w, "unable to list buckets",
+		sendJSONError(w, "unable to list buckets",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if len(buckets.Items) > 0 {
-		httpJSONError(w, "buckets still exist",
+		sendJSONError(w, "buckets still exist",
 			fmt.Sprintf("%v", bucketNames(buckets.Items)), http.StatusConflict)
 		return
 	}
 
 	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, projectUUID, console.APIKeyCursor{Limit: 1, Page: 1})
 	if err != nil {
-		httpJSONError(w, "unable to list api-keys",
+		sendJSONError(w, "unable to list api-keys",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if keys.TotalCount > 0 {
-		httpJSONError(w, "api-keys still exist",
+		sendJSONError(w, "api-keys still exist",
 			fmt.Sprintf("count %d", keys.TotalCount), http.StatusConflict)
 		return
 	}
@@ -463,7 +458,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 
 	err = server.db.Console().Projects().Delete(ctx, projectUUID)
 	if err != nil {
-		httpJSONError(w, "unable to delete project",
+		sendJSONError(w, "unable to delete project",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -476,18 +471,18 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 
 	currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth, server.nowFn())
 	if err != nil {
-		httpJSONError(w, "unable to list project usage", err.Error(), http.StatusInternalServerError)
+		sendJSONError(w, "unable to list project usage", err.Error(), http.StatusInternalServerError)
 		return true
 	}
 	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.ObjectCount > 0 {
-		httpJSONError(w, "usage for current month exists", "", http.StatusConflict)
+		sendJSONError(w, "usage for current month exists", "", http.StatusConflict)
 		return true
 	}
 
 	// if usage of last month exist, make sure to look for billing records
 	lastMonthUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
 	if err != nil {
-		httpJSONError(w, "error getting project totals",
+		sendJSONError(w, "error getting project totals",
 			"", http.StatusInternalServerError)
 		return true
 	}
@@ -500,22 +495,22 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 		if errors.Is(err, stripecoinpayments.ErrProjectRecordExists) {
 			record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 			if err != nil {
-				httpJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
+				sendJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
 				return true
 			}
 			// state = 0 means unapplied and not invoiced yet.
 			if record.State == 0 {
-				httpJSONError(w, "unapplied project invoice record exist", "", http.StatusConflict)
+				sendJSONError(w, "unapplied project invoice record exist", "", http.StatusConflict)
 				return true
 			}
 			// Record has been applied, so project can be deleted.
 			return false
 		}
 		if err != nil {
-			httpJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
 			return true
 		}
-		httpJSONError(w, "usage for last month exist, but is not billed yet", "", http.StatusConflict)
+		sendJSONError(w, "usage for last month exist, but is not billed yet", "", http.StatusConflict)
 		return true
 	}
 
