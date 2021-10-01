@@ -67,5 +67,11 @@ func assertReq(
 		require.Equal(t, expectedBody, string(resBody), "response body")
 	}
 
+	if len(resBody) > 0 {
+		require.Equal(t, "application/json", res.Header.Get("Content-Type"))
+	} else {
+		require.Equal(t, "", res.Header.Get("Content-Type"))
+	}
+
 	return resBody
 }

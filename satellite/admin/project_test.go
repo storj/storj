@@ -32,7 +32,7 @@ func TestAPI(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -135,7 +135,7 @@ func TestAddProject(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -151,6 +151,7 @@ func TestAddProject(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -174,7 +175,7 @@ func TestRenameProject(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -195,6 +196,7 @@ func TestRenameProject(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "", response.Header.Get("Content-Type"))
 		require.NoError(t, response.Body.Close())
 
 		project, err = planet.Satellites[0].DB.Console().Projects().Get(ctx, project.ID)
@@ -209,7 +211,7 @@ func TestDeleteProject(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -239,6 +241,7 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apikeys.APIKeys[0].ID)
 		require.NoError(t, err)
@@ -251,6 +254,7 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "", response.Header.Get("Content-Type"))
 
 		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
 		require.Error(t, err)
@@ -264,7 +268,7 @@ func TestCheckUsageWithoutUsage(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -289,11 +293,12 @@ func TestCheckUsageWithoutUsage(t *testing.T) {
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"result\":\"no project usage exist\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
-		require.Equal(t, http.StatusOK, response.StatusCode)
 	})
 }
 
@@ -303,7 +308,7 @@ func TestCheckUsageWithUsage(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -353,11 +358,13 @@ func TestCheckUsageWithUsage(t *testing.T) {
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"usage for current month exists\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
-		require.Equal(t, http.StatusConflict, response.StatusCode)
 	})
 }
 
@@ -367,7 +374,7 @@ func TestCheckUsageLastMonthUnappliedInvoice(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -429,11 +436,13 @@ func TestCheckUsageLastMonthUnappliedInvoice(t *testing.T) {
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, response.StatusCode)
+
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"unapplied project invoice record exist\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
-		require.Equal(t, http.StatusConflict, response.StatusCode)
 	})
 }
 
@@ -443,7 +452,7 @@ func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -493,11 +502,13 @@ func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"usage for current month exists\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
-		require.Equal(t, http.StatusConflict, response.StatusCode)
 	})
 }
 
@@ -507,7 +518,7 @@ func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
