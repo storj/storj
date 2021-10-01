@@ -38,14 +38,16 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	switch {
-	case input.Email == "":
-		sendJSONError(w, "email is not set",
-			"", http.StatusBadRequest)
-		return
-	case input.Password == "":
-		sendJSONError(w, "password is not set",
-			"", http.StatusBadRequest)
+	user := console.CreateUser{
+		Email:    input.Email,
+		FullName: input.FullName,
+		Password: input.Password,
+	}
+
+	err = user.IsValid()
+	if err != nil {
+		sendJSONError(w, "user data is not valid",
+			err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -72,19 +74,6 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		sendJSONError(w, "unable to create UUID",
 			"", http.StatusInternalServerError)
-		return
-	}
-
-	user := console.CreateUser{
-		Email:    input.Email,
-		FullName: input.FullName,
-		Password: input.Password,
-	}
-
-	err = user.IsValid()
-	if err != nil {
-		sendJSONError(w, "user data is not valid",
-			err.Error(), http.StatusBadRequest)
 		return
 	}
 
