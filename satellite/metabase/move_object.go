@@ -64,7 +64,7 @@ func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (result
 			object_key   = $3 AND
 			version      = $4 AND
 			status       = `+committedStatus,
-		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version).
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
 		Scan(
 			&result.StreamID,
 			encryptionParameters{&result.EncryptionParameters},
@@ -165,7 +165,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
         `
 
 		var segmentsCount int
-		row := db.db.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID)
+		row := db.db.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
 		if err = row.Scan(&segmentsCount); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.New("object not found")

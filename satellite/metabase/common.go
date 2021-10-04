@@ -4,6 +4,7 @@
 package metabase
 
 import (
+	"database/sql/driver"
 	"math"
 	"sort"
 	"strconv"
@@ -108,6 +109,22 @@ func (loc BucketLocation) CompactPrefix() []byte {
 // ObjectKey is an encrypted object key encoded using Path Component Encoding.
 // It is not ascii safe.
 type ObjectKey string
+
+// Value converts a ObjectKey to a database field.
+func (o ObjectKey) Value() (driver.Value, error) {
+	return []byte(o), nil
+}
+
+// Scan extracts a ObjectKey from a database field.
+func (o *ObjectKey) Scan(value interface{}) error {
+	switch value := value.(type) {
+	case []byte:
+		*o = ObjectKey(value)
+		return nil
+	default:
+		return Error.New("unable to scan %T into ObjectKey", value)
+	}
+}
 
 // ObjectLocation is decoded object key information.
 type ObjectLocation struct {
