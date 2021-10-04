@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
@@ -446,6 +447,8 @@ func testMinRequiredDataRepair(t *testing.T, inMemoryRepair bool) {
 			infoBefore := nodesReputation[nodeID]
 			require.Equal(t, infoBefore.TotalAuditCount+1, info.TotalAuditCount)
 			require.Equal(t, infoBefore.AuditSuccessCount+1, info.AuditSuccessCount)
+			require.True(t, infoBefore.AuditReputationAlpha < info.AuditReputationAlpha)
+			require.True(t, infoBefore.AuditReputationBeta >= info.AuditReputationBeta)
 		}
 
 		// repair succeed, so segment should not contain any killed node
@@ -572,6 +575,8 @@ func testFailedDataRepair(t *testing.T, inMemoryRepair bool) {
 			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
 		}
 
 		offlineNodeReputation := nodesReputation[offlinePiece.StorageNode]
@@ -698,6 +703,8 @@ func testOfflineNodeDataRepair(t *testing.T, inMemoryRepair bool) {
 			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
 		}
 
 		offlineNodeReputation := nodesReputation[offlinePiece.StorageNode]
@@ -824,6 +831,8 @@ func testUnknownErrorDataRepair(t *testing.T, inMemoryRepair bool) {
 			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
 		}
 
 		badNodeReputation := nodesReputation[unknownPiece.StorageNode]
@@ -946,6 +955,8 @@ func testMissingPieceDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
 		}
 
 		missingPieceNodeReputation := nodesReputation[missingPiece.StorageNode]
@@ -1039,8 +1050,17 @@ func testMissingPieceDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 
 		reputationService := planet.Satellites[0].Reputation.Service
 
-		missingPieceNodeReputation, err := reputationService.Get(ctx, missingPiece.StorageNode)
-		require.NoError(t, err)
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputation[piece.StorageNode] = *info
+		}
+
+		var successful metabase.Pieces
+		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces audit.Pieces) {
+			successful = pieces.Successful
+		}
 
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
@@ -1050,10 +1070,25 @@ func testMissingPieceDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
-		missingPieceNodeReputationAfter, err := reputationService.Get(ctx, missingPiece.StorageNode)
-		require.NoError(t, err)
+		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputationAfter[piece.StorageNode] = *info
+		}
 
 		// repair should update audit status
+		for _, piece := range successful {
+			successfulNodeReputation := nodesReputation[piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+		}
+
+		missingPieceNodeReputation := nodesReputation[missingPiece.StorageNode]
+		missingPieceNodeReputationAfter := nodesReputationAfter[missingPiece.StorageNode]
 		require.Equal(t, missingPieceNodeReputation.TotalAuditCount+1, missingPieceNodeReputationAfter.TotalAuditCount)
 		require.True(t, missingPieceNodeReputation.AuditReputationBeta < missingPieceNodeReputationAfter.AuditReputationBeta)
 		require.True(t, missingPieceNodeReputation.AuditReputationAlpha >= missingPieceNodeReputationAfter.AuditReputationAlpha)
@@ -1169,6 +1204,8 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
 		}
 
 		corruptedNodeReputation := nodesReputation[corruptedPiece.StorageNode]
@@ -1261,8 +1298,17 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 
 		reputationService := planet.Satellites[0].Reputation.Service
 
-		corruptedNodeReputation, err := reputationService.Get(ctx, corruptedPiece.StorageNode)
-		require.NoError(t, err)
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputation[piece.StorageNode] = *info
+		}
+
+		var successful metabase.Pieces
+		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces audit.Pieces) {
+			successful = pieces.Successful
+		}
 
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
@@ -1272,10 +1318,25 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
-		corruptedNodeReputationAfter, err := reputationService.Get(ctx, corruptedPiece.StorageNode)
-		require.NoError(t, err)
+		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputationAfter[piece.StorageNode] = *info
+		}
 
 		// repair should update audit status
+		for _, piece := range successful {
+			successfulNodeReputation := nodesReputation[piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+		}
+
+		corruptedNodeReputation := nodesReputation[corruptedPiece.StorageNode]
+		corruptedNodeReputationAfter := nodesReputationAfter[corruptedPiece.StorageNode]
 		require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, corruptedNodeReputationAfter.TotalAuditCount)
 		require.True(t, corruptedNodeReputation.AuditReputationBeta < corruptedNodeReputationAfter.AuditReputationBeta)
 		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= corruptedNodeReputationAfter.AuditReputationAlpha)

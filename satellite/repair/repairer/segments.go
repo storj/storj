@@ -74,6 +74,7 @@ type SegmentRepairer struct {
 
 	nowFn                            func() time.Time
 	OnTestingCheckSegmentAlteredHook func()
+	OnTestingPiecesReportHook        func(pieces audit.Pieces)
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -286,6 +287,10 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Meter("repair_too_many_nodes_failed").Mark(0) //mon:locked
 	stats.repairTooManyNodesFailed.Mark(0)
+
+	if repairer.OnTestingPiecesReportHook != nil {
+		repairer.OnTestingPiecesReportHook(piecesReport)
+	}
 
 	// Check if segment has been altered
 	checkSegmentError := repairer.checkIfSegmentAltered(ctx, segment)
