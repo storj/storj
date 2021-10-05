@@ -109,6 +109,8 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodesDB Nodes, config Config
 		dialerClone.DialTimeout = config.DialTimeout
 	}
 
+	dialerClone.Pool = rpc.NewDefaultConnectionPool()
+
 	return &Service{
 		log:                log,
 		config:             config,
