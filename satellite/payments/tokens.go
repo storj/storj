@@ -5,10 +5,12 @@ package payments
 
 import (
 	"context"
-	"math/big"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/payments/monetary"
 )
 
 // StorjTokens defines all payments STORJ token related functionality.
@@ -53,8 +55,8 @@ func (id TransactionID) String() string {
 // accepts user funds on a specific wallet address.
 type Transaction struct {
 	ID        TransactionID
-	Amount    TokenAmount
-	Rate      big.Float
+	Amount    monetary.Amount
+	Rate      decimal.Decimal
 	Address   string
 	Status    TransactionStatus
 	Timeout   time.Duration
@@ -66,8 +68,8 @@ type Transaction struct {
 // such as links and expiration time.
 type TransactionInfo struct {
 	ID            TransactionID
-	Amount        TokenAmount
-	Received      TokenAmount
+	Amount        monetary.Amount
+	Received      monetary.Amount
 	AmountCents   int64
 	ReceivedCents int64
 	Address       string
@@ -75,49 +77,6 @@ type TransactionInfo struct {
 	Link          string
 	ExpiresAt     time.Time
 	CreatedAt     time.Time
-}
-
-// TokenAmount is a wrapper type for STORJ token amount.
-// Uses big.Float as inner representation. Precision is set to 32
-// so it can properly handle 8 digits after point which is STORJ token
-// decimal set.
-type TokenAmount struct {
-	inner big.Float
-}
-
-// STORJTokenPrecision defines STORJ token precision.
-const STORJTokenPrecision = 32
-
-// NewTokenAmount creates new zeroed TokenAmount with fixed precision.
-func NewTokenAmount() *TokenAmount {
-	return &TokenAmount{inner: *new(big.Float).SetPrec(STORJTokenPrecision)}
-}
-
-// BigFloat returns inner representation of TokenAmount.
-func (amount *TokenAmount) BigFloat() *big.Float {
-	f := new(big.Float).Set(&amount.inner)
-	return f
-}
-
-// String representation of TokenValue.
-func (amount *TokenAmount) String() string {
-	return amount.inner.Text('f', -1)
-}
-
-// ParseTokenAmount parses string representing floating point and returns
-// TokenAmount.
-func ParseTokenAmount(s string) (*TokenAmount, error) {
-	inner, _, err := big.ParseFloat(s, 10, STORJTokenPrecision, big.ToNearestEven)
-	if err != nil {
-		return nil, err
-	}
-	return &TokenAmount{inner: *inner}, nil
-}
-
-// TokenAmountFromBigFloat converts big.Float to TokenAmount.
-func TokenAmountFromBigFloat(f *big.Float) *TokenAmount {
-	inner := (*f).SetMode(big.ToNearestEven).SetPrec(STORJTokenPrecision)
-	return &TokenAmount{inner: *inner}
 }
 
 // DepositBonus defines a bonus received for depositing tokens.

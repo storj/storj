@@ -127,6 +127,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for linksharing requests
 # console.linksharing-url: https://link.us1.storjshare.io
 
+# indicates if new onboarding flow should be rendered
+# console.new-onboarding: false
+
 # enable open registration
 # console.open-registration-enabled: false
 
@@ -445,16 +448,16 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
-# application name for telemetry identification
+# application name for telemetry identification. Ignored for certain applications.
 # metrics.app: satellite
 
-# application suffix
+# application suffix. Ignored for certain applications.
 # metrics.app-suffix: -release
 
 # instance id prefix
 # metrics.instance-prefix: ""
 
-# how frequently to send up telemetry
+# how frequently to send up telemetry. Ignored for certain applications.
 # metrics.interval: 1m0s
 
 # path to log for oom notices

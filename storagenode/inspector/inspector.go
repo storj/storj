@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// Package inspector provides a private endpoint for monitoring status.
 package inspector
 
 import (

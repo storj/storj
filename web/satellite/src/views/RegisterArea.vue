@@ -31,7 +31,7 @@
                         <div class="register-area__input-area__container__title-container">
                             <h1 class="register-area__input-area__container__title-area__title">Get 150 GB Free</h1>
                         </div>
-                        <div class="register-area__input-area__expand" @click.stop="toggleDropdown">
+                        <div class="register-area__input-area__expand" aria-roledescription="satellites-dropdown" @click.stop="toggleDropdown">
                             <span class="register-area__input-area__expand__value">{{ satelliteName }}</span>
                             <BottomArrowIcon />
                             <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="register-area__input-area__expand__dropdown">
@@ -39,7 +39,12 @@
                                     <SelectedCheckIcon />
                                     <span class="register-area__input-area__expand__dropdown__item__name">{{ satelliteName }}</span>
                                 </div>
-                                <a v-for="sat in partneredSatellites" :key="sat.id" class="register-area__input-area__expand__dropdown__item" :href="sat.address + '/signup'">
+                                <a
+                                    v-for="(sat, index) in partneredSatellites"
+                                    :key="index"
+                                    class="register-area__input-area__expand__dropdown__item"
+                                    :href="`${sat.address}/signup`"
+                                >
                                     {{ sat.name }}
                                 </a>
                             </div>
@@ -57,6 +62,7 @@
                             <li
                                 class="register-area__input-area__toggle__professional"
                                 :class="{ 'active': isProfessional }"
+                                aria-roledescription="professional-label"
                                 @click.prevent="toggleAccountType(true)"
                             >
                                 Business
@@ -68,6 +74,7 @@
                             label="Full Name"
                             placeholder="Enter Full Name"
                             :error="fullNameError"
+                            role-description="name"
                             @setData="setFullName"
                         />
                     </div>
@@ -76,6 +83,7 @@
                             label="Email Address"
                             placeholder="example@email.com"
                             :error="emailError"
+                            role-description="email"
                             @setData="setEmail"
                         />
                     </div>
@@ -85,6 +93,7 @@
                                 label="Company Name"
                                 placeholder="Acme Corp."
                                 :error="companyNameError"
+                                role-description="company-name"
                                 @setData="setCompanyName"
                             />
                         </div>
@@ -93,6 +102,7 @@
                                 label="Position"
                                 placeholder="Position Title"
                                 :error="positionError"
+                                role-description="position"
                                 @setData="setPosition"
                             />
                         </div>
@@ -111,6 +121,7 @@
                                 placeholder="Enter Password"
                                 :error="passwordError"
                                 is-password="true"
+                                role-description="password"
                                 @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
                                 @hidePasswordStrength="hidePasswordStrength"
@@ -127,6 +138,7 @@
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
                             is-password="true"
+                            role-description="retype-password"
                             @setData="setRepeatedPassword"
                         />
                     </div>
@@ -572,6 +584,7 @@ export default class RegisterArea extends Vue {
         } catch (error) {
             if (this.$refs.recaptcha) {
                 this.$refs.recaptcha.reset();
+                this.recaptchaResponseToken = '';
             }
             await this.$notify.error(error.message);
         }

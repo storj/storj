@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.7
+GO_VERSION ?= 1.17.1
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -94,7 +94,7 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/multinode
 
 	## install exact version of storj/gateway
-	## TODO replace 'main' with 'latest' when gateway with multipart will be released
+	## TODO(artur): replace 'main' with 'latest' after the gateway is being released again
 	go install -race -v storj.io/gateway@main
 
 ##@ Test
@@ -307,7 +307,7 @@ multinode_%: multinode-console
 
 
 COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode
-OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
+OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
@@ -391,6 +391,9 @@ diagrams-graphml:
 bump-dependencies:
 	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
+	cd testsuite;\
+		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
+		go mod tidy;
 
 update-proto-lock:
 	protolock commit --ignore "satellite/internalpb,storagenode/internalpb"

@@ -7,38 +7,60 @@ Requires setting `Authorization` header for requests.
 <!-- Auto-generate this ToC with https://github.com/ycd/toc -->
 <!-- toc -->
 - [satellite/admin](#satelliteadmin)
-    * [User Management](#user-management)
-        * [POST /api/users](#post-apiusers)
-        * [PUT /api/users/{user-email}](#put-apiusersuser-email)
-        * [GET /api/users/{user-email}](#get-apiusersuser-email)
-        * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
-    * [Coupon Management](#coupon-management)
-        * [POST /api/coupons](#post-apicoupons)
-        * [GET /api/coupons/{coupon-id}](#get-apicouponscoupon-id)
-        * [DELETE /api/coupons/{coupon-id}](#delete-apicouponscoupon-id)
-    * [Project Management](#project-management)
-        * [POST /api/projects](#post-apiprojects)
-        * [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
-        * [PUT /api/projects/{project-id}](#put-apiprojectsproject-id)
-        * [DELETE /api/projects/{project-id}](#delete-apiprojectsproject-id)
-        * [GET /api/projects/{project}/apikeys](#get-apiprojectsprojectapikeys)
-        * [POST /api/projects/{project}/apikeys](#post-apiprojectsprojectapikeys)
-        * [DELETE /api/projects/{project}/apikeys/{name}](#delete-apiprojectsprojectapikeysname)
-        * [GET /api/projects/{project-id}/usage](#get-apiprojectsproject-idusage)
-        * [GET /api/projects/{project-id}/limit](#get-apiprojectsproject-idlimit)
-        * [Update limits](#update-limits)
-            * [POST /api/projects/{project-id}/limit?usage={value}](#post-apiprojectsproject-idlimitusagevalue)
-            * [POST /api/projects/{project-id}/limit?bandwidth={value}](#post-apiprojectsproject-idlimitbandwidthvalue)
-            * [POST /api/projects/{project-id}/limit?rate={value}](#post-apiprojectsproject-idlimitratevalue)
-            * [POST /api/projects/{project-id}/limit?buckets={value}](#post-apiprojectsproject-idlimitbucketsvalue)
-    * [APIKey Management](#apikey-management)
-        * [DELETE /api/apikeys/{apikey}](#delete-apiapikeysapikey)
+    * [API design](#api-design)
+        * [Error responses](#error-responses)
+    * [API Endpoints](#api-endpoints)
+        * [User Management](#user-management)
+            * [POST /api/users](#post-apiusers)
+            * [PUT /api/users/{user-email}](#put-apiusersuser-email)
+            * [GET /api/users/{user-email}](#get-apiusersuser-email)
+            * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
+        * [Coupon Management](#coupon-management)
+            * [POST /api/coupons](#post-apicoupons)
+            * [GET /api/coupons/{coupon-id}](#get-apicouponscoupon-id)
+            * [DELETE /api/coupons/{coupon-id}](#delete-apicouponscoupon-id)
+        * [Project Management](#project-management)
+            * [POST /api/projects](#post-apiprojects)
+            * [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
+            * [PUT /api/projects/{project-id}](#put-apiprojectsproject-id)
+            * [DELETE /api/projects/{project-id}](#delete-apiprojectsproject-id)
+            * [GET /api/projects/{project}/apikeys](#get-apiprojectsprojectapikeys)
+            * [POST /api/projects/{project}/apikeys](#post-apiprojectsprojectapikeys)
+            * [DELETE /api/projects/{project}/apikeys/{name}](#delete-apiprojectsprojectapikeysname)
+            * [GET /api/projects/{project-id}/usage](#get-apiprojectsproject-idusage)
+            * [GET /api/projects/{project-id}/limit](#get-apiprojectsproject-idlimit)
+            * [Update limits](#update-limits)
+                * [POST /api/projects/{project-id}/limit?usage={value}](#post-apiprojectsproject-idlimitusagevalue)
+                * [POST /api/projects/{project-id}/limit?bandwidth={value}](#post-apiprojectsproject-idlimitbandwidthvalue)
+                * [POST /api/projects/{project-id}/limit?rate={value}](#post-apiprojectsproject-idlimitratevalue)
+                * [POST /api/projects/{project-id}/limit?buckets={value}](#post-apiprojectsproject-idlimitbucketsvalue)
+        * [APIKey Management](#apikey-management)
+            * [DELETE /api/apikeys/{apikey}](#delete-apiapikeysapikey)
 
 <!-- tocstop -->
 
-## User Management
+## API design
 
-### POST /api/users
+### Error responses
+
+When an API endpoint returns a client error (status code 4XX) it returns a JSON error response which contains 2 fields:
+
+* `error`: The error message.
+* `detail` (may be empty): Some detail about the returned error.
+
+Example:
+
+```json
+{
+  "error": "usage for the current month exists",
+  "detail": ""
+}
+```
+
+## API Endpoints
+### User Management
+
+#### POST /api/users
 
 Adds a new user.
 
@@ -64,7 +86,7 @@ A successful response body:
 }
 ```
 
-### PUT /api/users/{user-email}
+#### PUT /api/users/{user-email}
 
 Updates the details of existing user found by its email.
 
@@ -89,7 +111,7 @@ Some example request bodies:
 }
 ```
 
-### GET /api/users/{user-email}
+#### GET /api/users/{user-email}
 
 This endpoint returns information about user and their projects.
 
@@ -126,17 +148,17 @@ A successful response body:
 }
 ```
 
-### DELETE /api/users/{user-email}
+#### DELETE /api/users/{user-email}
 
 Deletes the user.
 
-## Coupon Management
+### Coupon Management
 
 The coupons have an amount and duration.
 Amount is expressed in cents of USD dollars (e.g. 500 is $5)
 Duration is expressed in billing periods, a billing period is a natural month.
 
-### POST /api/coupons
+#### POST /api/coupons
 
 Adds a coupon for specific user.
 
@@ -159,7 +181,7 @@ A successful response body:
 }
 ```
 
-### GET /api/coupons/{coupon-id}
+#### GET /api/coupons/{coupon-id}
 
 Gets a coupon with the specified id.
 
@@ -178,13 +200,13 @@ A successful response body:
 }
 ```
 
-### DELETE /api/coupons/{coupon-id}
+#### DELETE /api/coupons/{coupon-id}
 
 Deletes the specified coupon.
 
-## Project Management
+### Project Management
 
-### POST /api/projects
+#### POST /api/projects
 
 Adds a project for specific user.
 
@@ -205,11 +227,11 @@ A successful response body:
 }
 ```
 
-### GET /api/projects/{project-id}
+#### GET /api/projects/{project-id}
 
 Gets the common information about a project.
 
-### PUT /api/projects/{project-id}
+#### PUT /api/projects/{project-id}
 
 Updates project name or description.
 
@@ -220,11 +242,11 @@ Updates project name or description.
 }
 ```
 
-### DELETE /api/projects/{project-id}
+#### DELETE /api/projects/{project-id}
 
 Deletes the project.
 
-### GET /api/projects/{project}/apikeys
+#### GET /api/projects/{project}/apikeys
 
 Get the list of the API keys of a specific project.
 
@@ -249,7 +271,7 @@ A successful response body:
 ]
 ```
 
-### POST /api/projects/{project}/apikeys
+#### POST /api/projects/{project}/apikeys
 
 Adds an apikey for specific project.
 
@@ -271,17 +293,18 @@ A successful response body:
 }
 ```
 
-### DELETE /api/projects/{project}/apikeys/{name}
+#### DELETE /api/projects/{project}/apikeys/{name}
 
 Deletes the given apikey by its name.
 
-### GET /api/projects/{project-id}/usage
+#### GET /api/projects/{project-id}/usage
 
 This endpoint returns whether the project has outstanding usage or not.
 
 A project with not usage returns status code 200 and `{"result":"no project usage exist"}`.
+Otherwise, it returns status code 409 with a JSON error.`{"error":"usage for current month exists""}`.
 
-### GET /api/projects/{project-id}/limit
+#### GET /api/projects/{project-id}/limit
 
 This endpoint returns information about project limits.
 
@@ -303,29 +326,29 @@ A successful response body:
 }
 ```
 
-### Update limits
+#### Update limits
 
 You can update the different limits with one single request just adding the
 various query parameters (e.g. `usage=5000000&bandwidth=9000000`)
 
-#### POST /api/projects/{project-id}/limit?usage={value}
+##### POST /api/projects/{project-id}/limit?usage={value}
 
 Updates usage limit for a project. The value must be in bytes.
 
-#### POST /api/projects/{project-id}/limit?bandwidth={value}
+##### POST /api/projects/{project-id}/limit?bandwidth={value}
 
 Updates bandwidth limit for a project. The value must be in bytes.
 
-#### POST /api/projects/{project-id}/limit?rate={value}
+##### POST /api/projects/{project-id}/limit?rate={value}
 
 Updates rate limit for a project.
 
-#### POST /api/projects/{project-id}/limit?buckets={value}
+##### POST /api/projects/{project-id}/limit?buckets={value}
 
 Updates bucket limit for a project.
 
-## APIKey Management
+### APIKey Management
 
-### DELETE /api/apikeys/{apikey}
+#### DELETE /api/apikeys/{apikey}
 
 Deletes the given apikey.

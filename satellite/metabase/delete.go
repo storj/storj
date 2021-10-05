@@ -129,7 +129,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
 			FROM deleted_objects
 			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
-		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version))(func(rows tagsql.Rows) error {
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version))(func(rows tagsql.Rows) error {
 		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
 		return err
 	})
@@ -200,7 +200,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
 			FROM deleted_objects
 			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
-		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
 		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.Location(), rows)
 		return err
 	})
@@ -307,7 +307,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 	default:
 		return DeleteObjectResult{}, Error.New("unhandled database: %v", db.impl)
 	}
-	err = withRows(db.db.QueryContext(ctx, query, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)))(func(rows tagsql.Rows) error {
+	err = withRows(db.db.QueryContext(ctx, query, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
 		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
 		return err
 	})
@@ -363,7 +363,7 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
 			FROM deleted_objects
 			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
-		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)))(func(rows tagsql.Rows) error {
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
 		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
 		return err
 	})

@@ -16,13 +16,13 @@
             </p>
             <OSContainer>
                 <template #windows>
-                    <TabWithCopy value="./uplink.exe ls sj://cakes" />
+                    <TabWithCopy value="./uplink.exe ls sj://cakes" aria-role-description="windows-list" />
                 </template>
                 <template #linux>
-                    <TabWithCopy value="uplink ls sj://cakes" />
+                    <TabWithCopy value="uplink ls sj://cakes" aria-role-description="linux-list" />
                 </template>
                 <template #macos>
-                    <TabWithCopy value="uplink ls sj://cakes" />
+                    <TabWithCopy value="uplink ls sj://cakes" aria-role-description="macos-list" />
                 </template>
             </OSContainer>
         </template>

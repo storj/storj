@@ -114,12 +114,8 @@ install_sim(){
             go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
         popd
     else
-        rm -rf .build/gateway-tmp
-        mkdir -p .build/gateway-tmp
-        pushd .build/gateway-tmp
-        	## TODO replace 'main' with 'latest' when gateway with multipart will be released
-            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@main
-        popd
+        # TODO(artur): replace 'main' with 'latest' after the gateway is being released again
+        GOBIN=${bin_dir} go install -race storj.io/gateway@main
     fi
 
     if [ -d "${work_dir}/cmd/multinode" ]; then

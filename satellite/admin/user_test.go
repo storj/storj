@@ -26,7 +26,7 @@ func TestGetUser(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -58,6 +58,8 @@ func TestGetUser(t *testing.T) {
 
 			response, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
 			data, err := ioutil.ReadAll(response.Body)
 			require.NoError(t, err)
@@ -75,7 +77,7 @@ func TestAddUser(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -91,6 +93,8 @@ func TestAddUser(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -112,7 +116,7 @@ func TestAddUserSameEmail(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -128,6 +132,8 @@ func TestAddUserSameEmail(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -150,6 +156,7 @@ func TestAddUserSameEmail(t *testing.T) {
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 		require.NoError(t, response.Body.Close())
 	})
 }
@@ -160,7 +167,7 @@ func TestUpdateUser(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -177,6 +184,7 @@ func TestUpdateUser(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "", response.Header.Get("Content-Type"))
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -200,7 +208,7 @@ func TestUpdateUserRateLimit(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -219,6 +227,7 @@ func TestUpdateUserRateLimit(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "", response.Header.Get("Content-Type"))
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -239,7 +248,7 @@ func TestDeleteUser(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -256,6 +265,7 @@ func TestDeleteUser(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -272,6 +282,7 @@ func TestDeleteUser(t *testing.T) {
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "", response.Header.Get("Content-Type"))
 		responseBody, err = ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())

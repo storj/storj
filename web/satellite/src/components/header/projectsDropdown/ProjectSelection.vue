@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-selection" :class="{ disabled: isOnboardingTour, active: isDropdownShown }">
+    <div class="project-selection" :class="{ disabled: isOnboardingTour, active: isDropdownShown, navigation: inNavigation }">
         <div
             class="project-selection__toggle-container"
             @click.stop="toggleSelection"
         >
-            <p class="project-selection__toggle-container__name" :class="{ white: isDropdownShown }">Projects</p>
+            <p class="project-selection__toggle-container__name" :class="{ 'white': isDropdownShown, 'name-navigation': inNavigation }">Projects</p>
             <ExpandIcon
                 class="project-selection__toggle-container__expand-icon"
                 :class="{ expanded: isDropdownShown }"
@@ -17,6 +17,7 @@
                 v-show="isDropdownShown"
                 v-click-outside="closeDropdown"
                 :is-loading="isLoading"
+                in-navigation="true"
                 @close="closeDropdown"
             />
         </div>
@@ -24,7 +25,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
@@ -42,6 +43,10 @@ import ProjectDropdown from './ProjectDropdown.vue';
     },
 })
 export default class ProjectSelection extends Vue {
+
+    @Prop({default: false})
+    protected readonly inNavigation: boolean;
+
     private isLoading = false;
 
     /**
@@ -132,6 +137,11 @@ export default class ProjectSelection extends Vue {
                 margin: 0;
             }
 
+            &__name.name-navigation {
+                color: #1b2533;
+                white-space: nowrap;
+            }
+
             &__expand-icon {
                 margin-left: 15px;
             }
@@ -164,5 +174,32 @@ export default class ProjectSelection extends Vue {
     .white {
         font-family: 'font_bold', sans-serif;
         color: #fff !important;
+    }
+
+    .navigation {
+        background: none;
+        -webkit-box-flex: 0;
+        -ms-flex: 0 0 auto;
+        flex: 0 0 auto;
+        padding: 10px;
+        width: calc(100% - 20px);
+        margin-bottom: 15px;
+        text-decoration: none;
+
+        &:hover {
+            background-color: #0068dc;
+
+            .project-selection__toggle-container__name {
+                color: #fff;
+            }
+
+            .black-arrow-expand-path {
+                fill: #fff;
+            }
+        }
+    }
+
+    .navigation.active {
+        background: #0068dc !important;
     }
 </style>

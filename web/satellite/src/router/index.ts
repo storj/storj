@@ -27,7 +27,9 @@ import UploadFile from '@/components/objects/UploadFile.vue';
 import WarningView from '@/components/objects/WarningView.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import OnbCLIStep from '@/components/onboardingTour/steps/CLIStep.vue';
+import CreateAccessGrantStep from "@/components/onboardingTour/steps/oldFlow/CreateAccessGrantStep.vue";
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
+import OldOverviewStep from '@/components/onboardingTour/steps/oldFlow/OldOverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
@@ -36,16 +38,12 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import CLIInstall from "@/components/onboardingTour/steps/cliFlow/CLIInstall.vue";
 import APIKey from "@/components/onboardingTour/steps/cliFlow/APIKey.vue";
 import CLISetup from "@/components/onboardingTour/steps/cliFlow/CLISetup.vue";
-import GenerateAG from "@/components/onboardingTour/steps/cliFlow/GenerateAG.vue";
 import CreateBucket from "@/components/onboardingTour/steps/cliFlow/CreateBucket.vue";
 import UploadObject from "@/components/onboardingTour/steps/cliFlow/UploadObject.vue";
 import ListObject from "@/components/onboardingTour/steps/cliFlow/ListObject.vue";
 import DownloadObject from "@/components/onboardingTour/steps/cliFlow/DownloadObject.vue";
 import ShareObject from "@/components/onboardingTour/steps/cliFlow/ShareObject.vue";
 import SuccessScreen from "@/components/onboardingTour/steps/cliFlow/SuccessScreen.vue";
-import EncryptYourData from "@/components/onboardingTour/steps/cliFlow/EncryptYourData.vue";
-import GeneratedAG from "@/components/onboardingTour/steps/cliFlow/GeneratedAG.vue";
-import ImportAG from "@/components/onboardingTour/steps/cliFlow/ImportAG.vue";
 
 import store from '@/store';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
@@ -100,13 +98,9 @@ export abstract class RouteConfig {
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
     public static OnbCLIStep = new NavigationLink('cli', 'Onboarding CLI');
-    public static EncryptYourData = new NavigationLink('encrypt', 'Onboarding Encrypt Data');
-    public static GeneratedAG = new NavigationLink('generated-ag', 'Onboarding Generated AG');
     public static APIKey = new NavigationLink('api-key', 'Onboarding API Key');
     public static CLIInstall = new NavigationLink('cli-install', 'Onboarding CLI Install');
     public static CLISetup = new NavigationLink('cli-setup', 'Onboarding CLI Setup');
-    public static ImportAG = new NavigationLink('import', 'Onboarding Import AG');
-    public static GenerateAG = new NavigationLink('generate-ag', 'Onboarding Generate AG');
     public static CreateBucket = new NavigationLink('create-bucket', 'Onboarding Create Bucket');
     public static UploadObject = new NavigationLink('upload-object', 'Onboarding Upload Object');
     public static ListObject = new NavigationLink('list-object', 'Onboarding List Object');
@@ -114,11 +108,22 @@ export abstract class RouteConfig {
     public static ShareObject = new NavigationLink('share-object', 'Onboarding Share Object');
     public static SuccessScreen = new NavigationLink('success', 'Onboarding Success Screen');
 
+    // onboarding tour old child paths
+    public static OldOverviewStep = new NavigationLink('old-overview', 'Old Onboarding Overview');
+    public static AccessGrant = new NavigationLink('access', 'Onboarding Access Grant');
+    public static AccessGrantName = new NavigationLink('name', 'Onboarding Name Access Grant');
+    public static AccessGrantPermissions = new NavigationLink('permissions', 'Onboarding Access Grant Permissions');
+    public static AccessGrantCLI = new NavigationLink('cli', 'Onboarding Access Grant CLI');
+    public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
+    public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
+    public static AccessGrantGateway = new NavigationLink('gateway', 'Onboarding Access Grant Gateway');
+
     // objects child paths.
     public static Warning = new NavigationLink('warning', 'Objects Warning');
     public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
+    public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
 }
 
 export const notProjectRelatedRoutes = [
@@ -228,25 +233,57 @@ export const router = new Router({
                             component: OverviewStep,
                         },
                         {
+                            path: RouteConfig.OldOverviewStep.path,
+                            name: RouteConfig.OldOverviewStep.name,
+                            component: OldOverviewStep,
+                        },
+                        {
+                            path: RouteConfig.AccessGrant.path,
+                            name: RouteConfig.AccessGrant.name,
+                            component: CreateAccessGrantStep,
+                            children: [
+                                {
+                                    path: RouteConfig.AccessGrantName.path,
+                                    name: RouteConfig.AccessGrantName.name,
+                                    component: NameStep,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantPermissions.path,
+                                    name: RouteConfig.AccessGrantPermissions.name,
+                                    component: PermissionsStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantCLI.path,
+                                    name: RouteConfig.AccessGrantCLI.name,
+                                    component: CLIStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantPassphrase.path,
+                                    name: RouteConfig.AccessGrantPassphrase.name,
+                                    component: CreatePassphraseStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantResult.path,
+                                    name: RouteConfig.AccessGrantResult.name,
+                                    component: ResultStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantGateway.path,
+                                    name: RouteConfig.AccessGrantGateway.name,
+                                    component: GatewayStep,
+                                    props: true,
+                                },
+                            ]
+                        },
+                        {
                             path: RouteConfig.OnbCLIStep.path,
                             name: RouteConfig.OnbCLIStep.name,
                             component: OnbCLIStep,
                             children: [
-                                {
-                                    path: RouteConfig.EncryptYourData.path,
-                                    name: RouteConfig.EncryptYourData.name,
-                                    component: EncryptYourData,
-                                },
-                                {
-                                    path: RouteConfig.GeneratedAG.path,
-                                    name: RouteConfig.GeneratedAG.name,
-                                    component: GeneratedAG,
-                                },
-                                {
-                                    path: RouteConfig.ImportAG.path,
-                                    name: RouteConfig.ImportAG.name,
-                                    component: ImportAG,
-                                },
                                 {
                                     path: RouteConfig.APIKey.path,
                                     name: RouteConfig.APIKey.name,
@@ -261,11 +298,6 @@ export const router = new Router({
                                     path: RouteConfig.CLISetup.path,
                                     name: RouteConfig.CLISetup.name,
                                     component: CLISetup,
-                                },
-                                {
-                                    path: RouteConfig.GenerateAG.path,
-                                    name: RouteConfig.GenerateAG.name,
-                                    component: GenerateAG,
                                 },
                                 {
                                     path: RouteConfig.CreateBucket.path,
@@ -396,6 +428,13 @@ export const router = new Router({
                             path: RouteConfig.UploadFile.path,
                             name: RouteConfig.UploadFile.name,
                             component: UploadFile,
+                            children: [
+                                {
+                                    path: RouteConfig.UploadFileChildren.path,
+                                    name: RouteConfig.UploadFileChildren.name,
+                                    component: UploadFile,
+                                },
+                            ],
                         },
                     ],
                 },
@@ -410,7 +449,8 @@ export const router = new Router({
 });
 
 router.beforeEach(async (to, from, next) => {
-    if (from.name === RouteConfig.UploadFile.name && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+    if (((from.name === RouteConfig.UploadFile.name) || (from.name === RouteConfig.UploadFileChildren.name))
+        && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
         if (areUploadsInProgress) return;
     }
@@ -427,6 +467,12 @@ router.beforeEach(async (to, from, next) => {
         return;
     }
 
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant))) {
+        next(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.NameStep).path);
+
+        return;
+    }
+
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep))) {
         next(RouteConfig.OnboardingTour.path);
 
@@ -434,6 +480,12 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
+        if (!store.state.appStateModule.isNewOnbCLIFlow) {
+            next(RouteConfig.OnboardingTour.with(RouteConfig.OldOverviewStep).path);
+
+            return;
+        }
+
         next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
         return;

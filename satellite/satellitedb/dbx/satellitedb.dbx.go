@@ -440,21 +440,6 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
 );
-CREATE TABLE graceful_exit_transfer_queue (
-	node_id bytea NOT NULL,
-	path bytea NOT NULL,
-	piece_num integer NOT NULL,
-	root_piece_id bytea,
-	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
-	last_failed_code integer,
-	failed_count integer,
-	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, path, piece_num )
-);
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -527,6 +512,7 @@ CREATE TABLE projects (
 	usage_limit bigint,
 	bandwidth_limit bigint,
 	rate_limit integer,
+	burst_limit integer,
 	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -796,7 +782,6 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
@@ -1028,21 +1013,6 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
 );
-CREATE TABLE graceful_exit_transfer_queue (
-	node_id bytea NOT NULL,
-	path bytea NOT NULL,
-	piece_num integer NOT NULL,
-	root_piece_id bytea,
-	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
-	last_failed_code integer,
-	failed_count integer,
-	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, path, piece_num )
-);
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -1115,6 +1085,7 @@ CREATE TABLE projects (
 	usage_limit bigint,
 	bandwidth_limit bigint,
 	rate_limit integer,
+	burst_limit integer,
 	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -1384,7 +1355,6 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
@@ -3451,363 +3421,6 @@ func (GracefulExitSegmentTransfer_OrderLimitSendCount_Field) _Column() string {
 	return "order_limit_send_count"
 }
 
-type GracefulExitTransferQueue struct {
-	NodeId              []byte
-	Path                []byte
-	PieceNum            int
-	RootPieceId         []byte
-	DurabilityRatio     float64
-	QueuedAt            time.Time
-	RequestedAt         *time.Time
-	LastFailedAt        *time.Time
-	LastFailedCode      *int
-	FailedCount         *int
-	FinishedAt          *time.Time
-	OrderLimitSendCount int
-}
-
-func (GracefulExitTransferQueue) _Table() string { return "graceful_exit_transfer_queue" }
-
-type GracefulExitTransferQueue_Create_Fields struct {
-	RootPieceId         GracefulExitTransferQueue_RootPieceId_Field
-	RequestedAt         GracefulExitTransferQueue_RequestedAt_Field
-	LastFailedAt        GracefulExitTransferQueue_LastFailedAt_Field
-	LastFailedCode      GracefulExitTransferQueue_LastFailedCode_Field
-	FailedCount         GracefulExitTransferQueue_FailedCount_Field
-	FinishedAt          GracefulExitTransferQueue_FinishedAt_Field
-	OrderLimitSendCount GracefulExitTransferQueue_OrderLimitSendCount_Field
-}
-
-type GracefulExitTransferQueue_Update_Fields struct {
-	DurabilityRatio     GracefulExitTransferQueue_DurabilityRatio_Field
-	RequestedAt         GracefulExitTransferQueue_RequestedAt_Field
-	LastFailedAt        GracefulExitTransferQueue_LastFailedAt_Field
-	LastFailedCode      GracefulExitTransferQueue_LastFailedCode_Field
-	FailedCount         GracefulExitTransferQueue_FailedCount_Field
-	FinishedAt          GracefulExitTransferQueue_FinishedAt_Field
-	OrderLimitSendCount GracefulExitTransferQueue_OrderLimitSendCount_Field
-}
-
-type GracefulExitTransferQueue_NodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GracefulExitTransferQueue_NodeId(v []byte) GracefulExitTransferQueue_NodeId_Field {
-	return GracefulExitTransferQueue_NodeId_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitTransferQueue_NodeId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_NodeId_Field) _Column() string { return "node_id" }
-
-type GracefulExitTransferQueue_Path_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GracefulExitTransferQueue_Path(v []byte) GracefulExitTransferQueue_Path_Field {
-	return GracefulExitTransferQueue_Path_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitTransferQueue_Path_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_Path_Field) _Column() string { return "path" }
-
-type GracefulExitTransferQueue_PieceNum_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func GracefulExitTransferQueue_PieceNum(v int) GracefulExitTransferQueue_PieceNum_Field {
-	return GracefulExitTransferQueue_PieceNum_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitTransferQueue_PieceNum_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_PieceNum_Field) _Column() string { return "piece_num" }
-
-type GracefulExitTransferQueue_RootPieceId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GracefulExitTransferQueue_RootPieceId(v []byte) GracefulExitTransferQueue_RootPieceId_Field {
-	return GracefulExitTransferQueue_RootPieceId_Field{_set: true, _value: v}
-}
-
-func GracefulExitTransferQueue_RootPieceId_Raw(v []byte) GracefulExitTransferQueue_RootPieceId_Field {
-	if v == nil {
-		return GracefulExitTransferQueue_RootPieceId_Null()
-	}
-	return GracefulExitTransferQueue_RootPieceId(v)
-}
-
-func GracefulExitTransferQueue_RootPieceId_Null() GracefulExitTransferQueue_RootPieceId_Field {
-	return GracefulExitTransferQueue_RootPieceId_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitTransferQueue_RootPieceId_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitTransferQueue_RootPieceId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_RootPieceId_Field) _Column() string { return "root_piece_id" }
-
-type GracefulExitTransferQueue_DurabilityRatio_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func GracefulExitTransferQueue_DurabilityRatio(v float64) GracefulExitTransferQueue_DurabilityRatio_Field {
-	return GracefulExitTransferQueue_DurabilityRatio_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitTransferQueue_DurabilityRatio_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_DurabilityRatio_Field) _Column() string { return "durability_ratio" }
-
-type GracefulExitTransferQueue_QueuedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func GracefulExitTransferQueue_QueuedAt(v time.Time) GracefulExitTransferQueue_QueuedAt_Field {
-	return GracefulExitTransferQueue_QueuedAt_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitTransferQueue_QueuedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_QueuedAt_Field) _Column() string { return "queued_at" }
-
-type GracefulExitTransferQueue_RequestedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func GracefulExitTransferQueue_RequestedAt(v time.Time) GracefulExitTransferQueue_RequestedAt_Field {
-	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _value: &v}
-}
-
-func GracefulExitTransferQueue_RequestedAt_Raw(v *time.Time) GracefulExitTransferQueue_RequestedAt_Field {
-	if v == nil {
-		return GracefulExitTransferQueue_RequestedAt_Null()
-	}
-	return GracefulExitTransferQueue_RequestedAt(*v)
-}
-
-func GracefulExitTransferQueue_RequestedAt_Null() GracefulExitTransferQueue_RequestedAt_Field {
-	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitTransferQueue_RequestedAt_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitTransferQueue_RequestedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_RequestedAt_Field) _Column() string { return "requested_at" }
-
-type GracefulExitTransferQueue_LastFailedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func GracefulExitTransferQueue_LastFailedAt(v time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
-	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _value: &v}
-}
-
-func GracefulExitTransferQueue_LastFailedAt_Raw(v *time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
-	if v == nil {
-		return GracefulExitTransferQueue_LastFailedAt_Null()
-	}
-	return GracefulExitTransferQueue_LastFailedAt(*v)
-}
-
-func GracefulExitTransferQueue_LastFailedAt_Null() GracefulExitTransferQueue_LastFailedAt_Field {
-	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitTransferQueue_LastFailedAt_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitTransferQueue_LastFailedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_LastFailedAt_Field) _Column() string { return "last_failed_at" }
-
-type GracefulExitTransferQueue_LastFailedCode_Field struct {
-	_set   bool
-	_null  bool
-	_value *int
-}
-
-func GracefulExitTransferQueue_LastFailedCode(v int) GracefulExitTransferQueue_LastFailedCode_Field {
-	return GracefulExitTransferQueue_LastFailedCode_Field{_set: true, _value: &v}
-}
-
-func GracefulExitTransferQueue_LastFailedCode_Raw(v *int) GracefulExitTransferQueue_LastFailedCode_Field {
-	if v == nil {
-		return GracefulExitTransferQueue_LastFailedCode_Null()
-	}
-	return GracefulExitTransferQueue_LastFailedCode(*v)
-}
-
-func GracefulExitTransferQueue_LastFailedCode_Null() GracefulExitTransferQueue_LastFailedCode_Field {
-	return GracefulExitTransferQueue_LastFailedCode_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitTransferQueue_LastFailedCode_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitTransferQueue_LastFailedCode_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_LastFailedCode_Field) _Column() string { return "last_failed_code" }
-
-type GracefulExitTransferQueue_FailedCount_Field struct {
-	_set   bool
-	_null  bool
-	_value *int
-}
-
-func GracefulExitTransferQueue_FailedCount(v int) GracefulExitTransferQueue_FailedCount_Field {
-	return GracefulExitTransferQueue_FailedCount_Field{_set: true, _value: &v}
-}
-
-func GracefulExitTransferQueue_FailedCount_Raw(v *int) GracefulExitTransferQueue_FailedCount_Field {
-	if v == nil {
-		return GracefulExitTransferQueue_FailedCount_Null()
-	}
-	return GracefulExitTransferQueue_FailedCount(*v)
-}
-
-func GracefulExitTransferQueue_FailedCount_Null() GracefulExitTransferQueue_FailedCount_Field {
-	return GracefulExitTransferQueue_FailedCount_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitTransferQueue_FailedCount_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitTransferQueue_FailedCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_FailedCount_Field) _Column() string { return "failed_count" }
-
-type GracefulExitTransferQueue_FinishedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func GracefulExitTransferQueue_FinishedAt(v time.Time) GracefulExitTransferQueue_FinishedAt_Field {
-	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _value: &v}
-}
-
-func GracefulExitTransferQueue_FinishedAt_Raw(v *time.Time) GracefulExitTransferQueue_FinishedAt_Field {
-	if v == nil {
-		return GracefulExitTransferQueue_FinishedAt_Null()
-	}
-	return GracefulExitTransferQueue_FinishedAt(*v)
-}
-
-func GracefulExitTransferQueue_FinishedAt_Null() GracefulExitTransferQueue_FinishedAt_Field {
-	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitTransferQueue_FinishedAt_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitTransferQueue_FinishedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_FinishedAt_Field) _Column() string { return "finished_at" }
-
-type GracefulExitTransferQueue_OrderLimitSendCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func GracefulExitTransferQueue_OrderLimitSendCount(v int) GracefulExitTransferQueue_OrderLimitSendCount_Field {
-	return GracefulExitTransferQueue_OrderLimitSendCount_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitTransferQueue_OrderLimitSendCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitTransferQueue_OrderLimitSendCount_Field) _Column() string {
-	return "order_limit_send_count"
-}
-
 type Node struct {
 	Id                    []byte
 	Address               string
@@ -5160,6 +4773,7 @@ type Project struct {
 	UsageLimit     *int64
 	BandwidthLimit *int64
 	RateLimit      *int
+	BurstLimit     *int
 	MaxBuckets     *int
 	PartnerId      []byte
 	OwnerId        []byte
@@ -5172,6 +4786,7 @@ type Project_Create_Fields struct {
 	UsageLimit     Project_UsageLimit_Field
 	BandwidthLimit Project_BandwidthLimit_Field
 	RateLimit      Project_RateLimit_Field
+	BurstLimit     Project_BurstLimit_Field
 	MaxBuckets     Project_MaxBuckets_Field
 	PartnerId      Project_PartnerId_Field
 }
@@ -5182,6 +4797,7 @@ type Project_Update_Fields struct {
 	UsageLimit     Project_UsageLimit_Field
 	BandwidthLimit Project_BandwidthLimit_Field
 	RateLimit      Project_RateLimit_Field
+	BurstLimit     Project_BurstLimit_Field
 	MaxBuckets     Project_MaxBuckets_Field
 }
 
@@ -5337,6 +4953,38 @@ func (f Project_RateLimit_Field) value() interface{} {
 }
 
 func (Project_RateLimit_Field) _Column() string { return "rate_limit" }
+
+type Project_BurstLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func Project_BurstLimit(v int) Project_BurstLimit_Field {
+	return Project_BurstLimit_Field{_set: true, _value: &v}
+}
+
+func Project_BurstLimit_Raw(v *int) Project_BurstLimit_Field {
+	if v == nil {
+		return Project_BurstLimit_Null()
+	}
+	return Project_BurstLimit(*v)
+}
+
+func Project_BurstLimit_Null() Project_BurstLimit_Field {
+	return Project_BurstLimit_Field{_set: true, _null: true}
+}
+
+func (f Project_BurstLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Project_BurstLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_BurstLimit_Field) _Column() string { return "burst_limit" }
 
 type Project_MaxBuckets_Field struct {
 	_set   bool
@@ -10436,21 +10084,22 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 	__usage_limit_val := optional.UsageLimit.value()
 	__bandwidth_limit_val := optional.BandwidthLimit.value()
 	__rate_limit_val := optional.RateLimit.value()
+	__burst_limit_val := optional.BurstLimit.value()
 	__max_buckets_val := optional.MaxBuckets.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, burst_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11471,7 +11120,7 @@ func (obj *pgxImpl) Get_Project_By_Id(ctx context.Context,
 	project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -11480,7 +11129,7 @@ func (obj *pgxImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -11580,7 +11229,7 @@ func (obj *pgxImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
 
 	var __values []interface{}
 
@@ -11597,7 +11246,7 @@ func (obj *pgxImpl) All_Project(ctx context.Context) (
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -11624,7 +11273,7 @@ func (obj *pgxImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx cont
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -11642,7 +11291,7 @@ func (obj *pgxImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx cont
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -11669,7 +11318,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_owner_id.value())
@@ -11687,7 +11336,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -11714,7 +11363,7 @@ func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Na
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -11732,7 +11381,7 @@ func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Na
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -11760,7 +11409,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -11780,7 +11429,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -13088,30 +12737,6 @@ func (obj *pgxImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_P
 		return (*GracefulExitSegmentTransfer)(nil), obj.makeErr(err)
 	}
 	return graceful_exit_segment_transfer, nil
-
-}
-
-func (obj *pgxImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.root_piece_id, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at, graceful_exit_transfer_queue.order_limit_send_count FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
-	if err != nil {
-		return (*GracefulExitTransferQueue)(nil), obj.makeErr(err)
-	}
-	return graceful_exit_transfer_queue, nil
 
 }
 
@@ -14685,7 +14310,7 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -14716,6 +14341,11 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit = ?"))
 	}
 
+	if update.BurstLimit._set {
+		__values = append(__values, update.BurstLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit = ?"))
+	}
+
 	if update.MaxBuckets._set {
 		__values = append(__values, update.MaxBuckets.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_buckets = ?"))
@@ -14734,7 +14364,7 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -15008,75 +14638,6 @@ func (obj *pgxImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_Str
 	}
 
 	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-}
-
-func (obj *pgxImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-	update GracefulExitTransferQueue_Update_Fields) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.DurabilityRatio._set {
-		__values = append(__values, update.DurabilityRatio.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
-	}
-
-	if update.RequestedAt._set {
-		__values = append(__values, update.RequestedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
-	}
-
-	if update.LastFailedAt._set {
-		__values = append(__values, update.LastFailedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
-	}
-
-	if update.LastFailedCode._set {
-		__values = append(__values, update.LastFailedCode.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
-	}
-
-	if update.FailedCount._set {
-		__values = append(__values, update.FailedCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
-	}
-
-	if update.FinishedAt._set {
-		__values = append(__values, update.FinishedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
-	}
-
-	if update.OrderLimitSendCount._set {
-		__values = append(__values, update.OrderLimitSendCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("order_limit_send_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -15602,89 +15163,6 @@ func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_
 
 }
 
-func (obj *pgxImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *pgxImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *pgxImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is not NULL")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *pgxImpl) Delete_CouponCode_By_Name(ctx context.Context,
 	coupon_code_name CouponCode_Name_Field) (
 	deleted bool, err error) {
@@ -16034,16 +15512,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_transfer_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -16423,21 +15891,22 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 	__usage_limit_val := optional.UsageLimit.value()
 	__bandwidth_limit_val := optional.BandwidthLimit.value()
 	__rate_limit_val := optional.RateLimit.value()
+	__burst_limit_val := optional.BurstLimit.value()
 	__max_buckets_val := optional.MaxBuckets.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, burst_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -17458,7 +16927,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_Id(ctx context.Context,
 	project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -17467,7 +16936,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -17567,7 +17036,7 @@ func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
 
 	var __values []interface{}
 
@@ -17584,7 +17053,7 @@ func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -17611,7 +17080,7 @@ func (obj *pgxcockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -17629,7 +17098,7 @@ func (obj *pgxcockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -17656,7 +17125,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_owner_id.value())
@@ -17674,7 +17143,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -17701,7 +17170,7 @@ func (obj *pgxcockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_P
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -17719,7 +17188,7 @@ func (obj *pgxcockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_P
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -17747,7 +17216,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -17767,7 +17236,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -19075,30 +18544,6 @@ func (obj *pgxcockroachImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_Strea
 		return (*GracefulExitSegmentTransfer)(nil), obj.makeErr(err)
 	}
 	return graceful_exit_segment_transfer, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.root_piece_id, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at, graceful_exit_transfer_queue.order_limit_send_count FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
-	if err != nil {
-		return (*GracefulExitTransferQueue)(nil), obj.makeErr(err)
-	}
-	return graceful_exit_transfer_queue, nil
 
 }
 
@@ -20672,7 +20117,7 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -20703,6 +20148,11 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit = ?"))
 	}
 
+	if update.BurstLimit._set {
+		__values = append(__values, update.BurstLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit = ?"))
+	}
+
 	if update.MaxBuckets._set {
 		__values = append(__values, update.MaxBuckets.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_buckets = ?"))
@@ -20721,7 +20171,7 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20995,75 +20445,6 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeI
 	}
 
 	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-}
-
-func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-	update GracefulExitTransferQueue_Update_Fields) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.DurabilityRatio._set {
-		__values = append(__values, update.DurabilityRatio.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
-	}
-
-	if update.RequestedAt._set {
-		__values = append(__values, update.RequestedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
-	}
-
-	if update.LastFailedAt._set {
-		__values = append(__values, update.LastFailedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
-	}
-
-	if update.LastFailedCode._set {
-		__values = append(__values, update.LastFailedCode.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
-	}
-
-	if update.FailedCount._set {
-		__values = append(__values, update.FailedCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
-	}
-
-	if update.FinishedAt._set {
-		__values = append(__values, update.FinishedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
-	}
-
-	if update.OrderLimitSendCount._set {
-		__values = append(__values, update.OrderLimitSendCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("order_limit_send_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -21589,89 +20970,6 @@ func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_Fi
 
 }
 
-func (obj *pgxcockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is not NULL")
-
-	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *pgxcockroachImpl) Delete_CouponCode_By_Name(ctx context.Context,
 	coupon_code_name CouponCode_Name_Field) (
 	deleted bool, err error) {
@@ -22021,16 +21319,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_transfer_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -22783,40 +22071,6 @@ func (rx *Rx) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Posi
 	return tx.Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num)
 }
 
-func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
-	count int64, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_GracefulExitTransferQueue_By_NodeId(ctx, graceful_exit_transfer_queue_node_id)
-
-}
-
-func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
-	count int64, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx, graceful_exit_transfer_queue_node_id)
-
-}
-
-func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
-}
-
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -22983,18 +22237,6 @@ func (rx *Rx) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Positio
 		return
 	}
 	return tx.Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num)
-}
-
-func (rx *Rx) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
 }
 
 func (rx *Rx) Get_Node_By_Id(ctx context.Context,
@@ -23494,19 +22736,6 @@ func (rx *Rx) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_
 	return tx.UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num, update)
 }
 
-func (rx *Rx) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-	update GracefulExitTransferQueue_Update_Fields) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, update)
-}
-
 func (rx *Rx) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version_less NodeApiVersion_ApiVersion_Field,
@@ -23963,20 +23192,6 @@ type Methods interface {
 		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 		deleted bool, err error)
 
-	Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
-		count int64, err error)
-
-	Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
-		count int64, err error)
-
-	Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-		deleted bool, err error)
-
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -24047,12 +23262,6 @@ type Methods interface {
 		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
 		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 		graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error)
-
-	Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-		graceful_exit_transfer_queue *GracefulExitTransferQueue, err error)
 
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
@@ -24283,13 +23492,6 @@ type Methods interface {
 		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
 		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
 		update GracefulExitSegmentTransfer_Update_Fields) (
-		err error)
-
-	UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-		update GracefulExitTransferQueue_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,

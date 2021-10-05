@@ -27,7 +27,7 @@ func TestAddCoupon(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -44,6 +44,7 @@ func TestAddCoupon(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -69,7 +70,7 @@ func TestCouponInfo(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -89,6 +90,7 @@ func TestCouponInfo(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
@@ -104,6 +106,7 @@ func TestCouponInfo(t *testing.T) {
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
 		responseBody, err = ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
@@ -125,7 +128,7 @@ func TestCouponDelete(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -144,6 +147,7 @@ func TestCouponDelete(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
@@ -165,6 +169,7 @@ func TestCouponDelete(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "", response.Header.Get("Content-Type"))
 
 		coupons, err = planet.Satellites[0].DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
 		require.NoError(t, err)

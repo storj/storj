@@ -5,13 +5,14 @@ package stripecoinpayments
 
 import (
 	"context"
-	"math/big"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/monetary"
 )
 
 // ErrTransactionConsumed is thrown when trying to consume already consumed transaction.
@@ -23,15 +24,15 @@ var ErrTransactionConsumed = errs.New("error transaction already consumed")
 // architecture: Database
 type TransactionsDB interface {
 	// Insert inserts new coinpayments transaction into DB.
-	Insert(ctx context.Context, tx Transaction) (*Transaction, error)
+	Insert(ctx context.Context, tx Transaction) (time.Time, error)
 	// Update updates status and received for set of transactions.
 	Update(ctx context.Context, updates []TransactionUpdate, applies coinpayments.TransactionIDList) error
 	// Consume marks transaction as consumed, so it won't participate in apply account balance loop.
 	Consume(ctx context.Context, id coinpayments.TransactionID) error
 	// LockRate locks conversion rate for transaction.
-	LockRate(ctx context.Context, id coinpayments.TransactionID, rate *big.Float) error
+	LockRate(ctx context.Context, id coinpayments.TransactionID, rate decimal.Decimal) error
 	// GetLockedRate returns locked conversion rate for transaction or error if non exists.
-	GetLockedRate(ctx context.Context, id coinpayments.TransactionID) (*big.Float, error)
+	GetLockedRate(ctx context.Context, id coinpayments.TransactionID) (decimal.Decimal, error)
 	// ListAccount returns all transaction for specific user.
 	ListAccount(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 	// ListPending returns TransactionsPage with pending transactions.
@@ -45,8 +46,8 @@ type Transaction struct {
 	ID        coinpayments.TransactionID
 	AccountID uuid.UUID
 	Address   string
-	Amount    big.Float
-	Received  big.Float
+	Amount    monetary.Amount
+	Received  monetary.Amount
 	Status    coinpayments.Status
 	Key       string
 	Timeout   time.Duration
@@ -57,7 +58,7 @@ type Transaction struct {
 type TransactionUpdate struct {
 	TransactionID coinpayments.TransactionID
 	Status        coinpayments.Status
-	Received      big.Float
+	Received      monetary.Amount
 }
 
 // TransactionsPage holds set of transaction and indicates if

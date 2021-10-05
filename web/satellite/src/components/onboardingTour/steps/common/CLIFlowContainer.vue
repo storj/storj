@@ -4,7 +4,7 @@
 <template>
     <div class="flow-container">
         <slot name="icon" />
-        <h1 class="flow-container__title">{{ title }}</h1>
+        <h1 class="flow-container__title" aria-roledescription="title">{{ title }}</h1>
         <slot name="content" />
         <div class="flow-container__buttons">
             <VButton

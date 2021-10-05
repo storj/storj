@@ -16,13 +16,13 @@
             </p>
             <OSContainer>
                 <template #windows>
-                    <TabWithCopy value="./uplink.exe cp sj://cakes/cheesecake.jpg <DESTINATION_PATH>/cheesecake.jpg" />
+                    <TabWithCopy value="./uplink.exe cp sj://cakes/cheesecake.jpg <DESTINATION_PATH>/cheesecake.jpg" aria-role-description="windows-download" />
                 </template>
                 <template #linux>
-                    <TabWithCopy value="uplink cp sj://cakes/cheesecake.jpg ~/Downloads/cheesecake.jpg" />
+                    <TabWithCopy value="uplink cp sj://cakes/cheesecake.jpg ~/Downloads/cheesecake.jpg" aria-role-description="linux-download" />
                 </template>
                 <template #macos>
-                    <TabWithCopy value="uplink cp sj://cakes/cheesecake.jpg ~/Downloads/cheesecake.jpg" />
+                    <TabWithCopy value="uplink cp sj://cakes/cheesecake.jpg ~/Downloads/cheesecake.jpg" aria-role-description="macos-download" />
                 </template>
             </OSContainer>
         </template>

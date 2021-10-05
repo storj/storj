@@ -21,6 +21,7 @@ import (
 	"storj.io/private/dbutil/pgtest"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/tempdb"
+	"storj.io/private/tagsql"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
@@ -103,6 +104,12 @@ type tempMasterDB struct {
 // Close closes a tempMasterDB and cleans it up afterward.
 func (db *tempMasterDB) Close() error {
 	return errs.Combine(db.DB.Close(), db.tempDB.Close())
+}
+
+// DebugGetDBHandle exposes a handle to the raw database object. This is intended
+// only for testing purposes and is temporary.
+func (db *tempMasterDB) DebugGetDBHandle() tagsql.DB {
+	return db.tempDB.DB
 }
 
 // CreateMasterDB creates a new satellite database for testing.

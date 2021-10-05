@@ -21,13 +21,13 @@
             </p>
             <OSContainer>
                 <template #windows>
-                    <TabWithCopy value="./uplink.exe setup" />
+                    <TabWithCopy value="./uplink.exe setup" aria-role-description="windows-cli-setup" />
                 </template>
                 <template #linux>
-                    <TabWithCopy value="uplink setup" />
+                    <TabWithCopy value="uplink setup" aria-role-description="linux-cli-setup" />
                 </template>
                 <template #macos>
-                    <TabWithCopy value="uplink setup" />
+                    <TabWithCopy value="uplink setup" aria-role-description="macos-cli-setup" />
                 </template>
             </OSContainer>
             <p class="cli__msg">Follow the prompts. When asked for your API Key, enter the token from the previous step.</p>
@@ -60,14 +60,14 @@ export default class CLISetup extends Vue {
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
     }
 
     /**
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.GenerateAG)).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
     }
 }
 </script>

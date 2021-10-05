@@ -138,6 +138,7 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 		Name:        dbx.Project_Name(project.Name),
 		Description: dbx.Project_Description(project.Description),
 		RateLimit:   dbx.Project_RateLimit_Raw(project.RateLimit),
+		BurstLimit:  dbx.Project_BurstLimit_Raw(project.BurstLimit),
 	}
 	if project.StorageLimit != nil {
 		updateFields.UsageLimit = dbx.Project_UsageLimit(project.StorageLimit.Int64())
@@ -165,6 +166,23 @@ func (projects *projects) UpdateRateLimit(ctx context.Context, id uuid.UUID, new
 		dbx.Project_Id(id[:]),
 		dbx.Project_Update_Fields{
 			RateLimit: dbx.Project_RateLimit(newLimit),
+		})
+
+	return err
+}
+
+// UpdateBurstLimit is a method for updating projects burst limit.
+func (projects *projects) UpdateBurstLimit(ctx context.Context, id uuid.UUID, newLimit int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if newLimit < 0 {
+		return Error.New("limit can't be set to negative value")
+	}
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			BurstLimit: dbx.Project_BurstLimit(newLimit),
 		})
 
 	return err
@@ -322,6 +340,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		PartnerID:      partnerID,
 		OwnerID:        ownerID,
 		RateLimit:      project.RateLimit,
+		BurstLimit:     project.BurstLimit,
 		MaxBuckets:     project.MaxBuckets,
 		CreatedAt:      project.CreatedAt,
 		StorageLimit:   (*memory.Size)(project.UsageLimit),

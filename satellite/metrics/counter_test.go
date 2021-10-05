@@ -13,6 +13,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 func TestCounterInlineAndRemote(t *testing.T) {
@@ -42,7 +43,12 @@ func TestCounterInlineAndRemote(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metricsChore.Loop.TriggerWait()
+		// metric chore is joining as monitor and will wait for another observer
+		// so we manually joining NullObserver
+		metricsChore.Loop.Trigger()
+		err := satellite.Metabase.SegmentLoop.Join(ctx, segmentloop.NullObserver{})
+		require.NoError(t, err)
+
 		require.EqualValues(t, 2, metricsChore.Counter.InlineObjects)
 		require.EqualValues(t, 2, metricsChore.Counter.RemoteObjects)
 
@@ -72,7 +78,12 @@ func TestCounterInlineOnly(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metricsChore.Loop.TriggerWait()
+		// metric chore is joining as monitor and will wait for another observer
+		// so we manually joining NullObserver
+		metricsChore.Loop.Trigger()
+		err := satellite.Metabase.SegmentLoop.Join(ctx, segmentloop.NullObserver{})
+		require.NoError(t, err)
+
 		require.EqualValues(t, 2, metricsChore.Counter.InlineObjects)
 		require.EqualValues(t, 0, metricsChore.Counter.RemoteObjects)
 	})
@@ -98,7 +109,12 @@ func TestCounterRemoteOnly(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metricsChore.Loop.TriggerWait()
+		// metric chore is joining as monitor and will wait for another observer
+		// so we manually joining NullObserver
+		metricsChore.Loop.Trigger()
+		err := satellite.Metabase.SegmentLoop.Join(ctx, segmentloop.NullObserver{})
+		require.NoError(t, err)
+
 		require.EqualValues(t, 0, metricsChore.Counter.InlineObjects)
 		require.EqualValues(t, 2, metricsChore.Counter.RemoteObjects)
 	})

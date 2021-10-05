@@ -6,26 +6,25 @@
         <EncryptIcon />
         <h1 class="encrypt-container__title">Encrypt your data</h1>
         <p class="encrypt-container__info">
-            The encryption passphrase is used to encrypt and access the data that you upload to Storj DCS. We strongly
-            encourage you to use a mnemonic phrase, which is automatically generated one on the client-side for you.
-            <span v-if="isOnboardingTour">
-                Alternatively, you can skip this step and enter a passphrase later into the Uplink CLI during setup.
-            </span>
+            The encryption passphrase is used to encrypt and access the data that you upload to Storj. We strongly
+            encourage you to use a mnemonic phrase, which is automatically generated on the client-side for you.
         </p>
         <div class="encrypt-container__header">
             <p class="encrypt-container__header__rec">RECOMMENDED</p>
             <div class="encrypt-container__header__row">
                 <p class="encrypt-container__header__row__gen" :class="{ active: isGenerate }" @click="setToGenerate">Generate Phrase</p>
                 <div class="encrypt-container__header__row__right">
-                    <p class="encrypt-container__header__row__right__enter" :class="{ active: !isGenerate }" @click="setToEnter">Enter Your Own Passphrase</p>
+                    <p class="encrypt-container__header__row__right__enter" :class="{ active: !isGenerate }" aria-roledescription="enter-passphrase-label" @click="setToEnter">
+                        Enter Your Own Passphrase
+                    </p>
                     <VInfo class="encrypt-container__header__row__right__info-button">
                         <template #icon>
                             <InfoIcon class="encrypt-container__header__row__right__info-button__image" />
                         </template>
                         <template #message>
                             <p class="encrypt-container__header__row__right__info-button__message">
-                                We strongly encourage you to use a mnemonic phrase, which is automatically generated one
-                                on the client-side for you. Alternatively, you can enter your own passphrase.
+                                We strongly encourage you to use a mnemonic phrase, which is automatically generated on
+                                the client-side for you. Alternatively, you can enter your own passphrase.
                             </p>
                         </template>
                     </VInfo>
@@ -47,38 +46,18 @@
             <HeaderlessInput
                 placeholder="Enter a passphrase here..."
                 :error="enterError"
+                role-description="passphrase"
                 @setData="setPassphrase"
             />
         </div>
-        <div class="encrypt-container__save">
-            <h2 class="encrypt-container__save__title">Save your encryption passphrase</h2>
-            <p class="encrypt-container__save__msg">
-                Please note that Storj does not know or store your encryption passphrase. If you lose it, you will
-                not be able to recover your files.
+        <p class="encrypt-container__download" @click="onDownloadClick">Download as a text file</p>
+        <div class="encrypt-container__warning">
+            <h2 class="encrypt-container__warning__title" aria-roledescription="warning-title">The object browser uses server side encryption.</h2>
+            <p class="encrypt-container__warning__msg">
+                If you want to use our product with only end-to-end encryption, you may want to use our command line solution.
             </p>
-            <p class="encrypt-container__save__download" @click="onDownloadClick">Download as a text file</p>
         </div>
         <div class="encrypt-container__buttons">
-            <VButton
-                v-if="isOnboardingTour"
-                class="encrypt-container__buttons__back"
-                label="< Back"
-                height="64px"
-                border-radius="62px"
-                :on-press="onBackClick"
-                is-grey-blue="true"
-                :is-disabled="isLoading"
-            />
-            <VButton
-                v-if="isOnboardingTour"
-                class="encrypt-container__buttons__skip"
-                label="Skip for now"
-                height="64px"
-                border-radius="62px"
-                :on-press="onSkipClick"
-                is-grey-blue="true"
-                :is-disabled="isLoading"
-            />
             <VButton
                 label="Next >"
                 height="64px"
@@ -94,7 +73,6 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 import * as bip39 from "bip39";
 
-import { RouteConfig } from "@/router";
 import { LocalData, UserIDPassSalt } from "@/utils/localData";
 import { Download } from "@/utils/download";
 
@@ -118,10 +96,6 @@ import InfoIcon from "@/../static/images/common/greyInfo.svg";
 export default class GeneratePassphrase extends Vue {
     @Prop({ default: () => null })
     public readonly onNextClick: () => unknown;
-    @Prop({ default: () => null })
-    public readonly onBackClick: () => unknown;
-    @Prop({ default: () => null })
-    public readonly onSkipClick: () => unknown;
     @Prop({ default: () => null })
     public readonly setParentPassphrase: (passphrase: string) => void;
     @Prop({ default: false })
@@ -187,6 +161,7 @@ export default class GeneratePassphrase extends Vue {
      */
     public setToEnter(): void {
         this.passphrase = '';
+        this.setParentPassphrase(this.passphrase);
         this.isGenerate = false;
     }
 
@@ -197,6 +172,7 @@ export default class GeneratePassphrase extends Vue {
         if (this.enterError) this.enterError = '';
 
         this.passphrase = bip39.generateMnemonic();
+        this.setParentPassphrase(this.passphrase);
         this.isGenerate = true;
     }
 
@@ -211,13 +187,6 @@ export default class GeneratePassphrase extends Vue {
         }
 
         await this.onNextClick();
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
@@ -329,17 +298,25 @@ export default class GeneratePassphrase extends Vue {
             margin-top: 25px;
         }
 
-        &__save {
+        &__download {
+            font-family: 'font_bold', sans-serif;
+            font-size: 16px;
+            line-height: 19px;
+            color: #0068dc;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+
+        &__warning {
             border: 1px solid #e6e9ef;
             border-radius: 10px;
             padding: 25px;
-            margin-top: 35px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;
                 font-size: 16px;
                 line-height: 19px;
-                color: #1b2533;
+                color: #df1616;
                 margin-bottom: 10px;
             }
 
@@ -348,14 +325,6 @@ export default class GeneratePassphrase extends Vue {
                 line-height: 20px;
                 color: #1b2533;
                 margin-bottom: 10px;
-            }
-
-            &__download {
-                font-family: 'font_bold', sans-serif;
-                font-size: 16px;
-                line-height: 19px;
-                color: #0068dc;
-                cursor: pointer;
             }
         }
 

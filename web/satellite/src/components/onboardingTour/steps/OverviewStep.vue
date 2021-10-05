@@ -5,29 +5,25 @@
     <div class="overview-area">
         <div class="overview-area__header">
             <WelcomeLeft />
-            <h1 class="overview-area__header__title">Welcome</h1>
+            <h1 class="overview-area__header__title" aria-roledescription="title">Welcome</h1>
             <WelcomeRight />
         </div>
-        <p class="overview-area__subtitle">Let's get you started using Storj DCS</p>
+        <p class="overview-area__subtitle">Let's get you started using Storj</p>
         <p class="overview-area__question">Do you want to use web browser or command-line interface?</p>
         <div class="overview-area__routes">
             <OverviewContainer
                 class="overview-area__routes__left-cont"
                 is-web="true"
                 title="Web browser"
-                encryption="SERVER-SIDE ENCRYPTED"
                 info="Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world."
-                encryption-container="By using the web browser you are opting in to server-side encryption."
-                button-label="CONTINUE IN WEB"
+                button-label="Continue in web"
                 :on-click="onUploadInBrowserClick"
                 :is-disabled="isLoading"
             />
             <OverviewContainer
                 title="Command line"
-                encryption="END-TO-END ENCRYPTED"
                 info="The Uplink CLI is a command-line interface which allows you to upload and download files from the network, manage permissions and sharing."
-                encryption-container="The Uplink CLI uses end-to-end encryption for object data, metadata and path data."
-                button-label="CONTINUE IN CLI"
+                button-label="Continue in cli"
                 :on-click="onUplinkCLIClick"
                 :is-disabled="isLoading"
             />
@@ -67,6 +63,16 @@ export default class OverviewStep extends Vue {
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
+     * Mounted hook before initial render.
+     * Checks CLI flow status and redirects if needed.
+     */
+    public beforeMount(): void {
+        if (!this.$store.state.appStateModule.isNewOnbCLIFlow) {
+            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OldOverviewStep).path)
+        }
+    }
+
+    /**
      * Holds button click logic.
      * Redirects to next step (creating access grant).
      */
@@ -76,7 +82,7 @@ export default class OverviewStep extends Vue {
         this.isLoading = true;
 
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.EncryptYourData).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.APIKey).path);
 
         this.isLoading = false;
     }

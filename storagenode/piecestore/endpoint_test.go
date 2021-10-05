@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
@@ -628,15 +627,13 @@ func TestTooManyRequests(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		doneWaiting := make(chan struct{})
 		failedCount := int64(expectedFailures)
 
-		uploads, _ := errgroup.WithContext(ctx)
-		defer ctx.Check(uploads.Wait)
+		defer ctx.Wait()
 
 		for i, uplink := range planet.Uplinks {
 			i, uplink := i, uplink
-			uploads.Go(func() (err error) {
+			ctx.Go(func() (err error) {
 				storageNode := planet.StorageNodes[0]
 				config := piecestore.DefaultConfig
 
@@ -669,14 +666,14 @@ func TestTooManyRequests(t *testing.T) {
 				satelliteSigner := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 				orderLimit, err = signing.SignOrderLimit(ctx, satelliteSigner, orderLimit)
 				if err != nil {
-					return err
+					return errs.New("signing failed: %w", err)
 				}
 
 				_, err = client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(make([]byte, orderLimit.Limit)))
 				if err != nil {
 					if errs2.IsRPC(err, rpcstatus.Unavailable) {
-						if atomic.AddInt64(&failedCount, -1) == 0 {
-							close(doneWaiting)
+						if atomic.AddInt64(&failedCount, -1) < 0 {
+							return errs.New("too many uploads failed: %w", err)
 						}
 						return nil
 					}

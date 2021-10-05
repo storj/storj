@@ -4,13 +4,28 @@
 <template>
     <div class="os">
         <div class="os__tabs">
-            <p class="os__tabs__choice" :class="{active: isWindows && !isInstallStep, 'active-install-step': isWindows && isInstallStep}" @click="setIsWindows">
+            <p
+                class="os__tabs__choice"
+                :class="{active: isWindows && !isInstallStep, 'active-install-step': isWindows && isInstallStep}"
+                aria-roledescription="windows"
+                @click="setIsWindows"
+            >
                 Windows
             </p>
-            <p class="os__tabs__choice" :class="{active: isLinux && !isInstallStep, 'active-install-step': isLinux && isInstallStep}" @click="setIsLinux">
+            <p
+                class="os__tabs__choice"
+                :class="{active: isLinux && !isInstallStep, 'active-install-step': isLinux && isInstallStep}"
+                aria-roledescription="linux"
+                @click="setIsLinux"
+            >
                 Linux
             </p>
-            <p class="os__tabs__choice" :class="{active: isMacOS && !isInstallStep, 'active-install-step': isMacOS && isInstallStep}" @click="setIsMacOS">
+            <p
+                class="os__tabs__choice"
+                :class="{active: isMacOS && !isInstallStep, 'active-install-step': isMacOS && isInstallStep}"
+                aria-roledescription="macos"
+                @click="setIsMacOS"
+            >
                 macOS
             </p>
         </div>

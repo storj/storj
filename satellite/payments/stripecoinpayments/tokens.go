@@ -16,6 +16,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/monetary"
 )
 
 const (
@@ -60,18 +61,18 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	rate, err := tokens.service.GetRate(ctx, coinpayments.CurrencySTORJ, coinpayments.CurrencyUSD)
+	rate, err := tokens.service.GetRate(ctx, monetary.StorjToken, monetary.USDollars)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	tokenAmount := convertFromCents(rate, amount).SetPrec(payments.STORJTokenPrecision)
+	tokenAmount := convertFromCents(rate, amount)
 
 	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
 		&coinpayments.CreateTX{
-			Amount:      *tokenAmount,
-			CurrencyIn:  coinpayments.CurrencySTORJ,
-			CurrencyOut: coinpayments.CurrencySTORJ,
+			Amount:      tokenAmount.AsDecimal(),
+			CurrencyIn:  monetary.StorjToken,
+			CurrencyOut: monetary.StorjToken,
 			BuyerEmail:  c.Email,
 		},
 	)
@@ -79,7 +80,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	key, err := coinpayments.GetTransacationKeyFromURL(tx.CheckoutURL)
+	key, err := coinpayments.GetTransactionKeyFromURL(tx.CheckoutURL)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -88,7 +89,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	cpTX, err := tokens.service.db.Transactions().Insert(ctx,
+	createTime, err := tokens.service.db.Transactions().Insert(ctx,
 		Transaction{
 			ID:        tx.ID,
 			AccountID: userID,
@@ -105,13 +106,13 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 
 	return &payments.Transaction{
 		ID:        payments.TransactionID(tx.ID),
-		Amount:    *payments.TokenAmountFromBigFloat(&tx.Amount),
-		Rate:      *rate,
+		Amount:    tx.Amount,
+		Rate:      rate,
 		Address:   tx.Address,
 		Status:    payments.TransactionStatusPending,
 		Timeout:   tx.Timeout,
 		Link:      tx.CheckoutURL,
-		CreatedAt: cpTX.CreatedAt,
+		CreatedAt: createTime,
 	}, nil
 }
 
@@ -149,10 +150,10 @@ func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid
 		infos = append(infos,
 			payments.TransactionInfo{
 				ID:            []byte(tx.ID),
-				Amount:        *payments.TokenAmountFromBigFloat(&tx.Amount),
-				Received:      *payments.TokenAmountFromBigFloat(&tx.Received),
-				AmountCents:   convertToCents(rate, &tx.Amount),
-				ReceivedCents: convertToCents(rate, &tx.Received),
+				Amount:        tx.Amount,
+				Received:      tx.Received,
+				AmountCents:   convertToCents(rate, tx.Amount),
+				ReceivedCents: convertToCents(rate, tx.Received),
 				Address:       tx.Address,
 				Status:        status,
 				Link:          link,

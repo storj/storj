@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/monetary"
 )
 
 var (
@@ -199,7 +199,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 			TransactionUpdate{
 				TransactionID: id,
 				Status:        info.Status,
-				Received:      info.Received,
+				Received:      monetary.AmountFromDecimal(info.Received, monetary.StorjToken),
 			},
 		)
 
@@ -275,7 +275,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
-	cents := convertToCents(rate, &tx.Received)
+	cents := convertToCents(rate, tx.Received)
 
 	if cents <= 0 {
 		service.log.Warn("Trying to deposit non-positive amount.",
@@ -321,7 +321,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 			Description: stripe.String(StripeDepositTransactionDescription),
 		}
 		params.AddMetadata("txID", tx.ID.String())
-		params.AddMetadata("storj_amount", tx.Amount.String())
+		params.AddMetadata("storj_amount", tx.Amount.AsDecimal().String())
 		params.AddMetadata("storj_usd_rate", rate.String())
 		_, err = service.stripeClient.CustomerBalanceTransactions().New(params)
 		if err != nil {
@@ -370,26 +370,26 @@ func (service *Service) UpdateRates(ctx context.Context) (err error) {
 }
 
 // GetRate returns conversion rate for specified currencies.
-func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.Currency) (_ *big.Float, err error) {
+func (service *Service) GetRate(ctx context.Context, curr1, curr2 *monetary.Currency) (_ decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
 	if service.ratesErr != nil {
-		return nil, Error.Wrap(err)
+		return decimal.Decimal{}, Error.Wrap(err)
 	}
 
-	info1, ok := service.rates[curr1]
+	info1, ok := service.rates.ForCurrency(curr1)
 	if !ok {
-		return nil, Error.New("no rate for currency %s", curr1)
+		return decimal.Decimal{}, Error.New("no rate for currency %s", curr1.Name())
 	}
-	info2, ok := service.rates[curr2]
+	info2, ok := service.rates.ForCurrency(curr2)
 	if !ok {
-		return nil, Error.New("no rate for currency %s", curr2)
+		return decimal.Decimal{}, Error.New("no rate for currency %s", curr2.Name())
 	}
 
-	return new(big.Float).Quo(&info1.RateBTC, &info2.RateBTC), nil
+	return info1.RateBTC.Div(info2.RateBTC), nil
 }
 
 // PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if

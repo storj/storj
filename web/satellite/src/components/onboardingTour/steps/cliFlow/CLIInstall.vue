@@ -17,7 +17,7 @@
                     <div class="cli-install__windows">
                         <h2 class="cli-install__macos__sub-title">
                             1. Download the
-                            <a href="https://github.com/storj/storj/releases/download/v1.34.3/uplink_windows_amd64.zip">
+                            <a href="https://github.com/storj/storj/releases/latest/download/uplink_windows_amd64.zip">
                                 Windows Uplink Binary
                             </a>
                             zip file
@@ -54,7 +54,10 @@
                                 sudo mv uplink /usr/local/bin/uplink
                             </p>
                         </div>
-                        <a class="cli-install__linux__link" href="https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip">
+                        <a
+                            class="cli-install__linux__link"
+                            href="https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip"
+                        >
                             Linux AMD64 Uplink Binary
                         </a>
                         <h1 class="cli-install__linux__title margin-top">ARM</h1>
@@ -73,7 +76,10 @@
                                 sudo mv uplink /usr/local/bin/uplink
                             </p>
                         </div>
-                        <a class="cli-install__linux__link" href="https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip">
+                        <a
+                            class="cli-install__linux__link"
+                            href="https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip"
+                        >
                             Linux ARM Uplink Binary
                         </a>
                     </div>
@@ -95,7 +101,10 @@
                                 sudo mv uplink /usr/local/bin/uplink
                             </p>
                         </div>
-                        <a class="cli-install__macos__link" href="https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip">
+                        <a
+                            class="cli-install__macos__link"
+                            href="https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip"
+                        >
                             macOS Uplink Binary
                         </a>
                     </div>
@@ -128,14 +137,14 @@ export default class CLIInstall extends Vue {
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.GeneratedAG)).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
     }
 
     /**
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ImportAG)).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
     }
 }
 </script>

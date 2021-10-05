@@ -17,13 +17,13 @@
             </p>
             <OSContainer>
                 <template #windows>
-                    <TabWithCopy value="./uplink.exe mb sj://cakes" />
+                    <TabWithCopy value="./uplink.exe mb sj://cakes" aria-role-description="windows-create-bucket" />
                 </template>
                 <template #linux>
-                    <TabWithCopy value="uplink mb sj://cakes" />
+                    <TabWithCopy value="uplink mb sj://cakes" aria-role-description="linux-create-bucket" />
                 </template>
                 <template #macos>
-                    <TabWithCopy value="uplink mb sj://cakes" />
+                    <TabWithCopy value="uplink mb sj://cakes" aria-role-description="macos-create-bucket" />
                 </template>
             </OSContainer>
         </template>
@@ -55,7 +55,7 @@ export default class CreateBucket extends Vue {
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
-        await this.$router.push(this.backRoute);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
     }
 
     /**
@@ -63,13 +63,6 @@ export default class CreateBucket extends Vue {
      */
     public async onNextClick(): Promise<void> {
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
-    }
-
-    /**
-     * Returns back route path from store.
-     */
-    private get backRoute(): string {
-        return this.$store.state.appStateModule.appState.onbCLIFlowCreateBucketBackRoute;
     }
 }
 </script>

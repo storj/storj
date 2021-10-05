@@ -3,19 +3,26 @@
 
 package coinpayments
 
-// Currency is a type wrapper for defined currencies.
-type Currency string
-
-const (
-	// CurrencyUSD defines USD.
-	CurrencyUSD Currency = "USD"
-	// CurrencyLTCT defines LTCT, coins used for testing purpose.
-	CurrencyLTCT Currency = "LTCT"
-	// CurrencySTORJ defines STORJ tokens.
-	CurrencySTORJ Currency = "STORJ"
+import (
+	"storj.io/storj/satellite/payments/monetary"
 )
 
-// String returns Currency string representation.
-func (c Currency) String() string {
-	return string(c)
-}
+// CurrencySymbol is a symbol for a currency as recognized by coinpayments.net.
+type CurrencySymbol string
+
+var (
+	// CurrencyLTCT defines LTCT, coins used for testing purpose.
+	CurrencyLTCT = monetary.NewCurrency("LTCT test coins", "LTCT", 8)
+
+	// currencySymbols maps known currency objects to the currency symbols
+	// as recognized on coinpayments.net. In many cases, the currency's own
+	// idea of its symbol (currency.Symbol()) will be the same as this
+	// CurrencySymbol, but we should probably not count on that always being
+	// the case.
+	currencySymbols = map[*monetary.Currency]CurrencySymbol{
+		monetary.USDollars:  "USD",
+		monetary.StorjToken: "STORJ",
+		monetary.Bitcoin:    "BTC",
+		CurrencyLTCT:        "LTCT",
+	}
+)

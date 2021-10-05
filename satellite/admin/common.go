@@ -13,20 +13,25 @@ import (
 // Error is default error class for admin package.
 var Error = errs.Class("admin")
 
-func httpJSONError(w http.ResponseWriter, error, detail string, statusCode int) {
+func sendJSONError(w http.ResponseWriter, errMsg, detail string, statusCode int) {
 	errStr := struct {
 		Error  string `json:"error"`
 		Detail string `json:"detail"`
 	}{
-		Error:  error,
+		Error:  errMsg,
 		Detail: detail,
 	}
-	byt, err := json.Marshal(errStr)
+	body, err := json.Marshal(errStr)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(statusCode)
+	sendJSONData(w, statusCode, body)
+}
+
+func sendJSONData(w http.ResponseWriter, statusCode int, data []byte) {
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(byt) // any error here entitles a client side disconnect or similar, which we do not care about.
+	w.WriteHeader(statusCode)
+	_, _ = w.Write(data) // any error here entitles a client side disconnect or similar, which we do not care about.
 }

@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="input-wrap">
+    <div class="input-wrap" :aria-roledescription="roleDescription">
         <div class="label-container">
             <ErrorIcon v-if="error" />
             <p v-if="isLabelShown" class="label-container__label" :style="style.labelStyle">{{ label }}</p>
-            <p v-if="error" class="label-container__error" :style="style.errorStyle">{{ error }}</p>
+            <p v-if="error" class="label-container__error" aria-roledescription="error-text" :style="style.errorStyle">{{ error }}</p>
         </div>
         <input
             v-model="value"
@@ -105,6 +105,8 @@ export default class HeaderlessInput extends Vue {
     private readonly isWhite: boolean;
     @Prop({default: false})
     private readonly withIcon: boolean;
+    @Prop({default: 'input-container'})
+    private readonly roleDescription: boolean;
 
     public constructor() {
         super();

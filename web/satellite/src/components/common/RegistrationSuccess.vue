@@ -5,7 +5,7 @@
     <div class="register-success-area">
         <div class="register-success-area__form-container">
             <MailIcon />
-            <h2 class="register-success-area__form-container__title">You're almost there!</h2>
+            <h2 class="register-success-area__form-container__title" aria-roledescription="title">You're almost there!</h2>
             <p class="register-success-area__form-container__sub-title">
                 Check your email to confirm your account and get started.
             </p>

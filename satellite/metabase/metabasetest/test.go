@@ -726,3 +726,16 @@ func (step BeginMoveObject) Check(ctx *testcontext.Context, t testing.TB, db *me
 	diff := cmp.Diff(step.Result, result)
 	require.Zero(t, diff)
 }
+
+// FinishMoveObject is for testing metabase.FinishMoveObject.
+type FinishMoveObject struct {
+	Opts     metabase.FinishMoveObject
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step FinishMoveObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.FinishMoveObject(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}

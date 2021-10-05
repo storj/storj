@@ -1376,6 +1376,55 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 	})
 }
 
+func TestRateLimit_ExceededBurstLimit(t *testing.T) {
+	burstLimit := 2
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = float64(burstLimit)
+				config.Metainfo.RateLimiter.CacheExpiration = 500 * time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// TODO find a way to reset limiter before test is executed, currently
+		// testplanet is doing one additional request to get access
+		time.Sleep(1 * time.Second)
+
+		var group errs2.Group
+		for i := 0; i <= burstLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 1)
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		zeroRateLimit := 0
+		err = satellite.DB.Console().Projects().UpdateBurstLimit(ctx, projects[0].ID, zeroRateLimit)
+		require.NoError(t, err)
+
+		time.Sleep(1 * time.Second)
+
+		var group2 errs2.Group
+		for i := 0; i <= burstLimit; i++ {
+			group2.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		group2Errs := group2.Wait()
+		require.Len(t, group2Errs, burstLimit+1)
+
+	})
+}
+
 func TestBucketEmptinessBeforeDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

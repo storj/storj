@@ -213,7 +213,9 @@ func (system *Satellite) NodeURL() storj.NodeURL {
 
 // AddUser adds user to a satellite. Password from newUser will be always overridden by FullName to have
 // known password which can be used automatically.
-func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser, maxNumberOfProjects int) (*console.User, error) {
+func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser, maxNumberOfProjects int) (_ *console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	regToken, err := system.API.Console.Service.CreateRegToken(ctx, maxNumberOfProjects)
 	if err != nil {
 		return nil, err
@@ -248,7 +250,9 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 }
 
 // AddProject adds project to a satellite and makes specified user an owner.
-func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (*console.Project, error) {
+func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (_ *console.Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	authCtx, err := system.AuthenticatedContext(ctx, ownerID)
 	if err != nil {
 		return nil, err
@@ -263,7 +267,9 @@ func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name
 }
 
 // AuthenticatedContext creates context with authentication date for given user.
-func (system *Satellite) AuthenticatedContext(ctx context.Context, userID uuid.UUID) (context.Context, error) {
+func (system *Satellite) AuthenticatedContext(ctx context.Context, userID uuid.UUID) (_ context.Context, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	user, err := system.API.Console.Service.GetUser(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -328,7 +334,9 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 func (system *Satellite) PrivateAddr() string { return system.API.Server.PrivateAddr().String() }
 
 // newSatellites initializes satellites.
-func (planet *Planet) newSatellites(ctx context.Context, count int, databases satellitedbtest.SatelliteDatabases) ([]*Satellite, error) {
+func (planet *Planet) newSatellites(ctx context.Context, count int, databases satellitedbtest.SatelliteDatabases) (_ []*Satellite, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var satellites []*Satellite
 
 	for i := 0; i < count; i++ {
@@ -354,7 +362,9 @@ func (planet *Planet) newSatellites(ctx context.Context, count int, databases sa
 	return satellites, nil
 }
 
-func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int, log *zap.Logger, databases satellitedbtest.SatelliteDatabases) (*Satellite, error) {
+func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int, log *zap.Logger, databases satellitedbtest.SatelliteDatabases) (_ *Satellite, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	storageDir := filepath.Join(planet.directory, prefix)
 	if err := os.MkdirAll(storageDir, 0700); err != nil {
 		return nil, err
@@ -442,10 +452,8 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Console.FrameAncestors = ""
 	config.Console.LetUsKnowURL = ""
 	config.Console.SEO = ""
-	config.Console.SatelliteName = ""
 	config.Console.SatelliteOperator = ""
 	config.Console.TermsAndConditionsURL = ""
-	config.Console.PartneredSatellites = ""
 	config.Console.GeneralRequestURL = ""
 	config.Console.ProjectLimitsIncreaseRequestURL = ""
 	config.Console.GatewayCredentialsRequestURL = ""
@@ -615,10 +623,11 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	return system
 }
 
-func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
+func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.API, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	prefix := "satellite-api" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
-	var err error
 
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
 	if err != nil {
@@ -638,14 +647,18 @@ func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.
 	return satellite.NewAPI(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
-func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
+func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Admin, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	prefix := "satellite-admin" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
 	return satellite.NewAdmin(log, identity, db, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
+func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Repairer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	prefix := "satellite-repairer" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
@@ -658,7 +671,7 @@ func (planet *Planet) newRepairer(ctx context.Context, index int, identity *iden
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Reputation(), rollupsWriteCache, versionInfo, &config, nil)
+	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Reputation(), db.Containment(), rollupsWriteCache, versionInfo, &config, nil)
 }
 
 type rollupsWriteCacheCloser struct {
@@ -669,7 +682,9 @@ func (cache rollupsWriteCacheCloser) Close() error {
 	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
 }
 
-func (planet *Planet) newGarbageCollection(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
+func (planet *Planet) newGarbageCollection(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.GarbageCollection, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	prefix := "satellite-gc" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 

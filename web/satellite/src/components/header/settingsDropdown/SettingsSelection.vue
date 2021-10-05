@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="settings-selection" :class="{ disabled: isOnboardingTour, active: isDropdownShown }">
+    <div class="settings-selection" :class="{ disabled: isOnboardingTour, active: isDropdownShown, navigation: inNavigation }">
         <div
             class="settings-selection__toggle-container"
             @click.stop="toggleDropdown"
         >
-            <p class="settings-selection__toggle-container__name" :class="{ white: isDropdownShown }">Settings</p>
+            <p class="settings-selection__toggle-container__name" :class="{ 'white': isDropdownShown, 'name-navigation': inNavigation }">Settings</p>
             <ExpandIcon
                 class="settings-selection__toggle-container__expand-icon"
                 :class="{ expanded: isDropdownShown }"
@@ -16,6 +16,7 @@
             <SettingsDropdown
                 v-show="isDropdownShown"
                 v-click-outside="closeDropdown"
+                in-navigation="true"
                 @close="closeDropdown"
             />
         </div>
@@ -23,7 +24,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
@@ -40,6 +41,10 @@ import SettingsDropdown from './SettingsDropdown.vue';
     },
 })
 export default class SettingsSelection extends Vue {
+
+    @Prop({default: false})
+    protected readonly inNavigation: boolean;
+
     /**
      * Indicates if current route is onboarding tour.
      */
@@ -106,6 +111,11 @@ export default class SettingsSelection extends Vue {
                 margin: 0;
             }
 
+            &__name.name-navigation {
+                color: #1b2533;
+                white-space: nowrap;
+            }
+
             &__expand-icon {
                 margin-left: 15px;
             }
@@ -138,5 +148,35 @@ export default class SettingsSelection extends Vue {
     .white {
         font-family: 'font_bold', sans-serif;
         color: #fff !important;
+    }
+
+    .navigation {
+        background: none;
+        -webkit-box-flex: 0;
+        -ms-flex: 0 0 auto;
+        flex: 0 0 auto;
+        padding: 10px;
+        width: calc(100% - 20px);
+        text-decoration: none;
+
+        &:hover {
+            background-color: #0068dc;
+
+            .settings-selection__toggle-container__name {
+                color: #fff;
+            }
+
+            .black-arrow-expand-path {
+                fill: #fff;
+            }
+        }
+
+        .active {
+            background: #0068dc !important;
+        }
+    }
+
+    .navigation.active {
+        background: #0068dc !important;
     }
 </style>

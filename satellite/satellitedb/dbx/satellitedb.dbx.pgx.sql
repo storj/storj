@@ -120,21 +120,6 @@ CREATE TABLE graceful_exit_segment_transfer_queue (
 	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, stream_id, position, piece_num )
 );
-CREATE TABLE graceful_exit_transfer_queue (
-	node_id bytea NOT NULL,
-	path bytea NOT NULL,
-	piece_num integer NOT NULL,
-	root_piece_id bytea,
-	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
-	last_failed_code integer,
-	failed_count integer,
-	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, path, piece_num )
-);
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -207,6 +192,7 @@ CREATE TABLE projects (
 	usage_limit bigint,
 	bandwidth_limit bigint,
 	rate_limit integer,
+	burst_limit integer,
 	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -476,7 +462,6 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;

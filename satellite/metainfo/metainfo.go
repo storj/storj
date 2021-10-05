@@ -1048,15 +1048,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
-		limits = sortLimits(limits, segment)
-
-		// workaround to avoid sending nil values on top level
-		for i := range limits {
-			if limits[i] == nil {
-				limits[i] = &pb.AddressedOrderLimit{}
-			}
-		}
-
 		endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
 		mon.Meter("req_get_remote").Mark(1)
 
@@ -2293,15 +2284,6 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	limits = sortLimits(limits, segment)
-
-	// workaround to avoid sending nil values on top level
-	for i := range limits {
-		if limits[i] == nil {
-			limits[i] = &pb.AddressedOrderLimit{}
-		}
-	}
-
 	endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
 	mon.Meter("req_get_remote").Mark(1)
 
@@ -2375,28 +2357,6 @@ func (endpoint *Endpoint) DeletePart(ctx context.Context, req *pb.PartDeleteRequ
 	}
 
 	return &pb.PartDeleteResponse{}, nil
-}
-
-// sortLimits sorts order limits and fill missing ones with nil values.
-func sortLimits(limits []*pb.AddressedOrderLimit, segment metabase.Segment) []*pb.AddressedOrderLimit {
-	sorted := make([]*pb.AddressedOrderLimit, segment.Redundancy.TotalShares)
-	for _, piece := range segment.Pieces {
-		sorted[piece.Number] = getLimitByStorageNodeID(limits, piece.StorageNode)
-	}
-	return sorted
-}
-
-func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID storj.NodeID) *pb.AddressedOrderLimit {
-	for _, limit := range limits {
-		if limit == nil || limit.GetLimit() == nil {
-			continue
-		}
-
-		if limit.GetLimit().StorageNodeId == storageNodeID {
-			return limit
-		}
-	}
-	return nil
 }
 
 func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *internalpb.StreamID) (streamID storj.StreamID, err error) {
@@ -2947,6 +2907,10 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 		}
 
 		keys[i] = &pb.EncryptedKeyAndNonce{
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(key.Position.Part),
+				Index:      int32(key.Position.Index),
+			},
 			EncryptedKey:      key.EncryptedKey,
 			EncryptedKeyNonce: nonce,
 		}
@@ -2978,4 +2942,100 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 		},
 		SegmentKeys: keys,
 	}, nil
+}
+
+// FinishMoveObject accepts new encryption keys for moved object and updates the corresponding object ObjectKey and segments EncryptedKey.
+func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFinishMoveRequest) (resp *pb.ObjectFinishMoveResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Time:          time.Now(),
+		Bucket:        req.NewBucket,
+		EncryptedPath: req.NewEncryptedObjectKey,
+	})
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.NewBucket)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	exists, err := endpoint.buckets.HasBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	if err != nil {
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, fmt.Sprintf("bucket not found: %s", req.NewBucket))
+	}
+
+	streamUUID, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.metabase.FinishMoveObject(ctx, metabase.FinishMoveObject{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(streamID.Bucket),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			Version:    metabase.DefaultVersion,
+			StreamID:   streamUUID,
+		},
+		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
+		NewBucket:                    string(req.NewBucket),
+		NewEncryptedObjectKey:        req.NewEncryptedObjectKey,
+		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce[:],
+		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
+	})
+	if err != nil {
+		switch {
+		case storj.ErrObjectNotFound.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		case metabase.ErrSegmentNotFound.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		case metabase.ErrInvalidRequest.Has(err):
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		default:
+			endpoint.log.Error("internal", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+	}
+
+	return &pb.ObjectFinishMoveResponse{}, nil
+}
+
+// protobufkeysToMetabase converts []*pb.EncryptedKeyAndNonce to []metabase.EncryptedKeyAndNonce.
+func protobufkeysToMetabase(protoKeys []*pb.EncryptedKeyAndNonce) []metabase.EncryptedKeyAndNonce {
+	keys := make([]metabase.EncryptedKeyAndNonce, len(protoKeys))
+	for i, key := range protoKeys {
+		position := metabase.SegmentPosition{}
+
+		if key.Position != nil {
+			position = metabase.SegmentPosition{
+				Part:  uint32(key.Position.PartNumber),
+				Index: uint32(key.Position.Index),
+			}
+		}
+
+		keys[i] = metabase.EncryptedKeyAndNonce{
+			EncryptedKeyNonce: key.EncryptedKeyNonce.Bytes(),
+			EncryptedKey:      key.EncryptedKey,
+			Position:          position,
+		}
+	}
+
+	return keys
 }

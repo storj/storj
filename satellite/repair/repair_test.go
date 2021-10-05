@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
@@ -25,14 +26,18 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/storage"
+	"storj.io/storj/storagenode"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -353,26 +358,26 @@ func testDataRepairPendingObject(t *testing.T, inMemoryRepair bool) {
 	})
 }
 
-// TestCorruptDataRepair_Failed does the following:
+// TestMinRequiredDataRepair does the following:
 // - Uploads test data
 // - Kills all but the minimum number of nodes carrying the uploaded segment
-// - On one of the remaining nodes, corrupt the piece data being stored by that node
 // - Triggers data repair, which attempts to repair the data from the remaining nodes to
 //	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair failed and the pointer was not updated.
-func TestCorruptDataRepairInMemory_Failed(t *testing.T) {
-	testCorruptDataRepairFailed(t, true)
+// - Expects that the repair succeed.
+//   Reputation info to be updated for all remaining nodes.
+func TestMinRequiredDataRepairInMemory(t *testing.T) {
+	testMinRequiredDataRepair(t, true)
 }
-func TestCorruptDataRepairToDisk_Failed(t *testing.T) {
-	testCorruptDataRepairFailed(t, false)
+func TestMinRequiredDataRepairToDisk(t *testing.T) {
+	testMinRequiredDataRepair(t, false)
 }
 
-func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
+func testMinRequiredDataRepair(t *testing.T, inMemoryRepair bool) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 14,
+		StorageNodeCount: 15,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
@@ -380,7 +385,7 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = inMemoryRepair
 				},
-				testplanet.ReconfigureRS(3, 5, 7, 9),
+				testplanet.ReconfigureRS(4, 4, 9, 9),
 			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -398,48 +403,34 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 		require.NoError(t, err)
 
 		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
-
-		// calculate how many storagenodes to kill
-		redundancy := segment.Redundancy
-		minReq := redundancy.RequiredShares
-		remotePieces := segment.Pieces
-		numPieces := len(remotePieces)
-		toKill := numPieces - int(minReq)
-		require.True(t, toKill >= 1)
+		require.Equal(t, 9, len(segment.Pieces))
+		require.Equal(t, 4, int(segment.Redundancy.RequiredShares))
+		toKill := 5
 
 		// kill nodes and track lost pieces
-		originalNodes := make(map[storj.NodeID]bool)
+		var availableNodes storj.NodeIDList
+		var killedNodes storj.NodeIDList
 
-		var corruptedNodeID storj.NodeID
-		var corruptedPieceID storj.PieceID
-
-		for i, piece := range remotePieces {
-			originalNodes[piece.StorageNode] = true
+		for i, piece := range segment.Pieces {
 			if i >= toKill {
-				// this means the node will be kept alive for repair
-				// choose a node and pieceID to corrupt so repair fails
-				if corruptedNodeID.IsZero() || corruptedPieceID.IsZero() {
-					corruptedNodeID = piece.StorageNode
-					corruptedPieceID = segment.RootPieceID.Derive(corruptedNodeID, int32(piece.Number))
-				}
+				availableNodes = append(availableNodes, piece.StorageNode)
 				continue
 			}
 
 			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
 			require.NoError(t, err)
+			killedNodes = append(killedNodes, piece.StorageNode)
 		}
-		require.NotNil(t, corruptedNodeID)
-		require.NotNil(t, corruptedPieceID)
-
-		corruptedNode := planet.FindNode(corruptedNodeID)
-		require.NotNil(t, corruptedNode)
+		require.Equal(t, 4, len(availableNodes))
 
 		reputationService := planet.Satellites[0].Reputation.Service
-		reputationInfo, err := reputationService.Get(ctx, corruptedNodeID)
-		require.NoError(t, err)
-		corruptedNodeReputation := reputationInfo
 
-		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, nodeID := range availableNodes {
+			info, err := reputationService.Get(ctx, nodeID)
+			require.NoError(t, err)
+			nodesReputation[nodeID] = *info
+		}
 
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
@@ -449,30 +440,675 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
-		// repair should update audit status as fail
-		reputationInfo, err = reputationService.Get(ctx, corruptedNodeID)
+		for _, nodeID := range availableNodes {
+			info, err := reputationService.Get(ctx, nodeID)
+			require.NoError(t, err)
+
+			infoBefore := nodesReputation[nodeID]
+			require.Equal(t, infoBefore.TotalAuditCount+1, info.TotalAuditCount)
+			require.Equal(t, infoBefore.AuditSuccessCount+1, info.AuditSuccessCount)
+			require.True(t, infoBefore.AuditReputationAlpha < info.AuditReputationAlpha)
+			require.True(t, infoBefore.AuditReputationBeta >= info.AuditReputationBeta)
+		}
+
+		// repair succeed, so segment should not contain any killed node
+		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		for _, piece := range segmentAfter.Pieces {
+			require.NotContains(t, killedNodes, piece.StorageNode, "there should be no killed nodes in pointer")
+		}
+	})
+}
+
+// TestFailedDataRepair does the following:
+// - Uploads test data
+// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+// - On one of the remaining nodes, return unknown error during downloading of the piece
+// - Stop one of the remaining nodes, for it to be offline during repair
+// - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	 the numbers of nodes determined by the upload repair max threshold
+// - Expects that the repair failed and the pointer was not updated.
+//   Reputation info to be updated for all remaining nodes.
+func TestFailedDataRepairInMemory(t *testing.T) {
+	testFailedDataRepair(t, true)
+}
+func TestFailedDataRepairToDisk(t *testing.T) {
+	testFailedDataRepair(t, false)
+}
+
+func testFailedDataRepair(t *testing.T, inMemoryRepair bool) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 15,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
+			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(4, 5, 9, 9),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
-		require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, reputationInfo.TotalAuditCount)
-		require.True(t, corruptedNodeReputation.AuditReputationBeta < reputationInfo.AuditReputationBeta)
-		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= reputationInfo.AuditReputationAlpha)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 9, len(segment.Pieces))
+		require.Equal(t, 4, int(segment.Redundancy.RequiredShares))
+		toKill := 4
+
+		// kill nodes and track lost pieces
+		var availablePieces metabase.Pieces
+		var originalNodes storj.NodeIDList
+
+		for i, piece := range segment.Pieces {
+			originalNodes = append(originalNodes, piece.StorageNode)
+			if i >= toKill {
+				availablePieces = append(availablePieces, piece)
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.Equal(t, 5, len(availablePieces))
+
+		// choose first piece for shutting down node, for it to always be in the first limiter batch
+		offlinePiece := availablePieces[0]
+		// choose last piece for bad node, for it to always be in the last limiter batch
+		unknownPiece := availablePieces[4]
+
+		// stop offline node
+		offlineNode := planet.FindNode(offlinePiece.StorageNode)
+		require.NotNil(t, offlineNode)
+		require.NoError(t, planet.StopPeer(offlineNode))
+
+		// set unknown error for download from bad node
+		badNode := planet.FindNode(unknownPiece.StorageNode)
+		require.NotNil(t, badNode)
+		badNodeDB := badNode.DB.(*testblobs.BadDB)
+		badNodeDB.SetError(errs.New("unknown error"))
+
+		reputationService := planet.Satellites[0].Reputation.Service
+
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputation[piece.StorageNode] = *info
+		}
+
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputationAfter[piece.StorageNode] = *info
+		}
+
+		// repair should update audit status
+		for _, piece := range availablePieces[1 : len(availablePieces)-1] {
+			successfulNodeReputation := nodesReputation[piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+		}
+
+		offlineNodeReputation := nodesReputation[offlinePiece.StorageNode]
+		offlineNodeReputationAfter := nodesReputationAfter[offlinePiece.StorageNode]
+		require.Equal(t, offlineNodeReputation.TotalAuditCount+1, offlineNodeReputationAfter.TotalAuditCount)
+		require.Equal(t, int32(0), offlineNodeReputationAfter.AuditHistory.Windows[0].OnlineCount)
+
+		badNodeReputation := nodesReputation[unknownPiece.StorageNode]
+		badNodeReputationAfter := nodesReputationAfter[unknownPiece.StorageNode]
+		require.Equal(t, badNodeReputation.TotalAuditCount+1, badNodeReputationAfter.TotalAuditCount)
+		require.True(t, badNodeReputation.UnknownAuditReputationBeta < badNodeReputationAfter.UnknownAuditReputationBeta)
+		require.True(t, badNodeReputation.UnknownAuditReputationAlpha >= badNodeReputationAfter.UnknownAuditReputationAlpha)
 
 		// repair should fail, so segment should contain all the original nodes
 		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
-
-		remotePieces = segmentAfter.Pieces
-		for _, piece := range remotePieces {
+		for _, piece := range segmentAfter.Pieces {
 			require.Contains(t, originalNodes, piece.StorageNode, "there should be no new nodes in pointer")
 		}
 	})
 }
 
-// TestCorruptDataRepair does the following:
+// TestOfflineNodeDataRepair does the following:
+// - Uploads test data
+// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+// - Stop one of the remaining nodes, for it to be offline during repair
+// - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	 the numbers of nodes determined by the upload repair max threshold
+// - Expects that the repair succeed and the pointer should contain the offline piece.
+//   Reputation info to be updated for all remaining nodes.
+func TestOfflineNodeDataRepairInMemory(t *testing.T) {
+	testOfflineNodeDataRepair(t, true)
+}
+func TestOfflineNodeDataRepairToDisk(t *testing.T) {
+	testOfflineNodeDataRepair(t, false)
+}
+
+func testOfflineNodeDataRepair(t *testing.T, inMemoryRepair bool) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 15,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(3, 4, 9, 9),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 9, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 5
+
+		// kill nodes and track lost pieces
+		var availablePieces metabase.Pieces
+		var killedNodes storj.NodeIDList
+
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				availablePieces = append(availablePieces, piece)
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+			killedNodes = append(killedNodes, piece.StorageNode)
+		}
+		require.Equal(t, 4, len(availablePieces))
+		require.Equal(t, 5, len(killedNodes))
+
+		// choose first piece for shutting down node, for it to always be in the first limiter batch
+		offlinePiece := availablePieces[0]
+
+		// stop offline node
+		offlineNode := planet.FindNode(offlinePiece.StorageNode)
+		require.NotNil(t, offlineNode)
+		require.NoError(t, planet.StopPeer(offlineNode))
+
+		reputationService := planet.Satellites[0].Reputation.Service
+
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputation[piece.StorageNode] = *info
+		}
+
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputationAfter[piece.StorageNode] = *info
+		}
+
+		// repair should update audit status
+		for _, piece := range availablePieces[1:] {
+			successfulNodeReputation := nodesReputation[piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+		}
+
+		offlineNodeReputation := nodesReputation[offlinePiece.StorageNode]
+		offlineNodeReputationAfter := nodesReputationAfter[offlinePiece.StorageNode]
+		require.Equal(t, offlineNodeReputation.TotalAuditCount+1, offlineNodeReputationAfter.TotalAuditCount)
+		require.Equal(t, int32(0), offlineNodeReputationAfter.AuditHistory.Windows[0].OnlineCount)
+
+		// repair succeed, so segment should not contain any killed node
+		// offline node's piece should still exists
+		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Contains(t, segmentAfter.Pieces, offlinePiece, "offline piece should still be in segment")
+		for _, piece := range segmentAfter.Pieces {
+			require.NotContains(t, killedNodes, piece.StorageNode, "there should be no killed nodes in pointer")
+		}
+	})
+}
+
+// TestUnknownErrorDataRepair does the following:
+// - Uploads test data
+// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+// - On one of the remaining nodes, return unknown error during downloading of the piece
+// - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	 the numbers of nodes determined by the upload repair max threshold
+// - Expects that the repair succeed and the pointer should contain the unknown piece.
+//   Reputation info to be updated for all remaining nodes.
+func TestUnknownErrorDataRepairInMemory(t *testing.T) {
+	testUnknownErrorDataRepair(t, true)
+}
+func TestUnknownErrorDataRepairToDisk(t *testing.T) {
+	testUnknownErrorDataRepair(t, false)
+}
+
+func testUnknownErrorDataRepair(t *testing.T, inMemoryRepair bool) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 15,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
+			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(3, 4, 9, 9),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 9, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 5
+
+		// kill nodes and track lost pieces
+		var availablePieces metabase.Pieces
+		var killedNodes storj.NodeIDList
+
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				availablePieces = append(availablePieces, piece)
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+			killedNodes = append(killedNodes, piece.StorageNode)
+		}
+		require.Equal(t, 4, len(availablePieces))
+		require.Equal(t, 5, len(killedNodes))
+
+		// choose first piece for corruption, for it to always be in the first limiter batch
+		unknownPiece := availablePieces[0]
+
+		// set unknown error for download from bad node
+		badNode := planet.FindNode(unknownPiece.StorageNode)
+		require.NotNil(t, badNode)
+		badNodeDB := badNode.DB.(*testblobs.BadDB)
+		badNodeDB.SetError(errs.New("unknown error"))
+
+		reputationService := planet.Satellites[0].Reputation.Service
+
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputation[piece.StorageNode] = *info
+		}
+
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputationAfter[piece.StorageNode] = *info
+		}
+
+		// repair should update audit status
+		for _, piece := range availablePieces[1:] {
+			successfulNodeReputation := nodesReputation[piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+		}
+
+		badNodeReputation := nodesReputation[unknownPiece.StorageNode]
+		badNodeReputationAfter := nodesReputationAfter[unknownPiece.StorageNode]
+		require.Equal(t, badNodeReputation.TotalAuditCount+1, badNodeReputationAfter.TotalAuditCount)
+		require.True(t, badNodeReputation.UnknownAuditReputationBeta < badNodeReputationAfter.UnknownAuditReputationBeta)
+		require.True(t, badNodeReputation.UnknownAuditReputationAlpha >= badNodeReputationAfter.UnknownAuditReputationAlpha)
+
+		// repair succeed, so segment should not contain any killed node
+		// unknown piece should still exists
+		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Contains(t, segmentAfter.Pieces, unknownPiece, "unknown piece should still be in segment")
+		for _, piece := range segmentAfter.Pieces {
+			require.NotContains(t, killedNodes, piece.StorageNode, "there should be no killed nodes in pointer")
+		}
+	})
+}
+
+// TestMissingPieceDataRepair_Succeed does the following:
+// - Uploads test data
+// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+// - On one of the remaining nodes, delete the piece data being stored by that node
+// - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	 the numbers of nodes determined by the upload repair max threshold
+// - Expects that the repair succeed and the pointer should not contain the missing piece.
+//   Reputation info to be updated for all remaining nodes.
+func TestMissingPieceDataRepairInMemory_Succeed(t *testing.T) {
+	testMissingPieceDataRepairSucceed(t, true)
+}
+func TestMissingPieceDataRepairToDisk_Succeed(t *testing.T) {
+	testMissingPieceDataRepairSucceed(t, false)
+}
+
+func testMissingPieceDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 15,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(3, 4, 9, 9),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 9, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 5
+
+		// kill nodes and track lost pieces
+		var availablePieces metabase.Pieces
+
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				availablePieces = append(availablePieces, piece)
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.Equal(t, 4, len(availablePieces))
+
+		// choose first piece for deletion, for it to always be in the first limiter batch
+		missingPiece := availablePieces[0]
+
+		// delete piece
+		missingPieceNode := planet.FindNode(missingPiece.StorageNode)
+		require.NotNil(t, missingPieceNode)
+		pieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
+		err = missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
+		require.NoError(t, err)
+
+		reputationService := planet.Satellites[0].Reputation.Service
+
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputation[piece.StorageNode] = *info
+		}
+
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputationAfter[piece.StorageNode] = *info
+		}
+
+		// repair should update audit status
+		for _, piece := range availablePieces[1:] {
+			successfulNodeReputation := nodesReputation[piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+		}
+
+		missingPieceNodeReputation := nodesReputation[missingPiece.StorageNode]
+		missingPieceNodeReputationAfter := nodesReputationAfter[missingPiece.StorageNode]
+		require.Equal(t, missingPieceNodeReputation.TotalAuditCount+1, missingPieceNodeReputationAfter.TotalAuditCount)
+		require.True(t, missingPieceNodeReputation.AuditReputationBeta < missingPieceNodeReputationAfter.AuditReputationBeta)
+		require.True(t, missingPieceNodeReputation.AuditReputationAlpha >= missingPieceNodeReputationAfter.AuditReputationAlpha)
+
+		// repair succeeded, so segment should not contain missing piece
+		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		for _, piece := range segmentAfter.Pieces {
+			require.NotEqual(t, piece.Number, missingPiece.Number, "there should be no missing piece in pointer")
+		}
+	})
+}
+
+// TestMissingPieceDataRepair_Failed does the following:
+// - Uploads test data
+// - Kills all but the minimum number of nodes carrying the uploaded segment
+// - On one of the remaining nodes, delete the piece data being stored by that node
+// - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	 the numbers of nodes determined by the upload repair max threshold
+// - Expects that the repair failed and the pointer was not updated.
+//   Reputation info to be updated for node missing the piece.
+func TestMissingPieceDataRepairInMemory_Failed(t *testing.T) {
+	testMissingPieceDataRepairFailed(t, true)
+}
+func TestMissingPieceDataRepairToDisk_Failed(t *testing.T) {
+	testMissingPieceDataRepairFailed(t, false)
+}
+
+func testMissingPieceDataRepairFailed(t *testing.T, inMemoryRepair bool) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 15,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(4, 4, 9, 9),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 9, len(segment.Pieces))
+		require.Equal(t, 4, int(segment.Redundancy.RequiredShares))
+		toKill := 5
+
+		// kill nodes and track lost pieces
+		originalNodes := make(map[storj.NodeID]bool)
+		var availablePieces metabase.Pieces
+
+		for i, piece := range segment.Pieces {
+			originalNodes[piece.StorageNode] = true
+			if i >= toKill {
+				availablePieces = append(availablePieces, piece)
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.Equal(t, 4, len(availablePieces))
+
+		missingPiece := availablePieces[0]
+
+		// delete piece
+		missingPieceNode := planet.FindNode(missingPiece.StorageNode)
+		require.NotNil(t, missingPieceNode)
+		pieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
+		err = missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
+		require.NoError(t, err)
+
+		reputationService := planet.Satellites[0].Reputation.Service
+
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputation[piece.StorageNode] = *info
+		}
+
+		var successful metabase.Pieces
+		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces audit.Pieces) {
+			successful = pieces.Successful
+		}
+
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputationAfter[piece.StorageNode] = *info
+		}
+
+		// repair should update audit status
+		for _, piece := range successful {
+			successfulNodeReputation := nodesReputation[piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+		}
+
+		missingPieceNodeReputation := nodesReputation[missingPiece.StorageNode]
+		missingPieceNodeReputationAfter := nodesReputationAfter[missingPiece.StorageNode]
+		require.Equal(t, missingPieceNodeReputation.TotalAuditCount+1, missingPieceNodeReputationAfter.TotalAuditCount)
+		require.True(t, missingPieceNodeReputation.AuditReputationBeta < missingPieceNodeReputationAfter.AuditReputationBeta)
+		require.True(t, missingPieceNodeReputation.AuditReputationAlpha >= missingPieceNodeReputationAfter.AuditReputationAlpha)
+
+		// repair should fail, so segment should contain all the original nodes
+		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		for _, piece := range segmentAfter.Pieces {
+			require.Contains(t, originalNodes, piece.StorageNode, "there should be no new nodes in pointer")
+		}
+	})
+}
+
+// TestCorruptDataRepair_Succeed does the following:
 // - Uploads test data
 // - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
 // - On one of the remaining nodes, corrupt the piece data being stored by that node
 // - Triggers data repair, which attempts to repair the data from the remaining nodes to
 //	 the numbers of nodes determined by the upload repair max threshold
 // - Expects that the repair succeed and the pointer should not contain the corrupted piece.
+//   Reputation info to be updated for all remaining nodes.
 func TestCorruptDataRepairInMemory_Succeed(t *testing.T) {
 	testCorruptDataRepairSucceed(t, true)
 }
@@ -485,7 +1121,7 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 14,
+		StorageNodeCount: 15,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
@@ -493,7 +1129,7 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = inMemoryRepair
 				},
-				testplanet.ReconfigureRS(3, 5, 7, 9),
+				testplanet.ReconfigureRS(3, 4, 9, 9),
 			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -511,50 +1147,41 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 		require.NoError(t, err)
 
 		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
-
-		// calculate how many storagenodes to kill
-		redundancy := segment.Redundancy
-		remotePieces := segment.Pieces
-		numPieces := len(remotePieces)
-		toKill := numPieces - int(redundancy.RepairShares)
-		require.True(t, toKill >= 1)
+		require.Equal(t, 9, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 5
 
 		// kill nodes and track lost pieces
-		originalNodes := make(map[storj.NodeID]bool)
+		var availablePieces metabase.Pieces
 
-		var corruptedNodeID storj.NodeID
-		var corruptedPieceID storj.PieceID
-		var corruptedPiece metabase.Piece
-
-		for i, piece := range remotePieces {
-			originalNodes[piece.StorageNode] = true
+		for i, piece := range segment.Pieces {
 			if i >= toKill {
-				// this means the node will be kept alive for repair
-				// choose a node and pieceID to corrupt so repair fails
-				if corruptedNodeID.IsZero() || corruptedPieceID.IsZero() {
-					corruptedNodeID = piece.StorageNode
-					corruptedPieceID = segment.RootPieceID.Derive(corruptedNodeID, int32(piece.Number))
-					corruptedPiece = piece
-				}
+				availablePieces = append(availablePieces, piece)
 				continue
 			}
 
 			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
 			require.NoError(t, err)
 		}
-		require.NotNil(t, corruptedNodeID)
-		require.NotNil(t, corruptedPieceID)
-		require.NotNil(t, corruptedPiece)
+		require.Equal(t, 4, len(availablePieces))
 
-		corruptedNode := planet.FindNode(corruptedNodeID)
+		// choose first piece for corruption, for it to always be in the first limiter batch
+		corruptedPiece := availablePieces[0]
+
+		// corrupt piece data
+		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
 		require.NotNil(t, corruptedNode)
-
+		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
 		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
 		reputationService := planet.Satellites[0].Reputation.Service
-		reputationInfo, err := reputationService.Get(ctx, corruptedNodeID)
-		require.NoError(t, err)
-		corruptedNodeReputation := reputationInfo
+
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputation[piece.StorageNode] = *info
+		}
 
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
@@ -564,19 +1191,160 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
-		// repair should update audit status as fail
-		reputationInfo, err = reputationService.Get(ctx, corruptedNodeID)
-		require.NoError(t, err)
-		require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, reputationInfo.TotalAuditCount)
-		require.True(t, corruptedNodeReputation.AuditReputationBeta < reputationInfo.AuditReputationBeta)
-		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= reputationInfo.AuditReputationAlpha)
+		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputationAfter[piece.StorageNode] = *info
+		}
 
-		// get the new segment
+		// repair should update audit status
+		for _, piece := range availablePieces[1:] {
+			successfulNodeReputation := nodesReputation[piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+		}
+
+		corruptedNodeReputation := nodesReputation[corruptedPiece.StorageNode]
+		corruptedNodeReputationAfter := nodesReputationAfter[corruptedPiece.StorageNode]
+		require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, corruptedNodeReputationAfter.TotalAuditCount)
+		require.True(t, corruptedNodeReputation.AuditReputationBeta < corruptedNodeReputationAfter.AuditReputationBeta)
+		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= corruptedNodeReputationAfter.AuditReputationAlpha)
+
+		// repair succeeded, so segment should not contain corrupted piece
 		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
-
-		remotePieces = segmentAfter.Pieces
-		for _, piece := range remotePieces {
+		for _, piece := range segmentAfter.Pieces {
 			require.NotEqual(t, piece.Number, corruptedPiece.Number, "there should be no corrupted piece in pointer")
+		}
+	})
+}
+
+// TestCorruptDataRepair_Failed does the following:
+// - Uploads test data
+// - Kills all but the minimum number of nodes carrying the uploaded segment
+// - On one of the remaining nodes, corrupt the piece data being stored by that node
+// - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	 the numbers of nodes determined by the upload repair max threshold
+// - Expects that the repair failed and the pointer was not updated.
+//   Reputation info to be updated for corrupted node.
+func TestCorruptDataRepairInMemory_Failed(t *testing.T) {
+	testCorruptDataRepairFailed(t, true)
+}
+func TestCorruptDataRepairToDisk_Failed(t *testing.T) {
+	testCorruptDataRepairFailed(t, false)
+}
+
+func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 15,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(4, 4, 9, 9),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 9, len(segment.Pieces))
+		require.Equal(t, 4, int(segment.Redundancy.RequiredShares))
+		toKill := 5
+
+		// kill nodes and track lost pieces
+		originalNodes := make(map[storj.NodeID]bool)
+		var availablePieces metabase.Pieces
+
+		for i, piece := range segment.Pieces {
+			originalNodes[piece.StorageNode] = true
+			if i >= toKill {
+				availablePieces = append(availablePieces, piece)
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.Equal(t, 4, len(availablePieces))
+
+		corruptedPiece := availablePieces[0]
+
+		// corrupt piece data
+		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
+		require.NotNil(t, corruptedNode)
+		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
+		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+
+		reputationService := planet.Satellites[0].Reputation.Service
+
+		nodesReputation := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputation[piece.StorageNode] = *info
+		}
+
+		var successful metabase.Pieces
+		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces audit.Pieces) {
+			successful = pieces.Successful
+		}
+
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+		for _, piece := range availablePieces {
+			info, err := reputationService.Get(ctx, piece.StorageNode)
+			require.NoError(t, err)
+			nodesReputationAfter[piece.StorageNode] = *info
+		}
+
+		// repair should update audit status
+		for _, piece := range successful {
+			successfulNodeReputation := nodesReputation[piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
+			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+		}
+
+		corruptedNodeReputation := nodesReputation[corruptedPiece.StorageNode]
+		corruptedNodeReputationAfter := nodesReputationAfter[corruptedPiece.StorageNode]
+		require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, corruptedNodeReputationAfter.TotalAuditCount)
+		require.True(t, corruptedNodeReputation.AuditReputationBeta < corruptedNodeReputationAfter.AuditReputationBeta)
+		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= corruptedNodeReputationAfter.AuditReputationAlpha)
+
+		// repair should fail, so segment should contain all the original nodes
+		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		for _, piece := range segmentAfter.Pieces {
+			require.Contains(t, originalNodes, piece.StorageNode, "there should be no new nodes in pointer")
 		}
 	})
 }
@@ -744,6 +1512,200 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, 0)
+	})
+}
+
+// TestSegmentDeletedDuringRepair
+// - Upload tests data to 7 nodes
+// - Kill nodes so that repair threshold > online nodes > minimum threshold
+// - Call checker to add segment to the repair queue
+// - Delete segment from the satellite database when repair is in progress.
+// - Run the repairer
+// - Verify segment is no longer in the repair queue.
+// - Verify no audit has been recorded.
+func TestSegmentDeletedDuringRepair(t *testing.T) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 10,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = true
+				},
+				testplanet.ReconfigureRS(3, 4, 6, 6),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 6, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 3
+
+		// kill nodes and track lost pieces
+		var availableNodes storj.NodeIDList
+
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				availableNodes = append(availableNodes, piece.StorageNode)
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.Equal(t, 3, len(availableNodes))
+
+		// trigger checker to add segment to repair queue
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+
+		count, err := satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+
+		// delete segment
+		satellite.Repairer.SegmentRepairer.OnTestingCheckSegmentAlteredHook = func() {
+			err = uplinkPeer.DeleteObject(ctx, satellite, "testbucket", "test/path")
+			require.NoError(t, err)
+
+		}
+
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		// Verify that the segment was removed
+		count, err = satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+
+		// Verify that no audit has been recorded for participated nodes.
+		reputationService := satellite.Reputation.Service
+
+		for _, nodeID := range availableNodes {
+			info, err := reputationService.Get(ctx, nodeID)
+			require.NoError(t, err)
+			require.Equal(t, int64(0), info.TotalAuditCount)
+		}
+	})
+}
+
+// TestSegmentModifiedDuringRepair
+// - Upload tests data to 7 nodes
+// - Kill nodes so that repair threshold > online nodes > minimum threshold
+// - Call checker to add segment to the repair queue
+// - Modify segment when repair is in progress.
+// - Run the repairer
+// - Verify segment is no longer in the repair queue.
+// - Verify no audit has been recorded.
+func TestSegmentModifiedDuringRepair(t *testing.T) {
+	const RepairMaxExcessRateOptimalThreshold = 0.05
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 10,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = true
+				},
+				testplanet.ReconfigureRS(3, 4, 6, 6),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 6, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 3
+
+		// kill nodes and track lost pieces
+		var availableNodes storj.NodeIDList
+
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				availableNodes = append(availableNodes, piece.StorageNode)
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.Equal(t, 3, len(availableNodes))
+
+		// trigger checker to add segment to repair queue
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+
+		count, err := satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+
+		// delete segment
+		satellite.Repairer.SegmentRepairer.OnTestingCheckSegmentAlteredHook = func() {
+			// remove one piece from the segment so that checkIfSegmentAltered fails
+			err = satellite.Metabase.DB.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+				StreamID:      segment.StreamID,
+				Position:      segment.Position,
+				OldPieces:     segment.Pieces,
+				NewPieces:     append([]metabase.Piece{segment.Pieces[0]}, segment.Pieces[2:]...),
+				NewRedundancy: segment.Redundancy,
+			})
+			require.NoError(t, err)
+		}
+
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		// Verify that the segment was removed
+		count, err = satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+
+		// Verify that no audit has been recorded for participated nodes.
+		reputationService := satellite.Reputation.Service
+
+		for _, nodeID := range availableNodes {
+			info, err := reputationService.Get(ctx, nodeID)
+			require.NoError(t, err)
+			require.Equal(t, int64(0), info.TotalAuditCount)
+		}
 	})
 }
 
@@ -1578,6 +2540,408 @@ func ecRepairerWithMockConnector(t testing.TB, sat *testplanet.Satellite, mock *
 	return ec
 }
 
+func TestECRepairerGet(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+
+		ecRepairer := satellite.Repairer.EcRepairer
+
+		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		require.NoError(t, err)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		require.NoError(t, err)
+
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(piecesReport.Offline))
+		require.Equal(t, 0, len(piecesReport.Failed))
+		require.Equal(t, 0, len(piecesReport.Contained))
+		require.Equal(t, 0, len(piecesReport.Unknown))
+		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
+	})
+}
+
+func TestECRepairerGetCorrupted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 6, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 2
+
+		// kill nodes and track lost pieces
+		var corruptedPiece metabase.Piece
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				// this means the node will be kept alive for repair
+				// choose piece to corrupt
+				if corruptedPiece.StorageNode.IsZero() {
+					corruptedPiece = piece
+				}
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.False(t, corruptedPiece.StorageNode.IsZero())
+
+		// corrupted node
+		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
+		require.NotNil(t, corruptedNode)
+		pieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
+		corruptPieceData(ctx, t, planet, corruptedNode, pieceID)
+
+		ecRepairer := satellite.Repairer.EcRepairer
+
+		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		require.NoError(t, err)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		require.NoError(t, err)
+
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(piecesReport.Offline))
+		require.Equal(t, 1, len(piecesReport.Failed))
+		require.Equal(t, 0, len(piecesReport.Contained))
+		require.Equal(t, 0, len(piecesReport.Unknown))
+		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
+		require.Equal(t, corruptedPiece, piecesReport.Failed[0])
+	})
+}
+
+func TestECRepairerGetMissingPiece(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 6, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 2
+
+		// kill nodes and track lost pieces
+		var missingPiece metabase.Piece
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				// this means the node will be kept alive for repair
+				// choose a piece for deletion
+				if missingPiece.StorageNode.IsZero() {
+					missingPiece = piece
+				}
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.False(t, missingPiece.StorageNode.IsZero())
+
+		// delete piece
+		node := planet.FindNode(missingPiece.StorageNode)
+		require.NotNil(t, node)
+		pieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
+		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
+		require.NoError(t, err)
+
+		ecRepairer := satellite.Repairer.EcRepairer
+
+		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		require.NoError(t, err)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		require.NoError(t, err)
+
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(piecesReport.Offline))
+		require.Equal(t, 1, len(piecesReport.Failed))
+		require.Equal(t, 0, len(piecesReport.Contained))
+		require.Equal(t, 0, len(piecesReport.Unknown))
+		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
+		require.Equal(t, missingPiece, piecesReport.Failed[0])
+	})
+}
+
+func TestECRepairerGetOffline(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 6, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 2
+
+		// kill nodes and track lost pieces
+		var offlinePiece metabase.Piece
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				// choose a node and pieceID to shutdown
+				if offlinePiece.StorageNode.IsZero() {
+					offlinePiece = piece
+				}
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.False(t, offlinePiece.StorageNode.IsZero())
+
+		// shutdown node
+		offlineNode := planet.FindNode(offlinePiece.StorageNode)
+		require.NotNil(t, offlineNode)
+		require.NoError(t, planet.StopPeer(offlineNode))
+
+		ecRepairer := satellite.Repairer.EcRepairer
+
+		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		require.NoError(t, err)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		require.NoError(t, err)
+
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(piecesReport.Offline))
+		require.Equal(t, 0, len(piecesReport.Failed))
+		require.Equal(t, 0, len(piecesReport.Contained))
+		require.Equal(t, 0, len(piecesReport.Unknown))
+		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
+		require.Equal(t, offlinePiece, piecesReport.Offline[0])
+	})
+}
+
+func TestECRepairerGetUnknown(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
+			},
+			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 6, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+		toKill := 2
+
+		// kill nodes and track lost pieces
+		var unknownPiece metabase.Piece
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				// choose a node to return unknown error
+				if unknownPiece.StorageNode.IsZero() {
+					unknownPiece = piece
+				}
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.False(t, unknownPiece.StorageNode.IsZero())
+
+		// set unknown error for download from bad node
+		badNode := planet.FindNode(unknownPiece.StorageNode)
+		require.NotNil(t, badNode)
+		badNodeDB := badNode.DB.(*testblobs.BadDB)
+		badNodeDB.SetError(errs.New("unknown error"))
+
+		ecRepairer := satellite.Repairer.EcRepairer
+
+		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		require.NoError(t, err)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		require.NoError(t, err)
+
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(piecesReport.Offline))
+		require.Equal(t, 0, len(piecesReport.Failed))
+		require.Equal(t, 0, len(piecesReport.Contained))
+		require.Equal(t, 1, len(piecesReport.Unknown))
+		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
+		require.Equal(t, unknownPiece, piecesReport.Unknown[0])
+	})
+}
+
+func TestECRepairerGetFailure(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
+			},
+			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		require.Equal(t, 6, len(segment.Pieces))
+		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+
+		// calculate how many storagenodes to kill
+		toKill := 2
+
+		var onlinePieces metabase.Pieces
+		for i, piece := range segment.Pieces {
+			if i >= toKill {
+				onlinePieces = append(onlinePieces, piece)
+				continue
+			}
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+			require.NoError(t, err)
+		}
+		require.Equal(t, 4, len(onlinePieces))
+
+		successfulPiece := onlinePieces[0]
+		offlinePiece := onlinePieces[1]
+		unknownPiece := onlinePieces[2]
+		corruptedPiece := onlinePieces[3]
+
+		// stop offline node
+		offlineNode := planet.FindNode(offlinePiece.StorageNode)
+		require.NotNil(t, offlineNode)
+		require.NoError(t, planet.StopPeer(offlineNode))
+
+		// set unknown error for download from bad node
+		badNode := planet.FindNode(unknownPiece.StorageNode)
+		require.NotNil(t, badNode)
+		badNodeDB := badNode.DB.(*testblobs.BadDB)
+		badNodeDB.SetError(errs.New("unknown error"))
+
+		// corrupt data for corrupted node
+		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
+		require.NotNil(t, corruptedNode)
+		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
+		require.NotNil(t, corruptedPieceID)
+		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+
+		ecRepairer := satellite.Repairer.EcRepairer
+
+		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		require.NoError(t, err)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		require.NoError(t, err)
+
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		require.Error(t, err)
+		require.Equal(t, 1, len(piecesReport.Offline))
+		require.Equal(t, 1, len(piecesReport.Failed))
+		require.Equal(t, 0, len(piecesReport.Contained))
+		require.Equal(t, 1, len(piecesReport.Unknown))
+		require.Equal(t, 1, len(piecesReport.Successful))
+		require.Equal(t, offlinePiece, piecesReport.Offline[0])
+		require.Equal(t, corruptedPiece, piecesReport.Failed[0])
+		require.Equal(t, unknownPiece, piecesReport.Unknown[0])
+		require.Equal(t, successfulPiece, piecesReport.Successful[0])
+	})
+}
+
 func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -1624,9 +2988,9 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
 
-		readCloser, failed, err := ec.Get(ctx, limits, cachedIPsAndPorts, privateKey, redundancy, int64(segment.EncryptedSize))
+		readCloser, pieces, err := ec.Get(ctx, limits, cachedIPsAndPorts, privateKey, redundancy, int64(segment.EncryptedSize))
 		require.NoError(t, err)
-		require.Len(t, failed, 0)
+		require.Len(t, pieces.Failed, 0)
 		require.NotNil(t, readCloser)
 
 		// repair will only download minimum required
@@ -1708,9 +3072,9 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
 
-		readCloser, failed, err := ec.Get(ctx, limits, cachedIPsAndPorts, privateKey, redundancy, int64(segment.EncryptedSize))
+		readCloser, pieces, err := ec.Get(ctx, limits, cachedIPsAndPorts, privateKey, redundancy, int64(segment.EncryptedSize))
 		require.NoError(t, err)
-		require.Len(t, failed, 0)
+		require.Len(t, pieces.Failed, 0)
 		require.NotNil(t, readCloser)
 		// repair will only download minimum required.
 		minReq := redundancy.RequiredCount()

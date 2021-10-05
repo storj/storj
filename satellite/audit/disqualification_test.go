@@ -142,9 +142,16 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0)
 		require.NoError(t, err)
-		assert.Len(t, limits, len(segment.Pieces)-1)
 
+		notNilLimits := []*pb.AddressedOrderLimit{}
 		for _, orderLimit := range limits {
+			if orderLimit.Limit != nil {
+				notNilLimits = append(notNilLimits, orderLimit)
+			}
+		}
+		assert.Len(t, notNilLimits, len(segment.Pieces)-1)
+
+		for _, orderLimit := range notNilLimits {
 			assert.False(t, isDisqualified(t, ctx, satellitePeer, orderLimit.Limit.StorageNodeId))
 			assert.NotEqual(t, orderLimit.Limit.StorageNodeId, disqualifiedNode)
 		}

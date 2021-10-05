@@ -29,8 +29,6 @@ class ViewsState {
 
         public setDefaultPaymentMethodID: string = "",
         public deletePaymentMethodID: string = "",
-
-        public onbCLIFlowCreateBucketBackRoute: string = "",
     ) {}
 }
 
@@ -42,6 +40,7 @@ class State {
         public isBetaSatellite = false,
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
+        public isNewOnbCLIFlow = false,
     ){}
 }
 
@@ -112,9 +111,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.deletePaymentMethodID = id;
         },
-        [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_CREATE_BUCKET_BACK_ROUTE](state: State, route: string): void {
-            state.appState.onbCLIFlowCreateBucketBackRoute = route;
-        },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: State): void {
             state.appState.isAccountDropdownShown = false;
@@ -142,6 +138,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: State, isBetaSatellite: boolean): void {
             state.isBetaSatellite = isBetaSatellite;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS](state: State, isNewOnbCLIFlow: boolean): void {
+            state.isNewOnbCLIFlow = isNewOnbCLIFlow;
         },
         [APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS](state: State, couponCodeBillingUIEnabled: boolean): void {
             state.couponCodeBillingUIEnabled = couponCodeBillingUIEnabled;
@@ -273,6 +272,9 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({commit}: AppContext, isBetaSatellite: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);
+        },
+        [APP_STATE_ACTIONS.SET_ONB_CLI_FLOW_STATUS]: function ({commit}: AppContext, isNewOnbCLIFlow: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS, isNewOnbCLIFlow);
         },
         [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({commit}: AppContext, couponCodeBillingUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);

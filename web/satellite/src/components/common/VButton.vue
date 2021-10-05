@@ -8,7 +8,7 @@
         :style="style"
         @click="onPress"
     >
-        <span class="label">{{ label }}</span>
+        <span class="label" :class="{uppercase: isUppercase}">{{ label }}</span>
     </div>
 </template>
 
@@ -41,6 +41,8 @@ export default class VButton extends Vue {
     private readonly isBlueWhite: boolean;
     @Prop({default: false})
     private isDisabled: boolean;
+    @Prop({default: false})
+    private readonly isUppercase: boolean;
     @Prop({default: () => { return; }})
     private readonly onPress: () => void;
 
@@ -188,5 +190,9 @@ export default class VButton extends Vue {
                 }
             }
         }
+    }
+
+    .uppercase {
+        text-transform: uppercase;
     }
 </style>

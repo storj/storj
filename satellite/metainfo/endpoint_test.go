@@ -31,20 +31,22 @@ func TestEndpoint_DeleteCommittedObject(t *testing.T) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "object-filename", data)
 		require.NoError(t, err)
 	}
-	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+	deleteAllObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 		items, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
-		require.Len(t, items, 1)
+		require.GreaterOrEqual(t, len(items), 1)
 
-		_, err = planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucketName, items[0].ObjectKey)
-		require.NoError(t, err)
+		for _, item := range items {
+			_, err = planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucketName, item.ObjectKey)
+			require.NoError(t, err)
+		}
 
 		items, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 0)
 	}
-	testDeleteObject(t, createObject, deleteObject)
+	testDeleteObject(t, createObject, deleteAllObjects)
 }
 
 func TestEndpoint_DeletePendingObject(t *testing.T) {
@@ -54,7 +56,7 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
 
-		_, err = project.CreateBucket(ctx, bucketName)
+		_, err = project.EnsureBucket(ctx, bucketName)
 		require.NoError(t, err, "failed to create bucket")
 
 		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
@@ -66,28 +68,30 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		require.NoError(t, err, "failed to put object part")
 		require.NoError(t, upload.Commit(), "failed to put object part")
 	}
-	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+	deleteAllObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 		items, err := planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
-		require.Len(t, items, 1)
+		require.GreaterOrEqual(t, len(items), 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeletePendingObject(ctx,
-			metabase.ObjectStream{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				ObjectKey:  items[0].ObjectKey,
-				Version:    1,
-				StreamID:   items[0].StreamID,
-			})
-		require.NoError(t, err)
-		require.Len(t, deletedObjects, 1)
+		for _, item := range items {
+			deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeletePendingObject(ctx,
+				metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					ObjectKey:  item.ObjectKey,
+					Version:    metabase.DefaultVersion,
+					StreamID:   item.StreamID,
+				})
+			require.NoError(t, err)
+			require.Len(t, deletedObjects, 1)
+		}
 
 		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 0)
 	}
-	testDeleteObject(t, createObject, deleteObject)
+	testDeleteObject(t, createObject, deleteAllObjects)
 }
 
 func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
@@ -96,32 +100,34 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "object-filename", data)
 		require.NoError(t, err)
 	}
-	deleteCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+	deleteAllCommittedObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 		items, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
-		require.Len(t, items, 1)
+		require.GreaterOrEqual(t, len(items), 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-			ProjectID:  projectID,
-			BucketName: bucketName,
-			ObjectKey:  items[0].ObjectKey,
-		})
-		require.NoError(t, err)
-		require.Len(t, deletedObjects, 1)
+		for _, item := range items {
+			deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				ObjectKey:  item.ObjectKey,
+			})
+			require.NoError(t, err)
+			require.Len(t, deletedObjects, 1)
+		}
 
 		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 0)
 	}
-	testDeleteObject(t, createCommittedObject, deleteCommittedObject)
+	testDeleteObject(t, createCommittedObject, deleteAllCommittedObjects)
 
 	createPendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
 		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
 
-		_, err = project.CreateBucket(ctx, bucketName)
+		_, err = project.EnsureBucket(ctx, bucketName)
 		require.NoError(t, err, "failed to create bucket")
 
 		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
@@ -134,30 +140,32 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		require.NoError(t, upload.Commit(), "failed to start multipart upload")
 	}
 
-	deletePendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+	deleteAllPendingObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 		items, err := planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
-		require.Len(t, items, 1)
+		require.GreaterOrEqual(t, len(items), 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-			ProjectID:  projectID,
-			BucketName: bucketName,
-			ObjectKey:  items[0].ObjectKey,
-		})
-		require.NoError(t, err)
-		require.Len(t, deletedObjects, 1)
+		for _, item := range items {
+			deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				ObjectKey:  item.ObjectKey,
+			})
+			require.NoError(t, err)
+			require.Len(t, deletedObjects, 1)
+		}
 
 		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
 		require.NoError(t, err)
 		require.Len(t, items, 0)
 	}
 
-	testDeleteObject(t, createPendingObject, deletePendingObject)
+	testDeleteObject(t, createPendingObject, deleteAllPendingObjects)
 }
 
 func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet,
-	data []byte), deleteObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet)) {
+	data []byte), deleteAllObjects func(ctx context.Context, t *testing.T, planet *testplanet.Planet)) {
 	t.Run("all nodes up", func(t *testing.T) {
 		t.Parallel()
 
@@ -172,23 +180,23 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
 
-		for _, tc := range testCases {
-			tc := tc
-			t.Run(tc.caseDescription, func(t *testing.T) {
-				testplanet.Run(t, testplanet.Config{
-					SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-					Reconfigure: testplanet.Reconfigure{
-						// Reconfigure RS for ensuring that we don't have long-tail cancellations
-						// and the upload doesn't leave garbage in the SNs
-						Satellite: testplanet.Combine(
-							testplanet.ReconfigureRS(2, 2, 4, 4),
-							testplanet.MaxSegmentSize(13*memory.KiB),
-						),
-					},
-				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-					var (
-						percentExp = 0.75
-					)
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				// Reconfigure RS for ensuring that we don't have long-tail cancellations
+				// and the upload doesn't leave garbage in the SNs
+				Satellite: testplanet.Combine(
+					testplanet.ReconfigureRS(2, 2, 4, 4),
+					testplanet.MaxSegmentSize(13*memory.KiB),
+				),
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			var (
+				percentExp = 0.75
+			)
+			for _, tc := range testCases {
+				tc := tc
+				t.Run(tc.caseDescription, func(t *testing.T) {
 
 					createObject(ctx, t, planet, tc.objData)
 
@@ -200,7 +208,7 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 						totalUsedSpace += piecesTotal
 					}
 
-					deleteObject(ctx, t, planet)
+					deleteAllObjects(ctx, t, planet)
 
 					planet.WaitForStorageNodeDeleters(ctx)
 
@@ -218,11 +226,10 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 					if deletedUsedSpace < percentExp {
 						t.Fatalf("deleted used space is less than %f%%. Got %f", percentExp, deletedUsedSpace)
 					}
-
 				})
+			}
+		})
 
-			})
-		}
 	})
 
 	t.Run("some nodes down", func(t *testing.T) {
@@ -259,7 +266,7 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 					require.NoError(t, planet.StopPeer(planet.StorageNodes[0]))
 					require.NoError(t, planet.StopPeer(planet.StorageNodes[1]))
 
-					deleteObject(ctx, t, planet)
+					deleteAllObjects(ctx, t, planet)
 
 					planet.WaitForStorageNodeDeleters(ctx)
 
@@ -301,42 +308,47 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
 
-		for _, tc := range testCases {
-			tc := tc
-			t.Run(tc.caseDescription, func(t *testing.T) {
-				testplanet.Run(t, testplanet.Config{
-					SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-					Reconfigure: testplanet.Reconfigure{
-						// Reconfigure RS for ensuring that we don't have long-tail cancellations
-						// and the upload doesn't leave garbage in the SNs
-						Satellite: testplanet.Combine(
-							testplanet.ReconfigureRS(2, 2, 4, 4),
-							testplanet.MaxSegmentSize(13*memory.KiB),
-						),
-					},
-				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-					createObject(ctx, t, planet, tc.objData)
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				// Reconfigure RS for ensuring that we don't have long-tail cancellations
+				// and the upload doesn't leave garbage in the SNs
+				Satellite: testplanet.Combine(
+					testplanet.ReconfigureRS(2, 2, 4, 4),
+					testplanet.MaxSegmentSize(13*memory.KiB),
+				),
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			for _, tc := range testCases {
+				createObject(ctx, t, planet, tc.objData)
+			}
 
-					// Shutdown all the storage nodes before we delete the pieces
-					for _, sn := range planet.StorageNodes {
-						require.NoError(t, planet.StopPeer(sn))
-					}
+			// calculate the SNs total used space after data upload
+			var usedSpaceBeforeDelete int64
+			for _, sn := range planet.StorageNodes {
+				piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+				require.NoError(t, err)
+				usedSpaceBeforeDelete += piecesTotal
+			}
 
-					deleteObject(ctx, t, planet)
+			// Shutdown all the storage nodes before we delete the pieces
+			for _, sn := range planet.StorageNodes {
+				require.NoError(t, planet.StopPeer(sn))
+			}
 
-					// Check that storage nodes that were offline when deleting the pieces
-					// they are still holding data
-					var totalUsedSpace int64
-					for _, sn := range planet.StorageNodes {
-						piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
-						require.NoError(t, err)
-						totalUsedSpace += piecesTotal
-					}
+			deleteAllObjects(ctx, t, planet)
 
-					require.NotZero(t, totalUsedSpace, "totalUsedSpace")
-				})
-			})
-		}
+			// Check that storage nodes that were offline when deleting the pieces
+			// they are still holding data
+			var totalUsedSpace int64
+			for _, sn := range planet.StorageNodes {
+				piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+				require.NoError(t, err)
+				totalUsedSpace += piecesTotal
+			}
+
+			require.Equal(t, usedSpaceBeforeDelete, totalUsedSpace, "totalUsedSpace")
+		})
 	})
 }
 

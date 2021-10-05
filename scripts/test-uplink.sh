@@ -81,6 +81,11 @@ uplink cp "sj://$BUCKET/diff-size-segments_upl_p2"    "$DST_DIR/diff-size-segmen
 
 uplink ls "sj://$BUCKET/small-upload-testfile" | grep "small-upload-testfile"
 
+# test server-side move operation
+uplink mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-upload-testfile"
+uplink ls "sj://$BUCKET/moved-big-upload-testfile" | grep "moved-big-upload-testfile"
+uplink mv "sj://$BUCKET/moved-big-upload-testfile" "sj://$BUCKET/big-upload-testfile"
+
 uplink rm "sj://$BUCKET/small-upload-testfile"
 uplink rm "sj://$BUCKET/big-upload-testfile"
 uplink rm "sj://$BUCKET/multisegment-upload-testfile"

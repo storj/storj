@@ -5,27 +5,29 @@ package stripecoinpayments
 
 import (
 	"context"
-	"math"
-	"math/big"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/payments/monetary"
 )
 
-// convertToCents convert amount to cents with given rate.
-func convertToCents(rate, amount *big.Float) int64 {
-	f, _ := new(big.Float).Mul(amount, rate).Float64()
-	return int64(math.Round(f * 100))
+// convertToCents convert amount to USD cents with given rate.
+func convertToCents(rate decimal.Decimal, amount monetary.Amount) int64 {
+	amountDecimal := amount.AsDecimal()
+	usd := amountDecimal.Mul(rate)
+	usdCents := usd.Shift(2)
+	return usdCents.Round(0).IntPart()
 }
 
-// convertFromCents convert amount in cents to big.Float with given rate.
-func convertFromCents(rate *big.Float, amount int64) *big.Float {
-	a := new(big.Float).SetInt64(amount)
-	a = a.Quo(a, new(big.Float).SetInt64(100))
-	return new(big.Float).Quo(a, rate)
+// convertFromCents convert amount in cents to a StorjTokenAmount with given rate.
+func convertFromCents(rate decimal.Decimal, usdCents int64) monetary.Amount {
+	usd := decimal.NewFromInt(usdCents).Shift(-2)
+	numStorj := usd.Div(rate)
+	return monetary.AmountFromDecimal(numStorj, monetary.USDollars)
 }
 
 // ErrConversion defines version service error.
