@@ -61,6 +61,11 @@ func (l *Local) Create(ctx context.Context, path string) (WriteHandle, error) {
 	return newOSWriteHandle(fh), nil
 }
 
+// Move moves file to provided path.
+func (l *Local) Move(ctx context.Context, oldpath, newpath string) error {
+	return os.Rename(oldpath, newpath)
+}
+
 // Remove unlinks the file at the path. It is not an error if the file does not exist.
 func (l *Local) Remove(ctx context.Context, path string, opts *RemoveOptions) error {
 	if opts.isPending() {

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zeebo/clingy"
@@ -29,6 +30,8 @@ type testFilesystem struct {
 	pending map[ulloc.Location][]*memWriteHandle
 	locals  map[string]bool // true means path is a directory
 	buckets map[string]struct{}
+
+	mu sync.Mutex
 }
 
 func newTestFilesystem() *testFilesystem {
@@ -78,13 +81,16 @@ func (tfs *testFilesystem) Close() error {
 }
 
 func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location, opts *ulfs.OpenOptions) (_ ulfs.ReadHandle, err error) {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
 	if loc.Std() {
 		return &byteReadHandle{Buffer: bytes.NewBufferString("-")}, nil
 	}
 
 	mf, ok := tfs.files[loc]
 	if !ok {
-		return nil, errs.New("file does not exist")
+		return nil, errs.New("file does not exist %q", loc)
 	}
 
 	if opts != nil {
@@ -95,6 +101,9 @@ func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location, opts *ul
 }
 
 func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulfs.WriteHandle, err error) {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
 	if loc.Std() {
 		return new(discardWriteHandle), nil
 	}
@@ -106,7 +115,7 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 	}
 
 	if path, ok := loc.LocalParts(); ok {
-		if loc.Directoryish() || tfs.IsLocalDir(ctx, loc) {
+		if loc.Directoryish() || tfs.isLocalDir(ctx, loc) {
 			return nil, errs.New("unable to open file for writing: %q", loc)
 		}
 		dir := ulloc.CleanPath(filepath.Dir(path))
@@ -130,7 +139,23 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 	return wh, nil
 }
 
+func (tfs *testFilesystem) Move(ctx clingy.Context, source, dest ulloc.Location) error {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
+	mf, ok := tfs.files[source]
+	if !ok {
+		return errs.New("file does not exist %q", source)
+	}
+	delete(tfs.files, source)
+	tfs.files[dest] = mf
+	return nil
+}
+
 func (tfs *testFilesystem) Remove(ctx context.Context, loc ulloc.Location, opts *ulfs.RemoveOptions) error {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
 	if opts == nil || !opts.Pending {
 		delete(tfs.files, loc)
 	} else {
@@ -141,6 +166,9 @@ func (tfs *testFilesystem) Remove(ctx context.Context, loc ulloc.Location, opts 
 }
 
 func (tfs *testFilesystem) List(ctx context.Context, prefix ulloc.Location, opts *ulfs.ListOptions) (ulfs.ObjectIterator, error) {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
 	if opts != nil && opts.Pending {
 		return tfs.listPending(ctx, prefix, opts)
 	}
@@ -195,6 +223,13 @@ func (tfs *testFilesystem) listPending(ctx context.Context, prefix ulloc.Locatio
 }
 
 func (tfs *testFilesystem) IsLocalDir(ctx context.Context, loc ulloc.Location) (local bool) {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
+	return tfs.isLocalDir(ctx, loc)
+}
+
+func (tfs *testFilesystem) isLocalDir(ctx context.Context, loc ulloc.Location) (local bool) {
 	path, ok := loc.LocalParts()
 	return ok && (ulloc.CleanPath(path) == "." || tfs.locals[path])
 }
@@ -270,6 +305,9 @@ func (b *memWriteHandle) Write(p []byte) (int, error) {
 }
 
 func (b *memWriteHandle) Commit() error {
+	b.tfs.mu.Lock()
+	defer b.tfs.mu.Unlock()
+
 	if err := b.close(); err != nil {
 		return err
 	}
@@ -286,6 +324,9 @@ func (b *memWriteHandle) Commit() error {
 }
 
 func (b *memWriteHandle) Abort() error {
+	b.tfs.mu.Lock()
+	defer b.tfs.mu.Unlock()
+
 	if err := b.close(); err != nil {
 		return err
 	}

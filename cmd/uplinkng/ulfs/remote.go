@@ -65,6 +65,11 @@ func (r *Remote) Create(ctx context.Context, bucket, key string) (WriteHandle, e
 	return newUplinkWriteHandle(fh), nil
 }
 
+// Move moves object to provided key and bucket.
+func (r *Remote) Move(ctx context.Context, oldbucket, oldkey, newbucket, newkey string) error {
+	return errs.Wrap(r.project.MoveObject(ctx, oldbucket, oldkey, newbucket, newkey, nil))
+}
+
 // Remove deletes the object at the provided key and bucket.
 func (r *Remote) Remove(ctx context.Context, bucket, key string, opts *RemoveOptions) error {
 	if !opts.isPending() {

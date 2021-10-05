@@ -44,6 +44,7 @@ type Filesystem interface {
 	Close() error
 	Open(ctx clingy.Context, loc ulloc.Location, opts *OpenOptions) (ReadHandle, error)
 	Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, error)
+	Move(ctx clingy.Context, source, dest ulloc.Location) error
 	Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error
 	List(ctx context.Context, prefix ulloc.Location, opts *ListOptions) (ObjectIterator, error)
 	IsLocalDir(ctx context.Context, loc ulloc.Location) bool
