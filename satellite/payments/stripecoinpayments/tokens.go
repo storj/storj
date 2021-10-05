@@ -95,6 +95,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 			AccountID: userID,
 			Address:   tx.Address,
 			Amount:    tx.Amount,
+			Received:  monetary.AmountFromBaseUnits(0, tx.Amount.Currency()),
 			Status:    coinpayments.StatusPending,
 			Key:       key,
 			Timeout:   tx.Timeout,
