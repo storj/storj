@@ -2,11 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="onboarding-cli">
-        <div class="onboarding-cli__container">
-            <router-view />
-        </div>
-    </div>
+    <router-view />
 </template>
 
 <script lang="ts">

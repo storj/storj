@@ -97,26 +97,12 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
     return {
         state: new AccessGrantsState(),
         mutations: {
-            [SET_ACCESS_GRANTS_WEB_WORKER](state: AccessGrantsState): void {
-                state.accessGrantsWebWorker = new Worker('@/../static/wasm/accessGrant.worker.js', { type: 'module' });
-                state.accessGrantsWebWorker.onmessage = (event: MessageEvent) => {
-                    const data = event.data;
-                    if (data !== 'configured') {
-                        console.error('Failed to configure access grants web worker');
-
-                        return;
-                    }
-
-                    state.isAccessGrantsWebWorkerReady = true;
-                };
-                state.accessGrantsWebWorker.onerror = (error: ErrorEvent) => {
-                    console.error(`Failed to configure access grants web worker. ${error.message}`);
-                };
+            [SET_ACCESS_GRANTS_WEB_WORKER](state: AccessGrantsState, worker: Worker): void {
+                state.accessGrantsWebWorker = worker;
+                state.isAccessGrantsWebWorkerReady = true;
             },
             [STOP_ACCESS_GRANTS_WEB_WORKER](state: AccessGrantsState): void {
-                state.accessGrantsWebWorker?.postMessage({
-                    'type': 'Stop',
-                });
+                state.accessGrantsWebWorker?.terminate();
                 state.accessGrantsWebWorker = null;
                 state.isAccessGrantsWebWorkerReady = false;
             },
@@ -204,8 +190,24 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             },
         },
         actions: {
-            setAccessGrantsWebWorker: function({commit}: AccessGrantsContext): void {
-                commit(SET_ACCESS_GRANTS_WEB_WORKER);
+            setAccessGrantsWebWorker: async function ({commit}: AccessGrantsContext): Promise<void> {
+                const worker = new Worker('@/../static/wasm/accessGrant.worker.js', { type: 'module' });
+                worker.postMessage({'type': 'Setup'})
+
+                const event: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
+                if (event.data.error) {
+                    throw new Error(event.data.error);
+                }
+
+                if (event.data !== 'configured') {
+                    throw new Error('Failed to configure access grants web worker');
+                }
+
+                worker.onerror = (error: ErrorEvent) => {
+                    throw new Error(`Failed to configure access grants web worker. ${error.message}`);
+                };
+
+                commit(SET_ACCESS_GRANTS_WEB_WORKER, worker)
             },
             stopAccessGrantsWebWorker: function({commit}: AccessGrantsContext): void {
                 commit(STOP_ACCESS_GRANTS_WEB_WORKER);
@@ -220,9 +222,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 return accessGrantsPage;
             },
             createAccessGrant: async function ({rootGetters}: AccessGrantsContext, name: string): Promise<AccessGrant> {
-                const accessGrant = await api.create(rootGetters.selectedProject.id, name);
-
-                return accessGrant;
+                return await api.create(rootGetters.selectedProject.id, name);
             },
             deleteAccessGrants: async function({state}: AccessGrantsContext): Promise<void> {
                 await api.delete(state.selectedAccessGrantsIds);

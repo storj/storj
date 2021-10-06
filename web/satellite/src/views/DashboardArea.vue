@@ -80,19 +80,6 @@ export default class DashboardArea extends Vue {
     public isMFACodesPopup = false;
 
     /**
-     * Lifecycle hook before initial render.
-     * Sets access grants web worker.
-     */
-    public async beforeMount(): Promise<void> {
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
-        } catch (error) {
-            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
-        }
-    }
-
-    /**
      * Lifecycle hook after initial render.
      * Pre fetches user`s and project information.
      */
@@ -108,6 +95,13 @@ export default class DashboardArea extends Vue {
             setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
 
             return;
+        }
+
+        try {
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+        } catch (error) {
+            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
         }
 
         try {

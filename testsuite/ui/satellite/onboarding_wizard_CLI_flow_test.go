@@ -5,13 +5,11 @@ package satellite_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/testsuite/ui/uitest"
@@ -47,22 +45,19 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 
 		// Testing onboarding workflow uplinkCLI method
 		// Welcome screen
+		wait := page.MustWaitRequestIdle()
 		page.MustElementX("(//span[text()=\"Continue in cli\"])").MustClick()
-		waitVueTick(page)
+		wait()
 
 		// API key generated screen
-
-		// TODO: Using sleep here, because waiting for the next tick and element
-		// does not work properly. The loading of WASM seems to take a bunch of time
-		// throwing things off.
-		require.True(t, sync2.Sleep(ctx, time.Second))
-
 		apiKeyGeneratedTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, apiKeyGeneratedTitle, "API Key Generated")
-		satelliteAddress := page.MustElement("[aria-roledescription=satellite-address]").MustText()
-		require.NotEmpty(t, satelliteAddress)
-		apiKey := page.MustElement("[aria-roledescription=api-key]").MustText()
-		require.NotEmpty(t, apiKey)
+		page.Race().Element("[aria-roledescription=satellite-address]").MustHandle(func(el *rod.Element) {
+			require.NotEmpty(t, el.MustText())
+		}).MustDo()
+		page.Race().Element("[aria-roledescription=api-key]").MustHandle(func(el *rod.Element) {
+			require.NotEmpty(t, el.MustText())
+		}).MustDo()
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
 		waitVueTick(page)
 		welcomeTitle := page.MustElement("[aria-roledescription=title]").MustText()
