@@ -704,45 +704,59 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUI
 }
 
 // ActivateAccount - is a method for activating user account after registration.
-func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (err error) {
+func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	token, err := consoleauth.FromBase64URLString(activationToken)
+	parsedActivationToken, err := consoleauth.FromBase64URLString(activationToken)
 	if err != nil {
-		return Error.Wrap(err)
+		return "", Error.Wrap(err)
 	}
 
-	claims, err := s.authenticate(ctx, token)
+	claims, err := s.authenticate(ctx, parsedActivationToken)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	_, err = s.store.Users().GetByEmail(ctx, claims.Email)
 	if err == nil {
-		return ErrEmailUsed.New(emailUsedErrMsg)
+		return "", ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	user, err := s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
-		return Error.Wrap(err)
+		return "", Error.Wrap(err)
 	}
 
 	now := time.Now()
 
 	if now.After(user.CreatedAt.Add(TokenExpirationTime)) {
-		return ErrTokenExpiration.Wrap(err)
+		return "", ErrTokenExpiration.Wrap(err)
 	}
 
 	user.Status = Active
 	err = s.store.Users().Update(ctx, user)
 	if err != nil {
-		return Error.Wrap(err)
+		return "", Error.Wrap(err)
 	}
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
 
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
 
-	return nil
+	// now that the account is activated, create a token to be stored in a cookie to log the user in.
+	claims = &consoleauth.Claims{
+		ID:         user.ID,
+		Expiration: time.Now().Add(TokenExpirationTime),
+	}
+
+	token, err = s.createToken(ctx, claims)
+	if err != nil {
+		return "", err
+	}
+	s.auditLog(ctx, "login", &user.ID, user.Email)
+
+	s.analytics.TrackSignedIn(user.ID, user.Email)
+
+	return token, nil
 }
 
 // ResetPassword - is a method for resetting user password.

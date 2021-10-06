@@ -553,7 +553,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	defer mon.Task()(&ctx)(nil)
 	activationToken := r.URL.Query().Get("token")
 
-	err := server.service.ActivateAccount(ctx, activationToken)
+	token, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		server.log.Error("activation: failed to activate account",
 			zap.String("token", activationToken),
@@ -573,7 +573,9 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	http.Redirect(w, r, server.config.AccountActivationRedirectURL, http.StatusTemporaryRedirect)
+	server.cookieAuth.SetTokenCookie(w, token)
+
+	http.Redirect(w, r, server.config.ExternalAddress, http.StatusTemporaryRedirect)
 }
 
 func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *http.Request) {

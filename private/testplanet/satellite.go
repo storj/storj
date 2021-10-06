@@ -232,7 +232,7 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 		return nil, err
 	}
 
-	err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
+	_, err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		return nil, err
 	}
