@@ -134,7 +134,7 @@ func TestGraphqlQuery(t *testing.T) {
 				"mtest@mail.test",
 			)
 			require.NoError(t, err)
-			err = service.ActivateAccount(ctx, activationToken)
+			_, err = service.ActivateAccount(ctx, activationToken)
 			require.NoError(t, err)
 			rootUser.Email = "mtest@mail.test"
 		})
@@ -209,7 +209,7 @@ func TestGraphqlQuery(t *testing.T) {
 				"muu1@mail.test",
 			)
 			require.NoError(t, err)
-			err = service.ActivateAccount(ctx, activationToken1)
+			_, err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 			user1.Email = "muu1@mail.test"
 		})
@@ -232,7 +232,7 @@ func TestGraphqlQuery(t *testing.T) {
 				"muu2@mail.test",
 			)
 			require.NoError(t, err)
-			err = service.ActivateAccount(ctx, activationToken2)
+			_, err = service.ActivateAccount(ctx, activationToken2)
 			require.NoError(t, err)
 			user2.Email = "muu2@mail.test"
 		})

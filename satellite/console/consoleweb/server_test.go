@@ -39,7 +39,7 @@ func TestActivationRouting(t *testing.T) {
 		activationToken, err := service.GenerateActivationToken(ctx, user.ID, user.Email)
 		require.NoError(t, err)
 
-		checkActivationRedirect := func(testMsg, redirectURL string) {
+		checkActivationRedirect := func(testMsg, redirectURL string, shouldHaveCookie bool) {
 			url := "http://" + sat.API.Console.Listener.Addr().String() + "/activation/?token=" + activationToken
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
@@ -47,6 +47,16 @@ func TestActivationRouting(t *testing.T) {
 
 			result, err := http.DefaultClient.Do(req)
 			require.NoError(t, err, testMsg)
+
+			// cookie should be set on successful activation
+			hasCookie := false
+			for _, c := range result.Cookies() {
+				if c.Name == "_tokenKey" {
+					hasCookie = true
+					break
+				}
+			}
+			require.Equal(t, shouldHaveCookie, hasCookie)
 
 			require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode, testMsg)
 			require.Equal(t, redirectURL, result.Header.Get("Location"), testMsg)
@@ -57,10 +67,13 @@ func TestActivationRouting(t *testing.T) {
 			return http.ErrUseLastResponse
 		}
 
-		loginURL := "http://" + sat.API.Console.Listener.Addr().String() + "/login"
+		baseURL := "http://" + sat.API.Console.Listener.Addr().String() + "/"
+		loginURL := baseURL + "login"
 
-		checkActivationRedirect("Activation - Fresh Token", loginURL+"?activated=true")
-		checkActivationRedirect("Activation - Used Token", loginURL+"?activated=false")
+		// successful activation should set cookie and redirect to home page.
+		checkActivationRedirect("Activation - Fresh Token", baseURL, true)
+		// unsuccessful redirect should not set cookie and redirect to login page.
+		checkActivationRedirect("Activation - Used Token", loginURL+"?activated=false", false)
 	})
 }
 

@@ -142,7 +142,7 @@ func TestGraphqlMutation(t *testing.T) {
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
 
-		err = service.ActivateAccount(ctx, activationToken)
+		_, err = service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
 		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
@@ -229,7 +229,7 @@ func TestGraphqlMutation(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			err = service.ActivateAccount(ctx, activationToken1)
+			_, err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 
 			user1.Email = "u1@mail.test"
@@ -253,7 +253,7 @@ func TestGraphqlMutation(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			err = service.ActivateAccount(ctx, activationToken2)
+			_, err = service.ActivateAccount(ctx, activationToken2)
 			require.NoError(t, err)
 
 			user2.Email = "u2@mail.test"

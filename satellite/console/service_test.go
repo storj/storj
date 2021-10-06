@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 )
 
 func TestService(t *testing.T) {
@@ -591,5 +592,39 @@ func TestResetPassword(t *testing.T) {
 		// Expect success when providing good token and good password.
 		err = service.ResetPassword(ctx, tokenStr, newPass, token.CreatedAt)
 		require.NoError(t, err)
+	})
+}
+
+// TestActivateAccountToken ensures that the token returned after activating an account can be used to authorize user activity.
+// i.e. a user does not need to acquire an authorization separate from the account activation step.
+func TestActivateAccountToken(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		createUser := console.CreateUser{
+			FullName:  "Alice",
+			ShortName: "Alice",
+			Email:     "alice@mail.test",
+			Password:  "123a123",
+		}
+
+		regToken, err := service.CreateRegToken(ctx, 1)
+		require.NoError(t, err)
+
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
+		require.NoError(t, err)
+
+		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
+		require.NoError(t, err)
+
+		authToken, err := service.ActivateAccount(ctx, activationToken)
+		require.NoError(t, err)
+
+		_, err = service.Authorize(consoleauth.WithAPIKey(ctx, []byte(authToken)))
+		require.NoError(t, err)
+
 	})
 }
