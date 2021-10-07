@@ -44,6 +44,11 @@ func (system *Multinode) NodeURL() storj.NodeURL {
 	return storj.NodeURL{ID: system.ID(), Address: system.Addr()}
 }
 
+// ConsoleURL returns the console URL.
+func (system *Multinode) ConsoleURL() string {
+	return "http://" + system.Addr()
+}
+
 // newMultinodes initializes multinode dashboards.
 func (planet *Planet) newMultinodes(ctx context.Context, prefix string, count int) (_ []*Multinode, err error) {
 	defer mon.Task()(&ctx)(&err)
