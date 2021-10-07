@@ -86,13 +86,41 @@ uplink mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-uploa
 uplink ls "sj://$BUCKET/moved-big-upload-testfile" | grep "moved-big-upload-testfile"
 uplink mv "sj://$BUCKET/moved-big-upload-testfile" "sj://$BUCKET/big-upload-testfile"
 
+# test server-side move operation between different prefixes.
+
+# destination and source should both be prefixes.
+set +e
+EXPECTED_ERROR="both source and destination should be a prefixes"
+ERROR=$(uplink mv "sj://$BUCKET/" "sj://$BUCKET/new-prefix/file")
+if [ $ERROR != $EXPECTED_ERROR ]
+then
+    echo EXPECTED_ERROR
+    exit 1
+fi
+set -e
+
+# checking if all files are moved from bucket to bucket/prefix.
+EXPECTED_FILES=$(uplink ls "sj://$BUCKET/" | wc -l)
+uplink mv "sj://$BUCKET/" "sj://$BUCKET/new-prefix/"
+FILES=$(uplink ls "sj://$BUCKET/new-prefix/" | wc -l)
+if [ "$FILES" == $EXPECTED_FILES ]
+then
+    echo "listing returns $FILES files as expected"
+else
+    echo "listing returns $FILES files but want $EXPECTED_FILES"
+    exit 1
+fi
+
+# moving files back.
+uplink mv "sj://$BUCKET/new-prefix/" "sj://$BUCKET/"
+uplink ls "sj://$BUCKET/"
+
 uplink rm "sj://$BUCKET/small-upload-testfile"
 uplink rm "sj://$BUCKET/big-upload-testfile"
 uplink rm "sj://$BUCKET/multisegment-upload-testfile"
 uplink rm "sj://$BUCKET/diff-size-segments"
 uplink rm "sj://$BUCKET/diff-size-segments_upl_p2"
 uplink rm "sj://$BUCKET/put-file"
-
 uplink ls "sj://$BUCKET"
 
 uplink rb "sj://$BUCKET"
