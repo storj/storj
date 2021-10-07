@@ -890,5 +890,5 @@ storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7 h1:zi0w9zoBfvuqysSAqxJ
 storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7/go.mod h1:gj4vuCeyCRjRmH8LIrgoyU9Dc9uR6H+/GcDUXmTbf80=
 storj.io/private v0.0.0-20210810102517-434aeab3f17d h1:w51RhoN6WF8zQE1ED3XYfW+Yb7DtlxxJTs0lpLvWRUA=
 storj.io/private v0.0.0-20210810102517-434aeab3f17d/go.mod h1:wvudoWSyOyB2daZNaMykjjqsSUad/ttFlUwgelg9+qg=
-storj.io/uplink v1.6.1-0.20210927115829-4da201e4aebb h1:wwKsORXE4C3hhfOzPzy3/5UOTV7ziJVUOi27MuzRw24=
-storj.io/uplink v1.6.1-0.20210927115829-4da201e4aebb/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
+storj.io/uplink v1.7.0 h1:ipWEqaauebXBB1IRFoQm7KQdH3Pq3V69FKf6faWJylo=
+storj.io/uplink v1.7.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
