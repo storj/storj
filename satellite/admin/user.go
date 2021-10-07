@@ -130,7 +130,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 
 	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
 	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q not found", userEmail),
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
 		return
 	}
@@ -213,7 +213,7 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
 	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q not found", userEmail),
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
 		return
 	}
@@ -278,7 +278,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
 	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q not found", userEmail),
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
 		return
 	}

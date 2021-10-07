@@ -107,6 +107,11 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		sendJSONError(w, "failed to get project",
 			err.Error(), http.StatusInternalServerError)
@@ -189,6 +194,19 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		sendJSONError(w, "invalid arguments",
 			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// check if the project exists.
+	_, err = server.db.Console().Projects().Get(ctx, projectUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get project",
+			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -355,7 +373,7 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, "project with specified uuid does not exist",
-			"", http.StatusBadRequest)
+			"", http.StatusNotFound)
 		return
 	}
 	if err != nil {
