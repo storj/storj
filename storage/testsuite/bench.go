@@ -24,6 +24,9 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 	}
 
 	words = words[:20] // branching factor
+	if testing.Short() {
+		words = words[:2]
+	}
 
 	var items storage.Items
 

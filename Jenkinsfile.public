@@ -51,11 +51,13 @@ pipeline {
                 stage('go') {
                     steps {
                         sh 'go build -v ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
                     }
                 }
                 stage('go -race') {
                     steps {
                         sh 'go build -v -race ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
 
                         // install storj-sim
                         sh 'go install -race -v storj.io/storj/cmd/satellite '+
@@ -92,11 +94,9 @@ pipeline {
                     steps {
                         dir('web/satellite') {
                             sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run wasm-dev'
                             sh 'npm run build'
                         }
-
-                        sh 'cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" web/satellite/static/wasm/wasm_exec.js'
-                        sh 'GOOS=js GOARCH=wasm go build -o web/satellite/static/wasm/access.wasm storj.io/storj/satellite/console/wasm'
                     }
                 }
                 stage('web/storagenode') {
@@ -212,11 +212,10 @@ pipeline {
 
                 stage('Check Benchmark') {
                     environment {
-                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/benchcockroach?sslmode=disable'
+                        STORJ_TEST_COCKROACH = 'omit'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
                     }
                     steps {
-                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database benchcockroach;\''
                         sh 'psql -U postgres -c \'create database benchstorj;\''
                         sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
                     }
