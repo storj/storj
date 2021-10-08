@@ -5,15 +5,15 @@
     <div class="usage-charges-item-container">
         <div class="usage-charges-item-container__summary" @click="toggleDetailedInfo">
             <div class="usage-charges-item-container__summary__name-container">
-                <ChargesExpandIcon v-if="isDetailedInfoShown"/>
-                <ChargesHideIcon v-else/>
+                <ChargesExpandIcon v-if="isDetailedInfoShown" />
+                <ChargesHideIcon v-else />
                 <span>{{ projectName }}</span>
             </div>
             <span class="usage-charges-item-container__summary__amount">
                 Estimated Total {{ item.summary() | centsToDollars }}
             </span>
         </div>
-        <div class="usage-charges-item-container__detailed-info-container" v-if="isDetailedInfoShown">
+        <div v-if="isDetailedInfoShown" class="usage-charges-item-container__detailed-info-container">
             <div class="usage-charges-item-container__detailed-info-container__info-header">
                 <span class="resource-header">RESOURCE</span>
                 <span class="period-header">PERIOD</span>
@@ -22,9 +22,9 @@
             </div>
             <div class="usage-charges-item-container__detailed-info-container__content-area">
                 <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
-                    <p>Storage (${{storagePrice}} per Gigabyte-Month)</p>
-                    <p>Egress (${{egressPrice}} per GB)</p>
-                    <p>Objects (${{objectPrice}} per Object-Month)</p>
+                    <p>Storage (${{ storagePrice }} per Gigabyte-Month)</p>
+                    <p>Egress (${{ egressPrice }} per GB)</p>
+                    <p>Objects (${{ objectPrice }} per Object-Month)</p>
                 </div>
                 <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
                     <p>{{ period }}</p>
@@ -42,11 +42,6 @@
                     <p class="price">{{ item.objectPrice | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="usage-charges-item-container__detailed-info-container__link-container">
-                <span class="usage-charges-item-container__detailed-info-container__link-container__link" @click="onReportClick">
-                    Advanced Report ->
-                </span>
-            </div>
         </div>
     </div>
 </template>
@@ -62,8 +57,8 @@ import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { MetaUtils } from '@/utils/meta';
-import { Time } from '@/utils/time';
 
+// @vue/component
 @Component({
     components: {
         ChargesHideIcon,
@@ -101,8 +96,8 @@ export default class UsageAndChargesItem extends Vue {
      * Returns string of date range.
      */
     public get period(): string {
-        const since: string = `${SHORT_MONTHS_NAMES[this.item.since.getUTCMonth()]} ${this.item.since.getUTCDate()}`;
-        const before: string = `${SHORT_MONTHS_NAMES[this.item.before.getUTCMonth()]} ${this.item.before.getUTCDate()}`;
+        const since = `${SHORT_MONTHS_NAMES[this.item.since.getUTCMonth()]} ${this.item.since.getUTCDate()}`;
+        const before = `${SHORT_MONTHS_NAMES[this.item.before.getUTCMonth()]} ${this.item.before.getUTCDate()}`;
 
         return `${since} - ${before}`;
     }
@@ -118,7 +113,7 @@ export default class UsageAndChargesItem extends Vue {
      * Returns formatted storage used in GB x month dimension.
      */
     public get storageFormatted(): string {
-        const bytesInGB: number = 1000000000;
+        const bytesInGB = 1000000000;
 
         return (this.item.storage / this.HOURS_IN_MONTH / bytesInGB).toFixed(2);
     }
@@ -154,31 +149,13 @@ export default class UsageAndChargesItem extends Vue {
     /**
      * isDetailedInfoShown indicates if area with detailed information about project charges is expanded.
      */
-    public isDetailedInfoShown: boolean = false;
+    public isDetailedInfoShown = false;
 
     /**
      * toggleDetailedInfo expands an area with detailed information about project charges.
      */
     public toggleDetailedInfo(): void {
         this.isDetailedInfoShown = !this.isDetailedInfoShown;
-    }
-
-    /**
-     * Opens new tab with advanced report table.
-     */
-    public onReportClick(): void {
-        const projectID = this.$store.getters.selectedProject.id;
-        const startDate = this.$store.state.paymentsModule.startDate;
-        const endDate = this.$store.state.paymentsModule.endDate;
-
-        const url = new URL(location.origin);
-
-        url.pathname = 'usage-report';
-        url.searchParams.append('projectID', projectID);
-        url.searchParams.append('since', Time.toUnixTimestamp(startDate).toString());
-        url.searchParams.append('before', Time.toUnixTimestamp(endDate).toString());
-
-        window.open(url.href, '_blank');
     }
 
     /**

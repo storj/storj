@@ -84,6 +84,13 @@ var MaxMetadataSize = func(maxMetadataSize memory.Size) func(log *zap.Logger, in
 	}
 }
 
+// MaxObjectKeyLength returns function to change satellite max object key length value.
+var MaxObjectKeyLength = func(maxObjectKeyLength int) func(log *zap.Logger, index int, config *satellite.Config) {
+	return func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Metainfo.MaxEncryptedObjectKeyLength = maxObjectKeyLength
+	}
+}
+
 // DisableTCP prevents both satellite and storagenode being able to accept new
 // tcp connections.
 var DisableTCP = Reconfigure{

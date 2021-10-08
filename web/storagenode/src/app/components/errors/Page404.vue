@@ -1,13 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./page40X.html"></template>
+<template src="./page40X.html" />
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 
+// @vue/component
 @Component
 // 404 component on page not found error
 export default class Page404 extends Vue {

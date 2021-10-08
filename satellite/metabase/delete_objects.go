@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	deleteBatchsizeLimit = 1000
+	deleteBatchsizeLimit = intLimitRange(1000)
 )
 
 // DeleteExpiredObjects contains all the information necessary to delete expired objects and segments.
@@ -88,9 +88,10 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 
 // DeleteZombieObjects contains all the information necessary to delete zombie objects and segments.
 type DeleteZombieObjects struct {
-	DeadlineBefore time.Time
-	AsOfSystemTime time.Time
-	BatchSize      int
+	DeadlineBefore   time.Time
+	InactiveDeadline time.Time
+	AsOfSystemTime   time.Time
+	BatchSize        int
 }
 
 // DeleteZombieObjects deletes all objects that zombie deletion deadline passed.
@@ -123,7 +124,7 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 					return Error.New("unable to delete zombie objects: %w", err)
 				}
 
-				db.log.Info("Deleting zombie object",
+				db.log.Debug("Deleting zombie object",
 					zap.Stringer("Project", last.ProjectID),
 					zap.String("Bucket", last.BucketName),
 					zap.String("Object Key", string(last.ObjectKey)),
@@ -139,7 +140,7 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 			return ObjectStream{}, Error.New("unable to delete zombie objects: %w", err)
 		}
 
-		err = db.deleteObjectsAndSegments(ctx, objects)
+		err = db.deleteInactiveObjectsAndSegments(ctx, objects, opts.InactiveDeadline)
 		if err != nil {
 			return ObjectStream{}, err
 		}
@@ -151,13 +152,11 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 func (db *DB) deleteObjectsAndSegmentsBatch(ctx context.Context, batchsize int, deleteBatch func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error)) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bs := batchsize
-	if batchsize == 0 || batchsize > deleteBatchsizeLimit {
-		bs = deleteBatchsizeLimit
-	}
+	deleteBatchsizeLimit.Ensure(&batchsize)
+
 	var startAfter ObjectStream
 	for {
-		lastDeleted, err := deleteBatch(startAfter, bs)
+		lastDeleted, err := deleteBatch(startAfter, batchsize)
 		if err != nil {
 			return err
 		}
@@ -180,44 +179,38 @@ func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStre
 		for _, obj := range objects {
 			obj := obj
 
-			batch.Queue(`START TRANSACTION`)
 			batch.Queue(`
-				DELETE FROM objects
-				WHERE (project_id, bucket_name, object_key, version) = ($1::BYTEA, $2::BYTEA, $3::BYTEA, $4)
-					AND stream_id = $5::BYTEA
-			`, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), obj.Version, obj.StreamID)
-			batch.Queue(`
+				WITH deleted_objects AS (
+					DELETE FROM objects
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1::BYTEA, $2, $3, $4, $5::BYTEA)
+					RETURNING stream_id
+				)
 				DELETE FROM segments
-				WHERE segments.stream_id = $1::BYTEA
-			`, obj.StreamID)
-			batch.Queue(`COMMIT TRANSACTION`)
+				WHERE segments.stream_id = $5::BYTEA
+			`, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), obj.Version, obj.StreamID)
 		}
 
 		results := conn.SendBatch(ctx, &batch)
 		defer func() { err = errs.Combine(err, results.Close()) }()
 
-		var objectsDeleted, segmentsDeleted int64
+		var objectsDeletedGuess, segmentsDeleted int64
 
 		var errlist errs.Group
 		for i := 0; i < batch.Len(); i++ {
 			result, err := results.Exec()
 			errlist.Add(err)
 
-			switch i % 3 {
-			case 0: // start transcation
-			case 1: // delete objects
-				if err == nil {
-					objectsDeleted += result.RowsAffected()
-				}
-			case 2: // delete segments
-				if err == nil {
-					segmentsDeleted += result.RowsAffected()
-				}
-			case 3: // commit transaction
+			if affectedSegmentCount := result.RowsAffected(); affectedSegmentCount > 0 {
+				// Note, this slightly miscounts objects without any segments
+				// there doesn't seem to be a simple work around for this.
+				// Luckily, this is used only for metrics, where it's not a
+				// significant problem to slightly miscount.
+				objectsDeletedGuess++
+				segmentsDeleted += affectedSegmentCount
 			}
 		}
 
-		mon.Meter("object_delete").Mark64(objectsDeleted)
+		mon.Meter("object_delete").Mark64(objectsDeletedGuess)
 		mon.Meter("segment_delete").Mark64(segmentsDeleted)
 
 		return errlist.Err()
@@ -225,5 +218,63 @@ func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStre
 	if err != nil {
 		return Error.New("unable to delete expired objects: %w", err)
 	}
+	return nil
+}
+
+func (db *DB) deleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, inactiveDeadline time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(objects) == 0 {
+		return nil
+	}
+
+	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
+		var batch pgx.Batch
+		for _, obj := range objects {
+			batch.Queue(`
+				WITH deleted_objects AS (
+					DELETE FROM objects
+					WHERE
+						(project_id, bucket_name, object_key, version) = ($1::BYTEA, $2::BYTEA, $3::BYTEA, $4) AND
+						stream_id = $5::BYTEA AND (
+							-- TODO figure out something more optimal
+							NOT EXISTS (SELECT stream_id FROM segments WHERE stream_id = $5::BYTEA)
+							OR
+							-- check that all segments where created before inactive time
+							NOT EXISTS (SELECT stream_id FROM segments WHERE stream_id = $5::BYTEA AND created_at > $6)
+						)
+						RETURNING version -- return anything
+				)
+				DELETE FROM segments
+				WHERE
+					segments.stream_id = $5::BYTEA AND
+					NOT EXISTS (SELECT stream_id FROM segments WHERE stream_id = $5::BYTEA AND created_at > $6)
+			`, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), obj.Version, obj.StreamID, inactiveDeadline)
+		}
+
+		results := conn.SendBatch(ctx, &batch)
+		defer func() { err = errs.Combine(err, results.Close()) }()
+
+		var segmentsDeleted int64
+		var errlist errs.Group
+		for i := 0; i < batch.Len(); i++ {
+			result, err := results.Exec()
+			errlist.Add(err)
+
+			if err == nil {
+				segmentsDeleted += result.RowsAffected()
+			}
+		}
+
+		// TODO calculate deleted objects
+		mon.Meter("zombie_segment_delete").Mark64(segmentsDeleted)
+		mon.Meter("segment_delete").Mark64(segmentsDeleted)
+
+		return errlist.Err()
+	})
+	if err != nil {
+		return Error.New("unable to delete zombie objects: %w", err)
+	}
+
 	return nil
 }

@@ -26,12 +26,16 @@ import (
 )
 
 var nodeSelectionConfig = overlay.NodeSelectionConfig{
-	AuditCount:       1,
 	NewNodeFraction:  0.2,
 	MinimumVersion:   "v1.0.0",
 	OnlineWindow:     4 * time.Hour,
 	DistinctIP:       true,
 	MinimumDiskSpace: 100 * memory.MiB,
+
+	AsOfSystemTime: overlay.AsOfSystemTimeConfig{
+		Enabled:         true,
+		DefaultInterval: -time.Microsecond,
+	},
 }
 
 const (
@@ -101,14 +105,10 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 
 		// make designated nodes reputable
 		if i < makeReputable {
-			stats, err := db.UpdateStats(ctx, &overlay.UpdateRequest{
-				NodeID:       storj.NodeID{byte(i)},
-				AuditOutcome: overlay.AuditSuccess,
-				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				AuditHistory: testAuditHistoryConfig(),
-			}, time.Now())
+			vettedAt, err := db.TestVetNode(ctx, storj.NodeID{byte(i)})
 			require.NoError(t, err)
-			require.NotNil(t, stats.VettedAt)
+			require.NoError(t, err)
+			require.NotNil(t, vettedAt)
 			ids = append(ids, storj.NodeID{byte(i)})
 		}
 	}
@@ -443,7 +443,6 @@ func TestNewNodeFraction(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		newNodeFraction := 0.2
 		var nodeSelectionConfig = overlay.NodeSelectionConfig{
-			AuditCount:       1,
 			NewNodeFraction:  newNodeFraction,
 			MinimumVersion:   "v1.0.0",
 			OnlineWindow:     4 * time.Hour,

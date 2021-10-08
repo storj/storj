@@ -393,9 +393,10 @@ func TestProjectBandwidthDailyRollups(t *testing.T) {
 		projectAccountingDB := planet.Satellites[0].DB.ProjectAccounting()
 
 		year, month, day := now.Year(), now.Month(), now.Day()
-		allocated, settled, err := projectAccountingDB.GetProjectDailyBandwidth(ctx, planet.Uplinks[0].Projects[0].ID, year, month, day)
+		allocated, settled, dead, err := projectAccountingDB.GetProjectDailyBandwidth(ctx, planet.Uplinks[0].Projects[0].ID, year, month, day)
 		require.NoError(t, err)
 		require.NotZero(t, allocated)
 		require.Equal(t, allocated, settled)
+		require.Zero(t, dead)
 	})
 }

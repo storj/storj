@@ -3,13 +3,14 @@
 
 <template>
     <div class="info-block">
-        <slot name="body"></slot>
+        <slot name="body" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+// @vue/component
 @Component
 export default class InfoBlock extends Vue {}
 </script>

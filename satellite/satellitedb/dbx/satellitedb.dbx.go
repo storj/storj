@@ -336,11 +336,6 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE audit_histories (
-	node_id bytea NOT NULL,
-	history bytea NOT NULL,
-	PRIMARY KEY ( node_id )
-);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -367,8 +362,10 @@ CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
+	total_bytes bigint NOT NULL DEFAULT 0,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	total_segments_count integer NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
 	object_count integer NOT NULL,
@@ -424,11 +421,13 @@ CREATE TABLE graceful_exit_progress (
 	pieces_transferred bigint NOT NULL DEFAULT 0,
 	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
+	uses_segment_transfer_queue boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( node_id )
 );
-CREATE TABLE graceful_exit_transfer_queue (
+CREATE TABLE graceful_exit_segment_transfer_queue (
 	node_id bytea NOT NULL,
-	path bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
 	piece_num integer NOT NULL,
 	root_piece_id bytea,
 	durability_ratio double precision NOT NULL,
@@ -439,23 +438,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	failed_count integer,
 	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, path, piece_num )
-);
-CREATE TABLE injuredsegments (
-	path bytea NOT NULL,
-	data bytea NOT NULL,
-	attempted timestamp with time zone,
-	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	segment_health double precision NOT NULL DEFAULT 1,
-	PRIMARY KEY ( path )
-);
-CREATE TABLE irreparabledbs (
-	segmentpath bytea NOT NULL,
-	segmentdetail bytea NOT NULL,
-	pieces_lost_count bigint NOT NULL,
-	seg_damaged_unix_sec bigint NOT NULL,
-	repair_attempt_count bigint NOT NULL,
-	PRIMARY KEY ( segmentpath )
+	PRIMARY KEY ( node_id, stream_id, position, piece_num )
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
@@ -476,8 +459,6 @@ CREATE TABLE nodes (
 	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
 	release boolean NOT NULL DEFAULT false,
 	latency_90 bigint NOT NULL DEFAULT 0,
-	audit_success_count bigint NOT NULL DEFAULT 0,
-	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
@@ -489,11 +470,6 @@ CREATE TABLE nodes (
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
 	under_review timestamp with time zone,
-	online_score double precision NOT NULL DEFAULT 1,
-	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
@@ -529,16 +505,6 @@ CREATE TABLE peer_identities (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
-CREATE TABLE pending_audits (
-	node_id bytea NOT NULL,
-	piece_id bytea NOT NULL,
-	stripe_index bigint NOT NULL,
-	share_size bigint NOT NULL,
-	expected_share_hash bytea NOT NULL,
-	reverify_count bigint NOT NULL,
-	path bytea NOT NULL,
-	PRIMARY KEY ( node_id )
-);
 CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
@@ -546,6 +512,7 @@ CREATE TABLE projects (
 	usage_limit bigint,
 	bandwidth_limit bigint,
 	rate_limit integer,
+	burst_limit integer,
 	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -574,6 +541,36 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE repair_queue (
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	attempted_at timestamp with time zone,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	segment_health double precision NOT NULL DEFAULT 1,
+	PRIMARY KEY ( stream_id, position )
+);
+CREATE TABLE reputations (
+	id bytea NOT NULL,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
+	vetted_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	contained boolean NOT NULL DEFAULT false,
+	disqualified timestamp with time zone,
+	suspended timestamp with time zone,
+	unknown_audit_suspended timestamp with time zone,
+	offline_suspended timestamp with time zone,
+	under_review timestamp with time zone,
+	online_score double precision NOT NULL DEFAULT 1,
+	audit_history bytea NOT NULL,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
@@ -585,6 +582,17 @@ CREATE TABLE revocations (
 	revoked bytea NOT NULL,
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
+);
+CREATE TABLE segment_pending_audits (
+	node_id bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	piece_id bytea NOT NULL,
+	stripe_index bigint NOT NULL,
+	share_size bigint NOT NULL,
+	expected_share_hash bytea NOT NULL,
+	reverify_count bigint NOT NULL,
+	PRIMARY KEY ( node_id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
@@ -691,6 +699,7 @@ CREATE TABLE users (
 	partner_id bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
+	paid_tier boolean NOT NULL DEFAULT false,
 	position text,
 	company_name text,
 	company_size integer,
@@ -698,6 +707,9 @@ CREATE TABLE users (
 	is_professional boolean NOT NULL DEFAULT false,
 	employee_count text,
 	have_sales_contact boolean NOT NULL DEFAULT false,
+	mfa_enabled boolean NOT NULL DEFAULT false,
+	mfa_secret_key text,
+	mfa_recovery_codes text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -769,15 +781,13 @@ CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket
 CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
-CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted ) ;
-CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health ) ;
-CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at ) ;
-CREATE INDEX injuredsegments_num_healthy_pieces_attempted_index ON injuredsegments ( segment_health, attempted ) ;
+CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
+CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
@@ -899,11 +909,6 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE audit_histories (
-	node_id bytea NOT NULL,
-	history bytea NOT NULL,
-	PRIMARY KEY ( node_id )
-);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -930,8 +935,10 @@ CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
+	total_bytes bigint NOT NULL DEFAULT 0,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	total_segments_count integer NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
 	object_count integer NOT NULL,
@@ -987,11 +994,13 @@ CREATE TABLE graceful_exit_progress (
 	pieces_transferred bigint NOT NULL DEFAULT 0,
 	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
+	uses_segment_transfer_queue boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( node_id )
 );
-CREATE TABLE graceful_exit_transfer_queue (
+CREATE TABLE graceful_exit_segment_transfer_queue (
 	node_id bytea NOT NULL,
-	path bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
 	piece_num integer NOT NULL,
 	root_piece_id bytea,
 	durability_ratio double precision NOT NULL,
@@ -1002,23 +1011,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	failed_count integer,
 	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, path, piece_num )
-);
-CREATE TABLE injuredsegments (
-	path bytea NOT NULL,
-	data bytea NOT NULL,
-	attempted timestamp with time zone,
-	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	segment_health double precision NOT NULL DEFAULT 1,
-	PRIMARY KEY ( path )
-);
-CREATE TABLE irreparabledbs (
-	segmentpath bytea NOT NULL,
-	segmentdetail bytea NOT NULL,
-	pieces_lost_count bigint NOT NULL,
-	seg_damaged_unix_sec bigint NOT NULL,
-	repair_attempt_count bigint NOT NULL,
-	PRIMARY KEY ( segmentpath )
+	PRIMARY KEY ( node_id, stream_id, position, piece_num )
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
@@ -1039,8 +1032,6 @@ CREATE TABLE nodes (
 	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
 	release boolean NOT NULL DEFAULT false,
 	latency_90 bigint NOT NULL DEFAULT 0,
-	audit_success_count bigint NOT NULL DEFAULT 0,
-	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
@@ -1052,11 +1043,6 @@ CREATE TABLE nodes (
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
 	under_review timestamp with time zone,
-	online_score double precision NOT NULL DEFAULT 1,
-	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
@@ -1092,16 +1078,6 @@ CREATE TABLE peer_identities (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
-CREATE TABLE pending_audits (
-	node_id bytea NOT NULL,
-	piece_id bytea NOT NULL,
-	stripe_index bigint NOT NULL,
-	share_size bigint NOT NULL,
-	expected_share_hash bytea NOT NULL,
-	reverify_count bigint NOT NULL,
-	path bytea NOT NULL,
-	PRIMARY KEY ( node_id )
-);
 CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
@@ -1109,6 +1085,7 @@ CREATE TABLE projects (
 	usage_limit bigint,
 	bandwidth_limit bigint,
 	rate_limit integer,
+	burst_limit integer,
 	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -1137,6 +1114,36 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE repair_queue (
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	attempted_at timestamp with time zone,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	segment_health double precision NOT NULL DEFAULT 1,
+	PRIMARY KEY ( stream_id, position )
+);
+CREATE TABLE reputations (
+	id bytea NOT NULL,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
+	vetted_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	contained boolean NOT NULL DEFAULT false,
+	disqualified timestamp with time zone,
+	suspended timestamp with time zone,
+	unknown_audit_suspended timestamp with time zone,
+	offline_suspended timestamp with time zone,
+	under_review timestamp with time zone,
+	online_score double precision NOT NULL DEFAULT 1,
+	audit_history bytea NOT NULL,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
@@ -1148,6 +1155,17 @@ CREATE TABLE revocations (
 	revoked bytea NOT NULL,
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
+);
+CREATE TABLE segment_pending_audits (
+	node_id bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	piece_id bytea NOT NULL,
+	stripe_index bigint NOT NULL,
+	share_size bigint NOT NULL,
+	expected_share_hash bytea NOT NULL,
+	reverify_count bigint NOT NULL,
+	PRIMARY KEY ( node_id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
@@ -1254,6 +1272,7 @@ CREATE TABLE users (
 	partner_id bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
+	paid_tier boolean NOT NULL DEFAULT false,
 	position text,
 	company_name text,
 	company_size integer,
@@ -1261,6 +1280,9 @@ CREATE TABLE users (
 	is_professional boolean NOT NULL DEFAULT false,
 	employee_count text,
 	have_sales_contact boolean NOT NULL DEFAULT false,
+	mfa_enabled boolean NOT NULL DEFAULT false,
+	mfa_secret_key text,
+	mfa_recovery_codes text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -1332,15 +1354,13 @@ CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket
 CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
-CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted ) ;
-CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health ) ;
-CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at ) ;
-CREATE INDEX injuredsegments_num_healthy_pieces_attempted_index ON injuredsegments ( segment_health, attempted ) ;
+CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
+CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
@@ -1626,55 +1646,6 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
-
-type AuditHistory struct {
-	NodeId  []byte
-	History []byte
-}
-
-func (AuditHistory) _Table() string { return "audit_histories" }
-
-type AuditHistory_Update_Fields struct {
-	History AuditHistory_History_Field
-}
-
-type AuditHistory_NodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func AuditHistory_NodeId(v []byte) AuditHistory_NodeId_Field {
-	return AuditHistory_NodeId_Field{_set: true, _value: v}
-}
-
-func (f AuditHistory_NodeId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AuditHistory_NodeId_Field) _Column() string { return "node_id" }
-
-type AuditHistory_History_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func AuditHistory_History(v []byte) AuditHistory_History_Field {
-	return AuditHistory_History_Field{_set: true, _value: v}
-}
-
-func (f AuditHistory_History_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AuditHistory_History_Field) _Column() string { return "history" }
 
 type BucketBandwidthRollup struct {
 	BucketName      []byte
@@ -2022,8 +1993,10 @@ type BucketStorageTally struct {
 	BucketName          []byte
 	ProjectId           []byte
 	IntervalStart       time.Time
+	TotalBytes          uint64
 	Inline              uint64
 	Remote              uint64
+	TotalSegmentsCount  uint
 	RemoteSegmentsCount uint
 	InlineSegmentsCount uint
 	ObjectCount         uint
@@ -2031,6 +2004,11 @@ type BucketStorageTally struct {
 }
 
 func (BucketStorageTally) _Table() string { return "bucket_storage_tallies" }
+
+type BucketStorageTally_Create_Fields struct {
+	TotalBytes         BucketStorageTally_TotalBytes_Field
+	TotalSegmentsCount BucketStorageTally_TotalSegmentsCount_Field
+}
 
 type BucketStorageTally_Update_Fields struct {
 }
@@ -2092,6 +2070,25 @@ func (f BucketStorageTally_IntervalStart_Field) value() interface{} {
 
 func (BucketStorageTally_IntervalStart_Field) _Column() string { return "interval_start" }
 
+type BucketStorageTally_TotalBytes_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketStorageTally_TotalBytes(v uint64) BucketStorageTally_TotalBytes_Field {
+	return BucketStorageTally_TotalBytes_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_TotalBytes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_TotalBytes_Field) _Column() string { return "total_bytes" }
+
 type BucketStorageTally_Inline_Field struct {
 	_set   bool
 	_null  bool
@@ -2129,6 +2126,25 @@ func (f BucketStorageTally_Remote_Field) value() interface{} {
 }
 
 func (BucketStorageTally_Remote_Field) _Column() string { return "remote" }
+
+type BucketStorageTally_TotalSegmentsCount_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketStorageTally_TotalSegmentsCount(v uint) BucketStorageTally_TotalSegmentsCount_Field {
+	return BucketStorageTally_TotalSegmentsCount_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_TotalSegmentsCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_TotalSegmentsCount_Field) _Column() string { return "total_segments_count" }
 
 type BucketStorageTally_RemoteSegmentsCount_Field struct {
 	_set   bool
@@ -2891,19 +2907,25 @@ func (f CouponUsage_Period_Field) value() interface{} {
 func (CouponUsage_Period_Field) _Column() string { return "period" }
 
 type GracefulExitProgress struct {
-	NodeId            []byte
-	BytesTransferred  int64
-	PiecesTransferred int64
-	PiecesFailed      int64
-	UpdatedAt         time.Time
+	NodeId                   []byte
+	BytesTransferred         int64
+	PiecesTransferred        int64
+	PiecesFailed             int64
+	UpdatedAt                time.Time
+	UsesSegmentTransferQueue bool
 }
 
 func (GracefulExitProgress) _Table() string { return "graceful_exit_progress" }
 
+type GracefulExitProgress_Create_Fields struct {
+	UsesSegmentTransferQueue GracefulExitProgress_UsesSegmentTransferQueue_Field
+}
+
 type GracefulExitProgress_Update_Fields struct {
-	BytesTransferred  GracefulExitProgress_BytesTransferred_Field
-	PiecesTransferred GracefulExitProgress_PiecesTransferred_Field
-	PiecesFailed      GracefulExitProgress_PiecesFailed_Field
+	BytesTransferred         GracefulExitProgress_BytesTransferred_Field
+	PiecesTransferred        GracefulExitProgress_PiecesTransferred_Field
+	PiecesFailed             GracefulExitProgress_PiecesFailed_Field
+	UsesSegmentTransferQueue GracefulExitProgress_UsesSegmentTransferQueue_Field
 }
 
 type GracefulExitProgress_NodeId_Field struct {
@@ -3001,9 +3023,31 @@ func (f GracefulExitProgress_UpdatedAt_Field) value() interface{} {
 
 func (GracefulExitProgress_UpdatedAt_Field) _Column() string { return "updated_at" }
 
-type GracefulExitTransferQueue struct {
+type GracefulExitProgress_UsesSegmentTransferQueue_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func GracefulExitProgress_UsesSegmentTransferQueue(v bool) GracefulExitProgress_UsesSegmentTransferQueue_Field {
+	return GracefulExitProgress_UsesSegmentTransferQueue_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitProgress_UsesSegmentTransferQueue_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitProgress_UsesSegmentTransferQueue_Field) _Column() string {
+	return "uses_segment_transfer_queue"
+}
+
+type GracefulExitSegmentTransfer struct {
 	NodeId              []byte
-	Path                []byte
+	StreamId            []byte
+	Position            uint64
 	PieceNum            int
 	RootPieceId         []byte
 	DurabilityRatio     float64
@@ -3016,708 +3060,465 @@ type GracefulExitTransferQueue struct {
 	OrderLimitSendCount int
 }
 
-func (GracefulExitTransferQueue) _Table() string { return "graceful_exit_transfer_queue" }
+func (GracefulExitSegmentTransfer) _Table() string { return "graceful_exit_segment_transfer_queue" }
 
-type GracefulExitTransferQueue_Create_Fields struct {
-	RootPieceId         GracefulExitTransferQueue_RootPieceId_Field
-	RequestedAt         GracefulExitTransferQueue_RequestedAt_Field
-	LastFailedAt        GracefulExitTransferQueue_LastFailedAt_Field
-	LastFailedCode      GracefulExitTransferQueue_LastFailedCode_Field
-	FailedCount         GracefulExitTransferQueue_FailedCount_Field
-	FinishedAt          GracefulExitTransferQueue_FinishedAt_Field
-	OrderLimitSendCount GracefulExitTransferQueue_OrderLimitSendCount_Field
+type GracefulExitSegmentTransfer_Create_Fields struct {
+	RootPieceId         GracefulExitSegmentTransfer_RootPieceId_Field
+	RequestedAt         GracefulExitSegmentTransfer_RequestedAt_Field
+	LastFailedAt        GracefulExitSegmentTransfer_LastFailedAt_Field
+	LastFailedCode      GracefulExitSegmentTransfer_LastFailedCode_Field
+	FailedCount         GracefulExitSegmentTransfer_FailedCount_Field
+	FinishedAt          GracefulExitSegmentTransfer_FinishedAt_Field
+	OrderLimitSendCount GracefulExitSegmentTransfer_OrderLimitSendCount_Field
 }
 
-type GracefulExitTransferQueue_Update_Fields struct {
-	DurabilityRatio     GracefulExitTransferQueue_DurabilityRatio_Field
-	RequestedAt         GracefulExitTransferQueue_RequestedAt_Field
-	LastFailedAt        GracefulExitTransferQueue_LastFailedAt_Field
-	LastFailedCode      GracefulExitTransferQueue_LastFailedCode_Field
-	FailedCount         GracefulExitTransferQueue_FailedCount_Field
-	FinishedAt          GracefulExitTransferQueue_FinishedAt_Field
-	OrderLimitSendCount GracefulExitTransferQueue_OrderLimitSendCount_Field
+type GracefulExitSegmentTransfer_Update_Fields struct {
+	DurabilityRatio     GracefulExitSegmentTransfer_DurabilityRatio_Field
+	RequestedAt         GracefulExitSegmentTransfer_RequestedAt_Field
+	LastFailedAt        GracefulExitSegmentTransfer_LastFailedAt_Field
+	LastFailedCode      GracefulExitSegmentTransfer_LastFailedCode_Field
+	FailedCount         GracefulExitSegmentTransfer_FailedCount_Field
+	FinishedAt          GracefulExitSegmentTransfer_FinishedAt_Field
+	OrderLimitSendCount GracefulExitSegmentTransfer_OrderLimitSendCount_Field
 }
 
-type GracefulExitTransferQueue_NodeId_Field struct {
+type GracefulExitSegmentTransfer_NodeId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func GracefulExitTransferQueue_NodeId(v []byte) GracefulExitTransferQueue_NodeId_Field {
-	return GracefulExitTransferQueue_NodeId_Field{_set: true, _value: v}
+func GracefulExitSegmentTransfer_NodeId(v []byte) GracefulExitSegmentTransfer_NodeId_Field {
+	return GracefulExitSegmentTransfer_NodeId_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitTransferQueue_NodeId_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_NodeId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_NodeId_Field) _Column() string { return "node_id" }
+func (GracefulExitSegmentTransfer_NodeId_Field) _Column() string { return "node_id" }
 
-type GracefulExitTransferQueue_Path_Field struct {
+type GracefulExitSegmentTransfer_StreamId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func GracefulExitTransferQueue_Path(v []byte) GracefulExitTransferQueue_Path_Field {
-	return GracefulExitTransferQueue_Path_Field{_set: true, _value: v}
+func GracefulExitSegmentTransfer_StreamId(v []byte) GracefulExitSegmentTransfer_StreamId_Field {
+	return GracefulExitSegmentTransfer_StreamId_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitTransferQueue_Path_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_StreamId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_Path_Field) _Column() string { return "path" }
+func (GracefulExitSegmentTransfer_StreamId_Field) _Column() string { return "stream_id" }
 
-type GracefulExitTransferQueue_PieceNum_Field struct {
+type GracefulExitSegmentTransfer_Position_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func GracefulExitSegmentTransfer_Position(v uint64) GracefulExitSegmentTransfer_Position_Field {
+	return GracefulExitSegmentTransfer_Position_Field{_set: true, _value: v}
+}
+
+func (f GracefulExitSegmentTransfer_Position_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (GracefulExitSegmentTransfer_Position_Field) _Column() string { return "position" }
+
+type GracefulExitSegmentTransfer_PieceNum_Field struct {
 	_set   bool
 	_null  bool
 	_value int
 }
 
-func GracefulExitTransferQueue_PieceNum(v int) GracefulExitTransferQueue_PieceNum_Field {
-	return GracefulExitTransferQueue_PieceNum_Field{_set: true, _value: v}
+func GracefulExitSegmentTransfer_PieceNum(v int) GracefulExitSegmentTransfer_PieceNum_Field {
+	return GracefulExitSegmentTransfer_PieceNum_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitTransferQueue_PieceNum_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_PieceNum_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_PieceNum_Field) _Column() string { return "piece_num" }
+func (GracefulExitSegmentTransfer_PieceNum_Field) _Column() string { return "piece_num" }
 
-type GracefulExitTransferQueue_RootPieceId_Field struct {
+type GracefulExitSegmentTransfer_RootPieceId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func GracefulExitTransferQueue_RootPieceId(v []byte) GracefulExitTransferQueue_RootPieceId_Field {
-	return GracefulExitTransferQueue_RootPieceId_Field{_set: true, _value: v}
+func GracefulExitSegmentTransfer_RootPieceId(v []byte) GracefulExitSegmentTransfer_RootPieceId_Field {
+	return GracefulExitSegmentTransfer_RootPieceId_Field{_set: true, _value: v}
 }
 
-func GracefulExitTransferQueue_RootPieceId_Raw(v []byte) GracefulExitTransferQueue_RootPieceId_Field {
+func GracefulExitSegmentTransfer_RootPieceId_Raw(v []byte) GracefulExitSegmentTransfer_RootPieceId_Field {
 	if v == nil {
-		return GracefulExitTransferQueue_RootPieceId_Null()
+		return GracefulExitSegmentTransfer_RootPieceId_Null()
 	}
-	return GracefulExitTransferQueue_RootPieceId(v)
+	return GracefulExitSegmentTransfer_RootPieceId(v)
 }
 
-func GracefulExitTransferQueue_RootPieceId_Null() GracefulExitTransferQueue_RootPieceId_Field {
-	return GracefulExitTransferQueue_RootPieceId_Field{_set: true, _null: true}
+func GracefulExitSegmentTransfer_RootPieceId_Null() GracefulExitSegmentTransfer_RootPieceId_Field {
+	return GracefulExitSegmentTransfer_RootPieceId_Field{_set: true, _null: true}
 }
 
-func (f GracefulExitTransferQueue_RootPieceId_Field) isnull() bool {
+func (f GracefulExitSegmentTransfer_RootPieceId_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitTransferQueue_RootPieceId_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_RootPieceId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_RootPieceId_Field) _Column() string { return "root_piece_id" }
+func (GracefulExitSegmentTransfer_RootPieceId_Field) _Column() string { return "root_piece_id" }
 
-type GracefulExitTransferQueue_DurabilityRatio_Field struct {
+type GracefulExitSegmentTransfer_DurabilityRatio_Field struct {
 	_set   bool
 	_null  bool
 	_value float64
 }
 
-func GracefulExitTransferQueue_DurabilityRatio(v float64) GracefulExitTransferQueue_DurabilityRatio_Field {
-	return GracefulExitTransferQueue_DurabilityRatio_Field{_set: true, _value: v}
+func GracefulExitSegmentTransfer_DurabilityRatio(v float64) GracefulExitSegmentTransfer_DurabilityRatio_Field {
+	return GracefulExitSegmentTransfer_DurabilityRatio_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitTransferQueue_DurabilityRatio_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_DurabilityRatio_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_DurabilityRatio_Field) _Column() string { return "durability_ratio" }
+func (GracefulExitSegmentTransfer_DurabilityRatio_Field) _Column() string { return "durability_ratio" }
 
-type GracefulExitTransferQueue_QueuedAt_Field struct {
+type GracefulExitSegmentTransfer_QueuedAt_Field struct {
 	_set   bool
 	_null  bool
 	_value time.Time
 }
 
-func GracefulExitTransferQueue_QueuedAt(v time.Time) GracefulExitTransferQueue_QueuedAt_Field {
-	return GracefulExitTransferQueue_QueuedAt_Field{_set: true, _value: v}
+func GracefulExitSegmentTransfer_QueuedAt(v time.Time) GracefulExitSegmentTransfer_QueuedAt_Field {
+	return GracefulExitSegmentTransfer_QueuedAt_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitTransferQueue_QueuedAt_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_QueuedAt_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_QueuedAt_Field) _Column() string { return "queued_at" }
+func (GracefulExitSegmentTransfer_QueuedAt_Field) _Column() string { return "queued_at" }
 
-type GracefulExitTransferQueue_RequestedAt_Field struct {
+type GracefulExitSegmentTransfer_RequestedAt_Field struct {
 	_set   bool
 	_null  bool
 	_value *time.Time
 }
 
-func GracefulExitTransferQueue_RequestedAt(v time.Time) GracefulExitTransferQueue_RequestedAt_Field {
-	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _value: &v}
+func GracefulExitSegmentTransfer_RequestedAt(v time.Time) GracefulExitSegmentTransfer_RequestedAt_Field {
+	return GracefulExitSegmentTransfer_RequestedAt_Field{_set: true, _value: &v}
 }
 
-func GracefulExitTransferQueue_RequestedAt_Raw(v *time.Time) GracefulExitTransferQueue_RequestedAt_Field {
+func GracefulExitSegmentTransfer_RequestedAt_Raw(v *time.Time) GracefulExitSegmentTransfer_RequestedAt_Field {
 	if v == nil {
-		return GracefulExitTransferQueue_RequestedAt_Null()
+		return GracefulExitSegmentTransfer_RequestedAt_Null()
 	}
-	return GracefulExitTransferQueue_RequestedAt(*v)
+	return GracefulExitSegmentTransfer_RequestedAt(*v)
 }
 
-func GracefulExitTransferQueue_RequestedAt_Null() GracefulExitTransferQueue_RequestedAt_Field {
-	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _null: true}
+func GracefulExitSegmentTransfer_RequestedAt_Null() GracefulExitSegmentTransfer_RequestedAt_Field {
+	return GracefulExitSegmentTransfer_RequestedAt_Field{_set: true, _null: true}
 }
 
-func (f GracefulExitTransferQueue_RequestedAt_Field) isnull() bool {
+func (f GracefulExitSegmentTransfer_RequestedAt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitTransferQueue_RequestedAt_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_RequestedAt_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_RequestedAt_Field) _Column() string { return "requested_at" }
+func (GracefulExitSegmentTransfer_RequestedAt_Field) _Column() string { return "requested_at" }
 
-type GracefulExitTransferQueue_LastFailedAt_Field struct {
+type GracefulExitSegmentTransfer_LastFailedAt_Field struct {
 	_set   bool
 	_null  bool
 	_value *time.Time
 }
 
-func GracefulExitTransferQueue_LastFailedAt(v time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
-	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _value: &v}
+func GracefulExitSegmentTransfer_LastFailedAt(v time.Time) GracefulExitSegmentTransfer_LastFailedAt_Field {
+	return GracefulExitSegmentTransfer_LastFailedAt_Field{_set: true, _value: &v}
 }
 
-func GracefulExitTransferQueue_LastFailedAt_Raw(v *time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
+func GracefulExitSegmentTransfer_LastFailedAt_Raw(v *time.Time) GracefulExitSegmentTransfer_LastFailedAt_Field {
 	if v == nil {
-		return GracefulExitTransferQueue_LastFailedAt_Null()
+		return GracefulExitSegmentTransfer_LastFailedAt_Null()
 	}
-	return GracefulExitTransferQueue_LastFailedAt(*v)
+	return GracefulExitSegmentTransfer_LastFailedAt(*v)
 }
 
-func GracefulExitTransferQueue_LastFailedAt_Null() GracefulExitTransferQueue_LastFailedAt_Field {
-	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _null: true}
+func GracefulExitSegmentTransfer_LastFailedAt_Null() GracefulExitSegmentTransfer_LastFailedAt_Field {
+	return GracefulExitSegmentTransfer_LastFailedAt_Field{_set: true, _null: true}
 }
 
-func (f GracefulExitTransferQueue_LastFailedAt_Field) isnull() bool {
+func (f GracefulExitSegmentTransfer_LastFailedAt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitTransferQueue_LastFailedAt_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_LastFailedAt_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_LastFailedAt_Field) _Column() string { return "last_failed_at" }
+func (GracefulExitSegmentTransfer_LastFailedAt_Field) _Column() string { return "last_failed_at" }
 
-type GracefulExitTransferQueue_LastFailedCode_Field struct {
+type GracefulExitSegmentTransfer_LastFailedCode_Field struct {
 	_set   bool
 	_null  bool
 	_value *int
 }
 
-func GracefulExitTransferQueue_LastFailedCode(v int) GracefulExitTransferQueue_LastFailedCode_Field {
-	return GracefulExitTransferQueue_LastFailedCode_Field{_set: true, _value: &v}
+func GracefulExitSegmentTransfer_LastFailedCode(v int) GracefulExitSegmentTransfer_LastFailedCode_Field {
+	return GracefulExitSegmentTransfer_LastFailedCode_Field{_set: true, _value: &v}
 }
 
-func GracefulExitTransferQueue_LastFailedCode_Raw(v *int) GracefulExitTransferQueue_LastFailedCode_Field {
+func GracefulExitSegmentTransfer_LastFailedCode_Raw(v *int) GracefulExitSegmentTransfer_LastFailedCode_Field {
 	if v == nil {
-		return GracefulExitTransferQueue_LastFailedCode_Null()
+		return GracefulExitSegmentTransfer_LastFailedCode_Null()
 	}
-	return GracefulExitTransferQueue_LastFailedCode(*v)
+	return GracefulExitSegmentTransfer_LastFailedCode(*v)
 }
 
-func GracefulExitTransferQueue_LastFailedCode_Null() GracefulExitTransferQueue_LastFailedCode_Field {
-	return GracefulExitTransferQueue_LastFailedCode_Field{_set: true, _null: true}
+func GracefulExitSegmentTransfer_LastFailedCode_Null() GracefulExitSegmentTransfer_LastFailedCode_Field {
+	return GracefulExitSegmentTransfer_LastFailedCode_Field{_set: true, _null: true}
 }
 
-func (f GracefulExitTransferQueue_LastFailedCode_Field) isnull() bool {
+func (f GracefulExitSegmentTransfer_LastFailedCode_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitTransferQueue_LastFailedCode_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_LastFailedCode_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_LastFailedCode_Field) _Column() string { return "last_failed_code" }
+func (GracefulExitSegmentTransfer_LastFailedCode_Field) _Column() string { return "last_failed_code" }
 
-type GracefulExitTransferQueue_FailedCount_Field struct {
+type GracefulExitSegmentTransfer_FailedCount_Field struct {
 	_set   bool
 	_null  bool
 	_value *int
 }
 
-func GracefulExitTransferQueue_FailedCount(v int) GracefulExitTransferQueue_FailedCount_Field {
-	return GracefulExitTransferQueue_FailedCount_Field{_set: true, _value: &v}
+func GracefulExitSegmentTransfer_FailedCount(v int) GracefulExitSegmentTransfer_FailedCount_Field {
+	return GracefulExitSegmentTransfer_FailedCount_Field{_set: true, _value: &v}
 }
 
-func GracefulExitTransferQueue_FailedCount_Raw(v *int) GracefulExitTransferQueue_FailedCount_Field {
+func GracefulExitSegmentTransfer_FailedCount_Raw(v *int) GracefulExitSegmentTransfer_FailedCount_Field {
 	if v == nil {
-		return GracefulExitTransferQueue_FailedCount_Null()
+		return GracefulExitSegmentTransfer_FailedCount_Null()
 	}
-	return GracefulExitTransferQueue_FailedCount(*v)
+	return GracefulExitSegmentTransfer_FailedCount(*v)
 }
 
-func GracefulExitTransferQueue_FailedCount_Null() GracefulExitTransferQueue_FailedCount_Field {
-	return GracefulExitTransferQueue_FailedCount_Field{_set: true, _null: true}
+func GracefulExitSegmentTransfer_FailedCount_Null() GracefulExitSegmentTransfer_FailedCount_Field {
+	return GracefulExitSegmentTransfer_FailedCount_Field{_set: true, _null: true}
 }
 
-func (f GracefulExitTransferQueue_FailedCount_Field) isnull() bool {
+func (f GracefulExitSegmentTransfer_FailedCount_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitTransferQueue_FailedCount_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_FailedCount_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_FailedCount_Field) _Column() string { return "failed_count" }
+func (GracefulExitSegmentTransfer_FailedCount_Field) _Column() string { return "failed_count" }
 
-type GracefulExitTransferQueue_FinishedAt_Field struct {
+type GracefulExitSegmentTransfer_FinishedAt_Field struct {
 	_set   bool
 	_null  bool
 	_value *time.Time
 }
 
-func GracefulExitTransferQueue_FinishedAt(v time.Time) GracefulExitTransferQueue_FinishedAt_Field {
-	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _value: &v}
+func GracefulExitSegmentTransfer_FinishedAt(v time.Time) GracefulExitSegmentTransfer_FinishedAt_Field {
+	return GracefulExitSegmentTransfer_FinishedAt_Field{_set: true, _value: &v}
 }
 
-func GracefulExitTransferQueue_FinishedAt_Raw(v *time.Time) GracefulExitTransferQueue_FinishedAt_Field {
+func GracefulExitSegmentTransfer_FinishedAt_Raw(v *time.Time) GracefulExitSegmentTransfer_FinishedAt_Field {
 	if v == nil {
-		return GracefulExitTransferQueue_FinishedAt_Null()
+		return GracefulExitSegmentTransfer_FinishedAt_Null()
 	}
-	return GracefulExitTransferQueue_FinishedAt(*v)
+	return GracefulExitSegmentTransfer_FinishedAt(*v)
 }
 
-func GracefulExitTransferQueue_FinishedAt_Null() GracefulExitTransferQueue_FinishedAt_Field {
-	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _null: true}
+func GracefulExitSegmentTransfer_FinishedAt_Null() GracefulExitSegmentTransfer_FinishedAt_Field {
+	return GracefulExitSegmentTransfer_FinishedAt_Field{_set: true, _null: true}
 }
 
-func (f GracefulExitTransferQueue_FinishedAt_Field) isnull() bool {
+func (f GracefulExitSegmentTransfer_FinishedAt_Field) isnull() bool {
 	return !f._set || f._null || f._value == nil
 }
 
-func (f GracefulExitTransferQueue_FinishedAt_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_FinishedAt_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_FinishedAt_Field) _Column() string { return "finished_at" }
+func (GracefulExitSegmentTransfer_FinishedAt_Field) _Column() string { return "finished_at" }
 
-type GracefulExitTransferQueue_OrderLimitSendCount_Field struct {
+type GracefulExitSegmentTransfer_OrderLimitSendCount_Field struct {
 	_set   bool
 	_null  bool
 	_value int
 }
 
-func GracefulExitTransferQueue_OrderLimitSendCount(v int) GracefulExitTransferQueue_OrderLimitSendCount_Field {
-	return GracefulExitTransferQueue_OrderLimitSendCount_Field{_set: true, _value: v}
+func GracefulExitSegmentTransfer_OrderLimitSendCount(v int) GracefulExitSegmentTransfer_OrderLimitSendCount_Field {
+	return GracefulExitSegmentTransfer_OrderLimitSendCount_Field{_set: true, _value: v}
 }
 
-func (f GracefulExitTransferQueue_OrderLimitSendCount_Field) value() interface{} {
+func (f GracefulExitSegmentTransfer_OrderLimitSendCount_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (GracefulExitTransferQueue_OrderLimitSendCount_Field) _Column() string {
+func (GracefulExitSegmentTransfer_OrderLimitSendCount_Field) _Column() string {
 	return "order_limit_send_count"
 }
 
-type Injuredsegment struct {
-	Path          []byte
-	Data          []byte
-	Attempted     *time.Time
-	UpdatedAt     time.Time
-	SegmentHealth float64
-}
-
-func (Injuredsegment) _Table() string { return "injuredsegments" }
-
-type Injuredsegment_Create_Fields struct {
-	Attempted     Injuredsegment_Attempted_Field
-	UpdatedAt     Injuredsegment_UpdatedAt_Field
-	SegmentHealth Injuredsegment_SegmentHealth_Field
-}
-
-type Injuredsegment_Update_Fields struct {
-	Attempted Injuredsegment_Attempted_Field
-	UpdatedAt Injuredsegment_UpdatedAt_Field
-}
-
-type Injuredsegment_Path_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Injuredsegment_Path(v []byte) Injuredsegment_Path_Field {
-	return Injuredsegment_Path_Field{_set: true, _value: v}
-}
-
-func (f Injuredsegment_Path_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_Path_Field) _Column() string { return "path" }
-
-type Injuredsegment_Data_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Injuredsegment_Data(v []byte) Injuredsegment_Data_Field {
-	return Injuredsegment_Data_Field{_set: true, _value: v}
-}
-
-func (f Injuredsegment_Data_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_Data_Field) _Column() string { return "data" }
-
-type Injuredsegment_Attempted_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func Injuredsegment_Attempted(v time.Time) Injuredsegment_Attempted_Field {
-	return Injuredsegment_Attempted_Field{_set: true, _value: &v}
-}
-
-func Injuredsegment_Attempted_Raw(v *time.Time) Injuredsegment_Attempted_Field {
-	if v == nil {
-		return Injuredsegment_Attempted_Null()
-	}
-	return Injuredsegment_Attempted(*v)
-}
-
-func Injuredsegment_Attempted_Null() Injuredsegment_Attempted_Field {
-	return Injuredsegment_Attempted_Field{_set: true, _null: true}
-}
-
-func (f Injuredsegment_Attempted_Field) isnull() bool { return !f._set || f._null || f._value == nil }
-
-func (f Injuredsegment_Attempted_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_Attempted_Field) _Column() string { return "attempted" }
-
-type Injuredsegment_UpdatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func Injuredsegment_UpdatedAt(v time.Time) Injuredsegment_UpdatedAt_Field {
-	return Injuredsegment_UpdatedAt_Field{_set: true, _value: v}
-}
-
-func (f Injuredsegment_UpdatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_UpdatedAt_Field) _Column() string { return "updated_at" }
-
-type Injuredsegment_SegmentHealth_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Injuredsegment_SegmentHealth(v float64) Injuredsegment_SegmentHealth_Field {
-	return Injuredsegment_SegmentHealth_Field{_set: true, _value: v}
-}
-
-func (f Injuredsegment_SegmentHealth_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Injuredsegment_SegmentHealth_Field) _Column() string { return "segment_health" }
-
-type Irreparabledb struct {
-	Segmentpath        []byte
-	Segmentdetail      []byte
-	PiecesLostCount    int64
-	SegDamagedUnixSec  int64
-	RepairAttemptCount int64
-}
-
-func (Irreparabledb) _Table() string { return "irreparabledbs" }
-
-type Irreparabledb_Update_Fields struct {
-	Segmentdetail      Irreparabledb_Segmentdetail_Field
-	PiecesLostCount    Irreparabledb_PiecesLostCount_Field
-	SegDamagedUnixSec  Irreparabledb_SegDamagedUnixSec_Field
-	RepairAttemptCount Irreparabledb_RepairAttemptCount_Field
-}
-
-type Irreparabledb_Segmentpath_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Irreparabledb_Segmentpath(v []byte) Irreparabledb_Segmentpath_Field {
-	return Irreparabledb_Segmentpath_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_Segmentpath_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_Segmentpath_Field) _Column() string { return "segmentpath" }
-
-type Irreparabledb_Segmentdetail_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Irreparabledb_Segmentdetail(v []byte) Irreparabledb_Segmentdetail_Field {
-	return Irreparabledb_Segmentdetail_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_Segmentdetail_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_Segmentdetail_Field) _Column() string { return "segmentdetail" }
-
-type Irreparabledb_PiecesLostCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Irreparabledb_PiecesLostCount(v int64) Irreparabledb_PiecesLostCount_Field {
-	return Irreparabledb_PiecesLostCount_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_PiecesLostCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_PiecesLostCount_Field) _Column() string { return "pieces_lost_count" }
-
-type Irreparabledb_SegDamagedUnixSec_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Irreparabledb_SegDamagedUnixSec(v int64) Irreparabledb_SegDamagedUnixSec_Field {
-	return Irreparabledb_SegDamagedUnixSec_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_SegDamagedUnixSec_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_SegDamagedUnixSec_Field) _Column() string { return "seg_damaged_unix_sec" }
-
-type Irreparabledb_RepairAttemptCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Irreparabledb_RepairAttemptCount(v int64) Irreparabledb_RepairAttemptCount_Field {
-	return Irreparabledb_RepairAttemptCount_Field{_set: true, _value: v}
-}
-
-func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Irreparabledb_RepairAttemptCount_Field) _Column() string { return "repair_attempt_count" }
-
 type Node struct {
-	Id                          []byte
-	Address                     string
-	LastNet                     string
-	LastIpPort                  *string
-	Protocol                    int
-	Type                        int
-	Email                       string
-	Wallet                      string
-	WalletFeatures              string
-	FreeDisk                    int64
-	PieceCount                  int64
-	Major                       int64
-	Minor                       int64
-	Patch                       int64
-	Hash                        string
-	Timestamp                   time.Time
-	Release                     bool
-	Latency90                   int64
-	AuditSuccessCount           int64
-	TotalAuditCount             int64
-	VettedAt                    *time.Time
-	CreatedAt                   time.Time
-	UpdatedAt                   time.Time
-	LastContactSuccess          time.Time
-	LastContactFailure          time.Time
-	Contained                   bool
-	Disqualified                *time.Time
-	Suspended                   *time.Time
-	UnknownAuditSuspended       *time.Time
-	OfflineSuspended            *time.Time
-	UnderReview                 *time.Time
-	OnlineScore                 float64
-	AuditReputationAlpha        float64
-	AuditReputationBeta         float64
-	UnknownAuditReputationAlpha float64
-	UnknownAuditReputationBeta  float64
-	ExitInitiatedAt             *time.Time
-	ExitLoopCompletedAt         *time.Time
-	ExitFinishedAt              *time.Time
-	ExitSuccess                 bool
+	Id                    []byte
+	Address               string
+	LastNet               string
+	LastIpPort            *string
+	Protocol              int
+	Type                  int
+	Email                 string
+	Wallet                string
+	WalletFeatures        string
+	FreeDisk              int64
+	PieceCount            int64
+	Major                 int64
+	Minor                 int64
+	Patch                 int64
+	Hash                  string
+	Timestamp             time.Time
+	Release               bool
+	Latency90             int64
+	VettedAt              *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	LastContactSuccess    time.Time
+	LastContactFailure    time.Time
+	Contained             bool
+	Disqualified          *time.Time
+	Suspended             *time.Time
+	UnknownAuditSuspended *time.Time
+	OfflineSuspended      *time.Time
+	UnderReview           *time.Time
+	ExitInitiatedAt       *time.Time
+	ExitLoopCompletedAt   *time.Time
+	ExitFinishedAt        *time.Time
+	ExitSuccess           bool
 }
 
 func (Node) _Table() string { return "nodes" }
 
 type Node_Create_Fields struct {
-	Address                     Node_Address_Field
-	LastIpPort                  Node_LastIpPort_Field
-	Protocol                    Node_Protocol_Field
-	Type                        Node_Type_Field
-	WalletFeatures              Node_WalletFeatures_Field
-	FreeDisk                    Node_FreeDisk_Field
-	Major                       Node_Major_Field
-	Minor                       Node_Minor_Field
-	Patch                       Node_Patch_Field
-	Hash                        Node_Hash_Field
-	Timestamp                   Node_Timestamp_Field
-	Release                     Node_Release_Field
-	Latency90                   Node_Latency90_Field
-	AuditSuccessCount           Node_AuditSuccessCount_Field
-	TotalAuditCount             Node_TotalAuditCount_Field
-	VettedAt                    Node_VettedAt_Field
-	LastContactSuccess          Node_LastContactSuccess_Field
-	LastContactFailure          Node_LastContactFailure_Field
-	Contained                   Node_Contained_Field
-	Disqualified                Node_Disqualified_Field
-	Suspended                   Node_Suspended_Field
-	UnknownAuditSuspended       Node_UnknownAuditSuspended_Field
-	OfflineSuspended            Node_OfflineSuspended_Field
-	UnderReview                 Node_UnderReview_Field
-	OnlineScore                 Node_OnlineScore_Field
-	AuditReputationAlpha        Node_AuditReputationAlpha_Field
-	AuditReputationBeta         Node_AuditReputationBeta_Field
-	UnknownAuditReputationAlpha Node_UnknownAuditReputationAlpha_Field
-	UnknownAuditReputationBeta  Node_UnknownAuditReputationBeta_Field
-	ExitInitiatedAt             Node_ExitInitiatedAt_Field
-	ExitLoopCompletedAt         Node_ExitLoopCompletedAt_Field
-	ExitFinishedAt              Node_ExitFinishedAt_Field
-	ExitSuccess                 Node_ExitSuccess_Field
+	Address               Node_Address_Field
+	LastIpPort            Node_LastIpPort_Field
+	Protocol              Node_Protocol_Field
+	Type                  Node_Type_Field
+	WalletFeatures        Node_WalletFeatures_Field
+	FreeDisk              Node_FreeDisk_Field
+	Major                 Node_Major_Field
+	Minor                 Node_Minor_Field
+	Patch                 Node_Patch_Field
+	Hash                  Node_Hash_Field
+	Timestamp             Node_Timestamp_Field
+	Release               Node_Release_Field
+	Latency90             Node_Latency90_Field
+	VettedAt              Node_VettedAt_Field
+	LastContactSuccess    Node_LastContactSuccess_Field
+	LastContactFailure    Node_LastContactFailure_Field
+	Contained             Node_Contained_Field
+	Disqualified          Node_Disqualified_Field
+	Suspended             Node_Suspended_Field
+	UnknownAuditSuspended Node_UnknownAuditSuspended_Field
+	OfflineSuspended      Node_OfflineSuspended_Field
+	UnderReview           Node_UnderReview_Field
+	ExitInitiatedAt       Node_ExitInitiatedAt_Field
+	ExitLoopCompletedAt   Node_ExitLoopCompletedAt_Field
+	ExitFinishedAt        Node_ExitFinishedAt_Field
+	ExitSuccess           Node_ExitSuccess_Field
 }
 
 type Node_Update_Fields struct {
-	Address                     Node_Address_Field
-	LastNet                     Node_LastNet_Field
-	LastIpPort                  Node_LastIpPort_Field
-	Protocol                    Node_Protocol_Field
-	Type                        Node_Type_Field
-	Email                       Node_Email_Field
-	Wallet                      Node_Wallet_Field
-	WalletFeatures              Node_WalletFeatures_Field
-	FreeDisk                    Node_FreeDisk_Field
-	PieceCount                  Node_PieceCount_Field
-	Major                       Node_Major_Field
-	Minor                       Node_Minor_Field
-	Patch                       Node_Patch_Field
-	Hash                        Node_Hash_Field
-	Timestamp                   Node_Timestamp_Field
-	Release                     Node_Release_Field
-	Latency90                   Node_Latency90_Field
-	AuditSuccessCount           Node_AuditSuccessCount_Field
-	TotalAuditCount             Node_TotalAuditCount_Field
-	VettedAt                    Node_VettedAt_Field
-	LastContactSuccess          Node_LastContactSuccess_Field
-	LastContactFailure          Node_LastContactFailure_Field
-	Contained                   Node_Contained_Field
-	Disqualified                Node_Disqualified_Field
-	Suspended                   Node_Suspended_Field
-	UnknownAuditSuspended       Node_UnknownAuditSuspended_Field
-	OfflineSuspended            Node_OfflineSuspended_Field
-	UnderReview                 Node_UnderReview_Field
-	OnlineScore                 Node_OnlineScore_Field
-	AuditReputationAlpha        Node_AuditReputationAlpha_Field
-	AuditReputationBeta         Node_AuditReputationBeta_Field
-	UnknownAuditReputationAlpha Node_UnknownAuditReputationAlpha_Field
-	UnknownAuditReputationBeta  Node_UnknownAuditReputationBeta_Field
-	ExitInitiatedAt             Node_ExitInitiatedAt_Field
-	ExitLoopCompletedAt         Node_ExitLoopCompletedAt_Field
-	ExitFinishedAt              Node_ExitFinishedAt_Field
-	ExitSuccess                 Node_ExitSuccess_Field
+	Address               Node_Address_Field
+	LastNet               Node_LastNet_Field
+	LastIpPort            Node_LastIpPort_Field
+	Protocol              Node_Protocol_Field
+	Type                  Node_Type_Field
+	Email                 Node_Email_Field
+	Wallet                Node_Wallet_Field
+	WalletFeatures        Node_WalletFeatures_Field
+	FreeDisk              Node_FreeDisk_Field
+	PieceCount            Node_PieceCount_Field
+	Major                 Node_Major_Field
+	Minor                 Node_Minor_Field
+	Patch                 Node_Patch_Field
+	Hash                  Node_Hash_Field
+	Timestamp             Node_Timestamp_Field
+	Release               Node_Release_Field
+	Latency90             Node_Latency90_Field
+	VettedAt              Node_VettedAt_Field
+	LastContactSuccess    Node_LastContactSuccess_Field
+	LastContactFailure    Node_LastContactFailure_Field
+	Contained             Node_Contained_Field
+	Disqualified          Node_Disqualified_Field
+	Suspended             Node_Suspended_Field
+	UnknownAuditSuspended Node_UnknownAuditSuspended_Field
+	OfflineSuspended      Node_OfflineSuspended_Field
+	UnderReview           Node_UnderReview_Field
+	ExitInitiatedAt       Node_ExitInitiatedAt_Field
+	ExitLoopCompletedAt   Node_ExitLoopCompletedAt_Field
+	ExitFinishedAt        Node_ExitFinishedAt_Field
+	ExitSuccess           Node_ExitSuccess_Field
 }
 
 type Node_Id_Field struct {
@@ -4075,44 +3876,6 @@ func (f Node_Latency90_Field) value() interface{} {
 
 func (Node_Latency90_Field) _Column() string { return "latency_90" }
 
-type Node_AuditSuccessCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Node_AuditSuccessCount(v int64) Node_AuditSuccessCount_Field {
-	return Node_AuditSuccessCount_Field{_set: true, _value: v}
-}
-
-func (f Node_AuditSuccessCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_AuditSuccessCount_Field) _Column() string { return "audit_success_count" }
-
-type Node_TotalAuditCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Node_TotalAuditCount(v int64) Node_TotalAuditCount_Field {
-	return Node_TotalAuditCount_Field{_set: true, _value: v}
-}
-
-func (f Node_TotalAuditCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_TotalAuditCount_Field) _Column() string { return "total_audit_count" }
-
 type Node_VettedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -4399,103 +4162,6 @@ func (f Node_UnderReview_Field) value() interface{} {
 }
 
 func (Node_UnderReview_Field) _Column() string { return "under_review" }
-
-type Node_OnlineScore_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_OnlineScore(v float64) Node_OnlineScore_Field {
-	return Node_OnlineScore_Field{_set: true, _value: v}
-}
-
-func (f Node_OnlineScore_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_OnlineScore_Field) _Column() string { return "online_score" }
-
-type Node_AuditReputationAlpha_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_AuditReputationAlpha(v float64) Node_AuditReputationAlpha_Field {
-	return Node_AuditReputationAlpha_Field{_set: true, _value: v}
-}
-
-func (f Node_AuditReputationAlpha_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_AuditReputationAlpha_Field) _Column() string { return "audit_reputation_alpha" }
-
-type Node_AuditReputationBeta_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_AuditReputationBeta(v float64) Node_AuditReputationBeta_Field {
-	return Node_AuditReputationBeta_Field{_set: true, _value: v}
-}
-
-func (f Node_AuditReputationBeta_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_AuditReputationBeta_Field) _Column() string { return "audit_reputation_beta" }
-
-type Node_UnknownAuditReputationAlpha_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_UnknownAuditReputationAlpha(v float64) Node_UnknownAuditReputationAlpha_Field {
-	return Node_UnknownAuditReputationAlpha_Field{_set: true, _value: v}
-}
-
-func (f Node_UnknownAuditReputationAlpha_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_UnknownAuditReputationAlpha_Field) _Column() string {
-	return "unknown_audit_reputation_alpha"
-}
-
-type Node_UnknownAuditReputationBeta_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_UnknownAuditReputationBeta(v float64) Node_UnknownAuditReputationBeta_Field {
-	return Node_UnknownAuditReputationBeta_Field{_set: true, _value: v}
-}
-
-func (f Node_UnknownAuditReputationBeta_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_UnknownAuditReputationBeta_Field) _Column() string { return "unknown_audit_reputation_beta" }
 
 type Node_ExitInitiatedAt_Field struct {
 	_set   bool
@@ -5100,155 +4766,6 @@ func (f PeerIdentity_UpdatedAt_Field) value() interface{} {
 
 func (PeerIdentity_UpdatedAt_Field) _Column() string { return "updated_at" }
 
-type PendingAudits struct {
-	NodeId            []byte
-	PieceId           []byte
-	StripeIndex       int64
-	ShareSize         int64
-	ExpectedShareHash []byte
-	ReverifyCount     int64
-	Path              []byte
-}
-
-func (PendingAudits) _Table() string { return "pending_audits" }
-
-type PendingAudits_Update_Fields struct {
-	ReverifyCount PendingAudits_ReverifyCount_Field
-}
-
-type PendingAudits_NodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func PendingAudits_NodeId(v []byte) PendingAudits_NodeId_Field {
-	return PendingAudits_NodeId_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_NodeId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_NodeId_Field) _Column() string { return "node_id" }
-
-type PendingAudits_PieceId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func PendingAudits_PieceId(v []byte) PendingAudits_PieceId_Field {
-	return PendingAudits_PieceId_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_PieceId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_PieceId_Field) _Column() string { return "piece_id" }
-
-type PendingAudits_StripeIndex_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func PendingAudits_StripeIndex(v int64) PendingAudits_StripeIndex_Field {
-	return PendingAudits_StripeIndex_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_StripeIndex_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_StripeIndex_Field) _Column() string { return "stripe_index" }
-
-type PendingAudits_ShareSize_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func PendingAudits_ShareSize(v int64) PendingAudits_ShareSize_Field {
-	return PendingAudits_ShareSize_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_ShareSize_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_ShareSize_Field) _Column() string { return "share_size" }
-
-type PendingAudits_ExpectedShareHash_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func PendingAudits_ExpectedShareHash(v []byte) PendingAudits_ExpectedShareHash_Field {
-	return PendingAudits_ExpectedShareHash_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_ExpectedShareHash_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_ExpectedShareHash_Field) _Column() string { return "expected_share_hash" }
-
-type PendingAudits_ReverifyCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func PendingAudits_ReverifyCount(v int64) PendingAudits_ReverifyCount_Field {
-	return PendingAudits_ReverifyCount_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_ReverifyCount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_ReverifyCount_Field) _Column() string { return "reverify_count" }
-
-type PendingAudits_Path_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func PendingAudits_Path(v []byte) PendingAudits_Path_Field {
-	return PendingAudits_Path_Field{_set: true, _value: v}
-}
-
-func (f PendingAudits_Path_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (PendingAudits_Path_Field) _Column() string { return "path" }
-
 type Project struct {
 	Id             []byte
 	Name           string
@@ -5256,6 +4773,7 @@ type Project struct {
 	UsageLimit     *int64
 	BandwidthLimit *int64
 	RateLimit      *int
+	BurstLimit     *int
 	MaxBuckets     *int
 	PartnerId      []byte
 	OwnerId        []byte
@@ -5268,6 +4786,7 @@ type Project_Create_Fields struct {
 	UsageLimit     Project_UsageLimit_Field
 	BandwidthLimit Project_BandwidthLimit_Field
 	RateLimit      Project_RateLimit_Field
+	BurstLimit     Project_BurstLimit_Field
 	MaxBuckets     Project_MaxBuckets_Field
 	PartnerId      Project_PartnerId_Field
 }
@@ -5278,6 +4797,7 @@ type Project_Update_Fields struct {
 	UsageLimit     Project_UsageLimit_Field
 	BandwidthLimit Project_BandwidthLimit_Field
 	RateLimit      Project_RateLimit_Field
+	BurstLimit     Project_BurstLimit_Field
 	MaxBuckets     Project_MaxBuckets_Field
 }
 
@@ -5433,6 +4953,38 @@ func (f Project_RateLimit_Field) value() interface{} {
 }
 
 func (Project_RateLimit_Field) _Column() string { return "rate_limit" }
+
+type Project_BurstLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func Project_BurstLimit(v int) Project_BurstLimit_Field {
+	return Project_BurstLimit_Field{_set: true, _value: &v}
+}
+
+func Project_BurstLimit_Raw(v *int) Project_BurstLimit_Field {
+	if v == nil {
+		return Project_BurstLimit_Null()
+	}
+	return Project_BurstLimit(*v)
+}
+
+func Project_BurstLimit_Null() Project_BurstLimit_Field {
+	return Project_BurstLimit_Field{_set: true, _null: true}
+}
+
+func (f Project_BurstLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Project_BurstLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_BurstLimit_Field) _Column() string { return "burst_limit" }
 
 type Project_MaxBuckets_Field struct {
 	_set   bool
@@ -5828,6 +5380,642 @@ func (f RegistrationToken_CreatedAt_Field) value() interface{} {
 
 func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
 
+type RepairQueue struct {
+	StreamId      []byte
+	Position      uint64
+	AttemptedAt   *time.Time
+	UpdatedAt     time.Time
+	InsertedAt    time.Time
+	SegmentHealth float64
+}
+
+func (RepairQueue) _Table() string { return "repair_queue" }
+
+type RepairQueue_Create_Fields struct {
+	AttemptedAt   RepairQueue_AttemptedAt_Field
+	UpdatedAt     RepairQueue_UpdatedAt_Field
+	InsertedAt    RepairQueue_InsertedAt_Field
+	SegmentHealth RepairQueue_SegmentHealth_Field
+}
+
+type RepairQueue_Update_Fields struct {
+	AttemptedAt RepairQueue_AttemptedAt_Field
+	UpdatedAt   RepairQueue_UpdatedAt_Field
+}
+
+type RepairQueue_StreamId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RepairQueue_StreamId(v []byte) RepairQueue_StreamId_Field {
+	return RepairQueue_StreamId_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_StreamId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_StreamId_Field) _Column() string { return "stream_id" }
+
+type RepairQueue_Position_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func RepairQueue_Position(v uint64) RepairQueue_Position_Field {
+	return RepairQueue_Position_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_Position_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_Position_Field) _Column() string { return "position" }
+
+type RepairQueue_AttemptedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func RepairQueue_AttemptedAt(v time.Time) RepairQueue_AttemptedAt_Field {
+	return RepairQueue_AttemptedAt_Field{_set: true, _value: &v}
+}
+
+func RepairQueue_AttemptedAt_Raw(v *time.Time) RepairQueue_AttemptedAt_Field {
+	if v == nil {
+		return RepairQueue_AttemptedAt_Null()
+	}
+	return RepairQueue_AttemptedAt(*v)
+}
+
+func RepairQueue_AttemptedAt_Null() RepairQueue_AttemptedAt_Field {
+	return RepairQueue_AttemptedAt_Field{_set: true, _null: true}
+}
+
+func (f RepairQueue_AttemptedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f RepairQueue_AttemptedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_AttemptedAt_Field) _Column() string { return "attempted_at" }
+
+type RepairQueue_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RepairQueue_UpdatedAt(v time.Time) RepairQueue_UpdatedAt_Field {
+	return RepairQueue_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type RepairQueue_InsertedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RepairQueue_InsertedAt(v time.Time) RepairQueue_InsertedAt_Field {
+	return RepairQueue_InsertedAt_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_InsertedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_InsertedAt_Field) _Column() string { return "inserted_at" }
+
+type RepairQueue_SegmentHealth_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func RepairQueue_SegmentHealth(v float64) RepairQueue_SegmentHealth_Field {
+	return RepairQueue_SegmentHealth_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_SegmentHealth_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_SegmentHealth_Field) _Column() string { return "segment_health" }
+
+type Reputation struct {
+	Id                          []byte
+	AuditSuccessCount           int64
+	TotalAuditCount             int64
+	VettedAt                    *time.Time
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
+	Contained                   bool
+	Disqualified                *time.Time
+	Suspended                   *time.Time
+	UnknownAuditSuspended       *time.Time
+	OfflineSuspended            *time.Time
+	UnderReview                 *time.Time
+	OnlineScore                 float64
+	AuditHistory                []byte
+	AuditReputationAlpha        float64
+	AuditReputationBeta         float64
+	UnknownAuditReputationAlpha float64
+	UnknownAuditReputationBeta  float64
+}
+
+func (Reputation) _Table() string { return "reputations" }
+
+type Reputation_Create_Fields struct {
+	AuditSuccessCount           Reputation_AuditSuccessCount_Field
+	TotalAuditCount             Reputation_TotalAuditCount_Field
+	VettedAt                    Reputation_VettedAt_Field
+	Contained                   Reputation_Contained_Field
+	Disqualified                Reputation_Disqualified_Field
+	Suspended                   Reputation_Suspended_Field
+	UnknownAuditSuspended       Reputation_UnknownAuditSuspended_Field
+	OfflineSuspended            Reputation_OfflineSuspended_Field
+	UnderReview                 Reputation_UnderReview_Field
+	OnlineScore                 Reputation_OnlineScore_Field
+	AuditReputationAlpha        Reputation_AuditReputationAlpha_Field
+	AuditReputationBeta         Reputation_AuditReputationBeta_Field
+	UnknownAuditReputationAlpha Reputation_UnknownAuditReputationAlpha_Field
+	UnknownAuditReputationBeta  Reputation_UnknownAuditReputationBeta_Field
+}
+
+type Reputation_Update_Fields struct {
+	AuditSuccessCount           Reputation_AuditSuccessCount_Field
+	TotalAuditCount             Reputation_TotalAuditCount_Field
+	VettedAt                    Reputation_VettedAt_Field
+	Contained                   Reputation_Contained_Field
+	Disqualified                Reputation_Disqualified_Field
+	Suspended                   Reputation_Suspended_Field
+	UnknownAuditSuspended       Reputation_UnknownAuditSuspended_Field
+	OfflineSuspended            Reputation_OfflineSuspended_Field
+	UnderReview                 Reputation_UnderReview_Field
+	OnlineScore                 Reputation_OnlineScore_Field
+	AuditHistory                Reputation_AuditHistory_Field
+	AuditReputationAlpha        Reputation_AuditReputationAlpha_Field
+	AuditReputationBeta         Reputation_AuditReputationBeta_Field
+	UnknownAuditReputationAlpha Reputation_UnknownAuditReputationAlpha_Field
+	UnknownAuditReputationBeta  Reputation_UnknownAuditReputationBeta_Field
+}
+
+type Reputation_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Reputation_Id(v []byte) Reputation_Id_Field {
+	return Reputation_Id_Field{_set: true, _value: v}
+}
+
+func (f Reputation_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_Id_Field) _Column() string { return "id" }
+
+type Reputation_AuditSuccessCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Reputation_AuditSuccessCount(v int64) Reputation_AuditSuccessCount_Field {
+	return Reputation_AuditSuccessCount_Field{_set: true, _value: v}
+}
+
+func (f Reputation_AuditSuccessCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_AuditSuccessCount_Field) _Column() string { return "audit_success_count" }
+
+type Reputation_TotalAuditCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Reputation_TotalAuditCount(v int64) Reputation_TotalAuditCount_Field {
+	return Reputation_TotalAuditCount_Field{_set: true, _value: v}
+}
+
+func (f Reputation_TotalAuditCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_TotalAuditCount_Field) _Column() string { return "total_audit_count" }
+
+type Reputation_VettedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_VettedAt(v time.Time) Reputation_VettedAt_Field {
+	return Reputation_VettedAt_Field{_set: true, _value: &v}
+}
+
+func Reputation_VettedAt_Raw(v *time.Time) Reputation_VettedAt_Field {
+	if v == nil {
+		return Reputation_VettedAt_Null()
+	}
+	return Reputation_VettedAt(*v)
+}
+
+func Reputation_VettedAt_Null() Reputation_VettedAt_Field {
+	return Reputation_VettedAt_Field{_set: true, _null: true}
+}
+
+func (f Reputation_VettedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reputation_VettedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_VettedAt_Field) _Column() string { return "vetted_at" }
+
+type Reputation_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Reputation_CreatedAt(v time.Time) Reputation_CreatedAt_Field {
+	return Reputation_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Reputation_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Reputation_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Reputation_UpdatedAt(v time.Time) Reputation_UpdatedAt_Field {
+	return Reputation_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f Reputation_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type Reputation_Contained_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func Reputation_Contained(v bool) Reputation_Contained_Field {
+	return Reputation_Contained_Field{_set: true, _value: v}
+}
+
+func (f Reputation_Contained_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_Contained_Field) _Column() string { return "contained" }
+
+type Reputation_Disqualified_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_Disqualified(v time.Time) Reputation_Disqualified_Field {
+	return Reputation_Disqualified_Field{_set: true, _value: &v}
+}
+
+func Reputation_Disqualified_Raw(v *time.Time) Reputation_Disqualified_Field {
+	if v == nil {
+		return Reputation_Disqualified_Null()
+	}
+	return Reputation_Disqualified(*v)
+}
+
+func Reputation_Disqualified_Null() Reputation_Disqualified_Field {
+	return Reputation_Disqualified_Field{_set: true, _null: true}
+}
+
+func (f Reputation_Disqualified_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reputation_Disqualified_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_Disqualified_Field) _Column() string { return "disqualified" }
+
+type Reputation_Suspended_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_Suspended(v time.Time) Reputation_Suspended_Field {
+	return Reputation_Suspended_Field{_set: true, _value: &v}
+}
+
+func Reputation_Suspended_Raw(v *time.Time) Reputation_Suspended_Field {
+	if v == nil {
+		return Reputation_Suspended_Null()
+	}
+	return Reputation_Suspended(*v)
+}
+
+func Reputation_Suspended_Null() Reputation_Suspended_Field {
+	return Reputation_Suspended_Field{_set: true, _null: true}
+}
+
+func (f Reputation_Suspended_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reputation_Suspended_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_Suspended_Field) _Column() string { return "suspended" }
+
+type Reputation_UnknownAuditSuspended_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_UnknownAuditSuspended(v time.Time) Reputation_UnknownAuditSuspended_Field {
+	return Reputation_UnknownAuditSuspended_Field{_set: true, _value: &v}
+}
+
+func Reputation_UnknownAuditSuspended_Raw(v *time.Time) Reputation_UnknownAuditSuspended_Field {
+	if v == nil {
+		return Reputation_UnknownAuditSuspended_Null()
+	}
+	return Reputation_UnknownAuditSuspended(*v)
+}
+
+func Reputation_UnknownAuditSuspended_Null() Reputation_UnknownAuditSuspended_Field {
+	return Reputation_UnknownAuditSuspended_Field{_set: true, _null: true}
+}
+
+func (f Reputation_UnknownAuditSuspended_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f Reputation_UnknownAuditSuspended_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UnknownAuditSuspended_Field) _Column() string { return "unknown_audit_suspended" }
+
+type Reputation_OfflineSuspended_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_OfflineSuspended(v time.Time) Reputation_OfflineSuspended_Field {
+	return Reputation_OfflineSuspended_Field{_set: true, _value: &v}
+}
+
+func Reputation_OfflineSuspended_Raw(v *time.Time) Reputation_OfflineSuspended_Field {
+	if v == nil {
+		return Reputation_OfflineSuspended_Null()
+	}
+	return Reputation_OfflineSuspended(*v)
+}
+
+func Reputation_OfflineSuspended_Null() Reputation_OfflineSuspended_Field {
+	return Reputation_OfflineSuspended_Field{_set: true, _null: true}
+}
+
+func (f Reputation_OfflineSuspended_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f Reputation_OfflineSuspended_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_OfflineSuspended_Field) _Column() string { return "offline_suspended" }
+
+type Reputation_UnderReview_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_UnderReview(v time.Time) Reputation_UnderReview_Field {
+	return Reputation_UnderReview_Field{_set: true, _value: &v}
+}
+
+func Reputation_UnderReview_Raw(v *time.Time) Reputation_UnderReview_Field {
+	if v == nil {
+		return Reputation_UnderReview_Null()
+	}
+	return Reputation_UnderReview(*v)
+}
+
+func Reputation_UnderReview_Null() Reputation_UnderReview_Field {
+	return Reputation_UnderReview_Field{_set: true, _null: true}
+}
+
+func (f Reputation_UnderReview_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reputation_UnderReview_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UnderReview_Field) _Column() string { return "under_review" }
+
+type Reputation_OnlineScore_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_OnlineScore(v float64) Reputation_OnlineScore_Field {
+	return Reputation_OnlineScore_Field{_set: true, _value: v}
+}
+
+func (f Reputation_OnlineScore_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_OnlineScore_Field) _Column() string { return "online_score" }
+
+type Reputation_AuditHistory_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Reputation_AuditHistory(v []byte) Reputation_AuditHistory_Field {
+	return Reputation_AuditHistory_Field{_set: true, _value: v}
+}
+
+func (f Reputation_AuditHistory_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_AuditHistory_Field) _Column() string { return "audit_history" }
+
+type Reputation_AuditReputationAlpha_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_AuditReputationAlpha(v float64) Reputation_AuditReputationAlpha_Field {
+	return Reputation_AuditReputationAlpha_Field{_set: true, _value: v}
+}
+
+func (f Reputation_AuditReputationAlpha_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_AuditReputationAlpha_Field) _Column() string { return "audit_reputation_alpha" }
+
+type Reputation_AuditReputationBeta_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_AuditReputationBeta(v float64) Reputation_AuditReputationBeta_Field {
+	return Reputation_AuditReputationBeta_Field{_set: true, _value: v}
+}
+
+func (f Reputation_AuditReputationBeta_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_AuditReputationBeta_Field) _Column() string { return "audit_reputation_beta" }
+
+type Reputation_UnknownAuditReputationAlpha_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_UnknownAuditReputationAlpha(v float64) Reputation_UnknownAuditReputationAlpha_Field {
+	return Reputation_UnknownAuditReputationAlpha_Field{_set: true, _value: v}
+}
+
+func (f Reputation_UnknownAuditReputationAlpha_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UnknownAuditReputationAlpha_Field) _Column() string {
+	return "unknown_audit_reputation_alpha"
+}
+
+type Reputation_UnknownAuditReputationBeta_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_UnknownAuditReputationBeta(v float64) Reputation_UnknownAuditReputationBeta_Field {
+	return Reputation_UnknownAuditReputationBeta_Field{_set: true, _value: v}
+}
+
+func (f Reputation_UnknownAuditReputationBeta_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UnknownAuditReputationBeta_Field) _Column() string {
+	return "unknown_audit_reputation_beta"
+}
+
 type ResetPasswordToken struct {
 	Secret    []byte
 	OwnerId   []byte
@@ -5944,6 +6132,175 @@ func (f Revocation_ApiKeyId_Field) value() interface{} {
 }
 
 func (Revocation_ApiKeyId_Field) _Column() string { return "api_key_id" }
+
+type SegmentPendingAudits struct {
+	NodeId            []byte
+	StreamId          []byte
+	Position          uint64
+	PieceId           []byte
+	StripeIndex       int64
+	ShareSize         int64
+	ExpectedShareHash []byte
+	ReverifyCount     int64
+}
+
+func (SegmentPendingAudits) _Table() string { return "segment_pending_audits" }
+
+type SegmentPendingAudits_Update_Fields struct {
+	ReverifyCount SegmentPendingAudits_ReverifyCount_Field
+}
+
+type SegmentPendingAudits_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SegmentPendingAudits_NodeId(v []byte) SegmentPendingAudits_NodeId_Field {
+	return SegmentPendingAudits_NodeId_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_NodeId_Field) _Column() string { return "node_id" }
+
+type SegmentPendingAudits_StreamId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SegmentPendingAudits_StreamId(v []byte) SegmentPendingAudits_StreamId_Field {
+	return SegmentPendingAudits_StreamId_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_StreamId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_StreamId_Field) _Column() string { return "stream_id" }
+
+type SegmentPendingAudits_Position_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func SegmentPendingAudits_Position(v uint64) SegmentPendingAudits_Position_Field {
+	return SegmentPendingAudits_Position_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_Position_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_Position_Field) _Column() string { return "position" }
+
+type SegmentPendingAudits_PieceId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SegmentPendingAudits_PieceId(v []byte) SegmentPendingAudits_PieceId_Field {
+	return SegmentPendingAudits_PieceId_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_PieceId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_PieceId_Field) _Column() string { return "piece_id" }
+
+type SegmentPendingAudits_StripeIndex_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func SegmentPendingAudits_StripeIndex(v int64) SegmentPendingAudits_StripeIndex_Field {
+	return SegmentPendingAudits_StripeIndex_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_StripeIndex_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_StripeIndex_Field) _Column() string { return "stripe_index" }
+
+type SegmentPendingAudits_ShareSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func SegmentPendingAudits_ShareSize(v int64) SegmentPendingAudits_ShareSize_Field {
+	return SegmentPendingAudits_ShareSize_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_ShareSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_ShareSize_Field) _Column() string { return "share_size" }
+
+type SegmentPendingAudits_ExpectedShareHash_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SegmentPendingAudits_ExpectedShareHash(v []byte) SegmentPendingAudits_ExpectedShareHash_Field {
+	return SegmentPendingAudits_ExpectedShareHash_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_ExpectedShareHash_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_ExpectedShareHash_Field) _Column() string { return "expected_share_hash" }
+
+type SegmentPendingAudits_ReverifyCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func SegmentPendingAudits_ReverifyCount(v int64) SegmentPendingAudits_ReverifyCount_Field {
+	return SegmentPendingAudits_ReverifyCount_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_ReverifyCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_ReverifyCount_Field) _Column() string { return "reverify_count" }
 
 type StoragenodeBandwidthRollup struct {
 	StoragenodeId   []byte
@@ -7441,6 +7798,7 @@ type User struct {
 	PartnerId        []byte
 	CreatedAt        time.Time
 	ProjectLimit     int
+	PaidTier         bool
 	Position         *string
 	CompanyName      *string
 	CompanySize      *int
@@ -7448,6 +7806,9 @@ type User struct {
 	IsProfessional   bool
 	EmployeeCount    *string
 	HaveSalesContact bool
+	MfaEnabled       bool
+	MfaSecretKey     *string
+	MfaRecoveryCodes *string
 }
 
 func (User) _Table() string { return "users" }
@@ -7456,6 +7817,7 @@ type User_Create_Fields struct {
 	ShortName        User_ShortName_Field
 	PartnerId        User_PartnerId_Field
 	ProjectLimit     User_ProjectLimit_Field
+	PaidTier         User_PaidTier_Field
 	Position         User_Position_Field
 	CompanyName      User_CompanyName_Field
 	CompanySize      User_CompanySize_Field
@@ -7463,6 +7825,9 @@ type User_Create_Fields struct {
 	IsProfessional   User_IsProfessional_Field
 	EmployeeCount    User_EmployeeCount_Field
 	HaveSalesContact User_HaveSalesContact_Field
+	MfaEnabled       User_MfaEnabled_Field
+	MfaSecretKey     User_MfaSecretKey_Field
+	MfaRecoveryCodes User_MfaRecoveryCodes_Field
 }
 
 type User_Update_Fields struct {
@@ -7473,6 +7838,7 @@ type User_Update_Fields struct {
 	PasswordHash     User_PasswordHash_Field
 	Status           User_Status_Field
 	ProjectLimit     User_ProjectLimit_Field
+	PaidTier         User_PaidTier_Field
 	Position         User_Position_Field
 	CompanyName      User_CompanyName_Field
 	CompanySize      User_CompanySize_Field
@@ -7480,6 +7846,9 @@ type User_Update_Fields struct {
 	IsProfessional   User_IsProfessional_Field
 	EmployeeCount    User_EmployeeCount_Field
 	HaveSalesContact User_HaveSalesContact_Field
+	MfaEnabled       User_MfaEnabled_Field
+	MfaSecretKey     User_MfaSecretKey_Field
+	MfaRecoveryCodes User_MfaRecoveryCodes_Field
 }
 
 type User_Id_Field struct {
@@ -7698,6 +8067,25 @@ func (f User_ProjectLimit_Field) value() interface{} {
 
 func (User_ProjectLimit_Field) _Column() string { return "project_limit" }
 
+type User_PaidTier_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func User_PaidTier(v bool) User_PaidTier_Field {
+	return User_PaidTier_Field{_set: true, _value: v}
+}
+
+func (f User_PaidTier_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_PaidTier_Field) _Column() string { return "paid_tier" }
+
 type User_Position_Field struct {
 	_set   bool
 	_null  bool
@@ -7895,6 +8283,89 @@ func (f User_HaveSalesContact_Field) value() interface{} {
 }
 
 func (User_HaveSalesContact_Field) _Column() string { return "have_sales_contact" }
+
+type User_MfaEnabled_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func User_MfaEnabled(v bool) User_MfaEnabled_Field {
+	return User_MfaEnabled_Field{_set: true, _value: v}
+}
+
+func (f User_MfaEnabled_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_MfaEnabled_Field) _Column() string { return "mfa_enabled" }
+
+type User_MfaSecretKey_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func User_MfaSecretKey(v string) User_MfaSecretKey_Field {
+	return User_MfaSecretKey_Field{_set: true, _value: &v}
+}
+
+func User_MfaSecretKey_Raw(v *string) User_MfaSecretKey_Field {
+	if v == nil {
+		return User_MfaSecretKey_Null()
+	}
+	return User_MfaSecretKey(*v)
+}
+
+func User_MfaSecretKey_Null() User_MfaSecretKey_Field {
+	return User_MfaSecretKey_Field{_set: true, _null: true}
+}
+
+func (f User_MfaSecretKey_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f User_MfaSecretKey_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_MfaSecretKey_Field) _Column() string { return "mfa_secret_key" }
+
+type User_MfaRecoveryCodes_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func User_MfaRecoveryCodes(v string) User_MfaRecoveryCodes_Field {
+	return User_MfaRecoveryCodes_Field{_set: true, _value: &v}
+}
+
+func User_MfaRecoveryCodes_Raw(v *string) User_MfaRecoveryCodes_Field {
+	if v == nil {
+		return User_MfaRecoveryCodes_Null()
+	}
+	return User_MfaRecoveryCodes(*v)
+}
+
+func User_MfaRecoveryCodes_Null() User_MfaRecoveryCodes_Field {
+	return User_MfaRecoveryCodes_Field{_set: true, _null: true}
+}
+
+func (f User_MfaRecoveryCodes_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f User_MfaRecoveryCodes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_MfaRecoveryCodes_Field) _Column() string { return "mfa_recovery_codes" }
 
 type ValueAttribution struct {
 	ProjectId   []byte
@@ -9388,36 +9859,6 @@ func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) CreateNoReturn_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__segmentpath_val := irreparabledb_segmentpath.value()
-	__segmentdetail_val := irreparabledb_segmentdetail.value()
-	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
-	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
-	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
 func (obj *pgxImpl) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	accounting_timestamps_value AccountingTimestamps_Value_Field) (
@@ -9442,28 +9883,98 @@ func (obj *pgxImpl) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_AuditHistory(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	audit_history_history AuditHistory_History_Field) (
-	audit_history *AuditHistory, err error) {
+func (obj *pgxImpl) Create_Reputation(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	reputation_audit_history Reputation_AuditHistory_Field,
+	optional Reputation_Create_Fields) (
+	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
-	__node_id_val := audit_history_node_id.value()
-	__history_val := audit_history_history.value()
+	__id_val := reputation_id.value()
+	__vetted_at_val := optional.VettedAt.value()
+	__disqualified_val := optional.Disqualified.value()
+	__suspended_val := optional.Suspended.value()
+	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
+	__offline_suspended_val := optional.OfflineSuspended.value()
+	__under_review_val := optional.UnderReview.value()
+	__audit_history_val := reputation_audit_history.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO audit_histories ( node_id, history ) VALUES ( ?, ? ) RETURNING audit_histories.node_id, audit_histories.history")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, vetted_at, disqualified, suspended, unknown_audit_suspended, offline_suspended, under_review, audit_history")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	var __values []interface{}
-	__values = append(__values, __node_id_val, __history_val)
+	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __suspended_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.AuditSuccessCount._set {
+		__values = append(__values, optional.AuditSuccessCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_success_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.TotalAuditCount._set {
+		__values = append(__values, optional.TotalAuditCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_audit_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Contained._set {
+		__values = append(__values, optional.Contained.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("contained"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.OnlineScore._set {
+		__values = append(__values, optional.OnlineScore.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("online_score"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationAlpha._set {
+		__values = append(__values, optional.AuditReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationBeta._set {
+		__values = append(__values, optional.AuditReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UnknownAuditReputationAlpha._set {
+		__values = append(__values, optional.UnknownAuditReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UnknownAuditReputationBeta._set {
+		__values = append(__values, optional.UnknownAuditReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return audit_history, nil
+	return reputation, nil
 
 }
 
@@ -9492,15 +10003,17 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	__company_size_val := optional.CompanySize.value()
 	__working_on_val := optional.WorkingOn.value()
 	__employee_count_val := optional.EmployeeCount.value()
+	__mfa_secret_key_val := optional.MfaSecretKey.value()
+	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at, position, company_name, company_size, working_on, employee_count")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at, position, company_name, company_size, working_on, employee_count, mfa_secret_key, mfa_recovery_codes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val)
+	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -9508,6 +10021,12 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	if optional.ProjectLimit._set {
 		__values = append(__values, optional.ProjectLimit.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.PaidTier._set {
+		__values = append(__values, optional.PaidTier.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("paid_tier"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -9523,6 +10042,12 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
+	if optional.MfaEnabled._set {
+		__values = append(__values, optional.MfaEnabled.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
 	if len(__optional_columns.SQLs) == 0 {
 		if __columns.SQL == nil {
 			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
@@ -9535,7 +10060,7 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9559,21 +10084,22 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 	__usage_limit_val := optional.UsageLimit.value()
 	__bandwidth_limit_val := optional.BandwidthLimit.value()
 	__rate_limit_val := optional.RateLimit.value()
+	__burst_limit_val := optional.BurstLimit.value()
 	__max_buckets_val := optional.MaxBuckets.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, burst_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9657,44 +10183,6 @@ func (obj *pgxImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __revoked_val, __api_key_id_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
-func (obj *pgxImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__bucket_name_val := bucket_storage_tally_bucket_name.value()
-	__project_id_val := bucket_storage_tally_project_id.value()
-	__interval_start_val := bucket_storage_tally_interval_start.value()
-	__inline_val := bucket_storage_tally_inline.value()
-	__remote_val := bucket_storage_tally_remote.value()
-	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
-	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
-	__object_count_val := bucket_storage_tally_object_count.value()
-	__metadata_size_val := bucket_storage_tally_metadata_size.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -10289,96 +10777,25 @@ func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context
 
 }
 
-func (obj *pgxImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	pending_audits *PendingAudits, err error) {
+func (obj *pgxImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	segment_pending_audits *SegmentPendingAudits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE pending_audits.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT segment_pending_audits.node_id, segment_pending_audits.stream_id, segment_pending_audits.position, segment_pending_audits.piece_id, segment_pending_audits.stripe_index, segment_pending_audits.share_size, segment_pending_audits.expected_share_hash, segment_pending_audits.reverify_count FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
+	__values = append(__values, segment_pending_audits_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	pending_audits = &PendingAudits{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	segment_pending_audits = &SegmentPendingAudits{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&segment_pending_audits.NodeId, &segment_pending_audits.StreamId, &segment_pending_audits.Position, &segment_pending_audits.PieceId, &segment_pending_audits.StripeIndex, &segment_pending_audits.ShareSize, &segment_pending_audits.ExpectedShareHash, &segment_pending_audits.ReverifyCount)
 	if err != nil {
-		return (*PendingAudits)(nil), obj.makeErr(err)
+		return (*SegmentPendingAudits)(nil), obj.makeErr(err)
 	}
-	return pending_audits, nil
-
-}
-
-func (obj *pgxImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	irreparabledb *Irreparabledb, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	irreparabledb = &Irreparabledb{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-	if err != nil {
-		return (*Irreparabledb)(nil), obj.makeErr(err)
-	}
-	return irreparabledb, nil
-
-}
-
-func (obj *pgxImpl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath > ? ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath_greater.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*Irreparabledb, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				irreparabledb := &Irreparabledb{}
-				err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, irreparabledb)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
+	return segment_pending_audits, nil
 
 }
 
@@ -10412,7 +10829,7 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -10421,7 +10838,7 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -10477,9 +10894,9 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 	rows []*Node, next *Paged_Node_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
 	var __values []interface{}
 
@@ -10506,7 +10923,7 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 
 			for __rows.Next() {
 				node := &Node{}
-				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &__continuation._value_id)
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &__continuation._value_id)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -10574,25 +10991,25 @@ func (obj *pgxImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx con
 
 }
 
-func (obj *pgxImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field) (
-	audit_history *AuditHistory, err error) {
+func (obj *pgxImpl) Get_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field) (
+	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT audit_histories.node_id, audit_histories.history FROM audit_histories WHERE audit_histories.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
 
 	var __values []interface{}
-	__values = append(__values, audit_history_node_id.value())
+	__values = append(__values, reputation_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err != nil {
-		return (*AuditHistory)(nil), obj.makeErr(err)
+		return (*Reputation)(nil), obj.makeErr(err)
 	}
-	return audit_history, nil
+	return reputation, nil
 
 }
 
@@ -10601,7 +11018,7 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -10625,7 +11042,7 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 			}
 
 			user = &User{}
-			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 			if err != nil {
 				return nil, err
 			}
@@ -10659,7 +11076,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -10668,7 +11085,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -10703,7 +11120,7 @@ func (obj *pgxImpl) Get_Project_By_Id(ctx context.Context,
 	project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -10712,7 +11129,7 @@ func (obj *pgxImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -10812,7 +11229,7 @@ func (obj *pgxImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
 
 	var __values []interface{}
 
@@ -10829,7 +11246,7 @@ func (obj *pgxImpl) All_Project(ctx context.Context) (
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -10856,7 +11273,7 @@ func (obj *pgxImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx cont
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -10874,7 +11291,7 @@ func (obj *pgxImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx cont
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -10901,7 +11318,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_owner_id.value())
@@ -10919,7 +11336,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -10946,7 +11363,7 @@ func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Na
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -10964,7 +11381,7 @@ func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Na
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -10992,7 +11409,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -11012,7 +11429,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -11273,7 +11690,7 @@ func (obj *pgxImpl) All_BucketStorageTally(ctx context.Context) (
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
 
 	var __values []interface{}
 
@@ -11290,7 +11707,7 @@ func (obj *pgxImpl) All_BucketStorageTally(ctx context.Context) (
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -11320,7 +11737,7 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
 
 	var __values []interface{}
 	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
@@ -11338,7 +11755,7 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -12281,7 +12698,7 @@ func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress *GracefulExitProgress, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at, graceful_exit_progress.uses_segment_transfer_queue FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, graceful_exit_progress_node_id.value())
@@ -12290,7 +12707,7 @@ func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt, &graceful_exit_progress.UsesSegmentTransferQueue)
 	if err != nil {
 		return (*GracefulExitProgress)(nil), obj.makeErr(err)
 	}
@@ -12298,27 +12715,28 @@ func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+func (obj *pgxImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
+	graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.root_piece_id, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at, graceful_exit_transfer_queue.order_limit_send_count FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
+	graceful_exit_segment_transfer = &GracefulExitSegmentTransfer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_segment_transfer.NodeId, &graceful_exit_segment_transfer.StreamId, &graceful_exit_segment_transfer.Position, &graceful_exit_segment_transfer.PieceNum, &graceful_exit_segment_transfer.RootPieceId, &graceful_exit_segment_transfer.DurabilityRatio, &graceful_exit_segment_transfer.QueuedAt, &graceful_exit_segment_transfer.RequestedAt, &graceful_exit_segment_transfer.LastFailedAt, &graceful_exit_segment_transfer.LastFailedCode, &graceful_exit_segment_transfer.FailedCount, &graceful_exit_segment_transfer.FinishedAt, &graceful_exit_segment_transfer.OrderLimitSendCount)
 	if err != nil {
-		return (*GracefulExitTransferQueue)(nil), obj.makeErr(err)
+		return (*GracefulExitSegmentTransfer)(nil), obj.makeErr(err)
 	}
-	return graceful_exit_transfer_queue, nil
+	return graceful_exit_segment_transfer, nil
 
 }
 
@@ -12836,58 +13254,6 @@ func (obj *pgxImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx c
 
 }
 
-func (obj *pgxImpl) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	update Irreparabledb_Update_Fields) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Segmentdetail._set {
-		__values = append(__values, update.Segmentdetail.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segmentdetail = ?"))
-	}
-
-	if update.PiecesLostCount._set {
-		__values = append(__values, update.PiecesLostCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_lost_count = ?"))
-	}
-
-	if update.SegDamagedUnixSec._set {
-		__values = append(__values, update.SegDamagedUnixSec.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("seg_damaged_unix_sec = ?"))
-	}
-
-	if update.RepairAttemptCount._set {
-		__values = append(__values, update.RepairAttemptCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("repair_attempt_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, irreparabledb_segmentpath.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-}
-
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -12932,7 +13298,7 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -13023,16 +13389,6 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
 	}
 
-	if update.AuditSuccessCount._set {
-		__values = append(__values, update.AuditSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
-	}
-
-	if update.TotalAuditCount._set {
-		__values = append(__values, update.TotalAuditCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
-	}
-
 	if update.VettedAt._set {
 		__values = append(__values, update.VettedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
@@ -13078,31 +13434,6 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
-	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
@@ -13137,7 +13468,7 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13245,14 +13576,187 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
 	}
 
-	if update.AuditSuccessCount._set {
-		__values = append(__values, update.AuditSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
 	}
 
-	if update.TotalAuditCount._set {
-		__values = append(__values, update.TotalAuditCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
+	}
+
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
+	if update.ExitSuccess._set {
+		__values = append(__values, update.ExitSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *pgxImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.LastNet._set {
+		__values = append(__values, update.LastNet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
+	}
+
+	if update.LastIpPort._set {
+		__values = append(__values, update.LastIpPort.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Type._set {
+		__values = append(__values, update.Type.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.WalletFeatures._set {
+		__values = append(__values, update.WalletFeatures.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.PieceCount._set {
+		__values = append(__values, update.PieceCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
+	}
+
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.Hash._set {
+		__values = append(__values, update.Hash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hash = ?"))
+	}
+
+	if update.Timestamp._set {
+		__values = append(__values, update.Timestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
 	}
 
 	if update.VettedAt._set {
@@ -13300,31 +13804,6 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
-	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
@@ -13365,29 +13844,100 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	return nil
 }
 
-func (obj *pgxImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	update AuditHistory_Update_Fields) (
-	audit_history *AuditHistory, err error) {
+func (obj *pgxImpl) Update_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE audit_histories SET "), __sets, __sqlbundle_Literal(" WHERE audit_histories.node_id = ? RETURNING audit_histories.node_id, audit_histories.history")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
 
-	if update.History._set {
-		__values = append(__values, update.History.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("history = ?"))
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
 	}
 
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
 	}
 
-	__args = append(__args, audit_history_node_id.value())
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -13395,15 +13945,236 @@ func (obj *pgxImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return audit_history, nil
+	return reputation, nil
+}
+
+func (obj *pgxImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	reputation_audit_history Reputation_AuditHistory_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value(), reputation_audit_history.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reputation, nil
+}
+
+func (obj *pgxImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 }
 
 func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
@@ -13413,7 +14184,7 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -13454,6 +14225,11 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_limit = ?"))
 	}
 
+	if update.PaidTier._set {
+		__values = append(__values, update.PaidTier.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("paid_tier = ?"))
+	}
+
 	if update.Position._set {
 		__values = append(__values, update.Position.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("position = ?"))
@@ -13489,6 +14265,21 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("have_sales_contact = ?"))
 	}
 
+	if update.MfaEnabled._set {
+		__values = append(__values, update.MfaEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_enabled = ?"))
+	}
+
+	if update.MfaSecretKey._set {
+		__values = append(__values, update.MfaSecretKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_secret_key = ?"))
+	}
+
+	if update.MfaRecoveryCodes._set {
+		__values = append(__values, update.MfaRecoveryCodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -13502,7 +14293,7 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13519,7 +14310,7 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -13550,6 +14341,11 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit = ?"))
 	}
 
+	if update.BurstLimit._set {
+		__values = append(__values, update.BurstLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit = ?"))
+	}
+
 	if update.MaxBuckets._set {
 		__values = append(__values, update.MaxBuckets.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_buckets = ?"))
@@ -13568,7 +14364,7 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13786,16 +14582,17 @@ func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Cont
 	return bucket_metainfo, nil
 }
 
-func (obj *pgxImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-	update GracefulExitTransferQueue_Update_Fields) (
+func (obj *pgxImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
+	update GracefulExitSegmentTransfer_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_segment_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -13840,7 +14637,7 @@ func (obj *pgxImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_
 		return emptyUpdate()
 	}
 
-	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
+	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -14064,15 +14861,15 @@ func (obj *pgxImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx 
 	return nil
 }
 
-func (obj *pgxImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
+func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM pending_audits WHERE pending_audits.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
+	__values = append(__values, segment_pending_audits_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -14091,42 +14888,15 @@ func (obj *pgxImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *pgxImpl) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
-	injuredsegment_updated_at_less Injuredsegment_UpdatedAt_Field) (
+func (obj *pgxImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.updated_at < ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
 
 	var __values []interface{}
-	__values = append(__values, injuredsegment_updated_at_less.value())
+	__values = append(__values, repair_queue_updated_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -14309,15 +15079,15 @@ func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Cont
 
 }
 
-func (obj *pgxImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -14336,17 +15106,18 @@ func (obj *pgxImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Conte
 
 }
 
-func (obj *pgxImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
+func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 	deleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -14365,15 +15136,15 @@ func (obj *pgxImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_Piec
 
 }
 
-func (obj *pgxImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is not NULL")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -14620,6 +15391,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM segment_pending_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM revocations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -14631,6 +15412,26 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reputations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM repair_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -14680,16 +15481,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_audits;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM peer_identities;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -14730,27 +15521,7 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM irreparabledbs;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM injuredsegments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_transfer_queue;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_segment_transfer_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -14840,16 +15611,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM audit_histories;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -14905,36 +15666,6 @@ func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) CreateNoReturn_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__segmentpath_val := irreparabledb_segmentpath.value()
-	__segmentdetail_val := irreparabledb_segmentdetail.value()
-	__pieces_lost_count_val := irreparabledb_pieces_lost_count.value()
-	__seg_damaged_unix_sec_val := irreparabledb_seg_damaged_unix_sec.value()
-	__repair_attempt_count_val := irreparabledb_repair_attempt_count.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO irreparabledbs ( segmentpath, segmentdetail, pieces_lost_count, seg_damaged_unix_sec, repair_attempt_count ) VALUES ( ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __segmentpath_val, __segmentdetail_val, __pieces_lost_count_val, __seg_damaged_unix_sec_val, __repair_attempt_count_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
 func (obj *pgxcockroachImpl) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	accounting_timestamps_value AccountingTimestamps_Value_Field) (
@@ -14959,28 +15690,98 @@ func (obj *pgxcockroachImpl) CreateNoReturn_AccountingTimestamps(ctx context.Con
 
 }
 
-func (obj *pgxcockroachImpl) Create_AuditHistory(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	audit_history_history AuditHistory_History_Field) (
-	audit_history *AuditHistory, err error) {
+func (obj *pgxcockroachImpl) Create_Reputation(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	reputation_audit_history Reputation_AuditHistory_Field,
+	optional Reputation_Create_Fields) (
+	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
-	__node_id_val := audit_history_node_id.value()
-	__history_val := audit_history_history.value()
+	__id_val := reputation_id.value()
+	__vetted_at_val := optional.VettedAt.value()
+	__disqualified_val := optional.Disqualified.value()
+	__suspended_val := optional.Suspended.value()
+	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
+	__offline_suspended_val := optional.OfflineSuspended.value()
+	__under_review_val := optional.UnderReview.value()
+	__audit_history_val := reputation_audit_history.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO audit_histories ( node_id, history ) VALUES ( ?, ? ) RETURNING audit_histories.node_id, audit_histories.history")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, vetted_at, disqualified, suspended, unknown_audit_suspended, offline_suspended, under_review, audit_history")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	var __values []interface{}
-	__values = append(__values, __node_id_val, __history_val)
+	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __suspended_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.AuditSuccessCount._set {
+		__values = append(__values, optional.AuditSuccessCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_success_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.TotalAuditCount._set {
+		__values = append(__values, optional.TotalAuditCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_audit_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Contained._set {
+		__values = append(__values, optional.Contained.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("contained"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.OnlineScore._set {
+		__values = append(__values, optional.OnlineScore.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("online_score"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationAlpha._set {
+		__values = append(__values, optional.AuditReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationBeta._set {
+		__values = append(__values, optional.AuditReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UnknownAuditReputationAlpha._set {
+		__values = append(__values, optional.UnknownAuditReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UnknownAuditReputationBeta._set {
+		__values = append(__values, optional.UnknownAuditReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return audit_history, nil
+	return reputation, nil
 
 }
 
@@ -15009,15 +15810,17 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	__company_size_val := optional.CompanySize.value()
 	__working_on_val := optional.WorkingOn.value()
 	__employee_count_val := optional.EmployeeCount.value()
+	__mfa_secret_key_val := optional.MfaSecretKey.value()
+	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at, position, company_name, company_size, working_on, employee_count")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at, position, company_name, company_size, working_on, employee_count, mfa_secret_key, mfa_recovery_codes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val)
+	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -15025,6 +15828,12 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	if optional.ProjectLimit._set {
 		__values = append(__values, optional.ProjectLimit.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.PaidTier._set {
+		__values = append(__values, optional.PaidTier.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("paid_tier"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -15040,6 +15849,12 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
+	if optional.MfaEnabled._set {
+		__values = append(__values, optional.MfaEnabled.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
 	if len(__optional_columns.SQLs) == 0 {
 		if __columns.SQL == nil {
 			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
@@ -15052,7 +15867,7 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15076,21 +15891,22 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 	__usage_limit_val := optional.UsageLimit.value()
 	__bandwidth_limit_val := optional.BandwidthLimit.value()
 	__rate_limit_val := optional.RateLimit.value()
+	__burst_limit_val := optional.BurstLimit.value()
 	__max_buckets_val := optional.MaxBuckets.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, burst_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __burst_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15174,44 +15990,6 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __revoked_val, __api_key_id_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
-func (obj *pgxcockroachImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__bucket_name_val := bucket_storage_tally_bucket_name.value()
-	__project_id_val := bucket_storage_tally_project_id.value()
-	__interval_start_val := bucket_storage_tally_interval_start.value()
-	__inline_val := bucket_storage_tally_inline.value()
-	__remote_val := bucket_storage_tally_remote.value()
-	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
-	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
-	__object_count_val := bucket_storage_tally_object_count.value()
-	__metadata_size_val := bucket_storage_tally_metadata_size.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -15806,96 +16584,25 @@ func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ct
 
 }
 
-func (obj *pgxcockroachImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	pending_audits *PendingAudits, err error) {
+func (obj *pgxcockroachImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	segment_pending_audits *SegmentPendingAudits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE pending_audits.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT segment_pending_audits.node_id, segment_pending_audits.stream_id, segment_pending_audits.position, segment_pending_audits.piece_id, segment_pending_audits.stripe_index, segment_pending_audits.share_size, segment_pending_audits.expected_share_hash, segment_pending_audits.reverify_count FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
+	__values = append(__values, segment_pending_audits_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	pending_audits = &PendingAudits{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	segment_pending_audits = &SegmentPendingAudits{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&segment_pending_audits.NodeId, &segment_pending_audits.StreamId, &segment_pending_audits.Position, &segment_pending_audits.PieceId, &segment_pending_audits.StripeIndex, &segment_pending_audits.ShareSize, &segment_pending_audits.ExpectedShareHash, &segment_pending_audits.ReverifyCount)
 	if err != nil {
-		return (*PendingAudits)(nil), obj.makeErr(err)
+		return (*SegmentPendingAudits)(nil), obj.makeErr(err)
 	}
-	return pending_audits, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	irreparabledb *Irreparabledb, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	irreparabledb = &Irreparabledb{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-	if err != nil {
-		return (*Irreparabledb)(nil), obj.makeErr(err)
-	}
-	return irreparabledb, nil
-
-}
-
-func (obj *pgxcockroachImpl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath > ? ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath_greater.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*Irreparabledb, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				irreparabledb := &Irreparabledb{}
-				err = __rows.Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, irreparabledb)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
+	return segment_pending_audits, nil
 
 }
 
@@ -15929,7 +16636,7 @@ func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -15938,7 +16645,7 @@ func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -15994,9 +16701,9 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 	rows []*Node, next *Paged_Node_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
 	var __values []interface{}
 
@@ -16023,7 +16730,7 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 
 			for __rows.Next() {
 				node := &Node{}
-				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &__continuation._value_id)
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &__continuation._value_id)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -16091,25 +16798,25 @@ func (obj *pgxcockroachImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Numbe
 
 }
 
-func (obj *pgxcockroachImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field) (
-	audit_history *AuditHistory, err error) {
+func (obj *pgxcockroachImpl) Get_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field) (
+	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT audit_histories.node_id, audit_histories.history FROM audit_histories WHERE audit_histories.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
 
 	var __values []interface{}
-	__values = append(__values, audit_history_node_id.value())
+	__values = append(__values, reputation_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err != nil {
-		return (*AuditHistory)(nil), obj.makeErr(err)
+		return (*Reputation)(nil), obj.makeErr(err)
 	}
-	return audit_history, nil
+	return reputation, nil
 
 }
 
@@ -16118,7 +16825,7 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -16142,7 +16849,7 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 			}
 
 			user = &User{}
-			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 			if err != nil {
 				return nil, err
 			}
@@ -16176,7 +16883,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -16185,7 +16892,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -16220,7 +16927,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_Id(ctx context.Context,
 	project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -16229,7 +16936,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -16329,7 +17036,7 @@ func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
 
 	var __values []interface{}
 
@@ -16346,7 +17053,7 @@ func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -16373,7 +17080,7 @@ func (obj *pgxcockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -16391,7 +17098,7 @@ func (obj *pgxcockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -16418,7 +17125,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_owner_id.value())
@@ -16436,7 +17143,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -16463,7 +17170,7 @@ func (obj *pgxcockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_P
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -16481,7 +17188,7 @@ func (obj *pgxcockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_P
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -16509,7 +17216,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -16529,7 +17236,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 
 			for __rows.Next() {
 				project := &Project{}
-				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+				err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -16790,7 +17497,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally(ctx context.Context) (
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
 
 	var __values []interface{}
 
@@ -16807,7 +17514,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally(ctx context.Context) (
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -16837,7 +17544,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
 
 	var __values []interface{}
 	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
@@ -16855,7 +17562,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -17798,7 +18505,7 @@ func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Cont
 	graceful_exit_progress *GracefulExitProgress, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at, graceful_exit_progress.uses_segment_transfer_queue FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, graceful_exit_progress_node_id.value())
@@ -17807,7 +18514,7 @@ func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt, &graceful_exit_progress.UsesSegmentTransferQueue)
 	if err != nil {
 		return (*GracefulExitProgress)(nil), obj.makeErr(err)
 	}
@@ -17815,27 +18522,28 @@ func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Cont
 
 }
 
-func (obj *pgxcockroachImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+func (obj *pgxcockroachImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
+	graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_transfer_queue.node_id, graceful_exit_transfer_queue.path, graceful_exit_transfer_queue.piece_num, graceful_exit_transfer_queue.root_piece_id, graceful_exit_transfer_queue.durability_ratio, graceful_exit_transfer_queue.queued_at, graceful_exit_transfer_queue.requested_at, graceful_exit_transfer_queue.last_failed_at, graceful_exit_transfer_queue.last_failed_code, graceful_exit_transfer_queue.failed_count, graceful_exit_transfer_queue.finished_at, graceful_exit_transfer_queue.order_limit_send_count FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
+	graceful_exit_segment_transfer = &GracefulExitSegmentTransfer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_segment_transfer.NodeId, &graceful_exit_segment_transfer.StreamId, &graceful_exit_segment_transfer.Position, &graceful_exit_segment_transfer.PieceNum, &graceful_exit_segment_transfer.RootPieceId, &graceful_exit_segment_transfer.DurabilityRatio, &graceful_exit_segment_transfer.QueuedAt, &graceful_exit_segment_transfer.RequestedAt, &graceful_exit_segment_transfer.LastFailedAt, &graceful_exit_segment_transfer.LastFailedCode, &graceful_exit_segment_transfer.FailedCount, &graceful_exit_segment_transfer.FinishedAt, &graceful_exit_segment_transfer.OrderLimitSendCount)
 	if err != nil {
-		return (*GracefulExitTransferQueue)(nil), obj.makeErr(err)
+		return (*GracefulExitSegmentTransfer)(nil), obj.makeErr(err)
 	}
-	return graceful_exit_transfer_queue, nil
+	return graceful_exit_segment_transfer, nil
 
 }
 
@@ -18353,58 +19061,6 @@ func (obj *pgxcockroachImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEq
 
 }
 
-func (obj *pgxcockroachImpl) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	update Irreparabledb_Update_Fields) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE irreparabledbs SET "), __sets, __sqlbundle_Literal(" WHERE irreparabledbs.segmentpath = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Segmentdetail._set {
-		__values = append(__values, update.Segmentdetail.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("segmentdetail = ?"))
-	}
-
-	if update.PiecesLostCount._set {
-		__values = append(__values, update.PiecesLostCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("pieces_lost_count = ?"))
-	}
-
-	if update.SegDamagedUnixSec._set {
-		__values = append(__values, update.SegDamagedUnixSec.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("seg_damaged_unix_sec = ?"))
-	}
-
-	if update.RepairAttemptCount._set {
-		__values = append(__values, update.RepairAttemptCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("repair_attempt_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, irreparabledb_segmentpath.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-}
-
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -18449,7 +19105,7 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -18540,16 +19196,6 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
 	}
 
-	if update.AuditSuccessCount._set {
-		__values = append(__values, update.AuditSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
-	}
-
-	if update.TotalAuditCount._set {
-		__values = append(__values, update.TotalAuditCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
-	}
-
 	if update.VettedAt._set {
 		__values = append(__values, update.VettedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
@@ -18595,31 +19241,6 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
-	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
@@ -18654,7 +19275,7 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -18762,14 +19383,187 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
 	}
 
-	if update.AuditSuccessCount._set {
-		__values = append(__values, update.AuditSuccessCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
 	}
 
-	if update.TotalAuditCount._set {
-		__values = append(__values, update.TotalAuditCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	if update.LastContactSuccess._set {
+		__values = append(__values, update.LastContactSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_success = ?"))
+	}
+
+	if update.LastContactFailure._set {
+		__values = append(__values, update.LastContactFailure.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_contact_failure = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.ExitInitiatedAt._set {
+		__values = append(__values, update.ExitInitiatedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
+	}
+
+	if update.ExitLoopCompletedAt._set {
+		__values = append(__values, update.ExitLoopCompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_loop_completed_at = ?"))
+	}
+
+	if update.ExitFinishedAt._set {
+		__values = append(__values, update.ExitFinishedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_finished_at = ?"))
+	}
+
+	if update.ExitSuccess._set {
+		__values = append(__values, update.ExitSuccess.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_success = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Address._set {
+		__values = append(__values, update.Address.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.LastNet._set {
+		__values = append(__values, update.LastNet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_net = ?"))
+	}
+
+	if update.LastIpPort._set {
+		__values = append(__values, update.LastIpPort.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip_port = ?"))
+	}
+
+	if update.Protocol._set {
+		__values = append(__values, update.Protocol.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
+	}
+
+	if update.Type._set {
+		__values = append(__values, update.Type.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
+	}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Wallet._set {
+		__values = append(__values, update.Wallet.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
+	}
+
+	if update.WalletFeatures._set {
+		__values = append(__values, update.WalletFeatures.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet_features = ?"))
+	}
+
+	if update.FreeDisk._set {
+		__values = append(__values, update.FreeDisk.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_disk = ?"))
+	}
+
+	if update.PieceCount._set {
+		__values = append(__values, update.PieceCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("piece_count = ?"))
+	}
+
+	if update.Major._set {
+		__values = append(__values, update.Major.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("major = ?"))
+	}
+
+	if update.Minor._set {
+		__values = append(__values, update.Minor.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("minor = ?"))
+	}
+
+	if update.Patch._set {
+		__values = append(__values, update.Patch.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("patch = ?"))
+	}
+
+	if update.Hash._set {
+		__values = append(__values, update.Hash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("hash = ?"))
+	}
+
+	if update.Timestamp._set {
+		__values = append(__values, update.Timestamp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("timestamp = ?"))
+	}
+
+	if update.Release._set {
+		__values = append(__values, update.Release.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("release = ?"))
+	}
+
+	if update.Latency90._set {
+		__values = append(__values, update.Latency90.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("latency_90 = ?"))
 	}
 
 	if update.VettedAt._set {
@@ -18817,31 +19611,6 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
-	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
@@ -18882,29 +19651,100 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	return nil
 }
 
-func (obj *pgxcockroachImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	update AuditHistory_Update_Fields) (
-	audit_history *AuditHistory, err error) {
+func (obj *pgxcockroachImpl) Update_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE audit_histories SET "), __sets, __sqlbundle_Literal(" WHERE audit_histories.node_id = ? RETURNING audit_histories.node_id, audit_histories.history")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
 
-	if update.History._set {
-		__values = append(__values, update.History.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("history = ?"))
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
 	}
 
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
 	}
 
-	__args = append(__args, audit_history_node_id.value())
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -18912,15 +19752,236 @@ func (obj *pgxcockroachImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
-	return audit_history, nil
+	return reputation, nil
+}
+
+func (obj *pgxcockroachImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	reputation_audit_history Reputation_AuditHistory_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value(), reputation_audit_history.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reputation, nil
+}
+
+func (obj *pgxcockroachImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 }
 
 func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
@@ -18930,7 +19991,7 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -18971,6 +20032,11 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_limit = ?"))
 	}
 
+	if update.PaidTier._set {
+		__values = append(__values, update.PaidTier.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("paid_tier = ?"))
+	}
+
 	if update.Position._set {
 		__values = append(__values, update.Position.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("position = ?"))
@@ -19006,6 +20072,21 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("have_sales_contact = ?"))
 	}
 
+	if update.MfaEnabled._set {
+		__values = append(__values, update.MfaEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_enabled = ?"))
+	}
+
+	if update.MfaSecretKey._set {
+		__values = append(__values, update.MfaSecretKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_secret_key = ?"))
+	}
+
+	if update.MfaRecoveryCodes._set {
+		__values = append(__values, update.MfaRecoveryCodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -19019,7 +20100,7 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -19036,7 +20117,7 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.burst_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -19067,6 +20148,11 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("rate_limit = ?"))
 	}
 
+	if update.BurstLimit._set {
+		__values = append(__values, update.BurstLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("burst_limit = ?"))
+	}
+
 	if update.MaxBuckets._set {
 		__values = append(__values, update.MaxBuckets.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("max_buckets = ?"))
@@ -19085,7 +20171,7 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.BurstLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -19303,16 +20389,17 @@ func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx con
 	return bucket_metainfo, nil
 }
 
-func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-	update GracefulExitTransferQueue_Update_Fields) (
+func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
+	update GracefulExitSegmentTransfer_Update_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_segment_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -19357,7 +20444,7 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_
 		return emptyUpdate()
 	}
 
-	__args = append(__args, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
+	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	__values = append(__values, __args...)
 	__sets.SQL = __sets_sql
@@ -19581,15 +20668,15 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_
 	return nil
 }
 
-func (obj *pgxcockroachImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
+func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM pending_audits WHERE pending_audits.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, pending_audits_node_id.value())
+	__values = append(__values, segment_pending_audits_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -19608,42 +20695,15 @@ func (obj *pgxcockroachImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM irreparabledbs WHERE irreparabledbs.segmentpath = ?")
-
-	var __values []interface{}
-	__values = append(__values, irreparabledb_segmentpath.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
-	injuredsegment_updated_at_less Injuredsegment_UpdatedAt_Field) (
+func (obj *pgxcockroachImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM injuredsegments WHERE injuredsegments.updated_at < ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
 
 	var __values []interface{}
-	__values = append(__values, injuredsegment_updated_at_less.value())
+	__values = append(__values, repair_queue_updated_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -19826,15 +20886,15 @@ func (obj *pgxcockroachImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx con
 
 }
 
-func (obj *pgxcockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -19853,17 +20913,18 @@ func (obj *pgxcockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId(ctx cont
 
 }
 
-func (obj *pgxcockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
+func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 	deleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.path = ? AND graceful_exit_transfer_queue.piece_num = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value(), graceful_exit_transfer_queue_path.value(), graceful_exit_transfer_queue_piece_num.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -19882,15 +20943,15 @@ func (obj *pgxcockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Path
 
 }
 
-func (obj *pgxcockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_transfer_queue WHERE graceful_exit_transfer_queue.node_id = ? AND graceful_exit_transfer_queue.finished_at is not NULL")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
 
 	var __values []interface{}
-	__values = append(__values, graceful_exit_transfer_queue_node_id.value())
+	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -20137,6 +21198,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM segment_pending_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM revocations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -20148,6 +21219,26 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reputations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM repair_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -20197,16 +21288,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_audits;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM peer_identities;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -20247,27 +21328,7 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM irreparabledbs;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM injuredsegments;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_transfer_queue;")
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_segment_transfer_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -20348,16 +21409,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_bandwidth_rollups;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM audit_histories;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -20647,40 +21698,6 @@ func (rx *Rx) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 
 }
 
-func (rx *Rx) CreateNoReturn_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.CreateNoReturn_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
-
-}
-
-func (rx *Rx) CreateNoReturn_Irreparabledb(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-	irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-	irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-	irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.CreateNoReturn_Irreparabledb(ctx, irreparabledb_segmentpath, irreparabledb_segmentdetail, irreparabledb_pieces_lost_count, irreparabledb_seg_damaged_unix_sec, irreparabledb_repair_attempt_count)
-
-}
-
 func (rx *Rx) CreateNoReturn_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
@@ -20733,18 +21750,6 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 		return
 	}
 	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_head, api_key_name, api_key_secret, optional)
-
-}
-
-func (rx *Rx) Create_AuditHistory(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	audit_history_history AuditHistory_History_Field) (
-	audit_history *AuditHistory, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_AuditHistory(ctx, audit_history_node_id, audit_history_history)
 
 }
 
@@ -20875,6 +21880,19 @@ func (rx *Rx) Create_RegistrationToken(ctx context.Context,
 		return
 	}
 	return tx.Create_RegistrationToken(ctx, registration_token_secret, registration_token_project_limit, optional)
+
+}
+
+func (rx *Rx) Create_Reputation(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	reputation_audit_history Reputation_AuditHistory_Field,
+	optional Reputation_Create_Fields) (
+	reputation *Reputation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Reputation(ctx, reputation_id, reputation_audit_history, optional)
 
 }
 
@@ -21018,69 +22036,39 @@ func (rx *Rx) Delete_Coupon_By_Id(ctx context.Context,
 	return tx.Delete_Coupon_By_Id(ctx, coupon_id)
 }
 
-func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+func (rx *Rx) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_GracefulExitTransferQueue_By_NodeId(ctx, graceful_exit_transfer_queue_node_id)
+	return tx.Delete_GracefulExitSegmentTransfer_By_NodeId(ctx, graceful_exit_segment_transfer_node_id)
 
 }
 
-func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+func (rx *Rx) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx, graceful_exit_transfer_queue_node_id)
+	return tx.Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx, graceful_exit_segment_transfer_node_id)
 
 }
 
-func (rx *Rx) Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
+func (rx *Rx) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
-}
-
-func (rx *Rx) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
-	injuredsegment_updated_at_less Injuredsegment_UpdatedAt_Field) (
-	count int64, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_Injuredsegment_By_UpdatedAt_Less(ctx, injuredsegment_updated_at_less)
-
-}
-
-func (rx *Rx) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
-}
-
-func (rx *Rx) Delete_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_PendingAudits_By_NodeId(ctx, pending_audits_node_id)
+	return tx.Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num)
 }
 
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
@@ -21104,6 +22092,17 @@ func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 	return tx.Delete_Project_By_Id(ctx, project_id)
 }
 
+func (rx *Rx) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_RepairQueue_By_UpdatedAt_Less(ctx, repair_queue_updated_at_less)
+
+}
+
 func (rx *Rx) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 	reset_password_token_secret ResetPasswordToken_Secret_Field) (
 	deleted bool, err error) {
@@ -21112,6 +22111,16 @@ func (rx *Rx) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Delete_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
+}
+
+func (rx *Rx) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_SegmentPendingAudits_By_NodeId(ctx, segment_pending_audits_node_id)
 }
 
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
@@ -21163,16 +22172,6 @@ func (rx *Rx) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
 		return
 	}
 	return tx.Get_ApiKey_By_Name_And_ProjectId(ctx, api_key_name, api_key_project_id)
-}
-
-func (rx *Rx) Get_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field) (
-	audit_history *AuditHistory, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_AuditHistory_By_NodeId(ctx, audit_history_node_id)
 }
 
 func (rx *Rx) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -21227,26 +22226,17 @@ func (rx *Rx) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	return tx.Get_GracefulExitProgress_By_NodeId(ctx, graceful_exit_progress_node_id)
 }
 
-func (rx *Rx) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-	graceful_exit_transfer_queue *GracefulExitTransferQueue, err error) {
+func (rx *Rx) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
+	graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num)
-}
-
-func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-	irreparabledb *Irreparabledb, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
+	return tx.Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num)
 }
 
 func (rx *Rx) Get_Node_By_Id(ctx context.Context,
@@ -21277,16 +22267,6 @@ func (rx *Rx) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
 		return
 	}
 	return tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, peer_identity_node_id)
-}
-
-func (rx *Rx) Get_PendingAudits_By_NodeId(ctx context.Context,
-	pending_audits_node_id PendingAudits_NodeId_Field) (
-	pending_audits *PendingAudits, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_PendingAudits_By_NodeId(ctx, pending_audits_node_id)
 }
 
 func (rx *Rx) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
@@ -21359,6 +22339,16 @@ func (rx *Rx) Get_RegistrationToken_By_Secret(ctx context.Context,
 	return tx.Get_RegistrationToken_By_Secret(ctx, registration_token_secret)
 }
 
+func (rx *Rx) Get_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field) (
+	reputation *Reputation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Reputation_By_Id(ctx, reputation_id)
+}
+
 func (rx *Rx) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 	reset_password_token *ResetPasswordToken, err error) {
@@ -21377,6 +22367,16 @@ func (rx *Rx) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Get_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
+}
+
+func (rx *Rx) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	segment_pending_audits *SegmentPendingAudits, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_SegmentPendingAudits_By_NodeId(ctx, segment_pending_audits_node_id)
 }
 
 func (rx *Rx) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
@@ -21530,17 +22530,6 @@ func (rx *Rx) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_Cr
 		return
 	}
 	return tx.Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx, coupon_created_at_less_or_equal, coupon_status, limit, offset)
-}
-
-func (rx *Rx) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
-	limit int, offset int64) (
-	rows []*Irreparabledb, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx, irreparabledb_segmentpath_greater, limit, offset)
 }
 
 func (rx *Rx) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
@@ -21733,28 +22722,18 @@ func (rx *Rx) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	return tx.UpdateNoReturn_ApiKey_By_Id(ctx, api_key_id, update)
 }
 
-func (rx *Rx) UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-	graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-	update GracefulExitTransferQueue_Update_Fields) (
+func (rx *Rx) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
+	update GracefulExitSegmentTransfer_Update_Fields) (
 	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, update)
-}
-
-func (rx *Rx) UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
-	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-	update Irreparabledb_Update_Fields) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath, update)
+	return tx.UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num, update)
 }
 
 func (rx *Rx) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,
@@ -21780,6 +22759,17 @@ func (rx *Rx) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	return tx.UpdateNoReturn_Node_By_Id(ctx, node_id, update)
 }
 
+func (rx *Rx) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx, node_id, update)
+}
+
 func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	update PeerIdentity_Update_Fields) (
@@ -21791,15 +22781,15 @@ func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	return tx.UpdateNoReturn_PeerIdentity_By_NodeId(ctx, peer_identity_node_id, update)
 }
 
-func (rx *Rx) Update_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	update AuditHistory_Update_Fields) (
-	audit_history *AuditHistory, err error) {
+func (rx *Rx) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Update_AuditHistory_By_NodeId(ctx, audit_history_node_id, update)
+	return tx.UpdateNoReturn_Reputation_By_Id(ctx, reputation_id, update)
 }
 
 func (rx *Rx) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -21879,6 +22869,29 @@ func (rx *Rx) Update_RegistrationToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Update_RegistrationToken_By_Secret(ctx, registration_token_secret, update)
+}
+
+func (rx *Rx) Update_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Reputation_By_Id(ctx, reputation_id, update)
+}
+
+func (rx *Rx) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	reputation_audit_history Reputation_AuditHistory_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Reputation_By_Id_And_AuditHistory(ctx, reputation_id, reputation_audit_history, update)
 }
 
 func (rx *Rx) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
@@ -21990,26 +23003,6 @@ type Methods interface {
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
 		err error)
 
-	CreateNoReturn_BucketStorageTally(ctx context.Context,
-		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-		bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-		bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-		bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-		bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-		bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-		bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-		err error)
-
-	CreateNoReturn_Irreparabledb(ctx context.Context,
-		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-		irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
-		irreparabledb_pieces_lost_count Irreparabledb_PiecesLostCount_Field,
-		irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
-		irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
-		err error)
-
 	CreateNoReturn_PeerIdentity(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field,
 		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
@@ -22036,11 +23029,6 @@ type Methods interface {
 		api_key_secret ApiKey_Secret_Field,
 		optional ApiKey_Create_Fields) (
 		api_key *ApiKey, err error)
-
-	Create_AuditHistory(ctx context.Context,
-		audit_history_node_id AuditHistory_NodeId_Field,
-		audit_history_history AuditHistory_History_Field) (
-		audit_history *AuditHistory, err error)
 
 	Create_BucketMetainfo(ctx context.Context,
 		bucket_metainfo_id BucketMetainfo_Id_Field,
@@ -22116,6 +23104,12 @@ type Methods interface {
 		optional RegistrationToken_Create_Fields) (
 		registration_token *RegistrationToken, err error)
 
+	Create_Reputation(ctx context.Context,
+		reputation_id Reputation_Id_Field,
+		reputation_audit_history Reputation_AuditHistory_Field,
+		optional Reputation_Create_Fields) (
+		reputation *Reputation, err error)
+
 	Create_ResetPasswordToken(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
@@ -22183,30 +23177,19 @@ type Methods interface {
 		coupon_id Coupon_Id_Field) (
 		deleted bool, err error)
 
-	Delete_GracefulExitTransferQueue_By_NodeId(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
+		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 		count int64, err error)
 
-	Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field) (
+	Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
+		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 		count int64, err error)
 
-	Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-		deleted bool, err error)
-
-	Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
-		injuredsegment_updated_at_less Injuredsegment_UpdatedAt_Field) (
-		count int64, err error)
-
-	Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
-		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-		deleted bool, err error)
-
-	Delete_PendingAudits_By_NodeId(ctx context.Context,
-		pending_audits_node_id PendingAudits_NodeId_Field) (
+	Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+		graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 		deleted bool, err error)
 
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
@@ -22218,8 +23201,16 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		deleted bool, err error)
 
+	Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+		repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+		count int64, err error)
+
 	Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
+		deleted bool, err error)
+
+	Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
+		segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 		deleted bool, err error)
 
 	Delete_User_By_Id(ctx context.Context,
@@ -22243,10 +23234,6 @@ type Methods interface {
 		api_key_project_id ApiKey_ProjectId_Field) (
 		api_key *ApiKey, err error)
 
-	Get_AuditHistory_By_NodeId(ctx context.Context,
-		audit_history_node_id AuditHistory_NodeId_Field) (
-		audit_history *AuditHistory, err error)
-
 	Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -22269,15 +23256,12 @@ type Methods interface {
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 		graceful_exit_progress *GracefulExitProgress, err error)
 
-	Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field) (
-		graceful_exit_transfer_queue *GracefulExitTransferQueue, err error)
-
-	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
-		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
-		irreparabledb *Irreparabledb, err error)
+	Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+		graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
+		graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error)
 
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
@@ -22290,10 +23274,6 @@ type Methods interface {
 	Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
 		row *LeafSerialNumber_Row, err error)
-
-	Get_PendingAudits_By_NodeId(ctx context.Context,
-		pending_audits_node_id PendingAudits_NodeId_Field) (
-		pending_audits *PendingAudits, err error)
 
 	Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
@@ -22323,6 +23303,10 @@ type Methods interface {
 		registration_token_secret RegistrationToken_Secret_Field) (
 		registration_token *RegistrationToken, err error)
 
+	Get_Reputation_By_Id(ctx context.Context,
+		reputation_id Reputation_Id_Field) (
+		reputation *Reputation, err error)
+
 	Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 		reset_password_token *ResetPasswordToken, err error)
@@ -22330,6 +23314,10 @@ type Methods interface {
 	Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		reset_password_token *ResetPasswordToken, err error)
+
+	Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
+		segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+		segment_pending_audits *SegmentPendingAudits, err error)
 
 	Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
 		storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
@@ -22399,11 +23387,6 @@ type Methods interface {
 		coupon_status Coupon_Status_Field,
 		limit int, offset int64) (
 		rows []*Coupon, err error)
-
-	Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
-		irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
-		limit int, offset int64) (
-		rows []*Irreparabledb, err error)
 
 	Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field,
@@ -22503,16 +23486,12 @@ type Methods interface {
 		update ApiKey_Update_Fields) (
 		err error)
 
-	UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx context.Context,
-		graceful_exit_transfer_queue_node_id GracefulExitTransferQueue_NodeId_Field,
-		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
-		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
-		update GracefulExitTransferQueue_Update_Fields) (
-		err error)
-
-	UpdateNoReturn_Irreparabledb_By_Segmentpath(ctx context.Context,
-		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
-		update Irreparabledb_Update_Fields) (
+	UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
+		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
+		graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
+		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
+		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
+		update GracefulExitSegmentTransfer_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,
@@ -22526,15 +23505,20 @@ type Methods interface {
 		update Node_Update_Fields) (
 		err error)
 
+	UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
+		node_id Node_Id_Field,
+		update Node_Update_Fields) (
+		err error)
+
 	UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field,
 		update PeerIdentity_Update_Fields) (
 		err error)
 
-	Update_AuditHistory_By_NodeId(ctx context.Context,
-		audit_history_node_id AuditHistory_NodeId_Field,
-		update AuditHistory_Update_Fields) (
-		audit_history *AuditHistory, err error)
+	UpdateNoReturn_Reputation_By_Id(ctx context.Context,
+		reputation_id Reputation_Id_Field,
+		update Reputation_Update_Fields) (
+		err error)
 
 	Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
@@ -22572,6 +23556,17 @@ type Methods interface {
 		registration_token_secret RegistrationToken_Secret_Field,
 		update RegistrationToken_Update_Fields) (
 		registration_token *RegistrationToken, err error)
+
+	Update_Reputation_By_Id(ctx context.Context,
+		reputation_id Reputation_Id_Field,
+		update Reputation_Update_Fields) (
+		reputation *Reputation, err error)
+
+	Update_Reputation_By_Id_And_AuditHistory(ctx context.Context,
+		reputation_id Reputation_Id_Field,
+		reputation_audit_history Reputation_AuditHistory_Field,
+		update Reputation_Update_Fields) (
+		reputation *Reputation, err error)
 
 	Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,

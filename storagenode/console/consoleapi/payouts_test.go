@@ -34,6 +34,7 @@ func TestHeldAmountApi(t *testing.T) {
 			console := sno.Console
 			payoutsDB := sno.DB.Payout()
 			reputationDB := sno.DB.Reputation()
+			satellitesDB := sno.DB.Satellites()
 			baseURL := fmt.Sprintf("http://%s/api/heldamount", console.Listener.Addr())
 
 			// pause nodestats reputation cache because later tests assert a specific joinedat.
@@ -360,6 +361,9 @@ func TestHeldAmountApi(t *testing.T) {
 					SatelliteID: satellite.ID(),
 					JoinedAt:    date,
 				})
+				require.NoError(t, err)
+
+				err = satellitesDB.SetAddress(ctx, satellite.ID(), satellite.Addr())
 				require.NoError(t, err)
 
 				// should return all heldback history inserted earlier

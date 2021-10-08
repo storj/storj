@@ -93,6 +93,7 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 		SuspendedAt:          resp.GetSuspended(),
 		OfflineSuspendedAt:   resp.GetOfflineSuspended(),
 		OfflineUnderReviewAt: resp.GetOfflineUnderReview(),
+		VettedAt:             resp.GetVettedAt(),
 		AuditHistory:         resp.GetAuditHistory(),
 		UpdatedAt:            time.Now(),
 		JoinedAt:             resp.JoinedAt,

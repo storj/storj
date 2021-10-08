@@ -3,7 +3,7 @@
 
 <template>
     <div class="permissions" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="permissions__back-icon" @click="onBackClick"/>
+        <BackIcon class="permissions__back-icon" @click="onBackClick" />
         <h1 class="permissions__title">Access Permissions</h1>
         <p class="permissions__sub-title">
             Assign permissions to this Access Grant.
@@ -11,19 +11,19 @@
         <div class="permissions__content">
             <div class="permissions__content__left">
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="download" name="download" v-model="isDownload" :checked="isDownload">
+                    <input id="download" v-model="isDownload" type="checkbox" name="download" :checked="isDownload">
                     <label class="permissions__content__left__item__label" for="download">Download</label>
                 </div>
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="upload" name="upload" v-model="isUpload" :checked="isUpload">
+                    <input id="upload" v-model="isUpload" type="checkbox" name="upload" :checked="isUpload">
                     <label class="permissions__content__left__item__label" for="upload">Upload</label>
                 </div>
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="list" name="list" v-model="isList" :checked="isList">
+                    <input id="list" v-model="isList" type="checkbox" name="list" :checked="isList">
                     <label class="permissions__content__left__item__label" for="list">List</label>
                 </div>
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="delete" name="delete" v-model="isDelete" :checked="isDelete">
+                    <input id="delete" v-model="isDelete" type="checkbox" name="delete" :checked="isDelete">
                     <label class="permissions__content__left__item__label" for="delete">Delete</label>
                 </div>
             </div>
@@ -34,16 +34,16 @@
                 </div>
                 <div class="permissions__content__right__buckets-select">
                     <p class="permissions__content__right__buckets-select__label">Buckets</p>
-                    <VLoader v-if="areBucketNamesFetching" width="50px" height="50px"/>
-                    <BucketsSelection v-else/>
+                    <VLoader v-if="areBucketNamesFetching" width="50px" height="50px" />
+                    <BucketsSelection v-else />
                 </div>
                 <div class="permissions__content__right__bucket-bullets">
                     <div
-                        class="permissions__content__right__bucket-bullets__container"
                         v-for="(name, index) in selectedBucketNames"
                         :key="index"
+                        class="permissions__content__right__bucket-bullets__container"
                     >
-                        <BucketNameBullet :name="name"/>
+                        <BucketNameBullet :name="name" />
                     </div>
                 </div>
             </div>
@@ -82,6 +82,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { DurationPermission } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         BackIcon,
@@ -93,16 +94,16 @@ import { DurationPermission } from '@/types/accessGrants';
     },
 })
 export default class PermissionsStep extends Vue {
-    private key: string = '';
-    private restrictedKey: string = '';
+    private key = '';
+    private restrictedKey = '';
     private worker: Worker;
 
-    public isLoading: boolean = true;
-    public isDownload: boolean = true;
-    public isUpload: boolean = true;
-    public isList: boolean = true;
-    public isDelete: boolean = true;
-    public areBucketNamesFetching: boolean = true;
+    public isLoading = true;
+    public isDownload = true;
+    public isUpload = true;
+    public isList = true;
+    public isDelete = true;
+    public areBucketNamesFetching = true;
 
     /**
      * Lifecycle hook after initial render.
@@ -113,7 +114,6 @@ export default class PermissionsStep extends Vue {
         if (!this.$route.params.key) {
             if (this.isOnboardingTour) {
                 await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
-
                 return;
             }
 
@@ -142,7 +142,9 @@ export default class PermissionsStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
-        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+        this.isOnboardingTour ?
+            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path) :
+            this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
     }
 
     /**
@@ -183,7 +185,6 @@ export default class PermissionsStep extends Vue {
                     restrictedKey: this.restrictedKey,
                 },
             });
-
             return;
         }
 
@@ -223,7 +224,6 @@ export default class PermissionsStep extends Vue {
                     restrictedKey: this.restrictedKey,
                 },
             });
-
             return;
         }
 
@@ -256,17 +256,17 @@ export default class PermissionsStep extends Vue {
     }
 
     /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
-    }
-
-    /**
      * Returns selected bucket names.
      */
     public get selectedBucketNames(): string[] {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**

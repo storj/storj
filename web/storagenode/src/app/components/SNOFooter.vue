@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="footer" v-if="isShown">
+    <div v-if="isShown" class="footer">
         <div class="footer__content-holder">
             <StorjIcon
                 class="footer__content-holder__icon"
@@ -27,7 +27,7 @@
                     Support
                 </a>
             </div>
-         </div>
+        </div>
     </div>
 </template>
 
@@ -38,6 +38,7 @@ import StorjIcon from '@/../static/images/storjIcon.svg';
 
 import { RouteConfig } from '@/app/router';
 
+// @vue/component
 @Component({
     components: {
         StorjIcon,

@@ -4,11 +4,11 @@
 <template>
     <div class="pages-container">
         <span
-            class="pages-container__pages"
             v-for="page in pages"
+            :key="page.index"
+            class="pages-container__pages"
             :class="{'selected': isSelected(page.index)}"
             @click="page.select()"
-            :key="page.index"
         >
             {{ page.index }}
         </span>
@@ -20,6 +20,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { CheckSelected, Page } from '@/app/types/pagination';
 
+// @vue/component
 @Component
 export default class PagesBlock extends Vue {
     @Prop({default: () => []})

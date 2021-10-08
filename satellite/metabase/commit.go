@@ -57,7 +57,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		opts.ZombieDeletionDeadline = &deadline
 	}
 
-	row := db.db.QueryRow(ctx, `
+	row := db.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
@@ -74,7 +74,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 			$4, $5, $6,
 			$7)
 		RETURNING version
-	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.StreamID,
+	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline)
 
@@ -128,7 +128,7 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
 	}
 
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
@@ -139,7 +139,7 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 			$8
 		)
 		RETURNING status, created_at
-	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline).
 		Scan(
@@ -190,7 +190,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		// Verify that object exists and is partial.
 		var value int
-		err = tx.QueryRow(ctx, `
+		err = tx.QueryRowContext(ctx, `
 			SELECT 1
 			FROM objects WHERE
 				project_id   = $1 AND
@@ -199,7 +199,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 				version      = $4 AND
 				stream_id    = $5 AND
 				status       = `+pendingStatus,
-			opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&value)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return Error.New("pending object missing")
@@ -208,7 +208,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 		}
 
 		// Verify that the segment does not exist.
-		err = tx.QueryRow(ctx, `
+		err = tx.QueryRowContext(ctx, `
 			SELECT 1
 			FROM segments WHERE
 				stream_id = $1 AND
@@ -318,7 +318,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		redundancyScheme{&opts.Redundancy},
 		aliasPieces,
-		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
@@ -400,7 +400,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
-		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
@@ -475,7 +475,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
-		err = tx.QueryRow(ctx, `
+		err = tx.QueryRowContext(ctx, `
 			UPDATE objects SET
 				status =`+committedStatus+`,
 				segment_count = $6,
@@ -505,7 +505,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			RETURNING
 				created_at, expires_at,
 				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 			len(segments),
 			opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
 			totalPlainSize,
@@ -551,64 +551,4 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
 
 	return object, nil
-}
-
-// UpdateObjectMetadata contains arguments necessary for updating an object metadata.
-type UpdateObjectMetadata struct {
-	ObjectStream
-
-	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadataEncryptedKey []byte
-}
-
-// UpdateObjectMetadata updates an object metadata.
-func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadata) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.ObjectStream.Verify(); err != nil {
-		return err
-	}
-
-	if opts.ObjectStream.Version <= 0 {
-		return ErrInvalidRequest.New("Version invalid: %v", opts.Version)
-	}
-
-	// TODO So the issue is that during a multipart upload of an object,
-	// uplink can update object metadata. If we add the arguments EncryptedMetadata
-	// to CommitObject, they will need to account for them being optional.
-	// Leading to scenarios where uplink calls update metadata, but wants to clear them
-	// during commit object.
-	result, err := db.db.ExecContext(ctx, `
-		UPDATE objects SET
-			encrypted_metadata_nonce         = $6,
-			encrypted_metadata               = $7,
-			encrypted_metadata_encrypted_key = $8
-		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			version      = $4 AND
-			stream_id    = $5 AND
-			status       = `+committedStatus,
-		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
-		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
-	if err != nil {
-		return Error.New("unable to update object metadata: %w", err)
-	}
-
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return Error.New("failed to get rows affected: %w", err)
-	}
-
-	if affected == 0 {
-		return storj.ErrObjectNotFound.Wrap(
-			Error.New("object with specified version and committed status is missing"),
-		)
-	}
-
-	mon.Meter("object_update_metadata").Mark(1)
-
-	return nil
 }

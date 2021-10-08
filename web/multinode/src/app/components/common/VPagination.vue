@@ -6,7 +6,7 @@
         <div class="pagination-container__pages">
             <div class="pagination-container__button" @click="prevPage">
                 <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9.80078 9.2625L15.5258 15L9.80078 20.7375L11.5633 22.5L19.0633 15L11.5633 7.5L9.80078 9.2625Z" fill="#586474"/>
+                    <path d="M9.80078 9.2625L15.5258 15L9.80078 20.7375L11.5633 22.5L19.0633 15L11.5633 7.5L9.80078 9.2625Z" fill="#586474" />
                 </svg>
             </div>
             <div class="pagination-container__items">
@@ -14,12 +14,12 @@
                     :pages="firstBlockPages"
                     :is-selected="isSelected"
                 />
-                <span class="pages-divider" v-if="isFirstDotsShown">...</span>
+                <span v-if="isFirstDotsShown" class="pages-divider">...</span>
                 <PagesBlock
                     :pages="middleBlockPages"
                     :is-selected="isSelected"
                 />
-                <span class="pages-divider" v-if="isSecondDotsShown">...</span>
+                <span v-if="isSecondDotsShown" class="pages-divider">...</span>
                 <PagesBlock
                     :pages="lastBlockPages"
                     :is-selected="isSelected"
@@ -27,7 +27,7 @@
             </div>
             <div class="pagination-container__button" @click="nextPage">
                 <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9.80078 9.2625L15.5258 15L9.80078 20.7375L11.5633 22.5L19.0633 15L11.5633 7.5L9.80078 9.2625Z" fill="#586474"/>
+                    <path d="M9.80078 9.2625L15.5258 15L9.80078 20.7375L11.5633 22.5L19.0633 15L11.5633 7.5L9.80078 9.2625Z" fill="#586474" />
                 </svg>
             </div>
         </div>
@@ -41,24 +41,25 @@ import PagesBlock from '@/app/components/common/PagesBlock.vue';
 
 import { OnPageClickCallback, Page } from '@/app/types/pagination';
 
+// @vue/component
 @Component({
     components: {
         PagesBlock,
     },
 })
 export default class VPagination extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalPageCount: number;
-    @Prop({default: 1})
+    @Prop({ default: 1 })
     private preselectedCurrentPageNumber: number;
-    @Prop({default: () => new Promise(() => false)})
+    @Prop({ default: () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 
     // TODO: place to config.
     private readonly MAX_PAGES_PER_BLOCK: number = 3;
     private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
 
-    private currentPageNumber: number = 1;
+    private currentPageNumber = 1;
     public isLoading = false;
     public pagesArray: Page[] = [];
     public firstBlockPages: Page[] = [];
@@ -68,7 +69,7 @@ export default class VPagination extends Vue {
     /**
      * Component initialization.
      */
-    public mounted() {
+    public mounted(): void {
         this.populatePages();
         this.currentPageNumber = this.preselectedCurrentPageNumber;
     }
@@ -113,7 +114,7 @@ export default class VPagination extends Vue {
      * Method after total page count change.
      */
     @Watch('totalPageCount')
-    public onPageCountChange(val: number, oldVal: number) {
+    public onPageCountChange(_val: number, _oldVal: number): void {
         this.resetPageIndex();
     }
 

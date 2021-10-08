@@ -74,9 +74,8 @@ func Open(ctx context.Context, log *zap.Logger, connstr string) (*DB, error) {
 	return db, nil
 }
 
-// InternalImplementation returns *metabase.DB.
-// TODO: remove.
-func (db *DB) InternalImplementation() interface{} { return db }
+// Implementation rturns the database implementation.
+func (db *DB) Implementation() dbutil.Implementation { return db.impl }
 
 // UnderlyingTagSQL returns *tagsql.DB.
 // TODO: remove.
@@ -134,11 +133,11 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 
 	case dbutil.Cockroach:
 		var dbName string
-		if err := db.db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+		if err := db.db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
 			return errs.New("error querying current database: %+v", err)
 		}
 
-		_, err := db.db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+		_, err := db.db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
 			pgutil.QuoteIdentifier(dbName)))
 		if err != nil {
 			return errs.Wrap(err)
@@ -301,6 +300,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     12,
 				Action: migrate.SQL{
 					`ALTER TABLE segments ADD COLUMN expires_at TIMESTAMPTZ`,
+				},
+			},
+			{
+				DB:          &db.db,
+				Description: "add NOT NULL constraint to created_at column in segments table",
+				Version:     13,
+				Action: migrate.SQL{
+					`ALTER TABLE segments ALTER COLUMN created_at SET NOT NULL`,
 				},
 			},
 		},

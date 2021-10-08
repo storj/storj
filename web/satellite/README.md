@@ -62,7 +62,6 @@ docker run -p 8080:8080 storjlabs/satellite-ui:latest
 - [fonts](./fonts "fonts") folder: contains Inter font sets in ttf format.
 - [images](./images "images") folder: contains illustrations.
 - [reports](./reports "reports") folder: contains usage report table template.
-- [resetPassword](./resetPassword "resetPassword") folder: contains page template for password reset and success page that appears after.
 ### tests   
 - [unit](./unit "unit") folder: contains project unit tests.
 ### Configuration files

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -31,6 +32,7 @@ const (
 	employeeCount  = "0"
 	workingOn      = "workingOn"
 	isProfessional = true
+	mfaSecretKey   = "mfaSecretKey"
 )
 
 func TestUserRepository(t *testing.T) {
@@ -116,6 +118,47 @@ func TestUserEmailCase(t *testing.T) {
 	})
 }
 
+func TestUserUpdatePaidTier(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		email := "testemail@mail.test"
+		fullName := "first name last name"
+		shortName := "short name"
+		password := "password"
+		newUser := &console.User{
+			ID:           testrand.UUID(),
+			FullName:     fullName,
+			ShortName:    shortName,
+			Email:        email,
+			Status:       console.Active,
+			PasswordHash: []byte(password),
+		}
+
+		createdUser, err := db.Console().Users().Insert(ctx, newUser)
+		require.NoError(t, err)
+		require.Equal(t, email, createdUser.Email)
+		require.Equal(t, fullName, createdUser.FullName)
+		require.Equal(t, shortName, createdUser.ShortName)
+		require.False(t, createdUser.PaidTier)
+
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true)
+		require.NoError(t, err)
+
+		retrievedUser, err := db.Console().Users().Get(ctx, createdUser.ID)
+		require.NoError(t, err)
+		require.Equal(t, email, retrievedUser.Email)
+		require.Equal(t, fullName, retrievedUser.FullName)
+		require.Equal(t, shortName, retrievedUser.ShortName)
+		require.True(t, retrievedUser.PaidTier)
+
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false)
+		require.NoError(t, err)
+
+		retrievedUser, err = db.Console().Users().Get(ctx, createdUser.ID)
+		require.NoError(t, err)
+		require.False(t, retrievedUser.PaidTier)
+	})
+}
+
 func testUsers(ctx context.Context, t *testing.T, repository console.Users, user *console.User) {
 
 	t.Run("User insertion success", func(t *testing.T) {
@@ -135,6 +178,10 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, name, userByEmail.FullName)
 		assert.Equal(t, lastName, userByEmail.ShortName)
 		assert.Equal(t, user.PartnerID, userByEmail.PartnerID)
+		assert.False(t, user.PaidTier)
+		assert.False(t, user.MFAEnabled)
+		assert.Empty(t, user.MFASecretKey)
+		assert.Empty(t, user.MFARecoveryCodes)
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByEmail.WorkingOn)
 			assert.Equal(t, position, userByEmail.Position)
@@ -152,6 +199,9 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, name, userByID.FullName)
 		assert.Equal(t, lastName, userByID.ShortName)
 		assert.Equal(t, user.PartnerID, userByID.PartnerID)
+		assert.False(t, user.MFAEnabled)
+		assert.Empty(t, user.MFASecretKey)
+		assert.Empty(t, user.MFARecoveryCodes)
 
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByID.WorkingOn)
@@ -183,25 +233,33 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		oldUser, err := repository.GetByEmail(ctx, email)
 		assert.NoError(t, err)
 
-		newUser := &console.User{
-			ID:           oldUser.ID,
-			FullName:     newName,
-			ShortName:    newLastName,
-			Email:        newEmail,
-			Status:       console.Active,
-			PasswordHash: []byte(newPass),
+		newUserInfo := &console.User{
+			ID:               oldUser.ID,
+			FullName:         newName,
+			ShortName:        newLastName,
+			Email:            newEmail,
+			Status:           console.Active,
+			PaidTier:         true,
+			MFAEnabled:       true,
+			MFASecretKey:     mfaSecretKey,
+			MFARecoveryCodes: []string{"1", "2"},
+			PasswordHash:     []byte(newPass),
 		}
 
-		err = repository.Update(ctx, newUser)
+		err = repository.Update(ctx, newUserInfo)
 		assert.NoError(t, err)
 
-		newUser, err = repository.Get(ctx, oldUser.ID)
+		newUser, err := repository.Get(ctx, oldUser.ID)
 		assert.NoError(t, err)
 		assert.Equal(t, oldUser.ID, newUser.ID)
 		assert.Equal(t, newName, newUser.FullName)
 		assert.Equal(t, newLastName, newUser.ShortName)
 		assert.Equal(t, newEmail, newUser.Email)
 		assert.Equal(t, []byte(newPass), newUser.PasswordHash)
+		assert.True(t, newUser.PaidTier)
+		assert.True(t, newUser.MFAEnabled)
+		assert.Equal(t, mfaSecretKey, newUser.MFASecretKey)
+		assert.Equal(t, newUserInfo.MFARecoveryCodes, newUser.MFARecoveryCodes)
 		// PartnerID should not change
 		assert.Equal(t, user.PartnerID, newUser.PartnerID)
 		assert.Equal(t, oldUser.CreatedAt, newUser.CreatedAt)

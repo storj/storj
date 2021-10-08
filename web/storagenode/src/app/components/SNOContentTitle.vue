@@ -3,10 +3,10 @@
 
 <template>
     <div class="title-area">
-        <div class="title-area__node-id-container" v-clipboard="this.nodeId">
+        <div v-clipboard="nodeId" class="title-area__node-id-container">
             <b class="title-area__node-id-container__title">Node ID</b>
             <div class="title-area__node-id-container__right-area">
-                <p class="title-area__node-id-container__id">{{ this.nodeId }}</p>
+                <p class="title-area__node-id-container__id">{{ nodeId }}</p>
                 <CopyIcon />
             </div>
         </div>
@@ -17,17 +17,17 @@
                 <p v-if="online" class="title-area__info-container__info-item__content online-status">Online</p>
                 <p v-else class="title-area__info-container__info-item__content offline-status">Offline</p>
             </div>
-            <div class="title-area-divider"></div>
+            <div class="title-area-divider" />
             <div class="title-area__info-container__info-item">
                 <p class="title-area__info-container__info-item__title">UPTIME</p>
                 <p class="title-area__info-container__info-item__content">{{ uptime }}</p>
             </div>
-            <div class="title-area-divider"></div>
+            <div class="title-area-divider" />
             <div class="title-area__info-container__info-item">
                 <p class="title-area__info-container__info-item__title">LAST CONTACT</p>
                 <p class="title-area__info-container__info-item__content">{{ lastPinged }} ago</p>
             </div>
-            <div class="title-area-divider"></div>
+            <div class="title-area-divider" />
             <VInfo
                 v-if="info.isLastVersion"
                 text="Running the minimal allowed version:"
@@ -48,7 +48,7 @@
                     <p class="title-area__info-container__info-item__content">{{ info.version }}</p>
                 </div>
             </VInfo>
-            <div class="title-area-divider"></div>
+            <div class="title-area-divider" />
             <div class="title-area__info-container__info-item">
                 <p class="title-area__info-container__info-item__title">PERIOD</p>
                 <p class="title-area__info-container__info-item__content">{{ currentMonth }}</p>
@@ -92,6 +92,7 @@ class NodeInfo {
     }
 }
 
+// @vue/component
 @Component ({
     components: {
         VInfo,
@@ -256,7 +257,7 @@ export default class SNOContentTitle extends Vue {
         color: #ce0000;
     }
 
-    /deep/ .info__message-box {
+    ::v-deep .info__message-box {
         background-image: var(--info-image-arrow-left-path);
         bottom: 100%;
         left: 220%;

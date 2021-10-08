@@ -56,7 +56,7 @@ func TestReverifySuccess(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -72,7 +72,7 @@ func TestReverifySuccess(t *testing.T) {
 		pieces := segment.Pieces
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].Number))
@@ -85,7 +85,8 @@ func TestReverifySuccess(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -134,7 +135,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -150,7 +151,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		pieces := segment.Pieces
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].Number))
@@ -163,7 +164,8 @@ func TestReverifyFailMissingShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -219,7 +221,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -239,7 +241,8 @@ func TestReverifyFailBadData(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -290,7 +293,7 @@ func TestReverifyOffline(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -310,7 +313,8 @@ func TestReverifyOffline(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -363,7 +367,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -390,7 +394,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 
 		verifier := audit.NewVerifier(
 			satellite.Log.Named("verifier"),
-			satellite.Metainfo.Metabase,
+			satellite.Metabase.DB,
 			dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
@@ -410,7 +414,8 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -464,7 +469,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -481,7 +486,8 @@ func TestReverifyDeletedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -553,7 +559,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -570,7 +576,8 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -580,7 +587,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		// remove a piece from the file (a piece that the contained node isn't holding)
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
-			err = satellite.Metainfo.Metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+			err = satellite.Metabase.DB.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
 				StreamID:      queueSegment.StreamID,
 				Position:      queueSegment.Position,
 				OldPieces:     segment.Pieces,
@@ -649,7 +656,7 @@ func TestReverifyReplacedSegment(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -666,7 +673,8 @@ func TestReverifyReplacedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -749,13 +757,13 @@ func TestReverifyDifferentShare(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, queueSegment1, queueSegment2)
 
-		segment1, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment1, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment1.StreamID,
 			Position: queueSegment1.Position,
 		})
 		require.NoError(t, err)
 
-		segment2, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment2, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment2.StreamID,
 			Position: queueSegment2.Position,
 		})
@@ -788,7 +796,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 		shareSize := segment1.Redundancy.ShareSize
 		rootPieceID := segment1.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment1.Bucket(), selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(selectedPieceNum))
@@ -801,7 +809,8 @@ func TestReverifyDifferentShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment1.SegmentLocation,
+			StreamID:          queueSegment1.StreamID,
+			Position:          queueSegment1.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -903,17 +912,17 @@ func TestReverifyExpired2(t *testing.T) {
 		require.NotEqual(t, queueSegment1, queueSegment2)
 
 		// make sure queueSegment1 is the one with the expiration date
-		if queueSegment1.ExpirationDate.IsZero() {
+		if queueSegment1.ExpiresAt == nil {
 			queueSegment1, queueSegment2 = queueSegment2, queueSegment1
 		}
 
-		segment1, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment1, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment1.StreamID,
 			Position: queueSegment1.Position,
 		})
 		require.NoError(t, err)
 
-		segment2, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment2, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment2.StreamID,
 			Position: queueSegment2.Position,
 		})
@@ -946,7 +955,7 @@ func TestReverifyExpired2(t *testing.T) {
 		shareSize := segment1.Redundancy.ShareSize
 		rootPieceID := segment1.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment1.Bucket(), selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(selectedPieceNum))
@@ -959,7 +968,8 @@ func TestReverifyExpired2(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment1.SegmentLocation,
+			StreamID:          queueSegment1.StreamID,
+			Position:          queueSegment1.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1023,7 +1033,7 @@ func TestReverifySlowDownload(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -1041,7 +1051,7 @@ func TestReverifySlowDownload(t *testing.T) {
 		shareSize := segment.Redundancy.ShareSize
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), slowNode, slowPiece.Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, slowNode, slowPiece.Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(slowPiece.Number))
@@ -1054,7 +1064,8 @@ func TestReverifySlowDownload(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1111,7 +1122,7 @@ func TestReverifyUnknownError(t *testing.T) {
 		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -1129,7 +1140,7 @@ func TestReverifyUnknownError(t *testing.T) {
 		shareSize := segment.Redundancy.ShareSize
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), badNode, badPiece.Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, badNode, badPiece.Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(badPiece.Number))
@@ -1142,7 +1153,8 @@ func TestReverifyUnknownError(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1166,5 +1178,125 @@ func TestReverifyUnknownError(t *testing.T) {
 		// make sure that pending audit is removed
 		_, err = containment.Get(ctx, pending.NodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
+	})
+}
+
+func TestMaxReverifyCount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
+			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
+					config.Audit.MinBytesPerSecond = 100 * memory.KiB
+					config.Audit.MinDownloadTimeout = 1 * time.Second
+				},
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+
+		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
+		queueSegment, err := queue.Next()
+		require.NoError(t, err)
+
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
+		require.NoError(t, err)
+
+		slowPiece := segment.Pieces[0]
+		slowNode := slowPiece.StorageNode
+
+		randomIndex, err := audit.GetRandomStripe(ctx, segment)
+		require.NoError(t, err)
+
+		orders := satellite.Orders.Service
+		containment := satellite.DB.Containment()
+
+		shareSize := segment.Redundancy.ShareSize
+		rootPieceID := segment.RootPieceID
+
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, slowNode, slowPiece.Number, rootPieceID, shareSize)
+		require.NoError(t, err)
+
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(slowPiece.Number))
+		require.NoError(t, err)
+
+		pending := &audit.PendingAudit{
+			NodeID:            slowNode,
+			PieceID:           rootPieceID,
+			StripeIndex:       randomIndex,
+			ShareSize:         shareSize,
+			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
+			ReverifyCount:     0,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
+		}
+
+		err = containment.IncrementPending(ctx, pending)
+		require.NoError(t, err)
+
+		node := planet.FindNode(slowNode)
+		slowNodeDB := node.DB.(*testblobs.SlowDB)
+		// make downloads on storage node slower than the timeout on the satellite for downloading shares
+		delay := 3 * time.Second
+		slowNodeDB.SetLatency(delay)
+
+		oldRep, err := satellite.Reputation.Service.Get(ctx, slowNode)
+		require.NoError(t, err)
+
+		// give node enough timeouts to reach max
+		for i := 0; i < planet.Satellites[0].Config.Audit.MaxReverifyCount; i++ {
+			report, err := audits.Verifier.Reverify(ctx, queueSegment)
+			require.NoError(t, err)
+			require.Len(t, report.Successes, 0)
+			require.Len(t, report.Fails, 0)
+			require.Len(t, report.Offlines, 0)
+			require.Len(t, report.PendingAudits, 1)
+			require.Len(t, report.Unknown, 0)
+			require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+
+			_, err = audits.Reporter.RecordAudits(ctx, report)
+			require.NoError(t, err)
+
+			_, err = containment.Get(ctx, slowNode)
+			require.NoError(t, err)
+		}
+
+		// final timeout should trigger failure and removal from containment
+		report, err := audits.Verifier.Reverify(ctx, queueSegment)
+		require.NoError(t, err)
+		require.Len(t, report.Successes, 0)
+		require.Len(t, report.Fails, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 1)
+		require.Len(t, report.Unknown, 0)
+		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+
+		_, err = audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
+
+		_, err = containment.Get(ctx, slowNode)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
+
+		newRep, err := satellite.Reputation.Service.Get(ctx, slowNode)
+		require.NoError(t, err)
+		require.Less(t, oldRep.AuditReputationBeta, newRep.AuditReputationBeta)
 	})
 }

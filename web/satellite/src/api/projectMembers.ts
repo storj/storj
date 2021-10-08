@@ -111,7 +111,7 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
      *
      * @param projectMembers anonymous object from json
      */
-    private getProjectMembersList(projectMembers: any): ProjectMembersPage {
+    private getProjectMembersList(projectMembers: any): ProjectMembersPage { // eslint-disable-line @typescript-eslint/no-explicit-any
         if (!projectMembers) {
             return new ProjectMembersPage();
         }

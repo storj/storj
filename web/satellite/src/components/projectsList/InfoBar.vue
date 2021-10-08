@@ -6,11 +6,11 @@
         <div class="projects-info-bar__info">
             <p class="projects-info-bar__info__message">
                 You have used
-                <VLoader v-if="isDataFetching" class="pr-info-loader" is-white="true" width="15px" height="15px"/>
-                <span class="projects-info-bar__info__message__value" v-else>{{ projectsCount }}</span>
+                <VLoader v-if="isDataFetching" class="pr-info-loader" is-white="true" width="15px" height="15px" />
+                <span v-else class="projects-info-bar__info__message__value">{{ projectsCount }}</span>
                 of your
-                <VLoader v-if="isDataFetching" class="pr-info-loader" is-white="true" width="15px" height="15px"/>
-                <span class="projects-info-bar__info__message__value" v-else>{{ projectLimit }}</span>
+                <VLoader v-if="isDataFetching" class="pr-info-loader" is-white="true" width="15px" height="15px" />
+                <span v-else class="projects-info-bar__info__message__value">{{ projectLimit }}</span>
                 available projects.
             </p>
         </div>
@@ -36,13 +36,14 @@ import { MetaUtils } from '@/utils/meta';
 /**
  * VBanner is common banner for needed pages
  */
+// @vue/component
 @Component({
     components: {
         VLoader,
     },
 })
 export default class InfoBar extends Vue {
-    public isDataFetching: boolean = true;
+    public isDataFetching = true;
 
     /**
      * Lifecycle hook after initial render.

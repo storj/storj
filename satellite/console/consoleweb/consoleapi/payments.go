@@ -5,6 +5,7 @@ package consoleapi
 
 import (
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -15,7 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
 
@@ -297,8 +297,8 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 
 	responseData.Address = tx.Address
 	responseData.Amount = float64(requestData.Amount) / 100
-	responseData.TokenAmount = tx.Amount.String()
-	responseData.Rate = tx.Rate.Text('f', 8)
+	responseData.TokenAmount = tx.Amount.AsDecimal().String()
+	responseData.Rate = tx.Rate.StringFixed(8)
 	responseData.Status = tx.Status.String()
 	responseData.Link = tx.Link
 	responseData.ExpiresAt = tx.CreatedAt.Add(tx.Timeout)
@@ -309,52 +309,56 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// PaywallEnabled returns is paywall enabled status.
-func (p *Payments) PaywallEnabled(w http.ResponseWriter, r *http.Request) {
+// ApplyCouponCode applies a coupon code to the user's account.
+func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	vars := mux.Vars(r)
-	reqID := vars["userId"]
-
-	if reqID == "" {
-		p.serveJSONError(w, http.StatusBadRequest, err)
+	// limit the size of the body to prevent excessive memory usage
+	bodyBytes, err := ioutil.ReadAll(io.LimitReader(r.Body, 1*1024*1024))
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
+	couponCode := string(bodyBytes)
 
-	userID, err := uuid.FromString(reqID)
+	coupon, err := p.service.Payments().ApplyCouponCode(ctx, couponCode)
 	if err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	paywallEnabled := p.service.PaywallEnabled(userID)
+	if err = json.NewEncoder(w).Encode(coupon); err != nil {
+		p.log.Error("failed to encode coupon", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
 
-	err = json.NewEncoder(w).Encode(paywallEnabled)
+// GetCoupon returns the coupon applied to the user's account.
+func (p *Payments) GetCoupon(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	coupon, err := p.service.Payments().GetCoupon(ctx)
 	if err != nil {
-		p.log.Error("failed to write json paywall enabled response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(coupon); err != nil {
+		p.log.Error("failed to encode coupon", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
-	if status == http.StatusInternalServerError {
-		p.log.Error("returning error to client", zap.Int("code", status), zap.Error(err))
-	} else {
-		p.log.Debug("returning error to client", zap.Int("code", status), zap.Error(err))
-	}
-
-	w.WriteHeader(status)
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		p.log.Error("failed to write json error response", zap.Error(ErrPaymentsAPI.Wrap(err)))
-	}
+	serveJSONError(p.log, w, status, err)
 }

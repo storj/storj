@@ -19,6 +19,30 @@ export interface UsersApi {
      * @throws Error
      */
     get(): Promise<User>;
+    /**
+     * Enable user's MFA.
+     *
+     * @throws Error
+     */
+    enableUserMFA(passcode: string): Promise<void>;
+    /**
+     * Disable user's MFA.
+     *
+     * @throws Error
+     */
+    disableUserMFA(passcode: string, recoveryCode: string): Promise<void>;
+    /**
+     * Generate user's MFA secret.
+     *
+     * @throws Error
+     */
+    generateUserMFASecret(): Promise<string>;
+    /**
+     * Generate user's MFA recovery codes.
+     *
+     * @throws Error
+     */
+    generateUserMFARecoveryCodes(): Promise<string[]>;
 }
 
 /**
@@ -34,11 +58,14 @@ export class User {
         public partnerId: string = '',
         public password: string = '',
         public projectLimit: number = 0,
+        public paidTier: boolean = false,
+        public isMFAEnabled: boolean = false,
         public isProfessional: boolean = false,
         public position: string = '',
         public companyName: string = '',
         public employeeCount: string = '',
         public haveSalesContact: boolean = false,
+        public mfaRecoveryCodeCount: number = 0,
     ) {}
 
     public getFullName(): string {
@@ -55,15 +82,25 @@ export class UpdatedUser {
         public shortName: string = '',
     ) {}
 
-    public setFullName(value: string) {
+    public setFullName(value: string): void {
         this.fullName = value.trim();
     }
 
-    public setShortName(value: string) {
+    public setShortName(value: string): void {
         this.shortName = value.trim();
     }
 
     public isValid(): boolean {
         return !!this.fullName;
     }
+}
+
+/**
+ * DisableMFARequest represents a request to disable multi-factor authentication.
+ */
+export class DisableMFARequest {
+    public constructor(
+        public passcode: string = '',
+        public recoveryCode: string = '',
+    ) {}
 }

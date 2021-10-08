@@ -457,6 +457,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// Create gateways for each satellite
 	for i, satellite := range satellites {
+		if flags.NoGateways {
+			break
+		}
 		satellite := satellite
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),

@@ -17,7 +17,6 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -347,36 +346,6 @@ func (step GetStreamPieceCountByNodeID) Check(ctx *testcontext.Context, t testin
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, result)
-	require.Zero(t, diff)
-}
-
-// IterateLoopStreams is for testing metabase.IterateLoopStreams.
-type IterateLoopStreams struct {
-	Opts     metabase.IterateLoopStreams
-	Result   map[uuid.UUID][]metabase.LoopSegmentEntry
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step IterateLoopStreams) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result := make(map[uuid.UUID][]metabase.LoopSegmentEntry)
-	err := db.IterateLoopStreams(ctx, step.Opts,
-		func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error {
-			var segments []metabase.LoopSegmentEntry
-			for {
-				var segment metabase.LoopSegmentEntry
-				if !next(ctx, &segment) {
-					break
-				}
-				segments = append(segments, segment)
-			}
-			result[streamID] = segments
-			return nil
-		})
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }
 
@@ -720,4 +689,53 @@ func (step DeletePart) Check(ctx *testcontext.Context, t testing.TB, db *metabas
 	sortDeletedSegments(result)
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
+}
+
+// GetTableStats is for testing metabase.GetTableStats.
+type GetTableStats struct {
+	Opts     metabase.GetTableStats
+	Result   metabase.TableStats
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetTableStats) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.TableStats {
+	result, err := db.GetTableStats(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result)
+	require.Zero(t, diff)
+
+	return result
+}
+
+// BeginMoveObject is for testing metabase.BeginMoveObject.
+type BeginMoveObject struct {
+	Opts     metabase.BeginMoveObject
+	Result   metabase.BeginMoveObjectResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step BeginMoveObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.BeginMoveObject(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result)
+	require.Zero(t, diff)
+}
+
+// FinishMoveObject is for testing metabase.FinishMoveObject.
+type FinishMoveObject struct {
+	Opts     metabase.FinishMoveObject
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step FinishMoveObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.FinishMoveObject(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
 }

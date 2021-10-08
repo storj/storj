@@ -14,15 +14,15 @@ export class ProjectMembersApiMock implements ProjectMembersApi {
         this.page = page;
     }
 
-    add(projectId: string, emails: string[]): Promise<void> {
+    add(_projectId: string, _emails: string[]): Promise<void> {
         throw new Error('not implemented');
     }
 
-    delete(projectId: string, emails: string[]): Promise<void> {
+    delete(_projectId: string, _emails: string[]): Promise<void> {
         throw new Error('not implemented');
     }
 
-    get(projectId: string, cursor: ProjectMemberCursor): Promise<ProjectMembersPage> {
+    get(_projectId: string, _cursor: ProjectMemberCursor): Promise<ProjectMembersPage> {
         return Promise.resolve(this.page);
     }
 }

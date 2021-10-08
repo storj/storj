@@ -5,14 +5,14 @@
     <div class="navigation-area">
         <storj-logo class="navigation-area__logo" />
         <router-link
-            :aria-label="navItem.name"
-            class="navigation-area__item-container"
             v-for="navItem in navigation"
             :key="navItem.name"
+            :aria-label="navItem.name"
+            class="navigation-area__item-container"
             :to="navItem.path"
         >
             <div class="navigation-area__item-container__link">
-                <component :is="navItem.icon"></component>
+                <component :is="navItem.icon" />
                 <p class="navigation-area__item-container__link__title">{{ navItem.name }}</p>
             </div>
         </router-link>
@@ -20,7 +20,8 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component } from 'vue-property-decorator';
+import Vue, {VueConstructor} from 'vue';
 
 import MyNodesIcon from '@/../static/images/icons/navigation/nodes.svg';
 import NotificationIcon from '@/../static/images/icons/navigation/notifications.svg';
@@ -33,12 +34,13 @@ import { Config as RouterConfig } from '@/app/router';
 
 export class NavigationLink {
     constructor(
-        public name: string = '',
-        public path: string = '',
-        public icon: Vue = new Vue(),
+        public name: string,
+        public path: string,
+        public icon: VueConstructor<Vue>,
     ) {}
 }
 
+// @vue/component
 @Component({
     components: {
         StorjLogo,
@@ -58,8 +60,6 @@ export default class NavigationArea extends Vue {
         new NavigationLink(RouterConfig.Wallets.name, RouterConfig.Wallets.with(RouterConfig.WalletsSummary).path, PayoutsIcon),
         new NavigationLink(RouterConfig.Payouts.name, RouterConfig.Payouts.path, PayoutsIcon),
         new NavigationLink(RouterConfig.Bandwidth.name, RouterConfig.Bandwidth.path, TrafficIcon),
-        new NavigationLink('Reputation', '/reputation', ReputationIcon),
-        new NavigationLink('Notifications', '/notifications', NotificationIcon),
     ];
 }
 </script>

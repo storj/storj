@@ -3,7 +3,7 @@
 
 <template>
     <div class="gateway" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="gateway__back-icon" @click="onBackClick"/>
+        <BackIcon class="gateway__back-icon" @click="onBackClick" />
         <h1 class="gateway__title">S3 Gateway</h1>
         <div class="gateway__container">
             <h3 class="gateway__container__title">
@@ -22,13 +22,18 @@
                 :on-press="onGenerateCredentialsClick"
                 :is-disabled="isLoading"
             />
-            <div class="gateway__container__keys-area" v-else>
+            <div v-else class="gateway__container__keys-area">
                 <div class="gateway__container__keys-area__label-area">
                     <h3 class="gateway__container__keys-area__label-area__label">Access Key</h3>
-                    <VInfo
-                        class="gateway__container__keys-area__label-area__info-button"
-                        bold-text="The access key ID uniquely identifies your account.">
-                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image"/>
+                    <VInfo class="gateway__container__keys-area__label-area__info-button">
+                        <template #icon>
+                            <InfoIcon />
+                        </template>
+                        <template #message>
+                            <p class="gateway__container__keys-area__label-area__info-button__message">
+                                The access key ID uniquely identifies your account.
+                            </p>
+                        </template>
                     </VInfo>
                 </div>
                 <div class="gateway__container__keys-area__key">
@@ -43,10 +48,15 @@
                 </div>
                 <div class="gateway__container__keys-area__label-area">
                     <h3 class="gateway__container__keys-area__label-area__label">Secret Key</h3>
-                    <VInfo
-                        class="gateway__container__keys-area__label-area__info-button"
-                        bold-text="Secret access keys are—as the name implies—secrets, like your password.">
-                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image"/>
+                    <VInfo class="gateway__container__keys-area__label-area__info-button">
+                        <template #icon>
+                            <InfoIcon />
+                        </template>
+                        <template #message>
+                            <p class="gateway__container__keys-area__label-area__info-button__message">
+                                Secret access keys are—as the name implies—secrets, like your password.
+                            </p>
+                        </template>
                     </VInfo>
                 </div>
                 <div class="gateway__container__keys-area__key">
@@ -61,10 +71,15 @@
                 </div>
                 <div class="gateway__container__keys-area__label-area">
                     <h3 class="gateway__container__keys-area__label-area__label">End Point</h3>
-                    <VInfo
-                        class="gateway__container__keys-area__label-area__info-button"
-                        bold-text="The service to which you want to establish the connection.">
-                        <InfoIcon class="gateway__container__keys-area__label-area__info-button__image"/>
+                    <VInfo class="gateway__container__keys-area__label-area__info-button">
+                        <template #icon>
+                            <InfoIcon />
+                        </template>
+                        <template #message>
+                            <p class="gateway__container__keys-area__label-area__info-button__message">
+                                The service to which you want to establish the connection.
+                            </p>
+                        </template>
                     </VInfo>
                 </div>
                 <div class="gateway__container__keys-area__key">
@@ -97,9 +112,6 @@ import VInfo from '@/components/common/VInfo.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import InfoIcon from '@/../static/images/accessGrants/info.svg';
-import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -107,25 +119,23 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { GatewayCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
+// @vue/component
 @Component({
     components: {
-        BackIcon,
-        WarningIcon,
         VButton,
-        ExpandIcon,
-        HideIcon,
         VInfo,
+        BackIcon,
         InfoIcon,
     },
 })
 export default class GatewayStep extends Vue {
-    private key: string = '';
-    private restrictedKey: string = '';
-    private access: string = '';
+    private key = '';
+    private restrictedKey = '';
+    private access = '';
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public areKeysVisible: boolean = false;
-    public isLoading: boolean = false;
+    public areKeysVisible = false;
+    public isLoading = false;
 
     /**
      * Lifecycle hook after initial render.
@@ -135,7 +145,6 @@ export default class GatewayStep extends Vue {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
             if (this.isOnboardingTour) {
                 this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
-
                 return;
             }
 
@@ -190,7 +199,6 @@ export default class GatewayStep extends Vue {
                     restrictedKey: this.restrictedKey,
                 },
             });
-
             return;
         }
 
@@ -237,17 +245,17 @@ export default class GatewayStep extends Vue {
     }
 
     /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
-    }
-
-    /**
      * Returns generated gateway credentials from store.
      */
     public get gatewayCredentials(): GatewayCredentials {
         return this.$store.state.accessGrantsModule.gatewayCredentials;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
@@ -340,6 +348,13 @@ export default class GatewayStep extends Vue {
                                 fill: #2683ff;
                             }
                         }
+
+                        &__message {
+                            color: #586c86;
+                            font-family: 'font_medium', sans-serif;
+                            font-size: 16px;
+                            line-height: 18px;
+                        }
                     }
                 }
 
@@ -375,26 +390,7 @@ export default class GatewayStep extends Vue {
         border-radius: 6px;
     }
 
-    /deep/ .info__message-box {
-        background-image: url('../../../../static/images/accessGrants/MessageBox.png');
-        background-repeat: no-repeat;
-        min-height: 65px;
-        min-width: 200px;
-        width: 200px;
-        bottom: 23px;
-        left: 59px;
-        padding: 10px 20px 20px 20px;
-        word-break: break-word;
-
-        &__text {
-            text-align: left;
-            font-size: 13px;
-            line-height: 17px;
-
-            &__bold-text {
-                font-family: 'font_medium', sans-serif;
-                color: #354049;
-            }
-        }
+    ::v-deep .info__box__message {
+        min-width: 300px;
     }
 </style>

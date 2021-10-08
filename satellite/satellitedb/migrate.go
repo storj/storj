@@ -1429,6 +1429,220 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN egress_dead bigint NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add table for node reputation",
+				Version:     161,
+				Action: migrate.SQL{
+					`CREATE TABLE reputations (
+						id bytea NOT NULL,
+						audit_success_count bigint NOT NULL DEFAULT 0,
+						total_audit_count bigint NOT NULL DEFAULT 0,
+						vetted_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						contained boolean NOT NULL DEFAULT false,
+						disqualified timestamp with time zone,
+						suspended timestamp with time zone,
+						unknown_audit_suspended timestamp with time zone,
+						offline_suspended timestamp with time zone,
+						under_review timestamp with time zone,
+						online_score double precision NOT NULL DEFAULT 1,
+						audit_history bytea NOT NULL,
+						audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add stream_id and position columns to graceful_exit_transfer_queue",
+				Version:     162,
+				Action: migrate.SQL{
+					`CREATE TABLE graceful_exit_segment_transfer_queue (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_num integer NOT NULL,
+						root_piece_id bytea,
+						durability_ratio double precision NOT NULL,
+						queued_at timestamp with time zone NOT NULL,
+						requested_at timestamp with time zone,
+						last_failed_at timestamp with time zone,
+						last_failed_code integer,
+						failed_count integer,
+						finished_at timestamp with time zone,
+						order_limit_send_count integer NOT NULL DEFAULT 0,
+						PRIMARY KEY ( node_id, stream_id, position, piece_num )
+					);`,
+					`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;`,
+					`ALTER TABLE graceful_exit_progress
+						ADD COLUMN uses_segment_transfer_queue boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create segment_pending_audits table, replacement for pending_audits",
+				Version:     163,
+				Action: migrate.SQL{
+					`CREATE TABLE segment_pending_audits (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_id bytea NOT NULL,
+						stripe_index bigint NOT NULL,
+						share_size bigint NOT NULL,
+						expected_share_hash bytea NOT NULL,
+						reverify_count bigint NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add paid_tier column to users table",
+				Version:     164,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN paid_tier bool NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add repair_queue table, replacement for injuredsegments table",
+				Version:     165,
+				Action: migrate.SQL{
+					`CREATE TABLE repair_queue (
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						attempted_at timestamp with time zone,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						segment_health double precision NOT NULL DEFAULT 1,
+						PRIMARY KEY ( stream_id, position )
+					)`,
+					`CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at )`,
+					`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at NULLS FIRST)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add total_bytes table and total_segments_count for bucket_storage_tallies table",
+				Version:     166,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_bytes bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_segments_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add multi-factor authentication columns mfa_enabled, mfa_secret_key, and mfa_recovery_codes into users table",
+				Version:     167,
+				Action: migrate.SQL{
+					`ALTER TABLE users
+						ADD COLUMN mfa_enabled boolean NOT NULL DEFAULT false,
+						ADD COLUMN mfa_secret_key text,
+						ADD COLUMN mfa_recovery_codes text;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "migrate audit score related data from overlaycache into reputations table",
+				Version:     168,
+				Action: migrate.SQL{
+					`TRUNCATE TABLE reputations;`,
+					`INSERT INTO reputations (
+						id,
+						audit_success_count,
+						total_audit_count,
+						vetted_at,
+						created_at,
+						updated_at,
+						contained,
+						disqualified,
+						suspended,
+						unknown_audit_suspended,
+						offline_suspended,
+						under_review,
+						online_score,
+						audit_history,
+						audit_reputation_alpha,
+						audit_reputation_beta,
+						unknown_audit_reputation_alpha,
+						unknown_audit_reputation_beta
+						)
+						SELECT
+							n.id,
+							n.audit_success_count,
+							n.total_audit_count,
+							n.vetted_at,
+							n.created_at,
+							n.updated_at,
+							n.contained,
+							n.disqualified,
+							n.suspended,
+							n.unknown_audit_suspended,
+							n.offline_suspended,
+							n.under_review,
+							n.online_score,
+							audit_histories.history,
+							n.audit_reputation_alpha,
+							n.audit_reputation_beta,
+							n.unknown_audit_reputation_alpha,
+							n.unknown_audit_reputation_beta
+							FROM nodes as n INNER JOIN audit_histories ON n.id = audit_histories.node_id;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop tables after metaloop refactoring",
+				Version:     169,
+				Action: migrate.SQL{
+					`DROP TABLE pending_audits`,
+					`DROP TABLE irreparabledbs`,
+					`DROP TABLE injuredsegments`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop audit_history table",
+				Version:     170,
+				Action: migrate.SQL{
+					`DROP TABLE audit_histories`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop audit and unknown audit reputation alpha and beta from nodes table",
+				Version:     171,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN audit_reputation_alpha;`,
+					`ALTER TABLE nodes DROP COLUMN audit_reputation_beta;`,
+					`ALTER TABLE nodes DROP COLUMN unknown_audit_reputation_alpha;`,
+					`ALTER TABLE nodes DROP COLUMN unknown_audit_reputation_beta;`,
+					`ALTER TABLE nodes DROP COLUMN audit_success_count`,
+					`ALTER TABLE nodes DROP COLUMN online_score`,
+					`ALTER TABLE nodes DROP COLUMN total_audit_count`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add burst_limit to projects table",
+				Version:     172,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN burst_limit int;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop graceful_exit_transfer_queue table",
+				Version:     173,
+				Action: migrate.SQL{
+					`DROP TABLE graceful_exit_transfer_queue`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

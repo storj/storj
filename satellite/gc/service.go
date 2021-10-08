@@ -29,9 +29,8 @@ var (
 
 // Config contains configurable values for garbage collection.
 type Config struct {
-	Interval  time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m" testDefault:"$TESTINTERVAL"`
-	Enabled   bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
-	SkipFirst bool          `help:"if true, skip the first run of GC" releaseDefault:"true" devDefault:"false"`
+	Interval time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m" testDefault:"$TESTINTERVAL"`
+	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
 
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int           `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
@@ -78,14 +77,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	if !service.config.Enabled {
 		return nil
-	}
-
-	if service.config.SkipFirst {
-		// make sure the metainfo loop runs once
-		err = service.segmentLoop.Join(ctx, segmentloop.NullObserver{})
-		if err != nil {
-			return err
-		}
 	}
 
 	// load last piece counts from overlay db

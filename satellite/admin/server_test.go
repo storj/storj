@@ -4,6 +4,7 @@
 package admin_test
 
 import (
+	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -37,7 +38,12 @@ func TestBasic(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Equal(t, http.StatusForbidden, response.StatusCode)
+			require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
+			body, err := ioutil.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
+			require.NoError(t, err)
+			require.Equal(t, `{"error":"Forbidden","detail":""}`, string(body))
 		})
 
 		t.Run("WrongAccess", func(t *testing.T) {
@@ -49,7 +55,12 @@ func TestBasic(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Equal(t, http.StatusForbidden, response.StatusCode)
+			require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
+			body, err := ioutil.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
+			require.NoError(t, err)
+			require.Equal(t, `{"error":"Forbidden","detail":""}`, string(body))
 		})
 
 		t.Run("WithAccess", func(t *testing.T) {
@@ -62,7 +73,12 @@ func TestBasic(t *testing.T) {
 
 			// currently no main page so 404
 			require.Equal(t, http.StatusNotFound, response.StatusCode)
+			require.Equal(t, "text/plain; charset=utf-8", response.Header.Get("Content-Type"))
+
+			body, err := ioutil.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
+			require.NoError(t, err)
+			require.Contains(t, string(body), "not found")
 		})
 	})
 }

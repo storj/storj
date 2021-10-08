@@ -34,6 +34,7 @@ type Stats struct {
 	SuspendedAt          *time.Time
 	OfflineSuspendedAt   *time.Time
 	OfflineUnderReviewAt *time.Time
+	VettedAt             *time.Time
 	AuditHistory         *pb.AuditHistory
 
 	UpdatedAt time.Time

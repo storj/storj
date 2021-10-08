@@ -109,6 +109,10 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodesDB Nodes, config Config
 		dialerClone.DialTimeout = config.DialTimeout
 	}
 
+	if dialerClone.Pool == nil {
+		dialerClone.Pool = rpc.NewDefaultConnectionPool()
+	}
+
 	return &Service{
 		log:                log,
 		config:             config,
@@ -137,8 +141,9 @@ func (service *Service) Run(ctx context.Context) error {
 
 // Close shuts down the service.
 func (service *Service) Close() error {
-	<-service.running.Done()
-	service.combiner.Close()
+	if service.combiner != nil {
+		service.combiner.Close()
+	}
 	return nil
 }
 

@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -21,23 +21,23 @@ import (
 //
 // architecture: Chore
 type Chore struct {
-	log          *zap.Logger
-	Loop         *sync2.Cycle
-	db           DB
-	config       Config
-	overlay      overlay.DB
-	metainfoLoop *metaloop.Service
+	log         *zap.Logger
+	Loop        *sync2.Cycle
+	db          DB
+	config      Config
+	overlay     overlay.DB
+	segmentLoop *segmentloop.Service
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, db DB, overlay overlay.DB, metaLoop *metaloop.Service, config Config) *Chore {
+func NewChore(log *zap.Logger, db DB, overlay overlay.DB, segmentLoop *segmentloop.Service, config Config) *Chore {
 	return &Chore{
-		log:          log,
-		Loop:         sync2.NewCycle(config.ChoreInterval),
-		db:           db,
-		config:       config,
-		overlay:      overlay,
-		metainfoLoop: metaLoop,
+		log:         log,
+		Loop:        sync2.NewCycle(config.ChoreInterval),
+		db:          db,
+		config:      config,
+		overlay:     overlay,
+		segmentLoop: segmentLoop,
 	}
 }
 
@@ -101,9 +101,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		// Populate transfer queue for nodes that have not completed the exit loop yet
 		pathCollector := NewPathCollector(chore.db, exitingNodesLoopIncomplete, chore.log, chore.config.ChoreBatchSize)
-		err = chore.metainfoLoop.Join(ctx, pathCollector)
+		err = chore.segmentLoop.Join(ctx, pathCollector)
 		if err != nil {
-			chore.log.Error("error joining metainfo loop.", zap.Error(err))
+			chore.log.Error("error joining segment loop.", zap.Error(err))
 			return nil
 		}
 

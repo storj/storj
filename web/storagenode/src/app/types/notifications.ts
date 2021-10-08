@@ -1,8 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { NotificationIcon } from '@/app/utils/notificationIcons';
+import Vue, {VueConstructor} from 'vue';
+
 import { Notification, NotificationTypes } from '@/storagenode/notifications/notifications';
+
+import DisqualificationIcon from "@/../static/images/notifications/disqualified.svg";
+import FailIcon from "@/../static/images/notifications/fail.svg";
+import InfoIcon from "@/../static/images/notifications/info.svg";
+import SuspendedIcon from "@/../static/images/notifications/suspended.svg";
 
 /**
  * Holds all notifications module state.
@@ -21,7 +27,6 @@ export class NotificationsState {
  * Describes notification entity.
  */
 export class UINotification {
-    public icon: NotificationIcon;
     public isRead: boolean;
     public id: string;
     public senderId: string;
@@ -33,7 +38,6 @@ export class UINotification {
 
     public constructor(notification: Partial<UINotification> = new Notification()) {
         Object.assign(this, notification);
-        this.setIcon();
         this.isRead = !!this.readAt;
     }
 
@@ -44,16 +48,16 @@ export class UINotification {
         const differenceInSeconds = (Math.trunc(new Date().getTime()) - Math.trunc(new Date(this.createdAt).getTime())) / 1000;
 
         switch (true) {
-            case differenceInSeconds < 60:
-                return 'Just now';
-            case differenceInSeconds < 3600:
-                return `${(differenceInSeconds / 60).toFixed(0)} minute(s) ago`;
-            case differenceInSeconds < 86400:
-                return `${(differenceInSeconds / 3600).toFixed(0)} hour(s) ago`;
-            case differenceInSeconds < 86400 * 2:
-                return `Yesterday`;
-            default:
-                return new Date(this.createdAt).toDateString();
+        case differenceInSeconds < 60:
+            return 'Just now';
+        case differenceInSeconds < 3600:
+            return `${(differenceInSeconds / 60).toFixed(0)} minute(s) ago`;
+        case differenceInSeconds < 86400:
+            return `${(differenceInSeconds / 3600).toFixed(0)} hour(s) ago`;
+        case differenceInSeconds < 86400 * 2:
+            return `Yesterday`;
+        default:
+            return new Date(this.createdAt).toDateString();
         }
     }
 
@@ -67,19 +71,16 @@ export class UINotification {
     /**
      * setIcon selects notification icon depends on type.
      */
-    private setIcon(): void {
+    public get icon(): VueConstructor<Vue> {
         switch (this.type) {
-            case NotificationTypes.AuditCheckFailure:
-                this.icon = NotificationIcon.FAIL;
-                break;
-            case NotificationTypes.Disqualification:
-                this.icon = NotificationIcon.SOFTWARE_UPDATE;
-                break;
-            case NotificationTypes.Suspension:
-                this.icon = NotificationIcon.SUSPENDED;
-                break;
-            default:
-                this.icon = NotificationIcon.INFO;
+        case NotificationTypes.AuditCheckFailure:
+            return FailIcon;
+        case NotificationTypes.Disqualification:
+            return DisqualificationIcon;
+        case NotificationTypes.Suspension:
+            return SuspendedIcon;
+        default:
+            return InfoIcon;
         }
     }
 }

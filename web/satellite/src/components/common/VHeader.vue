@@ -4,7 +4,7 @@
 <template>
     <div class="header-container">
         <div class="header-container__buttons-area">
-            <slot></slot>
+            <slot />
         </div>
         <VSearch
             ref="search"
@@ -24,6 +24,7 @@ declare interface ClearSearch {
     clearSearch(): void;
 }
 
+// @vue/component
 @Component({
     components: {
         VSearch,
@@ -39,7 +40,7 @@ export default class VHeader extends Vue {
         search: VSearch & ClearSearch;
     };
 
-    public clearSearch() {
+    public clearSearch(): void {
         this.$refs.search.clearSearch();
     }
 }

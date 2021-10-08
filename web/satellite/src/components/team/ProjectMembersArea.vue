@@ -7,14 +7,14 @@
             <HeaderArea
                 :header-state="headerState"
                 :selected-project-members-count="selectedProjectMembersLength"
-                @onSuccessAction="resetPaginator"
                 :is-add-button-disabled="areMembersFetching"
+                @onSuccessAction="resetPaginator"
             />
         </div>
-        <VLoader v-if="areMembersFetching" width="100px" height="100px"/>
+        <VLoader v-if="areMembersFetching" width="100px" height="100px" />
         <template v-else>
-            <div class="team-area__container" id="team-container" v-if="isTeamAreaShown">
-                <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
+            <div v-if="isTeamAreaShown" id="team-container" class="team-area__container">
+                <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback" />
                 <div class="team-area__container__content">
                     <VList
                         :data-set="projectMembers"
@@ -25,14 +25,14 @@
             </div>
             <VPagination
                 v-if="totalPageCount > 1"
-                class="pagination-area"
                 ref="pagination"
+                class="pagination-area"
                 :total-page-count="totalPageCount"
                 :on-page-click-callback="onPageClick"
             />
-            <div class="team-area__empty-search-result-area" v-if="isEmptySearchResultShown">
+            <div v-if="isEmptySearchResultShown" class="team-area__empty-search-result-area">
                 <h1 class="team-area__empty-search-result-area__title">No results found</h1>
-                <EmptySearchResultIcon class="team-area__empty-search-result-area__image"/>
+                <EmptySearchResultIcon class="team-area__empty-search-result-area__image" />
             </div>
         </template>
     </div>
@@ -56,10 +56,7 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 const {
     FETCH,
-    DELETE,
     TOGGLE_SELECTION,
-    CLEAR,
-    SET_SEARCH_QUERY,
     SET_SORT_BY,
     SET_SORT_DIRECTION,
 } = PM_ACTIONS;
@@ -68,6 +65,7 @@ declare interface ResetPagination {
     resetPageIndex(): void;
 }
 
+// @vue/component
 @Component({
     components: {
         HeaderArea,
@@ -81,7 +79,7 @@ declare interface ResetPagination {
 export default class ProjectMembersArea extends Vue {
     private FIRST_PAGE = 1;
 
-    public areMembersFetching: boolean = true;
+    public areMembersFetching = true;
 
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
@@ -126,7 +124,7 @@ export default class ProjectMembersArea extends Vue {
         return projectMembersToReturn;
     }
 
-    public get getItemComponent() {
+    public get getItemComponent(): typeof ProjectMemberListItem {
         return ProjectMemberListItem;
     }
 

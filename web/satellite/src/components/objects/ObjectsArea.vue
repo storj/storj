@@ -3,7 +3,7 @@
 
 <template>
     <div class="objects-area">
-        <router-view/>
+        <router-view />
     </div>
 </template>
 
@@ -14,6 +14,7 @@ import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component
 export default class ObjectsArea extends Vue {
     /**
@@ -21,7 +22,8 @@ export default class ObjectsArea extends Vue {
      * Redirects if flow is disabled.
      */
     public async mounted(): Promise<void> {
-        if (await JSON.parse(MetaUtils.getMetaContent('file-browser-flow-disabled'))) {
+        const value = MetaUtils.getMetaContent('file-browser-flow-disabled');
+        if (value === "true") {
             await this.$router.push(RouteConfig.ProjectDashboard.path);
         }
     }
@@ -30,7 +32,7 @@ export default class ObjectsArea extends Vue {
      * Lifecycle hook before component destroying.
      * Clears objects VUEX state.
      */
-    public beforeDestroy() {
+    public beforeDestroy(): void {
         this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
     }
 }

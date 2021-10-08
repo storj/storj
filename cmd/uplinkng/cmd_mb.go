@@ -6,22 +6,38 @@ package main
 import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/cmd/uplinkng/ulext"
+	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdMb struct {
-	projectProvider
+	ex ulext.External
+
+	access string
 
 	name string
 }
 
-func (c *cmdMb) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.projectProvider.Setup(a, f)
+func newCmdMb(ex ulext.External) *cmdMb {
+	return &cmdMb{ex: ex}
+}
 
-	c.name = a.New("name", "Bucket name (sj://BUCKET)").(string)
+func (c *cmdMb) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Access name or value to use", "").(string)
+
+	c.name = params.Arg("name", "Bucket name (sj://BUCKET)", clingy.Transform(ulloc.Parse),
+		clingy.Transform(func(location ulloc.Location) (string, error) {
+			if bucket, key, ok := location.RemoteParts(); key == "" && ok {
+				return bucket, nil
+			}
+			return "", errs.New("invalid bucket name")
+		}),
+	).(string)
 }
 
 func (c *cmdMb) Execute(ctx clingy.Context) error {
-	project, err := c.OpenProject(ctx)
+	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return errs.Wrap(err)
 	}

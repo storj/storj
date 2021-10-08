@@ -2,18 +2,18 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="satellite-selection-choice-container" v-click-outside="closePopup">
+    <div v-click-outside="closePopup" class="satellite-selection-choice-container">
         <div class="satellite-selection-overflow-container">
             <div class="satellite-selection-choice-container__all-satellites">
-                <button name="Choose All satellite" class="satellite-selection-overflow-container__satellite-choice" @click.stop="onAllSatellitesClick">
+                <button name="Choose All satellite" class="satellite-selection-overflow-container__satellite-choice" type="button" @click.stop="onAllSatellitesClick">
                     <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{selected: !selectedSatellite}">All Satellites</p>
                 </button>
             </div>
             <!-- loop for rendering satellites -->
             <SatelliteSelectionDropdownItem
                 v-for="satellite in satellites"
-                :satellite="satellite"
                 :key="satellite.id"
+                :satellite="satellite"
                 @onSatelliteClick="onSatelliteClick"
             />
         </div>
@@ -25,9 +25,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
 
-import DisqualificationIcon from '@/../static/images/disqualify.svg';
-import SuspensionIcon from '@/../static/images/suspend.svg';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
@@ -35,11 +32,10 @@ import { PayoutInfoRange } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 import { SatelliteInfo } from '@/storagenode/sno/sno';
 
+// @vue/component
 @Component({
     components: {
         SatelliteSelectionDropdownItem,
-        DisqualificationIcon,
-        SuspensionIcon,
     },
 })
 export default class SatelliteSelectionDropdown extends Vue {
@@ -113,7 +109,7 @@ export default class SatelliteSelectionDropdown extends Vue {
     /**
      * Fetches payout information depends on selected satellite.
      */
-    private async fetchPayoutInfo(id: string = ''): Promise<void> {
+    private async fetchPayoutInfo(id = ''): Promise<void> {
         await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
 

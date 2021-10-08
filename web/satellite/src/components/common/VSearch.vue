@@ -3,17 +3,17 @@
 
 <template>
     <input
-        class="common-search-input"
         ref="input"
-        @mouseenter="onMouseEnter"
-        @mouseleave="onMouseLeave"
-        @input="processSearchQuery"
         v-model="searchQuery"
+        class="common-search-input"
         :placeholder="`Search ${placeholder}`"
         :style="style"
         type="text"
         autocomplete="off"
-    />
+        @mouseenter="onMouseEnter"
+        @mouseleave="onMouseLeave"
+        @input="processSearchQuery"
+    >
 </template>
 
 <script lang="ts">
@@ -24,6 +24,7 @@ declare interface SearchStyle {
     width: string;
 }
 
+// @vue/component
 @Component
 export default class VSearch extends Vue {
     @Prop({default: ''})
@@ -31,8 +32,8 @@ export default class VSearch extends Vue {
     @Prop({default: () => ''})
     private readonly search: searchCallback;
 
-    private inputWidth: string = '56px';
-    private searchQuery: string = '';
+    private inputWidth = '56px';
+    private searchQuery = '';
 
     public $refs!: {
         input: HTMLElement;
@@ -68,13 +69,13 @@ export default class VSearch extends Vue {
     /**
      * Clears search query and collapses input.
      */
-    public clearSearch() {
+    public clearSearch(): void {
         this.searchQuery = '';
         this.processSearchQuery();
         this.inputWidth = '56px';
     }
 
-    public async processSearchQuery() {
+    public async processSearchQuery(): Promise<void> {
         await this.search(this.searchQuery);
     }
 }

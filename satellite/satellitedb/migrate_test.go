@@ -149,8 +149,19 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 	return pgutil.QuerySchema(ctx, db)
 }
 
-func TestMigratePostgres(t *testing.T)  { migrateTest(t, pgtest.PickPostgres(t)) }
-func TestMigrateCockroach(t *testing.T) { migrateTest(t, pgtest.PickCockroachAlt(t)) }
+func TestMigratePostgres(t *testing.T) {
+	t.Parallel()
+	connstr := pgtest.PickPostgres(t)
+	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
+	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
+}
+
+func TestMigrateCockroach(t *testing.T) {
+	t.Parallel()
+	connstr := pgtest.PickCockroachAlt(t)
+	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
+	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
+}
 
 type migrationTestingAccess interface {
 	// MigrationTestingDefaultDB assists in testing migrations themselves
@@ -163,8 +174,6 @@ type migrationTestingAccess interface {
 }
 
 func migrateTest(t *testing.T, connStr string) {
-	t.Parallel()
-
 	ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
 	defer ctx.Cleanup()
 
@@ -236,18 +245,8 @@ func migrateTest(t *testing.T, connStr string) {
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }
 
-func TestMigrateGeneratedPostgres(t *testing.T) {
-	migrateGeneratedTest(t, pgtest.PickPostgres(t), pgtest.PickPostgres(t))
-}
-
-func TestMigrateGeneratedCockroach(t *testing.T) {
-	migrateGeneratedTest(t, pgtest.PickCockroachAlt(t), pgtest.PickCockroachAlt(t))
-}
-
 // migrateGeneratedTest verifies whether the generated code in `migratez.go` is on par with migrate.go.
 func migrateGeneratedTest(t *testing.T, connStrProd, connStrTest string) {
-	t.Parallel()
-
 	ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
 	defer ctx.Cleanup()
 

@@ -9,6 +9,7 @@
                 <button
                     name="Select All Stats"
                     class="held-history-container__header__selection-area__item"
+                    type="button"
                     :class="{ active: isAllStatsShown }"
                     @click="showAllStats"
                 >
@@ -19,6 +20,7 @@
                 <button
                     name="Select Monthly Breakdown"
                     class="held-history-container__header__selection-area__item"
+                    type="button"
                     :class="{ active: !isAllStatsShown }"
                     @click="showMonthlyBreakdown"
                 >
@@ -28,9 +30,9 @@
                 </button>
             </div>
         </div>
-        <div class="held-history-container__divider"></div>
-        <HeldHistoryAllStatsTable v-if="isAllStatsShown"/>
-        <HeldHistoryMonthlyBreakdownTable v-else/>
+        <div class="held-history-container__divider" />
+        <HeldHistoryAllStatsTable v-if="isAllStatsShown" />
+        <HeldHistoryMonthlyBreakdownTable v-else />
     </section>
 </template>
 
@@ -40,6 +42,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeldHistoryAllStatsTable from '@/app/components/payments/HeldHistoryAllStatsTable.vue';
 import HeldHistoryMonthlyBreakdownTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 
+// @vue/component
 @Component({
     components: {
         HeldHistoryAllStatsTable,
@@ -50,7 +53,7 @@ export default class HeldHistoryArea extends Vue {
     /**
      * Indicates if All Stats state is active.
      */
-    public isAllStatsShown: boolean = true;
+    public isAllStatsShown = true;
 
     /**
      * Sets held history table state to All Stats.

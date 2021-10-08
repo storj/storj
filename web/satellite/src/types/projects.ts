@@ -28,7 +28,7 @@ export interface ProjectsApi {
      * @returns Project[]
      * @throws Error
      */
-    update(projectId: string, name: string, description: string): Promise<void>;
+    update(projectId: string, updateProjectFields: ProjectFields, updateProjectLimits: ProjectLimits): Promise<void>;
     /**
      * Delete project.
      *
@@ -44,6 +44,13 @@ export interface ProjectsApi {
      * throws Error
      */
     getLimits(projectId: string): Promise<ProjectLimits>;
+
+    /**
+     * Get project limits.
+     *
+     * throws Error
+     */
+    getTotalLimits(): Promise<ProjectLimits>;
 
     /**
      * Fetch owned projects.

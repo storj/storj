@@ -3,7 +3,7 @@
 
 <template>
     <div class="cli-container" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="cli-container__back-icon" @click="onBackClick"/>
+        <BackIcon class="cli-container__back-icon" @click="onBackClick" />
         <h1 class="cli-container__title">Create Access Grant in CLI</h1>
         <p class="cli-container__sub-title">
             Run the 'setup' command in the uplink CLI and input the satellite address and token below when prompted to generate your access grant.
@@ -60,6 +60,7 @@ import BackIcon from '@/../static/images/accessGrants/back.svg';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         BackIcon,
@@ -67,8 +68,8 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class CLIStep extends Vue {
-    public key: string = '';
-    public restrictedKey: string = '';
+    public key = '';
+    public restrictedKey = '';
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
     public $refs!: {
@@ -108,7 +109,6 @@ export default class CLIStep extends Vue {
                     key: this.key,
                 },
             });
-
             return;
         }
 

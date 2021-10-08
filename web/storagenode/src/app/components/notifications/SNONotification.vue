@@ -8,7 +8,9 @@
                 <span v-if="!notification.isRead" class="notification-item__new-indicator-container__circle" />
             </div>
             <div class="notification-item__icon-container">
-                <div class="icon" v-html="notification.icon"></div>
+                <div class="icon">
+                    <component :is="notification.icon" />
+                </div>
             </div>
             <div class="notification-item__text-container">
                 <p
@@ -17,10 +19,10 @@
                 >
                     <b class="notification-item__text-container__message__bold">{{ notification.title }}:</b> {{ notification.message }}
                 </p>
-                <p class="notification-item__text-container__date" v-if="isSmall">{{ notification.dateLabel }}</p>
+                <p v-if="isSmall" class="notification-item__text-container__date">{{ notification.dateLabel }}</p>
             </div>
         </div>
-        <div class="notification-item__date-container" v-if="!isSmall">
+        <div v-if="!isSmall" class="notification-item__date-container">
             <p class="notification-item__date-container__date">{{ notification.dateLabel }}</p>
         </div>
     </div>
@@ -32,6 +34,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { UINotification } from '@/app/types/notifications';
 
+// @vue/component
 @Component
 export default class SNONotification extends Vue {
     @Prop({default: () => new UINotification()})

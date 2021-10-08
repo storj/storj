@@ -4,15 +4,15 @@
 <template>
     <div class="register-success-area">
         <div class="register-success-area__form-container">
-            <MailIcon/>
-            <h2 class="register-success-area__form-container__title">You're almost there!</h2>
+            <MailIcon />
+            <h2 class="register-success-area__form-container__title" aria-roledescription="title">You're almost there!</h2>
             <p class="register-success-area__form-container__sub-title">
                 Check your email to confirm your account and get started.
             </p>
             <p class="register-success-area__form-container__text">
                 Didn't receive a verification email?
                 <b class="register-success-area__form-container__verification-cooldown__bold-text">
-                    {{timeToEnableResendEmailButton}}
+                    {{ timeToEnableResendEmailButton }}
                 </b>
             </p>
             <div class="register-success-area__form-container__button-container">
@@ -35,7 +35,6 @@
                     Contact our support team
                 </a>
             </p>
-
         </div>
     </div>
 </template>
@@ -50,6 +49,7 @@ import MailIcon from '@/../static/images/register/mail.svg';
 import { AuthHttpApi } from '@/api/auth';
 import { LocalData } from '@/utils/localData';
 
+// @vue/component
 @Component({
     components: {
         VButton,
@@ -57,9 +57,9 @@ import { LocalData } from '@/utils/localData';
     },
 })
 export default class RegistrationSuccess extends Vue {
-    private isResendEmailButtonDisabled: boolean = true;
-    private timeToEnableResendEmailButton: string = '00:30';
-    private intervalID: any = null;
+    private isResendEmailButtonDisabled = true;
+    private timeToEnableResendEmailButton = '00:30';
+    private intervalID: ReturnType<typeof setInterval>;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
@@ -218,7 +218,7 @@ export default class RegistrationSuccess extends Vue {
             }
         }
 
-        /deep/ .container {
+        ::v-deep .container {
             width: 100% !important;
         }
     }

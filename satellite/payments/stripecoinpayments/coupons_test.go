@@ -24,7 +24,7 @@ func TestCouponRepository(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		duration := 2
 		couponsRepo := db.StripeCoinPayments().Coupons()
-		coupon := payments.Coupon{
+		coupon := payments.CouponOld{
 			Duration:    &duration,
 			Amount:      10,
 			Status:      payments.CouponActive,
@@ -265,7 +265,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		// add coupons to users who should have them before PopulatePromotionalCoupons
 		duration := 2
 		couponID := testrand.UUID()
-		_, err = couponsRepo.Insert(ctx, payments.Coupon{
+		_, err = couponsRepo.Insert(ctx, payments.CouponOld{
 			ID:          couponID,
 			UserID:      user5.ID,
 			Amount:      5500,
@@ -277,7 +277,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		require.NoError(t, err)
 
 		couponID = testrand.UUID()
-		_, err = couponsRepo.Insert(ctx, payments.Coupon{
+		_, err = couponsRepo.Insert(ctx, payments.CouponOld{
 			ID:          couponID,
 			UserID:      user6.ID,
 			Amount:      1000,
@@ -289,7 +289,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		require.NoError(t, err)
 
 		couponID = testrand.UUID()
-		_, err = couponsRepo.Insert(ctx, payments.Coupon{
+		_, err = couponsRepo.Insert(ctx, payments.CouponOld{
 			ID:          couponID,
 			UserID:      user7.ID,
 			Amount:      1000,

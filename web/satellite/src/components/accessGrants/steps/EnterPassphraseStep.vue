@@ -2,16 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="enter-passphrase" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="enter-passphrase__back-icon" @click="onBackClick"/>
+    <div class="enter-passphrase">
+        <BackIcon class="enter-passphrase__back-icon" @click="onBackClick" />
         <h1 class="enter-passphrase__title">Enter Encryption Passphrase</h1>
         <p class="enter-passphrase__sub-title">Enter the passphrase you most recently generated for Access Grants</p>
         <HeaderedInput
-            class="enter-passphrase__input"
             label="Encryption Passphrase"
             placeholder="Enter your passphrase here"
-            @setData="onChangePassphrase"
             :error="errorMessage"
+            @setData="onChangePassphrase"
         />
         <VButton
             class="enter-passphrase__next-button"
@@ -35,6 +34,7 @@ import BackIcon from '@/../static/images/accessGrants/back.svg';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         HeaderedInput,
@@ -43,14 +43,14 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class EnterPassphraseStep extends Vue {
-    private key: string = '';
-    private restrictedKey: string = '';
-    private access: string = '';
+    private key = '';
+    private restrictedKey = '';
+    private access = '';
     private worker: Worker;
-    private isLoading: boolean = true;
+    private isLoading = true;
 
-    public passphrase: string = '';
-    public errorMessage: string = '';
+    public passphrase = '';
+    public errorMessage = '';
 
     /**
      * Lifecycle hook after initial render.
@@ -191,10 +191,6 @@ export default class EnterPassphraseStep extends Vue {
             text-align: center;
             margin: 0 0 75px 0;
             max-width: 340px;
-        }
-
-        &__input {
-            width: calc(100% - 2px);
         }
 
         &__next-button {

@@ -4,14 +4,15 @@
 package coinpayments_test
 
 import (
-	"math/big"
 	"testing"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -36,9 +37,9 @@ func TestListInfos(t *testing.T) {
 	for x := 0; x < 27; x++ {
 		tx, err := payments.Create(ctx,
 			&coinpayments.CreateTX{
-				Amount:      *big.NewFloat(100),
-				CurrencyIn:  coinpayments.CurrencySTORJ,
-				CurrencyOut: coinpayments.CurrencySTORJ,
+				Amount:      decimal.NewFromInt(100),
+				CurrencyIn:  monetary.StorjToken,
+				CurrencyOut: monetary.StorjToken,
 				BuyerEmail:  "test@test.com",
 			},
 		)

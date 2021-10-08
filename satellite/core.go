@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
@@ -31,9 +32,8 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/reputation"
 )
 
 // Core is the satellite core process that runs chores.
@@ -77,8 +78,6 @@ type Core struct {
 
 	Metainfo struct {
 		Metabase    *metabase.DB
-		Service     *metainfo.Service
-		Loop        *metaloop.Service
 		SegmentLoop *segmentloop.Service
 	}
 
@@ -86,6 +85,10 @@ type Core struct {
 		DB      orders.DB
 		Service *orders.Service
 		Chore   *orders.Chore
+	}
+
+	Reputation struct {
+		Service *reputation.Service
 	}
 
 	Repair struct {
@@ -104,8 +107,13 @@ type Core struct {
 		Chore *expireddeletion.Chore
 	}
 
+	ZombieDeletion struct {
+		Chore *zombiedeletion.Chore
+	}
+
 	Accounting struct {
 		Tally                 *tally.Service
+		NodeTally             *nodetally.Service
 		Rollup                *rollup.Service
 		RollupArchiveChore    *rolluparchive.Chore
 		ProjectBWCleanupChore *projectbwcleanup.Chore
@@ -242,20 +250,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
-		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
-			peer.DB.Buckets(),
-			peer.Metainfo.Metabase,
-		)
-		peer.Metainfo.Loop = metaloop.New(
-			config.Metainfo.Loop,
-			peer.Metainfo.Metabase,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:loop",
-			Run:   peer.Metainfo.Loop.Run,
-			Close: peer.Metainfo.Loop.Close,
-		})
+
 		peer.Metainfo.SegmentLoop = segmentloop.New(
+			peer.Log.Named("metainfo:segmentloop"),
 			config.Metainfo.SegmentLoop,
 			peer.Metainfo.Metabase,
 		)
@@ -271,9 +268,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
-			peer.DB.Irreparable(),
 			peer.Metainfo.Metabase,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 			peer.Overlay.Service,
 			config.Checker)
 		peer.Services.Add(lifecycle.Item{
@@ -283,8 +279,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Repair Checker", peer.Repair.Checker.Loop))
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Repair Checker Irreparable", peer.Repair.Checker.IrreparableLoop))
+	}
+
+	{ // setup reputation
+		peer.Reputation.Service = reputation.NewService(log.Named("reputation:service"),
+			peer.Overlay.DB,
+			peer.DB.Reputation(),
+			config.Reputation,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "reputation",
+			Close: peer.Reputation.Service.Close,
+		})
 	}
 
 	{ // setup audit
@@ -304,7 +310,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 
 		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
-			peer.Overlay.Service,
+			peer.Reputation.Service,
 			peer.DB.Containment(),
 			config.MaxRetriesStatDB,
 			int32(config.MaxReverifyCount),
@@ -330,7 +336,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
 			peer.Audit.Queues,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 			config,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -357,8 +363,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			debug.Cycle("Expired Segments Chore", peer.ExpiredDeletion.Chore.Loop))
 	}
 
+	{ // setup zombie objects cleanup
+		peer.ZombieDeletion.Chore = zombiedeletion.NewChore(
+			peer.Log.Named("core-zombie-deletion"),
+			config.ZombieDeletion,
+			peer.Metainfo.Metabase,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "zombiedeletion:chore",
+			Run:   peer.ZombieDeletion.Chore.Run,
+			Close: peer.ZombieDeletion.Chore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Zombie Objects Chore", peer.ZombieDeletion.Chore.Loop))
+	}
+
 	{ // setup accounting
-		peer.Accounting.Tally = tally.New(peer.Log.Named("accounting:tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Loop, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("accounting:tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Metabase, config.Tally)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:tally",
 			Run:   peer.Accounting.Tally.Run,
@@ -366,6 +387,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Tally", peer.Accounting.Tally.Loop))
+
+		// storage nodes tally
+		peer.Accounting.NodeTally = nodetally.New(peer.Log.Named("accounting:nodetally"), peer.DB.StoragenodeAccounting(), peer.Metainfo.SegmentLoop, config.Tally.Interval)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "accounting:nodetally",
+			Run:   peer.Accounting.NodeTally.Run,
+			Close: peer.Accounting.NodeTally.Close,
+		})
 
 		// Lets add 1 more day so we catch any off by one errors when deleting tallies
 		orderExpirationPlusDay := config.Orders.Expiration + config.Rollup.Interval
@@ -431,8 +460,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.CouponValue,
 			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -457,7 +485,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup graceful exit
 		if config.GracefulExit.Enabled {
-			peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("gracefulexit"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.Loop, config.GracefulExit)
+			peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("gracefulexit"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.SegmentLoop, config.GracefulExit)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "gracefulexit",
 				Run:   peer.GracefulExit.Chore.Run,
@@ -474,7 +502,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Metrics.Chore = metrics.NewChore(
 			peer.Log.Named("metrics"),
 			config.Metrics,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metrics",

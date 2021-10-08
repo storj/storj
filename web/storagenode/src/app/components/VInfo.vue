@@ -3,16 +3,16 @@
 
 <template>
     <div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
-        <slot class="slot"></slot>
-        <div class="info__message-box" v-if="isVisible" :style="messageBoxStyle" :class="{extraPadding: isExtraPadding, customPosition: isCustomPosition}">
+        <slot class="slot" />
+        <div v-if="isVisible" class="info__message-box" :style="messageBoxStyle" :class="{extraPadding: isExtraPadding, customPosition: isCustomPosition}">
             <div class="info__message-box__text">
-                <p class="info__message-box__text__regular-text">{{text}}</p>
-                <p class="info__message-box__text__bold-text">{{boldText}}</p>
-                <p class="info__message-box__text__bold-text">{{extraBoldText}}</p>
+                <p class="info__message-box__text__regular-text">{{ text }}</p>
+                <p class="info__message-box__text__bold-text">{{ boldText }}</p>
+                <p class="info__message-box__text__bold-text">{{ extraBoldText }}</p>
             </div>
-            <div class="info__message-box__green-text" v-if="greenText">
-                <p class="info__message-box__green-text__text">{{greenText}}</p>
-                <p class="info__message-box__green-text__text">{{extraGreenText}}</p>
+            <div v-if="greenText" class="info__message-box__green-text">
+                <p class="info__message-box__green-text__text">{{ greenText }}</p>
+                <p class="info__message-box__green-text__text">{{ extraGreenText }}</p>
             </div>
         </div>
     </div>
@@ -25,10 +25,11 @@ declare interface MessageBoxStyle {
     bottom: string;
 }
 
+// @vue/component
 @Component
 export default class VInfo extends Vue {
-    private isVisible: boolean = false;
-    private height: string = '5px';
+    private isVisible = false;
+    private height = '5px';
 
     @Prop({default: ''})
     private readonly text: string;

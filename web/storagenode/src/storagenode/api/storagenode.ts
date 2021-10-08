@@ -3,7 +3,6 @@
 
 import {
     Dashboard,
-    Metric,
     Satellite,
     SatelliteByDayInfo,
     SatelliteInfo,
@@ -35,7 +34,7 @@ export class StorageNodeApi {
 
         const satellitesJson = data.satellites || [];
 
-        const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
+        const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
             const suspended: Date | null = satellite.suspended ? new Date(satellite.suspended) : null;
 

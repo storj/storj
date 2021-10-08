@@ -18,18 +18,11 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
 )
 
 func TestRollupNoDeletes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				// 0 so that we can disqualify a node immediately by triggering a failed audit
-				config.Overlay.Node.AuditReputationLambda = 0
-			},
-		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			// In testplanet the setting config.Rollup.DeleteTallies defaults to false.
@@ -118,8 +111,6 @@ func TestRollupDeletes(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Rollup.DeleteTallies = true
 				config.Orders.Expiration = time.Hour
-				// 0 so that we can disqualify a node immediately by triggering a failed audit
-				config.Overlay.Node.AuditReputationLambda = 0
 			},
 		},
 	},
@@ -370,23 +361,17 @@ func saveBWPhase3(ctx context.Context, ordersDB orders.DB, bwTotals map[storj.No
 func dqNodes(ctx *testcontext.Context, planet *testplanet.Planet) (map[storj.NodeID]bool, error) {
 	dqed := make(map[storj.NodeID]bool)
 
-	var updateRequests []*overlay.UpdateRequest
 	for i, n := range planet.StorageNodes {
 		if i%2 == 0 {
 			continue
 		}
-		updateRequests = append(updateRequests, &overlay.UpdateRequest{
-			NodeID:       n.ID(),
-			AuditOutcome: overlay.AuditFailure,
-		})
+
+		err := planet.Satellites[0].Overlay.DB.DisqualifyNode(ctx, n.ID())
+		if err != nil {
+			return nil, err
+		}
+		dqed[n.ID()] = true
 	}
 
-	_, err := planet.Satellites[0].Overlay.Service.BatchUpdateStats(ctx, updateRequests)
-	if err != nil {
-		return nil, err
-	}
-	for _, request := range updateRequests {
-		dqed[request.NodeID] = true
-	}
 	return dqed, nil
 }

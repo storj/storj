@@ -34,12 +34,14 @@ export class NodesModule implements Module<NodesState, RootState> {
 
         this.namespaced = true;
         this.state = new NodesState();
+
         this.mutations = {
             populate: this.populate,
             saveTrustedSatellites: this.saveTrustedSatellites,
             setSelectedSatellite: this.setSelectedSatellite,
             setSelectedNode: this.setSelectedNode,
         };
+
         this.actions = {
             fetch: this.fetch.bind(this),
             add: this.add.bind(this),
@@ -65,7 +67,7 @@ export class NodesModule implements Module<NodesState, RootState> {
      * @param state
      * @param trustedSatellites
      */
-    public saveTrustedSatellites(state: NodesState, trustedSatellites: NodeURL[]) {
+    public saveTrustedSatellites(state: NodesState, trustedSatellites: NodeURL[]): void {
         state.trustedSatellites = trustedSatellites;
     }
 
@@ -74,7 +76,7 @@ export class NodesModule implements Module<NodesState, RootState> {
      * @param state
      * @param satelliteId - id of the satellite to select.
      */
-    public setSelectedSatellite(state: NodesState, satelliteId: string) {
+    public setSelectedSatellite(state: NodesState, satelliteId: string): void {
         state.selectedSatellite = state.trustedSatellites.find((satellite: NodeURL) => satellite.id === satelliteId) || null;
     }
 
@@ -83,7 +85,7 @@ export class NodesModule implements Module<NodesState, RootState> {
      * @param state
      * @param nodeId - node id to select.
      */
-    public setSelectedNode(state: NodesState, nodeId: string | null) {
+    public setSelectedNode(state: NodesState, nodeId: string | null): void {
         state.selectedNode = state.nodes.find((node: Node) => node.id === nodeId) || null;
     }
 
@@ -93,6 +95,7 @@ export class NodesModule implements Module<NodesState, RootState> {
      */
     public async fetch(ctx: ActionContext<NodesState, RootState>): Promise<void> {
         const nodes = ctx.state.selectedSatellite ? await this.nodes.listBySatellite(ctx.state.selectedSatellite.id) : await this.nodes.list();
+
         ctx.commit('populate', nodes);
     }
 
@@ -142,6 +145,8 @@ export class NodesModule implements Module<NodesState, RootState> {
      * @param satelliteId - satellite id to select.
      */
     public async selectSatellite(ctx: ActionContext<NodesState, RootState>, satelliteId: string): Promise<void> {
+        await this.trustedSatellites(ctx);
+
         ctx.commit('setSelectedSatellite', satelliteId);
 
         await this.fetch(ctx);

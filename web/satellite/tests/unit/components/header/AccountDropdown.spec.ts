@@ -6,7 +6,7 @@ import Vuex from 'vuex';
 
 import AccountDropdown from '@/components/header/accountDropdown/AccountDropdown.vue';
 
-import { RouteConfig, router } from '@/router';
+import { router } from '@/router';
 import { appStateModule } from '@/store/modules/appState';
 import { createLocalVue, mount } from '@vue/test-utils';
 

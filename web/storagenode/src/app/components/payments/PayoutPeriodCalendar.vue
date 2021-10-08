@@ -5,23 +5,24 @@
     <div class="payout-period-calendar">
         <div class="payout-period-calendar__header">
             <div class="payout-period-calendar__header__year-selection">
-                <button name="Decrement year" class="payout-period-calendar__header__year-selection__prev" @click.prevent="decrementYear">
+                <button name="Decrement year" class="payout-period-calendar__header__year-selection__prev" type="button" @click.prevent="decrementYear">
                     <GrayArrowLeftIcon />
                 </button>
                 <p class="payout-period-calendar__header__year-selection__year">{{ displayedYear }}</p>
-                <button name="Increment year" class="payout-period-calendar__header__year-selection__next" @click.prevent="incrementYear">
+                <button name="Increment year" class="payout-period-calendar__header__year-selection__next" type="button" @click.prevent="incrementYear">
                     <GrayArrowLeftIcon />
                 </button>
             </div>
-            <button name="Select All Time" class="payout-period-calendar__header__all-time" @click.prevent="selectAllTime">All time</button>
+            <button name="Select All Time" class="payout-period-calendar__header__all-time" type="button" @click.prevent="selectAllTime">All time</button>
         </div>
         <div class="payout-period-calendar__months-area">
             <button
-                :name="`Select year ${item.year} month ${item.name}`"
-                class="month-item"
-                :class="{ selected: item.selected, disabled: !item.active }"
                 v-for="item in currentDisplayedMonths"
                 :key="item.name"
+                :name="`Select year ${item.year} month ${item.name}`"
+                class="month-item"
+                type="button"
+                :class="{ selected: item.selected, disabled: !item.active }"
                 @click.prevent="checkMonth(item)"
             >
                 <p class="month-item__label">{{ item.name }}</p>
@@ -29,7 +30,7 @@
         </div>
         <div class="payout-period-calendar__footer-area">
             <p class="payout-period-calendar__footer-area__period">{{ period }}</p>
-            <button name="Submit" class="payout-period-calendar__footer-area__ok-button" @click.prevent="submit">OK</button>
+            <button name="Submit" class="payout-period-calendar__footer-area__ok-button" type="submit" @click.prevent="submit">OK</button>
         </div>
     </div>
 </template>
@@ -49,6 +50,7 @@ import {
 } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component({
     components: {
         GrayArrowLeftIcon,
@@ -61,7 +63,7 @@ export default class PayoutPeriodCalendar extends Vue {
      */
     public currentDisplayedMonths: MonthButton[] = [];
     public displayedYear: number = this.now.getUTCFullYear();
-    public period: string = '';
+    public period = '';
 
     private displayedMonths: StoredMonthsByYear = {};
     private firstSelectedMonth: MonthButton | null = null;

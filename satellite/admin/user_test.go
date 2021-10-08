@@ -20,13 +20,13 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-func TestGetUser(t *testing.T) {
+func TestUserGet(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -44,38 +44,27 @@ func TestGetUser(t *testing.T) {
 		couponsMarshaled, err := json.Marshal(coupons)
 		require.NoError(t, err)
 
-		t.Run("GetUser", func(t *testing.T) {
-			userLink := "http://" + address.String() + "/api/user/" + project.Owner.Email
-			expected := `{` +
-				fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s","projectLimit":%d},`, project.Owner.ID, project.Owner.Email, projLimit) +
-				fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}],`, project.ID, project.Owner.ID) +
-				fmt.Sprintf(`"coupons":%s}`, couponsMarshaled)
+		link := "http://" + address.String() + "/api/users/" + project.Owner.Email
+		expectedBody := `{` +
+			fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s","projectLimit":%d},`, project.Owner.ID, project.Owner.Email, projLimit) +
+			fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}],`, project.ID, project.Owner.ID) +
+			fmt.Sprintf(`"coupons":%s}`, couponsMarshaled)
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, userLink, nil)
-			require.NoError(t, err)
+		assertReq(ctx, t, link, http.MethodGet, "", http.StatusOK, expectedBody, planet.Satellites[0].Config.Console.AuthToken)
 
-			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
-
-			response, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-
-			data, err := ioutil.ReadAll(response.Body)
-			require.NoError(t, err)
-			require.NoError(t, response.Body.Close())
-
-			require.Equal(t, http.StatusOK, response.StatusCode, string(data))
-			require.Equal(t, expected, string(data))
-		})
+		link = "http://" + address.String() + "/api/users/" + "user-not-exist@not-exist.test"
+		body := assertReq(ctx, t, link, http.MethodGet, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Contains(t, string(body), "does not exist")
 	})
 }
 
-func TestAddUser(t *testing.T) {
+func TestUserAdd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -84,13 +73,15 @@ func TestAddUser(t *testing.T) {
 		email := "alice+2@mail.test"
 
 		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/user", body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/users", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -106,13 +97,13 @@ func TestAddUser(t *testing.T) {
 	})
 }
 
-func TestAddUserSameEmail(t *testing.T) {
+func TestUserAdd_sameEmail(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -121,13 +112,15 @@ func TestAddUserSameEmail(t *testing.T) {
 		email := "alice+2@mail.test"
 
 		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/user", body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/users", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -143,24 +136,25 @@ func TestAddUserSameEmail(t *testing.T) {
 
 		// Add same user again, this should fail
 		body = strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
-		req, err = http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/user", body)
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/users", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 		require.NoError(t, response.Body.Close())
 	})
 }
 
-func TestUpdateUser(t *testing.T) {
+func TestUserUpdate(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -169,77 +163,54 @@ func TestUpdateUser(t *testing.T) {
 		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
 		require.NoError(t, err)
 
-		body := strings.NewReader(`{"email":"alice+2@mail.test", "shortName":"Newbie"}`)
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), body)
-		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+		t.Run("OK", func(t *testing.T) {
+			// Updat user data.
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s", user.Email)
+			body := `{"email":"alice+2@mail.test", "shortName":"Newbie"}`
+			responseBody := assertReq(ctx, t, link, http.MethodPut, body, http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
 
-		response, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, response.StatusCode)
-		responseBody, err := ioutil.ReadAll(response.Body)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-		require.Len(t, responseBody, 0)
+			updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, "alice+2@mail.test", updatedUser.Email)
+			require.Equal(t, user.FullName, updatedUser.FullName)
+			require.NotEqual(t, "Newbie", user.ShortName)
+			require.Equal(t, "Newbie", updatedUser.ShortName)
+			require.Equal(t, user.ID, updatedUser.ID)
+			require.Equal(t, user.Status, updatedUser.Status)
+			require.Equal(t, user.ProjectLimit, updatedUser.ProjectLimit)
 
-		updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
-		require.NoError(t, err)
-		require.Equal(t, "alice+2@mail.test", updatedUser.Email)
-		require.Equal(t, user.FullName, updatedUser.FullName)
-		require.NotEqual(t, "Newbie", user.ShortName)
-		require.Equal(t, "Newbie", updatedUser.ShortName)
-		require.Equal(t, user.ID, updatedUser.ID)
-		require.Equal(t, user.Status, updatedUser.Status)
-		require.Equal(t, user.ProjectLimit, updatedUser.ProjectLimit)
+			// Update rate limit.
+			link = "http://" + address.String() + "/api/users/alice+2@mail.test"
+			newLimit := 50
+			body = fmt.Sprintf(`{"projectLimit":%d}`, newLimit)
+			responseBody = assertReq(ctx, t, link, http.MethodPut, body, http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
+
+			updatedUserRate, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, updatedUser.Email, updatedUserRate.Email)
+			require.Equal(t, updatedUser.ID, updatedUserRate.ID)
+			require.Equal(t, updatedUser.Status, updatedUserRate.Status)
+			require.Equal(t, newLimit, updatedUserRate.ProjectLimit)
+		})
+
+		t.Run("Not found", func(t *testing.T) {
+			link := "http://" + address.String() + "/api/users/user-not-exists@not-exists.test"
+			body := `{"email":"alice+2@mail.test", "shortName":"Newbie"}`
+			responseBody := assertReq(ctx, t, link, http.MethodPut, body, http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "does not exist")
+		})
 	})
 }
 
-func TestUpdateUserRateLimit(t *testing.T) {
+func TestUserDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Admin.Address = "127.0.0.1:0"
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
-		require.NoError(t, err)
-
-		newLimit := 50
-
-		body := strings.NewReader(fmt.Sprintf(`{"projectLimit":%d}`, newLimit))
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), body)
-		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
-
-		response, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, response.StatusCode)
-		responseBody, err := ioutil.ReadAll(response.Body)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-		require.Len(t, responseBody, 0)
-
-		updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
-		require.NoError(t, err)
-		require.Equal(t, user.Email, updatedUser.Email)
-		require.Equal(t, user.ID, updatedUser.ID)
-		require.Equal(t, user.Status, updatedUser.Status)
-		require.Equal(t, newLimit, updatedUser.ProjectLimit)
-	})
-}
-
-func TestDeleteUser(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 0,
-		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -249,32 +220,19 @@ func TestDeleteUser(t *testing.T) {
 		require.NoError(t, err)
 
 		// Deleting the user should fail, as project exists
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), nil)
-		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
-
-		response, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusConflict, response.StatusCode)
-		responseBody, err := ioutil.ReadAll(response.Body)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-		require.Greater(t, len(responseBody), 0)
+		link := fmt.Sprintf("http://"+address.String()+"/api/users/%s", user.Email)
+		body := assertReq(ctx, t, link, http.MethodDelete, "", http.StatusConflict, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Greater(t, len(body), 0)
 
 		err = planet.Satellites[0].DB.Console().Projects().Delete(ctx, planet.Uplinks[0].Projects[0].ID)
 		require.NoError(t, err)
 
-		// Deleting the user should pass, as no project exists for given user
-		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), nil)
-		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+		// Deleting the user should pass, as no project exists for given user.
+		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Len(t, body, 0)
 
-		response, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, response.StatusCode)
-		responseBody, err = ioutil.ReadAll(response.Body)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-		require.Equal(t, len(responseBody), 0)
+		// Deleting unexisting user returns Not Found.
+		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Contains(t, string(body), "does not exist")
 	})
 }

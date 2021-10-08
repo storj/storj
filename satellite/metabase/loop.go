@@ -4,20 +4,17 @@
 package metabase
 
 import (
-	"bytes"
 	"context"
-	"sort"
 	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
 )
 
-const loopIteratorBatchSizeLimit = 2500
+const loopIteratorBatchSizeLimit = intLimitRange(5000)
 
 // IterateLoopObjects contains arguments necessary for listing objects in metabase.
 type IterateLoopObjects struct {
@@ -47,7 +44,13 @@ type LoopObjectEntry struct {
 	CreatedAt             time.Time    // temp used by metabase-createdat-migration
 	ExpiresAt             *time.Time   // tally
 	SegmentCount          int32        // metrics
+	TotalEncryptedSize    int64        // tally
 	EncryptedMetadataSize int          // tally
+}
+
+// Expired checks if object is expired relative to now.
+func (o LoopObjectEntry) Expired(now time.Time) bool {
+	return o.ExpiresAt != nil && o.ExpiresAt.Before(now)
 }
 
 // IterateLoopObjects iterates through all objects in metabase.
@@ -69,10 +72,7 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 		asOfSystemInterval: opts.AsOfSystemInterval,
 	}
 
-	// ensure batch size is reasonable
-	if it.batchSize <= 0 || it.batchSize > loopIteratorBatchSizeLimit {
-		it.batchSize = loopIteratorBatchSizeLimit
-	}
+	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
 
 	it.curRows, err = it.doNextQuery(ctx)
 	if err != nil {
@@ -160,13 +160,13 @@ func (it *loopIterator) Next(ctx context.Context, item *LoopObjectEntry) bool {
 func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return it.db.db.Query(ctx, `
+	return it.db.db.QueryContext(ctx, `
 		SELECT
 			project_id, bucket_name,
 			object_key, stream_id, version,
 			status,
 			created_at, expires_at,
-			segment_count,
+			segment_count, total_encrypted_size,
 			LENGTH(COALESCE(encrypted_metadata,''))
 		FROM objects
 		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
@@ -186,17 +186,9 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 		&item.ObjectKey, &item.StreamID, &item.Version,
 		&item.Status,
 		&item.CreatedAt, &item.ExpiresAt,
-		&item.SegmentCount,
+		&item.SegmentCount, &item.TotalEncryptedSize,
 		&item.EncryptedMetadataSize,
 	)
-}
-
-// IterateLoopStreams contains arguments necessary for listing multiple streams segments.
-type IterateLoopStreams struct {
-	StreamIDs []uuid.UUID
-
-	AsOfSystemTime     time.Time
-	AsOfSystemInterval time.Duration
 }
 
 // SegmentIterator returns the next segment.
@@ -206,7 +198,7 @@ type SegmentIterator func(ctx context.Context, segment *LoopSegmentEntry) bool
 type LoopSegmentEntry struct {
 	StreamID      uuid.UUID
 	Position      SegmentPosition
-	CreatedAt     *time.Time // repair
+	CreatedAt     time.Time // non-nillable
 	ExpiresAt     *time.Time
 	RepairedAt    *time.Time // repair
 	RootPieceID   storj.PieceID
@@ -220,115 +212,6 @@ type LoopSegmentEntry struct {
 // Inline returns true if segment is inline.
 func (s LoopSegmentEntry) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
-}
-
-// IterateLoopStreams lists multiple streams segments.
-func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, handleStream func(ctx context.Context, streamID uuid.UUID, next SegmentIterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(opts.StreamIDs) == 0 {
-		return ErrInvalidRequest.New("StreamIDs list is empty")
-	}
-
-	sort.Slice(opts.StreamIDs, func(i, k int) bool {
-		return bytes.Compare(opts.StreamIDs[i][:], opts.StreamIDs[k][:]) < 0
-	})
-
-	// TODO do something like pgutil.UUIDArray()
-	bytesIDs := make([][]byte, len(opts.StreamIDs))
-	for i, streamID := range opts.StreamIDs {
-		if streamID.IsZero() {
-			return ErrInvalidRequest.New("StreamID missing: index %d", i)
-		}
-		id := streamID
-		bytesIDs[i] = id[:]
-	}
-
-	rows, err := db.db.Query(ctx, `
-		SELECT
-			stream_id, position,
-			created_at, expires_at, repaired_at,
-			root_piece_id,
-			encrypted_size,
-			plain_offset, plain_size,
-			redundancy,
-			remote_alias_pieces
-		FROM segments
-		`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
-		WHERE
-		    -- this turns out to be a little bit faster than stream_id IN (SELECT unnest($1::BYTEA[]))
-			stream_id = ANY ($1::BYTEA[])
-		ORDER BY stream_id ASC, position ASC
-	`, pgutil.ByteaArray(bytesIDs))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, rows.Err(), rows.Close()) }()
-
-	var noMoreData bool
-	var nextSegment *LoopSegmentEntry
-	for _, streamID := range opts.StreamIDs {
-		streamID := streamID
-		var internalError error
-		err := handleStream(ctx, streamID, func(ctx context.Context, output *LoopSegmentEntry) bool {
-			mon.TaskNamed("handleStreamCB-SegmentIterator")(&ctx)(nil)
-			if nextSegment != nil {
-				if nextSegment.StreamID != streamID {
-					return false
-				}
-				*output = *nextSegment
-				nextSegment = nil
-				return true
-			}
-
-			if noMoreData {
-				return false
-			}
-			if !rows.Next() {
-				noMoreData = true
-				return false
-			}
-
-			var segment LoopSegmentEntry
-			var aliasPieces AliasPieces
-			err = rows.Scan(
-				&segment.StreamID, &segment.Position,
-				&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-				&segment.RootPieceID,
-				&segment.EncryptedSize,
-				&segment.PlainOffset, &segment.PlainSize,
-				redundancyScheme{&segment.Redundancy},
-				&aliasPieces,
-			)
-			if err != nil {
-				internalError = Error.New("failed to scan segments: %w", err)
-				return false
-			}
-
-			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-			if err != nil {
-				internalError = Error.New("failed to convert aliases to pieces: %w", err)
-				return false
-			}
-
-			if segment.StreamID != streamID {
-				nextSegment = &segment
-				return false
-			}
-
-			*output = segment
-			return true
-		})
-		if internalError != nil || err != nil {
-			return Error.Wrap(errs.Combine(internalError, err))
-		}
-	}
-
-	if !noMoreData {
-		return Error.New("expected rows to be completely read")
-	}
-
-	return nil
 }
 
 // LoopSegmentsIterator iterates over a sequence of LoopSegmentEntry items.
@@ -370,10 +253,7 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 		cursor:   loopSegmentIteratorCursor{},
 	}
 
-	// ensure batch size is reasonable
-	if it.batchSize <= 0 || it.batchSize > loopIteratorBatchSizeLimit {
-		it.batchSize = loopIteratorBatchSizeLimit
-	}
+	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
 
 	it.curRows, err = it.doNextQuery(ctx)
 	if err != nil {
@@ -457,7 +337,7 @@ func (it *loopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry)
 func (it *loopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return it.db.db.Query(ctx, `
+	return it.db.db.QueryContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, expires_at, repaired_at,

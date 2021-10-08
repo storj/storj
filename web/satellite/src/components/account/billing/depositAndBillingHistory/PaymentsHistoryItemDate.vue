@@ -3,8 +3,8 @@
 
 <template>
     <div class="countdown-container">
-        <div v-if="isExpired">{{date}}</div>
-        <div class="row" v-else>
+        <div v-if="isExpired">{{ date }}</div>
+        <div v-else class="row">
             <p>Expires in </p>
             <p class="digit margin">{{ hours | leadingZero }}</p>
             <p>:</p>
@@ -20,6 +20,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 
+// @vue/component
 @Component
 export default class PaymentsHistoryItemDate extends Vue {
     /**
@@ -39,7 +40,7 @@ export default class PaymentsHistoryItemDate extends Vue {
 
     private readonly expirationTimeInSeconds: number;
     private nowInSeconds = Math.trunc(new Date().getTime() / 1000);
-    private intervalID: number;
+    private intervalID: ReturnType<typeof setInterval>;
 
     /**
      * indicates if billing item is expired.
@@ -98,7 +99,7 @@ export default class PaymentsHistoryItemDate extends Vue {
      * Starts expiration timer if item is not expired.
      */
     private ready(): void {
-        this.intervalID = window.setInterval(() => {
+        this.intervalID = setInterval(() => {
             if ((this.expirationTimeInSeconds - this.nowInSeconds) < 0 || this.isTransactionCompleted) {
                 this.isExpired = true;
                 clearInterval(this.intervalID);

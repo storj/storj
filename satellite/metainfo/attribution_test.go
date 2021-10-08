@@ -28,7 +28,7 @@ func TestResolvePartnerID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		endpoint := planet.Satellites[0].Metainfo.Endpoint2
+		endpoint := planet.Satellites[0].Metainfo.Endpoint
 
 		zenkoPartnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 		require.NoError(t, err)
@@ -245,7 +245,7 @@ func TestQueryAttribution(t *testing.T) {
 
 			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
 			require.NoError(t, err)
-			require.NotZero(t, rows[0].RemoteBytesPerHour)
+			require.NotZero(t, rows[0].TotalBytesPerHour)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
 		}
 	})
@@ -288,6 +288,9 @@ func TestAttributionReport(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// Wait for the storage nodes to be done processing the download
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
 		{ // Flush all the pending information through the system.
 			// Calculate the usage used for upload
 			for _, sn := range planet.StorageNodes {
@@ -316,7 +319,7 @@ func TestAttributionReport(t *testing.T) {
 
 			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
 			require.NoError(t, err)
-			require.NotZero(t, rows[0].RemoteBytesPerHour)
+			require.NotZero(t, rows[0].TotalBytesPerHour)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
 
 			// Minio should have no attribution because bucket was created by Zenko
@@ -364,7 +367,7 @@ func TestBucketAttributionConcurrentUpload(t *testing.T) {
 
 		ctx.Wait()
 
-		expectedPartnerID, err := satellite.Metainfo.Endpoint2.ResolvePartnerID(ctx, &pb.RequestHeader{
+		expectedPartnerID, err := satellite.Metainfo.Endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("Minio"),
 		})
 		require.NoError(t, err)

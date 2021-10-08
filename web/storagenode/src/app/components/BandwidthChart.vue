@@ -6,11 +6,11 @@
         <p class="bandwidth-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="bandwidth-chart"
+            :key="chartKey"
             :chart-data="chartData"
             :width="chartWidth"
             :height="chartHeight"
             :tooltip-constructor="bandwidthTooltip"
-            :key="chartKey"
         />
     </div>
 </template>
@@ -19,9 +19,9 @@
 import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/BaseChart.vue';
+import VChart from '@/app/components/VChart.vue';
 
-import { ChartData } from '@/app/types/chartData';
-import { Tooltip, TooltipParams } from '@/app/types/tooltip';
+import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { BandwidthUsed } from '@/storagenode/sno/sno';
@@ -47,7 +47,10 @@ class BandwidthTooltip {
     }
 }
 
-@Component
+// @vue/component
+@Component({
+    components: { VChart }
+})
 export default class BandwidthChart extends BaseChart {
     private get chartBackgroundColor(): string {
         return this.isDarkMode ? '#4F97F7' : '#F2F6FC';
@@ -81,7 +84,7 @@ export default class BandwidthChart extends BaseChart {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public bandwidthTooltip(tooltipModel: any): void {
+    public bandwidthTooltip(tooltipModel: TooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'bandwidth-tooltip',
             'bandwidth-tooltip-arrow', 'bandwidth-tooltip-point', this.tooltipMarkUp(tooltipModel),
             303, 125, 35, 24, 6, 4, `#1f49a3`);
@@ -89,7 +92,7 @@ export default class BandwidthChart extends BaseChart {
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
+    private tooltipMarkUp(tooltipModel: TooltipModel): string {
         if (!tooltipModel.dataPoints) {
             return '';
         }

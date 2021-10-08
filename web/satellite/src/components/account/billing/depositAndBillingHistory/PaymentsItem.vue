@@ -26,7 +26,9 @@
                 of <b>{{ billingItem.quantity.total.toFixed(2) }}</b>
             </span>
         </p>
-        <p class="container__item download" v-html="billingItem.downloadLinkHtml()"></p>
+        <p class="container__item download">
+            <a v-if="billingItem.link" class="download-link" target="_blank" :href="billingItem.link">{{ billingItem.label }}</a>
+        </p>
     </div>
 </template>
 
@@ -37,6 +39,7 @@ import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBill
 
 import { PaymentsHistoryItem } from '@/types/payments';
 
+// @vue/component
 @Component({
     components: {
         PaymentsHistoryItemDate,

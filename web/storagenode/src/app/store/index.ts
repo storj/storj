@@ -27,21 +27,21 @@ Vue.use(Vuex);
 
 export class StoreModule<S> {
     public state: S;
-    public mutations: any;
-    public actions: any;
-    public getters?: any;
+    public mutations: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    public actions: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    public getters?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 /**
  * storage node store (vuex)
  */
 export const store = new Vuex.Store({
-   modules: {
-       node: newNodeModule(nodeService),
-       appStateModule,
-       notificationsModule: newNotificationsModule(notificationsService),
-       payoutModule: newPayoutModule(payoutService),
-   },
+    modules: {
+        node: newNodeModule(nodeService),
+        appStateModule,
+        notificationsModule: newNotificationsModule(notificationsService),
+        payoutModule: newPayoutModule(payoutService),
+    },
 });
 
 export default store;

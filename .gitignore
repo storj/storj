@@ -36,3 +36,6 @@ resource.syso
 *.resource.go
 
 .build
+
+# Test debug output
+*.test.*

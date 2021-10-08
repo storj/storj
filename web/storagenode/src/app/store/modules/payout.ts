@@ -6,6 +6,7 @@ import {
     PayoutInfoRange,
     PayoutState,
 } from '@/app/types/payout';
+import { StorageNodeState } from '@/app/types/sno';
 import { getHeldPercentage } from '@/app/utils/payout';
 import { SizeBreakpoints } from '@/private/memory/size';
 import {
@@ -46,6 +47,14 @@ export const PAYOUT_ACTIONS = {
 export const BANDWIDTH_DOWNLOAD_PRICE_PER_TB = 2000;
 export const BANDWIDTH_REPAIR_PRICE_PER_TB = 1000;
 export const DISK_SPACE_PRICE_PER_TB = 150;
+
+interface PayoutContext {
+    rootState: {
+        node: StorageNodeState;
+    };
+    state: PayoutState;
+    commit: (string, ...unknown) => void;
+}
 
 /**
  * creates notifications module with all dependencies
@@ -89,7 +98,7 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
             },
         },
         actions: {
-            [PAYOUT_ACTIONS.GET_PAYOUT_INFO]: async function ({ commit, state, rootState }: any, satelliteId: string = ''): Promise<void> {
+            [PAYOUT_ACTIONS.GET_PAYOUT_INFO]: async function ({ commit, state, rootState }: PayoutContext, satelliteId = ''): Promise<void> {
                 const totalPaystubForPeriod = await service.paystubSummaryForPeriod(
                     state.periodRange.start,
                     state.periodRange.end,
@@ -99,7 +108,7 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
                 commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
                 commit(PAYOUT_MUTATIONS.SET_PAYOUT_INFO, totalPaystubForPeriod);
             },
-            [PAYOUT_ACTIONS.GET_TOTAL]: async function ({ commit, rootState }: any, satelliteId: string = ''): Promise<void> {
+            [PAYOUT_ACTIONS.GET_TOTAL]: async function ({ commit, rootState }: PayoutContext, satelliteId = ''): Promise<void> {
                 const now = new Date();
                 const start = new PayoutPeriod(rootState.node.selectedSatellite.joinDate.getUTCFullYear(), rootState.node.selectedSatellite.joinDate.getUTCMonth());
                 const end = new PayoutPeriod(now.getUTCFullYear(), now.getUTCMonth());
@@ -129,15 +138,15 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
                 commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
                 commit(PAYOUT_MUTATIONS.SET_TOTAL, totalPayments);
             },
-            [PAYOUT_ACTIONS.SET_PERIODS_RANGE]: function ({ commit }: any, periodRange: PayoutInfoRange): void {
+            [PAYOUT_ACTIONS.SET_PERIODS_RANGE]: function ({ commit }: PayoutContext, periodRange: PayoutInfoRange): void {
                 commit(PAYOUT_MUTATIONS.SET_RANGE, periodRange);
             },
-            [PAYOUT_ACTIONS.GET_HELD_HISTORY]: async function ({ commit }: any): Promise<void> {
+            [PAYOUT_ACTIONS.GET_HELD_HISTORY]: async function ({ commit }: PayoutContext): Promise<void> {
                 const heldHistory = await service.allSatellitesHeldHistory();
 
                 commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, heldHistory);
             },
-            [PAYOUT_ACTIONS.GET_PERIODS]: async function ({commit}: any, satelliteId: string = ''): Promise<void> {
+            [PAYOUT_ACTIONS.GET_PERIODS]: async function ({commit}: PayoutContext, satelliteId = ''): Promise<void> {
                 const periods = await service.availablePeriods(satelliteId);
 
                 commit(PAYOUT_MUTATIONS.SET_PERIODS, periods);
@@ -146,19 +155,19 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
                     commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_AVAILABLE_PERIODS, periods);
                 }
             },
-            [PAYOUT_ACTIONS.GET_ESTIMATION]: async function ({ commit }: any, satelliteId: string = ''): Promise<void> {
+            [PAYOUT_ACTIONS.GET_ESTIMATION]: async function ({ commit }: PayoutContext, satelliteId = ''): Promise<void> {
                 const estimatedInfo = await service.estimatedPayout(satelliteId);
 
                 commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimatedInfo);
             },
-            [PAYOUT_ACTIONS.GET_PAYOUT_HISTORY]: async function ({ commit, state }: any): Promise<void> {
+            [PAYOUT_ACTIONS.GET_PAYOUT_HISTORY]: async function ({ commit, state }: PayoutContext): Promise<void> {
                 if (!state.payoutHistoryPeriod) return;
 
                 const payoutHistory = await service.payoutHistory(state.payoutHistoryPeriod);
 
                 commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY, payoutHistory);
             },
-            [PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD]: function ({ commit }: any, period: string): void {
+            [PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD]: function ({ commit }: PayoutContext, period: string): void {
                 commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_PERIOD, period);
             },
         },

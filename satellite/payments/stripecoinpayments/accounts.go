@@ -8,7 +8,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
@@ -167,6 +167,8 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 			if record.State == 0 {
 				return true, errors.New("unapplied project invoice record exist")
 			}
+			// Record has been applied, so project can be deleted.
+			return false, nil
 		}
 		if err != nil {
 			return true, err
@@ -231,15 +233,4 @@ func (accounts *accounts) StorjTokens() payments.StorjTokens {
 // Coupons exposes all needed functionality to manage coupons.
 func (accounts *accounts) Coupons() payments.Coupons {
 	return &coupons{service: accounts.service}
-}
-
-// PaywallEnabled returns a true if a credit card or account
-// balance is required to create projects.
-func (accounts *accounts) PaywallEnabled(userID uuid.UUID) bool {
-	return BytesAreWithinProportion(userID, accounts.service.PaywallProportion)
-}
-
-// BytesAreWithinProportion returns true if first byte is less than the normalized proportion [0..1].
-func BytesAreWithinProportion(uuidBytes [16]byte, proportion float64) bool {
-	return int(uuidBytes[0]) < int(proportion*256)
 }

@@ -46,10 +46,9 @@ type AttributionTestData struct {
 	inlineSize int64
 	egressSize int64
 
-	dataCounter         int
-	expectedRemoteBytes int64
-	expectedInlineBytes int64
-	expectedEgress      int64
+	dataCounter        int
+	expectedTotalBytes int64
+	expectedEgress     int64
 }
 
 func (testData *AttributionTestData) init() {
@@ -187,8 +186,7 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 		assert.Equal(t, testData.partnerID[:], r.PartnerID, testData.name)
 		assert.Equal(t, testData.projectID[:], r.ProjectID, testData.name)
 		assert.Equal(t, testData.bucketName, r.BucketName, testData.name)
-		assert.Equal(t, float64(testData.expectedRemoteBytes/testData.hours), r.RemoteBytesPerHour, testData.name)
-		assert.Equal(t, float64(testData.expectedInlineBytes/testData.hours), r.InlineBytesPerHour, testData.name)
+		assert.Equal(t, float64(testData.expectedTotalBytes/testData.hours), r.TotalBytesPerHour, testData.name)
 		assert.Equal(t, testData.expectedEgress, r.EgressData, testData.name)
 	}
 	require.NotEqual(t, 0, count, "Results were returned, but did not match all of the the projectIDs.")
@@ -198,11 +196,11 @@ func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testDat
 	projectAccoutingDB := db.ProjectAccounting()
 	orderDB := db.Orders()
 
-	err := orderDB.UpdateBucketBandwidthSettle(ctx, testData.projectID, testData.bucketName, pb.PieceAction_GET, testData.egressSize, testData.bwStart)
+	err := orderDB.UpdateBucketBandwidthSettle(ctx, testData.projectID, testData.bucketName, pb.PieceAction_GET, testData.egressSize, 0, testData.bwStart)
 	require.NoError(t, err)
 
 	// Only GET should be counted. So this should not effect results
-	err = orderDB.UpdateBucketBandwidthSettle(ctx, testData.projectID, testData.bucketName, pb.PieceAction_GET_AUDIT, testData.egressSize, testData.bwStart)
+	err = orderDB.UpdateBucketBandwidthSettle(ctx, testData.projectID, testData.bucketName, pb.PieceAction_GET_AUDIT, testData.egressSize, 0, testData.bwStart)
 	require.NoError(t, err)
 
 	testData.bwStart = testData.bwStart.Add(time.Hour)
@@ -218,8 +216,7 @@ func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testDat
 	require.NoError(t, err)
 
 	if (testData.dataInterval.After(testData.start) || testData.dataInterval.Equal(testData.start)) && testData.dataInterval.Before(testData.end) {
-		testData.expectedRemoteBytes += tally.RemoteBytes
-		testData.expectedInlineBytes += tally.InlineBytes
+		testData.expectedTotalBytes += tally.TotalBytes
 		testData.expectedEgress += testData.egressSize
 	}
 }
@@ -232,11 +229,9 @@ func createTallyData(ctx *testcontext.Context, projectAccoutingDB accounting.Pro
 
 		ObjectCount: 0,
 
-		InlineSegmentCount: 0,
-		RemoteSegmentCount: 0,
+		TotalSegmentCount: 0,
 
-		InlineBytes:  inline,
-		RemoteBytes:  remote,
+		TotalBytes:   inline + remote,
 		MetadataSize: 0,
 	}
 	err = projectAccoutingDB.CreateStorageTally(ctx, tally)

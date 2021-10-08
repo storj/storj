@@ -3,7 +3,7 @@
 
 <template>
     <info-block>
-        <div class="balance-area" slot="body">
+        <div slot="body" class="balance-area">
             <header class="balance-area__header">
                 <h3 class="balance-area__header__title">Balance</h3>
             </header>
@@ -26,13 +26,14 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import InfoBlock from '../common/InfoBlock.vue';
 
+// @vue/component
 @Component({
     components: { InfoBlock },
 })
 export default class BalanceArea extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public undistributed: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public currentMonthEstimation: number;
 }
 </script>

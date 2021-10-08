@@ -685,7 +685,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       storj.PieceID{1},
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},

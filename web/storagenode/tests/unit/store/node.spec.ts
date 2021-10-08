@@ -29,9 +29,8 @@ const nodeModule = newNodeModule(nodeService);
 
 Vue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { node: nodeModule } });
-
-const state = store.state as any;
+const store = new Vuex.Store<{node: typeof nodeModule.state}>({ modules: { node: nodeModule } });
+const state = store.state;
 
 describe('mutations', () => {
     beforeEach(() => {
@@ -71,7 +70,7 @@ describe('mutations', () => {
     it('selects single satellite', () => {
         const satelliteInfo = new Satellite(
             '3',
-           [new Stamp()],
+            [new Stamp()],
             [],
             [],
             [],

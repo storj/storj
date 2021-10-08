@@ -5,26 +5,26 @@
     <div class="payment-methods-container__card-container">
         <div class="payment-methods-container__card-container__info-area">
             <div class="payment-methods-container__card-container__info-area__card-logo">
-                <component :is="cardIcon"></component>
+                <component :is="cardIcon" />
             </div>
             <div class="payment-methods-container__card-container__info-area__info-container">
                 <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image">
-                <h1 class="bold">{{creditCard.last4}}</h1>
+                <h1 class="bold">{{ creditCard.last4 }}</h1>
             </div>
             <div class="payment-methods-container__card-container__info-area__expire-container">
                 <h2 class="medium">Expires</h2>
-                <h1 class="bold">{{creditCard.expMonth}}/{{creditCard.expYear}}</h1>
+                <h1 class="bold">{{ creditCard.expMonth }}/{{ creditCard.expYear }}</h1>
             </div>
         </div>
         <div class="payment-methods-container__card-container__button-area">
-            <div class="payment-methods-container__card-container__default-button" v-if="creditCard.isDefault">
+            <div v-if="creditCard.isDefault" class="payment-methods-container__card-container__default-button">
                 <p class="payment-methods-container__card-container__default-button__label">Default</p>
             </div>
-            <div class="payment-methods-container__card-container__dots-container" v-else>
+            <div v-else class="payment-methods-container__card-container__dots-container">
                 <div @click.stop="toggleSelection">
                     <svg width="12" height="4" viewBox="0 0 12 4" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="4" height="4" rx="2" fill="#354049"/>
-                        <rect x="8" width="4" height="4" rx="2" fill="#354049"/>
+                        <rect width="4" height="4" rx="2" fill="#354049" />
+                        <rect x="8" width="4" height="4" rx="2" fill="#354049" />
                     </svg>
                 </div>
                 <CardDialog
@@ -37,7 +37,8 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import Vue, { VueConstructor } from 'vue';
+import { Component, Prop } from 'vue-property-decorator';
 
 import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
 
@@ -57,6 +58,7 @@ const {
     TOGGLE_CARD_SELECTION,
 } = PAYMENTS_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         CardDialog,
@@ -78,24 +80,24 @@ export default class CardComponent extends Vue {
     /**
      * Returns card logo depends of brand.
      */
-    public get cardIcon() {
+    public get cardIcon(): VueConstructor<Vue> {
         switch (this.creditCard.brand) {
-            case 'jcb':
-                return JCBIcon;
-            case 'diners':
-                return DinersIcon;
-            case 'mastercard':
-                return MastercardIcon;
-            case 'amex':
-                return AmericanExpressIcon;
-            case 'discover':
-                return DiscoverIcon;
-            case 'unionpay':
-                return UnionPayIcon;
-            case 'visa':
-                return VisaIcon;
-            default:
-                return DefaultIcon;
+        case 'jcb':
+            return JCBIcon;
+        case 'diners':
+            return DinersIcon;
+        case 'mastercard':
+            return MastercardIcon;
+        case 'amex':
+            return AmericanExpressIcon;
+        case 'discover':
+            return DiscoverIcon;
+        case 'unionpay':
+            return UnionPayIcon;
+        case 'visa':
+            return VisaIcon;
+        default:
+            return DefaultIcon;
         }
     }
 

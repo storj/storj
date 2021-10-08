@@ -12,6 +12,7 @@ import VDropdown, { Option } from '@/app/components/common/VDropdown.vue';
 
 import { Node } from '@/nodes';
 
+// @vue/component
 @Component({
     components: { VDropdown },
 })
@@ -23,19 +24,17 @@ export default class NodeSelectionDropdown extends Vue {
         const nodes: Node[] = this.$store.state.nodes.nodes;
 
         const options: Option[] = nodes.map(
-            (node: Node) => {
-                return new Option(node.displayedName, () => this.onNodeClick(node.id));
-            },
+            (node: Node) => new Option(node.displayedName, () => this.onNodeClick(node.id)),
         );
 
-        return [ new Option('All Nodes', () => this.onNodeClick()), ...options ];
+        return [new Option('All Nodes', () => this.onNodeClick()), ...options];
     }
 
     /**
      * Callback for node click.
      * @param nodeId - node id to select
      */
-    public async onNodeClick(nodeId: string = ''): Promise<void> {
+    public async onNodeClick(nodeId = ''): Promise<void> {
         await this.$store.dispatch('nodes/selectNode', nodeId);
     }
 }

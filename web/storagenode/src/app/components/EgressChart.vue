@@ -6,11 +6,11 @@
         <p class="egress-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="egress-chart"
+            :key="chartKey"
             :chart-data="chartData"
             :width="chartWidth"
             :height="chartHeight"
             :tooltip-constructor="egressTooltip"
-            :key="chartKey"
         />
     </div>
 </template>
@@ -19,9 +19,9 @@
 import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/BaseChart.vue';
+import VChart from '@/app/components/VChart.vue';
 
-import { ChartData } from '@/app/types/chartData';
-import { Tooltip, TooltipParams } from '@/app/types/tooltip';
+import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { EgressUsed } from '@/storagenode/sno/sno';
@@ -43,7 +43,10 @@ class EgressTooltip {
     }
 }
 
-@Component
+// @vue/component
+@Component({
+    components: { VChart }
+})
 export default class EgressChart extends BaseChart {
     private get chartBackgroundColor(): string {
         return this.isDarkMode ? '#4FC895' : '#edf9f4';
@@ -77,7 +80,7 @@ export default class EgressChart extends BaseChart {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public egressTooltip(tooltipModel): void {
+    public egressTooltip(tooltipModel: TooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'egress-chart', 'egress-tooltip',
             'egress-tooltip-arrow', 'egress-tooltip-point', this.tooltipMarkUp(tooltipModel),
             255, 94, 35, 24, 6, 4, `#48a77f`);
@@ -85,7 +88,7 @@ export default class EgressChart extends BaseChart {
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
+    private tooltipMarkUp(tooltipModel: TooltipModel): string {
         if (!tooltipModel.dataPoints) {
             return '';
         }
@@ -146,6 +149,7 @@ export default class EgressChart extends BaseChart {
         min-width: 50px;
         min-height: 30px;
         pointer-events: none;
+        z-index: 9999;
     }
 
     .egress-tooltip-body {

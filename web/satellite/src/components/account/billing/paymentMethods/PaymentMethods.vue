@@ -7,7 +7,7 @@
             <div class="payment-methods-area__functional-area__top-container">
                 <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
                 <div class="payment-methods-area__functional-area__button-area">
-                    <div class="payment-methods-area__functional-area__button-area__default-buttons" v-if="!areAddButtonsClicked">
+                    <div v-if="!areAddButtonsClicked" class="payment-methods-area__functional-area__button-area__default-buttons">
                         <VButton
                             class="add-storj-button"
                             label="Add STORJ"
@@ -17,7 +17,7 @@
                             :on-press="onAddSTORJ"
                         />
                     </div>
-                    <div class="payment-methods-area__functional-area__button-area__cancel" v-else @click="onCancel">
+                    <div v-else class="payment-methods-area__functional-area__button-area__cancel" @click="onCancel">
                         <p class="payment-methods-area__functional-area__button-area__cancel__text">Cancel</p>
                     </div>
                 </div>
@@ -33,15 +33,14 @@
                 class="payment-methods-area__functional-area__bonus"
             />
             <AddStorjForm
-                ref="addStorj"
                 v-if="isAddingStorjState"
                 :is-loading="isLoading"
                 @toggleIsLoading="toggleIsLoading"
                 @cancel="onCancel"
             />
             <AddCardForm
-                ref="addCard"
                 v-if="isAddingCardState"
+                ref="addCard"
                 @toggleIsLoading="toggleIsLoading"
                 @toggleIsLoaded="toggleIsLoaded"
                 @cancel="onCancel"
@@ -65,21 +64,21 @@
                 <span>{{ addingCCButtonLabel }}</span>
             </div>
         </div>
-        <div class="payment-methods-area__security-info-container" v-if="isAddingCardState && noCreditCards">
-            <LockImage/>
+        <div v-if="isAddingCardState && noCreditCards" class="payment-methods-area__security-info-container">
+            <LockImage />
             <span class="payment-methods-area__security-info-container__info">
                 Your card is secured by Stripe through TLS and AES-256 encryption. Your information is secure.
             </span>
         </div>
-        <VLoader v-if="areCardsFetching" class="pm-loader"/>
-        <div class="payment-methods-area__existing-cards-container" v-if="!noCreditCards && !areCardsFetching">
+        <VLoader v-if="areCardsFetching" class="pm-loader" />
+        <div v-if="!noCreditCards && !areCardsFetching" class="payment-methods-area__existing-cards-container">
             <CardComponent
                 v-for="card in creditCards"
                 :key="card.id"
                 :credit-card="card"
             />
         </div>
-        <div class="payment-methods-area__blur" v-if="isLoading || isLoaded"/>
+        <div v-if="isLoading || isLoaded" class="payment-methods-area__blur" />
     </div>
 </template>
 
@@ -104,6 +103,7 @@ interface AddCardConfirm {
     onConfirmAddStripe(): Promise<void>;
 }
 
+// @vue/component
 @Component({
     components: {
         AddStorjForm,
@@ -119,11 +119,11 @@ interface AddCardConfirm {
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
 
-    public isLoading: boolean = false;
-    public isLoaded: boolean = false;
-    public isAddCardClicked: boolean = false;
-    public isAddStorjClicked: boolean = false;
-    public areCardsFetching: boolean = true;
+    public isLoading = false;
+    public isLoaded = false;
+    public isAddCardClicked = false;
+    public isAddStorjClicked = false;
+    public areCardsFetching = true;
 
     /**
      * Lifecycle hook after initial render where credit cards are fetched.
@@ -154,12 +154,12 @@ export default class PaymentMethods extends Vue {
      */
     public get functionalAreaClassName(): string {
         switch (true) {
-            case this.isAddCardClicked:
-                return 'reduced';
-            case this.isAddStorjClicked:
-                return 'extended';
-            default:
-                return '';
+        case this.isAddCardClicked:
+            return 'reduced';
+        case this.isAddStorjClicked:
+            return 'extended';
+        default:
+            return '';
         }
     }
 
@@ -175,12 +175,12 @@ export default class PaymentMethods extends Vue {
      */
     public get addingCCButtonLabel(): string {
         switch (true) {
-            case this.isLoading:
-                return 'Adding';
-            case this.isLoaded:
-                return 'Added!';
-            default:
-                return 'Add Card';
+        case this.isLoading:
+            return 'Adding';
+        case this.isLoaded:
+            return 'Added!';
+        default:
+            return 'Add Card';
         }
     }
 
@@ -430,6 +430,6 @@ export default class PaymentMethods extends Vue {
     }
 
     .pm-loader {
-        margin-top: 40px;
+        margin-top: 60px;
     }
 </style>

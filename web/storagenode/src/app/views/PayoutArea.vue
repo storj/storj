@@ -19,8 +19,8 @@
                 </div>
             </section>
             <p class="payout-area-container__section-title">Payout</p>
-            <EstimationArea class="payout-area-container__estimation"/>
-            <PayoutHistoryTable class="payout-area-container__payout-history-table" v-if="payoutPeriods.length > 0" />
+            <EstimationArea class="payout-area-container__estimation" />
+            <PayoutHistoryTable v-if="payoutPeriods.length > 0" class="payout-area-container__payout-history-table" />
             <p class="payout-area-container__section-title">Held Amount</p>
             <p class="additional-text">
                 Learn more about held back
@@ -35,7 +35,7 @@
             </p>
             <section class="payout-area-container__held-info-area">
                 <TotalHeldArea v-if="isSatelliteSelected" />
-                <div class="row" v-else >
+                <div v-else class="row">
                     <SingleInfo width="48%" label="Total Held Amount" :value="totalPayments.held | centsToDollars" />
                     <SingleInfo width="48%" label="Total Held Returned" :value="totalPayments.disposed | centsToDollars" />
                 </div>
@@ -51,7 +51,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
-import HeldHistoryTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 import HeldProgress from '@/app/components/payments/HeldProgress.vue';
 import PayoutHistoryTable from '@/app/components/payments/PayoutHistoryTable.vue';
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
@@ -64,16 +63,15 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { monthNames } from '@/app/types/payout';
 import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component ({
     components: {
         TotalHeldArea,
         PayoutHistoryTable,
         HeldHistoryArea,
         HeldProgress,
-        HeldHistoryTable,
         SingleInfo,
         SatelliteSelection,
         EstimationArea,
@@ -85,7 +83,7 @@ export default class PayoutArea extends Vue {
      * Lifecycle hook after initial render.
      * Fetches payout information.
      */
-    public async mounted(): Promise<any> {
+    public async mounted(): Promise<void> {
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
 
         try {

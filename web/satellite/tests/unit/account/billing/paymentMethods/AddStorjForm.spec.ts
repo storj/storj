@@ -32,7 +32,14 @@ const usersModule = makeUsersModule(usersApi);
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
 const notificationsModule = makeNotificationsModule();
-const store = new Vuex.Store({ modules: { usersModule, paymentsModule, projectsModule, appStateModule, notificationsModule }});
+
+const store = new Vuex.Store<{
+    usersModule: typeof usersModule.state,
+    paymentsModule: typeof paymentsModule.state,
+    projectsModule: typeof projectsModule.state,
+    appStateModule: typeof appStateModule.state,
+    notificationsModule: typeof notificationsModule.state,
+}>({ modules: { usersModule, paymentsModule, projectsModule, appStateModule, notificationsModule }});
 store.commit(USER_MUTATIONS.SET_USER, new User('id', 'name', 'short', 'test@test.test', 'partner', 'pass'));
 
 class NotificatorPlugin {
@@ -63,12 +70,12 @@ describe('AddStorjForm', () => {
         wrapper.vm.$data.tokenDepositValue = 5;
         await wrapper.vm.onConfirmAddSTORJ();
 
-        expect((store.state as any).notificationsModule.notificationQueue[0].message).toMatch('First deposit amount must be more than $10 and less than $1000000');
+        expect(store.state.notificationsModule.notificationQueue[0].message).toMatch('First deposit amount must be more than $10 and less than $1000000');
 
         wrapper.vm.$data.tokenDepositValue = 1000000;
         await wrapper.vm.onConfirmAddSTORJ();
 
-        expect((store.state as any).notificationsModule.notificationQueue[1].message).toMatch('First deposit amount must be more than $10 and less than $1000000');
+        expect(store.state.notificationsModule.notificationQueue[1].message).toMatch('First deposit amount must be more than $10 and less than $1000000');
     });
 
     it('user is able to add less than 10$ after coupon is applied', async () => {
@@ -87,7 +94,7 @@ describe('AddStorjForm', () => {
         wrapper.vm.$data.tokenDepositValue = 5;
         await wrapper.vm.onConfirmAddSTORJ();
 
-        expect((store.state as any).notificationsModule.notificationQueue[0].type).toMatch('SUCCESS');
+        expect(store.state.notificationsModule.notificationQueue[0].type).toMatch('SUCCESS');
     });
 
     it('renders correctly after continue To Coin Payments click', () => {

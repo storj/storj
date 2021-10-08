@@ -8,12 +8,16 @@ import (
 	"time"
 
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/cmd/uplinkng/ulloc"
+	"storj.io/uplink"
 )
 
 // accessPermissions holds flags and provides a Setup method for commands that
 // have to modify permissions on access grants.
 type accessPermissions struct {
-	prefixes []string // prefixes is the set of path prefixes that the grant will be limited to
+	prefixes []uplink.SharePrefix // prefixes is the set of path prefixes that the grant will be limited to
 
 	readonly  bool // implies disallowWrites and disallowDeletes
 	writeonly bool // implies disallowReads and disallowLists
@@ -27,42 +31,86 @@ type accessPermissions struct {
 	notAfter  time.Time
 }
 
-func (ap *accessPermissions) Setup(a clingy.Arguments, f clingy.Flags) {
-	ap.prefixes = f.New("prefix", "Key prefix access will be restricted to", []string{},
-		clingy.Repeated).([]string)
+func (ap *accessPermissions) Setup(params clingy.Parameters) {
+	transformSharePrefix := func(loc ulloc.Location) (uplink.SharePrefix, error) {
+		bucket, key, ok := loc.RemoteParts()
+		if !ok {
+			return uplink.SharePrefix{}, errs.New("invalid prefix: must be remote: %q", loc)
+		}
+		return uplink.SharePrefix{
+			Bucket: bucket,
+			Prefix: key,
+		}, nil
+	}
 
-	ap.readonly = f.New("readonly", "Implies --disallow-writes and --disallow-deletes", true,
+	ap.prefixes = params.Flag("prefix", "Key prefix access will be restricted to", []ulloc.Location{},
+		clingy.Transform(ulloc.Parse),
+		clingy.Transform(transformSharePrefix),
+		clingy.Repeated,
+	).([]uplink.SharePrefix)
+
+	ap.readonly = params.Flag("readonly", "Implies --disallow-writes and --disallow-deletes", false,
 		clingy.Transform(strconv.ParseBool)).(bool)
-	ap.writeonly = f.New("writeonly", "Implies --disallow-reads and --disallow-lists", false,
+	ap.writeonly = params.Flag("writeonly", "Implies --disallow-reads and --disallow-lists", false,
 		clingy.Transform(strconv.ParseBool)).(bool)
 
-	ap.disallowDeletes = f.New("disallow-deletes", "Disallow deletes with the access", false,
+	ap.disallowDeletes = params.Flag("disallow-deletes", "Disallow deletes with the access", false,
 		clingy.Transform(strconv.ParseBool)).(bool)
-	ap.disallowLists = f.New("disallow-lists", "Disallow lists with the access", false,
+	ap.disallowLists = params.Flag("disallow-lists", "Disallow lists with the access", false,
 		clingy.Transform(strconv.ParseBool)).(bool)
-	ap.disallowReads = f.New("disallow-reads", "Disallow reasd with the access", false,
+	ap.disallowReads = params.Flag("disallow-reads", "Disallow reasd with the access", false,
 		clingy.Transform(strconv.ParseBool)).(bool)
-	ap.disallowWrites = f.New("disallow-writes", "Disallow writes with the access", false,
+	ap.disallowWrites = params.Flag("disallow-writes", "Disallow writes with the access", false,
 		clingy.Transform(strconv.ParseBool)).(bool)
 
-	ap.notBefore = f.New("not-before",
-		"Disallow access before this time (e.g. '+2h', '2020-01-02T15:04:05Z0700')",
-		time.Time{}, clingy.Transform(parseRelativeTime), clingy.Type("relative_time")).(time.Time)
-	ap.notAfter = f.New("not-after",
-		"Disallow access after this time (e.g. '+2h', '2020-01-02T15:04:05Z0700')",
-		time.Time{}, clingy.Transform(parseRelativeTime), clingy.Type("relative_time")).(time.Time)
+	now := time.Now()
+	transformHumanDate := clingy.Transform(func(date string) (time.Time, error) {
+		switch {
+		case date == "":
+			return time.Time{}, nil
+		case date == "now":
+			return now, nil
+		case date[0] == '+' || date[0] == '-':
+			d, err := time.ParseDuration(date)
+			return now.Add(d), errs.Wrap(err)
+		default:
+			t, err := time.Parse(time.RFC3339, date)
+			return t, errs.Wrap(err)
+		}
+	})
+
+	ap.notBefore = params.Flag("not-before",
+		"Disallow access before this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
+		time.Time{}, transformHumanDate, clingy.Type("relative_date")).(time.Time)
+	ap.notAfter = params.Flag("not-after",
+		"Disallow access after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
+		time.Time{}, transformHumanDate, clingy.Type("relative_date")).(time.Time)
 }
 
-func parseRelativeTime(v string) (time.Time, error) {
-	if len(v) == 0 {
-		return time.Time{}, nil
-	} else if v[0] == '+' || v[0] == '-' {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return time.Time{}, err
-		}
-		return time.Now().Add(d), nil
-	} else {
-		return time.Parse(time.RFC3339, v)
+func (ap *accessPermissions) Apply(access *uplink.Access) (*uplink.Access, error) {
+	permission := uplink.Permission{
+		AllowDelete:   !ap.disallowDeletes && !ap.readonly,
+		AllowList:     !ap.disallowLists && !ap.writeonly,
+		AllowDownload: !ap.disallowReads && !ap.writeonly,
+		AllowUpload:   !ap.disallowWrites && !ap.readonly,
+		NotBefore:     ap.notBefore,
+		NotAfter:      ap.notAfter,
 	}
+
+	// if we aren't actually restricting anything, then we don't need to Share.
+	if permission == (uplink.Permission{
+		AllowDelete:   true,
+		AllowList:     true,
+		AllowDownload: true,
+		AllowUpload:   true,
+	}) && len(ap.prefixes) == 0 {
+		return access, nil
+	}
+
+	access, err := access.Share(permission, ap.prefixes...)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return access, nil
 }

@@ -88,7 +88,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		require.NoError(t, err)
 
 		// get a remote segment
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		// calculate how many storagenodes to kill
@@ -161,7 +161,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		require.NoError(t, err)
 
 		// get a remote segment from metabase
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 		require.NotEmpty(t, segments[0].Pieces)

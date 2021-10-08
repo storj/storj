@@ -3,8 +3,8 @@
 
 <template>
     <label class="container">
-        <input class="checkmark-input" type="checkbox" v-model="checked" @change="onChange">
-        <span class="checkmark" :class="{'error': isCheckboxError}"></span>
+        <input v-model="checked" class="checkmark-input" type="checkbox" @change="onChange">
+        <span class="checkmark" :class="{'error': isCheckboxError}" />
     </label>
 </template>
 
@@ -12,12 +12,13 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 // Custom checkbox component
+// @vue/component
 @Component
 export default class VCheckbox extends Vue {
     @Prop({default: false})
     private readonly isCheckboxError: boolean;
 
-    private checked: boolean = false;
+    private checked = false;
 
     /**
      * Emits value to parent component.

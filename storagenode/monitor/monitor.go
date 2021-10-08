@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// Package monitor is responsible for monitoring the disk is well-behaved.
+// It checks whether there's sufficient space and whether directories are writable.
 package monitor
 
 import (
@@ -126,7 +128,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error {
 		return service.VerifyDirReadableLoop.Run(ctx, func(ctx context.Context) error {
-			err := service.store.VerifyStorageDir(service.contact.Local().ID)
+			err := service.store.VerifyStorageDir(ctx, service.contact.Local().ID)
 			if err != nil {
 				return Error.New("error verifying location and/or readability of storage directory: %v", err)
 			}
@@ -135,7 +137,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return service.VerifyDirWritableLoop.Run(ctx, func(ctx context.Context) error {
-			err := service.store.CheckWritability()
+			err := service.store.CheckWritability(ctx)
 			if err != nil {
 				return Error.New("error verifying writability of storage directory: %v", err)
 			}

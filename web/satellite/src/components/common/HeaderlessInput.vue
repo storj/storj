@@ -2,51 +2,51 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="input-wrap">
+    <div class="input-wrap" :aria-roledescription="roleDescription">
         <div class="label-container">
-            <ErrorIcon v-if="error"/>
-            <p class="label-container__label" v-if="isLabelShown" :style="style.labelStyle">{{label}}</p>
-            <p class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</p>
+            <ErrorIcon v-if="error" />
+            <p v-if="isLabelShown" class="label-container__label" :style="style.labelStyle">{{ label }}</p>
+            <p v-if="error" class="label-container__error" aria-roledescription="error-text" :style="style.errorStyle">{{ error }}</p>
         </div>
         <input
+            v-model="value"
             class="headerless-input"
             :class="{'inputError' : error, 'password': isPassword}"
-            @input="onInput"
-            @change="onInput"
-            v-model="value"
             :placeholder="placeholder"
             :type="type"
             :style="style.inputStyle"
+            :optionsShown="optionsShown"
+            @input="onInput"
+            @change="onInput"
             @focus="showPasswordStrength"
             @blur="hidePasswordStrength"
             @click="showOptions"
-            :optionsShown="optionsShown"
             @optionsList="optionsList"
-        />
+        >
 
         <!-- Shown if there are input choice options  -->
         <InputCaret v-if="optionsList.length > 0" class="headerless-input__caret" />
-        <ul v-click-outside="hideOptions" class="headerless-input__options-wrapper" v-if="optionsShown">
+        <ul v-if="optionsShown" v-click-outside="hideOptions" class="headerless-input__options-wrapper">
             <li
-                class="headerless-input__option"
-                @click="chooseOption(option)"
                 v-for="(option, index) in optionsList"
                 :key="index"
+                class="headerless-input__option"
+                @click="chooseOption(option)"
             >
-                {{option}}
+                {{ option }}
             </li>
         </ul>
         <!-- end of option render logic-->
 
         <!--2 conditions of eye image (crossed or not) -->
         <PasswordHiddenIcon
-            class="input-wrap__image"
             v-if="isPasswordHiddenState"
+            class="input-wrap__image"
             @click="changeVision"
         />
         <PasswordShownIcon
-            class="input-wrap__image"
             v-if="isPasswordShownState"
+            class="input-wrap__image"
             @click="changeVision"
         />
         <!-- end of image-->
@@ -62,6 +62,7 @@ import PasswordShownIcon from '@/../static/images/common/passwordShown.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 
 // Custom input component for login page
+// @vue/component
 @Component({
     components: {
         InputCaret,
@@ -75,9 +76,9 @@ export default class HeaderlessInput extends Vue {
     private readonly passwordType: string = 'password';
 
     private type: string = this.textType;
-    private isPasswordShown: boolean = false;
+    private isPasswordShown = false;
 
-    protected value: string = '';
+    protected value = '';
 
     @Prop({default: ''})
     protected readonly label: string;
@@ -104,6 +105,8 @@ export default class HeaderlessInput extends Vue {
     private readonly isWhite: boolean;
     @Prop({default: false})
     private readonly withIcon: boolean;
+    @Prop({default: 'input-container'})
+    private readonly roleDescription: boolean;
 
     public constructor() {
         super();
@@ -130,7 +133,8 @@ export default class HeaderlessInput extends Vue {
     /**
      * triggers on input.
      */
-    public onInput({ target }): void {
+    public onInput(event: Event): void {
+        const target = event.target as HTMLInputElement;
         if (target.value.length > this.maxSymbols) {
             this.value = target.value.slice(0, this.maxSymbols);
         } else {
@@ -193,7 +197,7 @@ export default class HeaderlessInput extends Vue {
     /**
      * Returns style objects depends on props.
      */
-    protected get style(): object {
+    protected get style(): Record<string, unknown> {
         return {
             inputStyle: {
                 width: this.width,
@@ -257,10 +261,8 @@ export default class HeaderlessInput extends Vue {
                 padding: 0;
                 background: #fff;
                 z-index: 21;
-                border-radius: 6px;
+                border-radius: 0 0 6px 6px;
                 list-style: none;
-                border-top-right-radius: 0;
-                border-top-left-radius: 0;
                 border-top: none;
                 height: 176px;
                 margin-top: 0;

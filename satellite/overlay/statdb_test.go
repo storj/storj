@@ -61,21 +61,15 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			require.NoError(t, err)
 
 			if tt.unknownAuditSuspended {
-				err = cache.SuspendNodeUnknownAudit(ctx, tt.nodeID, time.Now())
+				err = cache.TestSuspendNodeUnknownAudit(ctx, tt.nodeID, time.Now())
 				require.NoError(t, err)
 			}
 
 			if tt.offlineSuspended {
-				ahConfig := &overlay.AuditHistoryConfig{
-					WindowSize:               time.Hour,
-					TrackingPeriod:           2 * time.Hour,
-					GracePeriod:              time.Hour,
-					OfflineThreshold:         0.6,
-					OfflineDQEnabled:         false,
-					OfflineSuspensionEnabled: true,
-				}
-				require.NoError(t, offlineSuspendNode(ctx, cache, ahConfig, tt.nodeID))
+				err = cache.TestSuspendNodeOffline(ctx, tt.nodeID, time.Now())
+				require.NoError(t, err)
 			}
+
 			if tt.disqualified {
 				err = cache.DisqualifyNode(ctx, tt.nodeID)
 				require.NoError(t, err)
@@ -202,43 +196,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.Equal(t, "0x2222222222222222222222222222222222222222", updateWalletFeatures.Operator.Wallet)
 		assert.Equal(t, "def456@mail.test", updateWalletFeatures.Operator.Email)
 		assert.Equal(t, []string{"wallet_features_updated"}, updateWalletFeatures.Operator.WalletFeatures)
-	}
-
-	{ // TestUpdateExists
-		nodeID := storj.NodeID{1}
-		node, err := cache.Get(ctx, nodeID)
-		require.NoError(t, err)
-
-		auditAlpha := node.Reputation.AuditReputationAlpha
-		auditBeta := node.Reputation.AuditReputationBeta
-
-		updateReq := &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditSuccess,
-			AuditLambda:  0.123, AuditWeight: 0.456,
-			AuditDQ:      0, // don't disqualify for any reason
-			AuditHistory: testAuditHistoryConfig(),
-		}
-		stats, err := cache.UpdateStats(ctx, updateReq, time.Now())
-		require.NoError(t, err)
-
-		expectedAuditAlpha := updateReq.AuditLambda*auditAlpha + updateReq.AuditWeight
-		expectedAuditBeta := updateReq.AuditLambda * auditBeta
-		require.EqualValues(t, stats.AuditReputationAlpha, expectedAuditAlpha)
-		require.EqualValues(t, stats.AuditReputationBeta, expectedAuditBeta)
-
-		auditAlpha = expectedAuditAlpha
-		auditBeta = expectedAuditBeta
-
-		updateReq.AuditOutcome = overlay.AuditFailure
-		stats, err = cache.UpdateStats(ctx, updateReq, time.Now())
-		require.NoError(t, err)
-
-		expectedAuditAlpha = updateReq.AuditLambda * auditAlpha
-		expectedAuditBeta = updateReq.AuditLambda*auditBeta + updateReq.AuditWeight
-		require.EqualValues(t, stats.AuditReputationAlpha, expectedAuditAlpha)
-		require.EqualValues(t, stats.AuditReputationBeta, expectedAuditBeta)
-
 	}
 
 	{ // test UpdateCheckIn updates the reputation correctly when the node is offline/online

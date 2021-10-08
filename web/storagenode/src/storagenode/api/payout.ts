@@ -47,9 +47,9 @@ export class PayoutHttpApi implements PayoutApi {
         }
 
         const responseBody = await response.json() || [];
-        const data: any[] = !Array.isArray(responseBody) ? [ responseBody ] : responseBody;
+        const data: any[] = !Array.isArray(responseBody) ? [ responseBody ] : responseBody; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        return data.map((paystubJson: any) => {
+        return data.map((paystubJson: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             return new Paystub(
                 paystubJson.usageAtRest,
                 paystubJson.usageGet,
@@ -105,7 +105,7 @@ export class PayoutHttpApi implements PayoutApi {
      * @returns payout information
      * @throws Error
      */
-    public async getPayoutHistory(period): Promise<SatellitePayoutForPeriod[]> {
+    public async getPayoutHistory(period: string): Promise<SatellitePayoutForPeriod[]> {
         const path = `${this.ROOT_PATH}/payout-history/${period}`;
 
         const response = await this.client.get(path);
@@ -114,9 +114,9 @@ export class PayoutHttpApi implements PayoutApi {
             throw new Error('can not get payout history information');
         }
 
-        const data: any = await response.json() || [];
+        const data: any = await response.json() || []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        return data.map((payoutHistoryItem: any) => {
+        return data.map((payoutHistoryItem: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             return new SatellitePayoutForPeriod(
                 payoutHistoryItem.satelliteID,
                 payoutHistoryItem.satelliteURL,
@@ -151,9 +151,9 @@ export class PayoutHttpApi implements PayoutApi {
             throw new Error('can not get held history information');
         }
 
-        const data: any = await response.json() || [];
+        const data: any = await response.json() || []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        return data.map((historyItem: any) => {
+        return data.map((historyItem: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             return new SatelliteHeldHistory(
                 historyItem.satelliteID,
                 historyItem.satelliteName,
@@ -186,7 +186,7 @@ export class PayoutHttpApi implements PayoutApi {
             throw new Error('can not get estimated payout information');
         }
 
-        const data: any = await response.json() || new EstimatedPayout();
+        const data: any = await response.json() || new EstimatedPayout(); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         return new EstimatedPayout(
             new PreviousMonthEstimatedPayout(

@@ -4,6 +4,7 @@
 package metabase
 
 import (
+	"database/sql/driver"
 	"math"
 	"sort"
 	"strconv"
@@ -25,10 +26,22 @@ const (
 	LastSegmentIndex = uint32(math.MaxUint32)
 )
 
-// MaxListLimit is the maximum number of items the client can request for listing.
-const MaxListLimit = 1000
+// ListLimit is the maximum number of items the client can request for listing.
+const ListLimit = intLimitRange(1000)
 
-const batchsizeLimit = 1000
+// MoveLimit is the maximum number of segments that can be moved.
+const MoveLimit = int64(10000)
+
+// batchsizeLimit specifies up to how many items fetch from the storage layer at
+// a time.
+//
+// NOTE: A frequent pattern while listing items is to list up to ListLimit items
+// and see whether there is more by trying to fetch another one. If the caller
+// requests a list of ListLimit size and batchSizeLimit equals ListLimit, we
+// would have queried another batch on that check for more items. Most of these
+// results, except the first one, would be thrown away by callers. To prevent
+// this from happening, we add 1 to batchSizeLimit.
+const batchsizeLimit = ListLimit + 1
 
 // BucketPrefix consists of <project id>/<bucket name>.
 type BucketPrefix string
@@ -96,6 +109,22 @@ func (loc BucketLocation) CompactPrefix() []byte {
 // ObjectKey is an encrypted object key encoded using Path Component Encoding.
 // It is not ascii safe.
 type ObjectKey string
+
+// Value converts a ObjectKey to a database field.
+func (o ObjectKey) Value() (driver.Value, error) {
+	return []byte(o), nil
+}
+
+// Scan extracts a ObjectKey from a database field.
+func (o *ObjectKey) Scan(value interface{}) error {
+	switch value := value.(type) {
+	case []byte:
+		*o = ObjectKey(value)
+		return nil
+	default:
+		return Error.New("unable to scan %T into ObjectKey", value)
+	}
+}
 
 // ObjectLocation is decoded object key information.
 type ObjectLocation struct {
@@ -276,6 +305,9 @@ type Version int64
 // NextVersion means that the version should be chosen automatically.
 const NextVersion = Version(0)
 
+// DefaultVersion represents default version 1.
+const DefaultVersion = Version(1)
+
 // ObjectStatus defines the statuses that the object might be in.
 type ObjectStatus byte
 
@@ -364,3 +396,63 @@ func (p Pieces) Less(i, j int) bool { return p[i].Number < p[j].Number }
 
 // Swap swaps the pieces with indexes i and j.
 func (p Pieces) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+
+// Add adds the specified pieces and returns the updated Pieces.
+func (p Pieces) Add(piecesToAdd Pieces) (Pieces, error) {
+	return p.Update(piecesToAdd, nil)
+}
+
+// Remove removes the specified pieces from the original pieces
+// and returns the updated Pieces.
+func (p Pieces) Remove(piecesToRemove Pieces) (Pieces, error) {
+	if len(p) == 0 {
+		return Pieces{}, ErrInvalidRequest.New("pieces missing")
+	}
+	return p.Update(nil, piecesToRemove)
+}
+
+// Update adds piecesToAdd pieces and removes piecesToRemove pieces from
+// the original pieces struct and returns the updated Pieces.
+//
+// It removes the piecesToRemove only if all piece number, node id match.
+//
+// When adding a piece, it checks if the piece already exists using the piece Number
+// If a piece already exists, it returns an empty pieces struct and an error.
+func (p Pieces) Update(piecesToAdd, piecesToRemove Pieces) (Pieces, error) {
+	pieceMap := make(map[uint16]Piece)
+	for _, piece := range p {
+		pieceMap[piece.Number] = piece
+	}
+
+	// remove the piecesToRemove from the map
+	// only if all piece number, node id match
+	for _, piece := range piecesToRemove {
+		if piece == (Piece{}) {
+			continue
+		}
+		existing := pieceMap[piece.Number]
+		if existing != (Piece{}) && existing.StorageNode == piece.StorageNode {
+			delete(pieceMap, piece.Number)
+		}
+	}
+
+	// add the piecesToAdd to the map
+	for _, piece := range piecesToAdd {
+		if piece == (Piece{}) {
+			continue
+		}
+		_, exists := pieceMap[piece.Number]
+		if exists {
+			return Pieces{}, Error.New("piece to add already exists (piece no: %d)", piece.Number)
+		}
+		pieceMap[piece.Number] = piece
+	}
+
+	newPieces := make(Pieces, 0, len(pieceMap))
+	for _, piece := range pieceMap {
+		newPieces = append(newPieces, piece)
+	}
+	sort.Sort(newPieces)
+
+	return newPieces, nil
+}

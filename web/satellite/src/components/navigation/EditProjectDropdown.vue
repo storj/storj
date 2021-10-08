@@ -4,12 +4,12 @@
 <template>
     <div class="edit-project">
         <div class="edit-project__selection-area" :class="{ active: isDropdownShown, 'on-edit': isEditPage }" @click.stop.prevent="toggleDropdown">
-            <h1 class="edit-project__selection-area__name" :title="projectName">{{ projectName }}</h1>
-            <DotsImage class="edit-project__selection-area__image"/>
+            <p class="edit-project__selection-area__name" :title="projectName">{{ projectName }}</p>
+            <DotsImage class="edit-project__selection-area__image" />
         </div>
-        <div class="edit-project__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">
+        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="edit-project__dropdown">
             <div class="edit-project__dropdown__choice" @click.stop.prevent="onEditProjectClick">
-                <EditImage/>
+                <EditImage />
                 <p class="edit-project__dropdown__choice__label">Edit Details</p>
             </div>
         </div>
@@ -25,6 +25,7 @@ import EditImage from '@/../static/images/navigation/edit.svg';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         DotsImage,
@@ -96,7 +97,7 @@ export default class EditProjectDropdown extends Vue {
             cursor: pointer;
 
             &__name {
-                font-family: 'font_bold', sans-serif;
+                font-family: 'font_medium', sans-serif;
                 font-size: 18px;
                 line-height: 22px;
                 color: #000;

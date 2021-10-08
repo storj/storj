@@ -8,11 +8,11 @@
                 <th class="align-left">NODE</th>
                 <th>HELD</th>
                 <th>PAID</th>
-                <th class="options"></th>
+                <th class="options" />
             </tr>
         </thead>
         <tbody slot="body">
-            <payouts-summary-item v-for="payoutSummary in nodePayoutsSummary" :key="payoutSummary.nodeId" :payouts-summary="payoutSummary"/>
+            <payouts-summary-item v-for="payoutSummary in nodePayoutsSummary" :key="payoutSummary.nodeId" :payouts-summary="payoutSummary" />
         </tbody>
     </base-table>
 </template>
@@ -25,6 +25,7 @@ import PayoutsSummaryItem from '@/app/components/payouts/tables/payoutSummary/Pa
 
 import { NodePayoutsSummary } from '@/payouts';
 
+// @vue/component
 @Component({
     components: {
         BaseTable,
@@ -32,7 +33,7 @@ import { NodePayoutsSummary } from '@/payouts';
     },
 })
 export default class PayoutsSummaryTable extends Vue {
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     public nodePayoutsSummary: NodePayoutsSummary[];
 }
 </script>

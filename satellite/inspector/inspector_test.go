@@ -57,7 +57,7 @@ func TestInspectorStats(t *testing.T) {
 			ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
 		}
 
-		segment, err := satellite.Metainfo.Metabase.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
+		segment, err := satellite.Metabase.DB.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
 			ObjectLocation: objectLocation,
 		})
 		require.NoError(t, err)

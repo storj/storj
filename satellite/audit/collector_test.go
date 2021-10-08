@@ -51,7 +51,7 @@ func TestAuditCollector(t *testing.T) {
 
 		r := rand.New(rand.NewSource(time.Now().Unix()))
 		observer := audit.NewCollector(4, r)
-		err := satellite.Metainfo.Loop.Join(ctx, observer)
+		err := satellite.Metabase.SegmentLoop.Join(ctx, observer)
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {

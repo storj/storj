@@ -17,7 +17,7 @@ func TestGetCheckoutURL(t *testing.T) {
 
 	url := coinpayments.GetCheckoutURL(expected, "id")
 
-	key, err := coinpayments.GetTransacationKeyFromURL(url)
+	key, err := coinpayments.GetTransactionKeyFromURL(url)
 	require.NoError(t, err)
 
 	assert.Equal(t, expected, key)

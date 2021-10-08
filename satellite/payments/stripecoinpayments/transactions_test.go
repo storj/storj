@@ -4,16 +4,17 @@
 package stripecoinpayments_test
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
-	"math/big"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/errs2"
@@ -24,6 +25,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -32,48 +34,50 @@ func TestTransactionsDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
-		amount, ok := new(big.Float).SetPrec(1000).SetString("2.0000000000000000005")
-		require.True(t, ok)
-		received, ok := new(big.Float).SetPrec(1000).SetString("1.0000000000000000003")
-		require.True(t, ok)
+		amount, err := monetary.AmountFromString("2.0000000000000000005", monetary.StorjToken)
+		require.NoError(t, err)
+		received, err := monetary.AmountFromString("1.0000000000000000003", monetary.StorjToken)
+		require.NoError(t, err)
+		userID := testrand.UUID()
 
 		createTx := stripecoinpayments.Transaction{
 			ID:        "testID",
-			AccountID: uuid.UUID{1, 2, 3},
+			AccountID: userID,
 			Address:   "testAddress",
-			Amount:    *amount,
-			Received:  *received,
+			Amount:    amount,
+			Received:  received,
 			Status:    coinpayments.StatusPending,
 			Key:       "testKey",
 			Timeout:   time.Second * 60,
 		}
 
 		t.Run("insert", func(t *testing.T) {
-			tx, err := transactions.Insert(ctx, createTx)
+			createdAt, err := transactions.Insert(ctx, createTx)
 			require.NoError(t, err)
-			require.NotNil(t, tx)
-
-			compareTransactions(t, createTx, *tx)
+			requireSaneTimestamp(t, createdAt)
+			txs, err := transactions.ListAccount(ctx, userID)
+			require.NoError(t, err)
+			require.Len(t, txs, 1)
+			compareTransactions(t, createTx, txs[0])
 		})
 
 		t.Run("update", func(t *testing.T) {
-			received, ok := new(big.Float).SetPrec(1000).SetString("6.0000000000000000001")
-			require.True(t, ok)
+			received, err := monetary.AmountFromString("6.0000000000000000001", monetary.StorjToken)
+			require.NoError(t, err)
 
 			update := stripecoinpayments.TransactionUpdate{
 				TransactionID: createTx.ID,
 				Status:        coinpayments.StatusReceived,
-				Received:      *received,
+				Received:      received,
 			}
 
-			err := transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update}, nil)
+			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update}, nil)
 			require.NoError(t, err)
 
 			page, err := transactions.ListPending(ctx, 0, 1, time.Now())
 			require.NoError(t, err)
 
-			require.NotNil(t, page.Transactions)
-			require.Equal(t, 1, len(page.Transactions))
+			require.Len(t, page.Transactions, 1)
 			assert.Equal(t, createTx.ID, page.Transactions[0].ID)
 			assert.Equal(t, update.Received, page.Transactions[0].Received)
 			assert.Equal(t, update.Status, page.Transactions[0].Status)
@@ -83,7 +87,7 @@ func TestTransactionsDB(t *testing.T) {
 					{
 						TransactionID: createTx.ID,
 						Status:        coinpayments.StatusCompleted,
-						Received:      *received,
+						Received:      received,
 					},
 				},
 				coinpayments.TransactionIDList{
@@ -115,24 +119,34 @@ func TestTransactionsDB(t *testing.T) {
 	})
 }
 
+func requireSaneTimestamp(t *testing.T, when time.Time) {
+	// ensure time value is sane. I apologize to you people of the future when this starts breaking
+	require.Truef(t, when.After(time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)),
+		"%s seems too small to be a valid creation timestamp", when)
+	require.Truef(t, when.Before(time.Date(2500, 1, 1, 0, 0, 0, 0, time.UTC)),
+		"%s seems too large to be a valid creation timestamp", when)
+}
+
 func TestConcurrentConsume(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
 		const concurrentTries = 30
 
-		amount, ok := new(big.Float).SetPrec(1000).SetString("2.0000000000000000005")
-		require.True(t, ok)
-		received, ok := new(big.Float).SetPrec(1000).SetString("1.0000000000000000003")
-		require.True(t, ok)
+		amount, err := monetary.AmountFromString("2.0000000000000000005", monetary.StorjToken)
+		require.NoError(t, err)
+		received, err := monetary.AmountFromString("1.0000000000000000003", monetary.StorjToken)
+		require.NoError(t, err)
+		userID := testrand.UUID()
+		txID := coinpayments.TransactionID("testID")
 
-		tx, err := transactions.Insert(ctx,
+		_, err = transactions.Insert(ctx,
 			stripecoinpayments.Transaction{
-				ID:        "testID",
-				AccountID: uuid.UUID{1, 2, 3},
+				ID:        txID,
+				AccountID: userID,
 				Address:   "testAddress",
-				Amount:    *amount,
-				Received:  *received,
+				Amount:    amount,
+				Received:  received,
 				Status:    coinpayments.StatusPending,
 				Key:       "testKey",
 				Timeout:   time.Second * 60,
@@ -142,12 +156,12 @@ func TestConcurrentConsume(t *testing.T) {
 
 		err = transactions.Update(ctx,
 			[]stripecoinpayments.TransactionUpdate{{
-				TransactionID: tx.ID,
+				TransactionID: txID,
 				Status:        coinpayments.StatusCompleted,
-				Received:      *received,
+				Received:      received,
 			}},
 			coinpayments.TransactionIDList{
-				tx.ID,
+				txID,
 			},
 		)
 		require.NoError(t, err)
@@ -165,7 +179,7 @@ func TestConcurrentConsume(t *testing.T) {
 		var group errs2.Group
 		for i := 0; i < concurrentTries; i++ {
 			group.Go(func() error {
-				err := transactions.Consume(ctx, tx.ID)
+				err := transactions.Consume(ctx, txID)
 
 				if err == nil {
 					return nil
@@ -194,10 +208,10 @@ func TestTransactionsDBList(t *testing.T) {
 	)
 
 	// create transactions
-	amount, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
-	require.True(t, ok)
-	received, ok := new(big.Float).SetPrec(1000).SetString("5.0000000000000000003")
-	require.True(t, ok)
+	amount, err := monetary.AmountFromString("4.0000000000000000005", monetary.StorjToken)
+	require.NoError(t, err)
+	received, err := monetary.AmountFromString("5.0000000000000000003", monetary.StorjToken)
+	require.NoError(t, err)
 
 	var txs []stripecoinpayments.Transaction
 	for i := 0; i < transactionCount; i++ {
@@ -214,8 +228,8 @@ func TestTransactionsDBList(t *testing.T) {
 			ID:        coinpayments.TransactionID(id),
 			AccountID: uuid.UUID{},
 			Address:   addr,
-			Amount:    *amount,
-			Received:  *received,
+			Amount:    amount,
+			Received:  received,
 			Status:    status,
 			Key:       key,
 		}
@@ -312,12 +326,12 @@ func TestTransactionsDBRates(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
-		val, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")
-		require.True(t, ok)
+		val, err := decimal.NewFromString("4.000000000000000005")
+		require.NoError(t, err)
 
 		const txID = "tx_id"
 
-		err := transactions.LockRate(ctx, txID, val)
+		err = transactions.LockRate(ctx, txID, val)
 		require.NoError(t, err)
 
 		rate, err := transactions.GetLockedRate(ctx, txID)
@@ -355,17 +369,17 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 
 		// Emulate a deposit through CoinPayments.
 		txID := coinpayments.TransactionID("testID")
-		storjAmount, ok := new(big.Float).SetString("100")
-		require.True(t, ok)
-		storjUSDRate, ok := new(big.Float).SetString("0.2")
-		require.True(t, ok)
+		storjAmount, err := monetary.AmountFromString("100", monetary.StorjToken)
+		require.NoError(t, err)
+		storjUSDRate, err := decimal.NewFromString("0.2")
+		require.NoError(t, err)
 
 		createTx := stripecoinpayments.Transaction{
 			ID:        txID,
 			AccountID: userID,
 			Address:   "testAddress",
-			Amount:    *storjAmount,
-			Received:  *storjAmount,
+			Amount:    storjAmount,
+			Received:  storjAmount,
 			Status:    coinpayments.StatusPending,
 			Key:       "testKey",
 			Timeout:   time.Second * 60,
@@ -378,7 +392,7 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 		update := stripecoinpayments.TransactionUpdate{
 			TransactionID: createTx.ID,
 			Status:        coinpayments.StatusReceived,
-			Received:      *storjAmount,
+			Received:      storjAmount,
 		}
 
 		err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update}, coinpayments.TransactionIDList{createTx.ID})
@@ -407,5 +421,217 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 		require.EqualValues(t, txID, cbt.Metadata["txID"])
 		require.EqualValues(t, "100", cbt.Metadata["storj_amount"])
 		require.EqualValues(t, "0.2", cbt.Metadata["storj_usd_rate"])
+	})
+}
+
+func TestDatabaseBigFloatTransition(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		transactions := db.StripeCoinPayments().Transactions()
+
+		accountID := testrand.UUID()
+		amount, err := monetary.AmountFromString("100000000.00000001", monetary.StorjToken)
+		require.NoError(t, err)
+		received, err := monetary.AmountFromString("0.00000002", monetary.StorjToken)
+		require.NoError(t, err)
+		rate1, err := decimal.NewFromString("1001.23456789")
+		require.NoError(t, err)
+		rate2, err := decimal.NewFromString("3.14159265")
+		require.NoError(t, err)
+
+		tx1 := stripecoinpayments.Transaction{
+			ID:        "abcdefg",
+			AccountID: accountID,
+			Address:   "0xbeedeebeedeebeedeebeedeebeedeebeedeebeed",
+			Amount:    amount,
+			Received:  received,
+			Status:    coinpayments.StatusPending,
+			Key:       "beep beep im a sheep",
+			Timeout:   time.Hour * 48,
+		}
+		tx2 := stripecoinpayments.Transaction{
+			ID:        "hijklmn",
+			AccountID: accountID,
+			Address:   "0x77687927642075206576656e20626f746865723f",
+			Amount:    amount,
+			Received:  received,
+			Status:    coinpayments.StatusPending,
+			Key:       "how now im a cow",
+			Timeout:   0,
+		}
+
+		// perform an Insert on old schema
+		{
+			createdAt, err := transactions.Insert(ctx, tx1)
+			require.NoError(t, err)
+			requireSaneTimestamp(t, createdAt)
+			tx1.CreatedAt = createdAt
+		}
+
+		// perform an Update on old schema
+		{
+			newReceived, err := monetary.AmountFromString("0.12345678", monetary.StorjToken)
+			require.NoError(t, err)
+			upd := stripecoinpayments.TransactionUpdate{
+				TransactionID: tx1.ID,
+				Status:        coinpayments.StatusReceived,
+				Received:      newReceived,
+			}
+			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{upd}, coinpayments.TransactionIDList{tx1.ID})
+			require.NoError(t, err)
+			tx1.Status = coinpayments.StatusReceived
+			tx1.Received = newReceived
+		}
+
+		// perform a ListAccount on old schema
+		{
+			accountTxs, err := transactions.ListAccount(ctx, accountID)
+			require.NoError(t, err)
+			require.Len(t, accountTxs, 1)
+			require.Equal(t, tx1, accountTxs[0])
+		}
+
+		// perform a ListPending on old schema
+		{
+			pendingTxs, err := transactions.ListPending(ctx, 0, 10, time.Now().UTC())
+			require.NoError(t, err)
+			require.Len(t, pendingTxs.Transactions, 1)
+			// ListPending doesn't get the timeout column, so set it manually in order to check equality of other fields
+			pendingTxs.Transactions[0].Timeout = tx1.Timeout
+			require.Equal(t, tx1, pendingTxs.Transactions[0])
+			require.False(t, pendingTxs.Next)
+			require.Equal(t, int64(0), pendingTxs.NextOffset)
+		}
+
+		// perform a ListUnapplied on old schema
+		{
+			unappliedTxs, err := transactions.ListUnapplied(ctx, 0, 10, time.Now().UTC())
+			require.NoError(t, err)
+			require.Len(t, unappliedTxs.Transactions, 1)
+			// ListUnapplied doesn't get the timeout column, so set it manually in order to check equality of other fields
+			unappliedTxs.Transactions[0].Timeout = tx1.Timeout
+			require.Equal(t, tx1, unappliedTxs.Transactions[0])
+			require.False(t, unappliedTxs.Next)
+			require.Equal(t, int64(0), unappliedTxs.NextOffset)
+		}
+
+		// perform a LockRate on old schema
+		{
+			err = transactions.LockRate(ctx, tx1.ID, rate1)
+			require.NoError(t, err)
+		}
+
+		// perform a GetLockedRate on old schema
+		{
+			gotRate, err := transactions.GetLockedRate(ctx, tx1.ID)
+			require.NoError(t, err)
+			require.Equal(t, rate1, gotRate)
+		}
+
+		// do schema update
+		{
+			transitionDB := transactions.(interface {
+				DebugPerformBigFloatTransition(ctx context.Context) error
+			})
+			err = transitionDB.DebugPerformBigFloatTransition(ctx)
+			require.NoError(t, err)
+		}
+
+		// perform an Insert on new schema
+		{
+			createdAt, err := transactions.Insert(ctx, tx2)
+			require.NoError(t, err)
+			requireSaneTimestamp(t, createdAt)
+			tx2.CreatedAt = createdAt
+		}
+
+		// perform a ListAccount on new schema, while tx1 has a received_gob
+		{
+			accountTxs, err := transactions.ListAccount(ctx, accountID)
+			require.NoError(t, err)
+			require.Len(t, accountTxs, 2)
+			// results should be ordered in reverse order of creation
+			require.Equal(t, tx2, accountTxs[0])
+			require.Equal(t, tx1, accountTxs[1])
+		}
+
+		// perform an Update on new schema, on a row with a received_gob
+		{
+			newReceived, err := monetary.AmountFromString("1.11111111", monetary.StorjToken)
+			require.NoError(t, err)
+			upd := stripecoinpayments.TransactionUpdate{
+				TransactionID: tx1.ID,
+				Status:        coinpayments.StatusPending,
+				Received:      newReceived,
+			}
+			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{upd}, nil)
+			require.NoError(t, err)
+			tx1.Status = coinpayments.StatusPending
+			tx1.Received = newReceived
+		}
+
+		// perform an Update on new schema, on a row with a received_numeric
+		{
+			newReceived, err := monetary.AmountFromString("2.12121212", monetary.StorjToken)
+			require.NoError(t, err)
+			upd := stripecoinpayments.TransactionUpdate{
+				TransactionID: tx2.ID,
+				Status:        coinpayments.StatusCompleted,
+				Received:      newReceived,
+			}
+			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{upd}, coinpayments.TransactionIDList{tx2.ID})
+			require.NoError(t, err)
+			tx2.Status = coinpayments.StatusCompleted
+			tx2.Received = newReceived
+		}
+
+		// perform a ListAccount on new schema, after the above changes
+		{
+			accountTxs, err := transactions.ListAccount(ctx, accountID)
+			require.NoError(t, err)
+			require.Len(t, accountTxs, 2)
+			// results should be ordered in reverse order of creation
+			require.Equal(t, tx2, accountTxs[0])
+			require.Equal(t, tx1, accountTxs[1])
+		}
+
+		// perform a ListPending on new schema
+		{
+			pendingTxs, err := transactions.ListPending(ctx, 0, 10, time.Now().UTC())
+			require.NoError(t, err)
+			require.Len(t, pendingTxs.Transactions, 1)
+			// ListPending doesn't get the timeout column, so set it manually in order to check equality of other fields
+			pendingTxs.Transactions[0].Timeout = tx1.Timeout
+			require.Equal(t, tx1, pendingTxs.Transactions[0])
+			require.False(t, pendingTxs.Next)
+			require.Equal(t, int64(0), pendingTxs.NextOffset)
+		}
+
+		// perform a ListUnapplied on new schema
+		{
+			unappliedTxs, err := transactions.ListUnapplied(ctx, 0, 10, time.Now().UTC())
+			require.NoError(t, err)
+			require.Len(t, unappliedTxs.Transactions, 1)
+			// ListUnapplied doesn't get the timeout column, so set it manually in order to check equality of other fields
+			unappliedTxs.Transactions[0].Timeout = tx2.Timeout
+			require.Equal(t, tx2, unappliedTxs.Transactions[0])
+			require.False(t, unappliedTxs.Next)
+			require.Equal(t, int64(0), unappliedTxs.NextOffset)
+		}
+
+		// perform a LockRate on new schema
+		{
+			err = transactions.LockRate(ctx, tx2.ID, rate2)
+			require.NoError(t, err)
+		}
+
+		// perform a GetLockedRate on new schema
+		{
+			gotRate, err := transactions.GetLockedRate(ctx, tx1.ID)
+			require.NoError(t, err)
+			require.Equal(t, rate1, gotRate)
+			gotRate, err = transactions.GetLockedRate(ctx, tx2.ID)
+			require.NoError(t, err)
+			require.Equal(t, rate2, gotRate)
+		}
 	})
 }

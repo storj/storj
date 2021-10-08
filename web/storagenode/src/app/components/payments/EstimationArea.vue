@@ -9,6 +9,7 @@
                 <button
                     name="Select Current Period"
                     class="estimation-container__header__selection-area__item"
+                    type="button"
                     :class="{ active: isCurrentPeriod }"
                     @click.stop="selectCurrentPeriod"
                 >
@@ -25,8 +26,8 @@
                 />
             </div>
         </div>
-        <div class="estimation-container__divider"></div>
-        <div class="estimation-table-container" v-if="!isPayoutNoDataState">
+        <div class="estimation-container__divider" />
+        <div v-if="!isPayoutNoDataState" class="estimation-table-container">
             <div class="estimation-table-container__labels-area">
                 <div class="column justify-start column-1">
                     <p class="estimation-table-container__labels-area__text">Name</p>
@@ -71,15 +72,15 @@
                 <div class="column justify-start column-1">
                     <p class="estimation-table-container__info-area__text">Gross Total</p>
                 </div>
-                <div class="column justify-start column-2"></div>
-                <div class="column justify-start column-3"></div>
-                <div class="column justify-start column-4"></div>
-                <div class="column justify-start column-5"></div>
+                <div class="column justify-start column-2" />
+                <div class="column justify-start column-3" />
+                <div class="column justify-start column-4" />
+                <div class="column justify-start column-5" />
                 <div class="column justify-end column-6">
                     <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__total-area" v-if="isHistoricalPeriod && totalPaystubForPeriod.surgePercent">
+            <div v-if="isHistoricalPeriod && totalPaystubForPeriod.surgePercent" class="estimation-table-container__total-area">
                 <p class="estimation-table-container__total-area__text">Total + Surge {{ surgePercent }}</p>
                 <p class="estimation-table-container__total-area__text">{{ totalPaystubForPeriod.grossWithSurge | centsToDollars }}</p>
             </div>
@@ -87,7 +88,7 @@
                 <p class="estimation-table-container__held-area__text">Held Back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
-            <div class="estimation-table-container__held-area" v-if="isHistoricalPeriod && disposed > 0">
+            <div v-if="isHistoricalPeriod && disposed > 0" class="estimation-table-container__held-area">
                 <p class="estimation-table-container__held-area__text">Held returned</p>
                 <p class="estimation-table-container__held-area__text">{{ disposed | centsToDollars }}</p>
             </div>
@@ -95,8 +96,8 @@
                 <div class="column justify-start column-1">
                     <p class="estimation-table-container__net-total-area__text">NET TOTAL</p>
                 </div>
-                <div class="column justify-start column-2"></div>
-                <div class="column justify-start column-3"></div>
+                <div class="column justify-start column-2" />
+                <div class="column justify-start column-3" />
                 <div class="column justify-start column-4">
                     <p class="estimation-table-container__net-total-area__text">{{ totalDiskSpace + 'm' }}</p>
                 </div>
@@ -107,23 +108,23 @@
                     <p class="estimation-table-container__net-total-area__text">{{ totalPayout | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__distributed-area" v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub">
+            <div v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub" class="estimation-table-container__distributed-area">
                 <div class="estimation-table-container__distributed-area__left-area">
                     <p class="estimation-table-container__distributed-area__text">Distributed</p>
                     <div class="estimation-table-container__distributed-area__info-area">
-                        <ChecksInfoIcon class="checks-area-image" alt="Info icon with question mark" @mouseenter="toggleTooltipVisibility" @mouseleave="toggleTooltipVisibility"/>
-                        <div class="tooltip" v-show="isTooltipVisible">
+                        <ChecksInfoIcon class="checks-area-image" alt="Info icon with question mark" @mouseenter="toggleTooltipVisibility" @mouseleave="toggleTooltipVisibility" />
+                        <div v-show="isTooltipVisible" class="tooltip">
                             <div class="tooltip__text-area">
                                 <p class="tooltip__text-area__text">If you see $0.00 as your distributed amount, you didn’t reach the minimum payout threshold. Your payout will be distributed along with one of the payouts in the upcoming payout cycles. If you see a distributed amount higher than expected, it means this month you were paid undistributed payouts from previous months in addition to this month’s payout.</p>
                             </div>
-                            <div class="tooltip__footer"></div>
+                            <div class="tooltip__footer" />
                         </div>
                     </div>
                 </div>
                 <p class="estimation-table-container__distributed-area__text">{{ totalPaystubForPeriod.distributed | centsToDollars }}</p>
             </div>
         </div>
-        <div class="estimation-container__payout-area" v-if="isCurrentPeriod && !isFirstDayOfCurrentMonth">
+        <div v-if="isCurrentPeriod && !isFirstDayOfCurrentMonth" class="estimation-container__payout-area">
             <div class="estimation-container__payout-area__left-area">
                 <p class="title-text">Estimated Payout</p>
                 <p class="additional-text">At the end of the month if the load keeps the same for the rest of the month.</p>
@@ -132,7 +133,7 @@
                 <p class="title-text">{{ estimation.currentMonthExpectations | centsToDollars }}</p>
             </div>
         </div>
-        <div class="no-data-container" v-if="isPayoutNoDataState">
+        <div v-if="isPayoutNoDataState" class="no-data-container">
             <img class="no-data-container__image" src="@/../static/images/payments/NoData.png">
             <p class="no-data-container__title">No data to display</p>
             <p class="no-data-container__additional-text">Please note, historical data about payouts does not update immediately, it may take some time.</p>
@@ -175,6 +176,7 @@ class EstimationTableRow {
     ) {}
 }
 
+// @vue/component
 @Component ({
     components: {
         EstimationPeriodDropdown,
@@ -407,7 +409,7 @@ export default class EstimationArea extends Vue {
     /**
      * Indicates if tooltip needs to be shown.
      */
-    public isTooltipVisible: boolean = false;
+    public isTooltipVisible = false;
 
     /**
      * Toggles tooltip visibility.

@@ -26,7 +26,6 @@ type Config struct {
 	NodeRepairBandwidthPrice int64          `help:"price node receive for storing TB of repair in cents" default:"1000"`
 	NodeAuditBandwidthPrice  int64          `help:"price node receive for storing TB of audit in cents" default:"1000"`
 	NodeDiskSpacePrice       int64          `help:"price node receive for storing disk space in cents/TB" default:"150"`
-	PaywallProportion        float64        `help:"proportion of users which require a balance to create projects [0-1]" default:"0" testDefault:"1"`
 }
 
 // CouponDuration is a configuration struct that keeps details about default

@@ -13,6 +13,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 func TestCounterInlineAndRemote(t *testing.T) {
@@ -42,10 +43,21 @@ func TestCounterInlineAndRemote(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metricsChore.Loop.TriggerWait()
-		require.EqualValues(t, 2, metricsChore.Counter.InlineObjectCount())
-		require.EqualValues(t, 2, metricsChore.Counter.RemoteDependent)
-		require.EqualValues(t, 4, metricsChore.Counter.ObjectCount)
+		// metric chore is joining as monitor and will wait for another observer
+		// so we manually joining NullObserver
+		metricsChore.Loop.Trigger()
+		err := satellite.Metabase.SegmentLoop.Join(ctx, segmentloop.NullObserver{})
+		require.NoError(t, err)
+
+		require.EqualValues(t, 2, metricsChore.Counter.InlineObjects)
+		require.EqualValues(t, 2, metricsChore.Counter.RemoteObjects)
+
+		require.EqualValues(t, 2, metricsChore.Counter.TotalInlineSegments)
+		require.EqualValues(t, 2, metricsChore.Counter.TotalRemoteSegments)
+		// 2 inline segments * (1024 + encryption overhead)
+		require.EqualValues(t, 2080, metricsChore.Counter.TotalInlineBytes)
+		// 2 remote segments * (8192 + encryption overhead)
+		require.EqualValues(t, 29696, metricsChore.Counter.TotalRemoteBytes)
 	})
 }
 
@@ -66,10 +78,14 @@ func TestCounterInlineOnly(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metricsChore.Loop.TriggerWait()
-		require.EqualValues(t, 2, metricsChore.Counter.InlineObjectCount())
-		require.EqualValues(t, 0, metricsChore.Counter.RemoteDependent)
-		require.EqualValues(t, 2, metricsChore.Counter.ObjectCount)
+		// metric chore is joining as monitor and will wait for another observer
+		// so we manually joining NullObserver
+		metricsChore.Loop.Trigger()
+		err := satellite.Metabase.SegmentLoop.Join(ctx, segmentloop.NullObserver{})
+		require.NoError(t, err)
+
+		require.EqualValues(t, 2, metricsChore.Counter.InlineObjects)
+		require.EqualValues(t, 0, metricsChore.Counter.RemoteObjects)
 	})
 }
 
@@ -93,10 +109,13 @@ func TestCounterRemoteOnly(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metricsChore.Loop.TriggerWait()
-		t.Log(metricsChore.Counter.ObjectCount, metricsChore.Counter.RemoteDependent)
-		require.EqualValues(t, 0, metricsChore.Counter.InlineObjectCount())
-		require.EqualValues(t, 2, metricsChore.Counter.RemoteDependent)
-		require.EqualValues(t, 2, metricsChore.Counter.ObjectCount)
+		// metric chore is joining as monitor and will wait for another observer
+		// so we manually joining NullObserver
+		metricsChore.Loop.Trigger()
+		err := satellite.Metabase.SegmentLoop.Join(ctx, segmentloop.NullObserver{})
+		require.NoError(t, err)
+
+		require.EqualValues(t, 0, metricsChore.Counter.InlineObjects)
+		require.EqualValues(t, 2, metricsChore.Counter.RemoteObjects)
 	})
 }

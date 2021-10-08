@@ -4,22 +4,22 @@
 <template>
     <div class="input-wrap">
         <div class="label-container">
-            <p class="label-container__label" v-if="label" :style="style.labelStyle">{{label}}</p>
+            <p v-if="label" class="label-container__label" :style="style.labelStyle">{{ label }}</p>
         </div>
         <InputCaret v-if="optionsList.length > 0" class="select-input__caret" />
         <select
+            v-model="value"
             :style="style.inputStyle"
             class="select-input"
-            v-model="value"
             @change="onInput"
         >
             <option
-                class="select-input__option"
                 v-for="(option, index) in optionsList"
                 :key="index"
+                class="select-input__option"
                 :value="option"
             >
-                {{option}}
+                {{ option }}
             </option>
         </select>
     </div>
@@ -31,6 +31,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import InputCaret from '@/../static/images/common/caret.svg';
 
 // Custom input component for login page
+// @vue/component
 @Component({
     components: {
         InputCaret,
@@ -38,7 +39,7 @@ import InputCaret from '@/../static/images/common/caret.svg';
 })
 export default class SelectInput extends Vue {
 
-    protected value: string = '';
+    protected value = '';
 
     @Prop({default: ''})
     protected readonly label: string;
@@ -62,14 +63,15 @@ export default class SelectInput extends Vue {
     /**
      * triggers on input.
      */
-    public onInput({ target }): void {
+    public onInput(event: Event): void {
+        const target = event.target as HTMLSelectElement;
         this.$emit('setData', target.value);
     }
 
     /**
      * Returns style objects depends on props.
      */
-    protected get style(): object {
+    protected get style(): Record<string, unknown> {
         return {
             inputStyle: {
                 width: this.width,

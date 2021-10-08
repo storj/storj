@@ -4,10 +4,12 @@
 package consoleql
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/graphql-go/graphql"
 
+	"storj.io/common/memory"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 )
@@ -17,6 +19,8 @@ const (
 	ProjectType = "project"
 	// ProjectInputType is a graphql type name for project input.
 	ProjectInputType = "projectInput"
+	// ProjectLimitType is a graphql type name for project limit.
+	ProjectLimitType = "projectLimit"
 	// ProjectUsageType is a graphql type name for project usage.
 	ProjectUsageType = "projectUsage"
 	// ProjectsCursorInputType is a graphql input type name for projects cursor.
@@ -54,6 +58,10 @@ const (
 	FieldUsage = "usage"
 	// FieldBucketUsages is a field name for bucket usages.
 	FieldBucketUsages = "bucketUsages"
+	// FieldStorageLimit is a field name for the storage limit.
+	FieldStorageLimit = "storageLimit"
+	// FieldBandwidthLimit is a field name for bandwidth limit.
+	FieldBandwidthLimit = "bandwidthLimit"
 	// FieldStorage is a field name for storage total.
 	FieldStorage = "storage"
 	// FieldEgress is a field name for egress total.
@@ -266,6 +274,21 @@ func graphqlProjectInput() *graphql.InputObject {
 	})
 }
 
+// graphqlProjectLimit creates graphql.InputObject type needed to create/update satellite.Project.
+func graphqlProjectLimit() *graphql.InputObject {
+	return graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: ProjectLimitType,
+		Fields: graphql.InputObjectConfigFieldMap{
+			FieldStorageLimit: &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+			FieldBandwidthLimit: &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+		},
+	})
+}
+
 // graphqlBucketUsageCursor creates bucket usage cursor graphql input type.
 func graphqlProjectsCursor() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
@@ -411,6 +434,24 @@ func graphqlProjectUsage() *graphql.Object {
 func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInfo) {
 	project.Name, _ = args[FieldName].(string)
 	project.Description, _ = args[FieldDescription].(string)
+
+	return
+}
+
+// fromMapProjectInfoProjectLimits creates console.ProjectInfo from input args.
+func fromMapProjectInfoProjectLimits(projectInfo, projectLimits map[string]interface{}) (project console.ProjectInfo, err error) {
+	project.Name, _ = projectInfo[FieldName].(string)
+	project.Description, _ = projectInfo[FieldDescription].(string)
+	storageLimit, err := strconv.Atoi(projectLimits[FieldStorageLimit].(string))
+	if err != nil {
+		return project, err
+	}
+	project.StorageLimit = memory.Size(storageLimit)
+	bandwidthLimit, err := strconv.Atoi(projectLimits[FieldBandwidthLimit].(string))
+	if err != nil {
+		return project, err
+	}
+	project.BandwidthLimit = memory.Size(bandwidthLimit)
 
 	return
 }

@@ -16,6 +16,7 @@ make -C "$SCRIPTDIR"/.. install-sim
 
 echo "Overriding default max segment size to 6MiB"
 GOBIN=$TMP go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
+GOBIN=$TMP go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplinkng
 
 # use modified version of uplink
 export PATH=$TMP:$PATH
@@ -33,8 +34,9 @@ else
 	storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 fi
 
-# run aws-cli tests
+# run tests
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink.sh
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplinkng.sh
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink-share.sh
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-billing.sh
 

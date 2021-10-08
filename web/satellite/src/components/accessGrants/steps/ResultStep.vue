@@ -3,11 +3,11 @@
 
 <template>
     <div class="generate-grant" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="generate-grant__back-icon" @click="onBackClick"/>
+        <BackIcon class="generate-grant__back-icon" @click="onBackClick" />
         <h1 class="generate-grant__title">Generate Access Grant</h1>
         <div class="generate-grant__warning">
             <div class="generate-grant__warning__header">
-                <WarningIcon/>
+                <WarningIcon />
                 <h2 class="generate-grant__warning__header__label">This Information is Only Displayed Once</h2>
             </div>
             <p class="generate-grant__warning__message">
@@ -41,7 +41,7 @@
             height="48px"
             :on-press="onDoneClick"
         />
-        <p class="generate-grant__gateway-link" v-if="isGatewayLinkVisible" @click="navigateToGatewayStep">
+        <p v-if="isGatewayLinkVisible" class="generate-grant__gateway-link" @click="navigateToGatewayStep">
             Generate S3 Gateway Credentials
         </p>
     </div>
@@ -54,27 +54,25 @@ import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
+import { Download } from "@/utils/download";
 
+// @vue/component
 @Component({
     components: {
         BackIcon,
         WarningIcon,
         VButton,
-        ExpandIcon,
-        HideIcon,
     },
 })
 export default class ResultStep extends Vue {
-    private key: string = '';
-    private restrictedKey: string = '';
+    private key = '';
+    private restrictedKey = '';
 
-    public access: string = '';
-    public isGatewayLinkVisible: boolean = false;
+    public access = '';
+    public isGatewayLinkVisible = false;
 
     /**
      * Lifecycle hook after initial render.
@@ -84,7 +82,6 @@ export default class ResultStep extends Vue {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
             if (this.isOnboardingTour) {
                 this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
-
                 return;
             }
 
@@ -115,22 +112,10 @@ export default class ResultStep extends Vue {
      * Downloads a file with the access called access-grant-<timestamp>.key
      */
     public onDownloadGrantClick(): void {
-        // this code is based on this Stackoverflow response: https://stackoverflow.com/a/33542499
-        // It works for downloading a file in IE 10+, Firefox, and Chrome without any additional libraries
-        const blob = new Blob([this.access], {type: 'text/plain'});
         const ts = new Date();
         const filename = 'access-grant-' + ts.toJSON() + '.key';
 
-        if (window.navigator.msSaveBlob) {
-            window.navigator.msSaveBlob(blob, filename);
-        } else {
-            const elem = window.document.createElement('a');
-            elem.href = window.URL.createObjectURL(blob);
-            elem.download = filename;
-            document.body.appendChild(elem);
-            elem.click();
-            document.body.removeChild(elem);
-        }
+        Download.file(this.access, filename);
 
         this.$notify.success('Token was downloaded successfully');
     }
@@ -148,7 +133,6 @@ export default class ResultStep extends Vue {
                     restrictedKey: this.restrictedKey,
                 },
             });
-
             return;
         }
 
@@ -195,7 +179,6 @@ export default class ResultStep extends Vue {
                     restrictedKey: this.restrictedKey,
                 },
             });
-
             return;
         }
 

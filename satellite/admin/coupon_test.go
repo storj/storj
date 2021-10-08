@@ -27,7 +27,7 @@ func TestAddCoupon(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -37,13 +37,14 @@ func TestAddCoupon(t *testing.T) {
 		require.NoError(t, err)
 
 		body := strings.NewReader(fmt.Sprintf(`{"userId": "%s", "duration": 2, "amount": 3000, "description": "testcoupon-alice"}`, user.ID))
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/coupon", body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/coupons", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
@@ -69,7 +70,7 @@ func TestCouponInfo(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -78,17 +79,18 @@ func TestCouponInfo(t *testing.T) {
 		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
 		require.NoError(t, err)
 
-		var output payments.Coupon
+		var output payments.CouponOld
 		var id uuid.UUID
 
 		body := strings.NewReader(fmt.Sprintf(`{"userId": "%s", "duration": 2, "amount": 3000, "description": "testcoupon-alice"}`, user.ID))
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/coupon", body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/coupons", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
@@ -97,13 +99,14 @@ func TestCouponInfo(t *testing.T) {
 		err = json.Unmarshal(responseBody, &id)
 		require.NoError(t, err)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/coupon/%s", id.String()), nil)
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/coupons/%s", id.String()), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
 		responseBody, err = ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
@@ -125,7 +128,7 @@ func TestCouponDelete(t *testing.T) {
 		StorageNodeCount: 0,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
 		},
@@ -137,13 +140,14 @@ func TestCouponDelete(t *testing.T) {
 		var id uuid.UUID
 
 		body := strings.NewReader(fmt.Sprintf(`{"userId": "%s", "duration": 2, "amount": 3000, "description": "testcoupon-alice"}`, user.ID))
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/coupon", body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/coupons", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
 		responseBody, err := ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
@@ -157,7 +161,7 @@ func TestCouponDelete(t *testing.T) {
 		// each created user have always one coupon already
 		require.Len(t, coupons, 2)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/coupon/%s", id), nil)
+		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/coupons/%s", id), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -165,6 +169,7 @@ func TestCouponDelete(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.Equal(t, "", response.Header.Get("Content-Type"))
 
 		coupons, err = planet.Satellites[0].DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
 		require.NoError(t, err)

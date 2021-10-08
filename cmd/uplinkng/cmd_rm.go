@@ -5,41 +5,60 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"strconv"
+	"sync"
 
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/sync2"
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdRm struct {
-	projectProvider
+	ex ulext.External
 
-	recursive bool
-	encrypted bool
+	access      string
+	recursive   bool
+	parallelism int
+	encrypted   bool
 
 	location ulloc.Location
 }
 
-func (c *cmdRm) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.projectProvider.Setup(a, f)
+func newCmdRm(ex ulext.External) *cmdRm {
+	return &cmdRm{ex: ex}
+}
 
-	c.recursive = f.New("recursive", "Remove recursively", false,
+func (c *cmdRm) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Access name or value to use", "").(string)
+	c.recursive = params.Flag("recursive", "Remove recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.encrypted = f.New("encrypted", "Interprets keys base64 encoded without decrypting", false,
+	c.parallelism = params.Flag("parallelism", "Controls how many uploads/downloads to perform in parallel", 1,
+		clingy.Short('p'),
+		clingy.Transform(strconv.Atoi),
+		clingy.Transform(func(n int) (int, error) {
+			if n <= 0 {
+				return 0, errs.New("parallelism must be at least 1")
+			}
+			return n, nil
+		}),
+	).(int)
+	c.encrypted = params.Flag("encrypted", "Interprets keys base64 encoded without decrypting", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.location = a.New("location", "Location to remove (sj://BUCKET[/KEY])",
+	c.location = params.Arg("location", "Location to remove (sj://BUCKET[/KEY])",
 		clingy.Transform(ulloc.Parse),
 	).(ulloc.Location)
 }
 
 func (c *cmdRm) Execute(ctx clingy.Context) error {
-	fs, err := c.OpenFilesystem(ctx, bypassEncryption(c.encrypted))
+	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err
 	}
@@ -59,22 +78,48 @@ func (c *cmdRm) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	anyFailed := false
+	var (
+		limiter = sync2.NewLimiter(c.parallelism)
+		es      errs.Group
+		mu      sync.Mutex
+	)
+
+	fprintln := func(w io.Writer, args ...interface{}) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		fmt.Fprintln(w, args...)
+	}
+
+	addError := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		es.Add(err)
+	}
+
 	for iter.Next() {
 		loc := iter.Item().Loc
 
-		if err := fs.Remove(ctx, loc); err != nil {
-			fmt.Fprintln(ctx.Stderr(), "remove", loc, "failed:", err.Error())
-			anyFailed = true
-		} else {
-			fmt.Fprintln(ctx.Stdout(), "removed", loc)
+		ok := limiter.Go(ctx, func() {
+			if err := fs.Remove(ctx, loc); err != nil {
+				fprintln(ctx.Stderr(), "remove", loc, "failed:", err.Error())
+				addError(err)
+			} else {
+				fprintln(ctx.Stdout(), "removed", loc)
+			}
+		})
+		if !ok {
+			break
 		}
 	}
 
+	limiter.Wait()
+
 	if err := iter.Err(); err != nil {
 		return errs.Wrap(err)
-	} else if anyFailed {
-		return errs.New("some removals failed")
+	} else if len(es) > 0 {
+		return es.Err()
 	}
 	return nil
 }

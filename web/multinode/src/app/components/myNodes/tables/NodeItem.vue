@@ -14,7 +14,7 @@
             <th>{{ node.diskSpaceLeft | bytesToBase10String }}</th>
             <th>{{ node.bandwidthUsed | bytesToBase10String }}</th>
         </template>
-        <th>{{ node.earned | centsToDollars }}</th>
+        <th>{{ node.earnedCents | centsToDollars }}</th>
         <th>{{ node.version }}</th>
         <th :class="node.status">{{ node.status }}</th>
         <th class="overflow-visible">
@@ -30,13 +30,14 @@ import NodeOptions from '@/app/components/common/NodeOptions.vue';
 
 import { Node } from '@/nodes';
 
+// @vue/component
 @Component({
     components: {
         NodeOptions,
     },
 })
 export default class NodeItem extends Vue {
-    @Prop({default: () => new Node()})
+    @Prop({ default: () => new Node() })
     public node: Node;
 
     public get isSatelliteSelected(): boolean {

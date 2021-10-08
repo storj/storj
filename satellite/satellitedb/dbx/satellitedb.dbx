@@ -19,52 +19,24 @@ read one (
 )
 
 //--- containment ---//
-model pending_audits (
+
+model segment_pending_audits (
 	key node_id
 
 	field node_id             blob
+	field stream_id           blob
+	field position            uint64
 	field piece_id            blob
 	field stripe_index        int64
 	field share_size          int64
 	field expected_share_hash blob
 	field reverify_count      int64 ( updatable )
-	field path                blob
 )
 
-delete pending_audits ( where pending_audits.node_id = ? )
+delete segment_pending_audits ( where segment_pending_audits.node_id = ? )
 read one (
-	select pending_audits
-	where  pending_audits.node_id = ?
-)
-
-//--- irreparableDB ---//
-
-model irreparabledb (
-	key segmentpath
-
-	field segmentpath          blob
-	field segmentdetail        blob  ( updatable )
-	field pieces_lost_count    int64 ( updatable )
-	field seg_damaged_unix_sec int64 ( updatable )
-	field repair_attempt_count int64 ( updatable )
-)
-
-create irreparabledb ( noreturn )
-update irreparabledb (
-	where irreparabledb.segmentpath = ?
-	noreturn
-)
-delete irreparabledb ( where irreparabledb.segmentpath = ? )
-
-read one (
-	select irreparabledb
-	where  irreparabledb.segmentpath = ?
-)
-
-read limitoffset (
-	select irreparabledb
-	where irreparabledb.segmentpath > ?
-	orderby asc irreparabledb.segmentpath
+	select segment_pending_audits
+	where  segment_pending_audits.node_id = ?
 )
 
 //--- accounting ---//
@@ -162,8 +134,6 @@ model node (
 	field release           bool ( updatable, default false )
 
 	field latency_90           int64   ( updatable, default 0 )
-	field audit_success_count  int64   ( updatable, default 0 )
-	field total_audit_count    int64   ( updatable, default 0 )
 	field vetted_at            timestamp ( updatable, nullable )
 
 	field created_at           timestamp ( autoinsert, default current_timestamp )
@@ -182,14 +152,6 @@ model node (
 	field offline_suspended timestamp ( updatable, nullable )
 	// once a node becomes offline_suspended, mark it as under review so we check it again later
 	field under_review timestamp ( updatable, nullable )
-	field online_score float64 ( updatable, default 1 )
-
-	// audit_reputation_fields track information related to successful vs. failed error audits
-	field audit_reputation_alpha  float64 ( updatable, default 1 )
-	field audit_reputation_beta   float64 ( updatable, default 0 )
-	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
-	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
-	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
 
     field exit_initiated_at         timestamp ( updatable, nullable )
     field exit_loop_completed_at    timestamp ( updatable, nullable )
@@ -200,6 +162,13 @@ model node (
 update node ( where node.id = ? )
 update node (
 	where node.id = ?
+	noreturn
+)
+
+update node (
+	where node.id = ?
+	where node.disqualified = null
+	where node.exit_finished_at = null
 	noreturn
 )
 
@@ -222,49 +191,85 @@ read all (
 	where node.piece_count != 0
 )
 
-//--- audit history ---//
-model audit_history (
-	key node_id
-	field node_id blob
-	field history blob ( updatable )
+//--- reputation store ---//
+
+model reputation (
+	key id
+
+	field id              blob
+
+	field audit_success_count  int64   ( updatable, default 0 )
+	field total_audit_count    int64   ( updatable, default 0 )
+	field vetted_at            timestamp ( updatable, nullable )
+
+	field created_at           timestamp ( autoinsert, default current_timestamp )
+	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
+
+	field contained bool ( updatable, default false )
+    // node is disqualified when it fails too many audits or is offline for too long
+	field disqualified timestamp ( updatable, nullable )
+    // node is placed under inspection when it has too many unknown-error audits
+	field suspended timestamp ( updatable, nullable )
+	// renamed column from suspended
+	field unknown_audit_suspended timestamp ( updatable, nullable )
+	// node is considered unhealthy if it is offline for too many audits
+	field offline_suspended timestamp ( updatable, nullable )
+	// once a node becomes offline_suspended, mark it as under review so we check it again later
+	field under_review timestamp ( updatable, nullable )
+	field online_score float64 ( updatable, default 1 )
+	field audit_history blob ( updatable )
+
+	// audit_reputation_fields track information related to successful vs. failed error audits
+	field audit_reputation_alpha  float64 ( updatable, default 1 )
+	field audit_reputation_beta   float64 ( updatable, default 0 )
+	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
+	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
+	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
 )
-create audit_history ()
-update audit_history ( where audit_history.node_id = ? )
+
+create reputation ()
+
+update reputation ( where reputation.id = ? )
+update reputation (
+	where reputation.id = ?
+	where reputation.audit_history = ?
+)
+update reputation (
+	where reputation.id = ?
+	noreturn
+)
+
+// "Get" query; fails if reputation not found
 read one (
-	select audit_history
-	where audit_history.node_id = ?
+	select reputation
+	where  reputation.id = ?
 )
 
 //--- repairqueue ---//
 
-model injuredsegment (
-	key path
+model repair_queue (
+	table repair_queue
 
-	field path blob
-	field data blob
-	field attempted timestamp (updatable, nullable)
+	key stream_id position
+
+	field stream_id blob
+	field position uint64
+	field attempted_at timestamp (updatable, nullable)
 	field updated_at timestamp ( updatable, default current_timestamp )
+	field inserted_at timestamp ( default current_timestamp )
 	field segment_health float64 (default 1)
-
-	index (
-		fields attempted
-	)
-
-	index (
-		fields segment_health
-	)
 
 	index (
 		fields updated_at
 	)
 
 	index (
-		name injuredsegments_num_healthy_pieces_attempted_index
-		fields segment_health attempted
+		name repair_queue_num_healthy_pieces_attempted_at_index
+		fields segment_health attempted_at
 	)
 )
 
-delete injuredsegment ( where injuredsegment.updated_at < ? )
+delete repair_queue ( where repair_queue.updated_at < ? )
 
 //--- satellite console ---//
 
@@ -282,6 +287,7 @@ model user (
     field partner_id         blob      ( nullable )
     field created_at         timestamp ( autoinsert )
     field project_limit      int       ( updatable, default 0 )
+    field paid_tier          bool      ( updatable, default false )
 
     field position           text      ( updatable, nullable )
     field company_name       text      ( updatable, nullable )
@@ -290,6 +296,10 @@ model user (
     field is_professional    bool      ( updatable, default false )
     field employee_count     text      ( updatable, nullable )
     field have_sales_contact bool      ( updatable, default false )
+
+    field mfa_enabled        bool      ( updatable, default false )
+    field mfa_secret_key     text      ( updatable, nullable )
+    field mfa_recovery_codes text      ( updatable, nullable )
 )
 
 create user ( )
@@ -320,6 +330,7 @@ model project (
     field usage_limit     int64     ( nullable, updatable )
     field bandwidth_limit int64     ( nullable, updatable )
     field rate_limit      int       ( nullable, updatable )
+    field burst_limit     int       ( nullable, updatable )
     field max_buckets     int       ( nullable, updatable )
     field partner_id      blob      ( nullable )
     field owner_id        blob
@@ -530,17 +541,17 @@ model bucket_storage_tally (
 
 	field interval_start   timestamp
 
+	field total_bytes uint64 ( default 0)
 	field inline uint64
 	field remote uint64
 
-	field  remote_segments_count    uint
-	field  inline_segments_count    uint
-	field  object_count             uint
+	field total_segments_count     uint ( default 0)
+	field remote_segments_count    uint
+	field inline_segments_count    uint
+	field object_count             uint
 
-	field  metadata_size      uint64
+	field metadata_size      uint64
 )
-
-create bucket_storage_tally ( noreturn )
 
 read all (
     select bucket_storage_tally
@@ -960,26 +971,27 @@ model graceful_exit_progress (
 	table graceful_exit_progress
 	key node_id
 
-	field node_id            blob
-	field bytes_transferred  int64     ( updatable )
-	field pieces_transferred int64     ( autoinsert, updatable, default 0 )
-	field pieces_failed      int64     ( autoinsert, updatable, default 0 )
-	field updated_at         timestamp ( autoinsert, autoupdate )
+	field node_id                     blob
+	field bytes_transferred           int64     ( updatable )
+	field pieces_transferred          int64     ( autoinsert, updatable, default 0 )
+	field pieces_failed               int64     ( autoinsert, updatable, default 0 )
+	field updated_at                  timestamp ( autoinsert, autoupdate )
+	field uses_segment_transfer_queue bool      ( updatable, default false )
 )
 
 read one (
 	select graceful_exit_progress
 	where graceful_exit_progress.node_id = ?
 )
+//--- graceful exit transfer queue with segment stream_id and position ---//
 
-//--- graceful exit transfer queue ---//
-
-model graceful_exit_transfer_queue (
-	table graceful_exit_transfer_queue
-	key node_id path piece_num
+model graceful_exit_segment_transfer (
+	table graceful_exit_segment_transfer_queue
+	key node_id stream_id position piece_num
 
 	field node_id                blob
-	field path                   blob
+	field stream_id              blob
+	field position               uint64
 	field piece_num              int
 	field root_piece_id          blob      ( nullable )
 	field durability_ratio       float64   ( updatable )
@@ -992,37 +1004,40 @@ model graceful_exit_transfer_queue (
 	field order_limit_send_count int       ( updatable, default 0 )
 
 	index (
-		name graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index
+		name graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index
 		fields node_id durability_ratio queued_at finished_at last_failed_at
 	)
 )
 
-update graceful_exit_transfer_queue (
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.path = ?
-	where graceful_exit_transfer_queue.piece_num = ?
+update graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.stream_id = ?
+	where graceful_exit_segment_transfer.position = ?
+	where graceful_exit_segment_transfer.piece_num = ?
 	noreturn
 )
-delete graceful_exit_transfer_queue (
-	where graceful_exit_transfer_queue.node_id = ?
+delete graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
 )
 
-delete graceful_exit_transfer_queue (
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.path = ?
-	where graceful_exit_transfer_queue.piece_num = ?
+delete graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.stream_id = ?
+	where graceful_exit_segment_transfer.position = ?
+	where graceful_exit_segment_transfer.piece_num = ?
 )
 
-delete graceful_exit_transfer_queue (
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.finished_at != null
+delete graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.finished_at != null
 )
 
 read one (
-	select graceful_exit_transfer_queue
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.path = ?
-	where graceful_exit_transfer_queue.piece_num = ?
+	select graceful_exit_segment_transfer
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.stream_id = ?
+	where graceful_exit_segment_transfer.position = ?
+	where graceful_exit_segment_transfer.piece_num = ?
 )
 
 //--- satellite payments ---//

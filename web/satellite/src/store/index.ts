@@ -19,17 +19,29 @@ import { makeNotificationsModule, NotificationsState } from '@/store/modules/not
 import { makeObjectsModule, ObjectsState } from '@/store/modules/objects';
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
-import { makeProjectsModule, ProjectsState, PROJECTS_MUTATIONS } from '@/store/modules/projects';
+import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { makeUsersModule } from '@/store/modules/users';
 import { User } from '@/types/users';
 
 Vue.use(Vuex);
 
-export class StoreModule<S> {
-    public state: S;
-    public mutations: any;
-    public actions: any;
-    public getters?: any;
+type Mutation<State> =
+    (state: State, ...args: any[]) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+type Action<Context> =
+    (context: Context, ...args: any[]) => (Promise<any> | void | any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+type Getter<State, Context> =
+    Context extends {rootGetters: any} ? ( // eslint-disable-line @typescript-eslint/no-explicit-any
+        ((state: State) => any) | // eslint-disable-line @typescript-eslint/no-explicit-any
+        ((state: State, rootGetters: Context["rootGetters"]) => any) // eslint-disable-line @typescript-eslint/no-explicit-any
+    ) : ((state: State) => any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+export interface StoreModule<State, Context> { // eslint-disable-line @typescript-eslint/no-unused-vars
+    state: State;
+    mutations: Record<string, Mutation<State>>
+    actions: Record<string, Action<Context>>
+    getters?: Record<string, Getter<State, Context>>
 }
 
 // TODO: remove it after we will use modules as classes and use some DI framework
@@ -40,15 +52,16 @@ const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const paymentsApi = new PaymentsHttpApi();
 
-class ModulesState {
-    public notificationsModule: NotificationsState;
-    public accessGrantsModule: AccessGrantsState;
-    public appStateModule;
-    public projectMembersModule: ProjectMembersState;
-    public paymentsModule: PaymentsState;
-    public usersModule: User;
-    public projectsModule: ProjectsState;
-    public objectsModule: ObjectsState;
+export interface ModulesState {
+    notificationsModule: NotificationsState;
+    accessGrantsModule: AccessGrantsState;
+    appStateModule: typeof appStateModule.state;
+    projectMembersModule: ProjectMembersState;
+    paymentsModule: PaymentsState;
+    usersModule: User;
+    projectsModule: ProjectsState;
+    objectsModule: ObjectsState;
+    files: typeof files.state;
 }
 
 // Satellite store (vuex)
@@ -72,14 +85,14 @@ store.subscribe((mutation, state) => {
     const satelliteName = state.appStateModule.satelliteName;
 
     switch (mutation.type) {
-        case PROJECTS_MUTATIONS.REMOVE:
-            document.title = `${router.currentRoute.name} | ${satelliteName}`;
+    case PROJECTS_MUTATIONS.REMOVE:
+        document.title = `${router.currentRoute.name} | ${satelliteName}`;
 
-            break;
-        case PROJECTS_MUTATIONS.SELECT_PROJECT:
-            if (currentRouteName && !notProjectRelatedRoutes.includes(currentRouteName)) {
-                document.title = `${state.projectsModule.selectedProject.name} | ${currentRouteName} | ${satelliteName}`;
-            }
+        break;
+    case PROJECTS_MUTATIONS.SELECT_PROJECT:
+        if (currentRouteName && !notProjectRelatedRoutes.includes(currentRouteName)) {
+            document.title = `${state.projectsModule.selectedProject.name} | ${currentRouteName} | ${satelliteName}`;
+        }
     }
 });
 

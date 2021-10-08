@@ -12,10 +12,10 @@ import (
 // ErrNoAuthorizationKey is error that indicates that there is no authorization key.
 var ErrNoAuthorizationKey = Error.New("no authorization key")
 
-// GetTransacationKeyFromURL parses provided raw url string
+// GetTransactionKeyFromURL parses provided raw url string
 // and extracts authorization key from it. Returns ErrNoAuthorizationKey if
 // there is no authorization key and error if rawurl cannot be parsed.
-func GetTransacationKeyFromURL(rawurl string) (string, error) {
+func GetTransactionKeyFromURL(rawurl string) (string, error) {
 	u, err := url.Parse(rawurl)
 	if err != nil {
 		return "", errs.Wrap(err)

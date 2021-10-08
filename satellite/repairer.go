@@ -23,13 +23,14 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/reputation"
 )
 
 // Repairer is the repairer process.
@@ -54,13 +55,19 @@ type Repairer struct {
 		Server   *debug.Server
 	}
 
-	Metainfo *metainfo.Service
-	Overlay  *overlay.Service
-	Orders   struct {
+	Overlay    *overlay.Service
+	Reputation *reputation.Service
+	Orders     struct {
 		DB      orders.DB
 		Service *orders.Service
 		Chore   *orders.Chore
 	}
+
+	Audit struct {
+		Reporter *audit.Reporter
+	}
+
+	EcRepairer      *repairer.ECRepairer
 	SegmentRepairer *repairer.SegmentRepairer
 	Repairer        *repairer.Service
 }
@@ -68,10 +75,15 @@ type Repairer struct {
 // NewRepairer creates a new repairer peer.
 func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	metabaseDB *metabase.DB,
-	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
-	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB,
-	rollupsWriteCache *orders.RollupsWriteCache, irrDB irreparable.DB,
-	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Repairer, error) {
+	revocationDB extensions.RevocationDB,
+	repairQueue queue.RepairQueue,
+	bucketsDB metainfo.BucketsDB,
+	overlayCache overlay.DB,
+	reputationdb reputation.DB,
+	containmentDB audit.Containment,
+	rollupsWriteCache *orders.RollupsWriteCache,
+	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel,
+) (*Repairer, error) {
 	peer := &Repairer{
 		Log:      log,
 		Identity: full,
@@ -126,10 +138,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 	}
 
-	{ // setup metainfo
-		peer.Metainfo = metainfo.NewService(log.Named("metainfo"), bucketsDB, metabaseDB)
-	}
-
 	{ // setup overlay
 		var err error
 		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, config.Overlay)
@@ -139,6 +147,19 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Close: peer.Overlay.Close,
+		})
+	}
+
+	{ // setup reputation
+		peer.Reputation = reputation.NewService(log.Named("reputation:service"),
+			overlayCache,
+			reputationdb,
+			config.Reputation,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "reputation",
+			Close: peer.Reputation.Close,
 		})
 	}
 
@@ -167,21 +188,35 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 	}
 
+	{ // setup audit
+		peer.Audit.Reporter = audit.NewReporter(
+			log.Named("reporter"),
+			peer.Reputation,
+			containmentDB,
+			config.Audit.MaxRetriesStatDB,
+			int32(config.Audit.MaxReverifyCount))
+	}
+
 	{ // setup repairer
+		peer.EcRepairer = repairer.NewECRepairer(
+			log.Named("ec-repair"),
+			peer.Dialer,
+			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
+			config.Repairer.DownloadTimeout,
+			config.Repairer.InMemoryRepair)
+
 		peer.SegmentRepairer = repairer.NewSegmentRepairer(
 			log.Named("segment-repair"),
 			metabaseDB,
 			peer.Orders.Service,
 			peer.Overlay,
-			peer.Dialer,
+			peer.Audit.Reporter,
+			peer.EcRepairer,
+			config.Checker.RepairOverrides,
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Checker.RepairOverrides,
-			config.Repairer.DownloadTimeout,
-			config.Repairer.InMemoryRepair,
-			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
-		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer, irrDB)
+		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "repair",

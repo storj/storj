@@ -31,16 +31,18 @@ type Service struct {
 	projectLimitCache   *ProjectLimitCache
 	bandwidthCacheTTL   time.Duration
 	nowFn               func() time.Time
+	asOfSystemInterval  time.Duration
 }
 
 // NewService created new instance of project usage service.
-func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, limitCache *ProjectLimitCache, bandwidthCacheTTL time.Duration) *Service {
+func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, limitCache *ProjectLimitCache, bandwidthCacheTTL, asOfSystemInterval time.Duration) *Service {
 	return &Service{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
 		projectLimitCache:   limitCache,
 		bandwidthCacheTTL:   bandwidthCacheTTL,
 		nowFn:               time.Now,
+		asOfSystemInterval:  asOfSystemInterval,
 	}
 }
 
@@ -156,9 +158,8 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 
 	// from the beginning of the current month
 	year, month, _ := usage.nowFn().Date()
-	from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	total, err := usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
+	total, err := usage.projectAccountingDB.GetProjectBandwidth(ctx, projectID, year, month, 1, usage.asOfSystemInterval)
 	return total, ErrProjectUsage.Wrap(err)
 }
 
@@ -166,7 +167,7 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (_ int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
-	total, err := usage.projectAccountingDB.GetProjectBandwidth(ctx, projectID, year, month, day)
+	total, err := usage.projectAccountingDB.GetProjectBandwidth(ctx, projectID, year, month, day, usage.asOfSystemInterval)
 	return total, ErrProjectUsage.Wrap(err)
 }
 

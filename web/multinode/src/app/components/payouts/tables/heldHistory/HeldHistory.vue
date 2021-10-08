@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <base-table >
+    <base-table>
         <thead slot="head">
             <tr>
                 <th class="align-left">SATELLITE</th>
@@ -12,7 +12,7 @@
             </tr>
         </thead>
         <tbody slot="body">
-            <tr class="table-item" v-for="(heldHistoryItem, index) in heldHistory" :key="index">
+            <tr v-for="(heldHistoryItem, index) in heldHistory" :key="index" class="table-item">
                 <th class="align-left">
                     <p class="table-item__name">{{ heldHistoryItem.satelliteAddress }}</p>
                     <p class="table-item__months">{{ heldHistoryItem.monthsCount }}</p>
@@ -32,13 +32,14 @@ import BaseTable from '@/app/components/common/BaseTable.vue';
 
 import { HeldAmountSummary } from '@/payouts';
 
+// @vue/component
 @Component({
     components: {
         BaseTable,
     },
 })
 export default class HeldHistory extends Vue {
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     public heldHistory: HeldAmountSummary[];
 }
 </script>

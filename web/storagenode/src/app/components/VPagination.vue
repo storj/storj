@@ -6,8 +6,8 @@
         <div class="pagination-container__pages">
             <div
                 class="pagination-container__button"
-                @click="prevPage"
                 :class="{ active: !isFirstPage }"
+                @click="prevPage"
             >
                 <p class="pagination-container__button__label">Prev</p>
             </div>
@@ -16,12 +16,12 @@
                     :pages="firstBlockPages"
                     :is-selected="isSelected"
                 />
-                <span class="pages-divider" v-if="isFirstDotsShown">...</span>
+                <span v-if="isFirstDotsShown" class="pages-divider">...</span>
                 <PagesBlock
                     :pages="middleBlockPages"
                     :is-selected="isSelected"
                 />
-                <span class="pages-divider" v-if="isSecondDotsShown">...</span>
+                <span v-if="isSecondDotsShown" class="pages-divider">...</span>
                 <PagesBlock
                     :pages="lastBlockPages"
                     :is-selected="isSelected"
@@ -29,8 +29,8 @@
             </div>
             <div
                 class="pagination-container__button"
-                @click="nextPage"
                 :class="{ active: !isLastPage }"
+                @click="nextPage"
             >
                 <p class="pagination-container__button__label">Next</p>
             </div>
@@ -45,6 +45,7 @@ import PagesBlock from '@/app/components/PagesBlock.vue';
 
 import { OnPageClickCallback, Page } from '@/app/types/pagination';
 
+// @vue/component
 @Component({
     components: {
         PagesBlock,
@@ -53,7 +54,7 @@ import { OnPageClickCallback, Page } from '@/app/types/pagination';
 export default class VPagination extends Vue {
     private readonly MAX_PAGES_PER_BLOCK: number = 3;
     private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
-    private currentPageNumber: number = 1;
+    private currentPageNumber = 1;
     public isLoading = false;
     public pagesArray: Page[] = [];
     public firstBlockPages: Page[] = [];
@@ -68,7 +69,7 @@ export default class VPagination extends Vue {
     /**
      * Component initialization.
      */
-    public async mounted() {
+    public async mounted(): Promise<void> {
         await this.populatePagesArray();
     }
 
@@ -112,7 +113,7 @@ export default class VPagination extends Vue {
      * Method after total page count change.
      */
     @Watch('totalPageCount')
-    public onPageCountChange() {
+    public onPageCountChange(): void {
         this.resetPageIndex();
     }
 

@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.7
+GO_VERSION ?= 1.17.1
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -94,7 +94,7 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/multinode
 
 	## install exact version of storj/gateway
-	## TODO replace 'main' with 'latest' when gateway with multipart will be released
+	## TODO(artur): replace 'main' with 'latest' after the gateway is being released again
 	go install -race -v storj.io/gateway@main
 
 ##@ Test
@@ -129,7 +129,7 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 check-monitoring: ## Check for locked monkit calls that have changed
 	@echo "Running ${@}"
 	@check-monitoring ./... | diff -U0 ./monkit.lock - \
-	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
+	|| (echo "Locked monkit metrics have been changed. **Notify #team-data** and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
 	&& exit 1)
 
 .PHONY: test-wasm-size
@@ -157,6 +157,24 @@ storagenode-console:
 	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
 	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
+.PHONY: multinode-console
+multinode-console:
+	# build web assets
+	rm -rf web/multinode/dist
+	# install npm dependencies and build the binaries
+	docker run --rm -i \
+		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
+		-w /go/src/storj.io/storj/web/multinode \
+		-e HOME=/tmp \
+		-u $(shell id -u):$(shell id -g) \
+		node:14.15.3 \
+	  /bin/bash -c "npm ci && npm run build"
+	# embed web assets into go
+	go-bindata -prefix web/multinode/ -fs -o multinode/console/consoleassets/bindata.resource.go -pkg consoleassets web/multinode/dist/... web/multinode/static/...
+	# configure existing go code to know about the new assets
+	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> multinode/console/consoleassets/bindata.resource.go
+	gofmt -w -s multinode/console/consoleassets/bindata.resource.go
+
 .PHONY: satellite-wasm
 satellite-wasm:
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
@@ -177,7 +195,7 @@ satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/satellite/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/satellite/Dockerfile .
 
 .PHONY: storagenode-image
@@ -188,7 +206,7 @@ storagenode-image: storagenode_linux_arm storagenode_linux_arm64 storagenode_lin
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build uplink Docker image
@@ -198,7 +216,7 @@ uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build up
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/uplink/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/uplink/Dockerfile .
 .PHONY: versioncontrol-image
 versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versioncontrol_linux_amd64 ## Build versioncontrol Docker image
@@ -208,7 +226,7 @@ versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versio
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/versioncontrol/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/versioncontrol/Dockerfile .
 
 .PHONY: binary
@@ -283,13 +301,16 @@ uplink_%:
 .PHONY: versioncontrol_%
 versioncontrol_%:
 	$(MAKE) binary-check COMPONENT=versioncontrol GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: multinode_%
+multinode_%: multinode-console
+	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol
-OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
+COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode
+OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
 
 .PHONY: sign-windows-installer
 sign-windows-installer:
@@ -370,6 +391,9 @@ diagrams-graphml:
 bump-dependencies:
 	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
+	cd testsuite;\
+		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
+		go mod tidy;
 
 update-proto-lock:
 	protolock commit --ignore "satellite/internalpb,storagenode/internalpb"

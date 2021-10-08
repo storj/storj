@@ -6,16 +6,14 @@
         <div class="change-password-popup">
             <div class="change-password-popup__form-container">
                 <div class="change-password-row-container">
-                    <ChangePasswordIcon class="change-password-popup__form-container__svg"/>
+                    <ChangePasswordIcon class="change-password-popup__form-container__svg" />
                     <h2 class="change-password-popup__form-container__main-label-text">Change Password</h2>
                 </div>
                 <HeaderlessInput
                     class="full-input"
                     label="Old Password"
-                    placeholder ="Enter Old Password"
-                    width="100%"
+                    placeholder="Enter Old Password"
                     is-password="true"
-                    ref="oldPasswordInput"
                     :error="oldPasswordError"
                     @setData="setOldPassword"
                 />
@@ -23,9 +21,7 @@
                     <HeaderlessInput
                         class="full-input"
                         label="New Password"
-                        placeholder ="Enter New Password"
-                        width="100%"
-                        ref="newPasswordInput"
+                        placeholder="Enter New Password"
                         is-password="true"
                         :error="newPasswordError"
                         @setData="setNewPassword"
@@ -41,8 +37,6 @@
                     class="full-input"
                     label="Confirm Password"
                     placeholder="Confirm Password"
-                    width="100%"
-                    ref="confirmPasswordInput"
                     is-password="true"
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation"
@@ -64,7 +58,7 @@
                 </div>
             </div>
             <div class="change-password-popup__close-cross-container" @click="onCloseClick">
-                <CloseCrossIcon/>
+                <CloseCrossIcon />
             </div>
         </div>
     </div>
@@ -84,6 +78,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 
+// @vue/component
 @Component({
     components: {
         ChangePasswordIcon,
@@ -94,20 +89,20 @@ import { Validator } from '@/utils/validation';
     },
 })
 export default class ChangePasswordPopup extends Vue {
-    private oldPassword: string = '';
-    private newPassword: string = '';
-    private confirmationPassword: string = '';
+    private oldPassword = '';
+    private newPassword = '';
+    private confirmationPassword = '';
 
-    private oldPasswordError: string = '';
-    private newPasswordError: string = '';
-    private confirmationPasswordError: string = '';
+    private oldPasswordError = '';
+    private newPasswordError = '';
+    private confirmationPasswordError = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     /**
      * Indicates if hint popup needs to be shown while creating new password.
      */
-    public isPasswordStrengthShown: boolean = false;
+    public isPasswordStrengthShown = false;
 
     public showPasswordStrength(): void {
         this.isPasswordStrengthShown = true;
@@ -198,7 +193,6 @@ export default class ChangePasswordPopup extends Vue {
     }
 
     .full-input {
-        width: 100%;
         margin-bottom: 15px;
     }
 
@@ -208,7 +202,7 @@ export default class ChangePasswordPopup extends Vue {
         flex-direction: row;
         align-content: center;
         justify-content: flex-start;
-        margin-bottom: 20px;
+        margin-bottom: 40px;
     }
 
     .change-password-popup {

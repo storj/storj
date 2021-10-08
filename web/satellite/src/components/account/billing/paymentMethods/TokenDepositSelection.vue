@@ -4,131 +4,97 @@ import {PaymentsHistoryItemType} from "@/types/payments";
 
 <template>
     <div class="form-container">
-        <div class="selected-container" v-if="!isCustomAmount">
+        <div v-if="!isCustomAmount" class="selected-container">
             <div class="selected-container__label-container" @click="open">
-                <p class="selected-container__label-container__label">{{current.label}}</p>
+                <p class="selected-container__label-container__label">{{ current.label }}</p>
                 <div class="selected-container__label-container__svg">
                     <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF" />
                     </svg>
                 </div>
             </div>
         </div>
-        <label class="label" v-if="isCustomAmount">
+        <label v-if="isCustomAmount" class="label">
             <input
+                v-model="customAmount"
                 v-number
                 class="custom-input"
                 placeholder="Enter Amount in USD"
-                v-model="customAmount"
                 @input="onCustomAmountChange"
             >
-            <p class="label__sign" v-if="customAmount">$</p>
+            <p v-if="customAmount" class="label__sign">$</p>
             <div class="input-svg" @click.stop="closeCustomAmountSelection">
                 <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF" />
                 </svg>
             </div>
         </label>
         <div
-            class="options-container"
-            :class="{ 'top-expand': isExpandingTop }"
             v-if="isSelectionShown"
             v-click-outside="close"
+            class="options-container"
         >
             <div
-                class="options-container__item"
-                v-for="option in options"
+                v-for="option in paymentOptions"
                 :key="option.label"
+                class="options-container__item"
                 @click.prevent.stop="select(option)"
             >
-                <div class="options-container__item__svg" v-if="isOptionSelected(option)">
+                <div v-if="isOptionSelected(option)" class="options-container__item__svg">
                     <svg width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
+                        <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF" />
                     </svg>
                 </div>
-                <p class="options-container__item__label">{{option.label}}</p>
+                <p class="options-container__item__label">{{ option.label }}</p>
             </div>
             <div class="options-container__custom-container" @click.stop.prevent="openCustomAmountSelection">
-                <div class="options-container__item__svg" v-if="isCustomAmount">
+                <div v-if="isCustomAmount" class="options-container__item__svg">
                     <svg width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
+                        <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF" />
                     </svg>
                 </div>
                 Custom Amount
             </div>
         </div>
-        <div class="payment-selection-blur" v-if="isSelectionShown"/>
+        <div v-if="isSelectionShown" class="payment-selection-blur" />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from '@/router';
-import { PaymentAmountOption, PaymentsHistoryItem } from '@/types/payments';
+import { PaymentAmountOption } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component
 export default class TokenDepositSelection extends Vue {
-    /**
-     * Set of default payment options.
-     */
-    public paymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(10, `USD $10`),
-        new PaymentAmountOption(20, `USD $20`),
-        new PaymentAmountOption(50, `USD $50`),
-        new PaymentAmountOption(100, `USD $100`),
-        new PaymentAmountOption(1000, `USD $1000`),
-    ];
-
-    /**
-     * Set of payment options for the first ever transaction.
-     */
-    public initialPaymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(10, `USD $10`),
-        new PaymentAmountOption(20, `USD $20`),
-        new PaymentAmountOption(50, `USD $50`),
-        new PaymentAmountOption(100, `USD $100`),
-        new PaymentAmountOption(200, `USD $200`),
-    ];
+    @Prop({default: () => []})
+    public readonly paymentOptions: PaymentAmountOption[];
 
     /**
      * current selected payment option from default ones.
      */
-    public current: PaymentAmountOption = this.paymentOptions[0];
-    public customAmount: string = '';
+    public current: PaymentAmountOption;
+    public customAmount = '';
     /**
      * Indicates if custom amount selection state is active.
      */
     public isCustomAmount = false;
 
     /**
+     * Lifecycle hook before initial render.
+     * Sets initial deposit amount.
+     */
+    public beforeMount(): void {
+        this.current = this.paymentOptions[0];
+    }
+
+    /**
      * Indicates if concrete payment option is currently selected.
      */
     public isOptionSelected(option: PaymentAmountOption): boolean {
         return (option.value === this.current.value) && !this.isCustomAmount;
-    }
-
-    /**
-     * Indicates if dropdown expands top.
-     */
-    public get isExpandingTop(): boolean {
-        const hasNoTransactionsOrDepositBonuses: boolean =
-            !this.$store.state.paymentsModule.paymentsHistory.some((item: PaymentsHistoryItem) => item.isTransactionOrDeposit(),
-        );
-
-        return hasNoTransactionsOrDepositBonuses && !this.isOnboardingTour;
-    }
-
-    /**
-     * Returns payment options depending on user having his own project.
-     */
-    public get options(): PaymentAmountOption[] {
-        if (this.$store.getters.projectsCount === 0 && this.noCreditCards) {
-            return this.initialPaymentOptions;
-        }
-
-        return this.paymentOptions;
     }
 
     /**
@@ -186,20 +152,6 @@ export default class TokenDepositSelection extends Vue {
         this.current = option;
         this.$emit('onChangeTokenValue', option.value);
         this.close();
-    }
-
-    /**
-     * Indicates if user has no credit cards.
-     */
-    private get noCreditCards(): boolean {
-        return this.$store.state.paymentsModule.creditCards.length === 0;
-    }
-
-    /**
-     * Indicates if app state is in onboarding tour state.
-     */
-    private get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
@@ -356,10 +308,5 @@ export default class TokenDepositSelection extends Vue {
         position: absolute;
         top: 0;
         left: 0;
-    }
-
-    .top-expand {
-        top: -290px;
-        box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.25);
     }
 </style>

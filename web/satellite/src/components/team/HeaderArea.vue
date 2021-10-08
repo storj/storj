@@ -5,18 +5,24 @@
     <div class="team-header-container">
         <div class="team-header-container__title-area">
             <h1 class="team-header-container__title-area__title">Project Members</h1>
-            <VInfo
-                class="team-header-container__title-area__info-button"
-                bold-text="The only project role currently available is Admin, which gives full access to the project.">
-                <InfoIcon class="team-header-container__title-area__info-button__image"/>
+            <VInfo class="team-header-container__title-area__info-button">
+                <template #icon>
+                    <InfoIcon />
+                </template>
+                <template #message>
+                    <p class="team-header-container__title-area__info-button__message">
+                        The only project role currently available is Admin, which gives full access to the project.
+                    </p>
+                </template>
             </VInfo>
         </div>
-	    <div class="team-header-container__wrapper">
+        <div class="team-header-container__wrapper">
             <VHeader
                 ref="headerComponent"
                 placeholder="Team Members"
-                :search="processSearchQuery">
-                <div class="header-default-state" v-if="isDefaultState">
+                :search="processSearchQuery"
+            >
+                <div v-if="isDefaultState" class="header-default-state">
                     <VButton
                         class="button"
                         label="+ Add"
@@ -26,7 +32,7 @@
                         :is-disabled="isAddButtonDisabled"
                     />
                 </div>
-                <div class="header-selected-members" v-if="areProjectMembersSelected">
+                <div v-if="areProjectMembersSelected" class="header-selected-members">
                     <VButton
                         class="button deletion"
                         label="Delete"
@@ -42,10 +48,10 @@
                         is-transparent="true"
                         :on-press="onClearSelection"
                     />
-                    <span class="header-selected-members__info-text"><b>{{selectedProjectMembersCount}}</b> users selected</span>
+                    <span class="header-selected-members__info-text"><b>{{ selectedProjectMembersCount }}</b> users selected</span>
                 </div>
-                <div class="header-after-delete-click" v-if="areSelectedProjectMembersBeingDeleted">
-                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>{{selectedProjectMembersCount}}</b> {{userCountTitle}}?</span>
+                <div v-if="areSelectedProjectMembersBeingDeleted" class="header-after-delete-click">
+                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>{{ selectedProjectMembersCount }}</b> {{ userCountTitle }}?</span>
                     <div class="header-after-delete-click__button-area">
                         <VButton
                             class="button deletion"
@@ -65,10 +71,10 @@
                     </div>
                 </div>
             </VHeader>
-            <div class="blur-content" v-if="isDeleteClicked"></div>
-            <div class="blur-search" v-if="isDeleteClicked"></div>
-	    </div>
-        <AddUserPopup v-if="isAddTeamMembersPopupShown"/>
+            <div v-if="isDeleteClicked" class="blur-content" />
+            <div v-if="isDeleteClicked" class="blur-search" />
+        </div>
+        <AddUserPopup v-if="isAddTeamMembersPopupShown" />
     </div>
 </template>
 
@@ -92,6 +98,7 @@ declare interface ClearSearch {
     clearSearch(): void;
 }
 
+// @vue/component
 @Component({
     components: {
         VButton,
@@ -114,7 +121,7 @@ export default class HeaderArea extends Vue {
     /**
      * Indicates if state after first delete click is active.
      */
-    public isDeleteClicked: boolean = false;
+    public isDeleteClicked = false;
 
     public $refs!: {
         headerComponent: VHeader & ClearSearch;
@@ -253,6 +260,13 @@ export default class HeaderArea extends Vue {
                         fill: #2683ff;
                     }
                 }
+
+                &__message {
+                    color: #586c86;
+                    font-family: 'font_regular', sans-serif;
+                    font-size: 16px;
+                    line-height: 18px;
+                }
             }
         }
     }
@@ -344,27 +358,7 @@ export default class HeaderArea extends Vue {
         }
     }
 
-    /deep/ .info__message-box {
-        background-image: url('../../../static/images/team/MessageBox.png');
-        background-repeat: no-repeat;
-        min-height: 80px;
-        min-width: 200px;
-        width: 200px;
-        top: 110%;
-        left: -205%;
-        padding: 0 20px 12px 20px;
-        word-break: break-word;
-
-        &__text {
-            text-align: left;
-            font-size: 13px;
-            line-height: 17px;
-            margin-top: 20px;
-
-            &__bold-text {
-                font-family: 'font_medium', sans-serif;
-                color: #354049;
-            }
-        }
+    ::v-deep .info__box__message {
+        min-width: 300px;
     }
 </style>

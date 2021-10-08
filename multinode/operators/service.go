@@ -67,10 +67,11 @@ func (service *Service) ListPaginated(ctx context.Context, cursor Cursor) (_ Pag
 	for _, node := range page.Nodes {
 		operator, err := service.GetOperator(ctx, node)
 		if err != nil {
-			// TODO: handle ass offline operators in future.
-			// TODO: we should count number of offline operators and make new query to db to save
-			// TODO: the size of elements on the page.
-			continue
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
+			return Page{}, Error.Wrap(err)
 		}
 		operators = append(operators, operator)
 	}
@@ -94,14 +95,14 @@ func (service *Service) GetOperator(ctx context.Context, node nodes.Node) (_ Ope
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Operator{}, Error.Wrap(err)
+		return Operator{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, conn.Close())
 	}()
 
 	nodeClient := multinodepb.NewDRPCNodeClient(conn)
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}

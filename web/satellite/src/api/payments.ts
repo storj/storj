@@ -4,6 +4,7 @@
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     AccountBalance,
+    Coupon,
     CreditCard,
     PaymentsApi,
     PaymentsHistoryItem,
@@ -12,6 +13,7 @@ import {
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
+import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
 
 /**
  * PaymentsHttpApi is a http implementation of Payments API.
@@ -255,23 +257,76 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Indicates if paywall is enabled.
+     * applyCouponCode applies a coupon code.
      *
-     * @param userId
+     * @param couponCode
      * @throws Error
      */
-    public async getPaywallStatus(userId: string): Promise<boolean> {
-        const path = `${this.ROOT_PATH}/paywall-enabled/${userId}`;
-        const response = await this.client.get(path);
+    public async applyCouponCode(couponCode: string): Promise<Coupon> {
+        const path = `${this.ROOT_PATH}/coupon/apply`;
+        const response = await this.client.patch(path, couponCode);
+        const errMsg = `Could not apply coupon code "${couponCode}"`;
 
+        if (response.ok) {
+            const coupon = await response.json();
+
+            if (!coupon) {
+                throw new Error(errMsg);
+            }
+
+            return new Coupon(
+                coupon.id,
+                coupon.promoCode,
+                coupon.name,
+                coupon.amountOff,
+                coupon.percentOff,
+                new Date(coupon.addedAt),
+                coupon.expiresAt ? new Date(coupon.expiresAt) : null,
+                coupon.duration
+            );
+        }
+
+        switch (response.status) {
+        case 429:
+            throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+        case 401:
+            throw new ErrorUnauthorized(errMsg);
+        default:
+            throw new Error(errMsg);
+        }
+    }
+
+    /**
+     * getCoupon returns the coupon applied to the user.
+     *
+     * @throws Error
+     */
+    public async getCoupon(): Promise<Coupon | null> {
+        const path = `${this.ROOT_PATH}/coupon`;
+        const response = await this.client.get(path);
         if (!response.ok) {
             if (response.status === 401) {
                 throw new ErrorUnauthorized();
             }
 
-            throw new Error('can not get paywall status');
+            throw new Error('cannot retrieve coupon');
         }
 
-        return await response.json();
+        const coupon = await response.json();
+
+        if (!coupon) {
+            return null;
+        }
+
+        return new Coupon(
+            coupon.id,
+            coupon.promoCode,
+            coupon.name,
+            coupon.amountOff,
+            coupon.percentOff,
+            new Date(coupon.addedAt),
+            coupon.expiresAt ? new Date(coupon.expiresAt) : null,
+            coupon.duration
+        );
     }
 }

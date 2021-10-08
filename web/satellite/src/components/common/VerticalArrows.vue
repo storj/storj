@@ -3,8 +3,8 @@
 
 <template>
     <div class="container">
-        <TopArrowIcon :class="{ active: isActive && isTop }"/>
-        <BottomArrowIcon :class="{ active: isActive && isBottom }"/>
+        <TopArrowIcon :class="{ active: isActive && isTop }" />
+        <BottomArrowIcon :class="{ active: isActive && isBottom }" />
     </div>
 </template>
 
@@ -16,6 +16,7 @@ import TopArrowIcon from '@/../static/images/common/topArrow.svg';
 
 import { SortingDirectionEnum } from '@/types/sortingArrows';
 
+// @vue/component
 @Component({
     components: {
         TopArrowIcon,

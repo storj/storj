@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -29,6 +31,12 @@ var (
 	// errNotImplemented is the error value used by handlers of this package to
 	// response with status Not Implemented.
 	errNotImplemented = errs.New("not implemented")
+
+	// supportedCORSOrigins allows us to support visitors who sign up from the website.
+	supportedCORSOrigins = map[string]bool{
+		"https://storj.io":     true,
+		"https://www.storj.io": true,
+	}
 )
 
 // Auth is an api controller that exposes all auth functionality.
@@ -67,20 +75,18 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var tokenRequest struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
+	tokenRequest := console.AuthUser{}
 	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	token, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
-		a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
+		if !console.ErrMFAMissing.Has(err) {
+			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
+		}
 		a.serveJSONError(w, err)
 		return
 	}
@@ -111,20 +117,34 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	origin := r.Header.Get("Origin")
+	if supportedCORSOrigins[origin] {
+		// we should send the exact origin back, rather than a wildcard
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	}
+
+	// OPTIONS is a pre-flight check for cross-origin (CORS) permissions
+	if r.Method == "OPTIONS" {
+		return
+	}
+
 	var registerData struct {
-		FullName         string `json:"fullName"`
-		ShortName        string `json:"shortName"`
-		Email            string `json:"email"`
-		Partner          string `json:"partner"`
-		PartnerID        string `json:"partnerId"`
-		Password         string `json:"password"`
-		SecretInput      string `json:"secret"`
-		ReferrerUserID   string `json:"referrerUserId"`
-		IsProfessional   bool   `json:"isProfessional"`
-		Position         string `json:"position"`
-		CompanyName      string `json:"companyName"`
-		EmployeeCount    string `json:"employeeCount"`
-		HaveSalesContact bool   `json:"haveSalesContact"`
+		FullName          string `json:"fullName"`
+		ShortName         string `json:"shortName"`
+		Email             string `json:"email"`
+		Partner           string `json:"partner"`
+		PartnerID         string `json:"partnerId"`
+		Password          string `json:"password"`
+		SecretInput       string `json:"secret"`
+		ReferrerUserID    string `json:"referrerUserId"`
+		IsProfessional    bool   `json:"isProfessional"`
+		Position          string `json:"position"`
+		CompanyName       string `json:"companyName"`
+		EmployeeCount     string `json:"employeeCount"`
+		HaveSalesContact  bool   `json:"haveSalesContact"`
+		RecaptchaResponse string `json:"recaptchaResponse"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -148,18 +168,26 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
 	user, err := a.service.CreateUser(ctx,
 		console.CreateUser{
-			FullName:         registerData.FullName,
-			ShortName:        registerData.ShortName,
-			Email:            registerData.Email,
-			PartnerID:        registerData.PartnerID,
-			Password:         registerData.Password,
-			IsProfessional:   registerData.IsProfessional,
-			Position:         registerData.Position,
-			CompanyName:      registerData.CompanyName,
-			EmployeeCount:    registerData.EmployeeCount,
-			HaveSalesContact: registerData.HaveSalesContact,
+			FullName:          registerData.FullName,
+			ShortName:         registerData.ShortName,
+			Email:             registerData.Email,
+			PartnerID:         registerData.PartnerID,
+			Password:          registerData.Password,
+			IsProfessional:    registerData.IsProfessional,
+			Position:          registerData.Position,
+			CompanyName:       registerData.CompanyName,
+			EmployeeCount:     registerData.EmployeeCount,
+			HaveSalesContact:  registerData.HaveSalesContact,
+			RecaptchaResponse: registerData.RecaptchaResponse,
+			IP:                ip,
 		},
 		secret,
 	)
@@ -253,17 +281,20 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID               uuid.UUID `json:"id"`
-		FullName         string    `json:"fullName"`
-		ShortName        string    `json:"shortName"`
-		Email            string    `json:"email"`
-		PartnerID        uuid.UUID `json:"partnerId"`
-		ProjectLimit     int       `json:"projectLimit"`
-		IsProfessional   bool      `json:"isProfessional"`
-		Position         string    `json:"position"`
-		CompanyName      string    `json:"companyName"`
-		EmployeeCount    string    `json:"employeeCount"`
-		HaveSalesContact bool      `json:"haveSalesContact"`
+		ID                   uuid.UUID `json:"id"`
+		FullName             string    `json:"fullName"`
+		ShortName            string    `json:"shortName"`
+		Email                string    `json:"email"`
+		PartnerID            uuid.UUID `json:"partnerId"`
+		ProjectLimit         int       `json:"projectLimit"`
+		IsProfessional       bool      `json:"isProfessional"`
+		Position             string    `json:"position"`
+		CompanyName          string    `json:"companyName"`
+		EmployeeCount        string    `json:"employeeCount"`
+		HaveSalesContact     bool      `json:"haveSalesContact"`
+		PaidTier             bool      `json:"paidTier"`
+		MFAEnabled           bool      `json:"isMFAEnabled"`
+		MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
 	}
 
 	auth, err := console.GetAuth(ctx)
@@ -283,6 +314,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.Position = auth.User.Position
 	user.EmployeeCount = auth.User.EmployeeCount
 	user.HaveSalesContact = auth.User.HaveSalesContact
+	user.PaidTier = auth.User.PaidTier
+	user.MFAEnabled = auth.User.MFAEnabled
+	user.MFARecoveryCodeCount = len(auth.User.MFARecoveryCodes)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
@@ -453,34 +487,165 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+// EnableUserMFA enables multi-factor authentication for the user.
+func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data struct {
+		Passcode string `json:"passcode"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.EnableUserMFA(ctx, data.Passcode, time.Now())
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+}
+
+// DisableUserMFA disables multi-factor authentication for the user.
+func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data struct {
+		Passcode     string `json:"passcode"`
+		RecoveryCode string `json:"recoveryCode"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DisableUserMFA(ctx, data.Passcode, time.Now(), data.RecoveryCode)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+}
+
+// GenerateMFASecretKey creates a new TOTP secret key for the user.
+func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	key, err := a.service.ResetMFASecretKey(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(key)
+	if err != nil {
+		a.log.Error("could not encode MFA secret key", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// GenerateMFARecoveryCodes creates a new set of MFA recovery codes for the user.
+func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	codes, err := a.service.ResetMFARecoveryCodes(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(codes)
+	if err != nil {
+		a.log.Error("could not encode MFA recovery codes", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// ResetPassword resets user's password using recovery token.
+func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var resetPassword struct {
+		RecoveryToken string `json:"token"`
+		NewPassword   string `json:"password"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&resetPassword)
+	if err != nil {
+		a.serveJSONError(w, err)
+	}
+
+	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, time.Now())
+	if err != nil {
+		a.serveJSONError(w, err)
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
-	w.WriteHeader(a.getStatusCode(err))
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		a.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
-	}
+	status := a.getStatusCode(err)
+	serveCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
 	switch {
-	case console.ErrValidation.Has(err):
+	case console.ErrValidation.Has(err), console.ErrRecaptcha.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err):
 		return http.StatusUnauthorized
-	case console.ErrEmailUsed.Has(err):
+	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
+	case console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err):
+		if console.ErrMFALogin.Has(err) {
+			return http.StatusOK
+		}
+		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
+	}
+}
+
+// getUserErrorMessage returns a user-friendly representation of the error.
+func (a *Auth) getUserErrorMessage(err error) string {
+	switch {
+	case console.ErrRecaptcha.Has(err):
+		return "Validation of reCAPTCHA was unsuccessful"
+	case console.ErrRegToken.Has(err):
+		return "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
+	case console.ErrEmailUsed.Has(err):
+		return "This email is already in use; try another"
+	case console.ErrRecoveryToken.Has(err):
+		if console.ErrTokenExpiration.Has(err) {
+			return "The recovery token has expired"
+		}
+		return "The recovery token is invalid"
+	case console.ErrMFAMissing.Has(err):
+		return "A MFA passcode or recovery code is required"
+	case console.ErrMFAConflict.Has(err):
+		return "Expected either passcode or recovery code, but got both"
+	case console.ErrMFAPasscode.Has(err):
+		return "The MFA passcode is not valid or has expired"
+	case console.ErrMFARecoveryCode.Has(err):
+		return "The MFA recovery code is not valid or has been previously used"
+	case errors.Is(err, errNotImplemented):
+		return "The server is incapable of fulfilling the request"
+	default:
+		return "There was an error processing your request"
 	}
 }

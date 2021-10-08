@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="dialog" v-click-outside="closeCardsDialog">
+    <div v-click-outside="closeCardsDialog" class="dialog">
         <p class="label dialog__make-default" @click="onMakeDefaultClick">Make Default</p>
         <p class="label dialog__delete" @click="onRemoveClick">Delete</p>
     </div>
@@ -20,6 +20,7 @@ const {
     REMOVE_CARD,
 } = PAYMENTS_ACTIONS;
 
+// @vue/component
 @Component
 export default class CardDialog extends Vue {
     @Prop({default: ''})

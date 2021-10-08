@@ -19,7 +19,7 @@
                 <th>EARNED</th>
                 <th>VERSION</th>
                 <th>STATUS</th>
-                <th></th>
+                <th />
             </tr>
         </thead>
         <tbody slot="body">
@@ -36,6 +36,7 @@ import NodeItem from '@/app/components/myNodes/tables/NodeItem.vue';
 
 import { Node } from '@/nodes';
 
+// @vue/component
 @Component({
     components: {
         BaseTable,

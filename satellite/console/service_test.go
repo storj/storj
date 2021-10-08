@@ -4,16 +4,21 @@
 package console_test
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 )
 
@@ -54,15 +59,94 @@ func TestService(t *testing.T) {
 			})
 
 			t.Run("TestUpdateProject", func(t *testing.T) {
-				// Updating own project should work
-				updatedPro, err := service.UpdateProject(authCtx1, up1Pro1.ID, "newName", "TestUpdate")
+				updatedName := "newName"
+				updatedDescription := "newDescription"
+				updatedStorageLimit := memory.Size(100)
+				updatedBandwidthLimit := memory.Size(100)
+
+				// user should be in free tier
+				user, err := service.GetUser(ctx, up1Pro1.OwnerID)
 				require.NoError(t, err)
-				require.NotEqual(t, up1Pro1.Name, updatedPro.Name)
+				require.False(t, user.PaidTier)
+				// get context
+				authCtx1, err := sat.AuthenticatedContext(ctx, user.ID)
+				require.NoError(t, err)
+				// add a credit card to put the user in the paid tier
+				err = service.Payments().AddCreditCard(authCtx1, "test-cc-token")
+				require.NoError(t, err)
+				// update auth ctx
+				authCtx1, err = sat.AuthenticatedContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				// Updating own project should work
+				updatedProject, err := service.UpdateProject(authCtx1, up1Pro1.ID, console.ProjectInfo{
+					Name:           updatedName,
+					Description:    updatedDescription,
+					StorageLimit:   updatedStorageLimit,
+					BandwidthLimit: updatedBandwidthLimit,
+				})
+				require.NoError(t, err)
+				require.NotEqual(t, up1Pro1.Name, updatedProject.Name)
+				require.Equal(t, updatedName, updatedProject.Name)
+				require.NotEqual(t, up1Pro1.Description, updatedProject.Description)
+				require.Equal(t, updatedDescription, updatedProject.Description)
+				require.NotEqual(t, *up1Pro1.StorageLimit, *updatedProject.StorageLimit)
+				require.Equal(t, updatedStorageLimit, *updatedProject.StorageLimit)
+				require.NotEqual(t, *up1Pro1.BandwidthLimit, *updatedProject.BandwidthLimit)
+				require.Equal(t, updatedBandwidthLimit, *updatedProject.BandwidthLimit)
 
 				// Updating someone else project details should not work
-				updatedPro, err = service.UpdateProject(authCtx1, up2Pro1.ID, "newName", "TestUpdate")
+				updatedProject, err = service.UpdateProject(authCtx1, up2Pro1.ID, console.ProjectInfo{
+					Name:           "newName",
+					Description:    "TestUpdate",
+					StorageLimit:   memory.Size(100),
+					BandwidthLimit: memory.Size(100),
+				})
 				require.Error(t, err)
-				require.Nil(t, updatedPro)
+				require.Nil(t, updatedProject)
+
+				// attempting to update a project with bandwidth or storage limits set to 0 should fail
+				size0 := new(memory.Size)
+				*size0 = 0
+				size100 := new(memory.Size)
+				*size100 = memory.Size(100)
+
+				up1Pro1.StorageLimit = size0
+				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
+				require.NoError(t, err)
+
+				updateInfo := console.ProjectInfo{
+					Name:           "a b c",
+					Description:    "1 2 3",
+					StorageLimit:   memory.Size(123),
+					BandwidthLimit: memory.Size(123),
+				}
+				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
+				require.Error(t, err)
+				require.Nil(t, updatedProject)
+
+				up1Pro1.StorageLimit = size100
+				up1Pro1.BandwidthLimit = size0
+				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
+				require.NoError(t, err)
+
+				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
+				require.Error(t, err)
+				require.Nil(t, updatedProject)
+
+				up1Pro1.StorageLimit = size100
+				up1Pro1.BandwidthLimit = size100
+				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
+				require.NoError(t, err)
+
+				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
+				require.NoError(t, err)
+				require.Equal(t, updateInfo.Name, updatedProject.Name)
+				require.Equal(t, updateInfo.Description, updatedProject.Description)
+				require.NotNil(t, updatedProject.StorageLimit)
+				require.NotNil(t, updatedProject.BandwidthLimit)
+				require.Equal(t, updateInfo.StorageLimit, *updatedProject.StorageLimit)
+				require.Equal(t, updateInfo.BandwidthLimit, *updatedProject.BandwidthLimit)
 			})
 
 			t.Run("TestAddProjectMembers", func(t *testing.T) {
@@ -210,4 +294,302 @@ func TestService(t *testing.T) {
 				require.Nil(t, info)
 			})
 		})
+}
+
+func TestPaidTier(t *testing.T) {
+	usageConfig := console.UsageLimitsConfig{
+		Storage: console.StorageLimitConfig{
+			Free: memory.GB,
+			Paid: memory.TB,
+		},
+		Bandwidth: console.BandwidthLimitConfig{
+			Free: 2 * memory.GB,
+			Paid: 2 * memory.TB,
+		},
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UsageLimits = usageConfig
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		// project should have free tier usage limits
+		proj1, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+		require.Equal(t, usageConfig.Storage.Free, *proj1.StorageLimit)
+		require.Equal(t, usageConfig.Bandwidth.Free, *proj1.BandwidthLimit)
+
+		// user should be in free tier
+		user, err := service.GetUser(ctx, proj1.OwnerID)
+		require.NoError(t, err)
+		require.False(t, user.PaidTier)
+
+		authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		// add a credit card to the user
+		err = service.Payments().AddCreditCard(authCtx, "test-cc-token")
+		require.NoError(t, err)
+
+		// expect user to be in paid tier
+		user, err = service.GetUser(ctx, user.ID)
+		require.NoError(t, err)
+		require.True(t, user.PaidTier)
+
+		// update auth ctx
+		authCtx, err = sat.AuthenticatedContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		// expect project to be migrated to paid tier usage limits
+		proj1, err = service.GetProject(authCtx, proj1.ID)
+		require.NoError(t, err)
+		require.Equal(t, usageConfig.Storage.Paid, *proj1.StorageLimit)
+		require.Equal(t, usageConfig.Bandwidth.Paid, *proj1.BandwidthLimit)
+
+		// expect new project to be created with paid tier usage limits
+		proj2, err := service.CreateProject(authCtx, console.ProjectInfo{Name: "Project 2"})
+		require.NoError(t, err)
+		require.Equal(t, usageConfig.Storage.Paid, *proj2.StorageLimit)
+		require.Equal(t, usageConfig.Bandwidth.Paid, *proj2.BandwidthLimit)
+	})
+}
+
+func TestMFA(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "MFA Test User",
+			Email:    "mfauser@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		var auth console.Authorization
+		var authCtx context.Context
+		updateAuth := func() {
+			authCtx, err = sat.AuthenticatedContext(ctx, user.ID)
+			require.NoError(t, err)
+			auth, err = console.GetAuth(authCtx)
+			require.NoError(t, err)
+		}
+		updateAuth()
+
+		var key string
+		t.Run("TestResetMFASecretKey", func(t *testing.T) {
+			key, err = service.ResetMFASecretKey(authCtx)
+			require.NoError(t, err)
+
+			updateAuth()
+			require.NotEmpty(t, auth.User.MFASecretKey)
+		})
+
+		t.Run("TestEnableUserMFABadPasscode", func(t *testing.T) {
+			// Expect MFA-enabling attempt to be rejected when providing stale passcode.
+			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
+			require.NoError(t, err)
+
+			err = service.EnableUserMFA(authCtx, badCode, time.Time{})
+			require.True(t, console.ErrValidation.Has(err))
+
+			updateAuth()
+			_, err = service.ResetMFARecoveryCodes(authCtx)
+			require.True(t, console.ErrUnauthorized.Has(err))
+
+			updateAuth()
+			require.False(t, auth.User.MFAEnabled)
+		})
+
+		t.Run("TestEnableUserMFAGoodPasscode", func(t *testing.T) {
+			// Expect MFA-enabling attempt to succeed when providing valid passcode.
+			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.EnableUserMFA(authCtx, goodCode, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			require.True(t, auth.User.MFAEnabled)
+			require.Equal(t, auth.User.MFASecretKey, key)
+		})
+
+		t.Run("TestMFAGetToken", func(t *testing.T) {
+			request := console.AuthUser{Email: user.Email, Password: user.FullName}
+
+			// Expect no token due to lack of MFA passcode.
+			token, err := service.Token(ctx, request)
+			require.True(t, console.ErrMFAMissing.Has(err))
+			require.Empty(t, token)
+
+			// Expect no token due to bad MFA passcode.
+			wrongCode, err := console.NewMFAPasscode(key, time.Now().Add(time.Hour))
+			require.NoError(t, err)
+
+			request.MFAPasscode = wrongCode
+			token, err = service.Token(ctx, request)
+			require.True(t, console.ErrUnauthorized.Has(err))
+			require.Empty(t, token)
+
+			// Expect token when providing valid passcode.
+			goodCode, err := console.NewMFAPasscode(key, time.Now())
+			require.NoError(t, err)
+
+			request.MFAPasscode = goodCode
+			token, err = service.Token(ctx, request)
+			require.NoError(t, err)
+			require.NotEmpty(t, token)
+		})
+
+		t.Run("TestMFARecoveryCodes", func(t *testing.T) {
+			_, err = service.ResetMFARecoveryCodes(authCtx)
+			require.NoError(t, err)
+
+			updateAuth()
+			require.Len(t, auth.User.MFARecoveryCodes, console.MFARecoveryCodeCount)
+
+			for _, code := range auth.User.MFARecoveryCodes {
+				// Ensure code is of the form XXXX-XXXX-XXXX where X is A-Z or 0-9.
+				require.Regexp(t, "^([A-Z0-9]{4})((-[A-Z0-9]{4})){2}$", code)
+
+				// Expect token when providing valid recovery code.
+				request := console.AuthUser{Email: user.Email, Password: user.FullName, MFARecoveryCode: code}
+				token, err := service.Token(ctx, request)
+				require.NoError(t, err)
+				require.NotEmpty(t, token)
+
+				// Expect no token due to providing previously-used recovery code.
+				token, err = service.Token(ctx, request)
+				require.True(t, console.ErrUnauthorized.Has(err))
+				require.Empty(t, token)
+
+				updateAuth()
+			}
+
+			_, err = service.ResetMFARecoveryCodes(authCtx)
+			require.NoError(t, err)
+		})
+
+		t.Run("TestDisableUserMFABadPasscode", func(t *testing.T) {
+			// Expect MFA-disabling attempt to fail when providing valid passcode.
+			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.DisableUserMFA(authCtx, badCode, time.Time{}, "")
+			require.True(t, console.ErrValidation.Has(err))
+
+			updateAuth()
+			require.True(t, auth.User.MFAEnabled)
+			require.NotEmpty(t, auth.User.MFASecretKey)
+			require.NotEmpty(t, auth.User.MFARecoveryCodes)
+		})
+
+		t.Run("TestDisableUserMFAConflict", func(t *testing.T) {
+			// Expect MFA-disabling attempt to fail when providing both recovery code and passcode.
+			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.DisableUserMFA(authCtx, goodCode, time.Time{}, auth.User.MFARecoveryCodes[0])
+			require.True(t, console.ErrMFAConflict.Has(err))
+
+			updateAuth()
+			require.True(t, auth.User.MFAEnabled)
+			require.NotEmpty(t, auth.User.MFASecretKey)
+			require.NotEmpty(t, auth.User.MFARecoveryCodes)
+		})
+
+		t.Run("TestDisableUserMFAGoodPasscode", func(t *testing.T) {
+			// Expect MFA-disabling attempt to succeed when providing valid passcode.
+			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.DisableUserMFA(authCtx, goodCode, time.Time{}, "")
+			require.NoError(t, err)
+
+			updateAuth()
+			require.False(t, auth.User.MFAEnabled)
+			require.Empty(t, auth.User.MFASecretKey)
+			require.Empty(t, auth.User.MFARecoveryCodes)
+		})
+
+		t.Run("TestDisableUserMFAGoodRecoveryCode", func(t *testing.T) {
+			// Expect MFA-disabling attempt to succeed when providing valid recovery code.
+			// Enable MFA
+			key, err = service.ResetMFASecretKey(authCtx)
+			require.NoError(t, err)
+
+			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.EnableUserMFA(authCtx, goodCode, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			_, err = service.ResetMFARecoveryCodes(authCtx)
+			require.NoError(t, err)
+
+			updateAuth()
+			require.True(t, auth.User.MFAEnabled)
+			require.NotEmpty(t, auth.User.MFASecretKey)
+			require.NotEmpty(t, auth.User.MFARecoveryCodes)
+
+			// Disable MFA
+			err = service.DisableUserMFA(authCtx, "", time.Time{}, auth.User.MFARecoveryCodes[0])
+			require.NoError(t, err)
+
+			updateAuth()
+			require.False(t, auth.User.MFAEnabled)
+			require.Empty(t, auth.User.MFASecretKey)
+			require.Empty(t, auth.User.MFARecoveryCodes)
+		})
+	})
+}
+
+func TestResetPassword(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		newPass := "123a123"
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		token, err := sat.DB.Console().ResetPasswordTokens().Create(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, token)
+		tokenStr := token.Secret.String()
+
+		// Expect error when providing bad token.
+		err = service.ResetPassword(ctx, "badToken", newPass, token.CreatedAt)
+		require.True(t, console.ErrRecoveryToken.Has(err))
+
+		// Expect error when providing good but expired token.
+		err = service.ResetPassword(ctx, tokenStr, newPass, token.CreatedAt.Add(console.TokenExpirationTime).Add(time.Second))
+		require.True(t, console.ErrTokenExpiration.Has(err))
+
+		// Expect error when providing good token with bad (too short) password.
+		err = service.ResetPassword(ctx, tokenStr, "bad", token.CreatedAt)
+		require.True(t, console.ErrValidation.Has(err))
+
+		// Expect success when providing good token and good password.
+		err = service.ResetPassword(ctx, tokenStr, newPass, token.CreatedAt)
+		require.NoError(t, err)
+	})
 }

@@ -3,13 +3,14 @@
 
 <template>
     <div id="payouts-root">
-        <router-view/>
+        <router-view />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+// @vue/component
 @Component
 export default class PayoutsRoot extends Vue {}
 </script>

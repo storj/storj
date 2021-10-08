@@ -2,79 +2,101 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="add-coupon__warpperr">
-        <div class="add-coupon__input-wrapper">
-            <img
-                class="add-coupon__input-icon"
-                :class="{'signup-view': isSignupView}"
-                src="@/../static/images/account/billing/coupon.png"
-                alt="Coupon"
-            />
-            <HeaderlessInput
-                :label="inputLabel"
-                placeholder="Enter Coupon Code"
-                class="add-coupon__input"
-                height="52px"
-                :withIcon="true"
-                @setData="setCouponCode"
-            />
-            <CheckIcon
-                class="add-coupon__check"
-                v-if="isCodeValid"
+    <div class="add-coupon__input-container">
+        <div v-if="!showConfirmMessage">
+            <div class="add-coupon__input-wrapper">
+                <img
+                    class="add-coupon__input-icon"
+                    :class="{'signup-view': isSignupView}"
+                    src="@/../static/images/account/billing/coupon.png"
+                    alt="Coupon"
+                >
+                <HeaderlessInput
+                    :label="inputLabel"
+                    placeholder="Enter Coupon Code"
+                    height="52px"
+                    :with-icon="true"
+                    @setData="setCouponCode"
+                />
+                <CheckIcon
+                    v-if="isCodeValid"
+                    class="add-coupon__check"
+                />
+            </div>
+            <ValidationMessage
+                class="add-coupon__valid-message"
+                success-message="Successfully applied coupon code."
+                :error-message="errorMessage"
+                :is-valid="isCodeValid"
+                :show-message="showValidationMessage"
             />
             <VButton
-                label="Validate"
-                class="add-coupon__claim-button"
-                width="120px"
-                height="32px"
-                v-if="!isCodeValid"
-                :on-press="onValidationCheckClick"
+                v-if="!isSignupView"
+                class="add-coupon__apply-button"
+                label="Apply Coupon Code"
+                width="85%"
+                height="44px"
+                :on-press="couponCheck"
             />
         </div>
-        <ValidationMessage
-            class="add-coupon__valid-message"
-            successMessage="Get 50GB free and start using Storj DCS today."
-            errorMessage="Invalid code. Please Try again"
-            :isValid="isCodeValid"
-            :showMessage="showValidationMessage"
-        />
-        <VButton
-            class="add-coupon__apply-button"
-            label="Apply Coupon Code"
-            width="85%"
-            height="44px"
-            v-if="!isSignupView"
-        />
+        <div v-if="showConfirmMessage">
+            <p class="add-coupon__confirm-message">
+                By applying this coupon you will override your existing coupon.
+                Are you sure you want to remove your current coupon and replace it with this new coupon?
+            </p>
+            <div class="add-coupon__button-wrapper">
+                <VButton
+                    class="add-coupon__confirm-button"
+                    label="Yes"
+                    width="250px"
+                    height="44px"
+                    :on-press="applyCouponCode"
+                />
+                <VButton
+                    class="add-coupon__back-button"
+                    label="Back"
+                    width="250px"
+                    height="44px"
+                    is-blue-white="true"
+                    :on-press="toggleConfirmMessage"
+                />
+            </div>
+        </div>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import CloseIcon from '@/../static/images/common/closeCross.svg';
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
+import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
+// @vue/component
 @Component({
     components: {
         VButton,
         HeaderlessInput,
-        CloseIcon,
         CheckIcon,
         ValidationMessage,
     },
 })
 export default class AddCouponCodeInput extends Vue {
+    private showValidationMessage = false;
+    private errorMessage = '';
+    private isCodeValid = false;
 
-    @Prop({default: false})
-    protected readonly isCodeValid: boolean;
-    @Prop({default: false})
-    protected readonly showValidationMessage: boolean;
+    private couponCode = '';
+
+    private showConfirmMessage = false;
+
+    private readonly payments: PaymentsHttpApi = new PaymentsHttpApi();
 
     /**
      * Signup view requires some unque styling and element text.
@@ -91,13 +113,60 @@ export default class AddCouponCodeInput extends Vue {
         return this.isSignupView ? 'Add Coupon' : '';
     }
 
-    /**
-    * Check if coupon code is valid
-    */
-    public onValidationCheckClick(): boolean {
-        return true;
+    public setCouponCode(value: string): void {
+        this.couponCode = value;
     }
 
+    /**
+    * Toggles showing of coupon code replace confirmation message
+    */
+    public toggleConfirmMessage(): void {
+        this.showConfirmMessage = !this.showConfirmMessage;
+    }
+
+    /**
+     * Check if coupon code is valid
+     */
+    public async applyCouponCode(): Promise<void> {
+        try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, this.couponCode);
+        }
+        catch (error) {
+            if (this.showConfirmMessage) {
+                this.toggleConfirmMessage();
+            }
+            this.errorMessage = error.message;
+            this.isCodeValid = false;
+            this.showValidationMessage = true;
+
+            return;
+        }
+        if (this.showConfirmMessage) {
+            this.toggleConfirmMessage();
+        }
+        this.isCodeValid = true;
+        this.showValidationMessage = true;
+    }
+
+    /**
+     * Check if user has a coupon code applied to their account before applying
+     */
+    public async couponCheck(): Promise<void> {
+        try {
+            if (this.$store.state.paymentsModule.coupon) {
+                this.toggleConfirmMessage();
+            } else {
+                this.applyCouponCode();
+            }
+        } catch (error) {
+
+            this.errorMessage = error.message;
+            this.isCodeValid = false;
+            this.showValidationMessage = true;
+
+            return;
+        }
+    }
 }
 </script>
 
@@ -105,26 +174,8 @@ export default class AddCouponCodeInput extends Vue {
 
     .add-coupon {
 
-        &__wrapper {
-            background: #1b2533c7 75%;
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-        }
-
         &__input-wrapper {
             position: relative;
-        }
-
-        &__claim-button {
-            position: absolute;
-            right: 12px;
-            bottom: 8px;
-            font-size: 14px;
-            padding: 2px 0;
-            z-index: 23;
         }
 
         &__valid-message {
@@ -138,10 +189,10 @@ export default class AddCouponCodeInput extends Vue {
             right: 0;
             margin: 0 auto;
             bottom: 40px;
-            background: #93a1af;
+            background: #2683ff;
 
             &:hover {
-                background: darken(#93a1af, 10%);
+                background: #0059d0;
             }
         }
 
@@ -162,6 +213,18 @@ export default class AddCouponCodeInput extends Vue {
 
         &__input-icon.signup-view {
             top: 63px;
+        }
+
+        &__confirm-message {
+            font-family: 'font_regular', sans-serif;
+            font-size: 18px;
+            margin-top: 35px;
+        }
+
+        &__button-wrapper {
+            display: flex;
+            justify-content: space-evenly;
+            margin-top: 30px;
         }
     }
 

@@ -196,7 +196,7 @@ func TestDurabilityRatio(t *testing.T) {
 		require.Len(t, nodeIDs, 1)
 
 		// retrieve remote segment
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 2)
 
@@ -210,7 +210,7 @@ func TestDurabilityRatio(t *testing.T) {
 					idx++
 				}
 			}
-			err = satellite.Metainfo.Metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+			err = satellite.Metabase.DB.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
 				StreamID: segment.StreamID,
 				Position: segment.Position,
 
@@ -263,7 +263,8 @@ func batch(ctx context.Context, b *testing.B, db gracefulexit.DB, size int) {
 		for j := 0; j < size; j++ {
 			item := gracefulexit.TransferQueueItem{
 				NodeID:          testrand.NodeID(),
-				Key:             testrand.Bytes(memory.B * 256),
+				StreamID:        testrand.UUID(),
+				Position:        metabase.SegmentPosition{},
 				PieceNum:        0,
 				DurabilityRatio: 1.0,
 			}

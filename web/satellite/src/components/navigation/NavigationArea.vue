@@ -2,20 +2,25 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="navigation-area" v-if="!isNavigationHidden">
-        <EditProjectDropdown/>
+    <div v-if="!isNavigationHidden" class="navigation-area">
+        <EditProjectDropdown />
         <router-link
-            :aria-label="navItem.name"
-            class="navigation-area__item-container"
             v-for="navItem in navigation"
             :key="navItem.name"
+            :aria-label="navItem.name"
+            class="navigation-area__item-container"
             :to="navItem.path"
         >
             <div class="navigation-area__item-container__link">
-                <component class="navigation-area__item-container__link__icon" :is="navItem.icon"/>
-                <p class="navigation-area__item-container__link__title">{{navItem.name}}</p>
+                <component :is="navItem.icon" class="navigation-area__item-container__link__icon" />
+                <p class="navigation-area__item-container__link__title">{{ navItem.name }}</p>
             </div>
         </router-link>
+        <div class="navigation-area__selection-wrapper">
+            <ProjectSelection in-navigation="true" class="project-selection" />
+            <ResourcesSelection in-navigation="true" class="resources-selection" />
+            <SettingsSelection in-navigation="true" class="settings-selection" />
+        </div>
     </div>
 </template>
 
@@ -27,12 +32,16 @@ import EditProjectDropdown from '@/components/navigation/EditProjectDropdown.vue
 import AccessGrantsIcon from '@/../static/images/navigation/apiKeys.svg';
 import DashboardIcon from '@/../static/images/navigation/dashboard.svg';
 import ObjectsIcon from '@/../static/images/navigation/objects.svg';
+import ProjectSelection from '@/components/header/projectsDropdown/ProjectSelection.vue';
+import ResourcesSelection from '@/components/header/resourcesDropdown/ResourcesSelection.vue';
+import SettingsSelection from '@/components/header/settingsDropdown/SettingsSelection.vue';
 import TeamIcon from '@/../static/images/navigation/team.svg';
 
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         DashboardIcon,
@@ -40,6 +49,9 @@ import { MetaUtils } from '@/utils/meta';
         TeamIcon,
         EditProjectDropdown,
         ObjectsIcon,
+        ProjectSelection,
+        ResourcesSelection,
+        SettingsSelection
     },
 })
 export default class NavigationArea extends Vue {
@@ -49,8 +61,9 @@ export default class NavigationArea extends Vue {
      * Lifecycle hook before initial render.
      * Sets navigation side bar list.
      */
-    public async beforeMount(): Promise<void> {
-        if (await JSON.parse(MetaUtils.getMetaContent('file-browser-flow-disabled'))) {
+    public beforeMount(): void {
+        const value = MetaUtils.getMetaContent('file-browser-flow-disabled');
+        if (value === "true") {
             this.navigation = [
                 RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
                 RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
@@ -149,6 +162,36 @@ export default class NavigationArea extends Vue {
                 .svg .navigation-svg-path:not(.white) {
                     fill: #fff !important;
                     opacity: 1;
+                }
+            }
+        }
+
+        &__selection-wrapper {
+            display: none;
+
+            .project-selection {
+
+                &__toggle-container {
+                    background: none;
+
+                    &__name {
+                        font-family: 'font_medium', sans-serif;
+                        font-size: 16px;
+                        line-height: 23px;
+                        color: #1b2533;
+                        margin: 0 0 0 18px;
+                        white-space: nowrap;
+                    }
+                }
+            }
+        }
+
+        @media screen and (max-width: 768px) {
+
+            .navigation-area {
+
+                &__selection-wrapper {
+                    display: block;
                 }
             }
         }

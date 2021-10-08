@@ -4,15 +4,15 @@
 <template>
     <div class="bucket-item">
         <div class="bucket-item__name">
-            <BucketIcon/>
-            <p class="bucket-item__name__value">{{itemData.Name}}</p>
+            <BucketIcon />
+            <p class="bucket-item__name__value">{{ itemData.Name }}</p>
         </div>
-        <p class="bucket-item__date">{{formattedDate}}</p>
-        <div class="bucket-item__functional" @click.stop="openDropdown(dropdownKey)" v-click-outside="closeDropdown">
-            <DotsIcon/>
-            <div ref="dropdown" class="bucket-item__functional__dropdown" v-if="isDropdownOpen">
+        <p class="bucket-item__date">{{ formattedDate }}</p>
+        <div v-click-outside="closeDropdown" class="bucket-item__functional" @click.stop="openDropdown(dropdownKey)">
+            <DotsIcon />
+            <div v-if="isDropdownOpen" class="bucket-item__functional__dropdown">
                 <div class="bucket-item__functional__dropdown__item" @click.stop="onDeleteClick">
-                    <DeleteIcon/>
+                    <DeleteIcon />
                     <p class="bucket-item__functional__dropdown__item__label">Delete</p>
                 </div>
             </div>
@@ -24,18 +24,16 @@
 import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
-
 import BucketIcon from '@/../static/images/objects/bucketItem.svg';
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
 
+// @vue/component
 @Component({
     components: {
         BucketIcon,
         DotsIcon,
         DeleteIcon,
-        ObjectsPopup,
     },
 })
 export default class BucketItem extends Vue {
@@ -50,8 +48,8 @@ export default class BucketItem extends Vue {
     @Prop({ default: -1 })
     public readonly dropdownKey: number;
 
-    public isRequestProcessing: boolean = false;
-    public errorMessage: string = '';
+    public isRequestProcessing = false;
+    public errorMessage = '';
 
     /**
      * Returns formatted date.

@@ -22,7 +22,7 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		httpJSONError(w, "failed to read body",
+		sendJSONError(w, "failed to read body",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -36,50 +36,49 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
-		httpJSONError(w, "failed to unmarshal request",
+		sendJSONError(w, "failed to unmarshal request",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 	switch {
 	case input.Duration == 0:
-		httpJSONError(w, "Duration is not set",
+		sendJSONError(w, "Duration is not set",
 			"", http.StatusBadRequest)
 		return
 	case input.Amount == 0:
-		httpJSONError(w, "Amount is not set",
+		sendJSONError(w, "Amount is not set",
 			"", http.StatusBadRequest)
 		return
 	case input.Description == "":
-		httpJSONError(w, "Description is not set",
+		sendJSONError(w, "Description is not set",
 			"", http.StatusBadRequest)
 		return
 	case input.UserID.IsZero():
-		httpJSONError(w, "UserID is not set",
+		sendJSONError(w, "UserID is not set",
 			"", http.StatusBadRequest)
 		return
 	}
 
-	coupon, err := server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.Coupon{
+	coupon, err := server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.CouponOld{
 		UserID:      input.UserID,
 		Amount:      input.Amount,
 		Duration:    &input.Duration,
 		Description: input.Description,
 	})
 	if err != nil {
-		httpJSONError(w, "failed to insert coupon",
+		sendJSONError(w, "failed to insert coupon",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	data, err := json.Marshal(coupon.ID)
 	if err != nil {
-		httpJSONError(w, "json encoding failed",
+		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+	sendJSONData(w, http.StatusOK, data)
 }
 
 func (server *Server) couponInfo(w http.ResponseWriter, r *http.Request) {
@@ -88,38 +87,37 @@ func (server *Server) couponInfo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, ok := vars["couponid"]
 	if !ok {
-		httpJSONError(w, "couponId missing",
+		sendJSONError(w, "couponId missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	couponID, err := uuid.FromString(id)
 	if err != nil {
-		httpJSONError(w, "invalid couponId",
+		sendJSONError(w, "invalid couponId",
 			"", http.StatusBadRequest)
 	}
 
 	coupon, err := server.db.StripeCoinPayments().Coupons().Get(ctx, couponID)
 	if errors.Is(err, sql.ErrNoRows) {
-		httpJSONError(w, fmt.Sprintf("coupon with id %q not found", couponID),
+		sendJSONError(w, fmt.Sprintf("coupon with id %q not found", couponID),
 			"", http.StatusNotFound)
 		return
 	}
 	if err != nil {
-		httpJSONError(w, "failed to get coupon",
+		sendJSONError(w, "failed to get coupon",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	data, err := json.Marshal(coupon)
 	if err != nil {
-		httpJSONError(w, "json encoding failed",
+		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+	sendJSONData(w, http.StatusOK, data)
 }
 
 func (server *Server) deleteCoupon(w http.ResponseWriter, r *http.Request) {
@@ -128,21 +126,21 @@ func (server *Server) deleteCoupon(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	UUIDString, ok := vars["couponid"]
 	if !ok {
-		httpJSONError(w, "couponid missing",
+		sendJSONError(w, "couponid missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	couponID, err := uuid.FromString(UUIDString)
 	if err != nil {
-		httpJSONError(w, "invalid couponid",
+		sendJSONError(w, "invalid couponid",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	err = server.db.StripeCoinPayments().Coupons().Delete(ctx, couponID)
 	if err != nil {
-		httpJSONError(w, "unable to delete coupon",
+		sendJSONError(w, "unable to delete coupon",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}

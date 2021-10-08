@@ -3,6 +3,7 @@
 
 import {
     AccountBalance,
+    Coupon,
     CreditCard,
     PaymentsApi,
     PaymentsHistoryItem,
@@ -14,6 +15,12 @@ import {
  * Mock for PaymentsApi
  */
 export class PaymentsMock implements PaymentsApi {
+    private mockCoupon: Coupon | null = null;
+
+    public setMockCoupon(coupon: Coupon | null): void {
+        this.mockCoupon = coupon;
+    }
+
     setupAccount(): Promise<void> {
         throw new Error('Method not implemented');
     }
@@ -26,11 +33,11 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve([]);
     }
 
-    addCreditCard(token: string): Promise<void> {
+    addCreditCard(_token: string): Promise<void> {
         throw new Error('Method not implemented');
     }
 
-    removeCreditCard(cardId: string): Promise<void> {
+    removeCreditCard(_cardId: string): Promise<void> {
         throw new Error('Method not implemented');
     }
 
@@ -38,7 +45,7 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve([]);
     }
 
-    makeCreditCardDefault(cardId: string): Promise<void> {
+    makeCreditCardDefault(_cardId: string): Promise<void> {
         throw new Error('Method not implemented');
     }
 
@@ -50,7 +57,11 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve(new TokenDeposit(amount, 'testAddress', 'testLink'));
     }
 
-    getPaywallStatus(userId: string): Promise<boolean> {
+    applyCouponCode(_: string): Promise<Coupon> {
         throw new Error('Method not implemented');
+    }
+
+    getCoupon(): Promise<Coupon | null> {
+        return Promise.resolve(this.mockCoupon);
     }
 }

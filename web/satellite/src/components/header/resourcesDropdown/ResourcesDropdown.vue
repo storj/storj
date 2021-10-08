@@ -9,7 +9,7 @@
             target="_blank"
             rel="noopener noreferrer"
         >
-            <DocsIcon class="resources-dropdown__item-container__image"/>
+            <DocsIcon class="resources-dropdown__item-container__image" />
             <p class="resources-dropdown__item-container__title">Docs</p>
         </a>
         <a
@@ -18,7 +18,7 @@
             target="_blank"
             rel="noopener noreferrer"
         >
-            <CommunityIcon class="resources-dropdown__item-container__image"/>
+            <CommunityIcon class="resources-dropdown__item-container__image" />
             <p class="resources-dropdown__item-container__title">Community</p>
         </a>
         <a
@@ -27,7 +27,7 @@
             target="_blank"
             rel="noopener noreferrer"
         >
-            <SupportIcon class="resources-dropdown__item-container__image"/>
+            <SupportIcon class="resources-dropdown__item-container__image" />
             <p class="resources-dropdown__item-container__title">Support</p>
         </a>
     </div>
@@ -44,6 +44,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
+// @vue/component
 @Component({
     components: {
         DocsIcon,

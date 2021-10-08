@@ -33,7 +33,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -85,13 +84,16 @@ type Config struct {
 	BetaSatelliteFeedbackURL        string  `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string  `help:"url link for for beta satellite support" default:""`
 	DocumentationURL                string  `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeUIEnabled             bool    `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
+	CouponCodeBillingUIEnabled      bool    `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
+	CouponCodeSignupUIEnabled       bool    `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool    `help:"indicates if file browser flow is disabled" default:"false"`
 	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
+	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"false"`
 
-	RateLimit web.IPRateLimiterConfig
+	// RateLimit defines the configuration for the IP and userID rate limiters.
+	RateLimit web.RateLimiterConfig
 
 	console.Config
 }
@@ -141,11 +143,12 @@ type Server struct {
 	partners    *rewards.PartnersService
 	analytics   *analytics.Service
 
-	listener    net.Listener
-	server      http.Server
-	cookieAuth  *consolewebauth.CookieAuth
-	rateLimiter *web.IPRateLimiter
-	nodeURL     storj.NodeURL
+	listener          net.Listener
+	server            http.Server
+	cookieAuth        *consolewebauth.CookieAuth
+	ipRateLimiter     *web.RateLimiter
+	userIDRateLimiter *web.RateLimiter
+	nodeURL           storj.NodeURL
 
 	stripePublicKey string
 
@@ -157,26 +160,24 @@ type Server struct {
 		notFound            *template.Template
 		internalServerError *template.Template
 		usageReport         *template.Template
-		resetPassword       *template.Template
-		success             *template.Template
-		activated           *template.Template
 	}
 }
 
 // NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
-		log:             logger,
-		config:          config,
-		listener:        listener,
-		service:         service,
-		mailService:     mailService,
-		partners:        partners,
-		analytics:       analytics,
-		stripePublicKey: stripePublicKey,
-		rateLimiter:     web.NewIPRateLimiter(config.RateLimit),
-		nodeURL:         nodeURL,
-		pricing:         pricing,
+		log:               logger,
+		config:            config,
+		listener:          listener,
+		service:           service,
+		mailService:       mailService,
+		partners:          partners,
+		analytics:         analytics,
+		stripePublicKey:   stripePublicKey,
+		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit),
+		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit),
+		nodeURL:           nodeURL,
+		pricing:           pricing,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -206,9 +207,14 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
 
+	usageLimitsController := consoleapi.NewUsageLimits(logger, service)
 	router.Handle(
 		"/api/v0/projects/{id}/usage-limits",
-		server.withAuth(http.HandlerFunc(server.projectUsageLimitsHandler)),
+		server.withAuth(http.HandlerFunc(usageLimitsController.ProjectUsageLimits)),
+	).Methods(http.MethodGet)
+	router.Handle(
+		"/api/v0/projects/usage-limits",
+		server.withAuth(http.HandlerFunc(usageLimitsController.TotalUsageLimits)),
 	).Methods(http.MethodGet)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.analytics, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
@@ -218,11 +224,16 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/account/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost)
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
+	authRouter.Handle("/mfa/enable", server.withAuth(http.HandlerFunc(authController.EnableUserMFA))).Methods(http.MethodPost)
+	authRouter.Handle("/mfa/disable", server.withAuth(http.HandlerFunc(authController.DisableUserMFA))).Methods(http.MethodPost)
+	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost)
+	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost)
 	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
-	authRouter.Handle("/token", server.rateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
-	authRouter.Handle("/register", server.rateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost)
-	authRouter.Handle("/forgot-password/{email}", server.rateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
-	authRouter.Handle("/resend-email/{id}", server.rateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
+	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
+	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/forgot-password/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
+	authRouter.Handle("/resend-email/{id}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
+	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost)
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -236,7 +247,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
-	paymentsRouter.HandleFunc("/paywall-enabled/{userId}", paymentController.PaywallEnabled).Methods(http.MethodGet)
+	paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch)
+	paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet)
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
@@ -255,7 +267,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
-		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
 		router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
@@ -292,7 +303,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return server.server.Shutdown(context.Background())
 	})
 	group.Go(func() error {
-		server.rateLimiter.Run(ctx)
+		server.ipRateLimiter.Run(ctx)
 		return nil
 	})
 	group.Go(func() error {
@@ -319,12 +330,12 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	if server.config.CSPEnabled {
 		cspValues := []string{
 			"default-src 'self'",
-			"connect-src 'self' api.segment.io *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
+			"connect-src 'self' *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
-			"frame-src 'self' *.stripe.com",
-			"img-src 'self' data: *.customer.io *.tardigradeshare.io *.storjshare.io",
+			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
+			"img-src 'self' data: *.tardigradeshare.io *.storjshare.io",
 			"media-src 'self' *.tardigradeshare.io *.storjshare.io",
-			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io",
+			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
 		}
 
 		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
@@ -348,13 +359,17 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		BetaSatelliteFeedbackURL        string
 		BetaSatelliteSupportURL         string
 		DocumentationURL                string
-		CouponCodeUIEnabled             bool
+		CouponCodeBillingUIEnabled      bool
+		CouponCodeSignupUIEnabled       bool
 		FileBrowserFlowDisabled         bool
 		LinksharingURL                  string
 		PathwayOverviewEnabled          bool
 		StorageTBPrice                  string
 		EgressTBPrice                   string
 		ObjectPrice                     string
+		RecaptchaEnabled                bool
+		RecaptchaSiteKey                string
+		NewOnboarding                   bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -370,13 +385,17 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.BetaSatelliteFeedbackURL = server.config.BetaSatelliteFeedbackURL
 	data.BetaSatelliteSupportURL = server.config.BetaSatelliteSupportURL
 	data.DocumentationURL = server.config.DocumentationURL
-	data.CouponCodeUIEnabled = server.config.CouponCodeUIEnabled
+	data.CouponCodeBillingUIEnabled = server.config.CouponCodeBillingUIEnabled
+	data.CouponCodeSignupUIEnabled = server.config.CouponCodeSignupUIEnabled
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
 	data.LinksharingURL = server.config.LinksharingURL
 	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
 	data.StorageTBPrice = server.pricing.StorageTBPrice
 	data.EgressTBPrice = server.pricing.EgressTBPrice
 	data.ObjectPrice = server.pricing.ObjectPrice
+	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
+	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
+	data.NewOnboarding = server.config.NewOnboarding
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")
@@ -541,7 +560,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.Error(err))
 
 		if console.ErrEmailUsed.Has(err) {
-			server.serveError(w, http.StatusConflict)
+			http.Redirect(w, r, server.config.ExternalAddress+"login?activated=false", http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -557,58 +576,6 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	http.Redirect(w, r, server.config.AccountActivationRedirectURL, http.StatusTemporaryRedirect)
 }
 
-func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-
-	recoveryToken := r.URL.Query().Get("token")
-	if len(recoveryToken) == 0 {
-		server.serveError(w, http.StatusNotFound)
-		return
-	}
-
-	var data struct {
-		SatelliteName string
-	}
-
-	data.SatelliteName = server.config.SatelliteName
-
-	switch r.Method {
-	case http.MethodPost:
-		err := r.ParseForm()
-		if err != nil {
-			server.serveError(w, http.StatusNotFound)
-			return
-		}
-
-		password := r.FormValue("password")
-		passwordRepeat := r.FormValue("passwordRepeat")
-		if strings.Compare(password, passwordRepeat) != 0 {
-			server.serveError(w, http.StatusNotFound)
-			return
-		}
-
-		err = server.service.ResetPassword(ctx, recoveryToken, password)
-		if err != nil {
-			server.serveError(w, http.StatusNotFound)
-			return
-		}
-
-		if err := server.templates.success.Execute(w, data); err != nil {
-			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
-			return
-		}
-	case http.MethodGet:
-		if err := server.templates.resetPassword.Execute(w, data); err != nil {
-			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
-			return
-		}
-	default:
-		server.serveError(w, http.StatusNotFound)
-		return
-	}
-}
-
 func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -619,67 +586,6 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 
 	// TODO: Should place this link to config
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
-}
-
-// projectUsageLimitsHandler api handler for project usage limits.
-func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.Request) {
-	err := error(nil)
-	ctx := r.Context()
-
-	defer mon.Task()(&ctx)(&err)
-
-	var ok bool
-	var idParam string
-
-	handleError := func(code int, err error) {
-		w.WriteHeader(code)
-
-		var jsonError struct {
-			Error string `json:"error"`
-		}
-
-		// N.B. we are probably leaking internal details to the client
-		jsonError.Error = err.Error()
-
-		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
-			server.log.Error("error encoding project usage limits error", zap.Error(err))
-		}
-	}
-
-	handleServiceError := func(err error) {
-		switch {
-		case console.ErrUnauthorized.Has(err):
-			handleError(http.StatusUnauthorized, err)
-		case accounting.ErrInvalidArgument.Has(err):
-			handleError(http.StatusBadRequest, err)
-		default:
-			handleError(http.StatusInternalServerError, err)
-		}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	if idParam, ok = mux.Vars(r)["id"]; !ok {
-		handleError(http.StatusBadRequest, errs.New("missing project id route param"))
-		return
-	}
-
-	projectID, err := uuid.FromString(idParam)
-	if err != nil {
-		handleError(http.StatusBadRequest, errs.New("invalid project id: %v", err))
-		return
-	}
-
-	limits, err := server.service.GetProjectUsageLimits(ctx, projectID)
-	if err != nil {
-		handleServiceError(err)
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(limits); err != nil {
-		server.log.Error("error encoding project usage limits", zap.Error(err))
-		return
-	}
 }
 
 // graphqlHandler is graphql endpoint http handler function.
@@ -810,11 +716,6 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 		if err != nil {
 			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
 		}
-	case http.StatusConflict:
-		err := server.templates.activated.Execute(w, nil)
-		if err != nil {
-			server.log.Error("cannot parse already activated template", zap.Error(Error.Wrap(err)))
-		}
 	}
 }
 
@@ -870,21 +771,6 @@ func (server *Server) initializeTemplates() (err error) {
 		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
 	}
 
-	server.templates.activated, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "activation", "activated.html"))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	server.templates.success, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "success.html"))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	server.templates.resetPassword, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	server.templates.usageReport, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
 	if err != nil {
 		return Error.Wrap(err)
@@ -901,4 +787,15 @@ func (server *Server) initializeTemplates() (err error) {
 	}
 
 	return nil
+}
+
+// NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
+func NewUserIDRateLimiter(config web.RateLimiterConfig) *web.RateLimiter {
+	return web.NewRateLimiter(config, func(r *http.Request) (string, error) {
+		auth, err := console.GetAuth(r.Context())
+		if err != nil {
+			return "", err
+		}
+		return auth.User.ID.String(), nil
+	})
 }

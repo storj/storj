@@ -129,7 +129,7 @@ func TestCreatePendingAudits(t *testing.T) {
 	contained := make(map[int]storj.NodeID)
 	contained[1] = testNodeID
 
-	segment := testSegment("test")
+	segment := testSegment()
 	segmentInfo := metabase.Segment{
 		StreamID:    segment.StreamID,
 		RootPieceID: testrand.PieceID(),

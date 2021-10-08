@@ -27,7 +27,7 @@
                 alt="Disqualified image"
             />
             <p class="info-area__disqualified-info__info">
-                Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites"><b> {{ disqualified.id }}</b></span>. If you have any questions regarding this please check our Node Operators
+                Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites" :key="disqualified.id"><b> {{ disqualified.id }}</b></span>. If you have any questions regarding this please check our Node Operators
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
@@ -61,7 +61,7 @@
                 alt="Suspended image"
             />
             <p class="info-area__suspended-info__info">
-                Your node has been suspended on<span v-for="suspended in suspendedSatellites"><b> {{ suspended.id }}</b></span>. If you have any questions regarding this please check our Node Operators
+                Your node has been suspended on<span v-for="suspended in suspendedSatellites" :key="suspended.id"><b> {{ suspended.id }}</b></span>. If you have any questions regarding this please check our Node Operators
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
@@ -81,6 +81,7 @@
                         <button
                             name="Show Egress Chart"
                             class="chart-container__title-area__chart-choice-item"
+                            type="button"
                             :class="{ 'egress-chart-shown': isEgressChartShown }"
                             @click.stop="toggleEgressChartShowing"
                         >
@@ -89,6 +90,7 @@
                         <button
                             name="Show Ingress Chart"
                             class="chart-container__title-area__chart-choice-item"
+                            type="button"
                             :class="{ 'ingress-chart-shown': isIngressChartShown }"
                             @click.stop="toggleIngressChartShowing"
                         >
@@ -96,13 +98,13 @@
                         </button>
                     </div>
                 </div>
-                <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{ bandwidthSummary }}</b></p>
-                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{ egressSummary }}</b></p>
-                <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ ingressSummary }}</b></p>
-                <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
-                    <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                    <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                    <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
+                <p v-if="isBandwidthChartShown" class="chart-container__amount"><b>{{ bandwidthSummary }}</b></p>
+                <p v-if="isEgressChartShown" class="chart-container__amount"><b>{{ egressSummary }}</b></p>
+                <p v-if="isIngressChartShown" class="chart-container__amount"><b>{{ ingressSummary }}</b></p>
+                <div ref="chart" class="chart-container__chart" onresize="recalculateChartDimensions()">
+                    <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
+                    <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
+                    <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
                 </div>
             </div>
         </section>
@@ -113,8 +115,8 @@
                     <p class="chart-container__title-area__title">Disk Space Used This Month</p>
                 </div>
                 <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*h</b></p>
-                <div class="chart-container__chart" ref="diskSpaceChart" onresize="recalculateChartDimensions()" >
-                    <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode"/>
+                <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
+                    <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode" />
                 </div>
             </section>
             <section>
@@ -123,7 +125,7 @@
         </section>
         <div>
             <p class="info-area__title">Suspension & Audit</p>
-            <div class="info-area__checks-area" v-if="selectedSatellite.id">
+            <div v-if="selectedSatellite.id" class="info-area__checks-area">
                 <ChecksArea
                     label="Suspension Score"
                     :amount="audits.suspensionScore.label"
@@ -133,6 +135,11 @@
                     label="Audit Score"
                     :amount="audits.auditScore.label"
                     info-text="Percentage of successful pings/communication between the node & satellite."
+                />
+                <ChecksArea
+                    label="Online Score"
+                    :amount="audits.onlineScore.label"
+                    info-text="Online checks occur to make sure your node is still online. This is the percentage of online checks you’ve passed."
                 />
             </div>
             <AllSatellitesAuditsArea v-else />
@@ -158,13 +165,11 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
-import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
 import DiskStatChart from '@/app/components/DiskStatChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
 import IngressChart from '@/app/components/IngressChart.vue';
-import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
 import WalletArea from '@/app/components/WalletArea.vue';
@@ -178,18 +183,17 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { Size } from '@/private/memory/size';
 import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
 
+// @vue/component
 @Component ({
     components: {
         AllSatellitesAuditsArea,
         DiskStatChart,
         TotalPayoutArea,
-        EstimationArea,
         EgressChart,
         IngressChart,
         SatelliteSelection,
         BandwidthChart,
         DiskSpaceChart,
-        BarInfo,
         ChecksArea,
         WalletArea,
         LargeDisqualificationIcon,
@@ -199,10 +203,10 @@ import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno
 })
 export default class SNOContentFilling extends Vue {
     public readonly PAYOUT_PATH: string = RouteConfig.Payout.path;
-    public chartWidth: number = 0;
-    public chartHeight: number = 0;
-    public diskSpaceChartWidth: number = 0;
-    public diskSpaceChartHeight: number = 0;
+    public chartWidth = 0;
+    public chartHeight = 0;
+    public diskSpaceChartWidth = 0;
+    public diskSpaceChartHeight = 0;
 
     public $refs: {
         chart: HTMLElement;

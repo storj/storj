@@ -16,6 +16,7 @@ import VList from '@/components/common/VList.vue';
 
 import TestListItem from './TestListItem.vue';
 
+// @vue/component
 @Component({
     components: {
         VList,
@@ -27,11 +28,11 @@ export default class TestList extends Vue {
             console.error('onItemClick is not initialized');
         },
     })
-    private readonly onItemClick: (item: any) => Promise<void>;
+    private readonly onItemClick: (item: unknown) => Promise<void>;
 
     private items: string[] = ['1', '2', '3'];
 
-    public get getItemComponent() {
+    public get getItemComponent(): typeof TestListItem {
         return TestListItem;
     }
 

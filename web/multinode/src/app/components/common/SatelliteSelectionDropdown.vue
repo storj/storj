@@ -12,6 +12,7 @@ import VDropdown, { Option } from '@/app/components/common/VDropdown.vue';
 
 import { NodeURL } from '@/nodes';
 
+// @vue/component
 @Component({
     components: { VDropdown },
 })
@@ -23,28 +24,26 @@ export default class SatelliteSelectionDropdown extends Vue {
         const trustedSatellites: NodeURL[] = this.$store.state.nodes.trustedSatellites;
 
         const options: Option[] = trustedSatellites.map(
-            (satellite: NodeURL) => {
-                return new Option(satellite.id, () => this.onSatelliteClick(satellite.id));
-            },
+            (satellite: NodeURL) => new Option(satellite.id, () => this.onSatelliteClick(satellite.id)),
         );
 
-        return [ new Option('All Satellites', () => this.onSatelliteClick()), ...options ];
+        return [new Option('All Satellites', () => this.onSatelliteClick()), ...options];
     }
 
     /**
      * Preselected satellite from store if any.
      */
     public get selectedSatelliteOption(): Option | null {
-        if (!this.$store.state.nodes.selectedSatellite) return null;
+        if (!this.$store.state.nodes.selectedSatellite) { return null; }
 
-        return new Option(this.$store.state.nodes.selectedSatellite.id, async () => Promise.resolve());
+        return new Option(this.$store.state.nodes.selectedSatellite.id, async() => Promise.resolve());
     }
 
     /**
      * Callback for satellite click.
      * @param id
      */
-    public async onSatelliteClick(id: string = ''): Promise<void> {
+    public async onSatelliteClick(id = ''): Promise<void> {
         await this.$store.dispatch('nodes/selectSatellite', id);
     }
 }

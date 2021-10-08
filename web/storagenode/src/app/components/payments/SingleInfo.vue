@@ -5,13 +5,13 @@
     <div class="info-container" :style="{ width }">
         <div class="info-container__row">
             <p class="info-container__label">{{ label }}</p>
-            <div class="info-container__info-area" v-if="infoText">
-                <ChecksInfoIcon class="checks-area-image" alt="Info icon with question mark" @mouseenter="toggleTooltipVisibility" @mouseleave="toggleTooltipVisibility"/>
-                <div class="tooltip" v-show="isTooltipVisible">
+            <div v-if="infoText" class="info-container__info-area">
+                <ChecksInfoIcon class="checks-area-image" alt="Info icon with question mark" @mouseenter="toggleTooltipVisibility" @mouseleave="toggleTooltipVisibility" />
+                <div v-show="isTooltipVisible" class="tooltip">
                     <div class="tooltip__text-area">
                         <p class="tooltip__text-area__text">{{ infoText }}</p>
                     </div>
-                    <div class="tooltip__footer"></div>
+                    <div class="tooltip__footer" />
                 </div>
             </div>
         </div>
@@ -24,6 +24,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
+// @vue/component
 @Component ({
     components: {
         ChecksInfoIcon,
@@ -42,7 +43,7 @@ export default class SingleInfo extends Vue {
     /**
      * Indicates if tooltip needs to be shown.
      */
-    public isTooltipVisible: boolean = false;
+    public isTooltipVisible = false;
 
     /**
      * Toggles tooltip visibility.

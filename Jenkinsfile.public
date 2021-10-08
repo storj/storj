@@ -2,12 +2,14 @@ pipeline {
     agent {
         docker {
             label 'main'
-            image docker.build("storj-ci", "--pull git://github.com/storj/ci.git#main").id
+            image 'storjlabs/ci:latest'
+            alwaysPull true
             args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
         }
     }
     options {
-          timeout(time: 36, unit: 'MINUTES')
+        timeout(time: 40, unit: 'MINUTES')
+        skipDefaultCheckout(true)
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
@@ -17,12 +19,31 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                // Delete any content left over from a previous run.
+                sh "chmod -R 777 ."
+                // Bash requires extglob option to support !(.git) syntax,
+                // and we don't want to delete .git to have faster clones.
+                sh 'bash -O extglob -c "rm -rf !(.git)"'
+
                 checkout scm
+
                 sh 'mkdir -p .build'
-                // make a backup of the mod file in case, for later linting
+
+                // make a backup of the mod file, because sometimes they get modified by tools
+                // this allows to lint the unmodified files
                 sh 'cp go.mod .build/go.mod.orig'
+                sh 'cp testsuite/go.mod .build/testsuite.go.mod.orig'
+
                 // download dependencies
                 sh 'go mod download'
+                sh 'cd testsuite && go mod download'
+
+                // pre-check that we cannot do at a later stage reliably
+                sh 'check-large-files'
+
+                // add a stub go.mod file to node projects to prevent go build ./... from scanning them
+                sh 'mkdir -p web/satellite/node_modules web/storagenode/node_modules web/multinode/node_modules'
+                sh 'touch web/satellite/node_modules/go.mod web/storagenode/node_modules/go.mod web/multinode/node_modules/go.mod'
             }
         }
         stage('Build') {
@@ -50,7 +71,7 @@ pipeline {
                 stage('go -race gateway') {
                     steps {
                         // install gateway for storj-sim
-                        sh 'go install -race -v storj.io/gateway@latest'
+                        sh 'go install -race -v storj.io/gateway@main'
                     }
                 }
 
@@ -73,6 +94,9 @@ pipeline {
                             sh 'npm ci --prefer-offline --no-audit'
                             sh 'npm run build'
                         }
+
+                        sh 'cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" web/satellite/static/wasm/wasm_exec.js'
+                        sh 'GOOS=js GOARCH=wasm go build -o web/satellite/static/wasm/access.wasm storj.io/storj/satellite/console/wasm'
                     }
                 }
                 stage('web/storagenode') {
@@ -99,7 +123,6 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'check-copyright'
-                        sh 'check-large-files'
                         sh 'check-imports -race ./...'
                         sh 'check-peer-constraints -race'
                         sh 'check-atomic-align ./...'
@@ -112,9 +135,33 @@ pipeline {
                         sh 'make test-wasm-size'
 
                         sh 'protolock status'
+
+                        dir("testsuite") {
+                            sh 'check-imports ./...'
+                            sh 'check-atomic-align ./...'
+                            sh 'check-monkit ./...'
+                            sh 'check-errs ./...'
+                            sh 'staticcheck ./...'
+                            sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+                            sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
+                        }
+                     }
+                }
+                stage('Cross Compile') {
+                    steps {
+                        // verify most of the commands, we cannot check everything since some of them
+                        // have a C dependency and we don't have cross-compilation in storj/ci image
+                        sh 'GOOS=linux   GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
+                        sh 'GOOS=linux   GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
+                        sh 'GOOS=linux   GOARCH=arm   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
+                        sh 'GOOS=linux   GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
+                        sh 'GOOS=windows GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
+                        sh 'GOOS=windows GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
+                        sh 'GOOS=windows GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
+                        sh 'GOOS=darwin  GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
+                        sh 'GOOS=darwin  GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
                     }
                 }
-
                 stage('Tests') {
                     environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
@@ -139,8 +186,6 @@ pipeline {
                         sh 'use-ports -from 1024 -to 10000 &'
 
                         sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-
-                        sh 'check-clean-directory'
                     }
 
                     post {
@@ -269,7 +314,7 @@ pipeline {
                 stage('web/satellite') {
                     steps {
                         dir("web/satellite") {
-                            sh 'npm run lint'
+                            sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
@@ -279,7 +324,7 @@ pipeline {
                 stage('web/storagenode') {
                     steps {
                         dir("web/storagenode") {
-                            sh 'npm run lint'
+                            sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
@@ -289,7 +334,7 @@ pipeline {
                 stage('web/multinode') {
                     steps {
                         dir("web/multinode") {
-                            sh 'npm run lint'
+                            sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
@@ -297,12 +342,48 @@ pipeline {
                 }
             }
         }
-    }
 
-    post {
-        always {
-            sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
-            deleteDir()
+        stage('UI') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch pattern: "release-.*", comparator: "REGEXP"
+                    changeset "testsuite/**"
+                    changeset "web/**"
+                    changeset "satellite/console/**"
+                    changeset "storagenode/console/**"
+                    changeset "multinode/console/**"
+                }
+            }
+            environment {
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
+                STORJ_TEST_BROWSER  = '/usr/bin/chromium'
+                STORJ_TEST_SATELLITE_WEB = "${pwd()}/web/satellite"
+            }
+            steps {
+                sh 'psql -U postgres -c \'create database testui;\''
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'cd testsuite && go test -parallel 1 -p 1 -vet=off -timeout 32m -json -race ./... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
+                }
+            }
+            post {
+                always {
+                    sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
+                    archiveArtifacts artifacts: '.build/ui-tests.json'
+                    junit '.build/ui-tests.xml'
+                }
+            }
+        }
+
+        stage('Post') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh 'check-clean-directory'
+                    }
+                }
+            }
         }
     }
 }

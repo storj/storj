@@ -85,6 +85,10 @@ func (storage *StorageEndpoint) Usage(ctx context.Context, req *multinodepb.Stor
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
+	summary, err := storage.usage.Summary(ctx, from, to)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
 
 	var usage []*multinodepb.StorageUsage
 	for _, stamp := range stamps {
@@ -96,6 +100,7 @@ func (storage *StorageEndpoint) Usage(ctx context.Context, req *multinodepb.Stor
 
 	return &multinodepb.StorageUsageResponse{
 		StorageUsage: usage,
+		Summary:      summary,
 	}, nil
 }
 
@@ -124,6 +129,10 @@ func (storage *StorageEndpoint) UsageSatellite(ctx context.Context, req *multino
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
+	summary, err := storage.usage.SatelliteSummary(ctx, req.SatelliteId, from, to)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
 
 	var usage []*multinodepb.StorageUsage
 	for _, stamp := range stamps {
@@ -135,5 +144,6 @@ func (storage *StorageEndpoint) UsageSatellite(ctx context.Context, req *multino
 
 	return &multinodepb.StorageUsageSatelliteResponse{
 		StorageUsage: usage,
+		Summary:      summary,
 	}, nil
 }

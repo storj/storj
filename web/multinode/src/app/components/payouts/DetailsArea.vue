@@ -3,7 +3,7 @@
 
 <template>
     <info-block>
-        <div class="details-area" slot="body">
+        <div slot="body" class="details-area">
             <header class="details-area__header">
                 <h3 class="details-area__header__title">Details</h3>
                 <p class="details-area__header__period">{{ period }}</p>
@@ -31,17 +31,18 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import InfoBlock from '../common/InfoBlock.vue';
 
+// @vue/component
 @Component({
     components: { InfoBlock },
 })
 export default class DetailsArea extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public totalEarned: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public totalHeld: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public totalPaid: number;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public period: string;
 }
 </script>

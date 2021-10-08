@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="notification-container" v-if="doNotificationsExist">
+    <div v-if="doNotificationsExist" class="notification-container">
         <NotificationItem
             v-for="notification in notifications"
-            :notification="notification"
             :key="notification.id"
+            :notification="notification"
         />
     </div>
 </template>
@@ -18,6 +18,7 @@ import NotificationItem from '@/components/notifications/NotificationItem.vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
 
+// @vue/component
 @Component({
     components: {
         NotificationItem,

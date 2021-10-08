@@ -6,11 +6,11 @@
         <p class="disk-space-chart__data-dimension">{{ chartDataDimension }}*h</p>
         <VChart
             id="disk-space-chart"
+            :key="chartKey"
             :chart-data="chartData"
             :width="chartWidth"
             :height="chartHeight"
             :tooltip-constructor="diskSpaceTooltip"
-            :key="chartKey"
         />
     </div>
 </template>
@@ -19,9 +19,9 @@
 import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/BaseChart.vue';
+import VChart from '@/app/components/VChart.vue';
 
-import { ChartData } from '@/app/types/chartData';
-import { Tooltip, TooltipParams } from '@/app/types/tooltip';
+import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { Stamp } from '@/storagenode/sno/sno';
@@ -39,7 +39,10 @@ class StampTooltip {
     }
 }
 
-@Component
+// @vue/component
+@Component({
+    components: { VChart }
+})
 export default class DiskSpaceChart extends BaseChart {
     private get chartBackgroundColor(): string {
         return this.isDarkMode ? '#4F97F7' : '#F2F6FC';
@@ -73,7 +76,7 @@ export default class DiskSpaceChart extends BaseChart {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public diskSpaceTooltip(tooltipModel): void {
+    public diskSpaceTooltip(tooltipModel: TooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'disk-space-chart', 'disk-space-tooltip',
             'disk-space-tooltip-arrow', 'disk-space-tooltip-point', this.tooltipMarkUp(tooltipModel),
             125, 89, 38, 24, 6, 4, `#1f49a3`);
@@ -81,7 +84,7 @@ export default class DiskSpaceChart extends BaseChart {
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
+    private tooltipMarkUp(tooltipModel: TooltipModel): string {
         if (!tooltipModel.dataPoints) {
             return '';
         }

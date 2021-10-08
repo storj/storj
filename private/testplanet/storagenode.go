@@ -61,7 +61,9 @@ func (system *StorageNode) NodeURL() storj.NodeURL {
 }
 
 // newStorageNodes initializes storage nodes.
-func (planet *Planet) newStorageNodes(ctx context.Context, count int, whitelistedSatellites storj.NodeURLs) ([]*StorageNode, error) {
+func (planet *Planet) newStorageNodes(ctx context.Context, count int, whitelistedSatellites storj.NodeURLs) (_ []*StorageNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var sources []trust.Source
 	for _, u := range whitelistedSatellites {
 		source, err := trust.NewStaticURLSource(u.String())
@@ -93,7 +95,9 @@ func (planet *Planet) newStorageNodes(ctx context.Context, count int, whiteliste
 	return xs, nil
 }
 
-func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, count int, log *zap.Logger, sources []trust.Source) (*StorageNode, error) {
+func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, count int, log *zap.Logger, sources []trust.Source) (_ *StorageNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	storageDir := filepath.Join(planet.directory, prefix)
 	if err := os.MkdirAll(storageDir, 0700); err != nil {
 		return nil, err
@@ -220,7 +224,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		return nil, err
 	}
 
-	if err := db.Pieces().CreateVerificationFile(identity.ID); err != nil {
+	if err := db.Pieces().CreateVerificationFile(ctx, identity.ID); err != nil {
 		return nil, err
 	}
 

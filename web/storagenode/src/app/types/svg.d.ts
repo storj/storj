@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 declare module '*.svg' {
-    const content: any;
-    export default content;
+  import Vue, {VueConstructor} from 'vue';
+  const content: VueConstructor<Vue>;
+  export default content;
 }

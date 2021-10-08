@@ -4,9 +4,9 @@
 <template>
     <div class="user-container" :class="{ 'owner': isProjectOwner }">
         <div class="user-container__base-info">
-            <div v-if="!isProjectOwner" class="checkbox"></div>
+            <div v-if="!isProjectOwner" class="checkbox" />
             <div class="user-container__base-info__avatar" :class="{ 'extra-margin': isProjectOwner }" :style="avatarData.style">
-                <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
+                <h1 class="user-container__base-info__avatar__letter">{{ avatarData.letter }}</h1>
             </div>
             <div class="user-container__base-info__name-area" :title="itemData.name">
                 <p class="user-container__base-info__name-area__user-name">{{ itemData.name }}</p>
@@ -24,12 +24,13 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { ProjectMember } from '@/types/projectMembers';
 import { getColor } from '@/utils/avatarColorManager';
 
+// @vue/component
 @Component
 export default class ProjectMemberListItem extends Vue {
     @Prop({default: new ProjectMember('', '', '', new Date(), '')})
     public itemData: ProjectMember;
 
-    public get avatarData(): object {
+    public get avatarData(): Record<string, unknown> {
         const fullName: string = this.itemData.user.getFullName();
 
         const letter = fullName.slice(0, 1).toLocaleUpperCase();

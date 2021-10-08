@@ -4,19 +4,19 @@
 <script lang="ts">
 import * as VueChart from 'vue-chartjs';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+import { DiskStatChartData, RenderChart } from '@/app/types/chart';
 
-import { DiskStatChartData } from '@/app/types/chartData';
-
+// @vue/component
 @Component({
     extends: VueChart.Doughnut,
 })
 export default class DoughnutChart extends Vue {
-    @Prop({default: () => new DiskStatChartData()})
+    @Prop({ default: () => new DiskStatChartData() })
     private readonly chartData: DiskStatChartData;
 
     @Watch('chartData')
-    private onDataChange(news: object, old: object): void {
-        (this as any).renderChart(this.chartData, {
+    private onDataChange(_news: Record<string, unknown>, _old: Record<string, unknown>): void {
+        (this as unknown as RenderChart).renderChart(this.chartData, {
             hover: false,
             tooltips: {
                 enabled: false,
@@ -25,7 +25,7 @@ export default class DoughnutChart extends Vue {
     }
 
     public mounted(): void {
-        (this as any).renderChart(this.chartData, {
+        (this as unknown as RenderChart).renderChart(this.chartData, {
             hover: false,
             tooltips: {
                 enabled: false,

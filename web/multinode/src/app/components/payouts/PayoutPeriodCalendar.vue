@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="payout-period-calendar" v-click-outside="close">
+    <div v-click-outside="close" class="payout-period-calendar">
         <div class="payout-period-calendar__header">
             <div class="payout-period-calendar__header__year-selection">
                 <div class="payout-period-calendar__header__year-selection__prev" @click.stop="decrementYear">
@@ -13,14 +13,14 @@
                     <GrayArrowLeftIcon />
                 </div>
             </div>
-            <p class="payout-period-calendar__header__all-time" @click="selectAllTime" >All time</p>
+            <p class="payout-period-calendar__header__all-time" @click="selectAllTime">All time</p>
         </div>
         <div class="payout-period-calendar__months-area">
             <div
-                class="month-item"
-                :class="{ selected: item.selected, disabled: !item.active }"
                 v-for="item in currentDisplayedMonths"
                 :key="item.name"
+                class="month-item"
+                :class="{ selected: item.selected, disabled: !item.active }"
                 @click.stop="checkMonth(item)"
             >
                 <p class="month-item__label">{{ item.name }}</p>
@@ -44,6 +44,7 @@ import { UnauthorizedError } from '@/api';
 import { monthNames } from '@/app/types/date';
 import { MonthButton, StoredMonthsByYear } from '@/app/types/payouts';
 
+// @vue/component
 @Component({
     components: {
         VButton,
@@ -57,7 +58,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
      */
     public currentDisplayedMonths: MonthButton[] = [];
     public displayedYear: number = this.now.getUTCFullYear();
-    public period: string = '';
+    public period = '';
 
     private displayedMonths: StoredMonthsByYear = {};
     private selectedMonth: MonthButton | null;
@@ -76,8 +77,10 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
      */
     public async submit(): Promise<void> {
         let period: string | null = null;
+
         if (this.selectedMonth) {
-            const month = this.selectedMonth.index < 9 ? '0' + (this.selectedMonth.index + 1) : (this.selectedMonth.index + 1);
+            const month = this.selectedMonth.index < 9 ? `0${this.selectedMonth.index + 1}` : this.selectedMonth.index + 1;
+
             period = `${this.selectedMonth.year}-${month}`;
         }
 
@@ -144,7 +147,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
     public incrementYear(): void {
         const isCurrentYear = this.displayedYear === this.now.getUTCFullYear();
 
-        if (isCurrentYear) return;
+        if (isCurrentYear) { return; }
 
         this.displayedYear += 1;
         this.populateMonths(this.displayedYear);
@@ -156,9 +159,9 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
      */
     public decrementYear(): void {
         // TODO: remove hardcoded value
-        const minYear: number = 2000;
+        const minYear = 2000;
 
-        if (this.displayedYear === minYear) return;
+        if (this.displayedYear === minYear) { return; }
 
         this.displayedYear -= 1;
         this.populateMonths(this.displayedYear);

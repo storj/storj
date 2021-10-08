@@ -4,6 +4,7 @@
 import gql from 'graphql-tag';
 
 import { apollo } from '@/utils/apollo';
+import { GraphQLError } from "graphql";
 
 /**
  * BaseGql is a graphql utility which allows to perform queries and mutations.
@@ -16,8 +17,8 @@ export class BaseGql {
      * @param variables - variables to bind in query. null by default.
      * @throws Error
      */
-    protected async query(query: string, variables: any = null): Promise<any> {
-        const response: any = await apollo.query(
+    protected async query(query: string, variables: any = null): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+        const response = await apollo.query(
             {
                 query: gql(query),
                 variables,
@@ -40,8 +41,8 @@ export class BaseGql {
      * @param variables - variables to bind in query. null by default.
      * @throws Error
      */
-    protected async mutate(query: string, variables: any = null): Promise<any> {
-        const response: any = await apollo.mutate(
+    protected async mutate(query: string, variables: any = null): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+        const response = await apollo.mutate(
             {
                 mutation: gql(query),
                 variables,
@@ -57,7 +58,7 @@ export class BaseGql {
         return response;
     }
 
-    private combineErrors(gqlError: any): string {
+    private combineErrors(gqlError: readonly GraphQLError[]): string {
         return gqlError.map(err => err).join('\n');
     }
 }

@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	progressbar "github.com/cheggaaa/pb/v3"
@@ -18,13 +19,17 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/fpath"
+	"storj.io/common/memory"
+	"storj.io/common/sync2"
 	"storj.io/uplink"
+	"storj.io/uplink/private/object"
 )
 
 var (
-	progress *bool
-	expires  *string
-	metadata *string
+	progress    *bool
+	expires     *string
+	metadata    *string
+	parallelism *int
 )
 
 func init() {
@@ -38,8 +43,9 @@ func init() {
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
 	metadata = cpCmd.Flags().String("metadata", "", "optional metadata for the object. Please use a single level JSON object of string to string only")
+	parallelism = cpCmd.Flags().Int("parallelism", 1, "controls how many parallel uploads/downloads of a single object will be performed")
 
-	setBasicFlags(cpCmd.Flags(), "progress", "expires", "metadata")
+	setBasicFlags(cpCmd.Flags(), "progress", "expires", "metadata", "parallelism")
 }
 
 // upload transfers src from local machine to s3 compatible object dst.
@@ -83,12 +89,8 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, expiration ti
 	}
 	defer closeProject(project)
 
-	reader := io.Reader(file)
-	var bar *progressbar.ProgressBar
-	if showProgress {
-		bar = progressbar.New64(fileInfo.Size())
-		reader = bar.NewProxyReader(reader)
-		bar.Start()
+	if *parallelism < 1 {
+		return fmt.Errorf("parallelism must be at least 1")
 	}
 
 	var customMetadata uplink.CustomMetadata
@@ -103,29 +105,119 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, expiration ti
 		}
 	}
 
-	upload, err := project.UploadObject(ctx, dst.Bucket(), dst.Path(), &uplink.UploadOptions{
-		Expires: expiration,
-	})
-	if err != nil {
-		return err
-	}
+	var bar *progressbar.ProgressBar
+	if *parallelism <= 1 {
+		reader := io.Reader(file)
 
-	err = upload.SetCustomMetadata(ctx, customMetadata)
-	if err != nil {
-		abortErr := upload.Abort()
-		err = errs.Combine(err, abortErr)
-		return err
-	}
+		if showProgress {
+			bar = progressbar.New64(fileInfo.Size())
+			reader = bar.NewProxyReader(reader)
+			bar.Start()
+		}
 
-	_, err = io.Copy(upload, reader)
-	if err != nil {
-		abortErr := upload.Abort()
-		err = errs.Combine(err, abortErr)
-		return err
-	}
+		upload, err := project.UploadObject(ctx, dst.Bucket(), dst.Path(), &uplink.UploadOptions{
+			Expires: expiration,
+		})
+		if err != nil {
+			return err
+		}
 
-	if err := upload.Commit(); err != nil {
-		return err
+		err = upload.SetCustomMetadata(ctx, customMetadata)
+		if err != nil {
+			abortErr := upload.Abort()
+			err = errs.Combine(err, abortErr)
+			return err
+		}
+
+		_, err = io.Copy(upload, reader)
+		if err != nil {
+			abortErr := upload.Abort()
+			err = errs.Combine(err, abortErr)
+			return err
+		}
+
+		if err := upload.Commit(); err != nil {
+			return err
+		}
+	} else {
+		err = func() (err error) {
+			if showProgress {
+				bar = progressbar.New64(fileInfo.Size())
+				bar.Start()
+			}
+
+			info, err := project.BeginUpload(ctx, dst.Bucket(), dst.Path(), &uplink.UploadOptions{
+				Expires: expiration,
+			})
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err != nil {
+					err = errs.Combine(err, project.AbortUpload(ctx, dst.Bucket(), dst.Path(), info.UploadID))
+				}
+			}()
+
+			var (
+				limiter = sync2.NewLimiter(*parallelism)
+				es      errs.Group
+				mu      sync.Mutex
+			)
+
+			cancelCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+
+			addError := func(err error) {
+				mu.Lock()
+				defer mu.Unlock()
+
+				es.Add(err)
+				cancel()
+			}
+
+			objectSize := fileInfo.Size()
+			partSize := 64 * memory.MiB.Int64() // TODO make it configurable
+			numberOfParts := (objectSize + partSize - 1) / partSize
+
+			for i := uint32(0); i < uint32(numberOfParts); i++ {
+				partNumber := i + 1
+				offset := int64(i) * partSize
+				length := partSize
+				if offset+length > objectSize {
+					length = objectSize - offset
+				}
+				var reader io.Reader
+				reader = io.NewSectionReader(file, offset, length)
+				if showProgress {
+					reader = bar.NewProxyReader(reader)
+				}
+
+				ok := limiter.Go(cancelCtx, func() {
+					err := uploadPart(cancelCtx, project, dst, info.UploadID, partNumber, reader)
+					if err != nil {
+						addError(err)
+						return
+					}
+				})
+				if !ok {
+					break
+				}
+			}
+
+			limiter.Wait()
+
+			if err := es.Err(); err != nil {
+				return err
+			}
+
+			_, err = project.CommitUpload(ctx, dst.Bucket(), dst.Path(), info.UploadID, &uplink.CommitUploadOptions{
+				CustomMetadata: customMetadata,
+			})
+			return err
+		}()
+		if err != nil {
+			return err
+		}
 	}
 
 	if bar != nil {
@@ -135,6 +227,43 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, expiration ti
 	fmt.Printf("Created %s\n", dst.String())
 
 	return nil
+}
+
+func uploadPart(ctx context.Context, project *uplink.Project, dst fpath.FPath, uploadID string, partNumber uint32, reader io.Reader) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	upload, err := project.UploadPart(ctx, dst.Bucket(), dst.Path(), uploadID, partNumber)
+	if err != nil {
+		return err
+	}
+
+	_, err = sync2.Copy(ctx, upload, reader)
+	if err != nil {
+		return err
+	}
+
+	return upload.Commit()
+}
+
+// WriterAt wraps writer and progress bar to display progress correctly.
+type WriterAt struct {
+	object.WriterAt
+	bar *progressbar.ProgressBar
+}
+
+// WriteAt writes bytes to wrapped writer and add amount of bytes to progress bar.
+func (w *WriterAt) WriteAt(p []byte, off int64) (n int, err error) {
+	n, err = w.WriterAt.WriteAt(p, off)
+	w.bar.Add(n)
+	return
+}
+
+// Truncate truncates writer to specific size.
+func (w *WriterAt) Truncate(size int64) error {
+	w.bar.SetTotal(size)
+	return w.WriterAt.Truncate(size)
 }
 
 // download transfers s3 compatible object src to dst on local machine.
@@ -147,28 +276,15 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
+	if *parallelism < 1 {
+		return fmt.Errorf("parallelism must be at least 1")
+	}
+
 	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
 	}
 	defer closeProject(project)
-
-	download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), nil)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errs.Combine(err, download.Close()) }()
-
-	var bar *progressbar.ProgressBar
-	var reader io.ReadCloser
-	if showProgress {
-		info := download.Info()
-		bar = progressbar.New64(info.System.ContentLength)
-		reader = bar.NewProxyReader(download)
-		bar.Start()
-	} else {
-		reader = download
-	}
 
 	if fileInfo, err := os.Stat(dst.Path()); err == nil && fileInfo.IsDir() {
 		dst = dst.Join(src.Base())
@@ -189,7 +305,43 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		}()
 	}
 
-	_, err = io.Copy(file, reader)
+	var bar *progressbar.ProgressBar
+	if *parallelism <= 1 {
+		download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), nil)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, download.Close()) }()
+
+		var reader io.ReadCloser
+		if showProgress {
+			info := download.Info()
+			bar = progressbar.New64(info.System.ContentLength)
+			reader = bar.NewProxyReader(download)
+			bar.Start()
+		} else {
+			reader = download
+		}
+
+		_, err = io.Copy(file, reader)
+	} else {
+		var writer object.WriterAt
+		if showProgress {
+			bar = progressbar.New64(0)
+			bar.Set(progressbar.Bytes, true)
+			writer = &WriterAt{file, bar}
+			bar.Start()
+		} else {
+			writer = file
+		}
+
+		// final DownloadObjectAt method signature is under design so we can still have some
+		// inconsistency between naming e.g. concurrency - parallelism.
+		err = object.DownloadObjectAt(ctx, project, src.Bucket(), src.Path(), writer, &object.DownloadObjectAtOptions{
+			Concurrency: *parallelism,
+		})
+	}
+
 	if bar != nil {
 		bar.Finish()
 	}

@@ -3,16 +3,19 @@
 
 <template>
     <div>
-        <p @click="goToBuckets" class="back"><- Back to Buckets</p>
+        <p class="back" @click="goToBuckets">&lt;- Back to Buckets</p>
         <div class="file-browser">
-            <FileBrowser></FileBrowser>
+            <FileBrowser />
         </div>
+        <UploadCancelPopup v-if="isCancelUploadPopupVisible" />
     </div>
 </template>
 
 <script lang="ts">
 import { FileBrowser } from 'browser';
 import { Component, Vue } from 'vue-property-decorator';
+
+import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -21,9 +24,11 @@ import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         FileBrowser,
+        UploadCancelPopup,
     },
 })
 export default class UploadFile extends Vue {
@@ -38,7 +43,7 @@ export default class UploadFile extends Vue {
      */
     public mounted(): void {
         if (!this.bucket) {
-            this.$router.push(RouteConfig.Objects.with(RouteConfig.EnterPassphrase).path);
+            this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
 
             return;
         }
@@ -122,6 +127,13 @@ export default class UploadFile extends Vue {
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
+    }
+
+    /**
+     * Indicates if upload cancel popup is visible.
+     */
+    public get isCancelUploadPopupVisible(): boolean {
+        return this.$store.state.appStateModule.appState.isUploadCancelPopupVisible;
     }
 
     /**

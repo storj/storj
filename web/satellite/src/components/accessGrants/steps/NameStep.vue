@@ -6,11 +6,10 @@
         <h1 class="name-step__title">Name Your Access Grant</h1>
         <p class="name-step__sub-title">Enter a name for your new Access grant to get started.</p>
         <HeaderedInput
-            class="name-step__input"
             label="Access Grant Name"
             placeholder="Enter a name here..."
-            @setData="onChangeName"
             :error="errorMessage"
+            @setData="onChangeName"
         />
         <div class="name-step__buttons-area">
             <VButton
@@ -42,13 +41,10 @@ import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
-import { ProjectFields } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         HeaderedInput,
@@ -56,10 +52,10 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class NameStep extends Vue {
-    private name: string = '';
-    private errorMessage: string = '';
-    private isLoading: boolean = false;
-    private key: string = '';
+    private name = '';
+    private errorMessage = '';
+    private isLoading = false;
+    private key = '';
 
     private readonly FIRST_PAGE = 1;
 
@@ -140,7 +136,6 @@ export default class NameStep extends Vue {
                     key: this.key,
                 },
             });
-
             return;
         }
 
@@ -189,10 +184,6 @@ export default class NameStep extends Vue {
             color: #000;
             text-align: center;
             margin: 0 0 80px 0;
-        }
-
-        &__input {
-            width: calc(100% - 2px);
         }
 
         &__buttons-area {

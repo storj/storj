@@ -3,18 +3,18 @@
 
 <template>
     <div class="usage-area">
-        <p class="usage-area__title">{{title}}</p>
-        <VLoader v-if="isDataFetching"/>
+        <p class="usage-area__title">{{ title }}</p>
+        <VLoader v-if="isDataFetching" />
         <template v-else>
-            <pre class="usage-area__remaining">{{remainingFormatted}} Remaining</pre>
+            <pre class="usage-area__remaining">{{ remainingFormatted }} Remaining</pre>
             <VBar
                 :current="used"
                 :max="limit"
                 color="#0068DC"
             />
             <div class="usage-area__limits-area">
-                <pre class="usage-area__limits-area__title">{{title}} Used</pre>
-                <pre class="usage-area__limits-area__limits">{{usedFormatted}} / {{limitFormatted}}</pre>
+                <pre class="usage-area__limits-area__title">{{ title }} Used</pre>
+                <pre class="usage-area__limits-area__limits">{{ usedFormatted }} / {{ limitFormatted }}</pre>
             </div>
         </template>
     </div>
@@ -28,6 +28,7 @@ import VLoader from '@/components/common/VLoader.vue';
 
 import { Dimensions, Size } from '@/utils/bytesSize';
 
+// @vue/component
 @Component({
     components: {
         VBar,
@@ -75,11 +76,11 @@ export default class UsageArea extends Vue {
      */
     private formattedValue(value: Size): string {
         switch (value.label) {
-            case Dimensions.Bytes:
-            case Dimensions.KB:
-                return '0';
-            default:
-                return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
+        case Dimensions.Bytes:
+        case Dimensions.KB:
+            return '0';
+        default:
+            return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
         }
     }
 }

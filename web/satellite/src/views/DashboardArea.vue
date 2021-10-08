@@ -4,31 +4,39 @@
 <template>
     <div class="dashboard">
         <div v-if="isLoading" class="loading-overlay active">
-            <LoaderImage class="loading-icon"/>
+            <LoaderImage class="loading-icon" />
         </div>
         <div v-if="isBetaSatellite" class="dashboard__beta-banner">
             <p class="dashboard__beta-banner__message">
-                Thanks for testing the {{satelliteName}} Beta satellite | Data may be deleted during this beta | Submit testing feedback
+                Thanks for testing the {{ satelliteName }} Beta satellite | Data may be deleted during this beta | Submit testing feedback
                 <a class="dashboard__beta-banner__message__link" :href="betaFeedbackURL" target="_blank" rel="noopener noreferrer">here</a>
                 | Request support
                 <a class="dashboard__beta-banner__message__link" :href="betaSupportURL" target="_blank" rel="noopener noreferrer">here</a>
             </p>
         </div>
         <div v-if="!isLoading" class="dashboard__wrap">
-            <DashboardHeader/>
+            <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
+            <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+            <DashboardHeader />
             <div class="dashboard__wrap__main-area">
-                <NavigationArea class="regular-navigation"/>
+                <NavigationArea class="regular-navigation" />
                 <div class="dashboard__wrap__main-area__content">
-                    <router-view/>
+                    <router-view />
                 </div>
             </div>
         </div>
+        <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal" />
+        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AddPaymentMethodModal from '@/components/account/billing/paidTier/AddPaymentMethodModal.vue';
+import PaidTierBar from '@/components/account/billing/paidTier/PaidTierBar.vue';
+import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
+import MFARecoveryCodeBar from '@/components/account/mfa/MFARecoveryCodeBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
@@ -37,42 +45,39 @@ import LoaderImage from '@/../static/images/common/loader.svg';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
+import { User } from '@/types/users';
 
 const {
-    GET_PAYWALL_ENABLED_STATUS,
     SETUP_ACCOUNT,
-    GET_BALANCE,
-    GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
+    GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         NavigationArea,
         DashboardHeader,
         LoaderImage,
+        PaidTierBar,
+        MFARecoveryCodeBar,
+        MFARecoveryCodesPopup,
+        AddPaymentMethodModal,
     },
 })
 export default class DashboardArea extends Vue {
-    /**
-     * Lifecycle hook before initial render.
-     * Sets access grants web worker.
-     */
-    public async beforeMount(): Promise<void> {
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
-        } catch (error) {
-            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
-        }
-    }
+    // Minimum number of recovery codes before the recovery code warning bar is shown.
+    public recoveryCodeWarningThreshold = 4;
+
+    public isMFACodesPopup = false;
 
     /**
      * Lifecycle hook after initial render.
@@ -93,15 +98,22 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(GET_PAYWALL_ENABLED_STATUS);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
         } catch (error) {
-            await this.$notify.error(`Unable to get paywall enabled status. ${error.message}`);
+            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
         }
 
         try {
             await this.$store.dispatch(SETUP_ACCOUNT);
         } catch (error) {
             await this.$notify.error(`Unable to setup account. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
         }
 
         let projects: Project[] = [];
@@ -115,10 +127,15 @@ export default class DashboardArea extends Vue {
         }
 
         if (!projects.length) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
-
             try {
-                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+                await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+                if (this.isNewOnbCLiFlow) {
+                    await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+                } else {
+                    await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OldOverviewStep).path);
+                }
+
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
             } catch (error) {
                 return;
             }
@@ -129,6 +146,53 @@ export default class DashboardArea extends Vue {
         this.selectProject(projects);
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    }
+
+    /**
+     * Generates new MFA recovery codes and toggles popup visibility.
+     */
+    public async generateNewMFARecoveryCodes(): Promise<void> {
+        try {
+            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+            this.toggleMFACodesPopup();
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
+
+    /**
+     * Opens add payment method modal.
+     */
+    public togglePMModal(): void {
+        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    }
+
+    /**
+     * Toggles MFA recovery codes popup visibility.
+     */
+    public toggleMFACodesPopup(): void {
+        this.isMFACodesPopup = !this.isMFACodesPopup;
+    }
+
+    /**
+     * Indicates if add payment method modal is shown.
+     */
+    public get isAddPMModal(): boolean {
+        return this.$store.state.paymentsModule.isAddPMModalShown;
+    }
+
+    /**
+     * Returns credit cards from store.
+     */
+    public get creditCards(): CreditCard[] {
+        return this.$store.state.paymentsModule.creditCards;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**
@@ -167,6 +231,14 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Indicates whether the MFA recovery code warning bar should be shown.
+     */
+    public get showMFARecoveryCodeBar(): boolean {
+        const user : User = this.$store.getters.user;
+        return user.isMFAEnabled && user.mfaRecoveryCodeCount < this.recoveryCodeWarningThreshold;
+    }
+
+    /**
      * Checks if stored project is in fetched projects array and selects it.
      * Selects first fetched project if check is not successful.
      * @param fetchedProjects - fetched projects array
@@ -191,6 +263,13 @@ export default class DashboardArea extends Vue {
     private storeProject(projectID: string): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         LocalData.setSelectedProjectId(projectID);
+    }
+
+    /**
+     * Returns onboarding CLI flow status from store.
+     */
+    private get isNewOnbCLiFlow(): boolean {
+        return this.$store.state.appStateModule.isNewOnbCLIFlow;
     }
 }
 </script>

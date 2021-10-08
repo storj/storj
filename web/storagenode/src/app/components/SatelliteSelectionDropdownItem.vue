@@ -5,16 +5,17 @@
     <button
         :name="`Choose ${satellite.url} satellite`"
         class="satellite-choice"
+        type="button"
         @click.stop="onSatelliteClick"
     >
         <DisqualificationIcon
-            class="satellite-choice__image"
             v-if="satellite.disqualified"
+            class="satellite-choice__image"
             alt="disqualified image"
         />
         <SuspensionIcon
-            class="satellite-choice__image"
             v-if="satellite.suspended && !satellite.disqualified"
+            class="satellite-choice__image"
             alt="suspended image"
         />
         <p
@@ -30,26 +31,29 @@
         </p>
         <div class="satellite-choice__right-area">
             <button
+                v-if="isNameShown"
                 name="Show Satellite ID"
                 class="satellite-choice__right-area__button"
+                type="button"
                 @click.stop.prevent="toggleSatelliteView"
-                v-if="isNameShown"
             >
                 <EyeIcon />
                 <p class="satellite-choice__right-area__button__text">ID</p>
             </button>
-            <div class="row" v-else >
+            <div v-else class="row">
                 <button
+                    v-clipboard:copy="satellite.id"
                     name="Copy Satellite ID"
                     class="satellite-choice__right-area__button copy-button"
+                    type="button"
                     @click.stop="() => {}"
-                    v-clipboard:copy="satellite.id"
                 >
                     <CopyIcon />
                 </button>
                 <button
                     name="Show Satellite Name"
                     class="satellite-choice__right-area__button"
+                    type="button"
                     @click.stop.prevent="toggleSatelliteView"
                 >
                     <EyeIcon />
@@ -70,6 +74,7 @@ import SuspensionIcon from '@/../static/images/suspend.svg';
 
 import { SatelliteInfo } from '@/storagenode/sno/sno';
 
+// @vue/component
 @Component({
     components: {
         DisqualificationIcon,
@@ -85,7 +90,7 @@ export default class SatelliteSelectionDropdownItem extends Vue {
     /**
      * Indicates if name or id should be shown.
      */
-    public isNameShown: boolean = true;
+    public isNameShown = true;
 
     /**
      * Toggles between name and id view.

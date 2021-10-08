@@ -32,6 +32,7 @@ import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 
 import { TotalPayments } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component({
     components: {
         SingleInfo,

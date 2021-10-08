@@ -45,6 +45,7 @@ message StorageUsageRequest {
 
 message StorageUsageResponse {
   repeated StorageUsage storage_usage = 1;
+  double summary = 2;
 }
 
 message StorageUsageSatelliteRequest {
@@ -56,6 +57,7 @@ message StorageUsageSatelliteRequest {
 
 message StorageUsageSatelliteResponse {
   repeated StorageUsage storage_usage = 1;
+  double summary = 2;
 }
 
 service Bandwidth {
@@ -193,6 +195,12 @@ message ReputationRequest {
   bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
+message AuditWindow {
+  google.protobuf.Timestamp window_start = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  int32 online_count = 2;
+  int32 total_count = 3;
+}
+
 message ReputationResponse {
   message Online {
     double score = 1;
@@ -200,10 +208,24 @@ message ReputationResponse {
   message Audit {
     double score = 1;
     double suspension_score = 2;
+    int64 total_count = 3;
+    int64 success_count = 4;
+    double alpha = 5;
+    double beta = 6;
+    double unknown_alpha = 7;
+    double unknown_beta = 8;
+    repeated AuditWindow history = 9;
   }
 
   Online online = 1;
   Audit audit = 2;
+  google.protobuf.Timestamp disqualified_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp suspended_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp offline_suspended_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp offline_under_review_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp vetted_at = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp updated_at = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp joined_at = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message TrustedSatellitesRequest {
@@ -396,4 +418,100 @@ message HeldAmountHistoryResponse {
   }
 
   repeated HeldAmountHistory history = 1;
+}
+
+service Payout {
+  rpc AllSatellitesSummary(AllSatellitesSummaryRequest) returns (AllSatellitesSummaryResponse);
+  rpc AllSatellitesPeriodSummary(AllSatellitesPeriodSummaryRequest) returns (AllSatellitesPeriodSummaryResponse);
+  rpc SatelliteSummary(SatelliteSummaryRequest) returns (SatelliteSummaryResponse);
+  rpc SatellitePeriodSummary(SatellitePeriodSummaryRequest) returns (SatellitePeriodSummaryResponse);
+  rpc Earned(EarnedRequest) returns (EarnedResponse);
+  rpc EarnedPerSatellite(EarnedPerSatelliteRequest) returns (EarnedPerSatelliteResponse);
+  rpc EstimatedPayoutSatellite(EstimatedPayoutSatelliteRequest) returns (EstimatedPayoutSatelliteResponse);
+  rpc EstimatedPayoutTotal(EstimatedPayoutTotalRequest) returns (EstimatedPayoutTotalResponse);
+  rpc Undistributed(UndistributedRequest) returns (UndistributedResponse);
+  rpc SatellitePaystub(SatellitePaystubRequest) returns (SatellitePaystubResponse);
+  rpc Paystub(PaystubRequest) returns (PaystubResponse);
+  rpc PeriodPaystub(PeriodPaystubRequest) returns (PeriodPaystubResponse);
+  rpc SatellitePeriodPaystub(SatellitePeriodPaystubRequest) returns (SatellitePeriodPaystubResponse);
+}
+
+message EstimatedPayoutTotalRequest {
+  RequestHeader header = 1;
+}
+
+message EstimatedPayoutTotalResponse {
+  int64 estimated_earnings = 1;
+}
+
+message AllSatellitesSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message AllSatellitesSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message AllSatellitesPeriodSummaryRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message AllSatellitesPeriodSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SatelliteSummaryRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SatelliteSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SatellitePeriodSummaryRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message SatellitePeriodSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message EarnedPerSatelliteRequest {
+  RequestHeader header = 1;
+}
+
+message EarnedPerSatelliteResponse {
+  repeated EarnedSatellite earned_satellite = 1;
+}
+
+message SatellitePaystubRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SatellitePaystubResponse {
+  Paystub paystub = 1;
+}
+
+message PeriodPaystubRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message PeriodPaystubResponse {
+  Paystub paystub = 1;
+}
+
+message SatellitePeriodPaystubRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message SatellitePeriodPaystubResponse {
+  Paystub paystub = 1;
 }

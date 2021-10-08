@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
@@ -50,7 +51,7 @@ func TestSegmentsLoop(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
-		segmentLoop := satellite.Metainfo.SegmentLoop
+		segmentLoop := satellite.Metabase.SegmentLoop
 
 		// upload 5 remote objects with 1 segment
 		for i := 0; i < 5; i++ {
@@ -123,7 +124,7 @@ func TestSegmentsLoop_AllData(t *testing.T) {
 			}
 		}
 
-		loop := planet.Satellites[0].Metainfo.SegmentLoop
+		loop := planet.Satellites[0].Metabase.SegmentLoop
 
 		obs := newTestObserver(nil)
 		err := loop.Join(ctx, obs)
@@ -151,13 +152,13 @@ func TestSegmentsLoopObserverCancel(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.Loop.CoalesceDuration = 1 * time.Second
+				config.Metainfo.SegmentLoop.CoalesceDuration = 1 * time.Second
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
-		loop := satellite.Metainfo.SegmentLoop
+		loop := satellite.Metabase.SegmentLoop
 
 		// upload 3 remote files with 1 segment
 		for i := 0; i < 3; i++ {
@@ -250,10 +251,10 @@ func TestSegmentsLoopCancel(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		loop := segmentloop.New(segmentloop.Config{
+		loop := segmentloop.New(zaptest.NewLogger(t), segmentloop.Config{
 			CoalesceDuration: 1 * time.Second,
 			ListLimit:        10000,
-		}, satellite.Metainfo.Metabase)
+		}, satellite.Metabase.DB)
 
 		// create a cancelable context to pass into metaLoop.Run
 		loopCtx, cancel := context.WithCancel(ctx)
@@ -322,10 +323,10 @@ func TestSegmentsLoop_MonitorCancel(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
-		loop := segmentloop.New(segmentloop.Config{
+		loop := segmentloop.New(zaptest.NewLogger(t), segmentloop.Config{
 			CoalesceDuration: time.Nanosecond,
 			ListLimit:        10000,
-		}, satellite.Metainfo.Metabase)
+		}, satellite.Metabase.DB)
 
 		obs1 := newTestObserver(func(ctx context.Context) error {
 			return errors.New("test error")

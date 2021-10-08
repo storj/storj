@@ -1,17 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
+import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { UpdatedUser, User } from '@/types/users';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
  * AuthHttpApi is a console Auth API.
  * Exposes all auth-related functionality
  */
-export class AuthHttpApi {
+export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
 
@@ -36,26 +38,36 @@ export class AuthHttpApi {
      *
      * @param email - email of the user
      * @param password - password of the user
+     * @param mfaPasscode - MFA passcode
+     * @param mfaRecoveryCode - MFA recovery code
      * @throws Error
      */
-    public async token(email: string, password: string): Promise<string> {
+    public async token(email: string, password: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<string> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
-            email: email,
-            password: password,
+            email,
+            password,
+            mfaPasscode: mfaPasscode ? mfaPasscode : null,
+            mfaRecoveryCode: mfaRecoveryCode ? mfaRecoveryCode : null,
         };
+
         const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
-            return await response.json();
+            const result = await response.json();
+            if (typeof result !== 'string') {
+                throw new ErrorMFARequired();
+            }
+
+            return result;
         }
 
         switch (response.status) {
-            case 401:
-                throw new ErrorUnauthorized('Your email or password was incorrect, please try again');
-            case 429:
-                throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
-            default:
-                throw new Error('Can not receive authentication token');
+        case 401:
+            throw new ErrorUnauthorized('Your email or password was incorrect, please try again');
+        case 429:
+            throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+        default:
+            throw new Error('Can not receive authentication token');
         }
     }
 
@@ -135,6 +147,14 @@ export class AuthHttpApi {
                 userResponse.partnerId,
                 userResponse.password,
                 userResponse.projectLimit,
+                userResponse.paidTier,
+                userResponse.isMFAEnabled,
+                userResponse.isProfessional,
+                userResponse.position,
+                userResponse.companyName,
+                userResponse.employeeCount,
+                userResponse.haveSalesContact,
+                userResponse.mfaRecoveryCodeCount,
             );
         }
 
@@ -164,12 +184,12 @@ export class AuthHttpApi {
         }
 
         switch (response.status) {
-            case 401: {
-                throw new Error('old password is incorrect, please try again');
-            }
-            default: {
-                throw new Error('can not change password');
-            }
+        case 401: {
+            throw new Error('old password is incorrect, please try again');
+        }
+        default: {
+            throw new Error('can not change password');
+        }
         }
     }
 
@@ -202,10 +222,11 @@ export class AuthHttpApi {
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
+     * @param recaptchaResponse - recaptcha response
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string): Promise<string> {
+    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string, recaptchaResponse: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -220,21 +241,151 @@ export class AuthHttpApi {
             companyName: user.companyName,
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
+            recaptchaResponse: recaptchaResponse,
         };
         const response = await this.http.post(path, JSON.stringify(body));
+        const result = await response.json();
         if (!response.ok) {
+            const errMsg = result.error || 'Cannot register user';
             switch (response.status) {
-                case 401:
-                    throw new ErrorUnauthorized('We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
-                case 409:
-                    throw new ErrorEmailUsed('This email is already in use, try another');
-                case 429:
-                    throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
-                default:
-                    throw new Error('Can not register user');
+            case 400:
+                throw new ErrorBadRequest(errMsg);
+            case 401:
+                throw new ErrorUnauthorized(errMsg);
+            case 409:
+                throw new ErrorEmailUsed(errMsg);
+            case 429:
+                throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+            default:
+                throw new Error(errMsg);
             }
         }
 
-        return await response.json();
+        return result;
+    }
+
+    /**
+     * Used to enable user's MFA.
+     *
+     * @throws Error
+     */
+    public async generateUserMFASecret(): Promise<string> {
+        const path = `${this.ROOT_PATH}/mfa/generate-secret-key`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not generate MFA secret. Please try again later');
+    }
+
+    /**
+     * Used to enable user's MFA.
+     *
+     * @throws Error
+     */
+    public async enableUserMFA(passcode: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/mfa/enable`;
+        const body = {
+            passcode: passcode,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not enable MFA. Please try again later');
+    }
+
+    /**
+     * Used to disable user's MFA.
+     *
+     * @throws Error
+     */
+    public async disableUserMFA(passcode: string, recoveryCode: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/mfa/disable`;
+        const body = {
+            passcode: passcode || null,
+            recoveryCode: recoveryCode || null,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return;
+        }
+        
+        const result = await response.json();
+        if (!response.ok) {
+            const errMsg = result.error || 'Cannot disable MFA. Please try again later';
+            switch (response.status) {
+            case 401:
+                throw new ErrorUnauthorized(errMsg);
+            default:
+                throw new Error(errMsg);
+            }
+        }
+    }
+
+    /**
+     * Used to generate user's MFA recovery codes.
+     *
+     * @throws Error
+     */
+    public async generateUserMFARecoveryCodes(): Promise<string[]> {
+        const path = `${this.ROOT_PATH}/mfa/generate-recovery-codes`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not generate MFA recovery codes. Please try again later');
+    }
+
+    /**
+     * Used to reset user's password.
+     *
+     * @throws Error
+     */
+    public async resetPassword(token: string, password: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/reset-password`;
+
+        const body = {
+            token: token,
+            password: password,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        const errMsg = result.error || 'Cannot reset password';
+        switch (response.status) {
+        case 400:
+            throw new ErrorBadRequest(errMsg);
+        case 401:
+            throw new ErrorUnauthorized(errMsg);
+        default:
+            throw new Error(errMsg);
+        }
     }
 }

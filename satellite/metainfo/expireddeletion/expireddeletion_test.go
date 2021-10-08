@@ -47,7 +47,7 @@ func TestExpiredDeletion(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify that all four objects are in the metabase
-		objects, err := satellite.Metainfo.Metabase.TestingAllObjects(ctx)
+		objects, err := satellite.Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 		require.Len(t, objects, 4)
 
@@ -59,7 +59,7 @@ func TestExpiredDeletion(t *testing.T) {
 		expiredChore.Loop.TriggerWait()
 
 		// Verify that only two objects remain in the metabase
-		objects, err = satellite.Metainfo.Metabase.TestingAllObjects(ctx)
+		objects, err = satellite.Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 		require.Len(t, objects, 2)
 	})

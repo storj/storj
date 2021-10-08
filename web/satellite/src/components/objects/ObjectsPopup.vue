@@ -4,19 +4,19 @@
 <template>
     <div class="objects-popup">
         <div class="objects-popup__container">
-            <h1 class="objects-popup__container__title">{{title}}</h1>
-            <p class="objects-popup__container__sub-title">{{subTitle}}</p>
+            <h1 class="objects-popup__container__title">{{ title }}</h1>
+            <p class="objects-popup__container__sub-title">{{ subTitle }}</p>
             <div class="objects-popup__container__info">
-                <WarningIcon/>
+                <WarningIcon />
                 <p class="objects-popup__container__info__msg">Only lowercase alphanumeric characters are allowed.</p>
             </div>
             <HeaderedInput
                 class="objects-popup__container__input"
                 label="Bucket Name"
                 placeholder="Enter bucket name"
-                @setData="onChangeName"
                 :error="errorMessage"
                 :is-loading="isLoading"
+                @setData="onChangeName"
             />
             <VButton
                 :label="buttonLabel"
@@ -41,6 +41,7 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import WarningIcon from '@/../static/images/objects/warning.svg';
 
+// @vue/component
 @Component({
     components: {
         HeaderedInput,
@@ -131,7 +132,7 @@ export default class ObjectsPopup extends Vue {
                 border-radius: 9px;
 
                 &__msg {
-                    font-family: 'font_Bold', sans-serif;
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     line-height: 19px;
                     color: #1b2533;
@@ -140,7 +141,6 @@ export default class ObjectsPopup extends Vue {
             }
 
             &__input {
-                width: calc(100% - 4px);
                 margin-bottom: 18px;
             }
 

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -26,6 +27,8 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
@@ -62,17 +65,17 @@ func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*pie
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
 // If piece hash verification fails, it will return all failed node IDs.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64, path storj.Path) (_ io.ReadCloser, failedPieces []*pb.RemotePiece, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, cachedIPsAndPorts map[storj.NodeID]string, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, _ audit.Pieces, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
-		return nil, nil, Error.New("number of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), es.TotalCount())
+		return nil, audit.Pieces{}, Error.New("number of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), es.TotalCount())
 	}
 
 	nonNilLimits := nonNilCount(limits)
 
 	if nonNilLimits < es.RequiredCount() {
-		return nil, nil, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
+		return nil, audit.Pieces{}, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
 	}
 
 	pieceSize := eestream.CalcPieceSize(dataSize, es)
@@ -80,9 +83,13 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	var successfulPieces, inProgress int
 	unusedLimits := nonNilLimits
 	pieceReaders := make(map[int]io.ReadCloser)
+	var pieces audit.Pieces
 
 	limiter := sync2.NewLimiter(es.RequiredCount())
 	cond := sync.NewCond(&sync.Mutex{})
+
+	var errlist errs.Group
+	var mu sync.Mutex
 
 	for currentLimitIndex, limit := range limits {
 		if limit == nil {
@@ -116,28 +123,72 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				inProgress++
 				cond.L.Unlock()
 
-				pieceReadCloser, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
+				lastIPPort := cachedIPsAndPorts[limit.GetLimit().StorageNodeId]
+				address := limit.GetStorageNodeAddress().GetAddress()
+				var triedLastIPPort bool
+				if lastIPPort != "" && lastIPPort != address {
+					address = lastIPPort
+					triedLastIPPort = true
+				}
+
+				pieceReadCloser, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, pieceSize)
+				// if piecestore dial with last ip:port failed try again with node address
+				if triedLastIPPort && piecestore.Error.Has(err) {
+					pieceReadCloser, err = ec.downloadAndVerifyPiece(ctx, limit, limit.GetStorageNodeAddress().GetAddress(), privateKey, pieceSize)
+				}
+
 				cond.L.Lock()
 				inProgress--
+				piece := metabase.Piece{
+					Number:      uint16(currentLimitIndex),
+					StorageNode: limit.GetLimit().StorageNodeId,
+				}
+
 				if err != nil {
 					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
 					if ErrPieceHashVerifyFailed.Has(err) {
 						ec.log.Info("audit failed", zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
 							zap.String("reason", err.Error()))
-						failedPieces = append(failedPieces, &pb.RemotePiece{
-							PieceNum: int32(currentLimitIndex),
-							NodeId:   limit.GetLimit().StorageNodeId,
-						})
-					} else {
-						ec.log.Debug("Failed to download pieces for repair",
-							zap.Error(err))
+						pieces.Failed = append(pieces.Failed, piece)
+						return
 					}
+
+					pieceAudit := audit.PieceAuditFromErr(err)
+					switch pieceAudit {
+					case audit.PieceAuditFailure:
+						ec.log.Debug("Failed to download pieces for repair: piece not found (audit failed)",
+							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Error(err))
+						pieces.Failed = append(pieces.Failed, piece)
+
+					case audit.PieceAuditOffline:
+						ec.log.Debug("Failed to download pieces for repair: dial timeout (offline)",
+							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Error(err))
+						pieces.Offline = append(pieces.Offline, piece)
+
+					case audit.PieceAuditContained:
+						ec.log.Info("Failed to download pieces for repair: download timeout (contained)",
+							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Error(err))
+						pieces.Contained = append(pieces.Contained, piece)
+
+					case audit.PieceAuditUnknown:
+						ec.log.Info("Failed to download pieces for repair: unknown transport error (skipped)",
+							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Error(err))
+						pieces.Unknown = append(pieces.Unknown, piece)
+					}
+
+					mu.Lock()
+					errlist.Add(fmt.Errorf("node id: %s, error: %w", limit.GetLimit().StorageNodeId.String(), err))
+					mu.Unlock()
 					return
 				}
 
 				pieceReaders[currentLimitIndex] = pieceReadCloser
+				pieces.Successful = append(pieces.Successful, piece)
 				successfulPieces++
-
 				return
 			}
 		})
@@ -147,16 +198,16 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 	if successfulPieces < es.RequiredCount() {
 		mon.Meter("download_failed_not_enough_pieces_repair").Mark(1) //mon:locked
-		return nil, failedPieces, &irreparableError{
-			path:            path,
+		return nil, pieces, &irreparableError{
 			piecesAvailable: int32(successfulPieces),
 			piecesRequired:  int32(es.RequiredCount()),
+			errlist:         errlist,
 		}
 	}
 
 	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())
 	if err != nil {
-		return nil, failedPieces, Error.Wrap(err)
+		return nil, pieces, Error.Wrap(err)
 	}
 
 	esScheme := eestream.NewUnsafeRSScheme(fec, es.ErasureShareSize())
@@ -165,13 +216,13 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	ctx, cancel := context.WithCancel(ctx)
 	decodeReader := eestream.DecodeReaders2(ctx, cancel, pieceReaders, esScheme, expectedSize, 0, false)
 
-	return decodeReader, failedPieces, nil
+	return decodeReader, pieces, nil
 }
 
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
-func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (pieceReadCloser io.ReadCloser, err error) {
+func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, address string, privateKey storj.PiecePrivateKey, pieceSize int64) (pieceReadCloser io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// contact node
@@ -180,7 +231,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 
 	ps, err := ec.dialPiecestore(downloadCtx, storj.NodeURL{
 		ID:      limit.GetLimit().StorageNodeId,
-		Address: limit.GetStorageNodeAddress().Address,
+		Address: address,
 	})
 	if err != nil {
 		return nil, err
@@ -228,6 +279,8 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		}
 		pieceReadCloser = tempfile
 	}
+
+	mon.Meter("repair_bytes_downloaded").Mark64(downloadedPieceSize) //mon:locked
 
 	if downloadedPieceSize != pieceSize {
 		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, downloadedPieceSize)
@@ -287,7 +340,7 @@ func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, li
 
 // Repair takes a provided segment, encodes it with the provided redundancy strategy,
 // and uploads the pieces in need of repair to new nodes provided by order limits.
-func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, path storj.Path, successfulNeeded int) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, successfulNeeded int) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pieceCount := len(limits)
@@ -318,7 +371,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, privateKey, readers[i], path)
+			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, privateKey, readers[i])
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
@@ -408,7 +461,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, path storj.Path) (hash *pb.PieceHash, err error) {
+func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser) (hash *pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeName := "nil"

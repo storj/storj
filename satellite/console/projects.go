@@ -40,6 +40,9 @@ type Projects interface {
 	// UpdateRateLimit is a method for updating projects rate limit.
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) error
 
+	// UpdateBurstLimit is a method for updating projects burst limit.
+	UpdateBurstLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+
 	// GetMaxBuckets is a method to get the maximum number of buckets allowed for the project
 	GetMaxBuckets(ctx context.Context, id uuid.UUID) (*int, error)
 	// UpdateBucketLimit is a method for updating projects bucket limit.
@@ -48,8 +51,20 @@ type Projects interface {
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
 type UsageLimitsConfig struct {
-	DefaultStorageLimit   memory.Size `help:"the default storage usage limit" default:"50.00GB" testDefault:"25.00 GB"`
-	DefaultBandwidthLimit memory.Size `help:"the default bandwidth usage limit" default:"50.00GB" testDefault:"25.00 GB"`
+	Storage   StorageLimitConfig
+	Bandwidth BandwidthLimitConfig
+}
+
+// StorageLimitConfig is a configuration struct for default storage per-project usage limits.
+type StorageLimitConfig struct {
+	Free memory.Size `help:"the default free-tier storage usage limit" default:"50.00GB" testDefault:"25.00 GB"`
+	Paid memory.Size `help:"the default paid-tier storage usage limit" default:"25.00TB" testDefault:"25.00 GB"`
+}
+
+// BandwidthLimitConfig is a configuration struct for default bandwidth per-project usage limits.
+type BandwidthLimitConfig struct {
+	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"50.00GB" testDefault:"25.00 GB"`
+	Paid memory.Size `help:"the default paid-tier bandwidth usage limit" default:"100.00TB" testDefault:"25.00 GB"`
 }
 
 // Project is a database object that describes Project entity.
@@ -61,6 +76,7 @@ type Project struct {
 	PartnerID      uuid.UUID    `json:"partnerId"`
 	OwnerID        uuid.UUID    `json:"ownerId"`
 	RateLimit      *int         `json:"rateLimit"`
+	BurstLimit     *int         `json:"burstLimit"`
 	MaxBuckets     *int         `json:"maxBuckets"`
 	CreatedAt      time.Time    `json:"createdAt"`
 	MemberCount    int          `json:"memberCount"`
@@ -70,10 +86,11 @@ type Project struct {
 
 // ProjectInfo holds data needed to create/update Project.
 type ProjectInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-
-	CreatedAt time.Time `json:"createdAt"`
+	Name           string      `json:"name"`
+	Description    string      `json:"description"`
+	StorageLimit   memory.Size `json:"project specific storage limit"`
+	BandwidthLimit memory.Size `json:"project specific bandwidth limit"`
+	CreatedAt      time.Time   `json:"createdAt"`
 }
 
 // ProjectsCursor holds info for project

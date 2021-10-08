@@ -19,6 +19,7 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/fpath"
+	"storj.io/common/lrucache"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -30,7 +31,6 @@ import (
 	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
-	"storj.io/storj/private/lrucache"
 	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/satellite"
@@ -185,6 +185,12 @@ var (
 		Use:   "billing",
 		Short: "Customer billing commands",
 	}
+	applyFreeTierCouponsCmd = &cobra.Command{
+		Use:   "apply-free-coupons",
+		Short: "Applies free tier coupon to Stripe customers",
+		Long:  "Applies free tier coupon to Stripe customers without a coupon",
+		RunE:  cmdApplyFreeTierCoupons,
+	}
 	prepareCustomerInvoiceRecordsCmd = &cobra.Command{
 		Use:   "prepare-invoice-records [period]",
 		Short: "Prepares invoice project records",
@@ -313,6 +319,7 @@ func init() {
 	compensationCmd.AddCommand(generateInvoicesCmd)
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
+	billingCmd.AddCommand(applyFreeTierCouponsCmd)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoiceCouponsCmd)
@@ -336,6 +343,7 @@ func init() {
 	process.Bind(reportsGracefulExitCmd, &reportsGracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(reportsVerifyGEReceiptCmd, &reportsVerifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(applyFreeTierCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -516,11 +524,11 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "Path\tLost Pieces\t")
+	fmt.Fprintln(w, "Segment StreamID\tSegment Position\tSegment Health\t")
 
 	// populate the row fields
 	for _, v := range list {
-		fmt.Fprint(w, v.GetPath(), "\t", v.GetLostPieces(), "\t")
+		fmt.Fprint(w, v.StreamID.String(), "\t", v.Position.Encode(), "\t", v.SegmentHealth, "\t")
 	}
 
 	// display the data

@@ -8,14 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/monetary"
 )
 
 var (
@@ -83,13 +84,12 @@ type Service struct {
 	rates    coinpayments.CurrencyRateInfos
 	ratesErr error
 
-	listingLimit      int
-	nowFn             func() time.Time
-	PaywallProportion float64
+	listingLimit int
+	nowFn        func() time.Time
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue int64, couponDuration *int64, couponProjectLimit memory.Size, minCoinPayment int64, paywallProportion float64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue int64, couponDuration *int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -135,7 +135,6 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		AutoAdvance:              config.AutoAdvance,
 		listingLimit:             config.ListingLimit,
 		nowFn:                    time.Now,
-		PaywallProportion:        paywallProportion,
 	}, nil
 }
 
@@ -200,7 +199,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 			TransactionUpdate{
 				TransactionID: id,
 				Status:        info.Status,
-				Received:      info.Received,
+				Received:      monetary.AmountFromDecimal(info.Received, monetary.StorjToken),
 			},
 		)
 
@@ -276,7 +275,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
-	cents := convertToCents(rate, &tx.Received)
+	cents := convertToCents(rate, tx.Received)
 
 	if cents <= 0 {
 		service.log.Warn("Trying to deposit non-positive amount.",
@@ -322,7 +321,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 			Description: stripe.String(StripeDepositTransactionDescription),
 		}
 		params.AddMetadata("txID", tx.ID.String())
-		params.AddMetadata("storj_amount", tx.Amount.String())
+		params.AddMetadata("storj_amount", tx.Amount.AsDecimal().String())
 		params.AddMetadata("storj_usd_rate", rate.String())
 		_, err = service.stripeClient.CustomerBalanceTransactions().New(params)
 		if err != nil {
@@ -371,26 +370,26 @@ func (service *Service) UpdateRates(ctx context.Context) (err error) {
 }
 
 // GetRate returns conversion rate for specified currencies.
-func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.Currency) (_ *big.Float, err error) {
+func (service *Service) GetRate(ctx context.Context, curr1, curr2 *monetary.Currency) (_ decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
 	if service.ratesErr != nil {
-		return nil, Error.Wrap(err)
+		return decimal.Decimal{}, Error.Wrap(err)
 	}
 
-	info1, ok := service.rates[curr1]
+	info1, ok := service.rates.ForCurrency(curr1)
 	if !ok {
-		return nil, Error.New("no rate for currency %s", curr1)
+		return decimal.Decimal{}, Error.New("no rate for currency %s", curr1.Name())
 	}
-	info2, ok := service.rates[curr2]
+	info2, ok := service.rates.ForCurrency(curr2)
 	if !ok {
-		return nil, Error.New("no rate for currency %s", curr2)
+		return decimal.Decimal{}, Error.New("no rate for currency %s", curr2.Name())
 	}
 
-	return new(big.Float).Quo(&info1.RateBTC, &info2.RateBTC), nil
+	return info1.RateBTC.Div(info2.RateBTC), nil
 }
 
 // PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if
@@ -403,7 +402,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")
@@ -582,7 +581,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")
@@ -703,6 +702,59 @@ func (service *Service) InvoiceItemsFromProjectRecord(projName string, record Pr
 	return result
 }
 
+// ApplyFreeTierCoupons iterates through all customers in Stripe. For each customer,
+// if that customer does not currently have a Stripe coupon, the free tier Stripe coupon
+// is applied.
+func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customers := service.db.Customers()
+
+	appliedCoupons := 0
+	failedUsers := []string{}
+	morePages := true
+	nextOffset := int64(0)
+	listingLimit := 100
+	end := time.Now()
+	for morePages {
+		customersPage, err := customers.List(ctx, nextOffset, listingLimit, end)
+		if err != nil {
+			return err
+		}
+		morePages = customersPage.Next
+		nextOffset = customersPage.NextOffset
+
+		for _, c := range customersPage.Customers {
+			stripeCust, err := service.stripeClient.Customers().Get(c.ID, nil)
+			if err != nil {
+				service.log.Error("Failed to get customer", zap.Error(err))
+				failedUsers = append(failedUsers, c.ID)
+				continue
+			}
+			// if customer does not have a coupon, apply the free tier coupon
+			if stripeCust.Discount == nil || stripeCust.Discount.Coupon == nil {
+				params := &stripe.CustomerParams{
+					Coupon: stripe.String(service.StripeFreeTierCouponID),
+				}
+				_, err := service.stripeClient.Customers().Update(c.ID, params)
+				if err != nil {
+					service.log.Error("Failed to update customer with free tier coupon", zap.Error(err))
+					failedUsers = append(failedUsers, c.ID)
+					continue
+				}
+				appliedCoupons++
+			}
+		}
+	}
+
+	if len(failedUsers) > 0 {
+		service.log.Warn("Failed to get or apply free tier coupon to some customers:", zap.String("idlist", strings.Join(failedUsers, ", ")))
+	}
+	service.log.Info("Finished", zap.Int("number of coupons applied", appliedCoupons))
+
+	return nil
+}
+
 // InvoiceApplyCoupons iterates through unapplied project coupons and creates invoice line items
 // for stripe customer.
 func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Time) (err error) {
@@ -712,7 +764,7 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")
@@ -786,7 +838,7 @@ func (service *Service) applyCoupons(ctx context.Context, usages []CouponUsage) 
 }
 
 // createInvoiceCouponItems consumes invoice project record and creates invoice line items for stripe customer.
-func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon payments.Coupon, usage CouponUsage, customerID string) (err error) {
+func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon payments.CouponOld, usage CouponUsage, customerID string) (err error) {
 	defer mon.Task()(&ctx, customerID, coupon)(&err)
 
 	err = service.db.Coupons().ApplyUsage(ctx, usage.CouponID, usage.Period)
@@ -827,7 +879,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")

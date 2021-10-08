@@ -14,6 +14,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import ErrorIcon from '@/../static/images/common/errorNotice.svg';
 
+// @vue/component
 @Component({
     components: {
         ErrorIcon,
@@ -40,9 +41,8 @@ export default class ValidationMessage extends Vue {
         &__wrapper {
             box-sizing: border-box;
             border-radius: 6px;
-            height: 52px;
             width: 100%;
-            padding-left: 25px;
+            padding: 12px 25px;
         }
 
         &__text {

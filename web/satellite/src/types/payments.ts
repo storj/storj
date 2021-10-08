@@ -71,12 +71,19 @@ export interface PaymentsApi {
     makeTokenDeposit(amount: number): Promise<TokenDeposit>;
 
     /**
-     * Indicates if paywall is enabled.
+     * applyCouponCode applies a coupon code.
      *
-     * @param userId
+     * @param couponCode
      * @throws Error
-    */
-    getPaywallStatus(userId: string): Promise<boolean>;
+     */
+    applyCouponCode(couponCode: string): Promise<Coupon>;
+
+    /**
+     * getCoupon returns the coupon applied to the user.
+     * 
+     * @throws Error
+     */
+    getCoupon(): Promise<Coupon | null>;
 }
 
 export class AccountBalance {
@@ -91,7 +98,7 @@ export class AccountBalance {
 }
 
 export class CreditCard {
-    public isSelected: boolean = false;
+    public isSelected = false;
 
     constructor(
         public id: string = '',
@@ -165,14 +172,13 @@ export class PaymentsHistoryItem {
         return amount / 100;
     }
 
-    public downloadLinkHtml(): string {
-        if (!this.link) {
-            return '';
+    public get label(): string {
+        switch(this.type) {
+        case PaymentsHistoryItemType.Transaction:
+            return "Checkout"
+        default:
+            return "Invoice PDF"
         }
-
-        const downloadLabel = this.type === PaymentsHistoryItemType.Transaction ? 'Checkout' : 'Invoice PDF';
-
-        return `<a class="download-link" target="_blank" href="${this.link}">${downloadLabel}</a>`;
     }
 
     /**
@@ -278,4 +284,58 @@ export class DateRange {
         this.startDate = startDate;
         this.endDate = endDate;
     }
+}
+
+/**
+ * Coupon describes a discount to the payment account of a user.
+ */
+export class Coupon {
+    public constructor (
+        public id: string = '',
+        public promoCode: string = '',
+        public name: string = '',
+        public amountOff: number = 0,
+        public percentOff: number = 0,
+        public addedAt: Date = new Date(),
+        public expiresAt: Date | null = new Date(),
+        public duration: CouponDuration = CouponDuration.Once,
+    ) {}
+
+    /**
+     * getDescription returns the amount and duration of the coupon.
+     */
+    public getDescription(): string {
+        let amtOff = `${parseFloat(this.percentOff.toFixed(2)).toString()}%`;
+        if (this.amountOff !== 0 || this.percentOff === 0) {
+            amtOff = `$${(this.amountOff / 100).toFixed(2).replace('.00', '')}`;
+        }
+        let dur = this.duration.toString();
+        if (this.duration === CouponDuration.Repeating && this.expiresAt !== null) {
+            const months = this.expiresAt.getUTCMonth() - this.addedAt.getUTCMonth() +
+                (this.expiresAt.getUTCFullYear() - this.addedAt.getFullYear()) * 12;
+            dur = `for ${months} month${months !== 1 ? 's' : ''}`;
+        }
+    
+        return `${amtOff} off ${dur}`;
+    }
+}
+
+/**
+ * CouponDuration indicates how many billing periods a coupon is applied.
+ */
+export enum CouponDuration {
+    /**
+     * Indicates that a coupon can only be applied once.
+     */
+	Once = "once",
+
+	/**
+     * Indicates that a coupon is applied every billing period for a definite amount of time.
+     */
+	Repeating = "repeating",
+
+	/**
+     * Indicates that a coupon is applied every billing period forever.
+     */
+	Forever = "forever"
 }

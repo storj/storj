@@ -273,7 +273,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := db.Pieces().CreateVerificationFile(identity.ID); err != nil {
+	if err := db.Pieces().CreateVerificationFile(ctx, identity.ID); err != nil {
 		return err
 	}
 

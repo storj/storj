@@ -4,11 +4,11 @@
 <template>
     <div class="project-details">
         <div class="project-details__wrapper">
-            <p class="project-details__wrapper__back" @click.stop.prevent="onBackClick"><- Back</p>
+            <p class="project-details__wrapper__back" @click.stop.prevent="onBackClick">&lt;- Back</p>
             <div class="project-details__wrapper__container">
                 <h1 class="project-details__wrapper__container__title">Project Details</h1>
                 <p class="project-details__wrapper__container__label">Name</p>
-                <div class="project-details__wrapper__container__name-area" v-if="!isNameEditing">
+                <div v-if="!isNameEditing" class="project-details__wrapper__container__name-area">
                     <p class="project-details__wrapper__container__name-area__name">{{ storedProject.name }}</p>
                     <VButton
                         label="Edit"
@@ -18,14 +18,14 @@
                         is-white="true"
                     />
                 </div>
-                <div class="project-details__wrapper__container__name-editing" v-if="isNameEditing">
+                <div v-if="isNameEditing" class="project-details__wrapper__container__name-editing">
                     <input
+                        v-model="nameValue"
                         class="project-details__wrapper__container__name-editing__input"
                         placeholder="Enter a name for your project"
                         @input="onNameInput"
                         @change="onNameInput"
-                        v-model="nameValue"
-                    />
+                    >
                     <span class="project-details__wrapper__container__name-editing__limit">{{ nameValue.length }}/{{ nameLength }}</span>
                     <VButton
                         class="project-details__wrapper__container__name-editing__save-button"
@@ -36,7 +36,7 @@
                     />
                 </div>
                 <p class="project-details__wrapper__container__label">Description</p>
-                <div class="project-details__wrapper__container__description-area" v-if="!isDescriptionEditing">
+                <div v-if="!isDescriptionEditing" class="project-details__wrapper__container__description-area">
                     <p class="project-details__wrapper__container__description-area__description">{{ displayedDescription }}</p>
                     <VButton
                         label="Edit"
@@ -46,14 +46,14 @@
                         is-white="true"
                     />
                 </div>
-                <div class="project-details__wrapper__container__description-editing" v-if="isDescriptionEditing">
+                <div v-if="isDescriptionEditing" class="project-details__wrapper__container__description-editing">
                     <input
+                        v-model="descriptionValue"
                         class="project-details__wrapper__container__description-editing__input"
                         placeholder="Enter a description for your project"
                         @input="onDescriptionInput"
                         @change="onDescriptionInput"
-                        v-model="descriptionValue"
-                    />
+                    >
                     <span class="project-details__wrapper__container__description-editing__limit">{{ descriptionValue.length }}/{{ descriptionLength }}</span>
                     <VButton
                         class="project-details__wrapper__container__description-editing__save-button"
@@ -63,31 +63,99 @@
                         :on-press="onSaveDescriptionButtonClick"
                     />
                 </div>
+                <div v-if="isPaidTier" class="project-details__wrapper__container__limits">
+                    <p class="project-details__wrapper__container__limits__label">Storage Limit</p>
+                    <div v-if="!isStorageLimitEditing" class="project-details__wrapper__container__limits__storagelimit-area">
+                        <p class="project-details__wrapper__container__limits__storagelimit-area__storagelimit">{{ storageLimitFormatted }}</p>
+                        <VButton
+                            label="Edit"
+                            width="64px"
+                            height="28px"
+                            :on-press="toggleStorageLimitEditing"
+                            is-white="true"
+                        />
+                    </div>
+                    <div v-if="isStorageLimitEditing" class="project-details__wrapper__container__limits__storagelimit-editing">
+                        <input
+                            v-model="storageLimitValue"
+                            class="project-details__wrapper__container__limits__storagelimit-editing__input"
+                            placeholder="Enter a storage limit for your project"
+                            @input="onStorageLimitInput"
+                            @change="onStorageLimitInput"
+                        >
+                        <span class="project-details__wrapper__container__limits__storagelimit-editing__limit">{{ nameValue.length }}/{{ nameLength }}</span>
+                        <VButton
+                            class="project-details__wrapper__container__limits__storagelimit-editing__save-button"
+                            label="Save"
+                            width="66px"
+                            height="30px"
+                            :on-press="onSaveStorageLimitButtonClick"
+                        />
+                    </div>
+                    <p class="project-details__wrapper__container__limits__label">Bandwidth Limit</p>
+                    <div v-if="!isBandwidthLimitEditing" class="project-details__wrapper__container__limits__bandwidthlimit-area">
+                        <p class="project-details__wrapper__container__limits__bandwidthlimit-area__bandwidthlimit">{{ bandwidthLimitFormatted }}</p>
+                        <VButton
+                            label="Edit"
+                            width="64px"
+                            height="28px"
+                            :on-press="toggleBandwidthLimitEditing"
+                            is-white="true"
+                        />
+                    </div>
+                    <div v-if="isBandwidthLimitEditing" class="project-details__wrapper__container__limits__bandwidthlimit-editing">
+                        <input
+                            v-model="bandwidthLimitValue"
+                            class="project-details__wrapper__container__limits__bandwidthlimit-editing__input"
+                            placeholder="Enter a bandwidth limit for your project"
+                            @input="onBandwidthLimitInput"
+                            @change="onBandwidthLimitInput"
+                        >
+                        <span class="project-details__wrapper__container__limits__bandwidthlimit-editing__limit">{{ nameValue.length }}/{{ nameLength }}</span>
+                        <VButton
+                            class="project-details__wrapper__container__limits__bandwidthlimit-editing__save-button"
+                            label="Save"
+                            width="66px"
+                            height="30px"
+                            :on-press="onSaveBandwidthLimitButtonClick"
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
+import { Dimensions, Size } from '@/utils/bytesSize';
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';
+import {
+    MAX_DESCRIPTION_LENGTH,
+    MAX_NAME_LENGTH,
+    Project,
+    ProjectFields, ProjectLimits
+} from '@/types/projects';
 
+// @vue/component
 @Component({
     components: {
         VButton,
-        HeaderedInput,
     },
 })
 export default class EditProjectDetails extends Vue {
-    public isNameEditing: boolean = false;
-    public isDescriptionEditing: boolean = false;
-    public nameValue: string = '';
-    public descriptionValue: string = '';
+    public isNameEditing = false;
+    public isDescriptionEditing = false;
+    public isStorageLimitEditing = false;
+    public isBandwidthLimitEditing = false;
+    public isPaidTier = false;
+    public nameValue = '';
+    public descriptionValue = '';
+    public storageLimitValue = 0;
+    public bandwidthLimitValue = 0;
     public nameLength: number = MAX_NAME_LENGTH;
     public descriptionLength: number = MAX_DESCRIPTION_LENGTH;
 
@@ -96,6 +164,34 @@ export default class EditProjectDetails extends Vue {
      */
     public get storedProject(): Project {
         return this.$store.getters.selectedProject;
+    }
+
+    /**
+     * Lifecycle hook after initial render.
+     * Fetches project limits and paid tier status.
+     */
+    public async mounted(): Promise<void> {
+        if (!this.$store.getters.selectedProject.id) {
+            return;
+        }
+
+        if (this.$store.state.usersModule.user.paidTier)
+        {
+            this.isPaidTier = true;
+        }
+
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
+
+    /**
+     * Returns current limits from store.
+     */
+    public get currentLimits(): ProjectLimits {
+        return this.$store.state.projectsModule.currentLimits;
     }
 
     /**
@@ -110,10 +206,10 @@ export default class EditProjectDetails extends Vue {
     /**
      * Triggers on name input.
      */
-    public onNameInput({ target }): void {
+    public onNameInput(event: Event): void {
+        const target = event.target as HTMLInputElement;
         if (target.value.length < MAX_NAME_LENGTH) {
             this.nameValue = target.value;
-
             return;
         }
 
@@ -123,14 +219,57 @@ export default class EditProjectDetails extends Vue {
     /**
      * Triggers on description input.
      */
-    public onDescriptionInput({ target }): void {
+    public onDescriptionInput(event: Event): void {
+        const target = event.target as HTMLInputElement;
         if (target.value.length < MAX_DESCRIPTION_LENGTH) {
             this.descriptionValue = target.value;
-
             return;
         }
 
         this.descriptionValue = target.value.slice(0, MAX_DESCRIPTION_LENGTH);
+    }
+
+    /**
+     * Returns formatted limit amount.
+     */
+    public get storageLimitFormatted(): string {
+        return this.formattedValue(new Size(this.currentLimits.storageLimit, 2));
+    }
+
+    /**
+     * Triggers on storage limit input.
+     */
+    public onStorageLimitInput(event: Event): void {
+        const target = event.target as HTMLInputElement;
+        this.storageLimitValue = parseInt(target.value);
+    }
+
+    /**
+     * Returns formatted limit amount.
+     */
+    public get bandwidthLimitFormatted(): string {
+        return this.formattedValue(new Size(this.currentLimits.bandwidthLimit, 2));
+    }
+
+    /**
+     * Triggers on bandwidth limit input.
+     */
+    public onBandwidthLimitInput(event: Event): void {
+        const target = event.target as HTMLInputElement;
+        this.bandwidthLimitValue = parseInt(target.value);
+    }
+
+    /**
+     * Formats value to needed form and returns it.
+     */
+    private formattedValue(value: Size): string {
+        switch (value.label) {
+        case Dimensions.Bytes:
+        case Dimensions.KB:
+            return '0';
+        default:
+            return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
+        }
     }
 
     /**
@@ -170,6 +309,40 @@ export default class EditProjectDetails extends Vue {
     }
 
     /**
+     * Updates project storage limit.
+     */
+    public async onSaveStorageLimitButtonClick(): Promise<void> {
+        try {
+            const updatedProject = new ProjectLimits(0, 0, this.storageLimitValue);
+            await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_STORAGE_LIMIT, updatedProject);
+        } catch (error) {
+            await this.$notify.error(`Unable to update project storage limit. ${error.message}`);
+
+            return;
+        }
+
+        this.toggleStorageLimitEditing();
+        await this.$notify.success('Project storage limit updated successfully!');
+    }
+
+    /**
+     * Updates project bandwidth limit.
+     */
+    public async onSaveBandwidthLimitButtonClick(): Promise<void> {
+        try {
+            const updatedProject = new ProjectLimits(this.bandwidthLimitValue);
+            await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_BANDWIDTH_LIMIT, updatedProject);
+        } catch (error) {
+            await this.$notify.error(`Unable to update project bandwidth limit. ${error.message}`);
+
+            return;
+        }
+
+        this.toggleBandwidthLimitEditing();
+        await this.$notify.success('Project bandwidth limit updated successfully!');
+    }
+
+    /**
      * Toggles project name editing state.
      */
     public toggleNameEditing(): void {
@@ -183,6 +356,26 @@ export default class EditProjectDetails extends Vue {
     public toggleDescriptionEditing(): void {
         this.isDescriptionEditing = !this.isDescriptionEditing;
         this.descriptionValue = this.storedProject.description;
+    }
+
+    /**
+     * Toggles project storage limit editing state.
+     */
+    public toggleStorageLimitEditing(): void {
+        if (this.$store.state.usersModule.user.paidTier) {
+            this.isStorageLimitEditing = !this.isStorageLimitEditing;
+            this.storageLimitValue = this.currentLimits.storageLimit;
+        }
+    }
+
+    /**
+     * Toggles project bandwidth limit editing state.
+     */
+    public toggleBandwidthLimitEditing(): void {
+        if (this.$store.state.usersModule.user.paidTier) {
+            this.isBandwidthLimitEditing = !this.isBandwidthLimitEditing;
+            this.bandwidthLimitValue = this.currentLimits.bandwidthLimit;
+        }
     }
 
     /**
@@ -240,7 +433,9 @@ export default class EditProjectDetails extends Vue {
                 }
 
                 &__name-area,
-                &__description-area {
+                &__description-area,
+                &__limits__storagelimit-area,
+                &__limits__bandwidthlimit-area {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -250,7 +445,9 @@ export default class EditProjectDetails extends Vue {
                     border-radius: 6px;
 
                     &__name,
-                    &__description {
+                    &__description,
+                    &__limits__storagelimit,
+                    &__limits__bandwidthlimit {
                         font-weight: normal;
                         font-size: 16px;
                         line-height: 19px;
@@ -264,12 +461,16 @@ export default class EditProjectDetails extends Vue {
                     }
                 }
 
-                &__name-area {
+                &__name-area,
+                &__description-area,
+                &__limits__storagelimit-area {
                     margin-bottom: 35px;
                 }
 
                 &__name-editing,
-                &__description-editing {
+                &__description-editing,
+                &__limits__storagelimit-editing,
+                &__limits__bandwidthlimit-editing {
                     display: flex;
                     align-items: center;
                     width: calc(100% - 7px);
@@ -308,7 +509,9 @@ export default class EditProjectDetails extends Vue {
                     }
                 }
 
-                &__name-editing {
+                &__name-editing,
+                &__description-editing,
+                &___limits_storagelimit-editing {
                     margin-bottom: 35px;
                 }
             }

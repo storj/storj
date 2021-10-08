@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <base-table >
+    <base-table>
         <thead slot="head">
             <tr>
                 <th class="align-left">NODE</th>
@@ -23,6 +23,9 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 
-@Component({ components: { BaseTable } })
+// @vue/component
+@Component({
+    components: { BaseTable },
+})
 export default class WalletDetailsTable extends Vue {}
 </script>

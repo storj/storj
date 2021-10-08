@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -55,43 +54,50 @@ func TestProgress(t *testing.T) {
 	})
 }
 
-func TestTransferQueueItem(t *testing.T) {
+func TestSegmentTransferQueueItem(t *testing.T) {
 	// test basic graceful exit transfer queue crud
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		geDB := db.GracefulExit()
 
 		nodeID1 := testrand.NodeID()
 		nodeID2 := testrand.NodeID()
-		key1 := metabase.SegmentKey(testrand.Bytes(memory.B * 32))
-		key2 := metabase.SegmentKey(testrand.Bytes(memory.B * 32))
-		// root piece IDs for path 1 and 2
+		streamID1 := testrand.UUID()
+		streamID2 := testrand.UUID()
+		position1 := metabase.SegmentPosition{Part: 1, Index: 2}
+		position2 := metabase.SegmentPosition{Part: 2, Index: 3}
+
+		// root piece IDs for segments 1 and 2
 		rootPieceID1 := testrand.PieceID()
 		rootPieceID2 := testrand.PieceID()
 		items := []gracefulexit.TransferQueueItem{
 			{
 				NodeID:          nodeID1,
-				Key:             key1,
+				StreamID:        streamID1,
+				Position:        position1,
 				PieceNum:        1,
 				RootPieceID:     rootPieceID1,
 				DurabilityRatio: 0.9,
 			},
 			{
 				NodeID:          nodeID1,
-				Key:             key2,
+				StreamID:        streamID2,
+				Position:        position2,
 				PieceNum:        2,
 				RootPieceID:     rootPieceID2,
 				DurabilityRatio: 1.1,
 			},
 			{
 				NodeID:          nodeID2,
-				Key:             key1,
+				StreamID:        streamID1,
+				Position:        position1,
 				PieceNum:        2,
 				RootPieceID:     rootPieceID1,
 				DurabilityRatio: 0.9,
 			},
 			{
 				NodeID:          nodeID2,
-				Key:             key2,
+				StreamID:        streamID2,
+				Position:        position2,
 				PieceNum:        1,
 				RootPieceID:     rootPieceID2,
 				DurabilityRatio: 1.1,
@@ -105,7 +111,7 @@ func TestTransferQueueItem(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, tqi := range items {
-				item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Key, tqi.PieceNum)
+				item, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.StreamID, tqi.Position, tqi.PieceNum)
 				require.NoError(t, err)
 				require.Equal(t, tqi.RootPieceID, item.RootPieceID)
 				require.Equal(t, tqi.DurabilityRatio, item.DurabilityRatio)
@@ -117,7 +123,7 @@ func TestTransferQueueItem(t *testing.T) {
 				err = geDB.UpdateTransferQueueItem(ctx, *item)
 				require.NoError(t, err)
 
-				latestItem, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.Key, tqi.PieceNum)
+				latestItem, err := geDB.GetTransferQueueItem(ctx, tqi.NodeID, tqi.StreamID, tqi.Position, tqi.PieceNum)
 				require.NoError(t, err)
 
 				require.Equal(t, item.RootPieceID, latestItem.RootPieceID)
@@ -132,7 +138,7 @@ func TestTransferQueueItem(t *testing.T) {
 
 		// mark the first item finished and test that only 1 item gets returned from the GetIncomplete
 		{
-			item, err := geDB.GetTransferQueueItem(ctx, nodeID1, key1, 1)
+			item, err := geDB.GetTransferQueueItem(ctx, nodeID1, streamID1, position1, 1)
 			require.NoError(t, err)
 
 			now := time.Now()
@@ -146,7 +152,8 @@ func TestTransferQueueItem(t *testing.T) {
 			require.Len(t, queueItems, 1)
 			for _, queueItem := range queueItems {
 				require.Equal(t, nodeID1, queueItem.NodeID)
-				require.Equal(t, key2, queueItem.Key)
+				require.Equal(t, streamID2, queueItem.StreamID)
+				require.Equal(t, position2, queueItem.Position)
 			}
 		}
 
@@ -156,11 +163,11 @@ func TestTransferQueueItem(t *testing.T) {
 			require.NoError(t, err)
 
 			// key1 should no longer exist for nodeID1
-			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, key1, 1)
+			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, streamID1, position1, 1)
 			require.Error(t, err)
 
 			// key2 should still exist for nodeID1
-			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, key2, 2)
+			_, err = geDB.GetTransferQueueItem(ctx, nodeID1, streamID2, position2, 2)
 			require.NoError(t, err)
 		}
 
@@ -179,11 +186,11 @@ func TestTransferQueueItem(t *testing.T) {
 		}
 
 		// test increment order limit send count
-		err := geDB.IncrementOrderLimitSendCount(ctx, nodeID1, key2, 2)
+		err := geDB.IncrementOrderLimitSendCount(ctx, nodeID1, streamID2, position2, 2)
 		require.NoError(t, err)
 
 		// get queue item for key2 since that still exists
-		item, err := geDB.GetTransferQueueItem(ctx, nodeID1, key2, 2)
+		item, err := geDB.GetTransferQueueItem(ctx, nodeID1, streamID2, position2, 2)
 		require.NoError(t, err)
 
 		require.Equal(t, 1, item.OrderLimitSendCount)

@@ -3,7 +3,7 @@
 
 <template>
     <div class="current-month-area">
-        <VLoader class="consts-loader" v-if="isDataFetching"/>
+        <VLoader v-if="isDataFetching" class="consts-loader" />
         <template v-else>
             <h1 class="current-month-area__costs">{{ priceSummary | centsToDollars }}</h1>
             <span class="current-month-area__title">Estimated Charges for {{ chosenPeriod }}</span>
@@ -15,8 +15,8 @@
                 <p class="current-month-area__content__title">DETAILS</p>
                 <UsageAndChargesItem
                     v-for="usageAndCharges in projectUsageAndCharges"
-                    :item="usageAndCharges"
                     :key="usageAndCharges.projectId"
+                    :item="usageAndCharges"
                     class="item"
                 />
             </div>
@@ -28,7 +28,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
-import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -36,15 +35,15 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { MONTHS_NAMES } from '@/utils/constants/date';
 
+// @vue/component
 @Component({
     components: {
-        VButton,
         UsageAndChargesItem,
         VLoader,
     },
 })
 export default class EstimatedCostsAndCredits extends Vue {
-    public isDataFetching: boolean = true;
+    public isDataFetching = true;
 
     /**
      * Lifecycle hook after initial render.

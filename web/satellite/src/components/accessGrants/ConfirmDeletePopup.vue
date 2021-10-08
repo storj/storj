@@ -13,13 +13,13 @@
             </p>
             <div class="confirm-delete__container__list">
                 <div
-                    class="confirm-delete__container__list__container"
                     v-for="accessGrant in selectedAccessGrants"
                     :key="accessGrant.id"
+                    class="confirm-delete__container__list__container"
                 >
                     <div class="confirm-delete__container__list__container__item">
                         <p class="confirm-delete__container__list__container__item__name">
-                            {{accessGrant.name}}
+                            {{ accessGrant.name }}
                         </p>
                     </div>
                 </div>
@@ -59,6 +59,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         VButton,
@@ -66,8 +67,8 @@ import { AccessGrant } from '@/types/accessGrants';
     },
 })
 export default class ConfirmDeletePopup extends Vue {
-    private FIRST_PAGE: number = 1;
-    private isLoading: boolean = false;
+    private FIRST_PAGE = 1;
+    private isLoading = false;
 
     /**
      * Deletes selected access grants, fetches updated list and closes popup.

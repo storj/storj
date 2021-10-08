@@ -3,7 +3,7 @@
 
 <template>
     <div class="projects-list">
-        <InfoBar/>
+        <InfoBar />
         <div class="projects-list__title-area">
             <h2 class="projects-list__title-area__title">Projects</h2>
             <VButton
@@ -14,8 +14,8 @@
                 :is-disabled="areProjectsFetching"
             />
         </div>
-        <VLoader v-if="areProjectsFetching" width="100px" height="100px" class="projects-loader"/>
-        <div class="projects-list-items" v-if="projectsPage.projects.length && !areProjectsFetching">
+        <VLoader v-if="areProjectsFetching" width="100px" height="100px" class="projects-loader" />
+        <div v-if="projectsPage.projects.length && !areProjectsFetching" class="projects-list-items">
             <SortProjectsListHeader />
             <div class="projects-list-items__content">
                 <VList
@@ -24,7 +24,7 @@
                     :on-item-click="onProjectSelected"
                 />
             </div>
-            <div class="projects-list-items__pagination-area" v-if="projectsPage.pageCount > 1">
+            <div v-if="projectsPage.pageCount > 1" class="projects-list-items__pagination-area">
                 <VPagination
                     :total-page-count="projectsPage.pageCount"
                     :on-page-click-callback="onPageClick"
@@ -58,6 +58,7 @@ const {
     FETCH_OWNED,
 } = PROJECTS_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         SortProjectsListHeader,
@@ -69,10 +70,10 @@ const {
     },
 })
 export default class Projects extends Vue {
-    private currentPageNumber: number = 1;
+    private currentPageNumber = 1;
     private FIRST_PAGE = 1;
 
-    public areProjectsFetching: boolean = true;
+    public areProjectsFetching = true;
 
     /**
      * Lifecycle hook after initial render where list of existing owned projects is fetched.
@@ -103,7 +104,7 @@ export default class Projects extends Vue {
     /**
      * Returns ProjectsList item component.
      */
-    public get itemComponent() {
+    public get itemComponent(): typeof ProjectsListItem {
         return ProjectsListItem;
     }
 

@@ -5,7 +5,7 @@
     <div class="grants-item-container">
         <div class="grants-item-container__common-info">
             <div class="checkbox-container">
-                <CheckboxIcon class="checkbox-container__image"/>
+                <CheckboxIcon class="checkbox-container__image" />
             </div>
             <div class="name-container" :title="itemData.name">
                 <p class="name">{{ itemData.name }}</p>
@@ -24,6 +24,7 @@ import CheckboxIcon from '@/../static/images/accessGrants/vector.svg';
 
 import { AccessGrant } from '@/types/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         CheckboxIcon,

@@ -83,20 +83,28 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * @returns Project[]
      * @throws Error
      */
-    public async update(projectId: string, name: string, description: string): Promise<void> {
+    public async update(projectId: string, projectFields: ProjectFields, projectLimits: ProjectLimits): Promise<void> {
         const query =
-            `mutation($projectId: String!, $name: String!, $description: String!) {
+            `mutation($projectId: String!, $name: String!, $description: String!, $storageLimit: String!, $bandwidthLimit: String!) {
                 updateProject(
                     id: $projectId,
-                    name: $name,
-                    description: $description
+                    projectFields: {
+                        name: $name,
+                        description: $description,
+                    },
+                    projectLimits: {
+                        storageLimit: $storageLimit,
+                        bandwidthLimit: $bandwidthLimit,
+                    }
                 ) {name}
             }`;
 
         const variables = {
             projectId: projectId,
-            name: name,
-            description: description,
+            name: projectFields.name,
+            description: projectFields.description,
+            storageLimit: projectLimits.storageLimit.toString(),
+            bandwidthLimit: projectLimits.bandwidthLimit.toString(),
         };
 
         await this.mutate(query, variables);
@@ -129,7 +137,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * @param projectId- project ID
      * throws Error
      */
-    public async getLimits(projectId): Promise<ProjectLimits> {
+    public async getLimits(projectId: string): Promise<ProjectLimits> {
         const path = `${this.ROOT_PATH}/${projectId}/usage-limits`;
         const response = await this.http.get(path);
 
@@ -149,6 +157,33 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         }
 
         throw new Error('can not get usage limits');
+    }
+
+    /**
+     * Get total limits for all the projects that user owns.
+     *
+     * throws Error
+     */
+    public async getTotalLimits(): Promise<ProjectLimits> {
+        const path = `${this.ROOT_PATH}/usage-limits`;
+        const response = await this.http.get(path);
+
+        if (response.ok) {
+            const limits = await response.json();
+
+            return new ProjectLimits(
+                limits.bandwidthLimit,
+                limits.bandwidthUsed,
+                limits.storageLimit,
+                limits.storageUsed,
+            );
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not get total usage limits');
     }
 
     /**
@@ -192,7 +227,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      *
      * @param page anonymous object from json
      */
-    private getProjectsPage(page: any): ProjectsPage {
+    private getProjectsPage(page: any): ProjectsPage { // eslint-disable-line @typescript-eslint/no-explicit-any
         if (!page) {
             return new ProjectsPage();
         }

@@ -3,14 +3,15 @@
 
 <template>
     <table class="base-table" border="0" cellpadding="0" cellspacing="0">
-        <slot name="head"></slot>
-        <slot name="body"></slot>
+        <slot name="head" />
+        <slot name="body" />
     </table>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+// @vue/component
 @Component
 export default class BaseTable extends Vue {}
 </script>

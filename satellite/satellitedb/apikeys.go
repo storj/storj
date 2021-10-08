@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/lrucache"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/lrucache"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )

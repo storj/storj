@@ -3,19 +3,22 @@
 
 import Vuex from 'vuex';
 
+import { RootState } from '@/app/store';
 import { Expectation, HeldAmountSummary, PayoutsSummary, Paystub } from '@/payouts';
 import { createLocalVue } from '@vue/test-utils';
 
 import store, { payoutsService } from '../mock/store';
 
-const state = store.state as any;
+const state = store.state as RootState;
 
 const summary = new PayoutsSummary(5000000, 6000000, 9000000);
 const expectations = new Expectation(4000000, 3000000);
 const expectationsByNode = new Expectation(1000000, 2000000);
 const period = '2021-04';
 const totalPaystub = new Paystub(2000);
+
 totalPaystub.paid = 40000;
+
 const paystub = new Paystub(3000);
 const heldHistory = [
     new HeldAmountSummary('satelliteName', 1000, 2000, 3000, 10),
@@ -64,7 +67,7 @@ describe('actions', () => {
         store.commit('payouts/setNodeHeldHistory', []);
     });
 
-    it('throws error on failed summary fetch', async () => {
+    it('throws error on failed summary fetch', async() => {
         jest.spyOn(payoutsService, 'summary').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -75,7 +78,7 @@ describe('actions', () => {
         }
     });
 
-    it('success fetches payouts summary', async () => {
+    it('success fetches payouts summary', async() => {
         jest.spyOn(payoutsService, 'summary').mockReturnValue(
             Promise.resolve(summary),
         );
@@ -85,7 +88,7 @@ describe('actions', () => {
         expect(state.payouts.summary.totalPaid).toBe(summary.totalPaid);
     });
 
-    it('throws error on failed expectations fetch', async () => {
+    it('throws error on failed expectations fetch', async() => {
         jest.spyOn(payoutsService, 'expectations').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -96,7 +99,7 @@ describe('actions', () => {
         }
     });
 
-    it('success fetches total expectations', async () => {
+    it('success fetches total expectations', async() => {
         jest.spyOn(payoutsService, 'expectations').mockReturnValue(
             Promise.resolve(expectations),
         );
@@ -106,7 +109,7 @@ describe('actions', () => {
         expect(state.payouts.totalExpectations.undistributed).toBe(expectations.undistributed);
     });
 
-    it('success fetches by node expectations', async () => {
+    it('success fetches by node expectations', async() => {
         jest.spyOn(payoutsService, 'expectations').mockReturnValue(
             Promise.resolve(expectationsByNode),
         );
@@ -117,7 +120,7 @@ describe('actions', () => {
         expect(state.payouts.selectedNodePayouts.expectations.undistributed).toBe(expectationsByNode.undistributed);
     });
 
-    it('success fetches paystubs for period', async () => {
+    it('success fetches paystubs for period', async() => {
         jest.spyOn(payoutsService, 'paystub').mockReturnValue(
             Promise.resolve(paystub),
         );
@@ -128,7 +131,7 @@ describe('actions', () => {
         expect(state.payouts.selectedNodePayouts.paystubForPeriod.usageAtRest).toBe(paystub.usageAtRest);
     });
 
-    it('success fetches total paystub', async () => {
+    it('success fetches total paystub', async() => {
         jest.spyOn(payoutsService, 'paystub').mockReturnValue(
             Promise.resolve(totalPaystub),
         );
@@ -138,7 +141,7 @@ describe('actions', () => {
         expect(state.payouts.selectedNodePayouts.totalEarned).toBe(totalPaystub.paid);
     });
 
-    it('success fetches total paystub', async () => {
+    it('success fetches total paystub', async() => {
         jest.spyOn(payoutsService, 'heldHistory').mockReturnValue(
             Promise.resolve(heldHistory),
         );
@@ -151,7 +154,7 @@ describe('actions', () => {
 });
 
 describe('getters', () => {
-    it('getter monthsOnNetwork returns correct value',  () => {
+    it('getter monthsOnNetwork returns correct value', () => {
         store.commit('payouts/setPayoutPeriod', period);
 
         expect(store.getters['payouts/periodString']).toBe('April, 2021');

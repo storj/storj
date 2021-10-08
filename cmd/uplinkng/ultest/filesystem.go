@@ -6,7 +6,9 @@ package ultest
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/zeebo/clingy"
@@ -25,6 +27,7 @@ type testFilesystem struct {
 	created int64
 	files   map[ulloc.Location]memFileData
 	pending map[ulloc.Location][]*memWriteHandle
+	locals  map[string]bool // true means path is a directory
 	buckets map[string]struct{}
 }
 
@@ -32,6 +35,7 @@ func newTestFilesystem() *testFilesystem {
 	return &testFilesystem{
 		files:   make(map[ulloc.Location]memFileData),
 		pending: make(map[ulloc.Location][]*memWriteHandle),
+		locals:  make(map[string]bool),
 		buckets: make(map[string]struct{}),
 	}
 }
@@ -61,6 +65,10 @@ func (tfs *testFilesystem) Close() error {
 }
 
 func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (_ ulfs.ReadHandle, err error) {
+	if loc.Std() {
+		return &byteReadHandle{Buffer: bytes.NewBufferString("-")}, nil
+	}
+
 	mf, ok := tfs.files[loc]
 	if !ok {
 		return nil, errs.New("file does not exist")
@@ -69,9 +77,23 @@ func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (_ ulfs.
 }
 
 func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulfs.WriteHandle, err error) {
+	if loc.Std() {
+		return new(discardWriteHandle), nil
+	}
+
 	if bucket, _, ok := loc.RemoteParts(); ok {
 		if _, ok := tfs.buckets[bucket]; !ok {
 			return nil, errs.New("bucket %q does not exist", bucket)
+		}
+	}
+
+	if path, ok := loc.LocalParts(); ok {
+		if loc.Directoryish() || tfs.IsLocalDir(ctx, loc) {
+			return nil, errs.New("unable to open file for writing: %q", loc)
+		}
+		dir := ulloc.CleanPath(filepath.Dir(path))
+		if err := tfs.mkdirAll(ctx, dir); err != nil {
+			return nil, err
 		}
 	}
 
@@ -94,9 +116,11 @@ func (tfs *testFilesystem) Remove(ctx context.Context, loc ulloc.Location) error
 }
 
 func (tfs *testFilesystem) ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ulfs.ObjectIterator, error) {
+	prefixDir := prefix.AsDirectoryish()
+
 	var infos []ulfs.ObjectInfo
 	for loc, mf := range tfs.files {
-		if loc.HasPrefix(prefix) {
+		if loc.HasPrefix(prefixDir) || loc == prefix {
 			infos = append(infos, ulfs.ObjectInfo{
 				Loc:     loc,
 				Created: time.Unix(mf.created, 0),
@@ -114,9 +138,11 @@ func (tfs *testFilesystem) ListObjects(ctx context.Context, prefix ulloc.Locatio
 }
 
 func (tfs *testFilesystem) ListUploads(ctx context.Context, prefix ulloc.Location, recursive bool) (ulfs.ObjectIterator, error) {
+	prefixDir := prefix.AsDirectoryish()
+
 	var infos []ulfs.ObjectInfo
 	for loc, whs := range tfs.pending {
-		if loc.HasPrefix(prefix) {
+		if loc.Remote() && loc.HasPrefix(prefixDir) || loc == prefix {
 			for _, wh := range whs {
 				infos = append(infos, ulfs.ObjectInfo{
 					Loc:     loc,
@@ -135,10 +161,35 @@ func (tfs *testFilesystem) ListUploads(ctx context.Context, prefix ulloc.Locatio
 	return &objectInfoIterator{infos: infos}, nil
 }
 
-func (tfs *testFilesystem) IsLocalDir(ctx context.Context, loc ulloc.Location) bool {
-	// TODO: implement this
+func (tfs *testFilesystem) IsLocalDir(ctx context.Context, loc ulloc.Location) (local bool) {
+	path, ok := loc.LocalParts()
+	return ok && (ulloc.CleanPath(path) == "." || tfs.locals[path])
+}
 
-	return false
+func (tfs *testFilesystem) mkdirAll(ctx context.Context, dir string) error {
+	i := 0
+	for i < len(dir) {
+		slash := strings.Index(dir[i:], "/")
+		if slash == -1 {
+			break
+		}
+		if err := tfs.mkdir(ctx, dir[:i+slash]); err != nil {
+			return err
+		}
+		i += slash + 1
+	}
+	if len(dir) > 0 {
+		return tfs.mkdir(ctx, dir)
+	}
+	return nil
+}
+
+func (tfs *testFilesystem) mkdir(ctx context.Context, dir string) error {
+	if isDir, ok := tfs.locals[dir]; ok && !isDir {
+		return errs.New("cannot create directory: %q is a file", dir)
+	}
+	tfs.locals[dir] = true
+	return nil
 }
 
 //
@@ -171,6 +222,10 @@ func (b *memWriteHandle) Write(p []byte) (int, error) {
 func (b *memWriteHandle) Commit() error {
 	if err := b.close(); err != nil {
 		return err
+	}
+
+	if path, ok := b.loc.LocalParts(); ok {
+		b.tfs.locals[path] = false
 	}
 
 	b.tfs.files[b.loc] = memFileData{
@@ -210,6 +265,12 @@ func (b *memWriteHandle) close() error {
 
 	return nil
 }
+
+type discardWriteHandle struct{}
+
+func (discardWriteHandle) Write(p []byte) (int, error) { return len(p), nil }
+func (discardWriteHandle) Commit() error               { return nil }
+func (discardWriteHandle) Abort() error                { return nil }
 
 //
 // ulfs.ObjectIterator
@@ -260,7 +321,13 @@ func collapseObjectInfos(prefix ulloc.Location, infos []ulfs.ObjectInfo) []ulfs.
 			oi.IsPrefix = true
 		}
 
-		oi.Loc = oi.Loc.SetKey(first)
+		if bucket, _, ok := oi.Loc.RemoteParts(); ok {
+			oi.Loc = ulloc.NewRemote(bucket, first)
+		} else if _, ok := oi.Loc.LocalParts(); ok {
+			oi.Loc = ulloc.NewLocal(first)
+		} else {
+			panic("invalid object returned from list")
+		}
 
 		infos[j] = oi
 		j++

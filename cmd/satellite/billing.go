@@ -9,11 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/process"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
@@ -67,8 +69,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		pc.CouponValue,
 		pc.CouponDuration.IntPointer(),
 		pc.CouponProjectLimit,
-		pc.MinCoinPayment,
-		pc.PaywallProportion)
+		pc.MinCoinPayment)
 }
 
 // parseBillingPeriodFromString parses provided date string and returns corresponding time.Time.
@@ -136,5 +137,13 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 		zap.L().Info("Ensured Stripe-Customer", zap.Int64("created", n))
 
 		return err
+	})
+}
+
+func cmdApplyFreeTierCoupons(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+		return payments.ApplyFreeTierCoupons(ctx)
 	})
 }

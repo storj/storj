@@ -16,8 +16,8 @@
         </div>
         <BucketsDropdown
             v-if="isDropdownShown"
-            @close="closeDropdown"
             v-click-outside="closeDropdown"
+            @close="closeDropdown"
         />
     </div>
 </template>
@@ -31,6 +31,7 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 import { RouteConfig } from '@/router';
 
+// @vue/component
 @Component({
     components: {
         ExpandIcon,
@@ -38,7 +39,7 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class BucketsSelection extends Vue {
-    public isDropdownShown: boolean = false;
+    public isDropdownShown = false;
 
     /**
      * Toggles dropdown visibility.

@@ -55,7 +55,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 			require.NoError(t, err)
 
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
-				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), period)
+				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), 0, period)
 			require.NoError(t, err)
 		}
 
@@ -66,7 +66,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		require.NoError(t, err)
 
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(period.Year(), period.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 		// check if we have project record for each project
 		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
@@ -116,7 +116,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(period.Year(), period.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 		numberOfProjects := 5
 		storageHours := 24
@@ -137,7 +137,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			// generate egress
 			projectsEgress[i] = int64(i+10) * memory.GiB.Int64()
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, projects[i].ID, []byte("testbucket"),
-				pb.PieceAction_GET, projectsEgress[i], period)
+				pb.PieceAction_GET, projectsEgress[i], 0, period)
 			require.NoError(t, err)
 
 			// generate storage
@@ -148,7 +148,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 					ProjectID:  projects[i].ID,
 					BucketName: "testbucket",
 				},
-				RemoteBytes: projectsStorage[i],
+				TotalBytes:  projectsStorage[i],
 				ObjectCount: int64(i + 1),
 			}
 			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
@@ -234,7 +234,7 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 		duration := 2
 		sumOfCoupons := int64(0)
 		for i := 0; i < 5; i++ {
-			coupon, err := satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
+			coupon, err := satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.CouponOld{
 				ID:       testrand.UUID(),
 				UserID:   user.ID,
 				Amount:   int64(i + 4),
@@ -249,7 +249,7 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 		{
 			// generate egress
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
-				pb.PieceAction_GET, 10*memory.GiB.Int64(), period)
+				pb.PieceAction_GET, 10*memory.GiB.Int64(), 0, period)
 			require.NoError(t, err)
 
 			// generate storage
@@ -259,7 +259,7 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 					ProjectID:  project.ID,
 					BucketName: "testbucket",
 				},
-				RemoteBytes: memory.TiB.Int64(),
+				TotalBytes:  memory.TiB.Int64(),
 				ObjectCount: 45,
 			}
 			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
@@ -348,7 +348,7 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		// we will have coupons with duration 5, 4, 3 and 2 from coupon create with AddUser
 		for i := 0; i < additionalCoupons; i++ {
 			duration := additionalCoupons - i + 2
-			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
+			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.CouponOld{
 				ID:       testrand.UUID(),
 				UserID:   user.ID,
 				Amount:   24,
@@ -362,7 +362,7 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		{
 			// generate egress - 48 cents
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
-				pb.PieceAction_GET, 10*memory.GiB.Int64(), period)
+				pb.PieceAction_GET, 10*memory.GiB.Int64(), 0, period)
 			require.NoError(t, err)
 		}
 
@@ -485,7 +485,7 @@ func TestService_CouponStatus(t *testing.T) {
 			}
 
 			// create a new coupon
-			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
+			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.CouponOld{
 				ID:       testrand.UUID(),
 				UserID:   user.ID,
 				Amount:   tt.amount,
@@ -499,7 +499,7 @@ func TestService_CouponStatus(t *testing.T) {
 
 			// generate egress
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
-				pb.PieceAction_GET, tt.egress.Int64(), period)
+				pb.PieceAction_GET, tt.egress.Int64(), 0, period)
 			require.NoError(t, err, errTag)
 
 			satellite.API.Payments.Service.SetNow(func() time.Time {
@@ -568,7 +568,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		require.NoError(t, err)
 
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(period.Year(), period.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
 		require.NoError(t, err)

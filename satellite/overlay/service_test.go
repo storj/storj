@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -39,22 +39,15 @@ func TestCache_Database(t *testing.T) {
 // returns a NodeSelectionConfig with sensible test values.
 func testNodeSelectionConfig(newNodeFraction float64, distinctIP bool) overlay.NodeSelectionConfig {
 	return overlay.NodeSelectionConfig{
-		AuditCount:      0,
 		NewNodeFraction: newNodeFraction,
 		OnlineWindow:    time.Hour,
 		DistinctIP:      distinctIP,
-
-		AuditReputationRepairWeight: 1,
-		AuditReputationUplinkWeight: 1,
-		AuditReputationLambda:       1,
-		AuditReputationWeight:       1,
-		AuditReputationDQ:           0.5,
 	}
 }
 
 // returns an AuditHistoryConfig with sensible test values.
-func testAuditHistoryConfig() overlay.AuditHistoryConfig {
-	return overlay.AuditHistoryConfig{
+func testAuditHistoryConfig() reputation.AuditHistoryConfig {
+	return reputation.AuditHistoryConfig{
 		WindowSize:       time.Hour,
 		TrackingPeriod:   time.Hour,
 		GracePeriod:      time.Hour,
@@ -71,7 +64,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	lastNet := "127.0.0"
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, false)
-	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100, AuditHistory: testAuditHistoryConfig()}
+	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100}
 	service, err := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
 	require.NoError(t, err)
 	d := overlay.NodeCheckInInfo{
@@ -93,7 +86,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		d.NodeID = valid3ID
 		err = store.UpdateCheckIn(ctx, d, time.Now().UTC(), nodeSelectionConfig)
 		require.NoError(t, err)
-
 		// disqualify one node
 		err = service.DisqualifyNode(ctx, valid3ID)
 		require.NoError(t, err)
@@ -119,43 +111,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 		// TODO: add erroring database test
 	}
-
-	{ // Reputation
-		valid1, err := service.Get(ctx, valid1ID)
-		require.NoError(t, err)
-		require.EqualValues(t, valid1.Id, valid1ID)
-		require.EqualValues(t, valid1.Reputation.AuditReputationAlpha, 1)
-		require.EqualValues(t, valid1.Reputation.AuditReputationBeta, 0)
-		require.Nil(t, valid1.Reputation.Disqualified)
-
-		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       valid1ID,
-			AuditOutcome: overlay.AuditFailure,
-		})
-		require.NoError(t, err)
-		newAuditAlpha := 1
-		newAuditBeta := 1
-		require.EqualValues(t, stats.AuditReputationAlpha, newAuditAlpha)
-		require.EqualValues(t, stats.AuditReputationBeta, newAuditBeta)
-		require.NotNil(t, stats.Disqualified)
-		require.True(t, time.Since(*stats.Disqualified) < time.Minute)
-
-		err = service.DisqualifyNode(ctx, valid2ID)
-		require.NoError(t, err)
-
-		// should not update once already disqualified
-		_, err = service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
-			NodeID:       valid2ID,
-			AuditOutcome: overlay.AuditSuccess,
-		}})
-		require.NoError(t, err)
-		dossier, err := service.Get(ctx, valid2ID)
-
-		require.NoError(t, err)
-		require.EqualValues(t, dossier.Reputation.AuditReputationAlpha, 1)
-		require.EqualValues(t, dossier.Reputation.AuditReputationBeta, 0)
-		require.NotNil(t, dossier.Disqualified)
-	}
 }
 
 func TestRandomizedSelection(t *testing.T) {
@@ -170,9 +125,6 @@ func TestRandomizedSelection(t *testing.T) {
 		cache := db.OverlayCache()
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
-		config := overlay.NodeSelectionConfig{
-			AuditCount: 1,
-		}
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
@@ -188,18 +140,11 @@ func TestRandomizedSelection(t *testing.T) {
 				Capacity:   &pb.NodeCapacity{},
 				IsUp:       true,
 			}
-			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), config)
+			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			if i%2 == 0 { // make half of nodes "new" and half "vetted"
-				_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       newID,
-					AuditOutcome: overlay.AuditSuccess,
-					AuditLambda:  1,
-					AuditWeight:  1,
-					AuditDQ:      0.5,
-					AuditHistory: testAuditHistoryConfig(),
-				}, time.Now())
+				_, err = cache.TestVetNode(ctx, newID)
 				require.NoError(t, err)
 			}
 
@@ -268,7 +213,11 @@ func TestRandomizedSelectionCache(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.NodeSelectionCache.Staleness = -time.Hour
 				config.Overlay.Node.NewNodeFraction = 0.5 // select 50% new nodes
-				config.Overlay.Node.AuditCount = 1
+				config.Reputation.AuditCount = 1
+				config.Reputation.AuditLambda = 1
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0.5
+				config.Reputation.AuditHistory = testAuditHistoryConfig()
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -308,15 +257,9 @@ func TestRandomizedSelectionCache(t *testing.T) {
 			err := overlaydb.UpdateCheckIn(ctx, n, time.Now().UTC(), defaults)
 			require.NoError(t, err)
 
-			if i%2 == 0 { // make half of nodes "new" and half "vetted"
-				_, err = overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       newID,
-					AuditOutcome: overlay.AuditSuccess,
-					AuditLambda:  1,
-					AuditWeight:  1,
-					AuditDQ:      0.5,
-					AuditHistory: testAuditHistoryConfig(),
-				}, time.Now())
+			if i%2 == 0 {
+				// make half of nodes "new" and half "vetted"
+				_, err = overlaydb.TestVetNode(ctx, newID)
 				require.NoError(t, err)
 			}
 
@@ -442,7 +385,7 @@ func TestKnownReliable(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.AuditHistory = overlay.AuditHistoryConfig{
+				config.Reputation.AuditHistory = reputation.AuditHistoryConfig{
 					WindowSize:               time.Hour,
 					TrackingPeriod:           2 * time.Hour,
 					GracePeriod:              time.Hour,
@@ -455,9 +398,10 @@ func TestKnownReliable(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		service := satellite.Overlay.Service
+		oc := satellite.DB.OverlayCache()
 
 		// Disqualify storage node #0
-		err := satellite.DB.OverlayCache().DisqualifyNode(ctx, planet.StorageNodes[0].ID())
+		err := oc.DisqualifyNode(ctx, planet.StorageNodes[0].ID())
 		require.NoError(t, err)
 
 		// Stop storage node #1
@@ -474,11 +418,12 @@ func TestKnownReliable(t *testing.T) {
 		require.False(t, service.IsOnline(node))
 
 		// unknown audit suspend storage node #2
-		err = satellite.DB.OverlayCache().SuspendNodeUnknownAudit(ctx, planet.StorageNodes[2].ID(), time.Now())
+		err = oc.TestSuspendNodeUnknownAudit(ctx, planet.StorageNodes[2].ID(), time.Now())
 		require.NoError(t, err)
 
 		// offline suspend storage node #3
-		require.NoError(t, offlineSuspendNode(ctx, satellite.Overlay.DB, &planet.Satellites[0].Config.Overlay.AuditHistory, planet.StorageNodes[3].ID()))
+		err = oc.TestSuspendNodeOffline(ctx, planet.StorageNodes[3].ID(), time.Now())
+		require.NoError(t, err)
 
 		// Check that only storage nodes #4 and #5 are reliable
 		result, err := service.KnownReliable(ctx, []storj.NodeID{
@@ -589,11 +534,6 @@ func TestUpdateCheckIn(t *testing.T) {
 		// we need to overwrite the times so that the deep equal considers them the same
 		expectedNode.Reputation.LastContactSuccess = actualNode.Reputation.LastContactSuccess
 		expectedNode.Reputation.LastContactFailure = actualNode.Reputation.LastContactFailure
-		expectedNode.Reputation.AuditReputationAlpha = 1
-		expectedNode.Reputation.UnknownAuditReputationAlpha = 1
-		expectedNode.Reputation.AuditReputationBeta = 0
-		expectedNode.Reputation.UnknownAuditReputationBeta = 0
-		expectedNode.Reputation.OnlineScore = 1
 		expectedNode.Version.Timestamp = actualNode.Version.Timestamp
 		expectedNode.CreatedAt = actualNode.CreatedAt
 		require.Equal(t, expectedNode, actualNode)
@@ -662,7 +602,7 @@ func TestSuspendedSelection(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
 		suspendedIDs := make(map[storj.NodeID]bool)
-		config := overlay.NodeSelectionConfig{AuditCount: 1}
+		config := overlay.NodeSelectionConfig{}
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
@@ -682,34 +622,19 @@ func TestSuspendedSelection(t *testing.T) {
 			require.NoError(t, err)
 
 			if i%2 == 0 { // make half of nodes "new" and half "vetted"
-				_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       newID,
-					AuditOutcome: overlay.AuditSuccess,
-					AuditLambda:  1,
-					AuditWeight:  1,
-					AuditDQ:      0.5,
-					AuditHistory: testAuditHistoryConfig(),
-				}, time.Now().UTC())
+				_, err = cache.TestVetNode(ctx, newID)
 				require.NoError(t, err)
-			}
-
-			ahConfig := &overlay.AuditHistoryConfig{
-				WindowSize:               time.Hour,
-				TrackingPeriod:           2 * time.Hour,
-				GracePeriod:              time.Hour,
-				OfflineThreshold:         0.6,
-				OfflineDQEnabled:         false,
-				OfflineSuspensionEnabled: true,
 			}
 
 			// suspend the first four nodes (2 new, 2 vetted)
 			// 2 offline suspended and 2 unknown audit suspended
 			if i < 4 {
 				if i < 2 {
-					require.NoError(t, offlineSuspendNode(ctx, cache, ahConfig, newID))
+					err = cache.TestSuspendNodeOffline(ctx, newID, time.Now())
+					require.NoError(t, err)
 					continue
 				}
-				err = cache.SuspendNodeUnknownAudit(ctx, newID, time.Now())
+				err = cache.TestSuspendNodeUnknownAudit(ctx, newID, time.Now())
 				require.NoError(t, err)
 				suspendedIDs[newID] = true
 			}
@@ -742,49 +667,75 @@ func TestSuspendedSelection(t *testing.T) {
 	})
 }
 
-func TestConcurrentAudit(t *testing.T) {
+func TestUpdateReputation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Chore.Loop.Stop()
-		data := testrand.Bytes(10 * memory.MB)
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "testpath", data)
+		service := planet.Satellites[0].Overlay.Service
+		overlaydb := planet.Satellites[0].Overlay.DB
+		node := planet.StorageNodes[0]
+
+		info, err := service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		var group errgroup.Group
-		n := 5
-		for i := 0; i < n; i++ {
-			group.Go(func() error {
-				_, err := planet.Satellites[0].Overlay.Service.UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       planet.StorageNodes[0].ID(),
-					AuditOutcome: overlay.AuditSuccess,
-				})
-				return err
-			})
+		require.False(t, info.Contained)
+		require.Nil(t, info.Disqualified)
+		require.Nil(t, info.UnknownAuditSuspended)
+		require.Nil(t, info.OfflineSuspended)
+		require.Nil(t, info.Reputation.VettedAt)
+
+		t0 := time.Now().Truncate(time.Hour)
+		t1 := t0.Add(time.Hour)
+		t2 := t0.Add(2 * time.Hour)
+		t3 := t0.Add(3 * time.Hour)
+
+		reputationChange := &overlay.ReputationStatus{
+			Contained:             true,
+			Disqualified:          nil,
+			UnknownAuditSuspended: &t1,
+			OfflineSuspended:      &t2,
+			VettedAt:              &t3,
 		}
-		err = group.Wait()
+		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
 		require.NoError(t, err)
 
-		node, err := planet.Satellites[0].DB.OverlayCache().Get(ctx, planet.StorageNodes[0].ID())
+		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, int64(n), node.Reputation.AuditCount)
+		require.True(t, info.Contained)
+		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
+		require.Equal(t, reputationChange.UnknownAuditSuspended, info.UnknownAuditSuspended)
+		require.Equal(t, reputationChange.OfflineSuspended, info.OfflineSuspended)
+		require.Equal(t, reputationChange.VettedAt, info.Reputation.VettedAt)
 
-		for i := 0; i < n; i++ {
-			group.Go(func() error {
-				_, err := planet.Satellites[0].Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{
-					{
-						NodeID:       planet.StorageNodes[0].ID(),
-						AuditOutcome: overlay.AuditSuccess,
-					},
-				})
-				return err
-			})
-		}
-		err = group.Wait()
+		reputationChange.Contained = false
+		reputationChange.Disqualified = &t0
+
+		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
 		require.NoError(t, err)
 
-		node, err = planet.Satellites[0].DB.OverlayCache().Get(ctx, planet.StorageNodes[0].ID())
+		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, int64(n*2), node.Reputation.AuditCount)
+		require.False(t, info.Contained)
+		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
+
+		nodeInfo, err := overlaydb.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+			NodeID:              node.ID(),
+			ExitInitiatedAt:     t0,
+			ExitLoopCompletedAt: t1,
+			ExitFinishedAt:      t1,
+			ExitSuccess:         true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, nodeInfo.ExitStatus.ExitFinishedAt)
+
+		// make sure Disqualified field is not updated if a node has finished
+		// graceful exit
+		reputationChange.Disqualified = &t0
+		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		require.NoError(t, err)
+
+		exitedNodeInfo, err := service.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.Equal(t, info.Disqualified, exitedNodeInfo.Disqualified)
 	})
 }
 
@@ -837,28 +788,4 @@ func TestVetAndUnvetNode(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, dossier.Reputation.VettedAt)
 	})
-}
-
-func offlineSuspendNode(ctx context.Context, oc overlay.DB, config *overlay.AuditHistoryConfig, nodeID storj.NodeID) error {
-	updateReq := &overlay.UpdateRequest{
-		NodeID:       nodeID,
-		AuditOutcome: overlay.AuditOffline,
-		AuditHistory: *config,
-
-		AuditLambda:              0.95,
-		AuditWeight:              1,
-		AuditDQ:                  0.6,
-		SuspensionGracePeriod:    time.Hour,
-		SuspensionDQEnabled:      true,
-		AuditsRequiredForVetting: 0,
-	}
-	windowTime := time.Now()
-	for i := 0; i <= int(config.TrackingPeriod/config.WindowSize); i++ {
-		_, err := oc.UpdateStats(ctx, updateReq, windowTime)
-		if err != nil {
-			return err
-		}
-		windowTime = windowTime.Add(time.Hour)
-	}
-	return nil
 }

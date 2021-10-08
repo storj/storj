@@ -19,11 +19,11 @@ export class ProjectsApiMock implements ProjectsApi {
         this.mockLimits = mockLimits;
     }
 
-    create(createProjectFields: ProjectFields): Promise<Project> {
+    create(_createProjectFields: ProjectFields): Promise<Project> {
         throw new Error('not implemented');
     }
 
-    delete(projectId: string): Promise<void> {
+    delete(_projectId: string): Promise<void> {
         throw new Error('not implemented');
     }
 
@@ -31,15 +31,19 @@ export class ProjectsApiMock implements ProjectsApi {
         return Promise.resolve(this.mockProjects);
     }
 
-    getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage> {
+    getOwnedProjects(_cursor: ProjectsCursor): Promise<ProjectsPage> {
         return Promise.resolve(this.mockProjectsPage);
     }
 
-    update(projectId: string, name: string, description: string): Promise<void> {
+    update(_projectId: string, _projectFields: ProjectFields, _projectLimits: ProjectLimits): Promise<void> {
         return Promise.resolve();
     }
 
-    getLimits(projectId: string): Promise<ProjectLimits> {
+    getLimits(_projectId: string): Promise<ProjectLimits> {
+        return Promise.resolve(this.mockLimits);
+    }
+
+    getTotalLimits(): Promise<ProjectLimits> {
         return Promise.resolve(this.mockLimits);
     }
 }

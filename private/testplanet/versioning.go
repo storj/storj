@@ -16,7 +16,6 @@ import (
 
 // newVersionControlServer initializes the Versioning Server.
 func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err error) {
-
 	prefix := "versioncontrol"
 	log := planet.log.Named(prefix)
 	dbDir := filepath.Join(planet.directory, prefix)

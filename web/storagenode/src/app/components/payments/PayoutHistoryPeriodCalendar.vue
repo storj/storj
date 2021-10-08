@@ -16,10 +16,10 @@
         </div>
         <div class="payout-period-calendar__months-area">
             <div
-                class="month-item"
-                :class="{ selected: item.selected, disabled: !item.active }"
                 v-for="item in currentDisplayedMonths"
                 :key="item.name"
+                class="month-item"
+                :class="{ selected: item.selected, disabled: !item.active }"
                 @click="checkMonth(item)"
             >
                 <p class="month-item__label">{{ item.name }}</p>
@@ -45,6 +45,7 @@ import {
     StoredMonthsByYear,
 } from '@/app/types/payout';
 
+// @vue/component
 @Component({
     components: {
         GrayArrowLeftIcon,
@@ -57,7 +58,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
      */
     public currentDisplayedMonths: MonthButton[] = [];
     public displayedYear: number = this.now.getUTCFullYear();
-    public period: string = '';
+    public period = '';
 
     private displayedMonths: StoredMonthsByYear = {};
     private selectedMonth: MonthButton | null;

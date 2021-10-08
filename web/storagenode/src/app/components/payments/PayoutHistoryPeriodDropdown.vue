@@ -7,9 +7,9 @@
         <BlackArrowHide v-if="isCalendarShown" />
         <BlackArrowExpand v-else />
         <PayoutHistoryPeriodCalendar
-            class="period-container__calendar"
-            v-click-outside="closePeriodDropdown"
             v-if="isCalendarShown"
+            v-click-outside="closePeriodDropdown"
+            class="period-container__calendar"
         />
     </div>
 </template>
@@ -25,6 +25,7 @@ import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { monthNames } from '@/app/types/payout';
 
+// @vue/component
 @Component({
     components: {
         PayoutHistoryPeriodCalendar,

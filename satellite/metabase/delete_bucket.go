@@ -13,7 +13,9 @@ import (
 	"storj.io/private/tagsql"
 )
 
-const deleteBatchSizeLimit = 100
+const (
+	deleteBatchSizeLimit = intLimitRange(50)
+)
 
 // DeleteBucketObjects contains arguments for deleting a whole bucket.
 type DeleteBucketObjects struct {
@@ -26,6 +28,9 @@ type DeleteBucketObjects struct {
 }
 
 // DeleteBucketObjects deletes all objects in the specified bucket.
+// Deletion performs in batches, so in case of error while processing,
+// this method will return the number of objects deleted to the moment
+// when an error occurs.
 func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -33,10 +38,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 		return 0, err
 	}
 
-	batchSize := opts.BatchSize
-	if batchSize <= 0 || batchSize > deleteBatchSizeLimit {
-		batchSize = deleteBatchSizeLimit
-	}
+	deleteBatchSizeLimit.Ensure(&opts.BatchSize)
 
 	var query string
 	switch db.impl {
@@ -71,12 +73,16 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 	}
 
 	// TODO: fix the count for objects without segments
-	var deleteSegments []DeletedSegmentInfo
+	deletedSegments := make([]DeletedSegmentInfo, 0, 100)
 	for {
-		deleteSegments = deleteSegments[:0]
-		batchDeletedObjects := 0
-		err = withRows(db.db.Query(ctx, query,
-			opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), batchSize))(func(rows tagsql.Rows) error {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
+
+		deletedSegments = deletedSegments[:0]
+		deletedObjects := 0
+		err = withRows(db.db.QueryContext(ctx, query,
+			opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize))(func(rows tagsql.Rows) error {
 			ids := map[uuid.UUID]struct{}{} // TODO: avoid map here
 			for rows.Next() {
 				var streamID uuid.UUID
@@ -92,15 +98,15 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 				}
 
 				ids[streamID] = struct{}{}
-				deleteSegments = append(deleteSegments, segment)
+				deletedSegments = append(deletedSegments, segment)
 			}
-			batchDeletedObjects = len(ids)
-			deletedObjectCount += int64(len(ids))
+			deletedObjects = len(ids)
+			deletedObjectCount += int64(deletedObjects)
 			return nil
 		})
 
-		mon.Meter("object_delete").Mark(batchDeletedObjects)
-		mon.Meter("segment_delete").Mark(len(deleteSegments))
+		mon.Meter("object_delete").Mark(deletedObjects)
+		mon.Meter("segment_delete").Mark(len(deletedSegments))
 
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -108,12 +114,13 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 			}
 			return deletedObjectCount, Error.Wrap(err)
 		}
-		if len(deleteSegments) == 0 {
+
+		if len(deletedSegments) == 0 {
 			return deletedObjectCount, nil
 		}
 
 		if opts.DeletePieces != nil {
-			err = opts.DeletePieces(ctx, deleteSegments)
+			err = opts.DeletePieces(ctx, deletedSegments)
 			if err != nil {
 				return deletedObjectCount, Error.Wrap(err)
 			}

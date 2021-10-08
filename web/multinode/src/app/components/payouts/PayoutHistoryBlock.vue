@@ -3,7 +3,7 @@
 
 <template>
     <info-block>
-        <div class="payouts-history-block" slot="body">
+        <div slot="body" class="payouts-history-block">
             <h3 class="payouts-history-block__title">Payout History</h3>
             <v-button class="payouts-history-block__button" label="Download" :is-white="true" width="100%" />
         </div>
@@ -16,6 +16,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import VButton from '@/app/components/common/VButton.vue';
 
+// @vue/component
 @Component({
     components: {
         InfoBlock,

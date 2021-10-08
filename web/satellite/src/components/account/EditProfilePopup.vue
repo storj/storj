@@ -7,28 +7,16 @@
             <div class="edit-profile-popup__form-container">
                 <div class="edit-profile-row-container">
                     <div class="edit-profile-popup__form-container__avatar">
-                        <h1 class="edit-profile-popup__form-container__avatar__letter">{{avatarLetter}}</h1>
+                        <h1 class="edit-profile-popup__form-container__avatar__letter">{{ avatarLetter }}</h1>
                     </div>
                     <h2 class="edit-profile-popup__form-container__main-label-text">Edit Profile</h2>
                 </div>
                 <HeaderedInput
-                    class="full-input"
                     label="Full Name"
                     placeholder="Enter Full Name"
-                    width="100%"
-                    ref="fullNameInput"
                     :error="fullNameError"
                     :init-value="userInfo.fullName"
                     @setData="setFullName"
-                />
-                <HeaderedInput
-                    class="full-input"
-                    label="Nickname"
-                    placeholder="Enter Nickname"
-                    width="100%"
-                    ref="shortNameInput"
-                    :init-value="userInfo.shortName"
-                    @setData="setShortName"
                 />
                 <div class="edit-profile-popup__form-container__button-container">
                     <VButton
@@ -47,7 +35,7 @@
                 </div>
             </div>
             <div class="edit-profile-popup__close-cross-container" @click="onCloseClick">
-                <CloseCrossIcon/>
+                <CloseCrossIcon />
             </div>
         </div>
     </div>
@@ -65,6 +53,7 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         CloseCrossIcon,
@@ -73,7 +62,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class EditProfilePopup extends Vue {
-    private fullNameError: string = '';
+    private fullNameError = '';
 
     private readonly userInfo: UpdatedUser =
         new UpdatedUser(this.$store.getters.user.fullName, this.$store.getters.user.shortName);
@@ -81,10 +70,6 @@ export default class EditProfilePopup extends Vue {
     public setFullName(value: string): void {
         this.userInfo.setFullName(value);
         this.fullNameError = '';
-    }
-
-    public setShortName(value: string): void {
-        this.userInfo.setShortName(value);
     }
 
     /**
@@ -107,7 +92,7 @@ export default class EditProfilePopup extends Vue {
 
         await this.$notify.success('Account info successfully updated!');
 
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
     }
 
     /**
@@ -133,7 +118,7 @@ export default class EditProfilePopup extends Vue {
         flex-direction: row;
         align-content: center;
         justify-content: flex-start;
-        margin-bottom: 20px;
+        margin-bottom: 40px;
     }
 
     .edit-profile-popup-container {
@@ -148,10 +133,6 @@ export default class EditProfilePopup extends Vue {
         justify-content: center;
         align-items: center;
         font-family: 'font_regular', sans-serif;
-    }
-
-    .input-container.full-input {
-        width: 100%;
     }
 
     .edit-profile-popup {

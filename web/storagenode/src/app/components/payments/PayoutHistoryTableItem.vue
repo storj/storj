@@ -13,7 +13,7 @@
             <p class="payout-history-item__header__total">{{ historyItem.paid | centsToDollars }}</p>
         </div>
         <transition name="fade" mode="in-out">
-            <div class="payout-history-item__expanded-area" v-if="isExpanded">
+            <div v-if="isExpanded" class="payout-history-item__expanded-area">
                 <div class="payout-history-item__expanded-area__left-area">
                     <div class="payout-history-item__expanded-area__left-area__info-area">
                         <div class="payout-history-item__expanded-area__left-area__info-area__item flex-start">
@@ -44,7 +44,7 @@
                         </div>
                     </div>
                     <div class="payout-history-item__expanded-area__left-area__footer">
-                        <div class="payout-history-item__expanded-area__left-area__footer__item" v-if="historyItem.isExitComplete">
+                        <div v-if="historyItem.isExitComplete" class="payout-history-item__expanded-area__left-area__footer__item">
                             <DisqualifyIcon class="disqualify-icon" />
                             <div class="payout-history-item__expanded-area__left-area__footer__item__text-area">
                                 <p class="payout-history-item__expanded-area__left-area__footer__item__text-area__title">
@@ -55,7 +55,7 @@
                                 </p>
                             </div>
                         </div>
-                        <div class="payout-history-item__expanded-area__left-area__footer__item" v-if="historyItem.age > 9 && !historyItem.isExitComplete">
+                        <div v-if="historyItem.age > 9 && !historyItem.isExitComplete" class="payout-history-item__expanded-area__left-area__footer__item">
                             <OKIcon class="ok-icon" />
                             <div class="payout-history-item__expanded-area__left-area__footer__item__text-area">
                                 <p class="payout-history-item__expanded-area__left-area__footer__item__text-area__title">
@@ -82,9 +82,9 @@
                         <p class="payout-history-item__expanded-area__right-area__info-item__label">Distributed</p>
                         <p class="payout-history-item__expanded-area__right-area__info-item__value">{{ historyItem.distributed | centsToDollars }}</p>
                     </div>
-                    <div class="payout-history-item__expanded-area__right-area__divider"></div>
+                    <div class="payout-history-item__expanded-area__right-area__divider" />
                     <div class="payout-history-item__expanded-area__right-area__footer">
-                        <div class="payout-history-item__expanded-area__right-area__footer__transaction" v-if="historyItem.transactionLink">
+                        <div v-if="historyItem.transactionLink" class="payout-history-item__expanded-area__right-area__footer__transaction">
                             <a
                                 class="payout-history-item__expanded-area__right-area__footer__transaction__link"
                                 :href="historyItem.transactionLink"
@@ -113,6 +113,7 @@ import ShareIcon from '@/../static/images/payments/Share.svg';
 
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component ({
     components: {
         ExpandIcon,
@@ -128,7 +129,7 @@ export default class PayoutHistoryTableItem extends Vue {
     /**
      * Indicates if payout info should be rendered.
      */
-    public isExpanded: boolean = false;
+    public isExpanded = false;
 
     /**
      * Toggles additional payout information.

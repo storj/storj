@@ -19,9 +19,12 @@ export const PROJECTS_ACTIONS = {
     SELECT: 'selectProject',
     UPDATE_NAME: 'updateProjectName',
     UPDATE_DESCRIPTION: 'updateProjectDescription',
+    UPDATE_STORAGE_LIMIT: 'updateProjectStorageLimit',
+    UPDATE_BANDWIDTH_LIMIT: 'updateProjectBandwidthLimit',
     DELETE: 'deleteProject',
     CLEAR: 'clearProjects',
     GET_LIMITS: 'getProjectLimits',
+    GET_TOTAL_LIMITS: 'getTotalLimits',
 };
 
 export const PROJECTS_MUTATIONS = {
@@ -29,10 +32,13 @@ export const PROJECTS_MUTATIONS = {
     REMOVE: 'DELETE_PROJECT',
     UPDATE_PROJECT_NAME: 'UPDATE_PROJECT_NAME',
     UPDATE_PROJECT_DESCRIPTION: 'UPDATE_PROJECT_DESCRIPTION',
+    UPDATE_PROJECT_STORAGE_LIMIT: 'UPDATE_STORAGE_LIMIT',
+    UPDATE_PROJECT_BANDWIDTH_LIMIT: 'UPDATE_BANDWIDTH_LIMIT',
     SET_PROJECTS: 'SET_PROJECTS',
     SELECT_PROJECT: 'SELECT_PROJECT',
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
     SET_LIMITS: 'SET_PROJECT_LIMITS',
+    SET_TOTAL_LIMITS: 'SET_TOTAL_LIMITS',
     SET_PAGE_NUMBER: 'SET_PAGE_NUMBER',
     SET_PAGE: 'SET_PAGE',
 };
@@ -43,8 +49,20 @@ export class ProjectsState {
     public projects: Project[] = [];
     public selectedProject: Project = defaultSelectedProject;
     public currentLimits: ProjectLimits = new ProjectLimits();
+    public totalLimits: ProjectLimits = new ProjectLimits();
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
+}
+
+interface ProjectsContext {
+    state: ProjectsState
+    commit: (string, ...unknown) => void
+    rootGetters: {
+        user: {
+            id: string
+        }
+    }
+    dispatch: (string, ...unknown) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 const {
@@ -54,9 +72,12 @@ const {
     SELECT,
     UPDATE_NAME,
     UPDATE_DESCRIPTION,
+    UPDATE_STORAGE_LIMIT,
+    UPDATE_BANDWIDTH_LIMIT,
     DELETE,
     CLEAR,
     GET_LIMITS,
+    GET_TOTAL_LIMITS,
     FETCH_OWNED,
 } = PROJECTS_ACTIONS;
 
@@ -65,16 +86,19 @@ const {
     REMOVE,
     UPDATE_PROJECT_NAME,
     UPDATE_PROJECT_DESCRIPTION,
+    UPDATE_PROJECT_STORAGE_LIMIT,
+    UPDATE_PROJECT_BANDWIDTH_LIMIT,
     SET_PROJECTS,
     SELECT_PROJECT,
     CLEAR_PROJECTS,
     SET_LIMITS,
+    SET_TOTAL_LIMITS,
     SET_PAGE_NUMBER,
     SET_PAGE,
 } = PROJECTS_MUTATIONS;
 const projectsPageLimit = 7;
 
-export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState> {
+export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState, ProjectsContext> {
     return {
         state: new ProjectsState(),
         mutations: {
@@ -119,6 +143,12 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             [UPDATE_PROJECT_DESCRIPTION](state: ProjectsState, fieldsToUpdate: ProjectFields): void {
                 state.selectedProject.description = fieldsToUpdate.description;
             },
+            [UPDATE_PROJECT_STORAGE_LIMIT](state: ProjectsState, limitsToUpdate: ProjectLimits): void {
+                state.currentLimits.storageLimit = limitsToUpdate.storageLimit;
+            },
+            [UPDATE_PROJECT_BANDWIDTH_LIMIT](state: ProjectsState, limitsToUpdate: ProjectLimits): void {
+                state.currentLimits.bandwidthLimit = limitsToUpdate.bandwidthLimit;
+            },
             [REMOVE](state: ProjectsState, projectID: string): void {
                 state.projects = state.projects.filter(project => project.id !== projectID);
 
@@ -128,6 +158,9 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             },
             [SET_LIMITS](state: ProjectsState, limits: ProjectLimits): void {
                 state.currentLimits = limits;
+            },
+            [SET_TOTAL_LIMITS](state: ProjectsState, limits: ProjectLimits): void {
+                state.totalLimits = limits;
             },
             [CLEAR_PROJECTS](state: ProjectsState): void {
                 state.projects = [];
@@ -143,14 +176,14 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             },
         },
         actions: {
-            [FETCH]: async function ({commit}: any): Promise<Project[]> {
+            [FETCH]: async function ({commit}: ProjectsContext): Promise<Project[]> {
                 const projects = await api.get();
 
                 commit(SET_PROJECTS, projects);
 
                 return projects;
             },
-            [FETCH_OWNED]: async function ({commit, state}, pageNumber: number): Promise<ProjectsPage> {
+            [FETCH_OWNED]: async function ({commit, state}: ProjectsContext, pageNumber: number): Promise<ProjectsPage> {
                 commit(SET_PAGE_NUMBER, pageNumber);
 
                 const projectsPage: ProjectsPage = await api.getOwnedProjects(state.cursor);
@@ -158,14 +191,14 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 return projectsPage;
             },
-            [CREATE]: async function ({commit}: any, createProjectFields: ProjectFields): Promise<Project> {
+            [CREATE]: async function ({commit}: ProjectsContext, createProjectFields: ProjectFields): Promise<Project> {
                 const project = await api.create(createProjectFields);
 
                 commit(ADD, project);
 
                 return project;
             },
-            [CREATE_DEFAULT_PROJECT]: async function ({rootGetters, dispatch}: any): Promise<void> {
+            [CREATE_DEFAULT_PROJECT]: async function ({rootGetters, dispatch}: ProjectsContext): Promise<void> {
                 const UNTITLED_PROJECT_NAME = 'My First Project';
                 const UNTITLED_PROJECT_DESCRIPTION = '___';
                 const project = new ProjectFields(
@@ -177,32 +210,93 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 await dispatch(SELECT, createdProject.id);
             },
-            [SELECT]: function ({commit}: any, projectID: string): void {
+            [SELECT]: function ({commit}: ProjectsContext, projectID: string): void {
                 commit(SELECT_PROJECT, projectID);
             },
-            [UPDATE_NAME]: async function ({commit, state}: any, fieldsToUpdate: ProjectFields): Promise<void> {
-                await api.update(state.selectedProject.id, fieldsToUpdate.name, state.selectedProject.description);
+            [UPDATE_NAME]: async function ({commit, state}: ProjectsContext, fieldsToUpdate: ProjectFields): Promise<void> {
+                const project = new ProjectFields(
+                    fieldsToUpdate.name,
+                    state.selectedProject.description,
+                    state.selectedProject.id,
+                );
+                const limit = new ProjectLimits(
+                    state.currentLimits.bandwidthLimit,
+                    state.currentLimits.bandwidthUsed,
+                    state.currentLimits.storageLimit,
+                    state.currentLimits.storageUsed,
+                );
+                await api.update(state.selectedProject.id, project, limit);
 
                 commit(UPDATE_PROJECT_NAME, fieldsToUpdate);
             },
-            [UPDATE_DESCRIPTION]: async function ({commit, state}: any, fieldsToUpdate: ProjectFields): Promise<void> {
-                await api.update(state.selectedProject.id, state.selectedProject.name, fieldsToUpdate.description);
+            [UPDATE_DESCRIPTION]: async function ({commit, state}: ProjectsContext, fieldsToUpdate: ProjectFields): Promise<void> {
+                const project = new ProjectFields(
+                    state.selectedProject.name,
+                    fieldsToUpdate.description,
+                    state.selectedProject.id,
+                );
+                const limit = new ProjectLimits(
+                    state.currentLimits.bandwidthLimit,
+                    state.currentLimits.bandwidthUsed,
+                    state.currentLimits.storageLimit,
+                    state.currentLimits.storageUsed,
+                );
+                await api.update(state.selectedProject.id, project, limit);
 
                 commit(UPDATE_PROJECT_DESCRIPTION, fieldsToUpdate);
             },
-            [DELETE]: async function ({commit}: any, projectID: string): Promise<void> {
+            [UPDATE_STORAGE_LIMIT]: async function ({commit, state}: ProjectsContext, limitsToUpdate: ProjectLimits): Promise<void> {
+                const project = new ProjectFields(
+                    state.selectedProject.name,
+                    state.selectedProject.description,
+                    state.selectedProject.id,
+                );
+                const limit = new ProjectLimits(
+                    state.currentLimits.bandwidthLimit,
+                    state.currentLimits.bandwidthUsed,
+                    limitsToUpdate.storageLimit,
+                    state.currentLimits.storageUsed,
+                );
+                await api.update(state.selectedProject.id, project, limit);
+
+                commit(UPDATE_PROJECT_STORAGE_LIMIT, limitsToUpdate);
+            },
+            [UPDATE_BANDWIDTH_LIMIT]: async function ({commit, state}: ProjectsContext, limitsToUpdate: ProjectLimits): Promise<void> {
+                const project = new ProjectFields(
+                    state.selectedProject.name,
+                    state.selectedProject.description,
+                    state.selectedProject.id,
+                );
+                const limit = new ProjectLimits(
+                    limitsToUpdate.bandwidthLimit,
+                    state.currentLimits.bandwidthUsed,
+                    state.currentLimits.storageLimit,
+                    state.currentLimits.storageUsed,
+                );
+                await api.update(state.selectedProject.id, project, limit);
+
+                commit(UPDATE_PROJECT_BANDWIDTH_LIMIT, limitsToUpdate);
+            },
+            [DELETE]: async function ({commit}: ProjectsContext, projectID: string): Promise<void> {
                 await api.delete(projectID);
 
                 commit(REMOVE, projectID);
             },
-            [GET_LIMITS]: async function ({commit}: any, projectID: string): Promise<ProjectLimits> {
+            [GET_LIMITS]: async function ({commit}: ProjectsContext, projectID: string): Promise<ProjectLimits> {
                 const limits = await api.getLimits(projectID);
 
                 commit(SET_LIMITS, limits);
 
                 return limits;
             },
-            [CLEAR]: function({commit}: any): void {
+            [GET_TOTAL_LIMITS]: async function ({commit}: ProjectsContext): Promise<ProjectLimits> {
+                const limits = await api.getTotalLimits();
+
+                commit(SET_TOTAL_LIMITS, limits);
+
+                return limits;
+            },
+            [CLEAR]: function({commit}: ProjectsContext): void {
                 commit(CLEAR_PROJECTS);
             },
         },
@@ -222,11 +316,11 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 });
             },
             selectedProject: (state: ProjectsState): Project => state.selectedProject,
-            projectsCount: (state: ProjectsState, getters: any): number => {
-                let projectsCount: number = 0;
+            projectsCount: (state: ProjectsState, rootGetters: ProjectsContext["rootGetters"]): number => {
+                let projectsCount = 0;
 
                 state.projects.forEach((project: Project) => {
-                    if (project.ownerId === getters.user.id) {
+                    if (project.ownerId === rootGetters.user.id) {
                         projectsCount++;
                     }
                 });

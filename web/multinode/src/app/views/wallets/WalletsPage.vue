@@ -14,15 +14,15 @@
             </div>
             <div class="wallets__right-area">
                 <info-block class="information">
-                    <div class="wallets__information" slot="body">
+                    <div slot="body" class="wallets__information">
                         <h3 class="wallets__information__title">Payouts with zkSync</h3>
                         <p class="wallets__information__description">Short description how minimal threshold system works.</p>
-                      <v-link uri="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064" label="Learn more" />
+                        <v-link uri="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064" label="Learn more" />
                     </div>
                 </info-block>
             </div>
         </div>
-        <div class="wallets__pagination" v-if="operatorsState.pageCount > 1">
+        <div v-if="operatorsState.pageCount > 1" class="wallets__pagination">
             <v-pagination
                 :total-page-count="operatorsState.pageCount"
                 :preselected-current-page-number="operatorsState.currentPage"
@@ -44,6 +44,7 @@ import WalletsTable from '@/app/components/wallets/tables/walletsSummary/Wallets
 import { UnauthorizedError } from '@/api';
 import { OperatorsState } from '@/app/store/operators';
 
+// @vue/component
 @Component({
     components: {
         VPagination,

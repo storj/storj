@@ -40,11 +40,15 @@ uplink cp "$SRC_DIR/big-upload-testfile"          "sj://$BUCKET/" --progress=fal
 uplink cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/" --progress=false
 uplink cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false
 
+# test parallelism to upload single object
+# TODO change hardcoded part size from 64MiB to 6MiB
+uplink cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/diff-size-segments_upl_p2" --progress=false --parallelism 2
+
 cat "$SRC_DIR/put-file" | uplink put "sj://$BUCKET/put-file"
 
 uplink --config-dir "$UPLINK_DIR" import named-access $STORJ_ACCESS
 FILES=$(STORJ_ACCESS= uplink --config-dir "$UPLINK_DIR" --access named-access ls "sj://$BUCKET" | tee $TMPDIR/list | wc -l)
-EXPECTED_FILES="5"
+EXPECTED_FILES="6"
 if [ "$FILES" == $EXPECTED_FILES ]
 then
     echo "listing returns $FILES files"
@@ -70,12 +74,23 @@ uplink cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=fal
 uplink cp  "sj://$BUCKET/put-file"                     "$DST_DIR" --progress=false
 uplink cat "sj://$BUCKET/put-file" >>                  "$DST_DIR/put-file-from-cat"
 
+# test parallelism of single object
+uplink cp "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR/multisegment-upload-testfile_p2" --parallelism 2 --progress=false
+uplink cp "sj://$BUCKET/diff-size-segments"           "$DST_DIR/diff-size-segments_p2"           --parallelism 2 --progress=false
+uplink cp "sj://$BUCKET/diff-size-segments_upl_p2"    "$DST_DIR/diff-size-segments_upl_p2"       --parallelism 2 --progress=false
+
 uplink ls "sj://$BUCKET/small-upload-testfile" | grep "small-upload-testfile"
+
+# test server-side move operation
+uplink mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-upload-testfile"
+uplink ls "sj://$BUCKET/moved-big-upload-testfile" | grep "moved-big-upload-testfile"
+uplink mv "sj://$BUCKET/moved-big-upload-testfile" "sj://$BUCKET/big-upload-testfile"
 
 uplink rm "sj://$BUCKET/small-upload-testfile"
 uplink rm "sj://$BUCKET/big-upload-testfile"
 uplink rm "sj://$BUCKET/multisegment-upload-testfile"
 uplink rm "sj://$BUCKET/diff-size-segments"
+uplink rm "sj://$BUCKET/diff-size-segments_upl_p2"
 uplink rm "sj://$BUCKET/put-file"
 
 uplink ls "sj://$BUCKET"
@@ -88,6 +103,11 @@ compare_files "$SRC_DIR/multisegment-upload-testfile" "$DST_DIR/multisegment-upl
 compare_files "$SRC_DIR/diff-size-segments"           "$DST_DIR/diff-size-segments"
 compare_files "$SRC_DIR/put-file"                     "$DST_DIR/put-file"
 compare_files "$SRC_DIR/put-file"                     "$DST_DIR/put-file-from-cat"
+
+# test parallelism of single object
+compare_files "$SRC_DIR/multisegment-upload-testfile" "$DST_DIR/multisegment-upload-testfile_p2"
+compare_files "$SRC_DIR/diff-size-segments"           "$DST_DIR/diff-size-segments_p2"
+compare_files "$SRC_DIR/diff-size-segments"           "$DST_DIR/diff-size-segments_upl_p2"
 
 # test deleting non empty bucket with --force flag
 uplink mb "sj://$BUCKET/"

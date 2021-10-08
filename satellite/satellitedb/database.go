@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/lrucache"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
-	"storj.io/storj/private/lrucache"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -27,8 +27,8 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayouts"
@@ -186,6 +186,11 @@ func (dbc *satelliteDBCollection) OverlayCache() overlay.DB {
 	return &overlaycache{db: dbc.getByName("overlaycache")}
 }
 
+// Reputation is a getter for overlay cache repository.
+func (dbc *satelliteDBCollection) Reputation() reputation.DB {
+	return &reputations{db: dbc.getByName("reputations")}
+}
+
 // RepairQueue is a getter for RepairQueue repository.
 func (dbc *satelliteDBCollection) RepairQueue() queue.RepairQueue {
 	return &repairQueue{db: dbc.getByName("repairqueue")}
@@ -199,11 +204,6 @@ func (dbc *satelliteDBCollection) StoragenodeAccounting() accounting.Storagenode
 // ProjectAccounting returns database for tracking project data use.
 func (dbc *satelliteDBCollection) ProjectAccounting() accounting.ProjectAccounting {
 	return &ProjectAccounting{db: dbc.getByName("projectaccounting")}
-}
-
-// Irreparable returns database for storing segments that failed repair.
-func (dbc *satelliteDBCollection) Irreparable() irreparable.DB {
-	return &irreparableDB{db: dbc.getByName("irreparable")}
 }
 
 // Revocation returns the database to deal with macaroon revocation.

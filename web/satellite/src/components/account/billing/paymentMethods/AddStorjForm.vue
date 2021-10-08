@@ -7,6 +7,7 @@
             <p class="add-storj-area__selection-container__label">Deposit STORJ Tokens via Coin Payments</p>
             <TokenDepositSelection
                 class="add-storj-area__selection-container__form"
+                :payment-options="paymentOptions"
                 @onChangeTokenValue="onChangeTokenValue"
             />
         </div>
@@ -36,12 +37,14 @@ import TokenDepositSelection from '@/components/account/billing/paymentMethods/T
 import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PaymentAmountOption } from '@/types/payments';
 
 const {
     MAKE_TOKEN_DEPOSIT,
     GET_PAYMENTS_HISTORY,
 } = PAYMENTS_ACTIONS;
 
+// @vue/component
 @Component({
     components: {
         TokenDepositSelection,
@@ -57,8 +60,19 @@ export default class AddStorjForm extends Vue {
     public readonly isLoading: boolean;
 
     /**
-     * onConfirmAddSTORJ checks if amount is valid and if so process token.
-     * payment and return state to default
+     * Set of default payment options.
+     */
+    public paymentOptions: PaymentAmountOption[] = [
+        new PaymentAmountOption(10, `USD $10`),
+        new PaymentAmountOption(20, `USD $20`),
+        new PaymentAmountOption(50, `USD $50`),
+        new PaymentAmountOption(100, `USD $100`),
+        new PaymentAmountOption(1000, `USD $1000`),
+    ];
+
+    /**
+     * onConfirmAddSTORJ checks if amount is valid.
+     * If so processes token payment and returns state to default.
      */
     public async onConfirmAddSTORJ(): Promise<void> {
         this.$emit('toggleIsLoading');
@@ -108,18 +122,18 @@ export default class AddStorjForm extends Vue {
      */
     private get isDepositValueValid(): boolean {
         switch (true) {
-            case (this.tokenDepositValue < this.DEFAULT_TOKEN_DEPOSIT_VALUE || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject:
-                this.$notify.error('First deposit amount must be more than $10 and less than $1000000');
-                this.setDefault();
+        case (this.tokenDepositValue < this.DEFAULT_TOKEN_DEPOSIT_VALUE || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject:
+            this.$notify.error('First deposit amount must be more than $10 and less than $1000000');
+            this.setDefault();
 
-                return false;
-            case this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT || this.tokenDepositValue === 0:
-                this.$notify.error('Deposit amount must be more than $0 and less than $1000000');
-                this.setDefault();
+            return false;
+        case this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT || this.tokenDepositValue === 0:
+            this.$notify.error('Deposit amount must be more than $0 and less than $1000000');
+            this.setDefault();
 
-                return false;
-            default:
-                return true;
+            return false;
+        default:
+            return true;
         }
     }
 

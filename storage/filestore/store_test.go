@@ -892,15 +892,19 @@ func TestStorageDirVerification(t *testing.T) {
 	})
 
 	// test nonexistent file returns error
-	require.Error(t, store.VerifyStorageDir(ident0.ID))
+	require.Error(t, store.VerifyStorageDir(ctx, ident0.ID))
 
-	require.NoError(t, dir.CreateVerificationFile(ident0.ID))
+	// test VerifyWrite doesn't interfere
+	require.NoError(t, store.CheckWritability(ctx))
+	require.Error(t, store.VerifyStorageDir(ctx, ident0.ID))
+
+	require.NoError(t, dir.CreateVerificationFile(ctx, ident0.ID))
 
 	// test correct ID returns no error
-	require.NoError(t, store.VerifyStorageDir(ident0.ID))
+	require.NoError(t, store.VerifyStorageDir(ctx, ident0.ID))
 
 	// test incorrect ID returns error
-	err = store.VerifyStorageDir(ident1.ID)
+	err = store.VerifyStorageDir(ctx, ident1.ID)
 	require.Contains(t, err.Error(), "does not match running node's ID")
 
 	// test invalid node ID returns error
@@ -911,10 +915,10 @@ func TestStorageDirVerification(t *testing.T) {
 	}()
 	_, err = f.Write([]byte{0, 1, 2, 3})
 	require.NoError(t, err)
-	err = store.VerifyStorageDir(ident0.ID)
+	err = store.VerifyStorageDir(ctx, ident0.ID)
 	require.Contains(t, err.Error(), "content of file is not a valid node ID")
 
 	// test file overwrite returns no error
-	require.NoError(t, dir.CreateVerificationFile(ident0.ID))
-	require.NoError(t, store.VerifyStorageDir(ident0.ID))
+	require.NoError(t, dir.CreateVerificationFile(ctx, ident0.ID))
+	require.NoError(t, store.VerifyStorageDir(ctx, ident0.ID))
 }

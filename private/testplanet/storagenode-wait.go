@@ -12,7 +12,9 @@ import (
 
 // WaitForStorageNodeEndpoints waits for storage node endpoints to finish their work.
 // The call will return an error if they have not been completed after 1 minute.
-func (planet *Planet) WaitForStorageNodeEndpoints(ctx context.Context) error {
+func (planet *Planet) WaitForStorageNodeEndpoints(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	timeout := time.NewTimer(time.Minute)
 	defer timeout.Stop()
 	for {
@@ -40,6 +42,8 @@ func (planet *Planet) storageNodeLiveRequestCount() int {
 
 // WaitForStorageNodeDeleters calls the Wait method on each storagenode's PieceDeleter.
 func (planet *Planet) WaitForStorageNodeDeleters(ctx context.Context) {
+	defer mon.Task()(&ctx)(nil)
+
 	for _, sn := range planet.StorageNodes {
 		sn.Peer.Storage2.PieceDeleter.Wait(ctx)
 	}

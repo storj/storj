@@ -8,19 +8,19 @@
             alt="wallet image"
         />
         <div class="wallet-area__wallet-address-section">
-            <p class="wallet-area__wallet-address-section__label">{{label}}</p>
-            <p class="wallet-area__wallet-address-section__bold-text">{{walletAddress}}</p>
+            <p class="wallet-area__wallet-address-section__label">{{ label }}</p>
+            <p class="wallet-area__wallet-address-section__bold-text">{{ walletAddress }}</p>
         </div>
         <a
+            v-if="!isZkSyncEnabled"
             class="wallet-area__button"
             :href="`https://etherscan.io/address/${walletAddress}#tokentxns`"
             target="_blank"
             rel="noopener noreferrer"
-            v-if="!isZkSyncEnabled"
         >
             <b class="wallet-area-button-label">View on Etherscan</b>
         </a>
-        <div class="wallet-area__buttons-area" v-else>
+        <div v-else class="wallet-area__buttons-area">
             <a
                 class="wallet-area__button"
                 :href="`https://zkscan.io/explorer/accounts/${walletAddress}`"
@@ -51,6 +51,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import CheckIcon from '@/../static/images/common/greenCheck.svg';
 import WalletIcon from '@/../static/images/wallet.svg';
 
+// @vue/component
 @Component({
     components: {
         CheckIcon,

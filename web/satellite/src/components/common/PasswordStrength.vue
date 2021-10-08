@@ -2,31 +2,31 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="password-strength-container" v-if="isShown">
+    <div v-if="isShown" class="password-strength-container">
         <div class="password-strength-container__header">
             <p class="password-strength-container__header__title">Password strength</p>
-            <p class="password-strength-container__header__strength-status" :style="strengthLabelColor">{{passwordStrength}}</p>
+            <p class="password-strength-container__header__strength-status" :style="strengthLabelColor">{{ passwordStrength }}</p>
         </div>
         <div class="password-strength-container__bar">
-            <div class="password-strength-container__bar__fill" :style="barFillStyle"></div>
+            <div class="password-strength-container__bar__fill" :style="barFillStyle" />
         </div>
         <p class="password-strength-container__subtitle">Your password should contain:</p>
         <div class="password-strength-container__rule-area">
             <div class="password-strength-container__rule-area__checkbox" :class="{ checked: isPasswordLongEnough }">
-                <VectorIcon/>
+                <VectorIcon />
             </div>
             <p class="password-strength-container__rule-area__rule">6 or more Latin characters</p>
         </div>
         <p class="password-strength-container__subtitle">Its nice to have: </p>
         <div class="password-strength-container__rule-area">
             <div class="password-strength-container__rule-area__checkbox" :class="{ checked: hasLowerAndUpperCaseLetters }">
-                <VectorIcon/>
+                <VectorIcon />
             </div>
             <p class="password-strength-container__rule-area__rule">Upper & lowercase letters</p>
         </div>
         <div class="password-strength-container__rule-area">
             <div class="password-strength-container__rule-area__checkbox" :class="{ checked: hasSpecialCharacter }">
-                <VectorIcon/>
+                <VectorIcon />
             </div>
             <p class="password-strength-container__rule-area__rule">At least one special character</p>
         </div>
@@ -63,6 +63,7 @@ class StrengthLabelColor {
     }
 }
 
+// @vue/component
 @Component({
     components: {
         VectorIcon,
@@ -77,7 +78,7 @@ export default class PasswordStrength extends Vue {
     @Prop({default: false})
     private readonly isShown: boolean;
 
-    private MINIMAL_PASSWORD_LENGTH: number = 6;
+    private MINIMAL_PASSWORD_LENGTH = 6;
 
     public get isPasswordLongEnough(): boolean {
         return this.passwordString.length >= this.MINIMAL_PASSWORD_LENGTH;
@@ -126,7 +127,7 @@ export default class PasswordStrength extends Vue {
      */
     private scorePassword(): number {
         const password: string = this.passwordString;
-        let score: number = 0;
+        let score = 0;
 
         const letters: number[] = [];
         for (let i = 0; i < password.length; i++) {
@@ -141,7 +142,7 @@ export default class PasswordStrength extends Vue {
             /\W/.test(password),
         ];
 
-        let variationCount: number = 0;
+        let variationCount = 0;
         variations.forEach((check) => {
             variationCount += check ? 1 : 0;
         });
@@ -156,12 +157,12 @@ export default class PasswordStrength extends Vue {
      */
     private get passwordStrengthColor(): string {
         switch (this.passwordStrength) {
-            case 'Good':
-                return '#ffff00';
-            case 'Strong':
-                return '#bfff00';
-            case 'Very Strong':
-                return '#00ff40';
+        case 'Good':
+            return '#ffff00';
+        case 'Strong':
+            return '#bfff00';
+        case 'Very Strong':
+            return '#00ff40';
         }
 
         return '#e16c58';
@@ -172,14 +173,14 @@ export default class PasswordStrength extends Vue {
      */
     private get barWidth(): string {
         switch (this.passwordStrength) {
-            case 'Weak':
-                return '81px';
-            case 'Good':
-                return '162px';
-            case 'Strong':
-                return '243px';
-            case 'Very Strong':
-                return '325px';
+        case 'Weak':
+            return '81px';
+        case 'Good':
+            return '162px';
+        case 'Strong':
+            return '243px';
+        case 'Very Strong':
+            return '325px';
         }
 
         return '0px';

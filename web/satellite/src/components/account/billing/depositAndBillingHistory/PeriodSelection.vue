@@ -5,23 +5,23 @@
     <div class="period-selection" @click.stop="toggleDropdown">
         <div class="period-selection__current-choice">
             <div class="period-selection__current-choice__label-area">
-                <DatePickerIcon/>
+                <DatePickerIcon />
                 <span class="period-selection__current-choice__label-area__label">{{ currentOption }}</span>
             </div>
-            <ExpandIcon v-if="!isDropdownShown"/>
-            <HideIcon v-else/>
+            <ExpandIcon v-if="!isDropdownShown" />
+            <HideIcon v-else />
         </div>
-        <div class="period-selection__dropdown" v-show="isDropdownShown" v-click-outside="closeDropdown">
+        <div v-show="isDropdownShown" v-click-outside="closeDropdown" class="period-selection__dropdown">
             <div
-                class="period-selection__dropdown__item"
                 v-for="(option, index) in periodOptions"
                 :key="index"
+                class="period-selection__dropdown__item"
                 @click.prevent.stop="select(option)"
             >
-                <SelectedIcon v-if="isOptionSelected(option)" class="selected-image"/>
+                <SelectedIcon v-if="isOptionSelected(option)" class="selected-image" />
                 <span class="period-selection__dropdown__item__label">{{ option }}</span>
             </div>
-            <div @click="redirect" class="period-selection__dropdown__link-container">
+            <div class="period-selection__dropdown__link-container" @click="redirect">
                 <span class="period-selection__dropdown__link-container__link">Billing History</span>
             </div>
         </div>
@@ -37,9 +37,11 @@ import ExpandIcon from '@/../static/images/common/BlueExpand.svg';
 import HideIcon from '@/../static/images/common/BlueHide.svg';
 
 import { RouteConfig } from '@/router';
+import { Route } from 'vue-router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+// @vue/component
 @Component({
     components: {
         DatePickerIcon,
@@ -63,7 +65,7 @@ export default class PeriodSelection extends Vue {
      * @param from
      * @param next
      */
-    public async beforeRouteLeave(to, from, next): Promise<void> {
+    public async beforeRouteLeave(_to: Route, _from: Route, next: () => void): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {

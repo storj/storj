@@ -9,16 +9,16 @@
             </p>
             <label class="buckets-dropdown__container__search">
                 <input
+                    v-model="bucketSearch"
                     class="buckets-dropdown__container__search__input"
                     placeholder="Search buckets"
                     type="text"
-                    v-model="bucketSearch"
                 >
             </label>
             <div
-                class="buckets-dropdown__container__choices"
                 v-for="(name, index) in bucketsList"
                 :key="index"
+                class="buckets-dropdown__container__choices"
             >
                 <div
                     class="buckets-dropdown__container__choices__item"
@@ -26,7 +26,7 @@
                     @click.stop="toggleBucketSelection(name)"
                 >
                     <div class="buckets-dropdown__container__choices__item__left">
-                        <SelectionIcon class="buckets-dropdown__container__choices__item__left__icon"/>
+                        <SelectionIcon class="buckets-dropdown__container__choices__item__left__icon" />
                         <p class="buckets-dropdown__container__choices__item__left__label">{{ name }}</p>
                     </div>
                     <UnselectIcon
@@ -35,7 +35,7 @@
                     />
                 </div>
             </div>
-            <p class="buckets-dropdown__container__no-buckets" v-if="!bucketsList.length">
+            <p v-if="!bucketsList.length" class="buckets-dropdown__container__no-buckets">
                 No Buckets
             </p>
         </div>
@@ -50,6 +50,7 @@ import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 
+// @vue/component
 @Component({
     components: {
         SelectionIcon,
@@ -57,7 +58,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
     },
 })
 export default class BucketsDropdown extends Vue {
-    public bucketSearch: string = '';
+    public bucketSearch = '';
 
     /**
      * Clears selection of specific buckets and closes dropdown.

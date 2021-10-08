@@ -3,11 +3,21 @@
 
 <template>
     <div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
-        <slot></slot>
-        <div class="info__message-box" v-if="isVisible">
-            <div class="info__message-box__text">
-                <p class="info__message-box__text__regular-text">{{text}}</p>
-                <p class="info__message-box__text__bold-text">{{boldText}}</p>
+        <slot name="icon" />
+        <div v-if="isVisible" class="info__box">
+            <div class="info__box__arrow" />
+            <div class="info__box__message">
+                <h1 v-if="title" class="info__box__message__title">{{ title }}</h1>
+                <slot name="message" />
+                <VButton
+                    v-if="buttonLabel"
+                    class="info__box__message__button"
+                    :label="buttonLabel"
+                    height="42px"
+                    border-radius="52px"
+                    is-uppercase="true"
+                    :on-press="onClick"
+                />
             </div>
         </div>
     </div>
@@ -16,15 +26,35 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-@Component
+import VButton from '@/components/common/VButton.vue';
+
+// @vue/component
+@Component({
+    components: {
+        VButton,
+    }
+})
 export default class VInfo extends Vue {
     @Prop({default: ''})
-    private readonly text: String;
+    private readonly title: string;
     @Prop({default: ''})
-    private readonly boldText: String;
+    private readonly buttonLabel: string;
+    @Prop({default: () => false})
+    private readonly onButtonClick: () => unknown;
 
-    private isVisible: boolean = false;
+    public isVisible = false;
 
+    /**
+     * Holds on button click logic.
+     */
+    public onClick(): void {
+        this.onButtonClick();
+        this.toggleVisibility();
+    }
+
+    /**
+     * Toggles bubble visibility.
+     */
     public toggleVisibility(): void {
         this.isVisible = !this.isVisible;
     }
@@ -35,41 +65,47 @@ export default class VInfo extends Vue {
     .info {
         position: relative;
 
-        &__message-box {
+        &__box {
             position: absolute;
-            left: 40%;
-            bottom: 110%;
+            top: calc(100% + 10px);
+            left: calc(50% + 1px);
             transform: translate(-50%);
-            height: auto;
-            width: auto;
-            min-width: 180px;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            text-align: center;
-            background-image: url('../../../static/images/Message.png');
-            background-size: 100% 100%;
-            z-index: 101;
-            padding: 11px 18px 20px 18px;
+            filter: drop-shadow(0 0 34px #0a1b2c47);
+            z-index: 1;
 
-            &__text {
-                align-items: center;
-                justify-content: center;
-                font-size: 12px;
-                line-height: 16px;
+            &__click-mock {
+                height: 2px;
+                background: transparent;
+            }
 
-                &__bold-text {
-                    color: #586c86;
+            &__arrow {
+                background-color: white;
+                width: 40px;
+                height: 40px;
+                border-radius: 4px 0 0 0;
+                transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
+                margin-bottom: -15px;
+            }
+
+            &__message {
+                box-sizing: border-box;
+                background-color: white;
+                padding: 24px;
+                border-radius: 20px;
+
+                &__title {
                     font-family: 'font_bold', sans-serif;
-                    margin-block-start: 0;
-                    margin-block-end: 0;
+                    font-size: 14px;
+                    line-height: 32px;
+                    color: #000;
+                    margin-bottom: 10px;
                 }
 
-                &__regular-text {
-                    color: #5a6e87;
-                    font-family: 'font_regular', sans-serif;
-                    margin-block-start: 0;
-                    margin-block-end: 0;
+                &__button {
+                    margin-top: 20px;
                 }
             }
         }

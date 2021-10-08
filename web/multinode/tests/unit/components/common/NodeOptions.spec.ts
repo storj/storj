@@ -6,9 +6,12 @@ import NodeOptions from '@/app/components/common/NodeOptions.vue';
 import { shallowMount } from '@vue/test-utils';
 
 describe('NodeOptions', (): void => {
-    it('renders correctly', async (): Promise<void> => {
+    it('renders correctly', async(): Promise<void> => {
         const wrapper = shallowMount(NodeOptions, {
             propsData: { id: 'id' },
+            directives: {
+                clickOutside: {},
+            },
         });
 
         expect(wrapper).toMatchSnapshot();

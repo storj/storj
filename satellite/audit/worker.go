@@ -102,7 +102,10 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 		worker.limiter.Go(ctx, func() {
 			err := worker.work(ctx, segment)
 			if err != nil {
-				worker.log.Error("audit failed", zap.ByteString("Segment", []byte(segment.Encode())), zap.Error(err))
+				worker.log.Error("error(s) during audit",
+					zap.String("Segment StreamID", segment.StreamID.String()),
+					zap.Uint64("Segment Position", segment.Position.Encode()),
+					zap.Error(err))
 			}
 		})
 	}

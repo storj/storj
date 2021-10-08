@@ -4,8 +4,8 @@
 <template>
     <div class="options-button" @click.stop="openOptions">
         <more-icon />
-        <div class="options" v-if="areOptionsShown" v-click-outside="closeOptions">
-            <div @click.stop="onCopy" class="options__item">Copy Node ID</div>
+        <div v-if="areOptionsShown" v-click-outside="closeOptions" class="options">
+            <div class="options__item" @click.stop="onCopy">Copy Node ID</div>
             <delete-node :node-id="id" @closeOptions="closeOptions" />
             <update-name :node-id="id" @closeOptions="closeOptions" />
         </div>
@@ -20,6 +20,7 @@ import UpdateName from '@/app/components/modals/UpdateName.vue';
 
 import MoreIcon from '@/../static/images/icons/more.svg';
 
+// @vue/component
 @Component({
     components: {
         UpdateName,
@@ -28,17 +29,17 @@ import MoreIcon from '@/../static/images/icons/more.svg';
     },
 })
 export default class NodeOptions extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public id: string;
 
-    public areOptionsShown: boolean = false;
+    public areOptionsShown = false;
 
     public openOptions(): void {
         this.areOptionsShown = true;
     }
 
     public closeOptions(): void {
-        if (!this.areOptionsShown) return;
+        if (!this.areOptionsShown) { return; }
 
         this.areOptionsShown = false;
     }

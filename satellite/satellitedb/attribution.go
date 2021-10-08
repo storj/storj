@@ -24,6 +24,7 @@ const (
 		o.partner_id as partner_id, 
 		o.project_id as project_id, 
 		o.bucket_name as bucket_name, 
+		SUM(o.total)  / SUM(o.hours) as total,
 		SUM(o.remote) / SUM(o.hours) as remote,
 		SUM(o.inline) / SUM(o.hours) as inline,
 		SUM(o.settled) as settled 
@@ -34,7 +35,8 @@ const (
 			SELECT 
 				bsti.partner_id as partner_id, 
 				bsto.project_id as project_id, 
-				bsto.bucket_name as bucket_name, 
+				bsto.bucket_name as bucket_name,
+				SUM(bsto.total_bytes) as total,
 				SUM(bsto.remote) as remote, 
 				SUM(bsto.inline) as inline, 
 				0 as settled, 
@@ -82,6 +84,7 @@ const (
 				va.partner_id as partner_id, 
 				bbr.project_id as project_id, 
 				bbr.bucket_name as bucket_name, 
+				0 as total,
 				0 as remote, 
 				0 as inline, 
 				SUM(settled)::integer as settled, 
@@ -165,10 +168,16 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 	results := []*attribution.CSVRow{}
 	for rows.Next() {
 		r := &attribution.CSVRow{}
-		err := rows.Scan(&r.PartnerID, &r.ProjectID, &r.BucketName, &r.RemoteBytesPerHour, &r.InlineBytesPerHour, &r.EgressData)
+		var inline, remote float64
+		err := rows.Scan(&r.PartnerID, &r.ProjectID, &r.BucketName, &r.TotalBytesPerHour, &inline, &remote, &r.EgressData)
 		if err != nil {
 			return results, Error.Wrap(err)
 		}
+
+		if r.TotalBytesPerHour == 0 {
+			r.TotalBytesPerHour = inline + remote
+		}
+
 		results = append(results, r)
 	}
 	return results, Error.Wrap(rows.Err())

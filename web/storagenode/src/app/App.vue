@@ -4,9 +4,9 @@
 <template>
     <div id="app">
         <div class="container">
-            <SNOHeader/>
+            <SNOHeader />
             <div class="scrollable" @scroll="onScroll">
-                <router-view/>
+                <router-view />
                 <SNOFooter />
             </div>
         </div>
@@ -42,6 +42,7 @@ const elementsClassesToRemoveOnScroll: string[] = [
     'notification-popup-container',
 ];
 
+// @vue/component
 @Component({
     components: {
         LoadingScreen,

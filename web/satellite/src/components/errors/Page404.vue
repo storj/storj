@@ -1,19 +1,18 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./page40X.html"></template>
+<template src="./page40X.html" />
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import LogoIcon from '@/../static/images/dcs-logo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
 import MainIcon from '@/../static/images/errors/404.svg';
-import TextIcon from '@/../static/images/errors/text.svg';
 
+// @vue/component
 @Component({
     components: {
         LogoIcon,
-        TextIcon,
         MainIcon,
     },
 })

@@ -4,29 +4,47 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/cmd/uplinkng/ulext"
 )
 
 type cmdAccessDelete struct {
-	name string
+	ex ulext.External
+
+	access string
 }
 
-func (c *cmdAccessDelete) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.name = a.New("name", "Access to delete").(string)
+func newCmdAccessDelete(ex ulext.External) *cmdAccessDelete {
+	return &cmdAccessDelete{ex: ex}
+}
+
+func (c *cmdAccessDelete) Setup(params clingy.Parameters) {
+	c.access = params.Arg("name", "Access name to delete").(string)
 }
 
 func (c *cmdAccessDelete) Execute(ctx clingy.Context) error {
-	accessDefault, accesses, err := gf.GetAccessInfo(true)
+	defaultName, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err
 	}
-	if c.name == accessDefault {
+
+	if c.access == defaultName {
 		return errs.New("cannot delete current access")
 	}
-	if _, ok := accesses[c.name]; !ok {
-		return errs.New("unknown access: %q", c.name)
+	if _, ok := accesses[c.access]; !ok {
+		return errs.New("unknown access: %q", c.access)
 	}
-	delete(accesses, c.name)
-	return gf.SaveAccessInfo(accessDefault, accesses)
+
+	delete(accesses, c.access)
+	if err := c.ex.SaveAccessInfo(defaultName, accesses); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(ctx, "Removed access %q from %q\n", c.access, c.ex.AccessInfoFile())
+
+	return nil
 }

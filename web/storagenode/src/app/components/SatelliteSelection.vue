@@ -3,9 +3,10 @@
 
 <template>
     <button
+        v-if="satellites"
         name="Choose your satellite"
         class="satellite-selection-toggle-container"
-        v-if="satellites"
+        type="button"
         @click.stop="toggleDropDown"
     >
         <p
@@ -14,20 +15,20 @@
         >
             <b class="satellite-selection-toggle-container__bold-text">Choose your satellite: </b>{{ label }}
         </p>
-        <div class="satellite-selection__right-area" v-if="selectedSatellite.id">
+        <div v-if="selectedSatellite.id" class="satellite-selection__right-area">
             <div
+                v-if="isNameShown"
                 class="satellite-selection-toggle-container__right-area__button"
                 @click.stop.prevent="toggleSatelliteView"
-                v-if="isNameShown"
             >
                 <EyeIcon />
                 <p class="satellite-selection-toggle-container__right-area__button__text">ID</p>
             </div>
-            <div class="row" v-else>
+            <div v-else class="row">
                 <div
+                    v-clipboard:copy="selectedSatellite.id"
                     class="satellite-selection-toggle-container__right-area__button copy-button"
                     @click.stop="() => {}"
-                    v-clipboard:copy="selectedSatellite.id"
                 >
                     <CopyIcon />
                 </div>
@@ -41,7 +42,7 @@
             class="satellite-selection-toggle-container__image"
             alt="Arrow down"
         />
-        <SatelliteSelectionDropdown v-if="isPopupShown"/>
+        <SatelliteSelectionDropdown v-if="isPopupShown" />
     </button>
 </template>
 
@@ -57,6 +58,7 @@ import { SatelliteInfo } from '@/storagenode/sno/sno';
 
 import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
 
+// @vue/component
 @Component({
     components: {
         SatelliteSelectionDropdown,
@@ -69,7 +71,7 @@ export default class SatelliteSelection extends Vue {
     /**
      * Indicates if name or id should be shown.
      */
-    public isNameShown: boolean = true;
+    public isNameShown = true;
 
     /**
      * Returns label depends on which satellite is selected.

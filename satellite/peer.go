@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
@@ -40,9 +41,9 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
 )
@@ -71,6 +72,8 @@ type DB interface {
 	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
+	// Reputation returns database for audit reputation information
+	Reputation() reputation.DB
 	// Attribution returns database for partner keys information
 	Attribution() attribution.DB
 	// StoragenodeAccounting returns database for storing information about storagenode use
@@ -79,8 +82,6 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
-	// Irreparable returns database for failed repairs
-	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
 	// Orders returns database for orders
@@ -118,6 +119,8 @@ type Config struct {
 	Metainfo metainfo.Config
 	Orders   orders.Config
 
+	Reputation reputation.Config
+
 	Checker  checker.Config
 	Repairer repairer.Config
 	Audit    audit.Config
@@ -125,6 +128,7 @@ type Config struct {
 	GarbageCollection gc.Config
 
 	ExpiredDeletion expireddeletion.Config
+	ZombieDeletion  zombiedeletion.Config
 
 	Tally            tally.Config
 	Rollup           rollup.Config

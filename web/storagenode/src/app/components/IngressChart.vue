@@ -6,11 +6,11 @@
         <p class="ingress-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="ingress-chart"
+            :key="chartKey"
             :chart-data="chartData"
             :width="chartWidth"
             :height="chartHeight"
             :tooltip-constructor="ingressTooltip"
-            :key="chartKey"
         />
     </div>
 </template>
@@ -19,9 +19,9 @@
 import { Component } from 'vue-property-decorator';
 
 import BaseChart from '@/app/components/BaseChart.vue';
+import VChart from '@/app/components/VChart.vue';
 
-import { ChartData } from '@/app/types/chartData';
-import { Tooltip, TooltipParams } from '@/app/types/tooltip';
+import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { IngressUsed } from '@/storagenode/sno/sno';
@@ -41,7 +41,10 @@ class IngressTooltip {
     }
 }
 
-@Component
+// @vue/component
+@Component({
+    components: { VChart }
+})
 export default class IngressChart extends BaseChart {
     private get chartBackgroundColor(): string {
         return this.isDarkMode ? '#E1A128' : '#fff4df';
@@ -75,7 +78,7 @@ export default class IngressChart extends BaseChart {
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
     }
 
-    public ingressTooltip(tooltipModel): void {
+    public ingressTooltip(tooltipModel: TooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'ingress-chart', 'ingress-tooltip',
             'ingress-tooltip-arrow', 'ingress-tooltip-point', this.tooltipMarkUp(tooltipModel),
             205, 94, 35, 24, 6, 4, `#e1a128`);
@@ -83,7 +86,7 @@ export default class IngressChart extends BaseChart {
         Tooltip.custom(tooltipParams);
     }
 
-    private tooltipMarkUp(tooltipModel: any): string {
+    private tooltipMarkUp(tooltipModel: TooltipModel): string {
         if (!tooltipModel.dataPoints) {
             return '';
         }
@@ -140,6 +143,7 @@ export default class IngressChart extends BaseChart {
         min-width: 50px;
         min-height: 30px;
         pointer-events: none;
+        z-index: 9999;
     }
 
     .ingress-tooltip-body {

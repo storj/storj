@@ -38,8 +38,8 @@ func TestProjectUsageStorage(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.UsageLimits.DefaultStorageLimit = 1 * memory.MB
-				config.Console.UsageLimits.DefaultBandwidthLimit = 1 * memory.MB
+				config.Console.UsageLimits.Storage.Free = 1 * memory.MB
+				config.Console.UsageLimits.Bandwidth.Free = 1 * memory.MB
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -115,6 +115,11 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+						config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
+					},
+				},
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
@@ -248,7 +253,7 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
 		require.NoError(t, err)
 
-		alloc, err := db.ProjectAccounting().GetProjectBandwidth(ctx, p1, now.Year(), now.Month(), now.Day())
+		alloc, err := db.ProjectAccounting().GetProjectBandwidth(ctx, p1, now.Year(), now.Month(), now.Day(), 0)
 		require.NoError(t, err)
 		require.EqualValues(t, 4000, alloc)
 	})
@@ -281,7 +286,7 @@ func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satellit
 			return expectedSum, err
 		}
 		err = ordersDB.UpdateBucketBandwidthSettle(ctx,
-			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
+			projectID, []byte(bucketName), pb.PieceAction_GET, amount, 0, intervalStart,
 		)
 		if err != nil {
 			return expectedSum, err
@@ -416,7 +421,7 @@ func TestUsageRollups(t *testing.T) {
 				err := db.Orders().UpdateBucketBandwidthAllocation(ctx, project1, []byte(bucketName), action, value*6, now)
 				require.NoError(t, err)
 
-				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project1, []byte(bucketName), action, value*3, now)
+				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project1, []byte(bucketName), action, value*3, 0, now)
 				require.NoError(t, err)
 
 				err = db.Orders().UpdateBucketBandwidthInline(ctx, project1, []byte(bucketName), action, value, now)
@@ -433,7 +438,7 @@ func TestUsageRollups(t *testing.T) {
 				err := db.Orders().UpdateBucketBandwidthAllocation(ctx, project2, []byte(bucketName), action, value*6, now)
 				require.NoError(t, err)
 
-				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project2, []byte(bucketName), action, value*3, now)
+				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project2, []byte(bucketName), action, value*3, 0, now)
 				require.NoError(t, err)
 
 				err = db.Orders().UpdateBucketBandwidthInline(ctx, project2, []byte(bucketName), action, value, now)
@@ -462,20 +467,16 @@ func TestUsageRollups(t *testing.T) {
 				tally1 := &accounting.BucketTally{
 					BucketLocation: bucketLoc1,
 					ObjectCount:    value1,
-					InlineSegments: value1,
-					RemoteSegments: value1,
-					InlineBytes:    value1,
-					RemoteBytes:    value1,
+					TotalSegments:  value1 + value1,
+					TotalBytes:     value1 + value1,
 					MetadataSize:   value1,
 				}
 
 				tally2 := &accounting.BucketTally{
 					BucketLocation: bucketLoc2,
 					ObjectCount:    value2,
-					InlineSegments: value2,
-					RemoteSegments: value2,
-					InlineBytes:    value2,
-					RemoteBytes:    value2,
+					TotalSegments:  value2 + value2,
+					TotalBytes:     value2 + value2,
 					MetadataSize:   value2,
 				}
 
@@ -589,7 +590,7 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "1", data)
 		require.NoError(t, err)
 
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		usage, err := accounting.ProjectUsage.GetProjectStorageTotals(ctx, project.ID)
@@ -627,8 +628,9 @@ func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.UsageLimits.DefaultStorageLimit = 1 * memory.MB
-				config.Console.UsageLimits.DefaultBandwidthLimit = 1 * memory.MB
+				config.Console.UsageLimits.Storage.Free = 1 * memory.MB
+				config.Console.UsageLimits.Bandwidth.Free = 1 * memory.MB
+				config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

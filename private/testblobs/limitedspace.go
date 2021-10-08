@@ -4,6 +4,8 @@
 package testblobs
 
 import (
+	"context"
+
 	"go.uber.org/zap"
 
 	"storj.io/storj/storage"
@@ -51,6 +53,6 @@ func newLimitedSpaceBlobs(log *zap.Logger, blobs storage.Blobs, freeSpace int64)
 }
 
 // FreeSpace returns how much free space left for writing.
-func (limspace *LimitedSpaceBlobs) FreeSpace() (int64, error) {
+func (limspace *LimitedSpaceBlobs) FreeSpace(ctx context.Context) (int64, error) {
 	return limspace.freeSpace, nil
 }

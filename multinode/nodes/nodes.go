@@ -33,8 +33,10 @@ type DB interface {
 	UpdateName(ctx context.Context, id storj.NodeID, name string) error
 }
 
-// ErrNoNode is a special error type that indicates about absence of node in NodesDB.
-var ErrNoNode = errs.Class("no such node")
+var (
+	// ErrNoNode is a special error type that indicates about absence of node in NodesDB.
+	ErrNoNode = errs.Class("no such node")
+)
 
 // Node is a representation of storagenode, that SNO could add to the Multinode Dashboard.
 type Node struct {
@@ -44,6 +46,22 @@ type Node struct {
 	PublicAddress string `json:"publicAddress"`
 	Name          string `json:"name"`
 }
+
+// Status represents node online status.
+type Status string
+
+const (
+	// StatusOnline represents online status.
+	StatusOnline Status = "online"
+	// StatusOffline represents offline status.
+	StatusOffline Status = "offline"
+	// StatusNotReachable indicates that we could not reach storagenode via drpc request.
+	StatusNotReachable Status = "not reachable"
+	// StatusUnauthorized indicates that api key is wrong.
+	StatusUnauthorized Status = "unauthorized"
+	// StatusStorageNodeInternalError indicates storagenode internal error.
+	StatusStorageNodeInternalError Status = "storagenode internal error"
+)
 
 // NodeInfo contains basic node internal state.
 type NodeInfo struct {
@@ -55,6 +73,7 @@ type NodeInfo struct {
 	DiskSpaceLeft int64        `json:"diskSpaceLeft"`
 	BandwidthUsed int64        `json:"bandwidthUsed"`
 	TotalEarned   int64        `json:"totalEarned"`
+	Status        Status       `json:"status"`
 }
 
 // NodeInfoSatellite contains satellite specific node internal state.
@@ -67,6 +86,7 @@ type NodeInfoSatellite struct {
 	AuditScore      float64      `json:"auditScore"`
 	SuspensionScore float64      `json:"suspensionScore"`
 	TotalEarned     int64        `json:"totalEarned"`
+	Status          Status       `json:"status"`
 }
 
 // TODO: separate common types and logic from nodes and operators and place it in private/pkg.

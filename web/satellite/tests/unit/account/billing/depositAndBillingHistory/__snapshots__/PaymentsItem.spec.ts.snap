@@ -14,7 +14,7 @@ exports[`PaymentsItem renders correctly if charge 1`] = `
             </span></b>
     <!---->
   </p>
-  <p class="container__item download"><a class="download-link" target="_blank" href="test">Invoice PDF</a></p>
+  <p class="container__item download"><a target="_blank" href="test" class="download-link">Invoice PDF</a></p>
 </div>
 `;
 
@@ -32,7 +32,7 @@ exports[`PaymentsItem renders correctly if invoice 1`] = `
             </span></b>
     <!---->
   </p>
-  <p class="container__item download"><a class="download-link" target="_blank" href="test">Invoice PDF</a></p>
+  <p class="container__item download"><a target="_blank" href="test" class="download-link">Invoice PDF</a></p>
 </div>
 `;
 
@@ -49,6 +49,6 @@ exports[`PaymentsItem renders correctly if transaction 1`] = `
                 5.00
             </span></b> <span>
             of <b>5.00</b></span></p>
-  <p class="container__item download"><a class="download-link" target="_blank" href="test">Checkout</a></p>
+  <p class="container__item download"><a target="_blank" href="test" class="download-link">Checkout</a></p>
 </div>
 `;

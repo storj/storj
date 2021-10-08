@@ -6,8 +6,9 @@
     <div
         :class="containerClassName"
         :style="style"
-        @click="onPress">
-        <span class="label">{{label}}</span>
+        @click="onPress"
+    >
+        <span class="label" :class="{uppercase: isUppercase}">{{ label }}</span>
     </div>
 </template>
 
@@ -17,6 +18,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 /**
  * Custom button component with label.
  */
+// @vue/component
 @Component
 export default class VButton extends Vue {
     @Prop({default: 'Default'})
@@ -25,6 +27,8 @@ export default class VButton extends Vue {
     private readonly width: string;
     @Prop({default: 'inherit'})
     private readonly height: string;
+    @Prop({default: '6px'})
+    private readonly borderRadius: string;
     @Prop({default: false})
     private readonly isWhite: boolean;
     @Prop({default: false})
@@ -32,14 +36,18 @@ export default class VButton extends Vue {
     @Prop({default: false})
     private readonly isDeletion: boolean;
     @Prop({default: false})
+    private readonly isGreyBlue: boolean;
+    @Prop({default: false})
     private readonly isBlueWhite: boolean;
     @Prop({default: false})
     private isDisabled: boolean;
+    @Prop({default: false})
+    private readonly isUppercase: boolean;
     @Prop({default: () => { return; }})
-    private readonly onPress: Function;
+    private readonly onPress: () => void;
 
-    public get style(): Object {
-        return { width: this.width, height: this.height };
+    public get style(): Record<string, unknown> {
+        return { width: this.width, height: this.height, borderRadius: this.borderRadius };
     }
 
     public get containerClassName(): string {
@@ -50,6 +58,8 @@ export default class VButton extends Vue {
         if (this.isTransparent) return 'container transparent';
 
         if (this.isDeletion) return 'container red';
+
+        if (this.isGreyBlue) return 'container grey-blue';
 
         if (this.isBlueWhite) return 'container blue-white';
 
@@ -86,6 +96,15 @@ export default class VButton extends Vue {
         }
     }
 
+    .grey-blue {
+        background-color: #fff !important;
+        border: 2px solid #d9dbe9 !important;
+
+        .label {
+            color: #0149ff !important;
+        }
+    }
+
     .disabled {
         background-color: #dadde5 !important;
         border-color: #dadde5 !important;
@@ -110,7 +129,6 @@ export default class VButton extends Vue {
         align-items: center;
         justify-content: center;
         background-color: #2683ff;
-        border-radius: 6px;
         cursor: pointer;
 
         .label {
@@ -131,6 +149,15 @@ export default class VButton extends Vue {
                 box-shadow: none !important;
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;
+
+                .label {
+                    color: white !important;
+                }
+            }
+
+            &.grey-blue {
+                background-color: #2683ff !important;
+                border-color: #2683ff !important;
 
                 .label {
                     color: white !important;
@@ -163,5 +190,9 @@ export default class VButton extends Vue {
                 }
             }
         }
+    }
+
+    .uppercase {
+        text-transform: uppercase;
     }
 </style>

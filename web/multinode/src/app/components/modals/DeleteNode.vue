@@ -3,17 +3,17 @@
 
 <template>
     <div class="delete-node">
-        <div @click.stop="openModal" class="delete-node__button">Delete Node</div>
+        <div class="delete-node__button" @click.stop="openModal">Delete Node</div>
         <v-modal v-if="isModalShown" @onClose="closeModal">
             <h2 slot="header">Delete this node?</h2>
-            <div class="delete-node__body" slot="body">
+            <div slot="body" class="delete-node__body">
                 <div class="delete-node__body__node-id-container">
                     <span>{{ nodeId }}</span>
                 </div>
             </div>
-            <div class="delete-node__footer" slot="footer">
+            <div slot="footer" class="delete-node__footer">
                 <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
-                <v-button label="Delete" width="205px" :on-press="onDelete"/>
+                <v-button label="Delete" width="205px" :on-press="onDelete" />
             </div>
         </v-modal>
     </div>
@@ -25,6 +25,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
+// @vue/component
 @Component({
     components: {
         VButton,
@@ -32,12 +33,12 @@ import VModal from '@/app/components/common/VModal.vue';
     },
 })
 export default class AddNewNode extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public nodeId: string;
 
-    public isModalShown: boolean = false;
+    public isModalShown = false;
 
-    private isLoading: boolean = false;
+    private isLoading = false;
 
     public openModal(): void {
         this.isModalShown = true;
@@ -50,7 +51,7 @@ export default class AddNewNode extends Vue {
     }
 
     public async onDelete(): Promise<void> {
-        if (this.isLoading) return;
+        if (this.isLoading) { return; }
 
         this.isLoading = true;
 

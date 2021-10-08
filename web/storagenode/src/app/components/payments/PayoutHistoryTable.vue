@@ -9,7 +9,7 @@
                 <PayoutHistoryPeriodDropdown />
             </div>
         </div>
-        <div class="payout-history-table__divider"></div>
+        <div class="payout-history-table__divider" />
         <div class="payout-history-table__table-container">
             <div class="payout-history-table__table-container__labels-area">
                 <p class="payout-history-table__table-container__labels-area__label">Satellite</p>
@@ -33,6 +33,7 @@ import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTable
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 
+// @vue/component
 @Component ({
     components: {
         PayoutHistoryPeriodDropdown,

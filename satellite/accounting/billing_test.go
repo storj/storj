@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/repair/queue"
 )
 
 func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
@@ -240,10 +241,10 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		require.NotZero(t, projectTotal.Egress)
 
 		// get the only metainfo record (our upload)
-		objectsBefore, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+		objectsBefore, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 
-		segmentsBefore, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segmentsBefore, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		// Cause repair traffic
@@ -260,17 +261,15 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		}
 
 		// trigger repair
-		loc := metabase.SegmentLocation{
-			ProjectID:  objectsBefore[0].ProjectID,
-			BucketName: objectsBefore[0].BucketName,
-			ObjectKey:  objectsBefore[0].ObjectKey,
-			Position:   metabase.SegmentPosition{Index: 0},
+		queueSegment := queue.InjuredSegment{
+			StreamID: objectsBefore[0].StreamID,
+			Position: metabase.SegmentPosition{Index: 0},
 		}
-		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, string(loc.Encode()))
+		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, &queueSegment)
 		require.NoError(t, err)
 
 		// get the only metainfo record (our upload)
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		require.NotEqual(t, segmentsBefore[0], segments[0])

@@ -3,9 +3,9 @@
 
 <template>
     <div class="payments-bonus-container">
-        <LogoIcon class="banner-logo-svg" v-if="anyCreditCards" />
-        <CardIcon class="banner-gift-svg" v-else />
-        <div class="payments-bonus-container__text-container" v-if="anyCreditCards">
+        <LogoIcon v-if="anyCreditCards" class="banner-logo-svg" />
+        <CardIcon v-else class="banner-gift-svg" />
+        <div v-if="anyCreditCards" class="payments-bonus-container__text-container">
             <p class="payments-bonus-container__text-container__main-text">
                 Get free credits for paying in STORJ Token
             </p>
@@ -13,7 +13,7 @@
                 Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
             </p>
         </div>
-        <div class="payments-bonus-container__text-container" v-else >
+        <div v-else class="payments-bonus-container__text-container">
             <p class="payments-bonus-container__text-container__main-text">
                 Add a Payment Method to Get Started
             </p>
@@ -28,8 +28,9 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import CardIcon from '@/../static/images/account/billing/card.svg';
-import LogoIcon from '@/../static/images/dcs-logo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
 
+// @vue/component
 @Component({
     components: {
         LogoIcon,

@@ -15,12 +15,13 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
@@ -35,8 +36,11 @@ var mon = monkit.Package()
 
 const (
 	// maxLimit specifies the limit for all paged queries.
-	maxLimit            = 50
-	tokenExpirationTime = 24 * time.Hour
+	maxLimit = 50
+
+	// TokenExpirationTime specifies the expiration time for
+	// auth tokens, account recovery tokens, and activation tokens.
+	TokenExpirationTime = 24 * time.Hour
 
 	// TestPasswordCost is the hashing complexity to use for testing.
 	TestPasswordCost = bcrypt.MinCost
@@ -80,6 +84,15 @@ var (
 
 	// ErrNoAPIKey is error type that occurs when there is no api key found.
 	ErrNoAPIKey = errs.Class("no api key found")
+
+	// ErrRegToken describes registration token errors.
+	ErrRegToken = errs.Class("registration token")
+
+	// ErrRecaptcha describes reCAPTCHA validation errors.
+	ErrRecaptcha = errs.Class("recaptcha validation")
+
+	// ErrRecoveryToken describes account recovery token errors.
+	ErrRecoveryToken = errs.Class("recovery token")
 )
 
 // Service is handling accounts related logic.
@@ -95,6 +108,7 @@ type Service struct {
 	buckets           Buckets
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
+	recaptchaHandler  RecaptchaHandler
 	analytics         *analytics.Service
 
 	config Config
@@ -117,9 +131,17 @@ func init() {
 // Config keeps track of core console service configuration parameters.
 type Config struct {
 	PasswordCost            int  `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
-	OpenRegistrationEnabled bool `help:"enable open registration" default:"false"`
+	OpenRegistrationEnabled bool `help:"enable open registration" default:"false" testDefault:"true"`
 	DefaultProjectLimit     int  `help:"default project limits for users" default:"3" testDefault:"5"`
 	UsageLimits             UsageLimitsConfig
+	Recaptcha               RecaptchaConfig
+}
+
+// RecaptchaConfig contains configurations for the reCAPTCHA system.
+type RecaptchaConfig struct {
+	Enabled   bool   `help:"whether or not reCAPTCHA is enabled for user registration" default:"false"`
+	SiteKey   string `help:"reCAPTCHA site key"`
+	SecretKey string `help:"reCAPTCHA secret key"`
 }
 
 // PaymentsService separates all payment related functionality.
@@ -152,6 +174,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		buckets:           buckets,
 		partners:          partners,
 		accounts:          accounts,
+		recaptchaHandler:  NewDefaultRecaptcha(config.Recaptcha.SecretKey),
 		analytics:         analytics,
 		config:            config,
 		minCoinPayment:    minCoinPayment,
@@ -244,8 +267,31 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return Error.Wrap(err)
 	}
 
-	if !paymentService.service.accounts.PaywallEnabled(auth.User.ID) {
-		return nil
+	if !auth.User.PaidTier {
+		// put this user into the paid tier and convert projects to upgraded limits.
+		err = paymentService.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		projects, err := paymentService.service.store.Projects().GetOwn(ctx, auth.User.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for _, project := range projects {
+			if project.StorageLimit == nil || *project.StorageLimit < paymentService.service.config.UsageLimits.Storage.Paid {
+				project.StorageLimit = new(memory.Size)
+				*project.StorageLimit = paymentService.service.config.UsageLimits.Storage.Paid
+			}
+			if project.BandwidthLimit == nil || *project.BandwidthLimit < paymentService.service.config.UsageLimits.Bandwidth.Paid {
+				project.BandwidthLimit = new(memory.Size)
+				*project.BandwidthLimit = paymentService.service.config.UsageLimits.Bandwidth.Paid
+			}
+			err = paymentService.service.store.Projects().Update(ctx, &project)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
 	}
 
 	return nil
@@ -489,21 +535,39 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 	return paymentService.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
 }
 
-// AddPromotionalCoupon creates new coupon for specified user.
-func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx, userID)(&err)
+// ApplyCouponCode applies a coupon code to a Stripe customer
+// and returns the coupon corresponding to the code.
+func (paymentService PaymentsService) ApplyCouponCode(ctx context.Context, couponCode string) (coupon *payments.Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	if paymentService.service.accounts.PaywallEnabled(userID) {
-		cards, err := paymentService.ListCreditCards(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		if len(cards) == 0 {
-			return Error.New("user don't have a payment method")
-		}
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "apply coupon code")
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID)
+	coupon, err = paymentService.service.accounts.Coupons().ApplyCouponCode(ctx, auth.User.ID, couponCode)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return coupon, nil
+}
+
+// GetCoupon returns the coupon applied to the user's account.
+func (paymentService PaymentsService) GetCoupon(ctx context.Context) (coupon *payments.Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "get coupon")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	coupon, err = paymentService.service.accounts.Coupons().GetByUserID(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return coupon, nil
 }
 
 // checkRegistrationSecret returns a RegistrationToken if applicable (nil if not), and an error
@@ -531,13 +595,25 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 // CreateUser gets password hash value and creates new inactive User.
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.config.Recaptcha.Enabled {
+		valid, err := s.recaptchaHandler.Verify(ctx, user.RecaptchaResponse, user.IP)
+		if err != nil {
+			s.log.Error("reCAPTCHA authorization failed", zap.Error(err))
+			return nil, ErrRecaptcha.Wrap(err)
+		}
+		if !valid {
+			return nil, ErrRecaptcha.New("reCAPTCHA validation unsuccessful")
+		}
+	}
+
 	if err := user.IsValid(); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	registrationToken, err := s.checkRegistrationSecret(ctx, tokenSecret)
 	if err != nil {
-		return nil, err
+		return nil, ErrRegToken.Wrap(err)
 	}
 
 	u, err = s.store.Users().GetByEmail(ctx, user.Email)
@@ -613,6 +689,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
+// TestSwapRecaptchaHandler replaces the existing handler for reCAPTCHAs with
+// the one specified for use in testing.
+func (s *Service) TestSwapRecaptchaHandler(h RecaptchaHandler) {
+	s.recaptchaHandler = h
+}
+
 // GenerateActivationToken - is a method for generating activation token.
 func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -675,7 +757,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	now := time.Now()
 
-	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
+	if now.After(user.CreatedAt.Add(TokenExpirationTime)) {
 		return ErrTokenExpiration.Wrap(err)
 	}
 
@@ -686,26 +768,22 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	}
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
 
-	if s.accounts.PaywallEnabled(user.ID) {
-		return nil
-	}
-
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
 
 	return nil
 }
 
 // ResetPassword - is a method for resetting user password.
-func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string) (err error) {
+func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string, t time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
 	if err != nil {
-		return Error.Wrap(err)
+		return ErrRecoveryToken.Wrap(err)
 	}
 	token, err := s.store.ResetPasswordTokens().GetBySecret(ctx, secret)
 	if err != nil {
-		return Error.Wrap(err)
+		return ErrRecoveryToken.Wrap(err)
 	}
 
 	user, err := s.store.Users().Get(ctx, *token.OwnerID)
@@ -717,8 +795,8 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return Error.Wrap(err)
 	}
 
-	if time.Since(token.CreatedAt) > tokenExpirationTime {
-		return ErrTokenExpiration.New(passwordRecoveryTokenIsExpiredErrMsg)
+	if t.Sub(token.CreatedAt) > TokenExpirationTime {
+		return ErrRecoveryToken.Wrap(ErrTokenExpiration.New(passwordRecoveryTokenIsExpiredErrMsg))
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.config.PasswordCost)
@@ -754,22 +832,60 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 }
 
 // Token authenticates User by credentials and returns auth token.
-func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
+func (s *Service) Token(ctx context.Context, request AuthUser) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.store.Users().GetByEmail(ctx, email)
+	user, err := s.store.Users().GetByEmail(ctx, request.Email)
 	if err != nil {
 		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
-	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
 		return "", ErrUnauthorized.New(credentialsErrMsg)
+	}
+
+	if user.MFAEnabled {
+		if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
+			return "", ErrMFAConflict.New(mfaConflictErrMsg)
+		}
+
+		if request.MFARecoveryCode != "" {
+			found := false
+			codeIndex := -1
+			for i, code := range user.MFARecoveryCodes {
+				if code == request.MFARecoveryCode {
+					found = true
+					codeIndex = i
+					break
+				}
+			}
+			if !found {
+				return "", ErrUnauthorized.New(mfaRecoveryInvalidErrMsg)
+			}
+
+			user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
+
+			err = s.store.Users().Update(ctx, user)
+			if err != nil {
+				return "", err
+			}
+		} else if request.MFAPasscode != "" {
+			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, time.Now())
+			if err != nil {
+				return "", ErrUnauthorized.Wrap(err)
+			}
+			if !valid {
+				return "", ErrUnauthorized.New(mfaPasscodeInvalidErrMsg)
+			}
+		} else {
+			return "", ErrMFALogin.Wrap(ErrMFAMissing.New(mfaRequiredErrMsg))
+		}
 	}
 
 	claims := consoleauth.Claims{
 		ID:         user.ID,
-		Expiration: time.Now().Add(tokenExpirationTime),
+		Expiration: time.Now().Add(TokenExpirationTime),
 	}
 
 	token, err = s.createToken(ctx, &claims)
@@ -995,42 +1111,22 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
-	if s.accounts.PaywallEnabled(auth.User.ID) {
-		cards, err := s.accounts.CreditCards().List(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not list credit cards for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		balance, err := s.accounts.Balance(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not get balance for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		coupons, err := s.accounts.Coupons().ListByUserID(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not list coupons for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		if len(cards) == 0 && balance.Coins < s.minCoinPayment && len(coupons) == 0 {
-			err = errs.New("no valid payment methods found")
-			s.log.Debug(fmt.Sprintf("could not create project for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-	}
-
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		storageLimit := s.config.UsageLimits.Storage.Free
+		bandwidthLimit := s.config.UsageLimits.Bandwidth.Free
+		if auth.User.PaidTier {
+			storageLimit = s.config.UsageLimits.Storage.Paid
+			bandwidthLimit = s.config.UsageLimits.Bandwidth.Paid
+		}
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
 				Name:           projectInfo.Name,
 				OwnerID:        auth.User.ID,
 				PartnerID:      auth.User.PartnerID,
-				StorageLimit:   &s.config.UsageLimits.DefaultStorageLimit,
-				BandwidthLimit: &s.config.UsageLimits.DefaultBandwidthLimit,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
 			},
 		)
 		if err != nil {
@@ -1089,7 +1185,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 }
 
 // UpdateProject is a method for updating project name and description by id.
-func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, name string, description string) (p *Project, err error) {
+func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := s.getAuthAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
@@ -1097,7 +1193,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, name s
 		return nil, Error.Wrap(err)
 	}
 
-	err = ValidateNameAndDescription(name, description)
+	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1107,8 +1203,49 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, name s
 		return nil, Error.Wrap(err)
 	}
 	project := isMember.project
-	project.Name = name
-	project.Description = description
+	project.Name = projectInfo.Name
+	project.Description = projectInfo.Description
+
+	if auth.User.PaidTier {
+		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
+			return nil, Error.New("current bandwidth limit for project is set to 0 (updating disabled)")
+		}
+		if project.StorageLimit != nil && *project.StorageLimit == 0 {
+			return nil, Error.New("current storage limit for project is set to 0 (updating disabled)")
+		}
+		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 {
+			return nil, Error.New("project limits must be greater than 0")
+		}
+
+		if projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid {
+			return nil, Error.New("specified storage limit exceeds allowed maximum for current tier")
+		}
+
+		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid {
+			return nil, Error.New("specified bandwidth limit exceeds allowed maximum for current tier")
+		}
+
+		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if projectInfo.StorageLimit.Int64() < storageUsed {
+			return nil, Error.New("cannot set storage limit below current usage")
+		}
+
+		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if projectInfo.BandwidthLimit.Int64() < bandwidthUsed {
+			return nil, Error.New("cannot set bandwidth limit below current usage")
+		}
+
+		project.StorageLimit = new(memory.Size)
+		*project.StorageLimit = projectInfo.StorageLimit
+		project.BandwidthLimit = new(memory.Size)
+		*project.BandwidthLimit = projectInfo.BandwidthLimit
+	}
 
 	err = s.store.Projects().Update(ctx, project)
 	if err != nil {
@@ -1517,27 +1654,86 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.getAuthAndAuditLog(ctx, "get project usage limits", zap.String("projectID", projectID.String()))
+	auth, err := s.getAuthAndAuditLog(ctx, "get project usage limits", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
+	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	prUsageLimits, err := s.getProjectUsageLimits(ctx, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	bandwidthLimit, err := s.projectUsage.GetProjectBandwidthLimit(ctx, projectID)
+
+	return &ProjectUsageLimits{
+		StorageLimit:   prUsageLimits.StorageLimit,
+		BandwidthLimit: prUsageLimits.BandwidthLimit,
+		StorageUsed:    prUsageLimits.StorageUsed,
+		BandwidthUsed:  prUsageLimits.BandwidthUsed,
+	}, nil
+}
+
+// GetTotalUsageLimits returns total limits and current usage for all the projects.
+func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get total usage and limits for all the projects")
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	projects, err := s.store.Projects().GetOwn(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var totalStorageLimit int64
+	var totalBandwidthLimit int64
+	var totalStorageUsed int64
+	var totalBandwidthUsed int64
+
+	for _, pr := range projects {
+		prUsageLimits, err := s.getProjectUsageLimits(ctx, pr.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		totalStorageLimit += prUsageLimits.StorageLimit
+		totalBandwidthLimit += prUsageLimits.BandwidthLimit
+		totalStorageUsed += prUsageLimits.StorageUsed
+		totalBandwidthUsed += prUsageLimits.BandwidthUsed
+	}
+
+	return &ProjectUsageLimits{
+		StorageLimit:   totalStorageLimit,
+		BandwidthLimit: totalBandwidthLimit,
+		StorageUsed:    totalStorageUsed,
+		BandwidthUsed:  totalBandwidthUsed,
+	}, nil
+}
+
+func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	bandwidthLimit, err := s.projectUsage.GetProjectBandwidthLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
 	}
 
 	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 	bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 
 	return &ProjectUsageLimits{
@@ -1692,6 +1888,9 @@ func (s *Service) authorize(ctx context.Context, claims *consoleauth.Claims) (_ 
 		return nil, ErrValidation.New("authorization failed. no user with id: %s", claims.ID.String())
 	}
 
+	if user.Status != Active {
+		return nil, ErrValidation.New("authorization failed. no active user with id: %s", claims.ID.String())
+	}
 	return user, nil
 }
 
@@ -1747,10 +1946,4 @@ func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID)
 		}
 	}
 	return ProjectMember{}, false
-}
-
-// PaywallEnabled returns a true if a credit card or account
-// balance is required to create projects.
-func (s *Service) PaywallEnabled(userID uuid.UUID) bool {
-	return s.accounts.PaywallEnabled(userID)
 }

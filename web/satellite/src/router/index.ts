@@ -16,32 +16,44 @@ import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
-import AddCouponCode from '@/components/account/billing/freeCredits/AddCouponCode.vue';
-import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
+import AddCouponCode from '@/components/account/billing/coupons/AddCouponCode.vue';
+import CreditsHistory from '@/components/account/billing/coupons/CouponArea.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import BucketsView from '@/components/objects/BucketsView.vue';
-import CreatePassphrase from '@/components/objects/CreatePassphrase.vue';
-import EnterPassphrase from '@/components/objects/EnterPassphrase.vue';
+import EncryptData from '@/components/objects/EncryptData.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
 import UploadFile from '@/components/objects/UploadFile.vue';
 import WarningView from '@/components/objects/WarningView.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
-import CreateAccessGrantStep from '@/components/onboardingTour/steps/CreateAccessGrantStep.vue';
+import OnbCLIStep from '@/components/onboardingTour/steps/CLIStep.vue';
+import CreateAccessGrantStep from "@/components/onboardingTour/steps/oldFlow/CreateAccessGrantStep.vue";
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
+import OldOverviewStep from '@/components/onboardingTour/steps/oldFlow/OldOverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+import CLIInstall from "@/components/onboardingTour/steps/cliFlow/CLIInstall.vue";
+import APIKey from "@/components/onboardingTour/steps/cliFlow/APIKey.vue";
+import CLISetup from "@/components/onboardingTour/steps/cliFlow/CLISetup.vue";
+import CreateBucket from "@/components/onboardingTour/steps/cliFlow/CreateBucket.vue";
+import UploadObject from "@/components/onboardingTour/steps/cliFlow/UploadObject.vue";
+import ListObject from "@/components/onboardingTour/steps/cliFlow/ListObject.vue";
+import DownloadObject from "@/components/onboardingTour/steps/cliFlow/DownloadObject.vue";
+import ShareObject from "@/components/onboardingTour/steps/cliFlow/ShareObject.vue";
+import SuccessScreen from "@/components/onboardingTour/steps/cliFlow/SuccessScreen.vue";
 
 import store from '@/store';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { NavigationLink } from '@/types/navigation';
 
 const DashboardArea = () => import('@/views/DashboardArea.vue');
-const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
-const LoginArea = () => import('@/views/login/LoginArea.vue');
-const RegisterArea = () => import('@/views/register/RegisterArea.vue');
+const ForgotPassword = () => import('@/views/ForgotPassword.vue');
+const LoginArea = () => import('@/views/LoginArea.vue');
+const RegisterArea = () => import('@/views/RegisterArea.vue');
+const ResetPassword = () => import('@/views/ResetPassword.vue');
 
 Vue.use(Router);
 
@@ -54,6 +66,7 @@ export abstract class RouteConfig {
     public static Login = new NavigationLink('/login', 'Login');
     public static Register = new NavigationLink('/signup', 'Register');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
+    public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static Users = new NavigationLink('/project-members', 'Users');
@@ -84,6 +97,19 @@ export abstract class RouteConfig {
 
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
+    public static OnbCLIStep = new NavigationLink('cli', 'Onboarding CLI');
+    public static APIKey = new NavigationLink('api-key', 'Onboarding API Key');
+    public static CLIInstall = new NavigationLink('cli-install', 'Onboarding CLI Install');
+    public static CLISetup = new NavigationLink('cli-setup', 'Onboarding CLI Setup');
+    public static CreateBucket = new NavigationLink('create-bucket', 'Onboarding Create Bucket');
+    public static UploadObject = new NavigationLink('upload-object', 'Onboarding Upload Object');
+    public static ListObject = new NavigationLink('list-object', 'Onboarding List Object');
+    public static DownloadObject = new NavigationLink('download-object', 'Onboarding Download Object');
+    public static ShareObject = new NavigationLink('share-object', 'Onboarding Share Object');
+    public static SuccessScreen = new NavigationLink('success', 'Onboarding Success Screen');
+
+    // onboarding tour old child paths
+    public static OldOverviewStep = new NavigationLink('old-overview', 'Old Onboarding Overview');
     public static AccessGrant = new NavigationLink('access', 'Onboarding Access Grant');
     public static AccessGrantName = new NavigationLink('name', 'Onboarding Name Access Grant');
     public static AccessGrantPermissions = new NavigationLink('permissions', 'Onboarding Access Grant Permissions');
@@ -94,16 +120,17 @@ export abstract class RouteConfig {
 
     // objects child paths.
     public static Warning = new NavigationLink('warning', 'Objects Warning');
-    public static CreatePassphrase = new NavigationLink('create-passphrase', 'Objects Create Passphrase');
-    public static EnterPassphrase = new NavigationLink('enter-passphrase', 'Objects Enter Passphrase');
+    public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
+    public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
 }
 
 export const notProjectRelatedRoutes = [
     RouteConfig.Login.name,
     RouteConfig.Register.name,
     RouteConfig.ForgotPassword.name,
+    RouteConfig.ResetPassword.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
     RouteConfig.DepositHistory.name,
@@ -130,12 +157,22 @@ export const router = new Router({
             component: ForgotPassword,
         },
         {
+            path: RouteConfig.ResetPassword.path,
+            name: RouteConfig.ResetPassword.name,
+            component: ResetPassword,
+        },
+        {
             path: RouteConfig.Root.path,
             meta: {
                 requiresAuth: true,
             },
             component: DashboardArea,
             children: [
+                {
+                    path: RouteConfig.Root.path,
+                    name: 'default',
+                    component: ProjectDashboard,
+                },
                 {
                     path: RouteConfig.Account.path,
                     name: RouteConfig.Account.name,
@@ -181,11 +218,6 @@ export const router = new Router({
                     component: ProjectDashboard,
                 },
                 {
-                    path: RouteConfig.Root.path,
-                    name: 'default',
-                    component: ProjectDashboard,
-                },
-                {
                     path: RouteConfig.Users.path,
                     name: RouteConfig.Users.name,
                     component: ProjectMembersArea,
@@ -199,6 +231,11 @@ export const router = new Router({
                             path: RouteConfig.OverviewStep.path,
                             name: RouteConfig.OverviewStep.name,
                             component: OverviewStep,
+                        },
+                        {
+                            path: RouteConfig.OldOverviewStep.path,
+                            name: RouteConfig.OldOverviewStep.name,
+                            component: OldOverviewStep,
                         },
                         {
                             path: RouteConfig.AccessGrant.path,
@@ -239,6 +276,58 @@ export const router = new Router({
                                     name: RouteConfig.AccessGrantGateway.name,
                                     component: GatewayStep,
                                     props: true,
+                                },
+                            ]
+                        },
+                        {
+                            path: RouteConfig.OnbCLIStep.path,
+                            name: RouteConfig.OnbCLIStep.name,
+                            component: OnbCLIStep,
+                            children: [
+                                {
+                                    path: RouteConfig.APIKey.path,
+                                    name: RouteConfig.APIKey.name,
+                                    component: APIKey,
+                                },
+                                {
+                                    path: RouteConfig.CLIInstall.path,
+                                    name: RouteConfig.CLIInstall.name,
+                                    component: CLIInstall,
+                                },
+                                {
+                                    path: RouteConfig.CLISetup.path,
+                                    name: RouteConfig.CLISetup.name,
+                                    component: CLISetup,
+                                },
+                                {
+                                    path: RouteConfig.CreateBucket.path,
+                                    name: RouteConfig.CreateBucket.name,
+                                    component: CreateBucket,
+                                },
+                                {
+                                    path: RouteConfig.UploadObject.path,
+                                    name: RouteConfig.UploadObject.name,
+                                    component: UploadObject,
+                                },
+                                {
+                                    path: RouteConfig.ListObject.path,
+                                    name: RouteConfig.ListObject.name,
+                                    component: ListObject,
+                                },
+                                {
+                                    path: RouteConfig.DownloadObject.path,
+                                    name: RouteConfig.DownloadObject.name,
+                                    component: DownloadObject,
+                                },
+                                {
+                                    path: RouteConfig.ShareObject.path,
+                                    name: RouteConfig.ShareObject.name,
+                                    component: ShareObject,
+                                },
+                                {
+                                    path: RouteConfig.SuccessScreen.path,
+                                    name: RouteConfig.SuccessScreen.name,
+                                    component: SuccessScreen,
                                 },
                             ],
                         },
@@ -325,14 +414,9 @@ export const router = new Router({
                             component: WarningView,
                         },
                         {
-                            path: RouteConfig.CreatePassphrase.path,
-                            name: RouteConfig.CreatePassphrase.name,
-                            component: CreatePassphrase,
-                        },
-                        {
-                            path: RouteConfig.EnterPassphrase.path,
-                            name: RouteConfig.EnterPassphrase.name,
-                            component: EnterPassphrase,
+                            path: RouteConfig.EncryptData.path,
+                            name: RouteConfig.EncryptData.name,
+                            component: EncryptData,
                         },
                         {
                             path: RouteConfig.BucketsManagement.path,
@@ -346,7 +430,8 @@ export const router = new Router({
                             component: UploadFile,
                             children: [
                                 {
-                                    path: '*',
+                                    path: RouteConfig.UploadFileChildren.path,
+                                    name: RouteConfig.UploadFileChildren.name,
                                     component: UploadFile,
                                 },
                             ],
@@ -363,7 +448,13 @@ export const router = new Router({
     ],
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
+    if (((from.name === RouteConfig.UploadFile.name) || (from.name === RouteConfig.UploadFileChildren.name))
+        && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+        const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
+        if (areUploadsInProgress) return;
+    }
+
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Billing).path);
 
@@ -382,7 +473,19 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep))) {
+        next(RouteConfig.OnboardingTour.path);
+
+        return;
+    }
+
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
+        if (!store.state.appStateModule.isNewOnbCLIFlow) {
+            next(RouteConfig.OnboardingTour.with(RouteConfig.OldOverviewStep).path);
+
+            return;
+        }
+
         next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
         return;
@@ -403,7 +506,7 @@ router.beforeEach((to, from, next) => {
     next();
 });
 
-router.afterEach(({ name }, from) => {
+router.afterEach(({ name }, _from) => {
     if (!name) {
         return;
     }
@@ -424,7 +527,6 @@ router.afterEach(({ name }, from) => {
  * if our route is a tab and has no sub tab route - we will navigate to default subtab.
  * F.E. /account/ -> /account/billing/;
  * @param routes - array of RouteRecord from vue-router
- * @param next - callback to process next route
  * @param tabRoute - tabNavigator route
  */
 function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {

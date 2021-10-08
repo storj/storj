@@ -25,6 +25,8 @@ type Users interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, user *User) error
+	// UpdatePaidTier sets whether the user is in the paid tier.
+	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool) error
 	// GetProjectLimit is a method to get the users project limit
 	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
 }
@@ -49,17 +51,19 @@ func (user *UserInfo) IsValid() error {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	FullName         string `json:"fullName"`
-	ShortName        string `json:"shortName"`
-	Email            string `json:"email"`
-	PartnerID        string `json:"partnerId"`
-	Password         string `json:"password"`
-	IsProfessional   bool   `json:"isProfessional"`
-	Position         string `json:"position"`
-	CompanyName      string `json:"companyName"`
-	WorkingOn        string `json:"workingOn"`
-	EmployeeCount    string `json:"employeeCount"`
-	HaveSalesContact bool   `json:"haveSalesContact"`
+	FullName          string `json:"fullName"`
+	ShortName         string `json:"shortName"`
+	Email             string `json:"email"`
+	PartnerID         string `json:"partnerId"`
+	Password          string `json:"password"`
+	IsProfessional    bool   `json:"isProfessional"`
+	Position          string `json:"position"`
+	CompanyName       string `json:"companyName"`
+	WorkingOn         string `json:"workingOn"`
+	EmployeeCount     string `json:"employeeCount"`
+	HaveSalesContact  bool   `json:"haveSalesContact"`
+	RecaptchaResponse string `json:"recaptchaResponse"`
+	IP                string `json:"ip"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -81,6 +85,14 @@ func (user *CreateUser) IsValid() error {
 	}
 
 	return errs.Combine()
+}
+
+// AuthUser holds info for user authentication token requests.
+type AuthUser struct {
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	MFAPasscode     string `json:"mfaPasscode"`
+	MFARecoveryCode string `json:"mfaRecoveryCode"`
 }
 
 // UserStatus - is used to indicate status of the users account.
@@ -110,7 +122,8 @@ type User struct {
 
 	CreatedAt time.Time `json:"createdAt"`
 
-	ProjectLimit int `json:"projectLimit"`
+	ProjectLimit int  `json:"projectLimit"`
+	PaidTier     bool `json:"paidTier"`
 
 	IsProfessional bool   `json:"isProfessional"`
 	Position       string `json:"position"`
@@ -120,4 +133,8 @@ type User struct {
 	EmployeeCount  string `json:"employeeCount"`
 
 	HaveSalesContact bool `json:"haveSalesContact"`
+
+	MFAEnabled       bool     `json:"mfaEnabled"`
+	MFASecretKey     string   `json:"mfaSecretKey"`
+	MFARecoveryCodes []string `json:"mfaRecoveryCodes"`
 }

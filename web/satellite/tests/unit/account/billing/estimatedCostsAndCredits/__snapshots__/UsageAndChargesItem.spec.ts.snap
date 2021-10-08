@@ -46,9 +46,6 @@ exports[`UsageAndChargesItem toggling dropdown works correctly 1`] = `
         <p class="price">USD $1.00</p>
       </div>
     </div>
-    <div class="usage-charges-item-container__detailed-info-container__link-container"><span class="usage-charges-item-container__detailed-info-container__link-container__link">
-                Advanced Report -&gt;
-            </span></div>
   </div>
 </div>
 `;

@@ -61,6 +61,52 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	return keyInfo, nil
 }
 
+type verifyPermission struct {
+	action          macaroon.Action
+	actionPermitted *bool
+	optional        bool
+}
+
+// validateAuthN validates things like API keys, rate limit and user permissions
+// for each permission from permissions. It returns an error for the first
+// required (not optional) permission that the check fails for. There must be at
+// least one required (not optional) permission. In case all permissions are
+// optional, it will return an error. It always returns valid RPC errors.
+func (endpoint *Endpoint) validateAuthN(ctx context.Context, header *pb.RequestHeader, permissions ...verifyPermission) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	allOptional := true
+
+	for _, p := range permissions {
+		if !p.optional {
+			allOptional = false
+			break
+		}
+	}
+
+	if allOptional {
+		return nil, rpcstatus.Error(rpcstatus.Internal, "All permissions are optional")
+	}
+
+	key, keyInfo, err := endpoint.validateBasic(ctx, header)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, p := range permissions {
+		err = key.Check(ctx, keyInfo.Secret, p.action, endpoint.revocations)
+		if p.actionPermitted != nil {
+			*p.actionPermitted = err == nil
+		}
+		if err != nil && !p.optional {
+			endpoint.log.Debug("unauthorized request", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+		}
+	}
+
+	return keyInfo, nil
+}
+
 func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestHeader) (_ *macaroon.APIKey, _ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -116,19 +162,23 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 		return nil
 	}
 	limiter, err := endpoint.limiterCache.Get(projectID.String(), func() (interface{}, error) {
-		limit := rate.Limit(endpoint.config.RateLimiter.Rate)
+		rateLimit := rate.Limit(endpoint.config.RateLimiter.Rate)
+		burstLimit := int(endpoint.config.RateLimiter.Rate)
 
 		project, err := endpoint.projects.Get(ctx, projectID)
 		if err != nil {
 			return false, err
 		}
-		if project.RateLimit != nil && *project.RateLimit > 0 {
-			limit = rate.Limit(*project.RateLimit)
+		if project.RateLimit != nil {
+			rateLimit = rate.Limit(*project.RateLimit)
+			burstLimit = *project.RateLimit
+		}
+		// use the explicitly set burst value if it's defined
+		if project.BurstLimit != nil {
+			burstLimit = *project.BurstLimit
 		}
 
-		// initialize the limiter with limit and burst the same so that we don't limit how quickly calls
-		// are made within the second.
-		return rate.NewLimiter(limit, int(limit)), nil
+		return rate.NewLimiter(rateLimit, burstLimit), nil
 	})
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Unavailable, err.Error())
@@ -137,7 +187,8 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 	if !limiter.(*rate.Limiter).Allow() {
 		endpoint.log.Warn("too many requests for project",
 			zap.Stringer("projectID", projectID),
-			zap.Float64("limit", float64(limiter.(*rate.Limiter).Limit())))
+			zap.Float64("rate limit", float64(limiter.(*rate.Limiter).Limit())),
+			zap.Float64("burst limit", float64(limiter.(*rate.Limiter).Burst())))
 
 		mon.Event("metainfo_rate_limit_exceeded") //mon:locked
 

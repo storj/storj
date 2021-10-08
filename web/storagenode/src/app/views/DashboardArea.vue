@@ -4,8 +4,8 @@
 <template>
     <div class="content-overflow">
         <div class="content">
-            <SNOContentTitle/>
-            <SNOContentFilling/>
+            <SNOContentTitle />
+            <SNOContentFilling />
         </div>
     </div>
 </template>
@@ -21,6 +21,7 @@ import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 
+// @vue/component
 @Component ({
     components: {
         SNOContentTitle,

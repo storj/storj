@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <base-table >
+    <base-table>
         <thead slot="head">
             <tr>
                 <th class="align-left">NAME</th>
@@ -32,22 +32,22 @@
             </tr>
             <tr class="table-item">
                 <th class="align-left">Gross Total</th>
-                <th></th><th></th>
+                <th /><th />
                 <th>{{ paystub.gross | centsToDollars }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Held amount</th>
-                <th></th><th></th>
+                <th /><th />
                 <th>{{ paystub.held | centsToDollars }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">NET TOTAL</th>
-                <th></th><th></th>
+                <th /><th />
                 <th>{{ paystub.paid | centsToDollars }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Distributed</th>
-                <th></th><th></th>
+                <th /><th />
                 <th>{{ paystub.distributed | centsToDollars }}</th>
             </tr>
         </tbody>
@@ -61,13 +61,14 @@ import BaseTable from '@/app/components/common/BaseTable.vue';
 
 import { Paystub } from '@/payouts';
 
+// @vue/component
 @Component({
     components: {
         BaseTable,
     },
 })
 export default class PayoutsByNodeTable extends Vue {
-    @Prop({default: () => new Paystub()})
+    @Prop({ default: () => new Paystub() })
     public paystub: Paystub;
 }
 </script>

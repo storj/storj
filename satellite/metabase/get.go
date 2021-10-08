@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -39,6 +40,11 @@ func (s Segment) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
 }
 
+// Expired checks if segment is expired relative to now.
+func (s Segment) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
+}
+
 // GetObjectExactVersion contains arguments necessary for fetching an information
 // about exact object version.
 type GetObjectExactVersion struct {
@@ -66,7 +72,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	}
 
 	object := Object{}
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id,
 			created_at, expires_at,
@@ -81,7 +87,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			object_key   = $3 AND
 			version      = $4 AND
 			status       = `+committedStatus,
-		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version).
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
 		Scan(
 			&object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
@@ -122,7 +128,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 	}
 
 	object := Object{}
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, version,
 			created_at, expires_at,
@@ -138,7 +144,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 			status       = `+committedStatus+`
 		ORDER BY version desc
 		LIMIT 1
-	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)).
+	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey).
 		Scan(
 			&object.StreamID, &object.Version,
 			&object.CreatedAt, &object.ExpiresAt,
@@ -177,7 +183,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 	}
 
 	var aliasPieces AliasPieces
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 			SELECT
 				stream_id,
 				created_at, expires_at, repaired_at,
@@ -196,7 +202,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 					LIMIT 1
 				) AND
 				position = $4
-		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Position.Encode()).
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Position.Encode()).
 		Scan(
 			&segment.StreamID,
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
@@ -245,7 +251,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 	}
 
 	var aliasPieces AliasPieces
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			created_at, expires_at, repaired_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
@@ -298,7 +304,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 	}
 
 	var aliasPieces AliasPieces
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, repaired_at,
@@ -319,7 +325,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			)
 		ORDER BY position DESC
 		LIMIT 1
-	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)).
+	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey).
 		Scan(
 			&segment.StreamID, &segment.Position,
 			&segment.CreatedAt, &segment.RepairedAt,
@@ -363,7 +369,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 	}
 
 	var aliasPieces AliasPieces
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, expires_at, repaired_at,
@@ -386,7 +392,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 			(plain_size + plain_offset) > $4
 		ORDER BY plain_offset ASC
 		LIMIT 1
-	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.PlainOffset).
+	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.PlainOffset).
 		Scan(
 			&segment.StreamID, &segment.Position,
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
@@ -430,7 +436,7 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 	}
 
 	var value int
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			1
 		FROM objects
@@ -470,10 +476,11 @@ func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID
 
 	err = db.IterateObjectsAllVersionsWithStatus(ctx,
 		IterateObjectsWithStatus{
-			ProjectID:  projectID,
-			BucketName: bucketName,
-			Recursive:  true,
-			Status:     status,
+			ProjectID:       projectID,
+			BucketName:      bucketName,
+			Recursive:       true,
+			Status:          status,
+			IncludeMetadata: true,
 		}, func(ctx context.Context, it ObjectsIterator) error {
 			entry := ObjectEntry{}
 			for it.Next(ctx, &entry) {

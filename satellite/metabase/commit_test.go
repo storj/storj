@@ -1189,7 +1189,7 @@ func TestCommitSegment(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -1342,7 +1342,7 @@ func TestCommitSegment(t *testing.T) {
 				Segments: []metabase.RawSegment{
 					{
 						StreamID:  obj.StreamID,
-						CreatedAt: &now,
+						CreatedAt: now,
 						ExpiresAt: &expectedExpiresAt,
 
 						RootPieceID:       rootPieceID,
@@ -1411,7 +1411,7 @@ func TestCommitSegment(t *testing.T) {
 				Segments: []metabase.RawSegment{
 					{
 						StreamID:  obj.StreamID,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -1586,7 +1586,7 @@ func TestCommitInlineSegment(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
@@ -1703,7 +1703,7 @@ func TestCommitInlineSegment(t *testing.T) {
 				Segments: []metabase.RawSegment{
 					{
 						StreamID:  obj.StreamID,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
@@ -1761,7 +1761,7 @@ func TestCommitInlineSegment(t *testing.T) {
 				Segments: []metabase.RawSegment{
 					{
 						StreamID:  obj.StreamID,
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
@@ -1824,7 +1824,7 @@ func TestCommitInlineSegment(t *testing.T) {
 				Segments: []metabase.RawSegment{
 					{
 						StreamID:  obj.StreamID,
-						CreatedAt: &now,
+						CreatedAt: now,
 						ExpiresAt: &expectedExpiresAt,
 
 						EncryptedKey:      encryptedKey,
@@ -2020,7 +2020,7 @@ func TestCommitObject(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  metabase.SegmentPosition{Index: 0},
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -2037,7 +2037,7 @@ func TestCommitObject(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  metabase.SegmentPosition{Index: 1},
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -2129,7 +2129,7 @@ func TestCommitObject(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  metabase.SegmentPosition{Index: 0},
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -2145,7 +2145,7 @@ func TestCommitObject(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  metabase.SegmentPosition{Index: 1},
-						CreatedAt: &now,
+						CreatedAt: now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -2282,105 +2282,6 @@ func TestCommitObject(t *testing.T) {
 
 						SegmentCount: 0,
 						Encryption:   metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-	})
-}
-
-func TestUpdateObjectMetadata(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := metabasetest.RandObjectStream()
-		now := time.Now()
-
-		for _, test := range metabasetest.InvalidObjectStreams(obj) {
-			test := test
-			t.Run(test.Name, func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-				metabasetest.UpdateObjectMetadata{
-					Opts: metabase.UpdateObjectMetadata{
-						ObjectStream: test.ObjectStream,
-					},
-					ErrClass: test.ErrClass,
-					ErrText:  test.ErrText,
-				}.Check(ctx, t, db)
-				metabasetest.Verify{}.Check(ctx, t, db)
-			})
-		}
-
-		t.Run("Version invalid", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.UpdateObjectMetadata{
-				Opts: metabase.UpdateObjectMetadata{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    0,
-						StreamID:   obj.StreamID,
-					},
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Version invalid: 0",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("Object missing", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.UpdateObjectMetadata{
-				Opts: metabase.UpdateObjectMetadata{
-					ObjectStream: obj,
-				},
-				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "metabase: object with specified version and committed status is missing",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("Update metadata", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.CreateTestObject{}.Run(ctx, t, db, obj, 0)
-
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Committed,
-						Encryption:   metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.UpdateObjectMetadata{
-				Opts: metabase.UpdateObjectMetadata{
-					ObjectStream:                  obj,
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Committed,
-						Encryption:   metabasetest.DefaultEncryption,
-
-						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 					},
 				},
 			}.Check(ctx, t, db)

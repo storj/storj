@@ -4,6 +4,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+// @vue/component
 @Component
 export default class BaseHeldHistoryTable extends Vue {}
 </script>

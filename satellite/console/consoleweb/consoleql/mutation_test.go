@@ -66,7 +66,7 @@ func TestGraphqlMutation(t *testing.T) {
 
 		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
 
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, 5*time.Minute)
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, 5*time.Minute, -10*time.Second)
 
 		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
 		pc := paymentsconfig.Config{
@@ -93,8 +93,7 @@ func TestGraphqlMutation(t *testing.T) {
 			pc.CouponValue,
 			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
@@ -151,7 +150,7 @@ func TestGraphqlMutation(t *testing.T) {
 		err = service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
-		token, err := service.Token(ctx, createUser.Email, createUser.Password)
+		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
 		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
@@ -177,7 +176,7 @@ func TestGraphqlMutation(t *testing.T) {
 			return result.Data, nil
 		}
 
-		token, err = service.Token(ctx, rootUser.Email, createUser.Password)
+		token, err = service.Token(ctx, console.AuthUser{Email: rootUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
 		sauth, err = service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
@@ -367,13 +366,17 @@ func TestGraphqlMutation(t *testing.T) {
 
 		const testName = "testName"
 		const testDescription = "test description"
+		const StorageLimit = "100"
+		const BandwidthLimit = "100"
 
 		t.Run("Update project mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {updateProject(id:\"%s\",name:\"%s\",description:\"%s\"){id,name,description}}",
+				"mutation {updateProject(id:\"%s\",projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,name,description}}",
 				project.ID.String(),
 				testName,
 				testDescription,
+				StorageLimit,
+				BandwidthLimit,
 			)
 
 			result, err := testQuery(t, query)

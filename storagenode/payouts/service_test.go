@@ -26,11 +26,12 @@ func TestServiceHeldAmountHistory(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		log := zaptest.NewLogger(t)
 		payoutsDB := db.Payout()
+		satellitesDB := db.Satellites()
 		source := &fakeSource{}
 		pool, err := trust.NewPool(log, newFakeIdentityResolver(), trust.Config{
 			Sources:   []trust.Source{source},
 			CachePath: ctx.File("trust-cache.json"),
-		})
+		}, satellitesDB)
 		require.NoError(t, err)
 
 		satelliteID1 := testrand.NodeID()

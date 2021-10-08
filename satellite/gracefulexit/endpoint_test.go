@@ -813,7 +813,7 @@ func testSuccessSegmentUpdate(t *testing.T, ctx *testcontext.Context, nodeFullID
 	// even though we failed 1, it eventually succeeded, so the count should be 0
 	require.EqualValues(t, 0, progress.PiecesFailed)
 
-	segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+	segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 	require.NoError(t, err)
 	require.Len(t, segments, 1)
 	found := 0
@@ -887,7 +887,7 @@ func testUpdateSegmentFailureDuplicatedNodeID(t *testing.T, ctx *testcontext.Con
 		}
 
 		// update segment to include the new receiving node before responding to satellite
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 		require.True(t, len(segments[0].Pieces) > 0)
@@ -930,7 +930,7 @@ func testUpdateSegmentFailureDuplicatedNodeID(t *testing.T, ctx *testcontext.Con
 	}
 
 	// check exiting node is still in the segment
-	segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+	segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 	require.NoError(t, err)
 	require.Len(t, segments, 1)
 
@@ -1232,7 +1232,7 @@ func TestFailureNotFound(t *testing.T) {
 
 		// check that node is no longer in the segment
 
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 
@@ -1545,7 +1545,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 		pieceCountMap[node.ID()] = 0
 	}
 
-	segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+	segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1586,7 +1586,7 @@ func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellite, "test1", path, testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 

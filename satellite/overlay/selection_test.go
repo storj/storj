@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/reputation"
 )
 
 func TestMinimumDiskSpace(t *testing.T) {
@@ -38,6 +39,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
 				config.Overlay.NodeSelectionCache.Staleness = -time.Hour
+				config.Overlay.NodeCheckInWaitPeriod = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -154,6 +156,10 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			UniqueIPCount: 5,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.AuditLambda = 1
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0.5
+				config.Reputation.AuditHistory = testAuditHistoryConfig()
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -168,6 +174,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		}
 
 		service := satellite.Overlay.Service
+		repService := satellite.Reputation.Service
 
 		reputable := map[storj.NodeID]bool{}
 
@@ -184,12 +191,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			node := planet.StorageNodes[i]
 			reputable[node.ID()] = true
-			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-				NodeID:       node.ID(),
-				AuditOutcome: overlay.AuditSuccess,
-				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				AuditHistory: testAuditHistoryConfig(),
-			}, time.Now())
+			err := repService.ApplyAudit(ctx, node.ID(), reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
 
@@ -227,12 +229,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		for i := 5; i < 10; i++ {
 			node := planet.StorageNodes[i]
 			reputable[node.ID()] = true
-			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-				NodeID:       node.ID(),
-				AuditOutcome: overlay.AuditSuccess,
-				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				AuditHistory: testAuditHistoryConfig(),
-			}, time.Now())
+			err := repService.ApplyAudit(ctx, node.ID(), reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
 
@@ -258,7 +255,7 @@ func TestNodeSelection(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditHistory = testAuditHistoryConfig()
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -380,6 +377,15 @@ func TestNodeSelection(t *testing.T) {
 func TestNodeSelectionGracefulExit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.AuditLambda = 1
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0.5
+				config.Reputation.AuditHistory = testAuditHistoryConfig()
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -391,12 +397,7 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 		// nodes at indices 0, 2, 4, 6, 8 are gracefully exiting
 		for i, node := range planet.StorageNodes {
 			for k := 0; k < i; k++ {
-				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       node.ID(),
-					AuditOutcome: overlay.AuditSuccess,
-					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-					AuditHistory: testAuditHistoryConfig(),
-				}, time.Now())
+				err := satellite.Reputation.Service.ApplyAudit(ctx, node.ID(), reputation.AuditSuccess)
 				require.NoError(t, err)
 			}
 
@@ -616,19 +617,18 @@ func TestDistinctIPs(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			UniqueIPCount: 3,
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.AuditLambda = 1
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0.5
+				config.Reputation.AuditHistory = testAuditHistoryConfig()
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// Vets nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
-			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-				NodeID:       planet.StorageNodes[i].ID(),
-				AuditOutcome: overlay.AuditSuccess,
-				AuditLambda:  1,
-				AuditWeight:  1,
-				AuditDQ:      0.5,
-				AuditHistory: testAuditHistoryConfig(),
-			}, time.Now())
+			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), reputation.AuditSuccess)
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)
@@ -645,20 +645,17 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 			UniqueIPCount: 3, // creates 3 additional unique ip addresses, totaling to 4 IPs
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.UpdateStatsBatchSize = 1
+				config.Reputation.AuditLambda = 1
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0.5
+				config.Reputation.AuditHistory = testAuditHistoryConfig()
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// Vets nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
-			// These are done individually b/c the previous stat data is important
-			_, err := satellite.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
-				NodeID:       planet.StorageNodes[i].ID(),
-				AuditOutcome: overlay.AuditSuccess,
-				AuditLambda:  1,
-				AuditWeight:  1,
-				AuditDQ:      0.5,
-			}})
+			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), reputation.AuditSuccess)
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)

@@ -4,6 +4,7 @@
 import { StoreModule } from '@/store';
 import {
     AccountBalance,
+    Coupon,
     CreditCard,
     DateRange,
     PaymentsApi,
@@ -27,7 +28,8 @@ export const PAYMENTS_MUTATIONS = {
     SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
     SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT: 'SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT',
-    SET_PAYWALL_ENABLED_STATUS: 'SET_PAYWALL_ENABLED_STATUS',
+    TOGGLE_IS_ADD_PM_MODAL_SHOWN: 'TOGGLE_IS_ADD_PM_MODAL_SHOWN',
+    SET_COUPON: 'SET_COUPON',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -45,7 +47,8 @@ export const PAYMENTS_ACTIONS = {
     GET_PROJECT_USAGE_AND_CHARGES: 'getProjectUsageAndCharges',
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP: 'getProjectUsageAndChargesPreviousRollup',
-    GET_PAYWALL_ENABLED_STATUS: 'getPaywallEnabledStatus',
+    APPLY_COUPON_CODE: 'applyCouponCode',
+    GET_COUPON: `getCoupon`,
 };
 
 const {
@@ -59,7 +62,8 @@ const {
     SET_PROJECT_USAGE_AND_CHARGES,
     SET_PRICE_SUMMARY,
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
-    SET_PAYWALL_ENABLED_STATUS,
+    TOGGLE_IS_ADD_PM_MODAL_SHOWN,
+    SET_COUPON,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -76,7 +80,8 @@ const {
     MAKE_TOKEN_DEPOSIT,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
-    GET_PAYWALL_ENABLED_STATUS,
+    APPLY_COUPON_CODE,
+    GET_COUPON,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
@@ -87,11 +92,22 @@ export class PaymentsState {
     public creditCards: CreditCard[] = [];
     public paymentsHistory: PaymentsHistoryItem[] = [];
     public usageAndCharges: ProjectUsageAndCharges[] = [];
-    public priceSummary: number = 0;
-    public priceSummaryForSelectedProject: number = 0;
+    public priceSummary = 0;
+    public priceSummaryForSelectedProject = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
-    public isPaywallEnabled: boolean = true;
+    public isAddPMModalShown = false;
+    public coupon: Coupon | null = null;
+}
+
+interface PaymentsContext {
+    state: PaymentsState
+    commit: (string, ...unknown) => void
+    rootGetters: {
+        selectedProject: {
+            id: string
+        }
+    }
 }
 
 /**
@@ -99,7 +115,7 @@ export class PaymentsState {
  *
  * @param api - payments api
  */
-export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState> {
+export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState, PaymentsContext> {
     return {
         state: new PaymentsState(),
         mutations: {
@@ -170,8 +186,11 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
 
                 state.priceSummaryForSelectedProject = usageAndChargesForSelectedProject.summary();
             },
-            [SET_PAYWALL_ENABLED_STATUS](state: PaymentsState, isPaywallEnabled: boolean): void {
-                state.isPaywallEnabled = isPaywallEnabled;
+            [TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: PaymentsState): void {
+                state.isAddPMModalShown = !state.isAddPMModalShown;
+            },
+            [SET_COUPON](state: PaymentsState, coupon: Coupon): void {
+                state.coupon = coupon;
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();
@@ -181,11 +200,10 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 state.creditCards = [];
                 state.startDate = new Date();
                 state.endDate = new Date();
-                state.isPaywallEnabled = true;
             },
         },
         actions: {
-            [GET_BALANCE]: async function({commit}: any): Promise<AccountBalance> {
+            [GET_BALANCE]: async function({commit}: PaymentsContext): Promise<AccountBalance> {
                 const balance: AccountBalance = await api.getBalance();
 
                 commit(SET_BALANCE, balance);
@@ -195,44 +213,44 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             [SETUP_ACCOUNT]: async function(): Promise<void> {
                 await api.setupAccount();
             },
-            [GET_CREDIT_CARDS]: async function({commit}: any): Promise<CreditCard[]> {
+            [GET_CREDIT_CARDS]: async function({commit}: PaymentsContext): Promise<CreditCard[]> {
                 const creditCards = await api.listCreditCards();
 
                 commit(SET_CREDIT_CARDS, creditCards);
 
                 return creditCards;
             },
-            [ADD_CREDIT_CARD]: async function({commit}: any, token: string): Promise<void> {
+            [ADD_CREDIT_CARD]: async function(_context: PaymentsContext, token: string): Promise<void> {
                 await api.addCreditCard(token);
             },
-            [TOGGLE_CARD_SELECTION]: function({commit}: any, id: string): void {
+            [TOGGLE_CARD_SELECTION]: function({commit}: PaymentsContext, id: string): void {
                 commit(UPDATE_CARDS_SELECTION, id);
             },
-            [CLEAR_CARDS_SELECTION]: function({commit}: any): void {
+            [CLEAR_CARDS_SELECTION]: function({commit}: PaymentsContext): void {
                 commit(UPDATE_CARDS_SELECTION, null);
             },
-            [MAKE_CARD_DEFAULT]: async function({commit}: any, id: string): Promise<void> {
+            [MAKE_CARD_DEFAULT]: async function({commit}: PaymentsContext, id: string): Promise<void> {
                 await api.makeCreditCardDefault(id);
 
                 commit(UPDATE_CARDS_DEFAULT, id);
             },
-            [REMOVE_CARD]: async function({commit, state}: any, cardId: string): Promise<void> {
+            [REMOVE_CARD]: async function({commit, state}: PaymentsContext, cardId: string): Promise<void> {
                 await api.removeCreditCard(cardId);
 
                 commit(SET_CREDIT_CARDS, state.creditCards.filter(card => card.id !== cardId));
             },
-            [CLEAR_PAYMENT_INFO]: function({commit}: any): void {
+            [CLEAR_PAYMENT_INFO]: function({commit}: PaymentsContext): void {
                 commit(CLEAR);
             },
-            [GET_PAYMENTS_HISTORY]: async function({commit}: any): Promise<void> {
+            [GET_PAYMENTS_HISTORY]: async function({commit}: PaymentsContext): Promise<void> {
                 const paymentsHistory: PaymentsHistoryItem[] = await api.paymentsHistory();
 
                 commit(SET_PAYMENTS_HISTORY, paymentsHistory);
             },
-            [MAKE_TOKEN_DEPOSIT]: async function({commit}: any, amount: number): Promise<TokenDeposit> {
+            [MAKE_TOKEN_DEPOSIT]: async function(_context: PaymentsContext, amount: number): Promise<TokenDeposit> {
                 return await api.makeTokenDeposit(amount);
             },
-            [GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP]: async function({commit, rootGetters}: any): Promise<void> {
+            [GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP]: async function({commit, rootGetters}: PaymentsContext): Promise<void> {
                 const now = new Date();
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
                 const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
@@ -244,7 +262,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
                 commit(SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT, rootGetters.selectedProject.id);
             },
-            [GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP]: async function({commit}: any): Promise<void> {
+            [GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP]: async function({commit}: PaymentsContext): Promise<void> {
                 const now = new Date();
                 const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0));
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
@@ -255,11 +273,14 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
             },
-            [GET_PAYWALL_ENABLED_STATUS]: async function({commit, rootGetters}: any): Promise<void> {
-                const isPaywallEnabled: boolean = await api.getPaywallStatus(rootGetters.user.id);
-
-                commit(SET_PAYWALL_ENABLED_STATUS, isPaywallEnabled);
+            [APPLY_COUPON_CODE]: async function({commit}: PaymentsContext, code: string): Promise<void> {
+                const coupon = await api.applyCouponCode(code);
+                commit(SET_COUPON, coupon);
             },
+            [GET_COUPON]: async function({commit}: PaymentsContext): Promise<void> {
+                const coupon = await api.getCoupon();
+                commit(SET_COUPON, coupon);
+            }
         },
         getters: {
             canUserCreateFirstProject: (state: PaymentsState): boolean => {

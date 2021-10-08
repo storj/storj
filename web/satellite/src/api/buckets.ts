@@ -86,7 +86,7 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
      *
      * @param page anonymous object from json
      */
-    private getBucketPage(page: any): BucketPage {
+    private getBucketPage(page: any): BucketPage { // eslint-disable-line @typescript-eslint/no-explicit-any
         if (!page) {
             return new BucketPage();
         }

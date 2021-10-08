@@ -3,9 +3,9 @@
 
 <template>
     <div id="app">
-        <router-view/>
+        <router-view />
         <!-- Area for displaying notification -->
-        <NotificationArea/>
+        <NotificationArea />
     </div>
 </template>
 
@@ -18,6 +18,7 @@ import { PartneredSatellite } from '@/types/common.ts';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 
+// @vue/component
 @Component({
     components: {
         NotificationArea,
@@ -30,9 +31,15 @@ export default class App extends Vue {
      */
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
-        const partneredSatellitesJson = JSON.parse(MetaUtils.getMetaContent('partnered-satellites'));
+        const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
+        let partneredSatellitesJson = [];
+        if (partneredSatellitesData) {
+            partneredSatellitesJson = JSON.parse(partneredSatellitesData);
+        }
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
-        const couponCodeUIEnabled = MetaUtils.getMetaContent('coupon-code-ui-enabled');
+        const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
+        const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
+        const isNewOnboardingFlow = MetaUtils.getMetaContent('new-onboarding-flow');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -55,10 +62,15 @@ export default class App extends Vue {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_STATUS, isBetaSatellite === 'true');
         }
 
-        if (couponCodeUIEnabled) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_UI_STATUS, couponCodeUIEnabled === 'true');
+        if (couponCodeBillingUIEnabled) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled === 'true');
         }
-
+        if (couponCodeSignupUIEnabled) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
+        }
+        if (isNewOnboardingFlow) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_ONB_CLI_FLOW_STATUS, isNewOnboardingFlow === 'true');
+        }
     }
 }
 </script>
@@ -82,20 +94,38 @@ export default class App extends Vue {
 
     @font-face {
         font-family: 'font_regular';
+        font-style: normal;
+        font-weight: 400;
         font-display: swap;
-        src: url('../static/fonts/font_regular.ttf');
+        src:
+            local(''),
+            url('../static/fonts/inter-v3-latin-regular.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-regular.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-regular.ttf') format('truetype');
     }
 
     @font-face {
         font-family: 'font_medium';
+        font-style: normal;
+        font-weight: 600;
         font-display: swap;
-        src: url('../static/fonts/font_medium.ttf');
+        src:
+            local(''),
+            url('../static/fonts/inter-v3-latin-600.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-600.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-600.ttf') format('truetype');
     }
 
     @font-face {
         font-family: 'font_bold';
+        font-style: normal;
+        font-weight: 800;
         font-display: swap;
-        src: url('../static/fonts/font_bold.ttf');
+        src:
+            local(''),
+            url('../static/fonts/inter-v3-latin-800.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-800.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-800.ttf') format('truetype');
     }
 
     a {
@@ -107,7 +137,6 @@ export default class App extends Vue {
     input,
     textarea {
         font-family: inherit;
-        font-weight: 600;
         border: 1px solid rgba(56, 75, 101, 0.4);
         color: #354049;
         caret-color: #2683ff;

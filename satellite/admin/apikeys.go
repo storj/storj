@@ -4,7 +4,9 @@
 package admin
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 
@@ -21,21 +23,21 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
 	if !ok {
-		httpJSONError(w, "project-uuid missing",
+		sendJSONError(w, "project-uuid missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
-		httpJSONError(w, "invalid project-uuid",
+		sendJSONError(w, "invalid project-uuid",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		httpJSONError(w, "failed to read body",
+		sendJSONError(w, "failed to read body",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -51,34 +53,34 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
-		httpJSONError(w, "failed to unmarshal request",
+		sendJSONError(w, "failed to unmarshal request",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if input.Name == "" {
-		httpJSONError(w, "Name is not set",
+		sendJSONError(w, "Name is not set",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	_, err = server.db.Console().APIKeys().GetByNameAndProjectID(ctx, input.Name, projectUUID)
 	if err == nil {
-		httpJSONError(w, "api-key with given name already exists",
+		sendJSONError(w, "api-key with given name already exists",
 			"", http.StatusConflict)
 		return
 	}
 
 	secret, err := macaroon.NewSecret()
 	if err != nil {
-		httpJSONError(w, "could not create macaroon secret",
+		sendJSONError(w, "could not create macaroon secret",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	key, err := macaroon.NewAPIKey(secret)
 	if err != nil {
-		httpJSONError(w, "could not create api-key",
+		sendJSONError(w, "could not create api-key",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -92,7 +94,7 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	_, err = server.db.Console().APIKeys().Create(ctx, key.Head(), apikey)
 	if err != nil {
-		httpJSONError(w, "unable to add api-key to database",
+		sendJSONError(w, "unable to add api-key to database",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -100,13 +102,12 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 	output.APIKey = key.Serialize()
 	data, err := json.Marshal(output)
 	if err != nil {
-		httpJSONError(w, "json encoding failed",
+		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+	sendJSONData(w, http.StatusOK, data)
 }
 
 func (server *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
@@ -115,28 +116,33 @@ func (server *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	apikeyString, ok := vars["apikey"]
 	if !ok {
-		httpJSONError(w, "apikey missing",
+		sendJSONError(w, "apikey missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	apikey, err := macaroon.ParseAPIKey(apikeyString)
 	if err != nil {
-		httpJSONError(w, "invalid apikey format",
+		sendJSONError(w, "invalid apikey format",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	info, err := server.db.Console().APIKeys().GetByHead(ctx, apikey.Head())
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "API key does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		httpJSONError(w, "could not get apikey id",
+		sendJSONError(w, "could not get apikey id",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	err = server.db.Console().APIKeys().Delete(ctx, info.ID)
 	if err != nil {
-		httpJSONError(w, "unable to delete apikey",
+		sendJSONError(w, "unable to delete apikey",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -148,36 +154,98 @@ func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request)
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
 	if !ok {
-		httpJSONError(w, "project-uuid missing",
+		sendJSONError(w, "project-uuid missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
-		httpJSONError(w, "invalid project-uuid",
+		sendJSONError(w, "invalid project-uuid",
 			err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	apikeyName, ok := vars["name"]
 	if !ok {
-		httpJSONError(w, "apikey name missing",
+		sendJSONError(w, "apikey name missing",
 			"", http.StatusBadRequest)
 		return
 	}
 
 	info, err := server.db.Console().APIKeys().GetByNameAndProjectID(ctx, apikeyName, projectUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "API key with specified name does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		httpJSONError(w, "could not get apikey id",
+		sendJSONError(w, "could not get apikey id",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	err = server.db.Console().APIKeys().Delete(ctx, info.ID)
 	if err != nil {
-		httpJSONError(w, "unable to delete apikey",
+		sendJSONError(w, "unable to delete apikey",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (server *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	projectUUID, err := uuid.FromString(projectUUIDString)
+	if err != nil {
+		sendJSONError(w, "invalid project-uuid",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	const apiKeysPerPage = 50 // This is the current maximum API Keys per page.
+	var apiKeys []console.APIKeyInfo
+	for i := uint(1); true; i++ {
+		page, err := server.db.Console().APIKeys().GetPagedByProjectID(
+			ctx, projectUUID, console.APIKeyCursor{
+				Limit:          apiKeysPerPage,
+				Page:           i,
+				Order:          console.KeyName,
+				OrderDirection: console.Ascending,
+			},
+		)
+		if err != nil {
+			sendJSONError(w, "failed retrieving a cursor page of API Keys list",
+				err.Error(), http.StatusInternalServerError,
+			)
+			return
+		}
+
+		apiKeys = append(apiKeys, page.APIKeys...)
+		if len(page.APIKeys) < apiKeysPerPage {
+			break
+		}
+	}
+
+	var data []byte
+	if len(apiKeys) == 0 {
+		data = []byte("[]")
+	} else {
+		data, err = json.Marshal(apiKeys)
+		if err != nil {
+			sendJSONError(w, "json encoding failed",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	sendJSONData(w, http.StatusOK, data)
 }

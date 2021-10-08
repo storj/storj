@@ -4,13 +4,13 @@
 <template>
     <div class="item-component">
         <component
-            v-for="(item, key) in dataSet"
-            class="item-component__item"
             :is="itemComponent"
-            :item-data="item"
-            @click.native="onItemClick(item)"
-            :class="{ selected: item.isSelected }"
+            v-for="(item, key) in dataSet"
             :key="key"
+            class="item-component__item"
+            :item-data="item"
+            :class="{ selected: item.isSelected }"
+            @click.native="onItemClick(item)"
         />
     </div>
 </template>
@@ -18,16 +18,17 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-declare type listItemClickCallback = (item: any) => Promise<void>;
+declare type listItemClickCallback = (item: unknown) => Promise<void>;
 
+// @vue/component
 @Component
 export default class VList extends Vue {
     @Prop({default: ''})
     private readonly itemComponent: string;
     @Prop({default: () => new Promise(() => false)})
     private readonly onItemClick: listItemClickCallback;
-    @Prop({default: Array()})
-    private readonly dataSet: any[];
+    @Prop({default: []})
+    private readonly dataSet: unknown[];
 }
 </script>
 

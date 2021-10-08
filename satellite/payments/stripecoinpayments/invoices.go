@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"

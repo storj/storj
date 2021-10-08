@@ -54,7 +54,7 @@ func (auth *CookieAuth) RemoveTokenCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.settings.Name,
 		Value:    "",
-		Path:     "/",
+		Path:     auth.settings.Path,
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,

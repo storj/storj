@@ -11,8 +11,8 @@
                     <payout-period-calendar-button :period="period" />
                 </div>
                 <payouts-summary-table
-                    class="payouts__left-area__table"
                     v-if="payouts.summary.nodeSummary"
+                    class="payouts__left-area__table"
                     :node-payouts-summary="payouts.summary.nodeSummary"
                 />
             </div>
@@ -27,7 +27,7 @@
                     :current-month-estimation="payouts.totalExpectations.currentMonthEstimation"
                     :undistributed="payouts.totalExpectations.undistributed"
                 />
-<!--                <payout-history-block />-->
+                <!--                <payout-history-block />-->
             </div>
         </div>
     </div>
@@ -37,25 +37,22 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
-import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
 import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
 import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
-import PayoutHistoryBlock from '@/app/components/payouts/PayoutHistoryBlock.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
 import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
 
 import { UnauthorizedError } from '@/api';
 import { PayoutsState } from '@/app/store/payouts';
 
+// @vue/component
 @Component({
     components: {
         BalanceArea,
         PayoutPeriodCalendarButton,
-        PayoutHistoryBlock,
         DetailsArea,
         PayoutsSummaryTable,
         SatelliteSelectionDropdown,
-        NodesTable,
     },
 })
 export default class PayoutsPage extends Vue {

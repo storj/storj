@@ -161,7 +161,7 @@ func getNodePieceCounts(ctx context.Context, planet *testplanet.Planet) (_ map[s
 func findNodeToExit(ctx context.Context, planet *testplanet.Planet) (*testplanet.StorageNode, error) {
 	satellite := planet.Satellites[0]
 
-	objects, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+	objects, err := satellite.Metabase.DB.TestingAllSegments(ctx)
 	if err != nil {
 		return nil, err
 	}

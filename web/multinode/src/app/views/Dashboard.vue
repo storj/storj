@@ -2,19 +2,19 @@
 // See LICENSE for copying information.
 
 <template>
-  <div class="dashboard-area">
-      <nav class="dashboard-area__navigation-area">
-          <navigation-area />
-      </nav>
-      <div class="dashboard-area__right-area">
-          <header class="dashboard-area__right-area__header">
-              <add-new-node />
-          </header>
-          <div class="dashboard-area__right-area__content">
-              <router-view />
-          </div>
-      </div>
-  </div>
+    <div class="dashboard-area">
+        <nav class="dashboard-area__navigation-area">
+            <navigation-area />
+        </nav>
+        <div class="dashboard-area__right-area">
+            <header class="dashboard-area__right-area__header">
+                <add-new-node />
+            </header>
+            <div class="dashboard-area__right-area__content">
+                <router-view />
+            </div>
+        </div>
+    </div>
 </template>
 
 <script lang="ts">
@@ -25,6 +25,7 @@ import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
 
 import { UnauthorizedError } from '@/api';
 
+// @vue/component
 @Component({
     components: {
         AddNewNode,

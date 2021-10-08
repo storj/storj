@@ -20,13 +20,14 @@ import NodeOptions from '@/app/components/common/NodeOptions.vue';
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayoutsSummary } from '@/payouts';
 
+// @vue/component
 @Component({
     components: {
         NodeOptions,
     },
 })
 export default class PayoutsSummaryItem extends Vue {
-    @Prop({default: () => new NodePayoutsSummary()})
+    @Prop({ default: () => new NodePayoutsSummary() })
     public payoutsSummary: NodePayoutsSummary;
 
     public redirectToByNodePayoutsPage(): void {
