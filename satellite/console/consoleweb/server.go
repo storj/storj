@@ -92,6 +92,7 @@ type Config struct {
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"true"`
+	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"false"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -373,6 +374,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NewOnboarding                   bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
+		NewNavigation                   bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -401,6 +403,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
 	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
 	data.NewOnboarding = server.config.NewOnboarding
+	data.NewNavigation = server.config.NewNavigation
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

@@ -17,13 +17,18 @@
         <div v-if="!isLoading" class="dashboard__wrap">
             <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
             <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-            <DashboardHeader />
-            <div class="dashboard__wrap__main-area">
-                <NavigationArea class="regular-navigation" />
-                <div class="dashboard__wrap__main-area__content">
-                    <router-view />
+            <template v-if="isNewNavStructure">
+                <router-view />
+            </template>
+            <template v-else>
+                <DashboardHeader />
+                <div class="dashboard__wrap__main-area">
+                    <NavigationArea class="regular-navigation" />
+                    <div class="dashboard__wrap__main-area__content">
+                        <router-view />
+                    </div>
                 </div>
-            </div>
+            </template>
         </div>
         <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal" />
         <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
@@ -236,6 +241,10 @@ export default class DashboardArea extends Vue {
     public get showMFARecoveryCodeBar(): boolean {
         const user : User = this.$store.getters.user;
         return user.isMFAEnabled && user.mfaRecoveryCodeCount < this.recoveryCodeWarningThreshold;
+    }
+
+    public get isNewNavStructure(): boolean {
+        return this.$store.state.appStateModule.isNewNavStructure;
     }
 
     /**
