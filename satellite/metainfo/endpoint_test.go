@@ -632,6 +632,6 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 		require.Len(t, objects, 1)
 		assert.Equal(t, testEncryptedMetadata, objects[0].EncryptedMetadata)
 		assert.Equal(t, testEncryptedMetadataEncryptedKey, objects[0].EncryptedMetadataEncryptedKey)
-		assert.Equal(t, testEncryptedMetadataNonce[:], objects[0].EncryptedMetadataNonce)
+		assert.Equal(t, testEncryptedMetadataNonce, objects[0].EncryptedMetadataNonce)
 	})
 }

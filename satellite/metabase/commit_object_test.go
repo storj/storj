@@ -129,7 +129,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataNonce:        encryptedMetadataNonce,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -163,7 +163,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						CreatedAt: now,
 						Status:    metabase.Committed,
 
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataNonce:        encryptedMetadataNonce,
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 
@@ -228,13 +228,13 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			rootPieceID00 := testrand.PieceID()
 			pieces00 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey00 := testrand.Bytes(32)
-			encryptedKeyNonce00 := testrand.Bytes(32)
+			encryptedKeyNonce00 := testrand.Nonce()
 
 			pos01 := metabase.SegmentPosition{Part: 0, Index: 1}
 			rootPieceID01 := testrand.PieceID()
 			pieces01 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey01 := testrand.Bytes(32)
-			encryptedKeyNonce01 := testrand.Bytes(32)
+			encryptedKeyNonce01 := testrand.Nonce()
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
@@ -336,12 +336,12 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			pos00 := metabase.SegmentPosition{Part: 0, Index: 0}
 			data00 := testrand.Bytes(32)
 			encryptedKey00 := testrand.Bytes(32)
-			encryptedKeyNonce00 := testrand.Bytes(32)
+			encryptedKeyNonce00 := testrand.Nonce()
 
 			pos01 := metabase.SegmentPosition{Part: 0, Index: 1}
 			data01 := testrand.Bytes(1024)
 			encryptedKey01 := testrand.Bytes(32)
-			encryptedKeyNonce01 := testrand.Bytes(32)
+			encryptedKeyNonce01 := testrand.Nonce()
 
 			metabasetest.CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
@@ -433,13 +433,13 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			rootPieceID00 := testrand.PieceID()
 			pieces00 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey00 := testrand.Bytes(32)
-			encryptedKeyNonce00 := testrand.Bytes(32)
+			encryptedKeyNonce00 := testrand.Nonce()
 
 			pos01 := metabase.SegmentPosition{Part: 0, Index: 1}
 			rootPieceID01 := testrand.PieceID()
 			pieces01 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey01 := testrand.Bytes(32)
-			encryptedKeyNonce01 := testrand.Bytes(32)
+			encryptedKeyNonce01 := testrand.Nonce()
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
@@ -557,13 +557,13 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			rootPieceID00 := testrand.PieceID()
 			pieces00 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey00 := testrand.Bytes(32)
-			encryptedKeyNonce00 := testrand.Bytes(32)
+			encryptedKeyNonce00 := testrand.Nonce()
 
 			pos10 := metabase.SegmentPosition{Part: 1, Index: 0}
 			rootPieceID10 := testrand.PieceID()
 			pieces10 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey10 := testrand.Bytes(32)
-			encryptedKeyNonce10 := testrand.Bytes(32)
+			encryptedKeyNonce10 := testrand.Nonce()
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
@@ -681,13 +681,13 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			rootPieceID00 := testrand.PieceID()
 			pieces00 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey00 := testrand.Bytes(32)
-			encryptedKeyNonce00 := testrand.Bytes(32)
+			encryptedKeyNonce00 := testrand.Nonce()
 
 			pos02 := metabase.SegmentPosition{Part: 0, Index: 2}
 			rootPieceID02 := testrand.PieceID()
 			pieces02 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey02 := testrand.Bytes(32)
-			encryptedKeyNonce02 := testrand.Bytes(32)
+			encryptedKeyNonce02 := testrand.Nonce()
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{

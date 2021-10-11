@@ -273,7 +273,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						RootPieceID:       storj.PieceID{1},
 						CreatedAt:         now,
 						EncryptedKey:      []byte{3},
-						EncryptedKeyNonce: []byte{4},
+						EncryptedKeyNonce: metabasetest.DefaultNonce,
 						EncryptedETag:     []byte{5},
 						EncryptedSize:     1024,
 						PlainOffset:       0,

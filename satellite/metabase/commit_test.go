@@ -999,7 +999,7 @@ func TestCommitSegment(t *testing.T) {
 					}},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Nonce(),
 
 					EncryptedSize: -1,
 				},
@@ -1019,7 +1019,7 @@ func TestCommitSegment(t *testing.T) {
 						}},
 
 						EncryptedKey:      testrand.Bytes(32),
-						EncryptedKeyNonce: testrand.Bytes(32),
+						EncryptedKeyNonce: testrand.Nonce(),
 
 						EncryptedSize: 1024,
 						PlainSize:     -1,
@@ -1040,7 +1040,7 @@ func TestCommitSegment(t *testing.T) {
 					}},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Nonce(),
 
 					EncryptedSize: 1024,
 					PlainSize:     512,
@@ -1061,7 +1061,7 @@ func TestCommitSegment(t *testing.T) {
 					}},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Nonce(),
 
 					EncryptedSize: 1024,
 					PlainSize:     512,
@@ -1087,7 +1087,7 @@ func TestCommitSegment(t *testing.T) {
 					RootPieceID:       testrand.PieceID(),
 					Redundancy:        redundancy,
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Nonce(),
 
 					EncryptedSize: 1024,
 					PlainSize:     512,
@@ -1127,7 +1127,7 @@ func TestCommitSegment(t *testing.T) {
 			rootPieceID := testrand.PieceID()
 			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			metabasetest.BeginSegment{
 				Opts: metabase.BeginSegment{
@@ -1213,7 +1213,7 @@ func TestCommitSegment(t *testing.T) {
 			rootPieceID := testrand.PieceID()
 			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
@@ -1242,7 +1242,7 @@ func TestCommitSegment(t *testing.T) {
 			rootPieceID := testrand.PieceID()
 			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			now := time.Now()
 			metabasetest.BeginObjectExactVersion{
@@ -1296,7 +1296,7 @@ func TestCommitSegment(t *testing.T) {
 			rootPieceID := testrand.PieceID()
 			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			now := time.Now()
 			expectedExpiresAt := now.Add(33 * time.Hour)
@@ -1367,7 +1367,7 @@ func TestCommitSegment(t *testing.T) {
 			rootPieceID := testrand.PieceID()
 			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
@@ -1499,7 +1499,7 @@ func TestCommitInlineSegment(t *testing.T) {
 						InlineData: []byte{1, 2, 3},
 
 						EncryptedKey:      testrand.Bytes(32),
-						EncryptedKeyNonce: testrand.Bytes(32),
+						EncryptedKeyNonce: testrand.Nonce(),
 
 						PlainSize: -1,
 					},
@@ -1515,7 +1515,7 @@ func TestCommitInlineSegment(t *testing.T) {
 					InlineData: []byte{1, 2, 3},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Nonce(),
 
 					PlainSize:   512,
 					PlainOffset: -1,
@@ -1539,7 +1539,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			metabasetest.CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
@@ -1605,7 +1605,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			metabasetest.CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
@@ -1629,7 +1629,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			now := time.Now()
 
@@ -1665,7 +1665,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
@@ -1722,7 +1722,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
@@ -1781,7 +1781,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
@@ -1912,7 +1912,7 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataNonce:        encryptedMetadataNonce,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -1946,7 +1946,7 @@ func TestCommitObject(t *testing.T) {
 						CreatedAt: now,
 						Status:    metabase.Committed,
 
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataNonce:        encryptedMetadataNonce,
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 
@@ -1971,7 +1971,7 @@ func TestCommitObject(t *testing.T) {
 			rootPieceID := testrand.PieceID()
 			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
@@ -2084,7 +2084,7 @@ func TestCommitObject(t *testing.T) {
 			rootPieceID := testrand.PieceID()
 			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{

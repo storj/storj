@@ -239,7 +239,7 @@ type CommitSegment struct {
 
 	ExpiresAt *time.Time
 
-	EncryptedKeyNonce []byte
+	EncryptedKeyNonce storj.Nonce
 	EncryptedKey      []byte
 
 	PlainOffset   int64 // offset in the original data stream
@@ -270,7 +270,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return ErrInvalidRequest.New("RootPieceID missing")
 	case len(opts.EncryptedKey) == 0:
 		return ErrInvalidRequest.New("EncryptedKey missing")
-	case len(opts.EncryptedKeyNonce) == 0:
+	case opts.EncryptedKeyNonce.IsZero():
 		return ErrInvalidRequest.New("EncryptedKeyNonce missing")
 	case opts.EncryptedSize <= 0:
 		return ErrInvalidRequest.New("EncryptedSize negative or zero")
@@ -344,7 +344,7 @@ type CommitInlineSegment struct {
 
 	ExpiresAt *time.Time
 
-	EncryptedKeyNonce []byte
+	EncryptedKeyNonce storj.Nonce
 	EncryptedKey      []byte
 
 	PlainOffset   int64 // offset in the original data stream
@@ -368,7 +368,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	switch {
 	case len(opts.EncryptedKey) == 0:
 		return ErrInvalidRequest.New("EncryptedKey missing")
-	case len(opts.EncryptedKeyNonce) == 0:
+	case opts.EncryptedKeyNonce.IsZero():
 		return ErrInvalidRequest.New("EncryptedKeyNonce missing")
 	case opts.PlainSize <= 0 && validatePlainSize:
 		return ErrInvalidRequest.New("PlainSize negative or zero")
@@ -425,7 +425,7 @@ type CommitObject struct {
 	Encryption storj.EncryptionParameters
 
 	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        []byte
+	EncryptedMetadataNonce        storj.Nonce
 	EncryptedMetadataEncryptedKey []byte
 }
 

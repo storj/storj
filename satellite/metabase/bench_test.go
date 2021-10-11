@@ -149,7 +149,7 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 
 								segmentSize := testrand.Intn(64*memory.MiB.Int()) + 1
 								encryptedKey := testrand.BytesInt(storj.KeySize)
-								encryptedKeyNonce := testrand.BytesInt(storj.NonceSize)
+								encryptedKeyNonce := testrand.Nonce()
 
 								commitRemoteSegment.Record(func() {
 									err := db.CommitSegment(ctx, metabase.CommitSegment{
@@ -173,7 +173,7 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 							segmentSize := testrand.Intn(4*memory.KiB.Int()) + 1
 							inlineData := testrand.BytesInt(segmentSize)
 							encryptedKey := testrand.BytesInt(storj.KeySize)
-							encryptedKeyNonce := testrand.BytesInt(storj.NonceSize)
+							encryptedKeyNonce := testrand.Nonce()
 
 							commitInlineSegment.Record(func() {
 								err := db.CommitInlineSegment(ctx, metabase.CommitInlineSegment{

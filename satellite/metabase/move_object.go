@@ -20,7 +20,7 @@ type BeginMoveObjectResult struct {
 	StreamID uuid.UUID
 	// TODO we need metadata because of an uplink issue with how we are storing key and nonce
 	EncryptedMetadata         []byte
-	EncryptedMetadataKeyNonce []byte
+	EncryptedMetadataKeyNonce storj.Nonce
 	EncryptedMetadataKey      []byte
 	EncryptedKeysNonces       []EncryptedKeyAndNonce
 	EncryptionParameters      storj.EncryptionParameters
@@ -29,7 +29,7 @@ type BeginMoveObjectResult struct {
 // EncryptedKeyAndNonce holds single segment position, encrypted key and nonce.
 type EncryptedKeyAndNonce struct {
 	Position          SegmentPosition
-	EncryptedKeyNonce []byte
+	EncryptedKeyNonce storj.Nonce
 	EncryptedKey      []byte
 }
 
@@ -115,7 +115,7 @@ type FinishMoveObject struct {
 	NewBucket                    string
 	NewSegmentKeys               []EncryptedKeyAndNonce
 	NewEncryptedObjectKey        []byte
-	NewEncryptedMetadataKeyNonce []byte
+	NewEncryptedMetadataKeyNonce storj.Nonce
 	NewEncryptedMetadataKey      []byte
 }
 
@@ -130,11 +130,12 @@ func (finishMove FinishMoveObject) Verify() error {
 		return ErrInvalidRequest.New("NewBucket is missing")
 	case len(finishMove.NewEncryptedObjectKey) == 0:
 		return ErrInvalidRequest.New("NewEncryptedObjectKey is missing")
-	case len(finishMove.NewEncryptedMetadataKeyNonce) == 0:
+	case finishMove.NewEncryptedMetadataKeyNonce.IsZero():
 		return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
 	case len(finishMove.NewEncryptedMetadataKey) == 0:
 		return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
 	}
+	// TODO add validation for NewSegmentKeys
 
 	return nil
 }
@@ -184,7 +185,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 
 		for _, u := range opts.NewSegmentKeys {
 			newSegmentKeys.EncryptedKeys = append(newSegmentKeys.EncryptedKeys, u.EncryptedKey)
-			newSegmentKeys.EncryptedKeyNonces = append(newSegmentKeys.EncryptedKeyNonces, u.EncryptedKeyNonce)
+			newSegmentKeys.EncryptedKeyNonces = append(newSegmentKeys.EncryptedKeyNonces, u.EncryptedKeyNonce[:])
 			newSegmentKeys.Positions = append(newSegmentKeys.Positions, int64(u.Position.Encode()))
 		}
 
