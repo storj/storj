@@ -279,7 +279,6 @@ func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStar
 		var projectRUAllocated []int64
 		var projectRUSettled []int64
 		var projectRUDead []int64
-
 		dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
 
 		for projectID, v := range projectRUMap {
