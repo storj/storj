@@ -26,7 +26,7 @@ RUN_TYPE=${RUN_TYPE:-"jenkins"}
 # set peers' versions
 # in stage 1: satellite and storagenode use latest release version, uplink uses all 3 highest point release from all major releases plus versions from $IMPORTANT_VERSIONS
 # in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the all versions from stage 1 plus main
-IMPORTANT_VERSIONS=('v1.15.4 v1.19.9 v1.27.6 v1.28.2 v1.29.5 v1.30.4')     # important versions to test against, first 2 versions representative for pre metainfo refactoring, other represent current rclone, duplicati etc.
+IMPORTANT_VERSIONS=('v1.0.0 v1.15.4 v1.19.9 v1.27.6 v1.28.2 v1.29.5 v1.30.4')     # first stable version, next 2 versions representative for pre metainfo refactoring, other represent current rclone, duplicati etc.
 
 git fetch --tags
 major_release_tags=$(
