@@ -52,6 +52,7 @@ type Config struct {
 	SatelliteCount   int
 	StorageNodeCount int
 	UplinkCount      int
+	MultinodeCount   int
 
 	IdentityVersion *storj.IDVersion
 	Reconfigure     Reconfigure
@@ -82,6 +83,7 @@ type Planet struct {
 	VersionControl *versioncontrol.Peer
 	Satellites     []*Satellite
 	StorageNodes   []*StorageNode
+	Multinodes     []*Multinode
 	Uplinks        []*Uplink
 
 	identities    *testidentity.Identities
@@ -168,6 +170,11 @@ func NewCustom(ctx context.Context, log *zap.Logger, config Config, satelliteDat
 	}
 
 	planet.StorageNodes, err = planet.newStorageNodes(ctx, config.StorageNodeCount, whitelistedSatellites)
+	if err != nil {
+		return nil, errs.Combine(err, planet.Shutdown())
+	}
+
+	planet.Multinodes, err = planet.newMultinodes(ctx, "multinode", config.MultinodeCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}

@@ -20,13 +20,16 @@ func TestBasic(t *testing.T) {
 		version := version
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 2, StorageNodeCount: 4, UplinkCount: 1,
-			IdentityVersion: &version,
+			MultinodeCount: 1, IdentityVersion: &version,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			for _, satellite := range planet.Satellites {
 				t.Log("SATELLITE", satellite.ID(), satellite.Addr())
 			}
 			for _, storageNode := range planet.StorageNodes {
 				t.Log("STORAGE", storageNode.ID(), storageNode.Addr())
+			}
+			for _, multitude := range planet.Multinodes {
+				t.Log("MULTINODE", multitude.ID(), multitude.Addr())
 			}
 			for _, uplink := range planet.Uplinks {
 				t.Log("UPLINK", uplink.ID(), uplink.Addr())
