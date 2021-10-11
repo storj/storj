@@ -99,6 +99,10 @@ export default class App extends Vue {
         -webkit-user-drag: none;
     }
 
+    #app {
+        height: 100%;
+    }
+
     @font-face {
         font-family: 'font_regular';
         font-style: normal;

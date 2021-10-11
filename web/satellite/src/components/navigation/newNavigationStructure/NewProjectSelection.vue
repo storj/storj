@@ -1,0 +1,337 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+<template>
+    <div class="project-selection">
+        <div class="project-selection__selected" :class="{ active: isDropdownShown }" @click.stop.prevent="toggleSelection">
+            <div class="project-selection__selected__left">
+                <ProjectIcon class="project-selection__selected__left__image" />
+                <p class="project-selection__selected__left__name" :title="projectName">{{ projectName }}</p>
+            </div>
+            <ArrowImage class="project-selection__selected__arrow" />
+        </div>
+        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="project-selection__dropdown">
+            <div v-if="isLoading" class="project-selection__dropdown__loader-container">
+                <VLoader width="30px" height="30px" />
+            </div>
+            <div v-else class="project-selection__dropdown__items">
+                <div class="project-selection__dropdown__items__choice" @click.prevent.stop="closeDropdown">
+                    <div class="project-selection__dropdown__items__choice__mark-container">
+                        <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
+                    </div>
+                    <p class="project-selection__dropdown__items__choice__selected">
+                        {{ selectedProject.name }}
+                    </p>
+                </div>
+                <div
+                    v-for="project in projects"
+                    :key="project.id"
+                    class="project-selection__dropdown__items__choice"
+                    @click.prevent.stop="onProjectSelected(project.id)"
+                >
+                    <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
+                </div>
+            </div>
+            <div class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick">
+                <ManageIcon />
+                <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
+            </div>
+            <div class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick">
+                <CreateProjectIcon />
+                <p class="project-selection__dropdown__link-container__label">Create new</p>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script lang="ts">
+import { Component, Vue } from 'vue-property-decorator';
+
+import VLoader from "@/components/common/VLoader.vue";
+
+import { RouteConfig } from '@/router';
+import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PROJECTS_ACTIONS } from "@/store/modules/projects";
+import { LocalData } from "@/utils/localData";
+import { OBJECTS_ACTIONS } from "@/store/modules/objects";
+import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
+import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
+import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { Project } from "@/types/projects";
+
+import ProjectIcon from '@/../static/images/navigation/project.svg';
+import ArrowImage from '@/../static/images/navigation/arrow.svg';
+import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
+import ManageIcon from '@/../static/images/navigation/manage.svg';
+import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
+
+// @vue/component
+@Component({
+    components: {
+        ArrowImage,
+        CheckmarkIcon,
+        ProjectIcon,
+        ManageIcon,
+        CreateProjectIcon,
+        VLoader,
+    },
+})
+export default class NewProjectSelection extends Vue {
+    private FIRST_PAGE = 1;
+
+    public isLoading = false;
+
+    /**
+     * Fetches projects related information and than toggles selection popup.
+     */
+    public async toggleSelection(): Promise<void> {
+        if (this.isOnboardingTour) return;
+
+        this.toggleDropdown();
+
+        if (this.isLoading || !this.isDropdownShown) return;
+
+        this.isLoading = true;
+
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        this.isLoading = false;
+    }
+
+    /**
+     * Toggles project dropdown visibility.
+     */
+    public toggleDropdown(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PROJECT_DROPDOWN);
+    }
+
+    /**
+     * Fetches all project related information.
+     * @param projectID
+     */
+    public async onProjectSelected(projectID: string): Promise<void> {
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        LocalData.setSelectedProjectId(projectID);
+        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+        this.closeDropdown();
+
+        if (this.isObjectsView) {
+            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+            await this.$router.push({name: RouteConfig.Objects.name}).catch(() => {return; });
+        }
+
+        try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+        } catch (error) {
+            await this.$notify.error(`Unable to select project. ${error.message}`);
+        }
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
+    }
+
+    /**
+     * Returns selected project's name.
+     */
+    public get projectName(): string {
+        return this.$store.getters.selectedProject.name;
+    }
+
+    /**
+     * Indicates if dropdown is shown.
+     */
+    public get isDropdownShown(): string {
+        return this.$store.state.appStateModule.appState.isSelectProjectDropdownShown;
+    }
+
+    /**
+     * Returns projects list from store.
+     */
+    public get projects(): Project[] {
+        return this.$store.getters.projectsWithoutSelected;
+    }
+
+    /**
+     * Returns selected project from store.
+     */
+    public get selectedProject(): Project {
+        return this.$store.getters.selectedProject;
+    }
+
+    /**
+     * Closes select project dropdown.
+     */
+    public closeDropdown(): void {
+        if (!this.isDropdownShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    }
+
+    /**
+     * Route to projects list page.
+     */
+    public onProjectsLinkClick(): void {
+        if (this.$route.name !== RouteConfig.ProjectsList.name) {
+            this.$router.push(RouteConfig.ProjectsList.path);
+        }
+
+        this.closeDropdown();
+    }
+
+    /**
+     * Route to create project page.
+     */
+    public onCreateLinkClick(): void {
+        if (this.$route.name !== RouteConfig.CreateProject.name) {
+            this.$router.push(RouteConfig.CreateProject.path);
+        }
+
+        this.closeDropdown();
+    }
+
+    /**
+     * Indicates if current route is objects view.
+     */
+    private get isObjectsView(): boolean {
+        return this.$route.path.includes(RouteConfig.Objects.path);
+    }
+}
+</script>
+
+<style scoped lang="scss">
+    .project-selection {
+        font-family: 'font_regular', sans-serif;
+        position: relative;
+        width: 100%;
+
+        &__selected {
+            border: 1px solid #ebeef1;
+            box-sizing: border-box;
+            border-radius: 8px;
+            padding: 18px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+
+            &__left {
+                display: flex;
+                align-items: center;
+
+                &__name {
+                    font-weight: 500;
+                    font-size: 14px;
+                    line-height: 20px;
+                    color: #56606d;
+                    margin-left: 24px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+            }
+
+            &__arrow {
+                min-width: 14px;
+            }
+        }
+
+        &__dropdown {
+            position: absolute;
+            top: calc(100% - 5px);
+            left: 0;
+            width: 100%;
+            background-color: #fff;
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.1);
+            border-radius: 0 0 8px 8px;
+            z-index: 1;
+
+            &__loader-container {
+                margin: 10px 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            &__items {
+                overflow-y: auto;
+                max-height: 250px;
+                background-color: #fff;
+                border-radius: 6px;
+
+                &__choice {
+                    display: flex;
+                    align-items: center;
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    height: 32px;
+
+                    &__selected,
+                    &__unselected {
+                        font-size: 14px;
+                        line-height: 20px;
+                        color: #1b2533;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                    }
+
+                    &__selected {
+                        font-family: 'font_medium', sans-serif;
+                        margin-left: 24px;
+                    }
+
+                    &__unselected {
+                        padding-left: 40px;
+                    }
+
+                    &:hover {
+                        background-color: #f5f6fa;
+                    }
+
+                    &__mark-container {
+                        width: 16px;
+                        height: 16px;
+
+                        &__image {
+                            object-fit: cover;
+                        }
+                    }
+                }
+            }
+
+            &__link-container {
+                padding: 8px 16px;
+                height: 32px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                border-top: 1px solid #ebeef1;
+
+                &__label {
+                    font-size: 14px;
+                    line-height: 20px;
+                    color: #0149ff;
+                    margin-left: 24px;
+                }
+            }
+        }
+    }
+
+    .active {
+        background-color: #fafafb;
+    }
+</style>

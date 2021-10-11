@@ -18,7 +18,10 @@
             <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
             <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
             <template v-if="isNewNavStructure">
-                <router-view />
+                <div class="dashboard__wrap__new-main-area">
+                    <NewNavigationArea />
+                    <router-view class="dashboard__wrap__new-main-area__content" />
+                </div>
             </template>
             <template v-else>
                 <DashboardHeader />
@@ -44,6 +47,7 @@ import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopu
 import MFARecoveryCodeBar from '@/components/account/mfa/MFARecoveryCodeBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import NewNavigationArea from '@/components/navigation/newNavigationStructure/NewNavigationArea.vue';
 
 import LoaderImage from '@/../static/images/common/loader.svg';
 
@@ -70,6 +74,7 @@ const {
 @Component({
     components: {
         NavigationArea,
+        NewNavigationArea,
         DashboardHeader,
         LoaderImage,
         PaidTierBar,
@@ -360,6 +365,17 @@ export default class DashboardArea extends Vue {
                     height: calc(100vh - 62px);
                     width: 100%;
                     position: relative;
+                }
+            }
+
+            &__new-main-area {
+                display: flex;
+                width: 100%;
+                height: 100%;
+
+                &__content {
+                    width: 100%;
+                    overflow-y: auto;
                 }
             }
         }
