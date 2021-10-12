@@ -82,12 +82,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 		default:
 			return err
 		}
-
-		updateContained := dbx.Node_Update_Fields{
-			Contained: dbx.Node_Contained(true),
-		}
-
-		return tx.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(pendingAudit.NodeID.Bytes()), updateContained)
+		return nil
 	})
 	return audit.ContainError.Wrap(err)
 }
@@ -101,15 +96,7 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (isDel
 
 	err = containment.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		isDeleted, err = tx.Delete_SegmentPendingAudits_By_NodeId(ctx, dbx.SegmentPendingAudits_NodeId(id.Bytes()))
-		if err != nil {
-			return err
-		}
-
-		updateContained := dbx.Node_Update_Fields{
-			Contained: dbx.Node_Contained(false),
-		}
-
-		return tx.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateContained)
+		return err
 	})
 	return isDeleted, audit.ContainError.Wrap(err)
 }

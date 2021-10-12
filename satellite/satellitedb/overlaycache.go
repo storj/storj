@@ -499,7 +499,6 @@ func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.Node_Update_Fields{}
-	updateFields.Contained = dbx.Node_Contained(request.Contained)
 	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
 	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
 	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
@@ -921,7 +920,6 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Timestamp:  info.Timestamp,
 			Release:    info.Release,
 		},
-		Contained:             info.Contained,
 		Disqualified:          info.Disqualified,
 		UnknownAuditSuspended: info.UnknownAuditSuspended,
 		OfflineSuspended:      info.OfflineSuspended,

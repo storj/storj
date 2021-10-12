@@ -141,7 +141,6 @@ model node (
 	field last_contact_success timestamp ( updatable, default "epoch" )
 	field last_contact_failure timestamp ( updatable, default "epoch" )
 
-	field contained bool ( updatable, default false )
     // node is disqualified when it fails too many audits or is offline for too long
 	field disqualified timestamp ( updatable, nullable )
     // node is placed under inspection when it has too many unknown-error audits

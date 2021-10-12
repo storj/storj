@@ -39,16 +39,11 @@ func TestReportPendingAudits(t *testing.T) {
 		}
 
 		report := audit.Report{PendingAudits: []*audit.PendingAudit{&pending}}
-		overlay := satellite.Overlay.Service
 		containment := satellite.DB.Containment()
 
 		failed, err := audits.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 		assert.Zero(t, failed)
-
-		node, err := overlay.Get(ctx, nodeID)
-		require.NoError(t, err)
-		assert.True(t, node.Contained)
 
 		pa, err := containment.Get(ctx, nodeID)
 		require.NoError(t, err)

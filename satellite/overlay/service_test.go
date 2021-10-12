@@ -677,7 +677,6 @@ func TestUpdateReputation(t *testing.T) {
 
 		info, err := service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.False(t, info.Contained)
 		require.Nil(t, info.Disqualified)
 		require.Nil(t, info.UnknownAuditSuspended)
 		require.Nil(t, info.OfflineSuspended)
@@ -689,7 +688,6 @@ func TestUpdateReputation(t *testing.T) {
 		t3 := t0.Add(3 * time.Hour)
 
 		reputationChange := &overlay.ReputationStatus{
-			Contained:             true,
 			Disqualified:          nil,
 			UnknownAuditSuspended: &t1,
 			OfflineSuspended:      &t2,
@@ -700,13 +698,11 @@ func TestUpdateReputation(t *testing.T) {
 
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.True(t, info.Contained)
 		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
 		require.Equal(t, reputationChange.UnknownAuditSuspended, info.UnknownAuditSuspended)
 		require.Equal(t, reputationChange.OfflineSuspended, info.OfflineSuspended)
 		require.Equal(t, reputationChange.VettedAt, info.Reputation.VettedAt)
 
-		reputationChange.Contained = false
 		reputationChange.Disqualified = &t0
 
 		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
@@ -714,7 +710,6 @@ func TestUpdateReputation(t *testing.T) {
 
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.False(t, info.Contained)
 		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
 
 		nodeInfo, err := overlaydb.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
