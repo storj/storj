@@ -1679,6 +1679,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE stripecoinpayments_invoice_project_records ALTER COLUMN objects DROP NOT NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add placement to bucket_metainfos and country_code to nodes (geofencing) ",
+				Version:     178,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN country_code text;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN placement integer;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

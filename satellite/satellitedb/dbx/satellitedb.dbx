@@ -119,6 +119,7 @@ model node (
 	// last_net is the /24 subnet of the IP
 	field last_net        text  ( updatable )
 	field last_ip_port    text  ( updatable, nullable )
+	field country_code    text  ( updatable, nullable )
 	field protocol        int   ( updatable, default 0 )
 	field type            int   ( updatable, default 0 )
 	field email           text  ( updatable )
@@ -920,6 +921,8 @@ model bucket_metainfo (
 	field default_redundancy_repair_shares   int (updatable)
 	field default_redundancy_optimal_shares  int (updatable)
 	field default_redundancy_total_shares    int (updatable)
+
+	field placement int (nullable, updatable)
 )
 
 create bucket_metainfo ()

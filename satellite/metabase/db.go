@@ -320,6 +320,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE segments ALTER COLUMN created_at SET NOT NULL`,
 				},
 			},
+			{
+				DB:          &db.db,
+				Description: "ADD placement to the segments table",
+				Version:     14,
+				Action: migrate.SQL{
+					`ALTER TABLE segments ADD COLUMN placement integer`,
+				},
+			},
 		},
 	}
 }
