@@ -75,25 +75,8 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ paym
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
-	// add all active coupons amount to balance.
-	coupons, err := accounts.service.db.Coupons().ListByUserIDAndStatus(ctx, userID, payments.CouponActive)
-	if err != nil {
-		return payments.Balance{}, Error.Wrap(err)
-	}
-
-	var couponsAmount int64
-	for _, coupon := range coupons {
-		alreadyUsed, err := accounts.service.db.Coupons().TotalUsage(ctx, coupon.ID)
-		if err != nil {
-			return payments.Balance{}, Error.Wrap(err)
-		}
-
-		couponsAmount += coupon.Amount - alreadyUsed
-	}
-
 	accountBalance := payments.Balance{
-		FreeCredits: couponsAmount,
-		Coins:       -c.Balance,
+		Coins: -c.Balance,
 	}
 
 	return accountBalance, nil

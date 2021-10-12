@@ -38,17 +38,10 @@ func TestUserGet(t *testing.T) {
 		projLimit, err := sat.DB.Console().Users().GetProjectLimit(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
-		coupons, err := sat.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, project.Owner.ID)
-		require.NoError(t, err)
-
-		couponsMarshaled, err := json.Marshal(coupons)
-		require.NoError(t, err)
-
 		link := "http://" + address.String() + "/api/users/" + project.Owner.Email
 		expectedBody := `{` +
 			fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s","projectLimit":%d},`, project.Owner.ID, project.Owner.Email, projLimit) +
-			fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}],`, project.ID, project.Owner.ID) +
-			fmt.Sprintf(`"coupons":%s}`, couponsMarshaled)
+			fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}]}`, project.ID, project.Owner.ID)
 
 		assertReq(ctx, t, link, http.MethodGet, "", http.StatusOK, expectedBody, planet.Satellites[0].Config.Console.AuthToken)
 

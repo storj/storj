@@ -73,11 +73,7 @@ func TestGraphqlQuery(t *testing.T) {
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
 			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.BonusRate)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
@@ -91,7 +87,6 @@ func TestGraphqlQuery(t *testing.T) {
 			paymentsService.Accounts(),
 			analyticsService,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
-			5000,
 		)
 		require.NoError(t, err)
 

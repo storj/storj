@@ -112,8 +112,6 @@ type Service struct {
 	analytics         *analytics.Service
 
 	config Config
-
-	minCoinPayment int64
 }
 
 func init() {
@@ -150,7 +148,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, config Config, minCoinPayment int64) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, config Config) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -177,7 +175,6 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		recaptchaHandler:  NewDefaultRecaptcha(config.Recaptcha.SecretKey),
 		analytics:         analytics,
 		config:            config,
-		minCoinPayment:    minCoinPayment,
 	}, nil
 }
 
@@ -354,7 +351,7 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 		return nil, Error.Wrap(err)
 	}
 
-	invoices, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
+	invoices, couponUsages, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -408,47 +405,22 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 		})
 	}
 
-	coupons, err := paymentService.service.accounts.Coupons().ListByUserID(ctx, auth.User.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, coupon := range coupons {
-		alreadyUsed, err := paymentService.service.accounts.Coupons().TotalUsage(ctx, coupon.ID)
-		if err != nil {
-			return nil, Error.Wrap(err)
+	for _, usage := range couponUsages {
+		desc := "Coupon"
+		if usage.Coupon.Name != "" {
+			desc = usage.Coupon.Name
+		}
+		if usage.Coupon.PromoCode != "" {
+			desc += " (" + usage.Coupon.PromoCode + ")"
 		}
 
-		remaining := coupon.Amount - alreadyUsed
-		if coupon.Status == payments.CouponExpired {
-			remaining = 0
-		}
-
-		var couponStatus string
-
-		switch coupon.Status {
-		case 0:
-			couponStatus = "Active"
-		case 1:
-			couponStatus = "Used"
-		default:
-			couponStatus = "Expired"
-		}
-
-		billingHistoryItem := &BillingHistoryItem{
-			ID:          coupon.ID.String(),
-			Description: coupon.Description,
-			Amount:      coupon.Amount,
-			Remaining:   remaining,
-			Status:      couponStatus,
-			Link:        "",
-			Start:       coupon.Created,
+		billingHistory = append(billingHistory, &BillingHistoryItem{
+			Description: desc,
+			Amount:      usage.Amount,
+			Start:       usage.PeriodStart,
+			End:         usage.PeriodEnd,
 			Type:        Coupon,
-		}
-		if coupon.ExpirationDate() != nil {
-			billingHistoryItem.End = *coupon.ExpirationDate()
-		}
-		billingHistory = append(billingHistory, billingHistoryItem)
+		})
 	}
 
 	bonuses, err := paymentService.service.accounts.StorjTokens().ListDepositBonuses(ctx, auth.User.ID)
@@ -500,7 +472,7 @@ func (paymentService PaymentsService) checkOutstandingInvoice(ctx context.Contex
 		return err
 	}
 
-	invoices, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
+	invoices, _, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
 	if err != nil {
 		return err
 	}
@@ -1148,12 +1120,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	}
 
 	s.analytics.TrackProjectCreated(auth.User.ID, projectID, currentProjectCount+1)
-
-	// ToDo: check if this is actually the right place.
-	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID)
-	if err != nil {
-		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-	}
 
 	return p, nil
 }

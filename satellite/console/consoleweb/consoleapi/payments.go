@@ -166,7 +166,12 @@ func (p *Payments) ListCreditCards(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(cards)
+	if cards == nil {
+		_, err = w.Write([]byte("[]"))
+	} else {
+		err = json.NewEncoder(w).Encode(cards)
+	}
+
 	if err != nil {
 		p.log.Error("failed to write json list cards response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
@@ -241,7 +246,12 @@ func (p *Payments) BillingHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(billingHistory)
+	if billingHistory == nil {
+		_, err = w.Write([]byte("[]"))
+	} else {
+		err = json.NewEncoder(w).Encode(billingHistory)
+	}
+
 	if err != nil {
 		p.log.Error("failed to write json billing history response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}

@@ -16,7 +16,6 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
 )
 
 func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
@@ -148,13 +147,6 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	coupons, err := server.db.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
-	if err != nil {
-		sendJSONError(w, "failed to get user coupons",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	type User struct {
 		ID           uuid.UUID `json:"id"`
 		FullName     string    `json:"fullName"`
@@ -169,9 +161,8 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var output struct {
-		User     User                 `json:"user"`
-		Projects []Project            `json:"projects"`
-		Coupons  []payments.CouponOld `json:"coupons"`
+		User     User      `json:"user"`
+		Projects []Project `json:"projects"`
 	}
 
 	output.User = User{
@@ -188,7 +179,6 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 			OwnerID:     p.OwnerID,
 		})
 	}
-	output.Coupons = coupons
 
 	data, err := json.Marshal(output)
 	if err != nil {
@@ -320,7 +310,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ensure no unpaid invoices exist.
-	invoices, err := server.payments.Invoices().List(ctx, user.ID)
+	invoices, _, err := server.payments.Invoices().List(ctx, user.ID)
 	if err != nil {
 		sendJSONError(w, "unable to list user invoices",
 			err.Error(), http.StatusInternalServerError)

@@ -531,11 +531,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
 			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.BonusRate)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -576,7 +572,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Payments.Accounts,
 			peer.Analytics.Service,
 			consoleConfig.Config,
-			config.Payments.MinCoinPayment,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
