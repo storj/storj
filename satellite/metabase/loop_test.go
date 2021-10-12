@@ -89,7 +89,7 @@ func TestIterateLoopObjects(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream:                  committed,
-					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -445,7 +445,7 @@ func TestIterateLoopSegments(t *testing.T) {
 					Redundancy:    entry.Redundancy,
 
 					EncryptedKey:      []byte{3},
-					EncryptedKeyNonce: metabasetest.DefaultNonce,
+					EncryptedKeyNonce: []byte{4},
 					EncryptedETag:     []byte{5},
 				}
 			}

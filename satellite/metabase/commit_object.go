@@ -23,7 +23,7 @@ type CommitObjectWithSegments struct {
 	ObjectStream
 
 	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        storj.Nonce
+	EncryptedMetadataNonce        []byte
 	EncryptedMetadataEncryptedKey []byte
 
 	// TODO: this probably should use segment ranges rather than individual items

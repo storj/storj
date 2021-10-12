@@ -23,7 +23,7 @@ type RawObject struct {
 	Status       ObjectStatus
 	SegmentCount int32
 
-	EncryptedMetadataNonce        storj.Nonce
+	EncryptedMetadataNonce        []byte
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
 
@@ -51,7 +51,7 @@ type RawSegment struct {
 	ExpiresAt  *time.Time
 
 	RootPieceID       storj.PieceID
-	EncryptedKeyNonce storj.Nonce
+	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
 	EncryptedSize int32 // size of the whole segment (not a piece)

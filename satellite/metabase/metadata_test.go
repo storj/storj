@@ -90,7 +90,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 				Opts: metabase.UpdateObjectMetadata{
 					ObjectStream:                  obj,
 					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
 			}.Check(ctx, t, db)
@@ -104,7 +104,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 						Encryption:   metabasetest.DefaultEncryption,
 
 						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataNonce:        encryptedMetadataNonce,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 					},
 				},

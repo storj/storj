@@ -136,7 +136,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 				RootPieceID:       storj.PieceID{1},
 				CreatedAt:         now,
 				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: metabasetest.DefaultNonce,
+				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1060,
 				PlainSize:         512,
@@ -272,7 +272,6 @@ func TestDeleteZombieObjects(t *testing.T) {
 					}},
 				},
 			}.Check(ctx, t, db)
-
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj1,
@@ -280,7 +279,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 					Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 
 					EncryptedKey:      []byte{3},
-					EncryptedKeyNonce: metabasetest.DefaultNonce,
+					EncryptedKeyNonce: []byte{4},
 					EncryptedETag:     []byte{5},
 
 					EncryptedSize: 1024,
@@ -317,7 +316,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 						CreatedAt:   now,
 
 						EncryptedKey:      []byte{3},
-						EncryptedKeyNonce: metabasetest.DefaultNonce,
+						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
 
 						EncryptedSize: 1024,
@@ -373,7 +372,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 
 							EncryptedKey:      []byte{3},
-							EncryptedKeyNonce: metabasetest.DefaultNonce,
+							EncryptedKeyNonce: []byte{4},
 							EncryptedETag:     []byte{5},
 
 							EncryptedSize: 1024,
@@ -424,7 +423,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 				RootPieceID:       storj.PieceID{1},
 				CreatedAt:         now,
 				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: metabasetest.DefaultNonce,
+				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1060,
 				PlainSize:         512,

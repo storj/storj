@@ -109,7 +109,7 @@ func TestIterateObjects(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream:                  committed,
-					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -136,7 +136,7 @@ func TestIterateObjects(t *testing.T) {
 						CreatedAt:                     now,
 						Status:                        metabase.Committed,
 						Encryption:                    metabasetest.DefaultEncryption,
-						EncryptedMetadataNonce:        encryptedMetadataNonce,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 					},
@@ -576,7 +576,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream:                  committed,
-					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -597,7 +597,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					CreatedAt:                     now,
 					Status:                        metabase.Committed,
 					Encryption:                    metabasetest.DefaultEncryption,
-					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				}},
@@ -1132,14 +1132,13 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj1 := metabasetest.RandObjectStream()
-			expectedNonce := testrand.Nonce()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj1,
 					Encryption:                    metabasetest.DefaultEncryption,
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
-					EncryptedMetadataNonce:        expectedNonce,
+					EncryptedMetadataNonce:        []byte{5},
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -1157,7 +1156,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			for _, entry := range collector {
 				require.Equal(t, entry.EncryptedMetadata, []byte{3})
 				require.Equal(t, entry.EncryptedMetadataEncryptedKey, []byte{4})
-				require.Equal(t, entry.EncryptedMetadataNonce, expectedNonce)
+				require.Equal(t, entry.EncryptedMetadataNonce, []byte{5})
 			}
 		})
 
@@ -1171,7 +1170,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Encryption:                    metabasetest.DefaultEncryption,
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
-					EncryptedMetadataNonce:        testrand.Nonce(),
+					EncryptedMetadataNonce:        []byte{5},
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -1187,7 +1186,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, entry := range collector {
-				require.True(t, entry.EncryptedMetadataNonce.IsZero())
+				require.Nil(t, entry.EncryptedMetadataNonce)
 				require.Nil(t, entry.EncryptedMetadata)
 				require.Nil(t, entry.EncryptedMetadataEncryptedKey)
 			}

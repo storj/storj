@@ -9,7 +9,6 @@ import (
 	"errors"
 	"time"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/tagsql"
 )
@@ -128,7 +127,7 @@ type SegmentPositionInfo struct {
 	PlainOffset       int64
 	CreatedAt         *time.Time // TODO: make it non-nilable after we migrate all existing segments to have creation time
 	EncryptedETag     []byte
-	EncryptedKeyNonce storj.Nonce
+	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 }
 
