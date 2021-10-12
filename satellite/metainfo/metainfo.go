@@ -564,7 +564,8 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 }
 
 func convertBucketToProto(bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucket *pb.Bucket, err error) {
-	if bucket == (storj.Bucket{}) {
+	// TODO add IsZero to storj.Bucket implementation
+	if bucket.ID.IsZero() && len(bucket.Name) == 0 {
 		return nil, nil
 	}
 

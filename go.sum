@@ -878,9 +878,9 @@ sourcegraph.com/sourcegraph/go-diff v0.5.0/go.mod h1:kuch7UrkMzY0X+p9CRK03kfuPQ2
 sourcegraph.com/sqs/pbtypes v0.0.0-20180604144634-d3ebe8f20ae4/go.mod h1:ketZ/q3QxT9HOBeFhu6RdvsftgpsbFHBF5Cas6cDKZ0=
 storj.io/common v0.0.0-20200424175742-65ac59022f4f/go.mod h1:pZyXiIE7bGETIRXtfs0nICqMwp7PM8HqnDuyUeldNA0=
 storj.io/common v0.0.0-20210805073808-8e0feb09e92a/go.mod h1:mhZYWpTojKsACxWE66RfXNz19zbyr/uEDVWHJH8dHog=
-storj.io/common v0.0.0-20210916151047-6aaeb34bb916/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
-storj.io/common v0.0.0-20210928143209-230bee624465 h1:sEVHROo+9i7+Sl3zuR8OKQnykJ2MmPMsRygjvUkiBns=
-storj.io/common v0.0.0-20210928143209-230bee624465/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
+storj.io/common v0.0.0-20211008091048-1c580b970007/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
+storj.io/common v0.0.0-20211011135704-cbe49e9e173e h1:UeDmgDNHpmq8rtZo74sX/o5liWtmuBiX6TaY0ujF0gE=
+storj.io/common v0.0.0-20211011135704-cbe49e9e173e/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.24/go.mod h1:ofQUDPQbbIymRDKE0tms48k8bLP5Y+dsI9CbXGv3gko=
 storj.io/drpc v0.0.26 h1:T6jJzjby7QUa/2XHR1qMxTCENpDHEw4/o+kfDfZQqQI=
@@ -890,5 +890,5 @@ storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7 h1:zi0w9zoBfvuqysSAqxJ
 storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7/go.mod h1:gj4vuCeyCRjRmH8LIrgoyU9Dc9uR6H+/GcDUXmTbf80=
 storj.io/private v0.0.0-20210810102517-434aeab3f17d h1:w51RhoN6WF8zQE1ED3XYfW+Yb7DtlxxJTs0lpLvWRUA=
 storj.io/private v0.0.0-20210810102517-434aeab3f17d/go.mod h1:wvudoWSyOyB2daZNaMykjjqsSUad/ttFlUwgelg9+qg=
-storj.io/uplink v1.7.0 h1:ipWEqaauebXBB1IRFoQm7KQdH3Pq3V69FKf6faWJylo=
-storj.io/uplink v1.7.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
+storj.io/uplink v1.7.1-0.20211012154306-65bb87992c7c h1:yhjQBOnEO1F6zTRkye2oSPgjQTa6Cf9h/rx/ssPFNGE=
+storj.io/uplink v1.7.1-0.20211012154306-65bb87992c7c/go.mod h1:FrGJM81ojBOv0qk2pZENtma+9ecQHNdfNnd3KAAwDwI=
