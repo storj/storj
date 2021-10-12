@@ -9,10 +9,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"text/tabwriter"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -242,6 +244,13 @@ var (
 			"If node ids aren't provided, *all* nodes are used.",
 		RunE: cmdRestoreTrash,
 	}
+	registerLostSegments = &cobra.Command{
+		Use:   "register-lost-segments [number_of_segments_lost]",
+		Short: "Register permanently lost segments for our statistics",
+		Long:  "Send metric information through monkit indicating the (permanent) loss of some number of segments. Temporarily unavailable segments are reported automatically by the repair checker and do not need to be reported here.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdRegisterLostSegments,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -305,6 +314,7 @@ func init() {
 	rootCmd.AddCommand(billingCmd)
 	rootCmd.AddCommand(consistencyCmd)
 	rootCmd.AddCommand(restoreTrashCmd)
+	rootCmd.AddCommand(registerLostSegments)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -326,6 +336,7 @@ func init() {
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(restoreTrashCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(registerLostSegments, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -853,6 +864,32 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	limiter.Wait()
 
 	log.Sugar().Infof("restore trash complete. %d successes, %d failures", *successes, *failures)
+	return nil
+}
+
+func cmdRegisterLostSegments(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	numLostSegments, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatal("invalid numeric argument", zap.String("argument", args[0]))
+	}
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
+		log.Fatal("Failed to initialize telemetry batcher", zap.Error(err))
+	}
+
+	scope := monkit.Default.ScopeNamed("segment-durability")
+	scope.Meter("lost-segments").Mark(numLostSegments)
+
+	if err := process.Report(ctx); err != nil {
+		log.Fatal("could not send telemetry", zap.Error(err))
+	}
+	// we can't actually tell whether metrics is really enabled at this point;
+	// process.InitMetrics...() can return a nil error while disabling metrics
+	// entirely. make sure that's clear to the user.
+	log.Info("lost segment event(s) sent (if metrics are actually enabled)", zap.Int("lost-segments", numLostSegments))
+
 	return nil
 }
 
