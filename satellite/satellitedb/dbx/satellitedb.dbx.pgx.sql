@@ -389,6 +389,7 @@ CREATE TABLE users (
 	mfa_enabled boolean NOT NULL DEFAULT false,
 	mfa_secret_key text,
 	mfa_recovery_codes text,
+	signup_promo_code text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (

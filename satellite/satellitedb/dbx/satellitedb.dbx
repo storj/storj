@@ -300,6 +300,8 @@ model user (
     field mfa_enabled        bool      ( updatable, default false )
     field mfa_secret_key     text      ( updatable, nullable )
     field mfa_recovery_codes text      ( updatable, nullable )
+
+    field signup_promo_code  text      ( updatable, nullable )
 )
 
 create user ( )

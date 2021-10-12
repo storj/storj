@@ -182,6 +182,8 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
+		assert.Empty(t, user.SignupPromoCode)
+
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByEmail.WorkingOn)
 			assert.Equal(t, position, userByEmail.Position)
@@ -202,6 +204,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
+		assert.Empty(t, user.SignupPromoCode)
 
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByID.WorkingOn)
@@ -227,6 +230,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, userByID.Position, userByEmail.Position)
 		assert.Equal(t, userByID.CompanyName, userByEmail.CompanyName)
 		assert.Equal(t, userByID.EmployeeCount, userByEmail.EmployeeCount)
+		assert.Equal(t, userByID.SignupPromoCode, userByEmail.SignupPromoCode)
 	})
 
 	t.Run("Update user success", func(t *testing.T) {

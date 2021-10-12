@@ -55,8 +55,9 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	}
 
 	optional := dbx.User_Create_Fields{
-		ShortName:      dbx.User_ShortName(user.ShortName),
-		IsProfessional: dbx.User_IsProfessional(user.IsProfessional),
+		ShortName:       dbx.User_ShortName(user.ShortName),
+		IsProfessional:  dbx.User_IsProfessional(user.IsProfessional),
+		SignupPromoCode: dbx.User_SignupPromoCode(user.SignupPromoCode),
 	}
 	if !user.PartnerID.IsZero() {
 		optional.PartnerId = dbx.User_PartnerId(user.PartnerID[:])
@@ -242,6 +243,10 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 
 	if user.MfaRecoveryCodes != nil {
 		result.MFARecoveryCodes = recoveryCodes
+	}
+
+	if user.SignupPromoCode != nil {
+		result.SignupPromoCode = *user.SignupPromoCode
 	}
 
 	return &result, nil

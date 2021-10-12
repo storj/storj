@@ -1652,8 +1652,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN user_agent bytea;`,
 					`ALTER TABLE projects ADD COLUMN user_agent bytea;`,
 					`ALTER TABLE api_keys ADD COLUMN user_agent bytea;`,
-					`ALTER TABLE bucket_metainfos ADD COLUMN user_agent bytea;`,
-				},
+					`ALTER TABLE bucket_metainfos ADD COLUMN user_agent bytea;`},
 			},
 			{
 				DB:          &db.migrationDB,
@@ -1661,6 +1660,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     175,
 				Action: migrate.SQL{
 					`ALTER TABLE graceful_exit_progress DROP COLUMN uses_segment_transfer_queue;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add signup_promo_code column on users",
+				Version:     176,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN signup_promo_code text;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
