@@ -124,6 +124,7 @@ CREATE TABLE nodes (
 	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
 	last_ip_port text,
+	country_code text,
 	protocol integer NOT NULL DEFAULT 0,
 	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
@@ -431,6 +432,7 @@ CREATE TABLE bucket_metainfos (
 	default_redundancy_repair_shares integer NOT NULL,
 	default_redundancy_optimal_shares integer NOT NULL,
 	default_redundancy_total_shares integer NOT NULL,
+	placement integer,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, name )
 );
