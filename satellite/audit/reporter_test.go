@@ -236,7 +236,6 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Nil(t, nodeCacheInfo.UnknownAuditSuspended)
-			require.False(t, nodeCacheInfo.Contained)
 			require.Nil(t, nodeCacheInfo.Disqualified)
 		}
 	})

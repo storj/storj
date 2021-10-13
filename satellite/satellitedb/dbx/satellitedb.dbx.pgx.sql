@@ -236,7 +236,6 @@ CREATE TABLE reputations (
 	vetted_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
 	unknown_audit_suspended timestamp with time zone,

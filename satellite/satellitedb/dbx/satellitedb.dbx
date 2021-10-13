@@ -204,7 +204,6 @@ model reputation (
 	field created_at           timestamp ( autoinsert, default current_timestamp )
 	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
 
-	field contained bool ( updatable, default false )
     // node is disqualified when it fails too many audits or is offline for too long
 	field disqualified timestamp ( updatable, nullable )
     // node is placed under inspection when it has too many unknown-error audits
