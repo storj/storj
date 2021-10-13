@@ -137,8 +137,7 @@ func TestPayments(t *testing.T) {
 
 		{ // Get_PaymentCards_EmptyReturn
 			resp, body := test.request(http.MethodGet, "/payments/cards", nil)
-			// TODO: this should be []
-			require.JSONEq(t, "null", body)
+			require.JSONEq(t, "[]", body)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
@@ -150,7 +149,7 @@ func TestPayments(t *testing.T) {
 
 		{ // Get_BillingHistory
 			resp, body := test.request(http.MethodGet, "/payments/billing-history", nil)
-			require.Contains(t, body, "description")
+			require.JSONEq(t, "[]", body)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 

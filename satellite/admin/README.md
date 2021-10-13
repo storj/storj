@@ -15,10 +15,6 @@ Requires setting `Authorization` header for requests.
             * [PUT /api/users/{user-email}](#put-apiusersuser-email)
             * [GET /api/users/{user-email}](#get-apiusersuser-email)
             * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
-        * [Coupon Management](#coupon-management)
-            * [POST /api/coupons](#post-apicoupons)
-            * [GET /api/coupons/{coupon-id}](#get-apicouponscoupon-id)
-            * [DELETE /api/coupons/{coupon-id}](#delete-apicouponscoupon-id)
         * [Project Management](#project-management)
             * [POST /api/projects](#post-apiprojects)
             * [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
@@ -132,18 +128,6 @@ A successful response body:
             "description": "Project to store data.",
             "ownerId": "12345678-1234-1234-1234-123456789abc"
         }
-    ],
-    "coupons": [
-        {
-            "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",
-            "userId":      "12345678-1234-1234-1234-123456789abc",
-            "duration":    2,
-            "amount":      3000,
-            "description": "promotional coupon (valid for 2 billing cycles)",
-            "type":        0,
-            "status":      0,
-            "created":     "2020-05-19T00:34:13.265761+02:00"
-        }
     ]
 }
 ```
@@ -151,58 +135,6 @@ A successful response body:
 #### DELETE /api/users/{user-email}
 
 Deletes the user.
-
-### Coupon Management
-
-The coupons have an amount and duration.
-Amount is expressed in cents of USD dollars (e.g. 500 is $5)
-Duration is expressed in billing periods, a billing period is a natural month.
-
-#### POST /api/coupons
-
-Adds a coupon for specific user.
-
-An example of a required request body:
-
-```json
-{
-    "userId":      "12345678-1234-1234-1234-123456789abc",
-    "duration":    2,
-    "amount":      3000,
-    "description": "promotional coupon (valid for 2 billing cycles)"
-}
-```
-
-A successful response body:
-
-```json
-{
-    "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
-}
-```
-
-#### GET /api/coupons/{coupon-id}
-
-Gets a coupon with the specified id.
-
-A successful response body:
-
-```json
-{
-    "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",
-    "userId":      "12345678-1234-1234-1234-123456789abc",
-    "duration":    2,
-    "amount":      3000,
-    "description": "promotional coupon (valid for 2 billing cycles)",
-    "type":        0,
-    "status":      0,
-    "created":     "2020-05-19T00:34:13.265761+02:00"
-}
-```
-
-#### DELETE /api/coupons/{coupon-id}
-
-Deletes the specified coupon.
 
 ### Project Management
 

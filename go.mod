@@ -61,9 +61,9 @@ require (
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	storj.io/common v0.0.0-20210928143209-230bee624465
+	storj.io/common v0.0.0-20211011135704-cbe49e9e173e
 	storj.io/drpc v0.0.26
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20210810102517-434aeab3f17d
-	storj.io/uplink v1.7.0
+	storj.io/uplink v1.7.1-0.20211012154306-65bb87992c7c
 )
