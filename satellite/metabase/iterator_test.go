@@ -19,42 +19,40 @@ import (
 
 func TestIterateObjects(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		t.Run("ProjectID missing", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.IterateObjects{
-				Opts: metabase.IterateObjects{
-					ProjectID:  uuid.UUID{},
-					BucketName: "sj://mybucket",
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "ProjectID missing",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-		t.Run("BucketName missing", func(t *testing.T) {
+		t.Run("invalid arguments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.IterateObjects{
-				Opts: metabase.IterateObjects{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "",
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "BucketName missing",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-		t.Run("Limit is negative", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.IterateObjects{
-				Opts: metabase.IterateObjects{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "mybucket",
-					BatchSize:  -1,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "BatchSize is negative",
-			}.Check(ctx, t, db)
+			t.Run("ProjectID missing", func(t *testing.T) {
+				metabasetest.IterateObjects{
+					Opts: metabase.IterateObjects{
+						ProjectID:  uuid.UUID{},
+						BucketName: "sj://mybucket",
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "ProjectID missing",
+				}.Check(ctx, t, db)
+			})
+			t.Run("BucketName missing", func(t *testing.T) {
+				metabasetest.IterateObjects{
+					Opts: metabase.IterateObjects{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "",
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "BucketName missing",
+				}.Check(ctx, t, db)
+			})
+			t.Run("Limit is negative", func(t *testing.T) {
+				metabasetest.IterateObjects{
+					Opts: metabase.IterateObjects{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "mybucket",
+						BatchSize:  -1,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "BatchSize is negative",
+				}.Check(ctx, t, db)
+			})
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
@@ -394,12 +392,12 @@ func TestIterateObjects(t *testing.T) {
 
 			queries := []metabase.ObjectKey{""}
 			for a := 0; a <= 0xFF; a++ {
-				if 5 < a && a < 250 {
+				if 4 < a && a < 251 {
 					continue
 				}
 				queries = append(queries, metabase.ObjectKey([]byte{byte(a)}))
 				for b := 0; b <= 0xFF; b++ {
-					if 5 < b && b < 250 {
+					if 4 < b && b < 251 {
 						continue
 					}
 					queries = append(queries, metabase.ObjectKey([]byte{byte(a), byte(b)}))
@@ -467,10 +465,8 @@ func TestIterateObjects(t *testing.T) {
 
 func TestIterateObjectsWithStatus(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		t.Run("BucketName missing", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+		t.Run("invalid arguments", func(t *testing.T) {
 			t.Run("ProjectID missing", func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 				metabasetest.IterateObjectsWithStatus{
 					Opts: metabase.IterateObjectsWithStatus{
 						ProjectID:  uuid.UUID{},
@@ -481,48 +477,44 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "ProjectID missing",
 				}.Check(ctx, t, db)
-				metabasetest.Verify{}.Check(ctx, t, db)
 			})
-			metabasetest.IterateObjectsWithStatus{
-				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "",
-					Recursive:  true,
-					Status:     metabase.Committed,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "BucketName missing",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-		t.Run("Limit is negative", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.IterateObjectsWithStatus{
-				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "mybucket",
-					BatchSize:  -1,
-					Recursive:  true,
-					Status:     metabase.Committed,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "BatchSize is negative",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-		t.Run("Status is invalid", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.IterateObjectsWithStatus{
-				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "test",
-					Recursive:  true,
-					Status:     255,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Status 255 is not supported",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
+			t.Run("BucketName missing", func(t *testing.T) {
+				metabasetest.IterateObjectsWithStatus{
+					Opts: metabase.IterateObjectsWithStatus{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "",
+						Recursive:  true,
+						Status:     metabase.Committed,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "BucketName missing",
+				}.Check(ctx, t, db)
+			})
+			t.Run("Limit is negative", func(t *testing.T) {
+				metabasetest.IterateObjectsWithStatus{
+					Opts: metabase.IterateObjectsWithStatus{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "mybucket",
+						BatchSize:  -1,
+						Recursive:  true,
+						Status:     metabase.Committed,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "BatchSize is negative",
+				}.Check(ctx, t, db)
+			})
+			t.Run("Status is invalid", func(t *testing.T) {
+				metabasetest.IterateObjectsWithStatus{
+					Opts: metabase.IterateObjectsWithStatus{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "test",
+						Recursive:  true,
+						Status:     255,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "Status 255 is not supported",
+				}.Check(ctx, t, db)
+			})
 		})
 
 		t.Run("empty bucket", func(t *testing.T) {
@@ -1039,12 +1031,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			queries := []metabase.ObjectKey{""}
 			for a := 0; a <= 0xFF; a++ {
-				if 5 < a && a < 250 {
+				if 4 < a && a < 251 {
 					continue
 				}
 				queries = append(queries, metabase.ObjectKey([]byte{byte(a)}))
 				for b := 0; b <= 0xFF; b++ {
-					if 5 < b && b < 250 {
+					if 4 < b && b < 251 {
 						continue
 					}
 					queries = append(queries, metabase.ObjectKey([]byte{byte(a), byte(b)}))
@@ -1063,9 +1055,8 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 							Key:     cursor,
 							Version: -1,
 						},
-						Prefix:          prefix,
-						Status:          metabase.Committed,
-						IncludeMetadata: true,
+						Prefix: prefix,
+						Status: metabase.Committed,
 					}, collector.Add)
 					require.NoError(t, err)
 
@@ -1076,10 +1067,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 							Key:     cursor,
 							Version: -1,
 						},
-						Prefix:          prefix,
-						Recursive:       true,
-						Status:          metabase.Committed,
-						IncludeMetadata: true,
+						Prefix:    prefix,
+						Recursive: true,
+						Status:    metabase.Committed,
 					}, collector.Add)
 					require.NoError(t, err)
 				}
