@@ -6,6 +6,7 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_ACCOUNT: 'toggleAccountDropdown',
     TOGGLE_SELECT_PROJECT_DROPDOWN: 'toggleSelectProjectDropdown',
     TOGGLE_RESOURCES_DROPDOWN: 'toggleResourcesDropdown',
+    TOGGLE_QUICK_START_DROPDOWN: 'toggleQuickStartDropdown',
     TOGGLE_SETTINGS_DROPDOWN: 'toggleSettingsDropdown',
     TOGGLE_EDIT_PROJECT_DROPDOWN: 'toggleEditProjectDropdown',
     TOGGLE_FREE_CREDITS_DROPDOWN: 'toggleFreeCreditsDropdown',

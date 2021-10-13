@@ -175,8 +175,6 @@ export default class NewProjectSelection extends Vue {
      * Closes select project dropdown.
      */
     public closeDropdown(): void {
-        if (!this.isDropdownShown) return;
-
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 

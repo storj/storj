@@ -15,6 +15,7 @@ class ViewsState {
         public isAccountDropdownShown = false,
         public isSelectProjectDropdownShown = false,
         public isResourcesDropdownShown = false,
+        public isQuickStartDropdownShown = false,
         public isSettingsDropdownShown = false,
         public isEditProjectDropdownShown = false,
         public isFreeCreditsDropdownShown = false,
@@ -69,6 +70,10 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_RESOURCES_DROPDOWN](state: State): void {
             state.appState.isResourcesDropdownShown = !state.appState.isResourcesDropdownShown;
         },
+        // Mutation changing resources dropdown visibility
+        [APP_STATE_MUTATIONS.TOGGLE_QUICK_START_DROPDOWN](state: State): void {
+            state.appState.isQuickStartDropdownShown = !state.appState.isQuickStartDropdownShown;
+        },
         // Mutation changing settings dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_SETTINGS_DROPDOWN](state: State): void {
             state.appState.isSettingsDropdownShown = !state.appState.isSettingsDropdownShown;
@@ -117,6 +122,7 @@ export const appStateModule = {
             state.appState.isAccountDropdownShown = false;
             state.appState.isSelectProjectDropdownShown = false;
             state.appState.isResourcesDropdownShown = false;
+            state.appState.isQuickStartDropdownShown = false;
             state.appState.isSettingsDropdownShown = false;
             state.appState.isEditProjectDropdownShown = false;
             state.appState.isFreeCreditsDropdownShown = false;
@@ -182,6 +188,13 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_RESOURCES_DROPDOWN);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_QUICK_START_DROPDOWN]: function ({commit, state}: AppContext): void {
+            if (!state.appState.isQuickStartDropdownShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_QUICK_START_DROPDOWN);
         },
         [APP_STATE_ACTIONS.TOGGLE_SETTINGS_DROPDOWN]: function ({commit, state}: AppContext): void {
             if (!state.appState.isSettingsDropdownShown) {
