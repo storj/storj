@@ -144,7 +144,8 @@ model node (
 	field last_contact_failure timestamp ( updatable, default "epoch" )
 
     // node is disqualified when it fails too many audits or is offline for too long
-	field disqualified timestamp ( updatable, nullable )
+	field disqualified            timestamp ( updatable, nullable )
+	field disqualification_reason int       ( updatable, nullable )
     // node is placed under inspection when it has too many unknown-error audits
 	field suspended timestamp ( updatable, nullable )
 	// renamed column from suspended

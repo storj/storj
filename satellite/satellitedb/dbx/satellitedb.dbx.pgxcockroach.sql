@@ -145,6 +145,7 @@ CREATE TABLE nodes (
 	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
 	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
 	disqualified timestamp with time zone,
+	disqualification_reason integer,
 	suspended timestamp with time zone,
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,

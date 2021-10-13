@@ -1652,7 +1652,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN user_agent bytea;`,
 					`ALTER TABLE projects ADD COLUMN user_agent bytea;`,
 					`ALTER TABLE api_keys ADD COLUMN user_agent bytea;`,
-					`ALTER TABLE bucket_metainfos ADD COLUMN user_agent bytea;`},
+					`ALTER TABLE bucket_metainfos ADD COLUMN user_agent bytea;`,
+				},
 			},
 			{
 				DB:          &db.migrationDB,
@@ -1686,6 +1687,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD COLUMN country_code text;`,
 					`ALTER TABLE bucket_metainfos ADD COLUMN placement integer;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add disqualification_reason to nodes",
+				Version:     179,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN disqualification_reason integer`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
