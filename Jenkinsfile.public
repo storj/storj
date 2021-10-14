@@ -94,7 +94,7 @@ pipeline {
                     steps {
                         dir('web/satellite') {
                             sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run wasm-dev'
+                            sh './scripts/build-wasm.sh'
                             sh 'npm run build'
                         }
                     }
