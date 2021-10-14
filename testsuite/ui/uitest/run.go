@@ -8,12 +8,15 @@ import (
 	"testing"
 
 	"github.com/go-rod/rod"
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 )
+
+var mon = monkit.Package()
 
 // Test defines common services for uitests.
 type Test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser)

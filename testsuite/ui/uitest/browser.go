@@ -45,7 +45,8 @@ func Browser(t *testing.T, ctx *testcontext.Context, fn func(*rod.Browser)) {
 		UserDataDir(ctx.Dir("browser")).
 		Logger(zapWriter{Logger: logLauncher}).
 		Set("enable-logging").
-		Set("disable-gpu")
+		Set("disable-gpu").
+		Set("disable-web-security") // TODO: ensure we have proper CORS for testing
 
 	if browserHost := os.Getenv("STORJ_TEST_BROWER_HOSTPORT"); browserHost != "" {
 		host, port, err := net.SplitHostPort(browserHost)
