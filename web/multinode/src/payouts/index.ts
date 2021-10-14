@@ -167,7 +167,5 @@ export class Expectation {
         public currentMonthEstimation: number = 0,
         public undistributed: number = 0,
     ) {
-        this.currentMonthEstimation = this.currentMonthEstimation;
-        this.undistributed = this.undistributed;
     }
 }
