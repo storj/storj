@@ -170,8 +170,4 @@ export class Expectation {
         this.currentMonthEstimation = this.currentMonthEstimation;
         this.undistributed = this.undistributed;
     }
-
-    private convertToCents(value: number): number {
-        return value / PRICE_DIVIDER;
-    }
 }
