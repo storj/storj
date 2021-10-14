@@ -23,7 +23,15 @@ const projectsApi = new ProjectsApiMock();
 projectsApi.setMockLimits(projectLimits);
 const projectsModule = makeProjectsModule(projectsApi);
 
-const store = new Vuex.Store({ modules: { projectsModule }});
+const store = new Vuex.Store({
+    modules: {
+        projectsModule,
+        usersModule: {
+            state: {
+                user: { paidTier: false },
+            }
+        }
+    }});
 const project = new Project('id', 'test', 'test', 'test', 'ownedId', false);
 
 describe('EditProjectDetails.vue', () => {
