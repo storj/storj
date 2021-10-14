@@ -203,7 +203,7 @@ func commitDefaultSegment(ctx *testcontext.Context, t *testing.T, db *metabase.D
 			Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 
 			EncryptedKey:      []byte{3},
-			EncryptedKeyNonce: metabasetest.DefaultNonce,
+			EncryptedKeyNonce: []byte{4},
 			EncryptedETag:     []byte{5},
 
 			EncryptedSize: 1024,

@@ -2,20 +2,14 @@
 // See LICENSE for copying information.
 
 const path = require('path');
-const StyleLintPlugin = require('stylelint-webpack-plugin');
 
 module.exports = {
     publicPath: "/static/dist",
     productionSourceMap: false,
     parallel: true,
+    lintOnSave: false, // disables eslint for builds
     configureWebpack: {
-        plugins: [
-            new StyleLintPlugin({
-                files: ['**/*.{vue,sss,less,scss,sass}'],
-                ignoreFiles: ["./node_modules/**"],
-                emitWarning: true,
-            })
-        ],
+        plugins: [],
     },
     chainWebpack: config => {
         config.output.chunkFilename(`js/vendors_[hash].js`);

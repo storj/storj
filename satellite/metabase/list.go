@@ -25,7 +25,7 @@ type ObjectEntry struct {
 	Status       ObjectStatus
 	SegmentCount int32
 
-	EncryptedMetadataNonce        storj.Nonce
+	EncryptedMetadataNonce        []byte
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
 

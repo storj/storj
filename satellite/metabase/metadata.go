@@ -14,7 +14,7 @@ type UpdateObjectMetadata struct {
 	ObjectStream
 
 	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        storj.Nonce
+	EncryptedMetadataNonce        []byte
 	EncryptedMetadataEncryptedKey []byte
 }
 

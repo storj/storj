@@ -26,13 +26,6 @@ var DefaultEncryption = storj.EncryptionParameters{
 	BlockSize:   29 * 256,
 }
 
-// DefaultNonce contains default nonce.
-var DefaultNonce = func() storj.Nonce {
-	var nonce storj.Nonce
-	copy(nonce[:], []byte{4})
-	return nonce
-}()
-
 // DefaultRawSegment returns default raw segment.
 func DefaultRawSegment(obj metabase.ObjectStream, segmentPosition metabase.SegmentPosition) metabase.RawSegment {
 	return metabase.RawSegment{
@@ -43,7 +36,7 @@ func DefaultRawSegment(obj metabase.ObjectStream, segmentPosition metabase.Segme
 		CreatedAt:   time.Now(),
 
 		EncryptedKey:      []byte{3},
-		EncryptedKeyNonce: DefaultNonce,
+		EncryptedKeyNonce: []byte{4},
 		EncryptedETag:     []byte{5},
 
 		EncryptedSize: 1024,

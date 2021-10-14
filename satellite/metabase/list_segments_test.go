@@ -73,7 +73,7 @@ func TestListSegments(t *testing.T) {
 				CreatedAt:         now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: metabasetest.DefaultNonce,
+				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
@@ -191,7 +191,7 @@ func TestListSegments(t *testing.T) {
 				CreatedAt:         now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: metabasetest.DefaultNonce,
+				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
@@ -231,7 +231,7 @@ func TestListSegments(t *testing.T) {
 							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 
 							EncryptedKey:      []byte{3},
-							EncryptedKeyNonce: metabasetest.DefaultNonce,
+							EncryptedKeyNonce: []byte{4},
 							EncryptedETag:     []byte{5},
 
 							EncryptedSize: 1024,
@@ -331,7 +331,7 @@ func TestListStreamPositions(t *testing.T) {
 				CreatedAt:         now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: metabasetest.DefaultNonce,
+				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
@@ -456,7 +456,7 @@ func TestListStreamPositions(t *testing.T) {
 				StreamID:          obj.StreamID,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: metabasetest.DefaultNonce,
+				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
@@ -496,7 +496,7 @@ func TestListStreamPositions(t *testing.T) {
 							Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 
 							EncryptedKey:      []byte{3},
-							EncryptedKeyNonce: metabasetest.DefaultNonce,
+							EncryptedKeyNonce: []byte{4},
 							EncryptedETag:     []byte{5},
 
 							EncryptedSize: 1024,
@@ -552,7 +552,7 @@ func TestListStreamPositions(t *testing.T) {
 				StreamID:          obj.StreamID,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: metabasetest.DefaultNonce,
+				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         segmentSize,
@@ -596,7 +596,7 @@ func TestListStreamPositions(t *testing.T) {
 						Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 
 						EncryptedKey:      []byte{3},
-						EncryptedKeyNonce: metabasetest.DefaultNonce,
+						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
 
 						EncryptedSize: 1024,

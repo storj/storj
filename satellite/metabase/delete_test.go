@@ -229,7 +229,7 @@ func TestDeletePendingObject(t *testing.T) {
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Nonce(),
+					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
@@ -369,7 +369,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			object := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
-					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -429,7 +429,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Nonce(),
+					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
@@ -546,7 +546,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 			object := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
-					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -604,7 +604,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Nonce(),
+					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
@@ -690,7 +690,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 						RootPieceID:       storj.PieceID{1},
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 						EncryptedKey:      []byte{3},
-						EncryptedKeyNonce: metabasetest.DefaultNonce,
+						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
 
 						EncryptedSize: 1024,
@@ -785,7 +785,7 @@ func TestDeleteObjectAnyStatusAllVersions(t *testing.T) {
 			object := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
-					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
@@ -841,7 +841,7 @@ func TestDeleteObjectAnyStatusAllVersions(t *testing.T) {
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Nonce(),
+					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
@@ -1083,7 +1083,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Nonce(),
+					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
@@ -1127,7 +1127,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
 
 					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Nonce(),
+					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 

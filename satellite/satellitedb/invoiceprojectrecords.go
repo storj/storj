@@ -42,7 +42,7 @@ type invoiceProjectRecords struct {
 }
 
 // Create creates new invoice project record in the DB.
-func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoinpayments.CreateProjectRecord, couponUsages []stripecoinpayments.CouponUsage, start, end time.Time) (err error) {
+func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoinpayments.CreateProjectRecord, start, end time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
@@ -61,19 +61,6 @@ func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoi
 				dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodStart(start),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodEnd(end),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_State(invoiceProjectRecordStateUnapplied.Int()),
-			)
-			if err != nil {
-				return err
-			}
-		}
-
-		for _, couponUsage := range couponUsages {
-			_, err = db.db.Create_CouponUsage(
-				ctx,
-				dbx.CouponUsage_CouponId(couponUsage.CouponID[:]),
-				dbx.CouponUsage_Amount(couponUsage.Amount),
-				dbx.CouponUsage_Status(int(couponUsage.Status)),
-				dbx.CouponUsage_Period(couponUsage.Period),
 			)
 			if err != nil {
 				return err

@@ -232,7 +232,7 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 		return nil, err
 	}
 
-	err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
+	_, err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +440,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Tally.ReadRollupBatchSize = 0
 	config.Rollup.DeleteTallies = false
 	config.Payments.BonusRate = 0
-	config.Payments.MinCoinPayment = 0
 	config.Payments.NodeEgressBandwidthPrice = 0
 	config.Payments.NodeRepairBandwidthPrice = 0
 	config.Payments.NodeAuditBandwidthPrice = 0

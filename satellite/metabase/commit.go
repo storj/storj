@@ -185,12 +185,9 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 	// NOTE: this isn't strictly necessary, since we can also fail this in CommitSegment.
 	//       however, we should prevent creating segements for non-partial objects.
 
-	// NOTE: these queries could be combined into one.
-
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-		// Verify that object exists and is partial.
-		var value int
-		err = tx.QueryRowContext(ctx, `
+	// Verify that object exists and is partial.
+	var value int
+	err = db.db.QueryRowContext(ctx, `
 			SELECT 1
 			FROM objects WHERE
 				project_id   = $1 AND
@@ -199,30 +196,12 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 				version      = $4 AND
 				stream_id    = $5 AND
 				status       = `+pendingStatus,
-			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&value)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return Error.New("pending object missing")
-			}
-			return Error.New("unable to query object status: %w", err)
-		}
-
-		// Verify that the segment does not exist.
-		err = tx.QueryRowContext(ctx, `
-			SELECT 1
-			FROM segments WHERE
-				stream_id = $1 AND
-				position  = $2
-		`, opts.StreamID, opts.Position).Scan(&value)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return Error.New("unable to query segments: %w", err)
-		}
-		err = nil //nolint: wastedassign, ineffassign // ignore any other err result (explicitly)
-
-		return nil
-	})
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&value)
 	if err != nil {
-		return err
+		if errors.Is(err, sql.ErrNoRows) {
+			return Error.New("pending object missing")
+		}
+		return Error.New("unable to query object status: %w", err)
 	}
 
 	mon.Meter("segment_begin").Mark(1)
@@ -239,7 +218,7 @@ type CommitSegment struct {
 
 	ExpiresAt *time.Time
 
-	EncryptedKeyNonce storj.Nonce
+	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
 	PlainOffset   int64 // offset in the original data stream
@@ -270,7 +249,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return ErrInvalidRequest.New("RootPieceID missing")
 	case len(opts.EncryptedKey) == 0:
 		return ErrInvalidRequest.New("EncryptedKey missing")
-	case opts.EncryptedKeyNonce.IsZero():
+	case len(opts.EncryptedKeyNonce) == 0:
 		return ErrInvalidRequest.New("EncryptedKeyNonce missing")
 	case opts.EncryptedSize <= 0:
 		return ErrInvalidRequest.New("EncryptedSize negative or zero")
@@ -313,7 +292,15 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 			$6, $7, $8, $9,
 			$10,
 			$11
-		)`, opts.Position, opts.ExpiresAt,
+		)
+		ON CONFLICT(stream_id, position)
+		DO UPDATE SET
+			expires_at = $2,
+			root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
+			encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
+			redundancy = $10,
+			remote_alias_pieces = $11
+		`, opts.Position, opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		redundancyScheme{&opts.Redundancy},
@@ -323,9 +310,6 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
 			return Error.New("pending object missing")
-		}
-		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-			return ErrConflict.New("segment already exists")
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
@@ -344,7 +328,7 @@ type CommitInlineSegment struct {
 
 	ExpiresAt *time.Time
 
-	EncryptedKeyNonce storj.Nonce
+	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
 	PlainOffset   int64 // offset in the original data stream
@@ -368,7 +352,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	switch {
 	case len(opts.EncryptedKey) == 0:
 		return ErrInvalidRequest.New("EncryptedKey missing")
-	case opts.EncryptedKeyNonce.IsZero():
+	case len(opts.EncryptedKeyNonce) == 0:
 		return ErrInvalidRequest.New("EncryptedKeyNonce missing")
 	case opts.PlainSize <= 0 && validatePlainSize:
 		return ErrInvalidRequest.New("PlainSize negative or zero")
@@ -396,7 +380,14 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 			$3, $4, $5,
 			$6, $7, $8, $9,
 			$10
-		)`, opts.Position, opts.ExpiresAt,
+		)
+		ON CONFLICT(stream_id, position)
+		DO UPDATE SET
+			expires_at = $2,
+			root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
+			encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
+			inline_data = $10
+		`, opts.Position, opts.ExpiresAt,
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
@@ -405,9 +396,6 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
 			return Error.New("pending object missing")
-		}
-		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-			return ErrConflict.New("segment already exists")
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
@@ -425,7 +413,7 @@ type CommitObject struct {
 	Encryption storj.EncryptionParameters
 
 	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        storj.Nonce
+	EncryptedMetadataNonce        []byte
 	EncryptedMetadataEncryptedKey []byte
 }
 

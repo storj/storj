@@ -564,7 +564,8 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 }
 
 func convertBucketToProto(bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucket *pb.Bucket, err error) {
-	if bucket == (storj.Bucket{}) {
+	// TODO add IsZero to storj.Bucket implementation
+	if bucket.ID.IsZero() && len(bucket.Name) == 0 {
 		return nil, nil
 	}
 
@@ -804,7 +805,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			Version:    metabase.Version(1),
 		},
 		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataNonce:        req.EncryptedMetadataNonce,
+		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 
 		Encryption: encryption,
@@ -1004,6 +1005,12 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			endpoint.log.Error("Could not track the new project's bandwidth usage", zap.Stringer("Project ID", keyInfo.ProjectID), zap.Error(err))
 		}
 
+		encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
+		if err != nil {
+			endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+
 		if segment.Inline() {
 			err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), downloadSizes.plainSize)
 			if err != nil {
@@ -1019,7 +1026,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				SegmentSize:         int64(segment.EncryptedSize),
 				EncryptedInlineData: segment.InlineData,
 
-				EncryptedKeyNonce: segment.EncryptedKeyNonce,
+				EncryptedKeyNonce: encryptedKeyNonce,
 				EncryptedKey:      segment.EncryptedKey,
 
 				Position: &pb.SegmentPosition{
@@ -1052,7 +1059,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			PlainSize:       int64(segment.PlainSize),
 			SegmentSize:     int64(segment.EncryptedSize),
 
-			EncryptedKeyNonce: segment.EncryptedKeyNonce,
+			EncryptedKeyNonce: encryptedKeyNonce,
 			EncryptedKey:      segment.EncryptedKey,
 			RedundancyScheme: &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
@@ -1658,7 +1665,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 			StreamID:   id,
 		},
 		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataNonce:        req.EncryptedMetadataNonce,
+		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 	})
 	if err != nil {
@@ -1903,7 +1910,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		},
 		ExpiresAt:         expiresAt,
 		EncryptedKey:      req.EncryptedKey,
-		EncryptedKeyNonce: req.EncryptedKeyNonce,
+		EncryptedKeyNonce: req.EncryptedKeyNonce[:],
 
 		EncryptedSize: int32(req.SizeEncryptedData), // TODO incompatible types int32 vs int64
 		PlainSize:     int32(req.PlainSize),         // TODO incompatible types int32 vs int64
@@ -2037,7 +2044,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		},
 		ExpiresAt:         expiresAt,
 		EncryptedKey:      req.EncryptedKey,
-		EncryptedKeyNonce: req.EncryptedKeyNonce,
+		EncryptedKeyNonce: req.EncryptedKeyNonce.Bytes(),
 
 		Position: metabase.SegmentPosition{
 			Part:  uint32(req.Position.PartNumber),
@@ -2140,7 +2147,11 @@ func convertStreamListResults(result metabase.ListStreamPositionsResult) (*pb.Se
 			items[i].CreatedAt = *item.CreatedAt
 		}
 		items[i].EncryptedETag = item.EncryptedETag
-		items[i].EncryptedKeyNonce = item.EncryptedKeyNonce
+		var err error
+		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
+		if err != nil {
+			return nil, err
+		}
 		items[i].EncryptedKey = item.EncryptedKey
 	}
 	return &pb.SegmentListResponse{
@@ -2230,6 +2241,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		)
 	}
 
+	encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
+	if err != nil {
+		endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
 	if segment.Inline() {
 		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(segment.InlineData)))
 		if err != nil {
@@ -2245,7 +2262,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			SegmentSize:         int64(segment.EncryptedSize),
 			EncryptedInlineData: segment.InlineData,
 
-			EncryptedKeyNonce: segment.EncryptedKeyNonce,
+			EncryptedKeyNonce: encryptedKeyNonce,
 			EncryptedKey:      segment.EncryptedKey,
 			Position: &pb.SegmentPosition{
 				PartNumber: int32(segment.Position.Part),
@@ -2278,7 +2295,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		PlainSize:       int64(segment.PlainSize),
 		SegmentSize:     int64(segment.EncryptedSize),
 
-		EncryptedKeyNonce: segment.EncryptedKeyNonce,
+		EncryptedKeyNonce: encryptedKeyNonce,
 		EncryptedKey:      segment.EncryptedKey,
 		RedundancyScheme: &pb.RedundancyScheme{
 			Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
@@ -2570,6 +2587,14 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		return nil, err
 	}
 
+	var nonce storj.Nonce
+	if len(object.EncryptedMetadataNonce) > 0 {
+		nonce, err = storj.NonceFromBytes(object.EncryptedMetadataNonce)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	streamMeta := &pb.StreamMeta{}
 	err = pb.Unmarshal(object.EncryptedMetadata, streamMeta)
 	if err != nil {
@@ -2589,7 +2614,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	if streamMeta.LastSegmentMeta == nil {
 		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
 			EncryptedKey: object.EncryptedMetadataEncryptedKey,
-			KeyNonce:     object.EncryptedMetadataNonce[:],
+			KeyNonce:     object.EncryptedMetadataNonce,
 		}
 	}
 
@@ -2610,7 +2635,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		PlainSize: object.TotalPlainSize,
 
 		EncryptedMetadata:             metadataBytes,
-		EncryptedMetadataNonce:        object.EncryptedMetadataNonce,
+		EncryptedMetadataNonce:        nonce,
 		EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
@@ -2639,6 +2664,14 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	}
 
 	if includeMetadata {
+		var nonce storj.Nonce
+		if len(entry.EncryptedMetadataNonce) > 0 {
+			nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		streamMeta := &pb.StreamMeta{}
 		err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
 		if err != nil {
@@ -2658,7 +2691,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		if streamMeta.LastSegmentMeta == nil {
 			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
 				EncryptedKey: entry.EncryptedMetadataEncryptedKey,
-				KeyNonce:     entry.EncryptedMetadataNonce[:],
+				KeyNonce:     entry.EncryptedMetadataNonce,
 			}
 		}
 
@@ -2668,7 +2701,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		}
 
 		item.EncryptedMetadata = metadataBytes
-		item.EncryptedMetadataNonce = entry.EncryptedMetadataNonce
+		item.EncryptedMetadataNonce = nonce
 	}
 
 	// Add Stream ID to list items if listing is for pending objects.
@@ -2869,13 +2902,18 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.ObjectBeginMoveResponse, error) {
 	keys := make([]*pb.EncryptedKeyAndNonce, len(result.EncryptedKeysNonces))
 	for i, key := range result.EncryptedKeysNonces {
+		nonce, err := storj.NonceFromBytes(key.EncryptedKeyNonce)
+		if err != nil {
+			return nil, err
+		}
+
 		keys[i] = &pb.EncryptedKeyAndNonce{
 			Position: &pb.SegmentPosition{
 				PartNumber: int32(key.Position.Part),
 				Index:      int32(key.Position.Index),
 			},
 			EncryptedKey:      key.EncryptedKey,
-			EncryptedKeyNonce: key.EncryptedKeyNonce,
+			EncryptedKeyNonce: nonce,
 		}
 	}
 
@@ -2887,19 +2925,18 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 			return nil, err
 		}
 		if streamMeta.LastSegmentMeta != nil {
-			nonce, err := storj.NonceFromBytes(streamMeta.LastSegmentMeta.KeyNonce)
-			if err != nil {
-				return nil, err
-			}
-
 			result.EncryptedMetadataKey = streamMeta.LastSegmentMeta.EncryptedKey
-			result.EncryptedMetadataKeyNonce = nonce
+			result.EncryptedMetadataKeyNonce = streamMeta.LastSegmentMeta.KeyNonce
 		}
 	}
 
+	metadataNonce, err := storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.ObjectBeginMoveResponse{
 		EncryptedMetadataKey:      result.EncryptedMetadataKey,
-		EncryptedMetadataKeyNonce: result.EncryptedMetadataKeyNonce,
+		EncryptedMetadataKeyNonce: metadataNonce,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
 			BlockSize:   int64(result.EncryptionParameters.BlockSize),
@@ -2961,7 +2998,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
 		NewBucket:                    string(req.NewBucket),
 		NewEncryptedObjectKey:        req.NewEncryptedObjectKey,
-		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
+		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce[:],
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
 	})
 	if err != nil {
@@ -2995,7 +3032,7 @@ func protobufkeysToMetabase(protoKeys []*pb.EncryptedKeyAndNonce) []metabase.Enc
 		}
 
 		keys[i] = metabase.EncryptedKeyAndNonce{
-			EncryptedKeyNonce: key.EncryptedKeyNonce,
+			EncryptedKeyNonce: key.EncryptedKeyNonce.Bytes(),
 			EncryptedKey:      key.EncryptedKey,
 			Position:          position,
 		}
