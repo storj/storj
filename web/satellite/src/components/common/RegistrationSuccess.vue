@@ -28,7 +28,7 @@
                 or
                 <a
                     class="register-success-area__form-container__contact__link"
-                    href="https://support.storj.io/hc/en-us"
+                    href="https://supportdcs.storj.io/hc/en-us/requests/new"
                     target="_blank"
                     rel="noopener noreferrer"
                 >
