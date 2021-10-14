@@ -4,7 +4,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="row" @click="closeModalDropdown">
+	<div class="file-browser">
+    <div v-if="isInitialized" class="row white-background p-4 p-lg-5" @click="closeModalDropdown">
         <div class="col-sm-12">
             <div
                 v-cloak
@@ -273,7 +274,7 @@
                 <div
                     v-if="displayUpload"
                     class="upload-help"
-                    @click="buttonUpload"
+                    @click="buttonFileUpload"
                 >
                     <svg
                         width="300"
@@ -434,6 +435,7 @@
             <file-share-modal v-if="showFileShareModal" />
         </div>
     </div>
+    </div>
 </template>
 
 <script>
@@ -458,6 +460,10 @@ export default {
         fetchingFilesSpinner: false
     }),
     computed: {
+        isInitialized() {
+            return this.$store.getters["files/isInitialized"];
+        },
+
         path: fromFilesStore("path"),
 
         filesUploading() {
@@ -687,8 +693,11 @@ export default {
 
 <style scoped>
 /* stylelint-disable */
-
 @import './scoped-bootstrap.css';
+
+.white-background {
+    background-color: #fff;
+}
 
 .file-browser {
     min-height: 500px;

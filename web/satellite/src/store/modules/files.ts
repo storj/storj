@@ -1,7 +1,7 @@
-/* eslint-disable */
-
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
+
+/* eslint-disable */
 
 import S3 from "aws-sdk/clients/s3";
 import * as R from "ramda";
@@ -73,7 +73,9 @@ export default {
                 Bucket: state.bucket,
                 Key: url
             });
-        }
+        },
+
+        isInitialized: (state) => state.s3 !== null
     },
     mutations: {
         init(
@@ -281,20 +283,25 @@ export default {
             const items = e.dataTransfer
                 ? e.dataTransfer.items
                 : e.target.files;
-				
+
             async function* traverse(item, path = "") {
                 if (item.isFile) {
                     const file = await new Promise(item.file.bind(item));
                     yield { path, file };
                 } else if (item instanceof File) {
-                    yield { path: (item as any).webkitRelativePath, file: item };
+                    let relativePath = (item as any).webkitRelativePath.split("/").slice(0, -1).join("/");
+
+                    if (relativePath.length) {
+                        relativePath += "/";
+                    }
+
+                    yield { path: relativePath, file: item };
                 } else if (item.isDirectory) {
                     const dirReader = item.createReader();
 
                     const entries = await new Promise(
                         dirReader.readEntries.bind(dirReader)
                     ) as any[];
-
                     for (const entry of entries) {
                         yield* traverse(entry, path + item.name + "/");
                     }
