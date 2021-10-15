@@ -90,7 +90,7 @@ type Config struct {
 	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"false"`
+	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"true"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
