@@ -457,9 +457,11 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 		} {
 			t.Logf("#%2d. %+v", i, tt)
 
-			response, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-				RequestedCount: tt.RequestCount,
-			}, &tt.Preferences)
+			response, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx,
+				overlay.FindStorageNodesRequest{
+					RequestedCount:     tt.RequestCount,
+					AsOfSystemInterval: -time.Microsecond,
+				}, &tt.Preferences)
 
 			t.Log(len(response), err)
 			if tt.ShouldFailWith != nil {
@@ -688,9 +690,11 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	}
 
 	for _, tt := range tests {
-		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-			RequestedCount: tt.requestCount,
-		}, &tt.preferences)
+		response, err := service.FindStorageNodesWithPreferences(ctx,
+			overlay.FindStorageNodesRequest{
+				RequestedCount:     tt.requestCount,
+				AsOfSystemInterval: -time.Microsecond,
+			}, &tt.preferences)
 		if tt.shouldFailWith != nil {
 			assert.Error(t, err)
 			assert.True(t, tt.shouldFailWith.Has(err))

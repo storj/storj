@@ -140,7 +140,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		}
 	}
 
-	query := unionAll(newNodeQuery, reputableNodeQuery)
+	query := unionAll(asOf, newNodeQuery, reputableNodeQuery)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(query.query), query.args...)
 	if err != nil {
@@ -282,7 +282,7 @@ func (partial partialQuery) asQuery() query {
 }
 
 // unionAll combines multiple partial queries into a single query.
-func unionAll(partials ...partialQuery) query {
+func unionAll(asOf string, partials ...partialQuery) query {
 	var queries []string
 	var args []interface{}
 	for _, partial := range partials {
@@ -302,8 +302,16 @@ func unionAll(partials ...partialQuery) query {
 		return query{query: queries[0], args: args}
 	}
 
+	union := "(" + strings.Join(queries, ") UNION ALL (") + ")"
+	if asOf == "" {
+		return query{
+			query: union,
+			args:  args,
+		}
+	}
+
 	return query{
-		query: "(" + strings.Join(queries, ") UNION ALL (") + ")",
+		query: "SELECT * FROM (" + union + ") " + asOf,
 		args:  args,
 	}
 }
