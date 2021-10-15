@@ -128,7 +128,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.linksharing-url: https://link.us1.storjshare.io
 
 # indicates if new onboarding flow should be rendered
-# console.new-onboarding: false
+# console.new-onboarding: true
 
 # enable open registration
 # console.open-registration-enabled: false
