@@ -49,7 +49,11 @@ export class ObjectsState {
     public apiKey = '';
     public accessGrant = '';
     public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
-    public s3Client: S3 = new S3({});
+    public s3Client: S3 = new S3({
+        s3ForcePathStyle: true,
+        signatureVersion: "v4",
+        httpOptions: { timeout: 0 },
+    });
     public bucketsList: Bucket[] = [];
     public passphrase = '';
     public fileComponentBucketName = '';
@@ -88,6 +92,9 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                     accessKeyId: state.gatewayCredentials.accessKeyId,
                     secretAccessKey: state.gatewayCredentials.secretKey,
                     endpoint: state.gatewayCredentials.endpoint,
+                    s3ForcePathStyle: true,
+                    signatureVersion: "v4",
+                    httpOptions: { timeout: 0 },
                 };
 
                 state.s3Client = new S3(s3Config);
@@ -109,7 +116,11 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 state.passphrase = '';
                 state.accessGrant = '';
                 state.gatewayCredentials = new GatewayCredentials();
-                state.s3Client = new S3({});
+                state.s3Client = new S3({
+                    s3ForcePathStyle: true,
+                    signatureVersion: "v4",
+                    httpOptions: { timeout: 0 },
+                });
                 state.bucketsList = [];
                 state.fileComponentBucketName = '';
             },

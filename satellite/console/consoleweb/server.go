@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
@@ -79,7 +80,7 @@ type Config struct {
 	PartneredSatellites             SatList `help:"names and addresses of partnered satellites in JSON list format" default:"[[\"US1\",\"https://us1.storj.io\"],[\"EU1\",\"https://eu1.storj.io\"],[\"AP1\",\"https://ap1.storj.io\"]]"`
 	GeneralRequestURL               string  `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string  `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string  `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io"`
+	GatewayCredentialsRequestURL    string  `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io" devDefault:""`
 	IsBetaSatellite                 bool    `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string  `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string  `help:"url link for for beta satellite support" default:""`
@@ -90,7 +91,7 @@ type Config struct {
 	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"false"`
+	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"true"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -370,6 +371,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		RecaptchaEnabled                bool
 		RecaptchaSiteKey                string
 		NewOnboarding                   bool
+		DefaultPaidStorageLimit         memory.Size
+		DefaultPaidBandwidthLimit       memory.Size
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -390,6 +393,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
 	data.LinksharingURL = server.config.LinksharingURL
 	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
+	data.DefaultPaidStorageLimit = server.config.UsageLimits.Storage.Paid
+	data.DefaultPaidBandwidthLimit = server.config.UsageLimits.Bandwidth.Paid
 	data.StorageTBPrice = server.pricing.StorageTBPrice
 	data.EgressTBPrice = server.pricing.EgressTBPrice
 	data.ObjectPrice = server.pricing.ObjectPrice
