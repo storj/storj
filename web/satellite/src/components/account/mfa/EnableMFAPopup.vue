@@ -6,7 +6,7 @@
         <div class="enable-mfa__container">
             <h1 class="enable-mfa__container__title">Two-Factor Authentication</h1>
             <p v-if="isScan" class="enable-mfa__container__subtitle">
-                Scan this QR code in your favorite TOTP app to get get started.
+                Scan this QR code in your favorite TOTP app to get started.
             </p>
             <p v-if="isEnable" class="enable-mfa__container__subtitle max-width">
                 Enter the authentication code generated in your TOTP app to confirm your account is connected.
