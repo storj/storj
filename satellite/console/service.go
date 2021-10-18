@@ -351,7 +351,7 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 		return nil, Error.Wrap(err)
 	}
 
-	invoices, couponUsages, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
+	invoices, couponUsages, err := paymentService.service.accounts.Invoices().ListWithDiscounts(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -472,7 +472,7 @@ func (paymentService PaymentsService) checkOutstandingInvoice(ctx context.Contex
 		return err
 	}
 
-	invoices, _, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
+	invoices, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
 	if err != nil {
 		return err
 	}

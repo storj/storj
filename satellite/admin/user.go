@@ -310,7 +310,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ensure no unpaid invoices exist.
-	invoices, _, err := server.payments.Invoices().List(ctx, user.ID)
+	invoices, err := server.payments.Invoices().List(ctx, user.ID)
 	if err != nil {
 		sendJSONError(w, "unable to list user invoices",
 			err.Error(), http.StatusInternalServerError)
