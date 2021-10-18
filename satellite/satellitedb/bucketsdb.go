@@ -12,6 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -72,6 +73,25 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
+}
+
+// GetMinimalBucket returns existing bucket with minimal number of fields.
+func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ metainfo.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	row, err := db.db.Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return metainfo.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return metainfo.Bucket{}, storj.ErrBucket.Wrap(err)
+	}
+	return metainfo.Bucket{
+		Name:      bucketName,
+		CreatedAt: row.CreatedAt,
+	}, nil
 }
 
 // HasBucket returns if a bucket exists.

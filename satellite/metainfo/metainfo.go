@@ -188,7 +188,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		return nil, err
 	}
 
-	bucket, err := endpoint.buckets.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetMinimalBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -198,7 +198,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(bucket, endpoint.defaultRS)
+	convBucket, err := convertBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
 	if err != nil {
 		return resp, err
 	}
@@ -278,7 +278,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(bucket, endpoint.defaultRS)
+	convBucket, err := convertBucketToProto(Bucket{
+		Name:      []byte(bucket.Name),
+		CreatedAt: bucket.Created,
+	}, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
 	if err != nil {
 		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
@@ -339,12 +342,12 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	}
 
 	var (
-		bucket     storj.Bucket
+		bucket     Bucket
 		convBucket *pb.Bucket
 	)
 	if canRead || canList {
 		// Info about deleted bucket is returned only if either Read, or List permission is granted.
-		bucket, err = endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+		bucket, err = endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
 		if err != nil {
 			if storj.ErrBucketNotFound.Has(err) {
 				return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -352,7 +355,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			return nil, err
 		}
 
-		convBucket, err = convertBucketToProto(bucket, endpoint.defaultRS)
+		convBucket, err = convertBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
 		if err != nil {
 			return nil, err
 		}
@@ -528,9 +531,6 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 		return storj.Bucket{}, err
 	}
 
-	defaultRS := req.GetDefaultRedundancyScheme()
-	defaultEP := req.GetDefaultEncryptionParameters()
-
 	// TODO: resolve partner id
 	var partnerID uuid.UUID
 	err = partnerID.UnmarshalJSON(req.GetPartnerId())
@@ -542,62 +542,31 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	}
 
 	return storj.Bucket{
-		ID:                  bucketID,
-		Name:                string(req.GetName()),
-		ProjectID:           projectID,
-		PartnerID:           partnerID,
-		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
-		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
-		DefaultRedundancyScheme: storj.RedundancyScheme{
-			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
-			ShareSize:      defaultRS.GetErasureShareSize(),
-			RequiredShares: int16(defaultRS.GetMinReq()),
-			RepairShares:   int16(defaultRS.GetRepairThreshold()),
-			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
-			TotalShares:    int16(defaultRS.GetTotal()),
-		},
-		DefaultEncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
-			BlockSize:   int32(defaultEP.BlockSize),
-		},
+		ID:        bucketID,
+		Name:      string(req.GetName()),
+		ProjectID: projectID,
+		PartnerID: partnerID,
 	}, nil
 }
 
-func convertBucketToProto(bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucket *pb.Bucket, err error) {
-	// TODO add IsZero to storj.Bucket implementation
-	if bucket.ID.IsZero() && len(bucket.Name) == 0 {
+func convertBucketToProto(bucket Bucket, rs *pb.RedundancyScheme, maxSegmentSize memory.Size) (pbBucket *pb.Bucket, err error) {
+	if len(bucket.Name) == 0 {
 		return nil, nil
 	}
 
-	partnerID, err := bucket.PartnerID.MarshalJSON()
-	if err != nil {
-		return pbBucket, rpcstatus.Error(rpcstatus.Internal, "UUID marshal error")
-	}
+	return &pb.Bucket{
+		Name:      bucket.Name,
+		CreatedAt: bucket.CreatedAt,
 
-	pbBucket = &pb.Bucket{
-		Name:                    []byte(bucket.Name),
-		PathCipher:              pb.CipherSuite(bucket.PathCipher),
-		PartnerId:               partnerID,
-		CreatedAt:               bucket.Created,
-		DefaultSegmentSize:      bucket.DefaultSegmentsSize,
+		// default satellite values
+		PathCipher:              pb.CipherSuite_ENC_AESGCM,
+		DefaultSegmentSize:      maxSegmentSize.Int64(),
 		DefaultRedundancyScheme: rs,
 		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
-			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
+			CipherSuite: pb.CipherSuite_ENC_AESGCM,
+			BlockSize:   int64(rs.ErasureShareSize * rs.MinReq),
 		},
-	}
-
-	// this part is to provide default ciphers (path and encryption) for old uplinks
-	// new uplinks are using ciphers from encryption access
-	if pbBucket.PathCipher == pb.CipherSuite_ENC_UNSPECIFIED {
-		pbBucket.PathCipher = pb.CipherSuite_ENC_AESGCM
-	}
-	if pbBucket.DefaultEncryptionParameters.CipherSuite == pb.CipherSuite_ENC_UNSPECIFIED {
-		pbBucket.DefaultEncryptionParameters.CipherSuite = pb.CipherSuite_ENC_AESGCM
-		pbBucket.DefaultEncryptionParameters.BlockSize = int64(rs.ErasureShareSize * rs.MinReq)
-	}
-
-	return pbBucket, nil
+	}, nil
 }
 
 // BeginObject begins object.
