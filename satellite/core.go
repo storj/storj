@@ -230,7 +230,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Orders.DB = rollupsWriteCache
 		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
 		peer.Services.Add(lifecycle.Item{
-			Name:  "overlay",
+			Name:  "orders:chore",
 			Run:   peer.Orders.Chore.Run,
 			Close: peer.Orders.Chore.Close,
 		})
