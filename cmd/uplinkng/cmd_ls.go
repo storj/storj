@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/storj/cmd/uplinkng/ulloc"
+	"storj.io/uplink"
 )
 
 type cmdLs struct {
@@ -20,6 +21,7 @@ type cmdLs struct {
 	access    string
 	recursive bool
 	encrypted bool
+	expanded  bool
 	pending   bool
 	utc       bool
 
@@ -40,6 +42,10 @@ func (c *cmdLs) Setup(params clingy.Parameters) {
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 	c.pending = params.Flag("pending", "List pending object uploads instead", false,
+		clingy.Transform(strconv.ParseBool),
+	).(bool)
+	c.expanded = params.Flag("expanded", "Use expanded output, showing object expiration times and whether there is custom metadata attached", false,
+		clingy.Short('x'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 	c.utc = params.Flag("utc", "Show all timestamps in UTC instead of local time", false,
@@ -87,13 +93,19 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 		prefix = prefix.AsDirectoryish()
 	}
 
-	tw := newTabbedWriter(ctx.Stdout(), "KIND", "CREATED", "SIZE", "KEY")
+	headers := []string{"KIND", "CREATED", "SIZE", "KEY"}
+	if c.expanded {
+		headers = append(headers, "EXPIRES", "META")
+	}
+
+	tw := newTabbedWriter(ctx.Stdout(), headers...)
 	defer tw.Done()
 
 	// create the object iterator of either existing objects or pending multipart uploads
 	iter, err := fs.List(ctx, prefix, &ulfs.ListOptions{
 		Recursive: c.recursive,
 		Pending:   c.pending,
+		Expanded:  c.expanded,
 	})
 	if err != nil {
 		return err
@@ -102,20 +114,43 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 	// iterate and print the results
 	for iter.Next() {
 		obj := iter.Item()
+
+		var parts []interface{}
 		if obj.IsPrefix {
-			tw.WriteLine("PRE", "", "", obj.Loc.Loc())
+			parts = append(parts, "PRE", "", "", obj.Loc.Loc())
+			if c.expanded {
+				parts = append(parts, "", "")
+			}
 		} else {
-			tw.WriteLine("OBJ", formatTime(c.utc, obj.Created), obj.ContentLength, obj.Loc.Loc())
+			parts = append(parts, "OBJ", formatTime(c.utc, obj.Created), obj.ContentLength, obj.Loc.Loc())
+			if c.expanded {
+				parts = append(parts, formatTime(c.utc, obj.Expires), sumMetadataSize(obj.Metadata))
+			}
 		}
+
+		tw.WriteLine(parts...)
 	}
 	return iter.Err()
 }
 
 func formatTime(utc bool, x time.Time) string {
+	if x.IsZero() {
+		return ""
+	}
+
 	if utc {
 		x = x.UTC()
 	} else {
 		x = x.Local()
 	}
 	return x.Format("2006-01-02 15:04:05")
+}
+
+func sumMetadataSize(md uplink.CustomMetadata) int {
+	size := 0
+	for k, v := range md {
+		size += len(k)
+		size += len(v)
+	}
+	return size
 }

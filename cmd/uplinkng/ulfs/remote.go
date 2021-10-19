@@ -94,6 +94,7 @@ func (r *Remote) List(ctx context.Context, bucket, prefix string, opts *ListOpti
 				Prefix:    parentPrefix,
 				Recursive: opts.Recursive,
 				System:    true,
+				Custom:    opts.Expanded,
 			}),
 		)
 	} else {
@@ -103,6 +104,7 @@ func (r *Remote) List(ctx context.Context, bucket, prefix string, opts *ListOpti
 				Prefix:    parentPrefix,
 				Recursive: opts.Recursive,
 				System:    true,
+				Custom:    opts.Expanded,
 			}),
 		)
 	}

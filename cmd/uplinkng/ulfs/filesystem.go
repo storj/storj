@@ -20,6 +20,7 @@ import (
 type ListOptions struct {
 	Recursive bool
 	Pending   bool
+	Expanded  bool
 }
 
 func (lo *ListOptions) isRecursive() bool { return lo != nil && lo.Recursive }
@@ -53,6 +54,8 @@ type ObjectInfo struct {
 	IsPrefix      bool
 	Created       time.Time
 	ContentLength int64
+	Expires       time.Time
+	Metadata      uplink.CustomMetadata
 }
 
 // uplinkObjectToObjectInfo returns an objectInfo converted from an *uplink.Object.
@@ -62,6 +65,8 @@ func uplinkObjectToObjectInfo(bucket string, obj *uplink.Object) ObjectInfo {
 		IsPrefix:      obj.IsPrefix,
 		Created:       obj.System.Created,
 		ContentLength: obj.System.ContentLength,
+		Expires:       obj.System.Expires,
+		Metadata:      obj.Custom,
 	}
 }
 
@@ -72,6 +77,8 @@ func uplinkUploadInfoToObjectInfo(bucket string, upl *uplink.UploadInfo) ObjectI
 		IsPrefix:      upl.IsPrefix,
 		Created:       upl.System.Created,
 		ContentLength: upl.System.ContentLength,
+		Expires:       upl.System.Expires,
+		Metadata:      upl.Custom,
 	}
 }
 
