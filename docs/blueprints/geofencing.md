@@ -85,6 +85,8 @@ To make life easy, we plan to add a new administrative API endpoint to enable ge
 - `DELETE /api/projects/{project-id}/bucket/{bucket-name}/geofence` disables geofencing for a specific bucket within a project.
 - `GET /api/projects/{project-id}/bucket/{bucket-name}/geofence` can return the current geofencing state.
 
+**Note:** The `POST` and `DELETE` operations should only be allowed on an empty bucket.
+
 ### Required db changes
 
  1. Add `country` field to the nodes table 
