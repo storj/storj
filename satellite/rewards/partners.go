@@ -183,6 +183,10 @@ func DefaultPartners() PartnerList {
 			ID:   "4400d796-3777-4964-8536-22a4ae439ed3",
 			UUID: parseUUID("4400d796-3777-4964-8536-22a4ae439ed3"),
 		}, {
+			Name: "SeaweedFS",
+			ID:   "4d704e1f-2432-426b-b2ca-61950f9db5c6",
+			UUID: parseUUID("4d704e1f-2432-426b-b2ca-61950f9db5c6"),
+		}, {
 			Name: "Sirin Labs",
 			ID:   "6e40f882-ef77-4a5d-b5ad-18525d3df023",
 			UUID: parseUUID("6e40f882-ef77-4a5d-b5ad-18525d3df023"),
