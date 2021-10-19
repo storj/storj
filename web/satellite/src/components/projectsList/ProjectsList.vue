@@ -3,7 +3,6 @@
 
 <template>
     <div class="projects-list">
-        <InfoBar />
         <div class="projects-list__title-area">
             <h2 class="projects-list__title-area__title">Projects</h2>
             <VButton
@@ -41,7 +40,6 @@ import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VPagination from '@/components/common/VPagination.vue';
-import InfoBar from '@/components/projectsList/InfoBar.vue';
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import SortProjectsListHeader from '@/components/projectsList/SortProjectsListHeader.vue';
 
@@ -65,7 +63,6 @@ const {
         VButton,
         VList,
         VPagination,
-        InfoBar,
         VLoader,
     },
 })
@@ -102,24 +99,10 @@ export default class Projects extends Vue {
     }
 
     /**
-     * Returns ProjectsList item component.
-     */
-    public get itemComponent(): typeof ProjectsListItem {
-        return ProjectsListItem;
-    }
-
-    /**
      * Redirects to create project page.
      */
     public onCreateClick(): void {
         this.$router.push(RouteConfig.CreateProject.path);
-    }
-
-    /**
-     * Returns projects page from store.
-     */
-    public get projectsPage(): ProjectsPage {
-        return this.$store.state.projectsModule.page;
     }
 
     /**
@@ -139,10 +122,37 @@ export default class Projects extends Vue {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
 
+            if (this.isNewNavStructure) {
+                await this.$router.push(RouteConfig.EditProjectDetails.path);
+
+                return;
+            }
+
             await this.$router.push(RouteConfig.ProjectDashboard.path);
         } catch (error) {
             await this.$notify.error(`Unable to select project. ${error.message}`);
         }
+    }
+
+    /**
+     * Returns ProjectsList item component.
+     */
+    public get itemComponent(): typeof ProjectsListItem {
+        return ProjectsListItem;
+    }
+
+    /**
+     * Returns projects page from store.
+     */
+    public get projectsPage(): ProjectsPage {
+        return this.$store.state.projectsModule.page;
+    }
+
+    /**
+     * Indicates if new navigation structure is used.
+     */
+    public get isNewNavStructure(): boolean {
+        return this.$store.state.appStateModule.isNewNavStructure;
     }
 }
 </script>
@@ -150,6 +160,7 @@ export default class Projects extends Vue {
 <style lang="scss">
     .projects-list {
         padding: 40px 30px 55px 30px;
+        height: calc(100% - 95px);
         font-family: 'font_regular', sans-serif;
 
         &__title-area {

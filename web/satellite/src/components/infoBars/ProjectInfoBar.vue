@@ -42,7 +42,7 @@ import { MetaUtils } from '@/utils/meta';
         VLoader,
     },
 })
-export default class InfoBar extends Vue {
+export default class ProjectInfoBar extends Vue {
     public isDataFetching = true;
 
     /**
@@ -87,16 +87,12 @@ export default class InfoBar extends Vue {
 
 <style scoped lang="scss">
     .projects-info-bar {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
         display: flex;
         justify-content: space-between;
         align-items: center;
         background-color: #2582ff;
         width: calc(100% - 60px);
-        padding: 10px 30px;
+        padding: 5px 30px;
         font-family: 'font_regular', sans-serif;
         color: #fff;
 

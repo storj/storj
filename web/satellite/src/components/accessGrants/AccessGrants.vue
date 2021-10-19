@@ -238,6 +238,7 @@ export default class AccessGrants extends Vue {
 <style scoped lang="scss">
     .access-grants {
         position: relative;
+        height: calc(100% - 95px);
         padding: 40px 30px 55px 30px;
         font-family: 'font_regular', sans-serif;
 

@@ -3,131 +3,134 @@
 
 <template>
     <div v-if="!isNavigationHidden" class="navigation-area">
-        <div class="navigation-area__wrap">
-            <LogoIcon class="navigation-area__wrap__logo" @click.stop="onLogoClick" />
-            <div class="navigation-area__wrap__edit">
-                <NewProjectSelection />
-            </div>
-            <router-link
-                v-for="navItem in navigation"
-                :key="navItem.name"
-                :aria-label="navItem.name"
-                class="navigation-area__wrap__item-container"
-                :to="navItem.path"
-            >
-                <div class="navigation-area__wrap__item-container__left">
-                    <component :is="navItem.icon" class="navigation-area__wrap__item-container__left__image" />
-                    <p class="navigation-area__wrap__item-container__left__label">{{ navItem.name }}</p>
+        <div class="navigation-area__container">
+            <div class="navigation-area__container__wrap">
+                <LogoIcon class="navigation-area__container__wrap__logo" @click.stop="onLogoClick" />
+                <div class="navigation-area__container__wrap__edit">
+                    <NewProjectSelection />
                 </div>
-            </router-link>
-            <div class="navigation-area__wrap__border" />
-            <div
-                ref="resourcesContainer"
-                class="navigation-area__wrap__item-container"
-                :class="{ active: isResourcesDropdownShown }"
-                @click.stop="toggleResourcesDropdown"
-            >
-                <div class="navigation-area__wrap__item-container__left">
-                    <ResourcesIcon class="navigation-area__wrap__item-container__left__image" />
-                    <p class="navigation-area__wrap__item-container__left__label">Resources</p>
-                </div>
-                <ArrowIcon />
-                <GuidesDropdown
-                    v-if="isResourcesDropdownShown"
-                    :close="closeDropdowns"
-                    :y-position="resourcesDropdownYPos"
-                    :x-position="resourcesDropdownXPos"
+                <router-link
+                    v-for="navItem in navigation"
+                    :key="navItem.name"
+                    :aria-label="navItem.name"
+                    class="navigation-area__container__wrap__item-container"
+                    :to="navItem.path"
                 >
-                    <a
-                        class="dropdown-item"
-                        href="https://docs.storj.io/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <DocsIcon class="dropdown-item__icon" />
-                        <div class="dropdown-item__text">
-                            <h2 class="dropdown-item__text__title">Docs</h2>
-                            <p class="dropdown-item__text__label">Documentation for Storj</p>
-                        </div>
-                    </a>
-                    <div class="dropdown-border" />
-                    <a
-                        class="dropdown-item"
-                        href="https://forum.storj.io/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <ForumIcon class="dropdown-item__icon" />
-                        <div class="dropdown-item__text">
-                            <h2 class="dropdown-item__text__title">Forum</h2>
-                            <p class="dropdown-item__text__label">Join our global community</p>
-                        </div>
-                    </a>
-                    <div class="dropdown-border" />
-                    <a
-                        class="dropdown-item"
-                        href="https://supportdcs.storj.io/hc/en-us"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <SupportIcon class="dropdown-item__icon" />
-                        <div class="dropdown-item__text">
-                            <h2 class="dropdown-item__text__title">Support</h2>
-                            <p class="dropdown-item__text__label">Get technical support</p>
-                        </div>
-                    </a>
-                </GuidesDropdown>
-            </div>
-            <div
-                ref="quickStartContainer"
-                class="navigation-area__wrap__item-container"
-                :class="{ active: isQuickStartDropdownShown }"
-                @click.stop="toggleQuickStartDropdown"
-            >
-                <div class="navigation-area__wrap__item-container__left">
-                    <QuickStartIcon class="navigation-area__wrap__item-container__left__image" />
-                    <p class="navigation-area__wrap__item-container__left__label">Quick Start</p>
-                </div>
-                <ArrowIcon />
-                <GuidesDropdown
-                    v-if="isQuickStartDropdownShown"
-                    :close="closeDropdowns"
-                    :y-position="quickStartDropdownYPos"
-                    :x-position="quickStartDropdownXPos"
+                    <div class="navigation-area__container__wrap__item-container__left">
+                        <component :is="navItem.icon" class="navigation-area__container__wrap__item-container__left__image" />
+                        <p class="navigation-area__container__wrap__item-container__left__label">{{ navItem.name }}</p>
+                    </div>
+                </router-link>
+                <div class="navigation-area__container__wrap__border" />
+                <div
+                    ref="resourcesContainer"
+                    class="navigation-area__container__wrap__item-container"
+                    :class="{ active: isResourcesDropdownShown }"
+                    @click.stop="toggleResourcesDropdown"
                 >
-                    <router-link class="dropdown-item" :to="newProjectRoute">
-                        <NewProjectIcon class="dropdown-item__icon" />
-                        <div class="dropdown-item__text">
-                            <h2 class="dropdown-item__text__title">New Project</h2>
-                            <p class="dropdown-item__text__label">Create a new project.</p>
-                        </div>
-                    </router-link>
-                    <div class="dropdown-border" />
-                    <router-link class="dropdown-item" :to="createAGRoute">
-                        <CreateAGIcon class="dropdown-item__icon" />
-                        <div class="dropdown-item__text">
-                            <h2 class="dropdown-item__text__title">Create an Access Grant</h2>
-                            <p class="dropdown-item__text__label">Start the wizard to create a new access grant.</p>
-                        </div>
-                    </router-link>
-                    <div class="dropdown-border" />
-                    <router-link class="dropdown-item" :to="objectsRoute">
-                        <UploadInWebIcon class="dropdown-item__icon" />
-                        <div class="dropdown-item__text">
-                            <h2 class="dropdown-item__text__title">Upload in Web</h2>
-                            <p class="dropdown-item__text__label">Start uploading files in the web browser.</p>
-                        </div>
-                    </router-link>
-                    <div class="dropdown-border" />
-                    <router-link class="dropdown-item" :to="cliFlowRoute">
-                        <UploadInCLIIcon class="dropdown-item__icon" />
-                        <div class="dropdown-item__text">
-                            <h2 class="dropdown-item__text__title">Upload using CLI</h2>
-                            <p class="dropdown-item__text__label">Start guide for using the Uplink CLI.</p>
-                        </div>
-                    </router-link>
-                </GuidesDropdown>
+                    <div class="navigation-area__container__wrap__item-container__left">
+                        <ResourcesIcon class="navigation-area__container__wrap__item-container__left__image" />
+                        <p class="navigation-area__container__wrap__item-container__left__label">Resources</p>
+                    </div>
+                    <ArrowIcon />
+                    <GuidesDropdown
+                        v-if="isResourcesDropdownShown"
+                        :close="closeDropdowns"
+                        :y-position="resourcesDropdownYPos"
+                        :x-position="resourcesDropdownXPos"
+                    >
+                        <a
+                            class="dropdown-item"
+                            href="https://docs.storj.io/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <DocsIcon class="dropdown-item__icon" />
+                            <div class="dropdown-item__text">
+                                <h2 class="dropdown-item__text__title">Docs</h2>
+                                <p class="dropdown-item__text__label">Documentation for Storj</p>
+                            </div>
+                        </a>
+                        <div class="dropdown-border" />
+                        <a
+                            class="dropdown-item"
+                            href="https://forum.storj.io/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <ForumIcon class="dropdown-item__icon" />
+                            <div class="dropdown-item__text">
+                                <h2 class="dropdown-item__text__title">Forum</h2>
+                                <p class="dropdown-item__text__label">Join our global community</p>
+                            </div>
+                        </a>
+                        <div class="dropdown-border" />
+                        <a
+                            class="dropdown-item"
+                            href="https://supportdcs.storj.io/hc/en-us"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <SupportIcon class="dropdown-item__icon" />
+                            <div class="dropdown-item__text">
+                                <h2 class="dropdown-item__text__title">Support</h2>
+                                <p class="dropdown-item__text__label">Get technical support</p>
+                            </div>
+                        </a>
+                    </GuidesDropdown>
+                </div>
+                <div
+                    ref="quickStartContainer"
+                    class="navigation-area__container__wrap__item-container"
+                    :class="{ active: isQuickStartDropdownShown }"
+                    @click.stop="toggleQuickStartDropdown"
+                >
+                    <div class="navigation-area__container__wrap__item-container__left">
+                        <QuickStartIcon class="navigation-area__container__wrap__item-container__left__image" />
+                        <p class="navigation-area__container__wrap__item-container__left__label">Quick Start</p>
+                    </div>
+                    <ArrowIcon />
+                    <GuidesDropdown
+                        v-if="isQuickStartDropdownShown"
+                        :close="closeDropdowns"
+                        :y-position="quickStartDropdownYPos"
+                        :x-position="quickStartDropdownXPos"
+                    >
+                        <router-link class="dropdown-item" :to="newProjectRoute">
+                            <NewProjectIcon class="dropdown-item__icon" />
+                            <div class="dropdown-item__text">
+                                <h2 class="dropdown-item__text__title">New Project</h2>
+                                <p class="dropdown-item__text__label">Create a new project.</p>
+                            </div>
+                        </router-link>
+                        <div class="dropdown-border" />
+                        <router-link class="dropdown-item" :to="createAGRoute">
+                            <CreateAGIcon class="dropdown-item__icon" />
+                            <div class="dropdown-item__text">
+                                <h2 class="dropdown-item__text__title">Create an Access Grant</h2>
+                                <p class="dropdown-item__text__label">Start the wizard to create a new access grant.</p>
+                            </div>
+                        </router-link>
+                        <div class="dropdown-border" />
+                        <router-link class="dropdown-item" :to="objectsRoute">
+                            <UploadInWebIcon class="dropdown-item__icon" />
+                            <div class="dropdown-item__text">
+                                <h2 class="dropdown-item__text__title">Upload in Web</h2>
+                                <p class="dropdown-item__text__label">Start uploading files in the web browser.</p>
+                            </div>
+                        </router-link>
+                        <div class="dropdown-border" />
+                        <router-link class="dropdown-item" :to="cliFlowRoute">
+                            <UploadInCLIIcon class="dropdown-item__icon" />
+                            <div class="dropdown-item__text">
+                                <h2 class="dropdown-item__text__title">Upload using CLI</h2>
+                                <p class="dropdown-item__text__label">Start guide for using the Uplink CLI.</p>
+                            </div>
+                        </router-link>
+                    </GuidesDropdown>
+                </div>
             </div>
+            <AccountArea />
         </div>
     </div>
 </template>
@@ -137,6 +140,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import NewProjectSelection from '@/components/navigation/newNavigationStructure/NewProjectSelection.vue';
 import GuidesDropdown from '@/components/navigation/newNavigationStructure/GuidesDropdown.vue';
+import AccountArea from '@/components/navigation/newNavigationStructure/AccountArea.vue';
 
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
@@ -163,6 +167,7 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
     components: {
         NewProjectSelection,
         GuidesDropdown,
+        AccountArea,
         LogoIcon,
         DashboardIcon,
         AccessGrantsIcon,
@@ -318,57 +323,65 @@ export default class NewNavigationArea extends Vue {
         background-color: #fff;
         font-family: 'font_regular', sans-serif;
 
-        &__wrap {
+        &__container {
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: space-between;
             overflow-x: hidden;
             overflow-y: auto;
             width: 100%;
-            max-height: calc(100% - 72px);
-            padding: 40px 0 32px 0;
+            height: 100%;
 
-            &__logo {
-                cursor: pointer;
-                min-height: 37px;
-            }
-
-            &__edit {
-                padding: 0 20px;
-                margin: 32px 0;
-                width: calc(100% - 40px);
-            }
-
-            &__item-container {
-                padding: 22px 32px;
-                width: 100%;
+            &__wrap {
                 display: flex;
+                flex-direction: column;
                 align-items: center;
-                justify-content: space-between;
-                border-left: 4px solid #fff;
-                color: #56606d;
-                font-weight: 500;
-                position: static;
-                cursor: pointer;
-                box-sizing: border-box;
+                width: 100%;
+                padding-top: 40px;
 
-                &__left {
+                &__logo {
+                    cursor: pointer;
+                    min-height: 37px;
+                }
+
+                &__edit {
+                    padding: 0 20px;
+                    margin: 32px 0;
+                    width: calc(100% - 40px);
+                }
+
+                &__item-container {
+                    padding: 22px 32px;
+                    width: 100%;
                     display: flex;
                     align-items: center;
+                    justify-content: space-between;
+                    border-left: 4px solid #fff;
+                    color: #56606d;
+                    font-weight: 500;
+                    position: static;
+                    cursor: pointer;
+                    box-sizing: border-box;
 
-                    &__label {
-                        font-size: 14px;
-                        line-height: 20px;
-                        margin-left: 24px;
+                    &__left {
+                        display: flex;
+                        align-items: center;
+
+                        &__label {
+                            font-size: 14px;
+                            line-height: 20px;
+                            margin-left: 24px;
+                        }
                     }
                 }
-            }
 
-            &__border {
-                margin: 8px 24px;
-                height: 1px;
-                width: calc(100% - 48px);
-                background: #ebeef1;
+                &__border {
+                    margin: 8px 24px;
+                    height: 1px;
+                    width: calc(100% - 48px);
+                    background: #ebeef1;
+                }
             }
         }
     }
@@ -379,19 +392,19 @@ export default class NewNavigationArea extends Vue {
         background-color: #f7f8fb;
         color: #0149ff;
 
-        .navigation-area__wrap__item-container__left__image path {
+        .navigation-area__container__wrap__item-container__left__image path {
             fill: #0149ff;
         }
     }
 
-    .navigation-area__wrap__item-container .router-link-active,
-    .navigation-area__wrap__item-container:hover {
+    .router-link-active,
+    .navigation-area__container__wrap__item-container:hover {
         font-weight: 600;
         border-color: #0149ff;
         background-color: #f7f8fb;
         color: #0149ff;
 
-        .navigation-area__wrap__item-container__left__image path {
+        .navigation-area__container__wrap__item-container__left__image path {
             fill: #0149ff;
         }
     }

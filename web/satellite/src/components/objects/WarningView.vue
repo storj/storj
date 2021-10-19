@@ -95,7 +95,7 @@ export default class WarningView extends Vue {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 200px 0 20px 0;
+        padding: 200px 0 40px 0;
 
         &__container {
             background: #fff;
