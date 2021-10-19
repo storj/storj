@@ -59,9 +59,9 @@ In case of the region can not be identified we can exclude the node from geo-fen
 
 ### Moving storage nodes between countries
 
-Some existing storagenode may be moved between countries. In this case, some of the restricted data may be moved out from the restricted region. The first implementation won't support this case: node selection constraint will be used only during the segment creation or segment recovery.
+Some existing storagenodes may be moved between countries. In this case, some of the restricted data may be moved out from the restricted region. The first implementation won't support this case: node selection constraint will be used only during the segment creation or segment recovery.
 
-However the constraint will be saved to the segment database, therefore it will be possible ti further improve the recovery process to check the right placement of a segment.
+However, the constraint will be saved to the segment database, therefore it will be possible to further improve the recovery process to check the right placement of a segment.
 
 ### IPV6 and advanced country identification
 
