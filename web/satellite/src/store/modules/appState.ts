@@ -21,7 +21,6 @@ class ViewsState {
         public isFreeCreditsDropdownShown = false,
         public isAvailableBalanceDropdownShown = false,
         public isPeriodsDropdownShown = false,
-        public isSuccessfulRegistrationShown = false,
         public isEditProfilePopupShown = false,
         public isChangePasswordPopupShown = false,
         public isPaymentSelectionShown = false,
@@ -93,10 +92,6 @@ export const appStateModule = {
         // Mutation changing periods dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_PERIODS_DROPDOWN](state: State): void {
             state.appState.isPeriodsDropdownShown = !state.appState.isPeriodsDropdownShown;
-        },
-        // Mutation changing 'successful registration' area visibility.
-        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION](state: State): void {
-            state.appState.isSuccessfulRegistrationShown = !state.appState.isSuccessfulRegistrationShown;
         },
         // Mutation changing 'successful password reset' area visibility.
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET](state: State): void {
@@ -237,13 +232,6 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION, value);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION]: function ({commit, state}: AppContext): void {
-            if (!state.appState.isSuccessfulRegistrationShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         },
         [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET]: function ({commit, state}: AppContext): void {
             if (!state.appState.isSuccessfulPasswordResetShown) {
