@@ -72,7 +72,7 @@ func TestGraphqlMutation(t *testing.T) {
 		pc := paymentsconfig.Config{
 			StorageTBPrice: "10",
 			EgressTBPrice:  "45",
-			ObjectPrice:    "0.0000022",
+			SegmentPrice:   "0.0000022",
 		}
 
 		paymentsService, err := stripecoinpayments.NewService(
@@ -88,7 +88,7 @@ func TestGraphqlMutation(t *testing.T) {
 			db.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
+			pc.SegmentPrice,
 			pc.BonusRate)
 		require.NoError(t, err)
 

@@ -541,11 +541,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price node receive for storing TB of repair in cents
 # payments.node-repair-bandwidth-price: 1000
 
-# price user should pay for each object stored in network per month
-# payments.object-price: "0"
-
 # payments provider to use
 # payments.provider: ""
+
+# price user should pay for each segment stored in network per month
+# payments.segment-price: "0"
 
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"

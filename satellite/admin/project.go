@@ -492,7 +492,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 		sendJSONError(w, "unable to list project usage", err.Error(), http.StatusInternalServerError)
 		return true
 	}
-	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.ObjectCount > 0 {
+	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
 		sendJSONError(w, "usage for current month exists", "", http.StatusConflict)
 		return true
 	}
@@ -505,7 +505,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 		return true
 	}
 
-	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
+	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
 		// time passed into the check function need to be the UTC midnight dates
 		// of the first day of the current month and the first day of the last
 		// month

@@ -100,14 +100,14 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 			return charges, Error.Wrap(err)
 		}
 
-		projectPrice := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount)
+		projectPrice := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.SegmentCount)
 
 		charges = append(charges, payments.ProjectCharge{
 			ProjectUsage: *usage,
 
 			ProjectID:    project.ID,
 			Egress:       projectPrice.Egress.IntPart(),
-			ObjectCount:  projectPrice.Objects.IntPart(),
+			SegmentCount: projectPrice.Segments.IntPart(),
 			StorageGbHrs: projectPrice.Storage.IntPart(),
 		})
 	}
@@ -128,7 +128,7 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 	if err != nil {
 		return false, err
 	}
-	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.ObjectCount > 0 {
+	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
 		return true, errors.New("usage for current month exists")
 	}
 
@@ -138,7 +138,7 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 		return false, err
 	}
 
-	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
+	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
 		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
 		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 		if errors.Is(err, ErrProjectRecordExists) {

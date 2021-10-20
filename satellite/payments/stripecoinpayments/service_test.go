@@ -130,8 +130,8 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 					ProjectID:  projects[i].ID,
 					BucketName: "testbucket",
 				},
-				TotalBytes:  projectsStorage[i],
-				ObjectCount: int64(i + 1),
+				TotalBytes:    projectsStorage[i],
+				TotalSegments: int64(i + 1),
 			}
 			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
 				{}: tally,
@@ -161,8 +161,8 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			expectedStorage := float64(projectsStorage[i] * int64(storageHours))
 			require.Equal(t, expectedStorage, projectRecord.Storage)
 
-			expectedObjectsCount := float64((i + 1) * storageHours)
-			require.Equal(t, expectedObjectsCount, projectRecord.Objects)
+			expectedSegmentsCount := float64((i + 1) * storageHours)
+			require.Equal(t, expectedSegmentsCount, projectRecord.Segments)
 		}
 
 		// run all parts of invoice generation to see if there are no unexpected errors
@@ -239,16 +239,16 @@ func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
 		// these numbers are fraction of cents, not of dollars.
 		expectedStoragePrice := 0.001
 		expectedEgressPrice := 0.0045
-		expectedObjectPrice := 0.00022
+		expectedSegmentPrice := 0.00022
 
 		type TestCase struct {
-			Storage float64
-			Egress  int64
-			Objects float64
+			Storage  float64
+			Egress   int64
+			Segments float64
 
-			StorageQuantity int64
-			EgressQuantity  int64
-			ObjectsQuantity int64
+			StorageQuantity  int64
+			EgressQuantity   int64
+			SegmentsQuantity int64
 		}
 
 		var testCases = []TestCase{
@@ -267,18 +267,18 @@ func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
 				EgressQuantity: 134000, // Megabytes
 			},
 			{
-				Objects: 400000, // Object-Hours
-				// object quantity is calculated to Object-Months
-				// round(400000 / 720) Object-Hours to Object-Months, 720 - hours in month
-				ObjectsQuantity: 556, // Object-Months
+				Segments: 400000, // Segment-Hours
+				// object quantity is calculated to Segment-Months
+				// round(400000 / 720) Segment-Hours to Segment-Months, 720 - hours in month
+				SegmentsQuantity: 556, // Segment-Months
 			},
 		}
 
 		for _, tc := range testCases {
 			record := stripecoinpayments.ProjectRecord{
-				Storage: tc.Storage,
-				Egress:  tc.Egress,
-				Objects: tc.Objects,
+				Storage:  tc.Storage,
+				Egress:   tc.Egress,
+				Segments: tc.Segments,
 			}
 
 			items := satellite.API.Payments.Service.InvoiceItemsFromProjectRecord("project name", record)
@@ -289,8 +289,8 @@ func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
 			require.Equal(t, tc.EgressQuantity, *items[1].Quantity)
 			require.Equal(t, expectedEgressPrice, *items[1].UnitAmountDecimal)
 
-			require.Equal(t, tc.ObjectsQuantity, *items[2].Quantity)
-			require.Equal(t, expectedObjectPrice, *items[2].UnitAmountDecimal)
+			require.Equal(t, tc.SegmentsQuantity, *items[2].Quantity)
+			require.Equal(t, expectedSegmentPrice, *items[2].UnitAmountDecimal)
 		}
 	})
 }
