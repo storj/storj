@@ -1670,6 +1670,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN signup_promo_code text;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column segments to invoice_project_records table and drop NOT NULL constraint for objects column",
+				Version:     177,
+				Action: migrate.SQL{
+					`ALTER TABLE stripecoinpayments_invoice_project_records ADD COLUMN segments bigint;`,
+					`ALTER TABLE stripecoinpayments_invoice_project_records ALTER COLUMN objects DROP NOT NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

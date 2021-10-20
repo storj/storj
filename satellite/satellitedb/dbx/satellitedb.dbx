@@ -1115,7 +1115,8 @@ model stripecoinpayments_invoice_project_record (
     field project_id   blob
     field storage      float64
     field egress       int64
-    field objects      int64
+    field objects      int64 ( nullable )
+    field segments     int64 ( nullable )
     field period_start timestamp
     field period_end   timestamp
     field state        int       ( updatable )

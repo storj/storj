@@ -57,10 +57,12 @@ func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoi
 				dbx.StripecoinpaymentsInvoiceProjectRecord_ProjectId(record.ProjectID[:]),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_Storage(record.Storage),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_Egress(record.Egress),
-				dbx.StripecoinpaymentsInvoiceProjectRecord_Objects(int64(record.Objects)),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodStart(start),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodEnd(end),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_State(invoiceProjectRecordStateUnapplied.Int()),
+				dbx.StripecoinpaymentsInvoiceProjectRecord_Create_Fields{
+					Objects: dbx.StripecoinpaymentsInvoiceProjectRecord_Objects(int64(record.Objects)),
+				},
 			)
 			if err != nil {
 				return err
@@ -173,12 +175,17 @@ func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProject
 		return nil, errs.Wrap(err)
 	}
 
+	var objects float64
+	if dbxRecord.Objects != nil {
+		objects = float64(*dbxRecord.Objects)
+	}
+
 	return &stripecoinpayments.ProjectRecord{
 		ID:          id,
 		ProjectID:   projectID,
 		Storage:     dbxRecord.Storage,
 		Egress:      dbxRecord.Egress,
-		Objects:     float64(dbxRecord.Objects),
+		Objects:     objects,
 		PeriodStart: dbxRecord.PeriodStart,
 		PeriodEnd:   dbxRecord.PeriodEnd,
 		State:       dbxRecord.State,
