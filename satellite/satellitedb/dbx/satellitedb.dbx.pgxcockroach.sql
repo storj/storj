@@ -101,7 +101,6 @@ CREATE TABLE graceful_exit_progress (
 	pieces_transferred bigint NOT NULL DEFAULT 0,
 	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
-	uses_segment_transfer_queue boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_segment_transfer_queue (

@@ -985,7 +985,6 @@ model graceful_exit_progress (
 	field pieces_transferred          int64     ( autoinsert, updatable, default 0 )
 	field pieces_failed               int64     ( autoinsert, updatable, default 0 )
 	field updated_at                  timestamp ( autoinsert, autoupdate )
-	field uses_segment_transfer_queue bool      ( updatable, default false )
 )
 
 read one (
