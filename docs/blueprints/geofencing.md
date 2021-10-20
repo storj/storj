@@ -34,7 +34,9 @@ During the segment creation (`BeginSegment`) the bucket information is not direc
 
 **Segment repair** 
 
-It also requires the information of the placement as new nodes may be allocated during the segment repair process. The segment loop in the repair process selects segments to check the right amount of replicas. This can be extended by adding the placement constraints to the segments table as well. This means that the placement information should be persisted during the `BeginSegment` call.
+Placement constraint information is also required for the segment repair process, which is based on segments. The *segment loop* in the repair process iterates over all the segments and checks segment's health (*are enough pieces available for each segments?*). 
+
+When not enough pieces are available, new pieces will be created and persisted on newly selected nodes. The placement constraint should be considered during this selection, too. For this reason the placement information should be persisted to the `segment` table (persisted during the `BeginSegment` call).
  
  **Graceful exit**
  
