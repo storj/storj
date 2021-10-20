@@ -81,6 +81,27 @@ uplink cp "sj://$BUCKET/diff-size-segments_upl_p2"    "$DST_DIR/diff-size-segmen
 
 uplink ls "sj://$BUCKET/small-upload-testfile" | grep "small-upload-testfile"
 
+# test ranged download of object
+uplink cp "sj://$BUCKET/put-file" "$DST_DIR/put-file-from-cp-range" --range bytes=0-5 --progress=false
+EXPECTED_FILE_SIZE="6"
+ACTUAL_FILE_SIZE=$(get_file_size "$DST_DIR/put-file-from-cp-range")
+if [ "$EXPECTED_FILE_SIZE" != "$ACTUAL_FILE_SIZE" ]
+then
+    echo "expected downloaded file size to be equal to $EXPECTED_FILE_SIZE, got $ACTUAL_FILE_SIZE"
+    exit 1
+fi
+
+# test ranged download with multiple byte range
+set +e
+EXPECTED_ERROR="retrieval of multiple byte ranges of data not supported: 2 provided"
+ERROR=$(uplink cp "sj://$BUCKET/put-file" "$DST_DIR/put-file-from-cp-range" --range bytes=0-5,6-10)
+if [ $ERROR != $EXPECTED_ERROR ]
+then
+    echo EXPECTED_ERROR
+    exit 1
+fi
+set -e
+
 # test server-side move operation
 uplink mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-upload-testfile"
 uplink ls "sj://$BUCKET/moved-big-upload-testfile" | grep "moved-big-upload-testfile"
