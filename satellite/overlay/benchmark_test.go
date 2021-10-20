@@ -206,6 +206,10 @@ func BenchmarkNodeSelection(b *testing.B) {
 			OnlineWindow:     time.Hour,
 			DistinctIP:       true,
 			MinimumDiskSpace: 0,
+			AsOfSystemTime: overlay.AsOfSystemTimeConfig{
+				Enabled:         true,
+				DefaultInterval: -time.Microsecond,
+			},
 		}
 
 		var excludedIDs []storj.NodeID
@@ -279,20 +283,22 @@ func BenchmarkNodeSelection(b *testing.B) {
 		}
 
 		criteria := &overlay.NodeCriteria{
-			FreeDisk:         0,
-			ExcludedIDs:      nil,
-			ExcludedNetworks: nil,
-			MinimumVersion:   "v1.0.0",
-			OnlineWindow:     time.Hour,
-			DistinctIP:       false,
+			FreeDisk:           0,
+			ExcludedIDs:        nil,
+			ExcludedNetworks:   nil,
+			MinimumVersion:     "v1.0.0",
+			OnlineWindow:       time.Hour,
+			DistinctIP:         false,
+			AsOfSystemInterval: -time.Microsecond,
 		}
 		excludedCriteria := &overlay.NodeCriteria{
-			FreeDisk:         0,
-			ExcludedIDs:      excludedIDs,
-			ExcludedNetworks: excludedNets,
-			MinimumVersion:   "v1.0.0",
-			OnlineWindow:     time.Hour,
-			DistinctIP:       false,
+			FreeDisk:           0,
+			ExcludedIDs:        excludedIDs,
+			ExcludedNetworks:   excludedNets,
+			MinimumVersion:     "v1.0.0",
+			OnlineWindow:       time.Hour,
+			DistinctIP:         false,
+			AsOfSystemInterval: -time.Microsecond,
 		}
 
 		b.Run("SelectStorageNodes", func(b *testing.B) {
@@ -362,9 +368,10 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("FindStorageNodesWithPreference", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    nil,
-					MinimumVersion: "v1.0.0",
+					RequestedCount:     SelectCount,
+					ExcludedIDs:        nil,
+					MinimumVersion:     "v1.0.0",
+					AsOfSystemInterval: -time.Microsecond,
 				}, &nodeSelectionConfig)
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -374,9 +381,10 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("FindStorageNodesWithPreferenceExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    excludedIDs,
-					MinimumVersion: "v1.0.0",
+					RequestedCount:     SelectCount,
+					ExcludedIDs:        excludedIDs,
+					MinimumVersion:     "v1.0.0",
+					AsOfSystemInterval: -time.Microsecond,
 				}, &nodeSelectionConfig)
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -386,9 +394,10 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("FindStorageNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    nil,
-					MinimumVersion: "v1.0.0",
+					RequestedCount:     SelectCount,
+					ExcludedIDs:        nil,
+					MinimumVersion:     "v1.0.0",
+					AsOfSystemInterval: -time.Microsecond,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -398,9 +407,10 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("FindStorageNodesExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    excludedIDs,
-					MinimumVersion: "v1.0.0",
+					RequestedCount:     SelectCount,
+					ExcludedIDs:        excludedIDs,
+					MinimumVersion:     "v1.0.0",
+					AsOfSystemInterval: -time.Microsecond,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -410,9 +420,10 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("UploadSelectionCacheGetNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    nil,
-					MinimumVersion: "v1.0.0",
+					RequestedCount:     SelectCount,
+					ExcludedIDs:        nil,
+					MinimumVersion:     "v1.0.0",
+					AsOfSystemInterval: -time.Microsecond,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -422,9 +433,10 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("UploadSelectionCacheGetNodesExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    excludedIDs,
-					MinimumVersion: "v1.0.0",
+					RequestedCount:     SelectCount,
+					ExcludedIDs:        excludedIDs,
+					MinimumVersion:     "v1.0.0",
+					AsOfSystemInterval: -time.Microsecond,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
