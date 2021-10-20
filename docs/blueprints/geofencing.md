@@ -13,7 +13,7 @@ For some specific use-cases it is required to define more restrictions and param
 ## Design
 
 The problem has two parts:
- 1. We need to improve the existing mechanism (segment recovery, segment creation) to support node selection constraints 
+ 1. We need to improve the existing mechanism (segment repair, segment creation) to support node selection constraints 
  2. We need to implement a geo-fencing node selection constraint and maintain regional information for each node.
 
 ### Storing constraints
@@ -22,7 +22,7 @@ First, we need to set up and store the constraints.
 
 The constraint will be defined on bucket level. During the object creation, the constraint will be used to select nodes for segments.
 
-The constraint should be saved both on bucket level (using as a default for every new segments) and segment level. During repair and graceful-exit processes we have access only to the segment information therefore we will save the placement constraint information to the segment table too.
+The constraint should be saved both on bucket level (using as a default for every new segments) and segment level. During segment repair and graceful-exit processes we have access only to the segment information therefore we will save the placement constraint information to the segment table too.
 
 As the segment table can be huge, the size of the placement information should be minimal. It will be stored on two bytes `INT(2)`. The exact representation can be an incrementing number, meaningful bitmask (different bit prefix may have different meanings) or ASCII iso codes.
 
@@ -32,9 +32,9 @@ During the segment creation (`BeginSegment`) the bucket information is not direc
 
 `BeginObject` call already checks the existence of the bucket. It can be improved to get the metadata from the bucket instead of just checking the existence...
 
-**Repair** 
+**Segment repair** 
 
-It also requires the information of the placement as new nodes may be allocated during the recovery process. The segment loop in the recovery process selects segments to check the right amount of replicas. This can be extended by adding the placement constraints to the segments table as well. This means that the placement information should be persisted during the `BeginSegment` call.
+It also requires the information of the placement as new nodes may be allocated during the segment repair process. The segment loop in the repair process selects segments to check the right amount of replicas. This can be extended by adding the placement constraints to the segments table as well. This means that the placement information should be persisted during the `BeginSegment` call.
  
  **Graceful exit**
  
@@ -59,9 +59,9 @@ In case of the region can not be identified we can exclude the node from geo-fen
 
 ### Moving storage nodes between countries
 
-Some existing storagenodes may be moved between countries. In this case, some of the restricted data may be moved out from the restricted region. The first implementation won't support this case: node selection constraint will be used only during the segment creation or segment recovery.
+Some existing storagenodes may be moved between countries. In this case, some of the restricted data may be moved out from the restricted region. The first implementation won't support this case: node selection constraint will be used only during the segment creation or segment repair.
 
-However, the constraint will be saved to the segment database, therefore it will be possible to further improve the recovery process to check the right placement of a segment.
+However, the constraint will be saved to the segment database, therefore it will be possible to further improve the repair process to check the right placement of a segment.
 
 ### IPV6 and advanced country identification
 
