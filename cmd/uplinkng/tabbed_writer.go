@@ -31,7 +31,9 @@ func (t *tabbedWriter) Done() {
 
 func (t *tabbedWriter) WriteLine(parts ...interface{}) {
 	if !t.wrote {
-		fmt.Fprintln(t.tw, strings.Join(t.headers, "\t"))
+		if len(t.headers) > 0 {
+			fmt.Fprintln(t.tw, strings.Join(t.headers, "\t"))
+		}
 		t.wrote = true
 	}
 	for i, part := range parts {
