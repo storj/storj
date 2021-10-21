@@ -2458,6 +2458,7 @@ func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metaba
 }
 
 func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// We should ignore client cancelling and always try to delete segments.
 	ctx = context2.WithoutCancellation(ctx)
 
@@ -2476,6 +2477,9 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metaba
 }
 
 func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []metabase.DeletedSegmentInfo) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	nodesPieces := groupPiecesByNodeID(segments)
 
 	var requests []piecedeletion.Request
@@ -2490,7 +2494,8 @@ func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []me
 
 	// Only return an error if we failed to delete the objects. If we failed
 	// to delete pieces, let garbage collector take care of it.
-	if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
+	err = endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold)
+	if err != nil {
 		endpoint.log.Error("failed to delete pieces", zap.Error(err))
 	}
 }
