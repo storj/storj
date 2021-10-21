@@ -42,6 +42,9 @@ When not enough pieces are available, new pieces will be created and persisted o
  
 Graceful exit uses a slightly different approach for node selection, it directly queries the database instead of using an in-memory cache. Here the placement constraint can either be added to the WHERE clause ot the SQL query or in-memory filtering can be executed after requesting the nodes.
 
+ **Server-side copy/move**
+
+Initially, server-side copy and server-side move of objects should not be allowed between buckets with different geo-fencing configuration. This would avoid bringing in pieces that do not match the placement constraint of the destination bucket.
  
 ### IP based geo-fencing
 
