@@ -90,7 +90,7 @@ export class AccountBalance {
     constructor(
         public freeCredits: number = 0,
         public coins: number = 0,
-    ) {}
+    ) { }
 
     public get sum(): number {
         return this.freeCredits + this.coins;
@@ -107,14 +107,14 @@ export class CreditCard {
         public brand: string = '',
         public last4: string = '0000',
         public isDefault: boolean = false,
-    ) {}
+    ) { }
 }
 
 export class PaymentAmountOption {
     public constructor(
         public value: number,
         public label: string = '',
-    ) {}
+    ) { }
 }
 
 /**
@@ -132,7 +132,7 @@ export class PaymentsHistoryItem {
         public readonly end: Date = new Date(),
         public readonly type: PaymentsHistoryItemType = PaymentsHistoryItemType.Invoice,
         public readonly remaining: number = 0,
-    ) {}
+    ) { }
 
     public get quantity(): Amount {
         if (this.type === PaymentsHistoryItemType.Transaction) {
@@ -173,7 +173,7 @@ export class PaymentsHistoryItem {
     }
 
     public get label(): string {
-        switch(this.type) {
+        switch (this.type) {
         case PaymentsHistoryItemType.Transaction:
             return "Checkout"
         default:
@@ -233,7 +233,7 @@ export class TokenDeposit {
         public amount: number,
         public address: string,
         public link: string,
-    ) {}
+    ) { }
 }
 
 /**
@@ -244,7 +244,7 @@ class Amount {
         public currency: string = '',
         public total: number = 0,
         public received: number = 0,
-    ) {}
+    ) { }
 }
 
 /**
@@ -256,20 +256,20 @@ export class ProjectUsageAndCharges {
         public before: Date = new Date(),
         public egress: number = 0,
         public storage: number = 0,
-        public objectCount: number = 0,
+        public segmentCount: number = 0,
         public projectId: string = '',
         // storage shows how much cents we should pay for storing GB*Hrs.
         public storagePrice: number = 0,
         // egress shows how many cents we should pay for Egress.
         public egressPrice: number = 0,
-        // objectCount shows how many cents we should pay for objects count.
-        public objectPrice: number = 0) {}
+        // segmentCount shows how many cents we should pay for segments count.
+        public segmentPrice: number = 0) { }
 
     /**
      * summary returns total price for a project in cents.
      */
     public summary(): number {
-        return this.storagePrice + this.egressPrice + this.objectPrice;
+        return this.storagePrice + this.egressPrice + this.segmentPrice;
     }
 }
 
@@ -290,7 +290,7 @@ export class DateRange {
  * Coupon describes a discount to the payment account of a user.
  */
 export class Coupon {
-    public constructor (
+    public constructor(
         public id: string = '',
         public promoCode: string = '',
         public name: string = '',
@@ -299,7 +299,7 @@ export class Coupon {
         public addedAt: Date = new Date(),
         public expiresAt: Date | null = new Date(),
         public duration: CouponDuration = CouponDuration.Once,
-    ) {}
+    ) { }
 
     /**
      * getDescription returns the amount and duration of the coupon.
@@ -315,7 +315,7 @@ export class Coupon {
                 (this.expiresAt.getUTCFullYear() - this.addedAt.getFullYear()) * 12;
             dur = `for ${months} month${months !== 1 ? 's' : ''}`;
         }
-    
+
         return `${amtOff} off ${dur}`;
     }
 }
@@ -327,15 +327,15 @@ export enum CouponDuration {
     /**
      * Indicates that a coupon can only be applied once.
      */
-	Once = "once",
+    Once = "once",
 
-	/**
+    /**
      * Indicates that a coupon is applied every billing period for a definite amount of time.
      */
-	Repeating = "repeating",
+    Repeating = "repeating",
 
-	/**
+    /**
      * Indicates that a coupon is applied every billing period forever.
      */
-	Forever = "forever"
+    Forever = "forever"
 }

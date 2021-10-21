@@ -6,7 +6,7 @@
         <p class="container__item name" :title="itemData.name">{{ itemData.name }}</p>
         <p class="container__item">{{ itemData.storage.toFixed(2) }}GB</p>
         <p class="container__item">{{ itemData.egress.toFixed(2) }}GB</p>
-        <p class="container__item">{{ itemData.objectCount.toString() }}</p>
+        <p class="container__item">{{ itemData.segmentCount.toString() }}</p>
     </div>
 </template>
 
