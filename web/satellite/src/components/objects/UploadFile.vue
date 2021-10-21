@@ -12,7 +12,7 @@
 </template>
 
 <script lang="ts">
-import { FileBrowser } from 'browser';
+import * as browser from 'browser';
 import { Component, Vue } from 'vue-property-decorator';
 
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
@@ -23,6 +23,8 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
+
+const FileBrowser = MetaUtils.getMetaContent('new-browser') === "true" ? Vue : browser.FileBrowser;
 
 // @vue/component
 @Component({
