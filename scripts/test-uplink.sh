@@ -94,6 +94,7 @@ uplink rm "sj://$BUCKET/diff-size-segments_upl_p2"
 uplink rm "sj://$BUCKET/put-file"
 
 uplink ls "sj://$BUCKET"
+uplink ls -x "sj://$BUCKET"
 
 uplink rb "sj://$BUCKET"
 
