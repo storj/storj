@@ -11,7 +11,7 @@
                     alt="create project"
                 >
             </div>
-            <h2 class="create-project__container__title">Create a Project</h2>
+            <h2 class="create-project__container__title" aria-roledescription="title">Create a Project</h2>
             <HeaderedInput
                 label="Project Name"
                 additional-label="Up To 20 Characters"

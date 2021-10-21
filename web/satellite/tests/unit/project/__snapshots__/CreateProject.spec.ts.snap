@@ -4,7 +4,7 @@ exports[`CreateProject.vue renders correctly 1`] = `
 <div class="create-project">
   <div class="create-project__container">
     <div class="create-project__container__image-container"><img src="@/../static/images/project/createProject.png" alt="create project" class="create-project__container__image-container__img"></div>
-    <h2 class="create-project__container__title">Create a Project</h2>
+    <h2 aria-roledescription="title" class="create-project__container__title">Create a Project</h2>
     <div class="input-container full-input">
       <div class="label-container">
         <div class="label-container__main">

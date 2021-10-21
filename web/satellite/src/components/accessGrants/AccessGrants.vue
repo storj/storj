@@ -4,7 +4,7 @@
 <template>
     <div class="access-grants">
         <div class="access-grants__title-area">
-            <h2 class="access-grants__title-area__title">Access Grants</h2>
+            <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Grants</h2>
             <div v-if="accessGrantsList.length" class="access-grants__title-area__right">
                 <VButton
                     v-if="selectedAccessGrantsAmount"

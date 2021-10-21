@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="account-area" :class="{ active: isDropdown }" @click.stop="toggleDropdown">
+    <div class="account-area" :class="{ active: isDropdown }" aria-roledescription="account-area" @click.stop="toggleDropdown">
         <div class="account-area__avatar">
             <h1 class="account-area__avatar__letter">{{ avatarLetter }}</h1>
         </div>

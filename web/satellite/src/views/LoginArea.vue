@@ -16,7 +16,7 @@
                 </div>
                 <div class="login-area__content-area__container">
                     <div class="login-area__content-area__container__title-area">
-                        <h1 class="login-area__content-area__container__title-area__title">Sign In</h1>
+                        <h1 class="login-area__content-area__container__title-area__title" aria-roledescription="title">Sign In</h1>
 
                         <div class="login-area__expand" @click.stop="toggleDropdown">
                             <span class="login-area__expand__value">{{ satelliteName }}</span>
