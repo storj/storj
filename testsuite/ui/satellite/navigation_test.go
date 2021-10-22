@@ -41,7 +41,7 @@ func TestNavigation(t *testing.T) {
 		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
 		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
-		// waitVueTick(page)
+		waitVueTick(page)
 
 		// skip onboarding process
 		page.MustElement("[href=\"/project-dashboard\"]").MustClick()
@@ -164,7 +164,7 @@ func TestNavigation(t *testing.T) {
 		page.MustElement("[aria-roledescription=account-area]").MustClick()
 		page.MustElementR("p", "Logout").MustClick()
 		waitVueTick(page)
-		signInTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		signInTitle := page.MustElement("[aria-roledescription=sign-in-title]").MustText()
 		require.Contains(t, signInTitle, "Sign In")
 	})
 }
