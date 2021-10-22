@@ -1395,9 +1395,9 @@ storj.io/common v0.0.0-20200424175742-65ac59022f4f/go.mod h1:pZyXiIE7bGETIRXtfs0
 storj.io/common v0.0.0-20210805073808-8e0feb09e92a/go.mod h1:mhZYWpTojKsACxWE66RfXNz19zbyr/uEDVWHJH8dHog=
 storj.io/common v0.0.0-20210916151047-6aaeb34bb916/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
 storj.io/common v0.0.0-20211006105453-d3fff091f9d2/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
-storj.io/common v0.0.0-20211008091048-1c580b970007/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
-storj.io/common v0.0.0-20211021003554-f155346ccc11 h1:3UnnSkF6gC3G+MGP4jY40oFUgV4dKcwQ8ZGSpG63wsY=
-storj.io/common v0.0.0-20211021003554-f155346ccc11/go.mod h1:aJ/LW3PhU3liWU0cjQJ4EA/fXrvz6XFMfqzP+PeReOA=
+storj.io/common v0.0.0-20211019072056-34a5992b4856/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
+storj.io/common v0.0.0-20211102144601-401a79f0706a h1:6AF6LcFbZ8PtQX6omT6npU8Yhh1g7OG2emZKuLgS5+o=
+storj.io/common v0.0.0-20211102144601-401a79f0706a/go.mod h1:a2Kw7Uipu929OFANfWKLHRoD0JfhgssikEvimd6hbSQ=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.24/go.mod h1:ofQUDPQbbIymRDKE0tms48k8bLP5Y+dsI9CbXGv3gko=
@@ -1418,5 +1418,5 @@ storj.io/private v0.0.0-20211029202355-a7eae71c382a h1:cWPChMGma5Cw5rdGuKrlc+XFx
 storj.io/private v0.0.0-20211029202355-a7eae71c382a/go.mod h1:BoSaGSvsC8C6Gy0FyjrHfsElJA623hLsNIyexs6vGno=
 storj.io/uplink v1.6.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
 storj.io/uplink v1.7.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
-storj.io/uplink v1.7.1-0.20211012154306-65bb87992c7c h1:yhjQBOnEO1F6zTRkye2oSPgjQTa6Cf9h/rx/ssPFNGE=
-storj.io/uplink v1.7.1-0.20211012154306-65bb87992c7c/go.mod h1:FrGJM81ojBOv0qk2pZENtma+9ecQHNdfNnd3KAAwDwI=
+storj.io/uplink v1.7.1-0.20211031201307-b30e004c1ccb h1:+WaWPmWvm12StirZ/b2xgbL9lnB7UmRhvC8fckNN1ZI=
+storj.io/uplink v1.7.1-0.20211031201307-b30e004c1ccb/go.mod h1:XvtDUEQplm3nG76Qo+uR59J7Rrwm9Q40XOwGpPSpF2g=

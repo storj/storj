@@ -14,65 +14,53 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/uplink"
 )
 
-func TestResolvePartnerID(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		endpoint := planet.Satellites[0].Metainfo.Endpoint
-
-		zenkoPartnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
+func TestTrimUserAgent(t *testing.T) {
+	oversizeProduct := testrand.RandAlphaNumeric(metainfo.MaxUserAgentLength)
+	oversizeVersion := testrand.RandNumeric(metainfo.MaxUserAgentLength)
+	for _, tt := range []struct {
+		userAgent         []byte
+		strippedUserAgent []byte
+	}{
+		{userAgent: []byte("not-a-partner"), strippedUserAgent: []byte("not-a-partner")},
+		{userAgent: []byte("Zenko"), strippedUserAgent: []byte("Zenko")},
+		{userAgent: []byte("Zenko uplink/v1.0.0"), strippedUserAgent: []byte("Zenko")},
+		{userAgent: []byte("Zenko uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"), strippedUserAgent: []byte("Zenko")},
+		{userAgent: []byte("Zenko uplink/v1.0.0 (drpc/v0.10.0) (common/v0.0.0-00010101000000-000000000000)"), strippedUserAgent: []byte("Zenko")},
+		{userAgent: []byte("uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"), strippedUserAgent: []byte("")},
+		{userAgent: []byte("uplink/v1.0.0"), strippedUserAgent: []byte("")},
+		{userAgent: []byte("uplink/v1.0.0 Zenko/v3"), strippedUserAgent: []byte("Zenko/v3")},
+		// oversize alphanumeric as 2nd entry product should use just the first entry
+		{userAgent: append([]byte("Zenko/v3 "), oversizeProduct...), strippedUserAgent: []byte("Zenko/v3")},
+		// all comments (small or oversize) should be completely removed
+		{userAgent: append([]byte("Zenko ("), append(oversizeVersion, []byte(")")...)...), strippedUserAgent: []byte("Zenko")},
+		// oversize version should truncate
+		{userAgent: append([]byte("Zenko/v"), oversizeVersion...), strippedUserAgent: []byte("Zenko/v" + string(oversizeVersion[:len(oversizeVersion)-len("Zenko/v")]))},
+		// oversize product names should truncate
+		{userAgent: append([]byte("Zenko"), oversizeProduct...), strippedUserAgent: []byte("Zenko" + string(oversizeProduct[:len(oversizeProduct)-len("Zenko")]))},
+	} {
+		userAgent, err := metainfo.TrimUserAgent(tt.userAgent)
 		require.NoError(t, err)
-
-		// no header
-		_, err = endpoint.ResolvePartnerID(ctx, nil)
+		assert.Equal(t, tt.strippedUserAgent, userAgent)
+	}
+	for _, tt := range []struct {
+		userAgent         []byte
+		strippedUserAgent []byte
+	}{
+		{userAgent: nil, strippedUserAgent: nil},
+		{userAgent: []byte(""), strippedUserAgent: []byte("")},
+	} {
+		_, err := metainfo.TrimUserAgent(tt.userAgent)
 		require.Error(t, err)
-
-		partnerID, err := endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
-			UserAgent: []byte("not-a-partner"),
-		})
-		require.NoError(t, err)
-		require.Equal(t, uuid.UUID{}, partnerID)
-
-		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
-			UserAgent: []byte("Zenko"),
-		})
-		require.NoError(t, err)
-		require.Equal(t, zenkoPartnerID, partnerID)
-
-		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
-			UserAgent: []byte("Zenko uplink/v1.0.0"),
-		})
-		require.NoError(t, err)
-		require.Equal(t, zenkoPartnerID, partnerID)
-
-		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
-			UserAgent: []byte("Zenko uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"),
-		})
-		require.NoError(t, err)
-		require.Equal(t, zenkoPartnerID, partnerID)
-
-		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
-			UserAgent: []byte("Zenko uplink/v1.0.0 (drpc/v0.10.0) (common/v0.0.0-00010101000000-000000000000)"),
-		})
-		require.NoError(t, err)
-		require.Equal(t, zenkoPartnerID, partnerID)
-
-		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
-			UserAgent: []byte("uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"),
-		})
-		require.NoError(t, err)
-		require.Equal(t, uuid.UUID{}, partnerID)
-	})
+	}
 }
 
 func TestBucketAttribution(t *testing.T) {
@@ -90,6 +78,7 @@ func TestBucketAttribution(t *testing.T) {
 			{signupPartner: []byte("Minio"), userAgent: nil, expectedAttribution: []byte("Minio")},
 			{signupPartner: []byte("Minio"), userAgent: []byte("Minio"), expectedAttribution: []byte("Minio")},
 			{signupPartner: []byte("Minio"), userAgent: []byte("Zenko"), expectedAttribution: []byte("Minio")},
+			{signupPartner: nil, userAgent: []byte("rclone/1.0 uplink/v1.6.1-0.20211005203254-bb2eda8c28d3"), expectedAttribution: []byte("rclone/1.0")},
 			{signupPartner: nil, userAgent: []byte("Zenko"), expectedAttribution: []byte("Zenko")},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
