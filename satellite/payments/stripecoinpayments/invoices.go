@@ -32,7 +32,7 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 	params := &stripe.InvoiceListParams{
 		Customer: &customerID,
 	}
-	params.AddExpand("total_discount_amounts.discount")
+	params.AddExpand("data.total_discount_amounts.discount")
 
 	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {
