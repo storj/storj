@@ -32,7 +32,7 @@ require (
 	github.com/pquerna/otp v1.3.0
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shopspring/decimal v1.2.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.15
+	github.com/spacemonkeygo/monkit/v3 v3.0.17
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -63,6 +63,6 @@ require (
 	storj.io/common v0.0.0-20211021003554-f155346ccc11
 	storj.io/drpc v0.0.26
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
-	storj.io/private v0.0.0-20211020161448-4c8dd2c04634
+	storj.io/private v0.0.0-20211022095408-ad8a59190f12
 	storj.io/uplink v1.7.1-0.20211012154306-65bb87992c7c
 )
