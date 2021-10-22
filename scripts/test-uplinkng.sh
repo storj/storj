@@ -78,7 +78,7 @@ uplinkng rm "sj://$BUCKET/multisegment-upload-testfile" --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/diff-size-segments"           --access $STORJ_ACCESS
 
 uplinkng ls "sj://$BUCKET" --access $STORJ_ACCESS
-uplinkng ls -x "sj://$BUCKET" --access $STORJ_ACCESS
+uplinkng ls -x true "sj://$BUCKET" --access $STORJ_ACCESS
 
 uplinkng rb "sj://$BUCKET" --access $STORJ_ACCESS
 
