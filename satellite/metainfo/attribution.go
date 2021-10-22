@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"context"
-	"strings"
 	"sync"
 
 	"go.uber.org/zap"
@@ -20,6 +19,9 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 )
+
+// MaxUserAgentLength is the maximum allowable length of the User Agent.
+const MaxUserAgentLength = 500
 
 // ensureAttribution ensures that the bucketName has the partner information specified by keyInfo partner ID or the header user agent.
 // PartnerID from keyInfo is a value associated with registered user and prevails over header user agent.
@@ -54,65 +56,54 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		}
 	}
 
-	err := endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, partnerID, userAgent)
+	userAgent, err := TrimUserAgent(userAgent)
+	if err != nil {
+		return err
+	}
+
+	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, partnerID, userAgent)
 	if errs2.IsRPC(err, rpcstatus.NotFound) || errs2.IsRPC(err, rpcstatus.AlreadyExists) {
 		return nil
 	}
 	return err
 }
 
-// ResolvePartnerID returns partnerIDBytes as parsed or UUID corresponding to header.UserAgent.
-// returns empty uuid when neither is defined.
-func (endpoint *Endpoint) ResolvePartnerID(ctx context.Context, header *pb.RequestHeader) (uuid.UUID, error) {
-	if header == nil {
-		return uuid.UUID{}, rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
-	}
-
-	if len(header.UserAgent) == 0 {
-		return uuid.UUID{}, nil
-	}
-
-	entries, err := useragent.ParseEntries(header.UserAgent)
+// TrimUserAgent returns userAgentBytes that consist of only the product portion of the user agent, and is bounded by
+// the maxUserAgentLength.
+func TrimUserAgent(userAgent []byte) ([]byte, error) {
+	userAgentEntries, err := useragent.ParseEntries(userAgent)
 	if err != nil {
-		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "invalid user agent %q: %v", string(header.UserAgent), err)
+		return userAgent, Error.New("error while parsing user agent: %w", err)
 	}
-	entries = removeUplinkUserAgent(entries)
-
-	// no user agent defined
-	if len(entries) == 0 {
-		return uuid.UUID{}, nil
-	}
-
-	// Use the first partner product entry as the PartnerID.
-	for _, entry := range entries {
-		if entry.Product != "" {
-			partner, err := endpoint.partners.ByUserAgent(ctx, entry.Product)
-			if err != nil || partner.UUID.IsZero() {
-				continue
-			}
-
-			return partner.UUID, nil
+	// strip comments, libraries, and empty products from the user agent
+	newEntries := userAgentEntries[:0]
+	for _, e := range userAgentEntries {
+		switch product := e.Product; product {
+		case "uplink", "common", "drpc", "":
+		default:
+			e.Comment = ""
+			newEntries = append(newEntries, e)
 		}
 	}
-
-	return uuid.UUID{}, nil
-}
-
-func removeUplinkUserAgent(entries []useragent.Entry) []useragent.Entry {
-	var xs []useragent.Entry
-	for i := 0; i < len(entries); i++ {
-		// If it's "uplink" then skip it.
-		if strings.EqualFold(entries[i].Product, uplinkProduct) {
-			// also skip any associated comments
-			for i+1 < len(entries) && entries[i+1].Comment != "" {
-				i++
-			}
-			continue
-		}
-
-		xs = append(xs, entries[i])
+	userAgent, err = useragent.EncodeEntries(newEntries)
+	if err != nil {
+		return userAgent, Error.New("error while encoding user agent entries: %w", err)
 	}
-	return xs
+
+	// bound the user agent length
+	if len(userAgent) > MaxUserAgentLength && len(newEntries) > 0 {
+		// try to preserve the first entry
+		if (len(newEntries[0].Product) + len(newEntries[0].Version)) <= MaxUserAgentLength {
+			userAgent, err = useragent.EncodeEntries(newEntries[:1])
+			if err != nil {
+				return userAgent, Error.New("error while encoding first user agent entry: %w", err)
+			}
+		} else {
+			// first entry is too large, truncate
+			userAgent = userAgent[:MaxUserAgentLength]
+		}
+	}
+	return userAgent, nil
 }
 
 func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, partnerID uuid.UUID, userAgent []byte) error {
