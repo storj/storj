@@ -1655,6 +1655,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE bucket_metainfos ADD COLUMN user_agent bytea;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop column uses_segment_transfer_queue from graceful_exit_progress",
+				Version:     175,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_progress DROP COLUMN uses_segment_transfer_queue;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
