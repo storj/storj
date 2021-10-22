@@ -61,7 +61,7 @@ Please note that this project adheres to a [Contributor Code of Conduct][code of
 
 ### Install required packages
 
-To get started running Storj locally, download and install the latest release of Go (at least Go 1.13) at [golang.org](https://golang.org).
+To get started running Storj locally, download and install the latest release of Go (at least Go 1.16) at [golang.org](https://golang.org).
 
 You will also need [Git](https://git-scm.com/). (`brew install git`, `apt-get install git`, etc).
 If you're building on Windows, you also need to install and have [gcc](https://gcc.gnu.org/install/binaries.html) setup correctly.
