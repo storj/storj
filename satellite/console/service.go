@@ -130,7 +130,7 @@ func init() {
 type Config struct {
 	PasswordCost            int  `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
 	OpenRegistrationEnabled bool `help:"enable open registration" default:"false" testDefault:"true"`
-	DefaultProjectLimit     int  `help:"default project limits for users" default:"3" testDefault:"5"`
+	DefaultProjectLimit     int  `help:"default project limits for users" default:"1" testDefault:"5"`
 	UsageLimits             UsageLimitsConfig
 	Recaptcha               RecaptchaConfig
 }
