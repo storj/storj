@@ -636,8 +636,8 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// UpdateReputation updates the DB columns for any of the reputation fields in UpdateReputationRequest.
-func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request *overlay.ReputationStatus) (err error) {
+// UpdateReputation updates the DB columns for any of the reputation fields in ReputationUpdate.
+func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request overlay.ReputationUpdate) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.Node_Update_Fields{}

@@ -726,7 +726,7 @@ func TestUpdateReputation(t *testing.T) {
 		t2 := t0.Add(2 * time.Hour)
 		t3 := t0.Add(3 * time.Hour)
 
-		reputationChange := &overlay.ReputationStatus{
+		reputationChange := overlay.ReputationUpdate{
 			Disqualified:          nil,
 			UnknownAuditSuspended: &t1,
 			OfflineSuspended:      &t2,

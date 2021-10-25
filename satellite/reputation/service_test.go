@@ -6,6 +6,7 @@ package reputation_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -142,5 +143,46 @@ func TestGet(t *testing.T) {
 		require.EqualValues(t, 1, newNode.AuditReputationAlpha)
 		require.EqualValues(t, 1, newNode.UnknownAuditReputationAlpha)
 		require.EqualValues(t, 1, newNode.OnlineScore)
+	})
+}
+
+func TestDisqualificationAuditFailure(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.AuditLambda = 1
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0.4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satel := planet.Satellites[0]
+		nodeID := planet.StorageNodes[0].ID()
+
+		nodeInfo, err := satel.Overlay.Service.Get(ctx, nodeID)
+		require.NoError(t, err)
+		assert.Nil(t, nodeInfo.Disqualified)
+
+		err = satel.Reputation.Service.ApplyAudit(ctx, nodeID, nodeInfo.Reputation.Status, reputation.AuditFailure)
+		require.NoError(t, err)
+
+		// node is not disqualified after failed audit if score is above threshold
+		repInfo, err := satel.Reputation.Service.Get(ctx, nodeID)
+		require.NoError(t, err)
+		assert.Nil(t, repInfo.Disqualified)
+		nodeInfo, err = satel.Overlay.Service.Get(ctx, nodeID)
+		require.NoError(t, err)
+		assert.Nil(t, nodeInfo.Disqualified)
+
+		err = satel.Reputation.Service.ApplyAudit(ctx, nodeID, nodeInfo.Reputation.Status, reputation.AuditFailure)
+		require.NoError(t, err)
+
+		repInfo, err = satel.Reputation.Service.Get(ctx, nodeID)
+		require.NoError(t, err)
+		assert.NotNil(t, repInfo.Disqualified)
+		nodeInfo, err = satel.Overlay.Service.Get(ctx, nodeID)
+		require.NoError(t, err)
+		assert.NotNil(t, nodeInfo.Disqualified)
 	})
 }

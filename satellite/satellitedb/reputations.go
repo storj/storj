@@ -34,7 +34,7 @@ type reputations struct {
 // 2. Depends on the result of the first step,
 //	a. if existing row is returned, do compare-and-swap.
 //	b. if no row found, insert a new row.
-func (reputations *reputations) Update(ctx context.Context, updateReq reputation.UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, err error) {
+func (reputations *reputations) Update(ctx context.Context, updateReq reputation.UpdateRequest, now time.Time) (_ *overlay.ReputationUpdate, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
@@ -51,21 +51,23 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 				return nil, Error.Wrap(err)
 			}
 
-			auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, historyBytes, updateReq, now)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-
 			// set default reputation stats for new node
 			newNode := dbx.Reputation{
 				Id:                          updateReq.NodeID.Bytes(),
 				UnknownAuditReputationAlpha: 1,
 				AuditReputationAlpha:        1,
 				OnlineScore:                 1,
-				AuditHistory:                auditHistoryResponse.History,
+				AuditHistory:                historyBytes,
 			}
 
-			createFields := reputations.populateCreateFields(&newNode, updateReq, auditHistoryResponse, now)
+			auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, historyBytes, updateReq, now)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
+			update := reputations.populateUpdateNodeStats(&newNode, updateReq, auditHistoryResponse, now)
+
+			createFields := reputations.populateCreateFields(update)
 			stats, err := reputations.db.Create_Reputation(ctx, dbx.Reputation_Id(updateReq.NodeID.Bytes()), dbx.Reputation_AuditHistory(auditHistoryResponse.History), createFields)
 			if err != nil {
 				// if node has been added into the table during a concurrent
@@ -79,8 +81,15 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 				return nil, Error.Wrap(err)
 			}
 
-			rep := getNodeStatus(stats)
-			return &rep, nil
+			status := getNodeStatus(stats)
+			repUpdate := overlay.ReputationUpdate{
+				Disqualified:           status.Disqualified,
+				DisqualificationReason: update.DisqualificationReason,
+				UnknownAuditSuspended:  status.UnknownAuditSuspended,
+				OfflineSuspended:       status.OfflineSuspended,
+				VettedAt:               status.VettedAt,
+			}
+			return &repUpdate, nil
 		}
 
 		auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, dbNode.AuditHistory, updateReq, now)
@@ -88,7 +97,9 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 			return nil, Error.Wrap(err)
 		}
 
-		updateFields := reputations.populateUpdateFields(dbNode, updateReq, auditHistoryResponse, now)
+		update := reputations.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
+
+		updateFields := reputations.populateUpdateFields(update, auditHistoryResponse.History)
 		oldAuditHistory := dbx.Reputation_AuditHistory(dbNode.AuditHistory)
 		dbNode, err = reputations.db.Update_Reputation_By_Id_And_AuditHistory(ctx, dbx.Reputation_Id(updateReq.NodeID.Bytes()), oldAuditHistory, updateFields)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -102,10 +113,16 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 			continue
 		}
 
-		newStats := getNodeStatus(dbNode)
-		return &newStats, nil
+		status := getNodeStatus(dbNode)
+		repUpdate := overlay.ReputationUpdate{
+			Disqualified:           status.Disqualified,
+			DisqualificationReason: update.DisqualificationReason,
+			UnknownAuditSuspended:  status.UnknownAuditSuspended,
+			OfflineSuspended:       status.OfflineSuspended,
+			VettedAt:               status.VettedAt,
+		}
+		return &repUpdate, nil
 	}
-
 }
 
 func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*reputation.Info, error) {
@@ -126,10 +143,10 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 		AuditSuccessCount:           res.AuditSuccessCount,
 		TotalAuditCount:             res.TotalAuditCount,
 		VettedAt:                    res.VettedAt,
-		Disqualified:                res.Disqualified,
 		UnknownAuditSuspended:       res.UnknownAuditSuspended,
 		OfflineSuspended:            res.OfflineSuspended,
 		UnderReview:                 res.UnderReview,
+		Disqualified:                res.Disqualified,
 		OnlineScore:                 res.OnlineScore,
 		AuditHistory:                *history,
 		AuditReputationAlpha:        res.AuditReputationAlpha,
@@ -140,7 +157,7 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
@@ -169,7 +186,7 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 		}
 
 		updateFields := dbx.Reputation_Update_Fields{}
-		updateFields.Disqualified = dbx.Reputation_Disqualified(time.Now().UTC())
+		updateFields.Disqualified = dbx.Reputation_Disqualified(disqualifiedAt.UTC())
 
 		_, err = tx.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()), updateFields)
 		return err
@@ -254,9 +271,7 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 	return Error.Wrap(err)
 }
 
-func (reputations *reputations) populateCreateFields(dbNode *dbx.Reputation, updateReq reputation.UpdateRequest, auditHistoryResponse *reputation.UpdateAuditHistoryResponse, now time.Time) dbx.Reputation_Create_Fields {
-	update := reputations.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
-
+func (reputations *reputations) populateCreateFields(update updateNodeStats) dbx.Reputation_Create_Fields {
 	createFields := dbx.Reputation_Create_Fields{}
 
 	if update.VettedAt.set {
@@ -290,9 +305,6 @@ func (reputations *reputations) populateCreateFields(dbNode *dbx.Reputation, upd
 	if update.AuditSuccessCount.set {
 		createFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(update.AuditSuccessCount.value)
 	}
-	if updateReq.AuditOutcome == reputation.AuditSuccess {
-		createFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
-	}
 
 	if update.OnlineScore.set {
 		createFields.OnlineScore = dbx.Reputation_OnlineScore(update.OnlineScore.value)
@@ -314,11 +326,9 @@ func (reputations *reputations) populateCreateFields(dbNode *dbx.Reputation, upd
 
 	return createFields
 }
-func (reputations *reputations) populateUpdateFields(dbNode *dbx.Reputation, updateReq reputation.UpdateRequest, auditHistoryResponse *reputation.UpdateAuditHistoryResponse, now time.Time) dbx.Reputation_Update_Fields {
-	update := reputations.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
-
+func (reputations *reputations) populateUpdateFields(update updateNodeStats, history []byte) dbx.Reputation_Update_Fields {
 	updateFields := dbx.Reputation_Update_Fields{
-		AuditHistory: dbx.Reputation_AuditHistory(auditHistoryResponse.History),
+		AuditHistory: dbx.Reputation_AuditHistory(history),
 	}
 	if update.VettedAt.set {
 		updateFields.VettedAt = dbx.Reputation_VettedAt(update.VettedAt.value)
@@ -350,9 +360,6 @@ func (reputations *reputations) populateUpdateFields(dbNode *dbx.Reputation, upd
 	}
 	if update.AuditSuccessCount.set {
 		updateFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(update.AuditSuccessCount.value)
-	}
-	if updateReq.AuditOutcome == reputation.AuditSuccess {
-		updateFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
 	}
 
 	if update.OnlineScore.set {
@@ -467,6 +474,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		reputations.db.log.Info("Disqualified", zap.String("DQ type", "audit failure"), zap.String("Node ID", updateReq.NodeID.String()))
 		mon.Meter("bad_audit_dqs").Mark(1) //mon:locked
 		updateFields.Disqualified = timeField{set: true, value: now}
+		updateFields.DisqualificationReason = overlay.DisqualificationReasonAuditFailure
 	}
 
 	// if unknown audit rep goes below threshold, suspend node. Otherwise unsuspend node.
@@ -492,6 +500,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 				reputations.db.log.Info("Disqualified", zap.String("DQ type", "suspension grace period expired for unknown audits"), zap.String("Node ID", updateReq.NodeID.String()))
 				mon.Meter("unknown_suspension_dqs").Mark(1) //mon:locked
 				updateFields.Disqualified = timeField{set: true, value: now}
+				updateFields.DisqualificationReason = overlay.DisqualificationReasonSuspension
 				updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 			}
 		}
@@ -549,6 +558,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 					reputations.db.log.Info("Disqualified", zap.String("DQ type", "node offline"), zap.String("Node ID", updateReq.NodeID.String()))
 					mon.Meter("offline_dqs").Mark(1) //mon:locked
 					updateFields.Disqualified = timeField{set: true, value: now}
+					updateFields.DisqualificationReason = overlay.DisqualificationReasonNodeOffline
 				}
 			} else {
 				updateFields.OfflineUnderReview = timeField{set: true, isNil: true}
@@ -592,6 +602,7 @@ type updateNodeStats struct {
 	AuditReputationAlpha        float64Field
 	AuditReputationBeta         float64Field
 	Disqualified                timeField
+	DisqualificationReason      overlay.DisqualificationReason
 	UnknownAuditReputationAlpha float64Field
 	UnknownAuditReputationBeta  float64Field
 	UnknownAuditSuspended       timeField
@@ -611,7 +622,6 @@ func getNodeStatus(dbNode *dbx.Reputation) overlay.ReputationStatus {
 		UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
 		OfflineSuspended:      dbNode.OfflineSuspended,
 	}
-
 }
 
 // updateReputation uses the Beta distribution model to determine a node's reputation.
