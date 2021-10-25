@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-selection">
+    <div ref="projectSelection" class="project-selection">
         <div
             class="project-selection__selected"
             :class="{ active: isDropdownShown }"
@@ -15,7 +15,7 @@
             </div>
             <ArrowImage class="project-selection__selected__arrow" />
         </div>
-        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="project-selection__dropdown">
+        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="project-selection__dropdown" :style="style">
             <div v-if="isLoading" class="project-selection__dropdown__loader-container">
                 <VLoader width="30px" height="30px" />
             </div>
@@ -83,14 +83,27 @@ import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 })
 export default class NewProjectSelection extends Vue {
     private FIRST_PAGE = 1;
+    private dropdownYPos = 0;
+    private dropdownXPos = 0;
+    private dropdownWidth = 0;
 
     public isLoading = false;
+
+    public $refs!: {
+        projectSelection: HTMLDivElement,
+    }
 
     /**
      * Fetches projects related information and than toggles selection popup.
      */
     public async toggleSelection(): Promise<void> {
         if (this.isOnboardingTour) return;
+
+        const selectionContainer = this.$refs.projectSelection.getBoundingClientRect();
+
+        this.dropdownYPos = selectionContainer.top + selectionContainer.height;
+        this.dropdownXPos = selectionContainer.left;
+        this.dropdownWidth = selectionContainer.width;
 
         this.toggleDropdown();
 
@@ -139,6 +152,13 @@ export default class NewProjectSelection extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to select project. ${error.message}`);
         }
+    }
+
+    /**
+     * Returns top and left position of dropdown.
+     */
+    public get style(): Record<string, string> {
+        return { top: `${this.dropdownYPos}px`, left: `${this.dropdownXPos}px`, width: `${this.dropdownWidth}px` };
     }
 
     /**
@@ -217,7 +237,7 @@ export default class NewProjectSelection extends Vue {
 <style scoped lang="scss">
     .project-selection {
         font-family: 'font_regular', sans-serif;
-        position: relative;
+        position: static;
         width: 100%;
 
         &__selected {
@@ -254,9 +274,7 @@ export default class NewProjectSelection extends Vue {
 
         &__dropdown {
             position: absolute;
-            top: calc(100% - 5px);
-            left: 0;
-            width: 100%;
+            min-width: 230px;
             background-color: #fff;
             box-shadow: 0 2px 16px rgba(0, 0, 0, 0.1);
             border-radius: 0 0 8px 8px;
@@ -336,5 +354,16 @@ export default class NewProjectSelection extends Vue {
 
     .active {
         background-color: #fafafb;
+    }
+
+    @media screen and (max-width: 768px) {
+
+        .project-selection__selected {
+
+            &__left__name,
+            &__arrow {
+                display: none;
+            }
+        }
     }
 </style>
