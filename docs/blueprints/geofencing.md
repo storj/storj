@@ -87,6 +87,7 @@ Alternatively, we can have a CronJob that does this independently of the satelli
 To make life easy, we plan to add a new administrative API endpoint to enable geofencing for a bucket. The API should follow some of the conventions that are already detailed [here](https://github.com/storj/storj/blob/main/satellite/admin/README.md).
 
 - `POST /api/projects/{project-id}/bucket/{bucket-name}/geofence` enables geofencing for a specific bucket within a project.
+  - This call takes a single query string parameter `?region=:code` that binds the bucket to a specific geographic region.
 - `DELETE /api/projects/{project-id}/bucket/{bucket-name}/geofence` disables geofencing for a specific bucket within a project.
 - `GET /api/projects/{project-id}/bucket/{bucket-name}/geofence` can return the current geofencing state.
 
