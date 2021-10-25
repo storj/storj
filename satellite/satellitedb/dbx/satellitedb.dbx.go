@@ -421,7 +421,6 @@ CREATE TABLE graceful_exit_progress (
 	pieces_transferred bigint NOT NULL DEFAULT 0,
 	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
-	uses_segment_transfer_queue boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_segment_transfer_queue (
@@ -997,7 +996,6 @@ CREATE TABLE graceful_exit_progress (
 	pieces_transferred bigint NOT NULL DEFAULT 0,
 	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
-	uses_segment_transfer_queue boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_segment_transfer_queue (
@@ -2913,25 +2911,19 @@ func (f CouponUsage_Period_Field) value() interface{} {
 func (CouponUsage_Period_Field) _Column() string { return "period" }
 
 type GracefulExitProgress struct {
-	NodeId                   []byte
-	BytesTransferred         int64
-	PiecesTransferred        int64
-	PiecesFailed             int64
-	UpdatedAt                time.Time
-	UsesSegmentTransferQueue bool
+	NodeId            []byte
+	BytesTransferred  int64
+	PiecesTransferred int64
+	PiecesFailed      int64
+	UpdatedAt         time.Time
 }
 
 func (GracefulExitProgress) _Table() string { return "graceful_exit_progress" }
 
-type GracefulExitProgress_Create_Fields struct {
-	UsesSegmentTransferQueue GracefulExitProgress_UsesSegmentTransferQueue_Field
-}
-
 type GracefulExitProgress_Update_Fields struct {
-	BytesTransferred         GracefulExitProgress_BytesTransferred_Field
-	PiecesTransferred        GracefulExitProgress_PiecesTransferred_Field
-	PiecesFailed             GracefulExitProgress_PiecesFailed_Field
-	UsesSegmentTransferQueue GracefulExitProgress_UsesSegmentTransferQueue_Field
+	BytesTransferred  GracefulExitProgress_BytesTransferred_Field
+	PiecesTransferred GracefulExitProgress_PiecesTransferred_Field
+	PiecesFailed      GracefulExitProgress_PiecesFailed_Field
 }
 
 type GracefulExitProgress_NodeId_Field struct {
@@ -3028,27 +3020,6 @@ func (f GracefulExitProgress_UpdatedAt_Field) value() interface{} {
 }
 
 func (GracefulExitProgress_UpdatedAt_Field) _Column() string { return "updated_at" }
-
-type GracefulExitProgress_UsesSegmentTransferQueue_Field struct {
-	_set   bool
-	_null  bool
-	_value bool
-}
-
-func GracefulExitProgress_UsesSegmentTransferQueue(v bool) GracefulExitProgress_UsesSegmentTransferQueue_Field {
-	return GracefulExitProgress_UsesSegmentTransferQueue_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitProgress_UsesSegmentTransferQueue_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (GracefulExitProgress_UsesSegmentTransferQueue_Field) _Column() string {
-	return "uses_segment_transfer_queue"
-}
 
 type GracefulExitSegmentTransfer struct {
 	NodeId              []byte
@@ -12861,7 +12832,7 @@ func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress *GracefulExitProgress, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at, graceful_exit_progress.uses_segment_transfer_queue FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, graceful_exit_progress_node_id.value())
@@ -12870,7 +12841,7 @@ func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt, &graceful_exit_progress.UsesSegmentTransferQueue)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
 	if err != nil {
 		return (*GracefulExitProgress)(nil), obj.makeErr(err)
 	}
@@ -18666,7 +18637,7 @@ func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Cont
 	graceful_exit_progress *GracefulExitProgress, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at, graceful_exit_progress.uses_segment_transfer_queue FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, graceful_exit_progress_node_id.value())
@@ -18675,7 +18646,7 @@ func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt, &graceful_exit_progress.UsesSegmentTransferQueue)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
 	if err != nil {
 		return (*GracefulExitProgress)(nil), obj.makeErr(err)
 	}

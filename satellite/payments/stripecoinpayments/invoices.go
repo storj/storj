@@ -75,7 +75,7 @@ func (invoices *invoices) ListWithDiscounts(ctx context.Context, userID uuid.UUI
 	params := &stripe.InvoiceListParams{
 		Customer: &customerID,
 	}
-	params.AddExpand("total_discount_amounts.discount")
+	params.AddExpand("data.total_discount_amounts.discount")
 
 	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {

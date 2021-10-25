@@ -43,22 +43,22 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			log := newLogger(t)
 
 			testmonkit.Run(context.Background(), t, func(parent context.Context) {
+				defer pprof.SetGoroutineLabels(parent)
+				parent = pprof.WithLabels(parent, pprof.Labels("test", t.Name()))
+
 				ctx := testcontext.NewWithContext(parent, t)
 				defer ctx.Cleanup()
 
-				pprof.Do(ctx, pprof.Labels("planet", planetConfig.Name), func(namedctx context.Context) {
-					planet, err := NewCustom(namedctx, log, planetConfig, satelliteDB)
-					if err != nil {
-						t.Fatalf("%+v", err)
-					}
-					defer ctx.Check(planet.Shutdown)
+				planet, err := NewCustom(ctx, log, planetConfig, satelliteDB)
+				if err != nil {
+					t.Fatalf("%+v", err)
+				}
+				defer ctx.Check(planet.Shutdown)
 
-					planet.Start(namedctx)
+				planet.Start(ctx)
+				provisionUplinks(ctx, t, planet)
 
-					provisionUplinks(namedctx, t, planet)
-
-					test(t, ctx, planet)
-				})
+				test(t, ctx, planet)
 			})
 		})
 	}

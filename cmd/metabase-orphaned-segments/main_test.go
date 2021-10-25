@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/tempdb"
@@ -113,7 +114,10 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 			metabaseTempDB, err := tempdb.OpenUnique(ctx, satelliteDB.MetabaseDB.URL, schema)
 			require.NoError(t, err)
 
-			metabaseDB, err := satellitedbtest.CreateMetabaseDBOnTopOf(ctx, log, metabaseTempDB)
+			metabaseDB, err := satellitedbtest.CreateMetabaseDBOnTopOf(ctx, log, metabaseTempDB, metabase.Config{
+				MinPartSize:      5 * memory.MiB,
+				MaxNumberOfParts: 10000,
+			})
 			require.NoError(t, err)
 			defer ctx.Check(metabaseDB.Close)
 

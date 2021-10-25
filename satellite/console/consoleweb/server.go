@@ -93,6 +93,7 @@ type Config struct {
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"true"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"false"`
+	NewBrowser                      bool    `help:"indicates if new browser should be used" default:"false"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -375,6 +376,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
 		NewNavigation                   bool
+		NewBrowser                      bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -404,6 +406,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
 	data.NewOnboarding = server.config.NewOnboarding
 	data.NewNavigation = server.config.NewNavigation
+	data.NewBrowser = server.config.NewBrowser
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

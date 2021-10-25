@@ -41,7 +41,7 @@ func TestCouponCodes(t *testing.T) {
 		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
 		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
-		// waitVueTick(page)
+		waitVueTick(page)
 
 		// skip onboarding process
 		page.MustElement("[href=\"/project-dashboard\"]").MustClick()
@@ -49,9 +49,9 @@ func TestCouponCodes(t *testing.T) {
 		require.Contains(t, dashboardTitle, "Dashboard")
 
 		// go to billing page
-		page.MustElement(".settings-selection").MustClick()
-		page.MustElementX("(//p[text()=\" Billing \"])").MustClick()
-		// waitVueTick(page)
+		page.MustElement("[aria-roledescription=account-area]").MustClick()
+		page.MustElementR("p", "Billing").MustClick()
+		waitVueTick(page)
 
 		couponText := page.MustElement(".coupon-area__container__text-container").MustText()
 		require.Contains(t, couponText, "Add a Coupon to Get Started")

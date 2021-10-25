@@ -49,11 +49,17 @@ func TestRestartOnboardingWizard(t *testing.T) {
 		require.Contains(t, dashboardTitle, "Dashboard")
 
 		// Testing restart tour functionality
-		page.MustElement("[aria-roledescription=restart-onb-icon]").MustHover()
-		page.MustElementX("(//span[text()=\"Start tour\"])").MustClick()
-		waitVueTick(page)
-
-		welcomeTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, welcomeTitle, "Welcome")
+		page.MustElementR("p", "Quick Start").MustClick()
+		wait := page.MustWaitRequestIdle()
+		page.MustElement("[href=\"/onboarding-tour/cli/api-key\"]").MustClick()
+		wait()
+		apiKeyGeneratedTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, apiKeyGeneratedTitle, "API Key Generated")
+		page.Race().Element("[aria-roledescription=satellite-address]").MustHandle(func(el *rod.Element) {
+			require.NotEmpty(t, el.MustText())
+		}).MustDo()
+		page.Race().Element("[aria-roledescription=api-key]").MustHandle(func(el *rod.Element) {
+			require.NotEmpty(t, el.MustText())
+		}).MustDo()
 	})
 }

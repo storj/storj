@@ -43,6 +43,7 @@ import UploadObject from "@/components/onboardingTour/steps/cliFlow/UploadObject
 import ListObject from "@/components/onboardingTour/steps/cliFlow/ListObject.vue";
 import DownloadObject from "@/components/onboardingTour/steps/cliFlow/DownloadObject.vue";
 import ShareObject from "@/components/onboardingTour/steps/cliFlow/ShareObject.vue";
+import RegistrationSuccess from "@/components/common/RegistrationSuccess.vue";
 import SuccessScreen from "@/components/onboardingTour/steps/cliFlow/SuccessScreen.vue";
 
 import store from '@/store';
@@ -65,6 +66,7 @@ export abstract class RouteConfig {
     public static Root = new NavigationLink('/', 'Root');
     public static Login = new NavigationLink('/login', 'Login');
     public static Register = new NavigationLink('/signup', 'Register');
+    public static RegisterSuccess = new NavigationLink('/signup-success', 'RegisterSuccess');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Account = new NavigationLink('/account', 'Account');
@@ -129,6 +131,7 @@ export abstract class RouteConfig {
 export const notProjectRelatedRoutes = [
     RouteConfig.Login.name,
     RouteConfig.Register.name,
+    RouteConfig.RegisterSuccess.name,
     RouteConfig.ForgotPassword.name,
     RouteConfig.ResetPassword.name,
     RouteConfig.Billing.name,
@@ -150,6 +153,11 @@ export const router = new Router({
             path: RouteConfig.Register.path,
             name: RouteConfig.Register.name,
             component: RegisterArea,
+        },
+        {
+            path: RouteConfig.RegisterSuccess.path,
+            name: RouteConfig.RegisterSuccess.name,
+            component: RegistrationSuccess,
         },
         {
             path: RouteConfig.ForgotPassword.path,

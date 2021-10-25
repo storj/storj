@@ -244,56 +244,53 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
 
-		for _, tc := range testCases {
-			tc := tc
-			t.Run(tc.caseDescription, func(t *testing.T) {
-				testplanet.Run(t, testplanet.Config{
-					SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-					Reconfigure: testplanet.Reconfigure{
-						// Reconfigure RS for ensuring that we don't have long-tail cancellations
-						// and the upload doesn't leave garbage in the SNs
-						Satellite: testplanet.Combine(
-							testplanet.ReconfigureRS(2, 2, 4, 4),
-							testplanet.MaxSegmentSize(13*memory.KiB),
-						),
-					},
-				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-					numToShutdown := 2
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				// Reconfigure RS for ensuring that we don't have long-tail cancellations
+				// and the upload doesn't leave garbage in the SNs
+				Satellite: testplanet.Combine(
+					testplanet.ReconfigureRS(2, 2, 4, 4),
+					testplanet.MaxSegmentSize(13*memory.KiB),
+				),
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			numToShutdown := 2
 
-					createObject(ctx, t, planet, tc.objData)
+			for _, tc := range testCases {
+				createObject(ctx, t, planet, tc.objData)
+			}
 
-					// Shutdown the first numToShutdown storage nodes before we delete the pieces
-					require.NoError(t, planet.StopPeer(planet.StorageNodes[0]))
-					require.NoError(t, planet.StopPeer(planet.StorageNodes[1]))
+			require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
-					deleteAllObjects(ctx, t, planet)
+			// Shutdown the first numToShutdown storage nodes before we delete the pieces
+			// and collect used space values for those nodes
+			snUsedSpace := make([]int64, len(planet.StorageNodes))
+			for i := 0; i < numToShutdown; i++ {
+				var err error
+				snUsedSpace[i], _, err = planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+				require.NoError(t, err)
 
-					planet.WaitForStorageNodeDeleters(ctx)
+				require.NoError(t, planet.StopPeer(planet.StorageNodes[i]))
+			}
 
-					// Check that storage nodes that were offline when deleting the pieces
-					// they are still holding data
-					var totalUsedSpace int64
-					for i := 0; i < numToShutdown; i++ {
-						piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
-						require.NoError(t, err)
-						totalUsedSpace += piecesTotal
-					}
+			deleteAllObjects(ctx, t, planet)
 
-					require.NotZero(t, totalUsedSpace, "totalUsedSpace offline nodes")
+			planet.WaitForStorageNodeDeleters(ctx)
 
-					// Check that storage nodes which are online when deleting pieces don't
-					// hold any piece
-					totalUsedSpace = 0
-					for i := numToShutdown; i < len(planet.StorageNodes); i++ {
-						piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
-						require.NoError(t, err)
-						totalUsedSpace += piecesTotal
-					}
+			// Check that storage nodes that were offline when deleting the pieces
+			// they are still holding data
+			// Check that storage nodes which are online when deleting pieces don't
+			// hold any piece
+			// We are comparing used space from before deletion for nodes that were
+			// offline, values for available nodes are 0
+			for i, sn := range planet.StorageNodes {
+				usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+				require.NoError(t, err)
 
-					require.Zero(t, totalUsedSpace, "totalUsedSpace online nodes")
-				})
-			})
-		}
+				require.Equal(t, snUsedSpace[i], usedSpace, "StorageNode #%d", i)
+			}
+		})
 	})
 
 	t.Run("all nodes down", func(t *testing.T) {

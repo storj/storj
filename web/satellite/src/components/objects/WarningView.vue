@@ -4,7 +4,7 @@
 <template>
     <div class="warning-view">
         <div class="warning-view__container">
-            <h1 class="warning-view__container__title">Object Browser</h1>
+            <h1 class="warning-view__container__title" aria-roledescription="title">Object Browser</h1>
             <div class="warning-view__container__message-container">
                 <h2 class="warning-view__container__message-container__sub-title" aria-roledescription="sub-title">The object browser uses server side encryption.</h2>
                 <p class="warning-view__container__message-container__message">

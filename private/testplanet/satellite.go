@@ -390,7 +390,17 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	planet.databases = append(planet.databases, db)
 
-	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB)
+	var config satellite.Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
+		cfgstruct.UseTestDefaults(),
+		cfgstruct.ConfDir(storageDir),
+		cfgstruct.IdentityDir(storageDir),
+		cfgstruct.ConfigVar("TESTINTERVAL", defaultInterval.String()))
+
+	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB, metabase.Config{
+		MinPartSize:      config.Metainfo.MinPartSize,
+		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -416,13 +426,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	if err != nil {
 		return nil, err
 	}
-
-	var config satellite.Config
-	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
-		cfgstruct.UseTestDefaults(),
-		cfgstruct.ConfDir(storageDir),
-		cfgstruct.IdentityDir(storageDir),
-		cfgstruct.ConfigVar("TESTINTERVAL", defaultInterval.String()))
 
 	// TODO: these are almost certainly mistakenly set to the zero value
 	// in tests due to a prior mismatch between testplanet config and

@@ -3,7 +3,12 @@
 
 <template>
     <div class="project-selection">
-        <div class="project-selection__selected" :class="{ active: isDropdownShown }" @click.stop.prevent="toggleSelection">
+        <div
+            class="project-selection__selected"
+            :class="{ active: isDropdownShown }"
+            aria-roledescription="project-selection"
+            @click.stop.prevent="toggleSelection"
+        >
             <div class="project-selection__selected__left">
                 <ProjectIcon class="project-selection__selected__left__image" />
                 <p class="project-selection__selected__left__name" :title="projectName">{{ projectName }}</p>

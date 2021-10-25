@@ -70,7 +70,7 @@ import BucketIcon from '@/../static/images/objects/bucket.svg';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { DEMO_BUCKET_NAME, OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
@@ -116,7 +116,7 @@ export default class BucketsView extends Vue {
             await this.setAccess();
             await this.fetchBuckets();
 
-            if (!this.bucketsList.length) this.showCreateBucketPopup();
+            if (!this.bucketsList.length) await this.createDemoBucket();
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
         }
@@ -202,7 +202,6 @@ export default class BucketsView extends Vue {
 
         try {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
             const BUCKET_ALREADY_EXISTS_ERROR = 'BucketAlreadyExists';
 
@@ -222,6 +221,28 @@ export default class BucketsView extends Vue {
         this.isRequestProcessing = false;
 
         this.openBucket(bucket);
+    }
+
+    /**
+     * Creates first ever demo bucket for user.
+     */
+    public async createDemoBucket(): Promise<void> {
+        if (this.isRequestProcessing) return;
+
+        this.isRequestProcessing = true;
+
+        try {
+            await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_DEMO_BUCKET);
+        } catch (error) {
+            await this.$notify.error(error.message);
+            this.isRequestProcessing = false;
+
+            return;
+        }
+
+        this.isRequestProcessing = false;
+
+        this.openBucket(DEMO_BUCKET_NAME);
     }
 
     /**

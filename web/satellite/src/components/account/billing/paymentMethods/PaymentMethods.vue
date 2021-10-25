@@ -5,7 +5,7 @@
     <div class="payment-methods-area">
         <div class="payment-methods-area__functional-area" :class="functionalAreaClassName">
             <div class="payment-methods-area__functional-area__top-container">
-                <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
+                <h1 class="payment-methods-area__functional-area__title" aria-roledescription="title">Payment Method</h1>
                 <div class="payment-methods-area__functional-area__button-area">
                     <div v-if="!areAddButtonsClicked" class="payment-methods-area__functional-area__button-area__default-buttons">
                         <VButton

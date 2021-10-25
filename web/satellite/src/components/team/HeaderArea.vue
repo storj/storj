@@ -4,7 +4,7 @@
 <template>
     <div class="team-header-container">
         <div class="team-header-container__title-area">
-            <h1 class="team-header-container__title-area__title">Project Members</h1>
+            <h1 class="team-header-container__title-area__title" aria-roledescription="title">Project Members</h1>
             <VInfo class="team-header-container__title-area__info-button">
                 <template #icon>
                     <InfoIcon />

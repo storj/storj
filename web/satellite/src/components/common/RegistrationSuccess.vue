@@ -2,40 +2,46 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="register-success-area">
-        <div class="register-success-area__form-container">
-            <MailIcon />
-            <h2 class="register-success-area__form-container__title" aria-roledescription="title">You're almost there!</h2>
-            <p class="register-success-area__form-container__sub-title">
-                Check your email to confirm your account and get started.
-            </p>
-            <p class="register-success-area__form-container__text">
-                Didn't receive a verification email?
-                <b class="register-success-area__form-container__verification-cooldown__bold-text">
-                    {{ timeToEnableResendEmailButton }}
-                </b>
-            </p>
-            <div class="register-success-area__form-container__button-container">
-                <VButton
-                    label="Resend Email"
-                    width="450px"
-                    height="50px"
-                    :on-press="onResendEmailButtonClick"
-                    :is-disabled="isResendEmailButtonDisabled"
-                />
-            </div>
-            <p class="register-success-area__form-container__contact">
-                or
-                <a
-                    class="register-success-area__form-container__contact__link"
-                    href="https://supportdcs.storj.io/hc/en-us/requests/new"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    Contact our support team
-                </a>
-            </p>
+    <div class="register-success-container">
+        <div class="register-success-container__logo-wrapper">
+            <LogoIcon class="logo" @click="onLogoClick" />
         </div>
+        <div class="register-success-area">
+            <div class="register-success-area__form-container">
+                <MailIcon />
+                <h2 class="register-success-area__form-container__title" aria-roledescription="title">You're almost there!</h2>
+                <p class="register-success-area__form-container__sub-title">
+                    Check your email to confirm your account and get started.
+                </p>
+                <p class="register-success-area__form-container__text">
+                    Didn't receive a verification email?
+                    <b class="register-success-area__form-container__verification-cooldown__bold-text">
+                        {{ timeToEnableResendEmailButton }}
+                    </b>
+                </p>
+                <div class="register-success-area__form-container__button-container">
+                    <VButton
+                        label="Resend Email"
+                        width="450px"
+                        height="50px"
+                        :on-press="onResendEmailButtonClick"
+                        :is-disabled="isResendEmailButtonDisabled"
+                    />
+                </div>
+                <p class="register-success-area__form-container__contact">
+                    or
+                    <a
+                        class="register-success-area__form-container__contact__link"
+                        href="https://supportdcs.storj.io/hc/en-us/requests/new"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Contact our support team
+                    </a>
+                </p>
+            </div>
+        </div>
+        <router-link :to="loginPath" class="register-success-area__login-link">Go to Login page</router-link>
     </div>
 </template>
 
@@ -44,15 +50,18 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
+import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { LocalData } from '@/utils/localData';
+import { RouteConfig } from "@/router";
 
 // @vue/component
 @Component({
     components: {
         VButton,
+        LogoIcon,
         MailIcon,
     },
 })
@@ -62,6 +71,8 @@ export default class RegistrationSuccess extends Vue {
     private intervalID: ReturnType<typeof setInterval>;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    public readonly loginPath: string = RouteConfig.Login.path;
 
     /**
      * Lifecycle hook after initial render.
@@ -79,6 +90,13 @@ export default class RegistrationSuccess extends Vue {
         if (this.intervalID) {
             clearInterval(this.intervalID);
         }
+    }
+
+    /**
+     * Reloads page.
+     */
+    public onLogoClick(): void {
+        location.replace(RouteConfig.Register.path);
     }
 
     /**
@@ -134,19 +152,40 @@ export default class RegistrationSuccess extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .register-success-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: 'font_regular', sans-serif;
+        background-color: #f5f6fa;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow-y: scroll;
+
+        &__logo-wrapper {
+            text-align: center;
+            margin-top: 60px;
+        }
+    }
+
     .register-success-area {
         display: flex;
         align-items: center;
         justify-content: center;
         font-family: 'font_regular', sans-serif;
+        background-color: #fff;
+        border-radius: 20px;
+        width: 75%;
+        height: 50vh;
+        margin-top: 50px;
+        padding: 70px 90px 30px 90px;
+        max-width: 1200px;
 
         &__form-container {
-            padding: 100px;
-            max-width: 395px;
             text-align: center;
-            border-radius: 20px;
-            background-color: #fff;
-            box-shadow: 0 0 19px 9px #ddd;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -165,6 +204,7 @@ export default class RegistrationSuccess extends Vue {
                 color: #252525;
                 margin: 0;
                 max-width: 350px;
+                text-align: center;
             }
 
             &__text {
@@ -207,11 +247,21 @@ export default class RegistrationSuccess extends Vue {
                 }
             }
         }
+
+        &__login-link {
+            font-family: 'font_bold', sans-serif;
+            text-decoration: none;
+            font-size: 14px;
+            color: #376fff;
+            margin-top: 50px;
+            padding-bottom: 50px;
+        }
     }
 
     @media screen and (max-width: 650px) {
 
         .register-success-area {
+            height: auto;
 
             &__form-container {
                 padding: 50px;
@@ -226,6 +276,7 @@ export default class RegistrationSuccess extends Vue {
     @media screen and (max-width: 500px) {
 
         .register-success-area {
+            height: auto;
 
             &__form-container {
                 padding: 50px 20px;

@@ -47,10 +47,6 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 		Name      string    `json:"name"`
 	}
 
-	var output struct {
-		APIKey string `json:"apikey"`
-	}
-
 	err = json.Unmarshal(body, &input)
 	if err != nil {
 		sendJSONError(w, "failed to unmarshal request",
@@ -97,6 +93,10 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 		sendJSONError(w, "unable to add api-key to database",
 			err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	var output struct {
+		APIKey string `json:"apikey"`
 	}
 
 	output.APIKey = key.Serialize()

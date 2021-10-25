@@ -34,7 +34,7 @@ major_release_tags=$(
     grep -v rc |                                                     # remove release candidates
     sort -n -k2,2 -t'.' --unique |                                   # only keep the largest patch version
     sort -V |                                                        # resort based using "version sort"
-    tail -n 3                                                        # kepep only last 3 releases 
+    tail -n 3                                                        # kepep only last 3 releases
 )
 major_release_tags=$(echo $IMPORTANT_VERSIONS $major_release_tags )
 current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)

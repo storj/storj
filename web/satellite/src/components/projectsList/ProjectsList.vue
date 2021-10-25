@@ -4,7 +4,7 @@
 <template>
     <div class="projects-list">
         <div class="projects-list__title-area">
-            <h2 class="projects-list__title-area__title">Projects</h2>
+            <h2 class="projects-list__title-area__title" aria-roledescription="title">Projects</h2>
             <VButton
                 label="Create Project +"
                 width="203px"
