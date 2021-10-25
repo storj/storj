@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Incache.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package uploadselection_test
@@ -63,7 +63,7 @@ func TestSelectByID(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, nil, nil)
+		selectedNodes := selector.Select(reqCount, uploadselection.Criteria{})
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -132,7 +132,7 @@ func TestSelectBySubnet(t *testing.T) {
 
 	// perform many node selections that selects 2 nodes
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, nil, map[string]struct{}{})
+		selectedNodes := selector.Select(reqCount, uploadselection.Criteria{})
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -213,7 +213,7 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 
 	// perform many node selections that selects 1 node
 	for i := 0; i < executionCount; i++ {
-		selectedNodes := selector.Select(reqCount, nil, map[string]struct{}{})
+		selectedNodes := selector.Select(reqCount, uploadselection.Criteria{})
 		require.Len(t, selectedNodes, reqCount)
 		for _, node := range selectedNodes {
 			selectedNodeCount[node.ID]++
@@ -237,4 +237,59 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 
 	// expect that the single node is selected ~50% of the time
 	assert.InDelta(t, subnetB1Count/total, uniqueSubnet, selectionEpsilon)
+}
+
+func TestSelectFiltered(t *testing.T) {
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	// create 3 nodes, 2 with same subnet
+	lastNetDuplicate := "1.0.1"
+	firstID := testrand.NodeID()
+	subnetA1 := &uploadselection.Node{
+		NodeURL: storj.NodeURL{
+			ID:      firstID,
+			Address: lastNetDuplicate + ".4:8080",
+		},
+		LastNet:    lastNetDuplicate,
+		LastIPPort: lastNetDuplicate + ".4:8080",
+	}
+
+	secondID := testrand.NodeID()
+	subnetA2 := &uploadselection.Node{
+		NodeURL: storj.NodeURL{
+			ID:      secondID,
+			Address: lastNetDuplicate + ".5:8080",
+		},
+		LastNet:    lastNetDuplicate,
+		LastIPPort: lastNetDuplicate + ".5:8080",
+	}
+
+	thirdID := testrand.NodeID()
+	lastNetSingle := "1.0.2"
+	subnetB1 := &uploadselection.Node{
+		NodeURL: storj.NodeURL{
+			ID:      thirdID,
+			Address: lastNetSingle + ".5:8080",
+		},
+		LastNet:    lastNetSingle,
+		LastIPPort: lastNetSingle + ".5:8080",
+	}
+
+	nodes := []*uploadselection.Node{subnetA1, subnetA2, subnetB1}
+	selector := uploadselection.SelectByID(nodes)
+
+	assert.Len(t, selector.Select(3, uploadselection.Criteria{}), 3)
+	assert.Len(t, selector.Select(3, uploadselection.Criteria{ExcludeNodeIDs: []storj.NodeID{firstID}}), 2)
+	assert.Len(t, selector.Select(3, uploadselection.Criteria{}), 3)
+
+	assert.Len(t, selector.Select(3, uploadselection.Criteria{ExcludeNodeIDs: []storj.NodeID{firstID, secondID}}), 1)
+	assert.Len(t, selector.Select(3, uploadselection.Criteria{
+		AutoExcludeSubnets: map[string]struct{}{},
+	}), 2)
+	assert.Len(t, selector.Select(3, uploadselection.Criteria{
+		ExcludeNodeIDs:     []storj.NodeID{thirdID},
+		AutoExcludeSubnets: map[string]struct{}{},
+	}), 1)
 }
