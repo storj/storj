@@ -120,12 +120,12 @@ func accessInspect(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("no access specified: %w", err)
 	}
 
-	serializedAccesss, err := access.Serialize()
+	serializedAccess, err := access.Serialize()
 	if err != nil {
 		return err
 	}
 
-	p, err := parseAccessRaw(serializedAccesss)
+	p, err := parseAccessRaw(serializedAccess)
 	if err != nil {
 		return err
 	}
