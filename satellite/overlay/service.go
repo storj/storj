@@ -343,14 +343,9 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 }
 
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.
-//
-// The main difference between this method and the normal FindStorageNodes is that here we avoid using the cache.
 func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if service.config.Node.AsOfSystemTime.Enabled && service.config.Node.AsOfSystemTime.DefaultInterval < 0 {
-		req.AsOfSystemInterval = service.config.Node.AsOfSystemTime.DefaultInterval
-	}
-	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
+	return service.UploadSelectionCache.GetNodes(ctx, req)
 }
 
 // FindStorageNodesForUpload searches the overlay network for nodes that meet the provided requirements for upload.
