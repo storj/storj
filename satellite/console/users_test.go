@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
@@ -275,4 +274,78 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		_, err = repository.Get(ctx, oldUser.ID)
 		assert.Error(t, err)
 	})
+}
+
+func TestUserInfo_IsValid(t *testing.T) {
+	type fields struct {
+		FullName  string
+		ShortName string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			user := &UserInfo{
+				FullName:  tt.fields.FullName,
+				ShortName: tt.fields.ShortName,
+			}
+			if err := user.IsValid(); (err != nil) != tt.wantErr {
+				t.Errorf("UserInfo.IsValid() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCreateUser_IsValid(t *testing.T) {
+	type fields struct {
+		FullName          string
+		ShortName         string
+		Email             string
+		PartnerID         string
+		UserAgent         []byte
+		Password          string
+		IsProfessional    bool
+		Position          string
+		CompanyName       string
+		WorkingOn         string
+		EmployeeCount     string
+		HaveSalesContact  bool
+		RecaptchaResponse string
+		IP                string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			user := &CreateUser{
+				FullName:          tt.fields.FullName,
+				ShortName:         tt.fields.ShortName,
+				Email:             tt.fields.Email,
+				PartnerID:         tt.fields.PartnerID,
+				UserAgent:         tt.fields.UserAgent,
+				Password:          tt.fields.Password,
+				IsProfessional:    tt.fields.IsProfessional,
+				Position:          tt.fields.Position,
+				CompanyName:       tt.fields.CompanyName,
+				WorkingOn:         tt.fields.WorkingOn,
+				EmployeeCount:     tt.fields.EmployeeCount,
+				HaveSalesContact:  tt.fields.HaveSalesContact,
+				RecaptchaResponse: tt.fields.RecaptchaResponse,
+				IP:                tt.fields.IP,
+			}
+			if err := user.IsValid(); (err != nil) != tt.wantErr {
+				t.Errorf("CreateUser.IsValid() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
