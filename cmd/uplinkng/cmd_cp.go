@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/ranger/httpranger"
 	"storj.io/common/sync2"
 	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulfs"
@@ -27,6 +28,7 @@ type cmdCp struct {
 	parallelism int
 	dryrun      bool
 	progress    bool
+	byteRange   string
 
 	source ulloc.Location
 	dest   ulloc.Location
@@ -58,12 +60,16 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	c.progress = params.Flag("progress", "Show a progress bar when possible", true,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
+	c.byteRange = params.Flag("range", "Downloads the specified range bytes of an object. For more information about the HTTP Range header, see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35", "").(string)
 
 	c.source = params.Arg("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 	c.dest = params.Arg("dest", "Desination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 }
 
 func (c *cmdCp) Execute(ctx clingy.Context) error {
+	if c.parallelism > 1 && c.byteRange != "" {
+		return errs.New("parallelism and range flags are mutually exclusive")
+	}
 	fs, err := c.ex.OpenFilesystem(ctx, c.access)
 	if err != nil {
 		return err
@@ -173,11 +179,43 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 		return nil
 	}
 
-	rh, err := fs.Open(ctx, source)
+	var length int64
+	var openOpts *ulfs.OpenOptions
+
+	if c.byteRange != "" {
+		// TODO: we might want to avoid this call if ranged download will be used frequently
+		stat, err := fs.Stat(ctx, source)
+		if err != nil {
+			return err
+		}
+		byteRange, err := httpranger.ParseRange(c.byteRange, stat.ContentLength)
+		if err != nil && byteRange == nil {
+			return errs.New("error parsing byte range %q: %w", c.byteRange, err)
+		}
+		if len(byteRange) == 0 {
+			return errs.New("invalid range")
+		}
+		if len(byteRange) > 1 {
+			return errs.New("retrieval of multiple byte ranges of data not supported: %d provided", len(byteRange))
+		}
+
+		length = byteRange[0].Length
+
+		openOpts = &ulfs.OpenOptions{
+			Offset: byteRange[0].Start,
+			Length: byteRange[0].Length,
+		}
+	}
+
+	rh, err := fs.Open(ctx, source, openOpts)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = rh.Close() }()
+
+	if length == 0 {
+		length = rh.Info().ContentLength
+	}
 
 	wh, err := fs.Create(ctx, dest)
 	if err != nil {
@@ -188,7 +226,7 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 	var bar *progressbar.ProgressBar
 	var writer io.Writer = wh
 
-	if length := rh.Info().ContentLength; progress && length >= 0 && !c.dest.Std() {
+	if progress && length >= 0 && !c.dest.Std() {
 		bar = progressbar.New64(length).SetWriter(ctx.Stdout())
 		writer = bar.NewProxyWriter(writer)
 		bar.Start()

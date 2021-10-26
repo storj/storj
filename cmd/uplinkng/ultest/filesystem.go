@@ -77,7 +77,7 @@ func (tfs *testFilesystem) Close() error {
 	return nil
 }
 
-func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (_ ulfs.ReadHandle, err error) {
+func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location, opts *ulfs.OpenOptions) (_ ulfs.ReadHandle, err error) {
 	if loc.Std() {
 		return &byteReadHandle{Buffer: bytes.NewBufferString("-")}, nil
 	}
@@ -86,6 +86,11 @@ func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (_ ulfs.
 	if !ok {
 		return nil, errs.New("file does not exist")
 	}
+
+	if opts != nil {
+		return &byteReadHandle{Buffer: bytes.NewBufferString(mf.contents[opts.Offset:(opts.Offset + opts.Length)])}, nil
+	}
+
 	return &byteReadHandle{Buffer: bytes.NewBufferString(mf.contents)}, nil
 }
 
@@ -192,6 +197,23 @@ func (tfs *testFilesystem) listPending(ctx context.Context, prefix ulloc.Locatio
 func (tfs *testFilesystem) IsLocalDir(ctx context.Context, loc ulloc.Location) (local bool) {
 	path, ok := loc.LocalParts()
 	return ok && (ulloc.CleanPath(path) == "." || tfs.locals[path])
+}
+
+func (tfs *testFilesystem) Stat(ctx context.Context, loc ulloc.Location) (*ulfs.ObjectInfo, error) {
+	if loc.Std() {
+		return nil, errs.New("unable to stat loc %q", loc.Loc())
+	}
+
+	mf, ok := tfs.files[loc]
+	if !ok {
+		return nil, errs.New("file does not exist: %q", loc.Loc())
+	}
+
+	return &ulfs.ObjectInfo{
+		Loc:           loc,
+		Created:       time.Unix(mf.created, 0),
+		ContentLength: int64(len(mf.contents)),
+	}, nil
 }
 
 func (tfs *testFilesystem) mkdirAll(ctx context.Context, dir string) error {
