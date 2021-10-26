@@ -560,6 +560,11 @@ export default class RegisterArea extends Vue {
         this.user.isProfessional = this.isProfessional;
         this.user.haveSalesContact = this.haveSalesContact;
 
+        if(this.$route.query.promo) {
+            let promoCode = this.$route.query.promo as string;
+            this.user.signupPromoCode = promoCode;
+        }
+
         try {
             this.userId = await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
             LocalData.setUserId(this.userId);

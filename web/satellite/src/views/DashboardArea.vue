@@ -75,6 +75,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
@@ -134,7 +135,13 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(SETUP_ACCOUNT);
+            let couponType = await this.$store.dispatch(SETUP_ACCOUNT);
+            console.log("TYPE:", couponType)
+            if(couponType == CouponType.NoCoupon) {
+                await this.$notify.error(`The coupon code was invalid, and could not be applied to your account`);
+            } else if(couponType == CouponType.SignupCoupon) {
+                await this.$notify.success(`The coupon code was added successfully`);
+            }
         } catch (error) {
             await this.$notify.error(`Unable to setup account. ${error.message}`);
         }
