@@ -24,7 +24,28 @@ The constraint will be defined on bucket level. During the object creation, the 
 
 The constraint should be saved both on bucket level (using as a default for every new segments) and segment level. During segment repair and graceful-exit processes we have access only to the segment information therefore we will save the placement constraint information to the segment table too.
 
-As the segment table can be huge, the size of the placement information should be minimal. It will be stored on two bytes `INT(2)`. The exact representation can be an incrementing number, meaningful bitmask (different bit prefix may have different meanings) or ASCII iso codes.
+As the segment table can be huge, the size of the placement information should be minimal. To make it future-proof the placement information will be stored in protobuf structure: 
+
+```proto
+enum Region {
+    EU = 0;
+    EEA = 1;
+}
+
+enum Country {
+    US = 0;
+    DE = 1;
+}
+
+message Placement {
+    repeated Region regions = 1;
+    repeated Country countries = 2;
+}
+```
+
+It makes it possible to store one region OR one country only in 3 bytes (fieldtype/selector + list length + enum) but also can be extended any time with any new parameter without breaking backward compatibility.
+
+Based on storjstats.info, Storj manages 9.25PB with ~20MB average segment size, which is  9.25 * 1024 * 1024 * 1024 / 20 = ~497 000 000 segments. At the beginning only a few segments will have placement information but adding placement information, but even with storing 3 bytes for all segments it would require only ~497 000 000 * 3 = ~1.4 GB (which is spread across the 3 production satellites)
 
 **Object creation**:
 
@@ -95,9 +116,9 @@ To make life easy, we plan to add a new administrative API endpoint to enable ge
 
 ### Required db changes
 
- 1. Add `country` field to the nodes table 
- 2. Add `placement` field to the `bucket_metainfos` table `int(2)` 
- 3. Add `placement` field to the `segments` table `int(2)` (metainfo)
+ 1. Add `country_code` field to the nodes table 
+ 2. Add `default_placement` field to the `bucket_metainfos` table `bytea` 
+ 3. Add `placement` field to the `segments` table `bytea` (metainfo)
  
 ### Required protocol change
 
