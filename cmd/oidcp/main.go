@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/dexidp/dex/connector"
 	dexlog "github.com/dexidp/dex/pkg/log"
@@ -15,19 +16,44 @@ import (
 	"github.com/dexidp/dex/storage/sql"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/sync/errgroup"
+	"storj.io/common/lrucache"
+
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb"
 )
 
 type Connector struct {
+	authDB console.AuthDB
 }
 
 func (c *Connector) Prompt() string {
 	return ""
 }
 
-func (c *Connector) Login(ctx context.Context, s connector.Scopes, username, password string) (identity connector.Identity, validPassword bool, err error) {
-	// todo: plug into our existing user management apis...
-	panic("implement me")
+func (c *Connector) Login(ctx context.Context, s connector.Scopes, email, password string) (identity connector.Identity, validPassword bool, err error) {
+	user, err := c.authDB.Users().GetByEmail(ctx, email)
+	if err != nil {
+		return identity, false, err
+	}
+
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
+	if err == bcrypt.ErrMismatchedHashAndPassword {
+		return identity, false, nil
+	} else if err != nil {
+		return identity, false, err
+	}
+
+	identity = connector.Identity{
+		UserID:        user.ID.String(),
+		Username:      user.Email,
+		Email:         user.Email,
+		Groups:        []string{},
+	}
+
+	return identity, true, nil
 }
 
 func (c *Connector) Open(id string, logger dexlog.Logger) (connector.Connector, error) {
@@ -44,10 +70,23 @@ type StorageConfig struct {
 
 type Config struct {
 	Storage *StorageConfig `json:"storage"`
+
+	Database string `json:"database" help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
+
+	DatabaseOptions struct {
+		APIKeysCache struct {
+			Expiration time.Duration `help:"satellite database api key expiration" default:"60s"`
+			Capacity   int           `help:"satellite database api key lru capacity" default:"1000"`
+		}
+		RevocationsCache struct {
+			Expiration time.Duration `help:"macaroon revocation cache expiration" default:"5m"`
+			Capacity   int           `help:"macaroon revocation cache capacity" default:"10000"`
+		}
+	}
 }
 
 func main() {
-	log := logrus.New()
+	log := zap.L()
 
 	cfg := &Config{
 		Storage: &StorageConfig{
@@ -65,18 +104,34 @@ func main() {
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 
-			server.ConnectorsConfig["storj"] = func() server.ConnectorConfig {
-				return &Connector{}
+			db, err := satellitedb.Open(ctx, log.Named("db"), cfg.Database, satellitedb.Options{
+				ApplicationName: "satellite-api",
+				APIKeysLRUOptions: lrucache.Options{
+					Expiration: cfg.DatabaseOptions.APIKeysCache.Expiration,
+					Capacity:   cfg.DatabaseOptions.APIKeysCache.Capacity,
+				},
+				RevocationLRUOptions: lrucache.Options{
+					Expiration: cfg.DatabaseOptions.RevocationsCache.Expiration,
+					Capacity:   cfg.DatabaseOptions.RevocationsCache.Capacity,
+				},
+			})
+			if err != nil {
+				return err
 			}
 
-			var store storage.Storage
-			var err error
+			server.ConnectorsConfig["storj"] = func() server.ConnectorConfig {
+				return &Connector{
+					authDB: db.Console(),
+				}
+			}
 
+			dexLog := logrus.New()
+			var store storage.Storage
 			switch {
 			case cfg.Storage.SQLite != nil:
-				store, err = cfg.Storage.SQLite.Open(log)
+				store, err = cfg.Storage.SQLite.Open(dexLog)
 			case cfg.Storage.Postgres != nil:
-				store, err = cfg.Storage.Postgres.Open(log)
+				store, err = cfg.Storage.Postgres.Open(dexLog)
 			default:
 				err = fmt.Errorf("storage not specified")
 			}
@@ -85,23 +140,17 @@ func main() {
 				return err
 			}
 
-			// todo: embed and parse with json?
 			store = storage.WithStaticClients(store, []storage.Client{
-				// allow our cloud to use OAuth for authentication
 				{
-					ID: "console",
-					// IDEnv: "",
-					Secret: "",
-					// SecretEnv: "",
+					// read client id and client secret from environment variables
+					IDEnv:     "STORJ_CLIENT_ID",
+					SecretEnv: "STORJ_CLIENT_SECRET",
 					RedirectURIs: []string{
 						"https://us1.storj.io",
-						"https://eu1.storj.io",
-						"https://ap1.storj.io",
 					},
-					TrustedPeers: []string{},
-					Public:       true,
-					Name:         "Storj",
-					LogoURL:      "",
+					Public:  true,
+					Name:    "Storj",
+					LogoURL: "",
 				},
 			})
 
@@ -124,7 +173,7 @@ func main() {
 				// IDTokensValidFor: ,
 				// Now: ,
 				// Web: ,
-				Logger: log,
+				Logger: dexLog,
 				// PrometheusRegistry: ,
 			})
 
@@ -134,7 +183,7 @@ func main() {
 
 			group, ctx := errgroup.WithContext(ctx)
 			group.Go(func() error {
-				log.Println("starting http server on :9998")
+				log.Info("starting http server on :9998")
 				return http.ListenAndServe(":9998", svr)
 			})
 
@@ -154,6 +203,6 @@ func main() {
 	}()
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
-		log.Fatal(err)
+		log.Fatal(err.Error())
 	}
 }

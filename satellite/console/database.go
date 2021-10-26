@@ -7,12 +7,17 @@ import (
 	"context"
 )
 
+type AuthDB interface {
+	// Users is a getter for Users repository.
+	Users() Users
+}
+
 // DB contains access to different satellite databases.
 //
 // architecture: Database
 type DB interface {
-	// Users is a getter for Users repository.
-	Users() Users
+	// AuthDB allows this database to act as an authentication db for backwards compatability.
+	AuthDB
 	// Projects is a getter for Projects repository.
 	Projects() Projects
 	// ProjectMembers is a getter for ProjectMembers repository.
