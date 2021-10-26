@@ -5,6 +5,7 @@ package ulfs
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -25,11 +26,17 @@ func NewLocal() *Local {
 }
 
 // Open returns a read ReadHandle for the given local path.
-func (l *Local) Open(ctx context.Context, path string) (ReadHandle, error) {
+func (l *Local) Open(ctx context.Context, path string, opts *OpenOptions) (ReadHandle, error) {
 	fh, err := os.Open(path)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
+	if opts != nil {
+		fr := io.NewSectionReader(fh, opts.Offset, opts.Length)
+		return newGenericReadHandle(fr), nil
+	}
+
 	return newOSReadHandle(fh)
 }
 
@@ -141,6 +148,20 @@ func (l *Local) IsLocalDir(ctx context.Context, path string) bool {
 		return false
 	}
 	return fi.IsDir()
+}
+
+// Stat returns an ObjectInfo describing the provided path.
+func (l *Local) Stat(ctx context.Context, path string) (*ObjectInfo, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ObjectInfo{
+		Loc:           ulloc.NewLocal(path),
+		Created:       fi.ModTime(),
+		ContentLength: fi.Size(),
+	}, nil
 }
 
 type namedFileInfo struct {

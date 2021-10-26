@@ -33,14 +33,21 @@ type RemoveOptions struct {
 
 func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
 
+// OpenOptions describes options for Filesystem.Open.
+type OpenOptions struct {
+	Offset int64
+	Length int64
+}
+
 // Filesystem represents either the local Filesystem or the data backed by a project.
 type Filesystem interface {
 	Close() error
-	Open(ctx clingy.Context, loc ulloc.Location) (ReadHandle, error)
+	Open(ctx clingy.Context, loc ulloc.Location, opts *OpenOptions) (ReadHandle, error)
 	Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, error)
 	Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error
 	List(ctx context.Context, prefix ulloc.Location, opts *ListOptions) (ObjectIterator, error)
 	IsLocalDir(ctx context.Context, loc ulloc.Location) bool
+	Stat(ctx context.Context, loc ulloc.Location) (*ObjectInfo, error)
 }
 
 //

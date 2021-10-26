@@ -32,11 +32,11 @@ func (m *Mixed) Close() error {
 }
 
 // Open returns a ReadHandle to either a local file, remote object, or stdin.
-func (m *Mixed) Open(ctx clingy.Context, loc ulloc.Location) (ReadHandle, error) {
+func (m *Mixed) Open(ctx clingy.Context, loc ulloc.Location, opts *OpenOptions) (ReadHandle, error) {
 	if bucket, key, ok := loc.RemoteParts(); ok {
-		return m.remote.Open(ctx, bucket, key)
+		return m.remote.Open(ctx, bucket, key, opts)
 	} else if path, ok := loc.LocalParts(); ok {
-		return m.local.Open(ctx, path)
+		return m.local.Open(ctx, path, opts)
 	}
 	return newGenericReadHandle(ctx.Stdin()), nil
 }
@@ -78,4 +78,14 @@ func (m *Mixed) IsLocalDir(ctx context.Context, loc ulloc.Location) bool {
 		return m.local.IsLocalDir(ctx, path)
 	}
 	return false
+}
+
+// Stat returns information about an object at the specified Location.
+func (m *Mixed) Stat(ctx context.Context, loc ulloc.Location) (*ObjectInfo, error) {
+	if bucket, key, ok := loc.RemoteParts(); ok {
+		return m.remote.Stat(ctx, bucket, key)
+	} else if path, ok := loc.LocalParts(); ok {
+		return m.local.Stat(ctx, path)
+	}
+	return nil, errs.New("unable to stat loc %q", loc.Loc())
 }

@@ -31,12 +31,29 @@ func (r *Remote) Close() error {
 }
 
 // Open returns a ReadHandle for the object identified by a given bucket and key.
-func (r *Remote) Open(ctx context.Context, bucket, key string) (ReadHandle, error) {
-	fh, err := r.project.DownloadObject(ctx, bucket, key, nil)
+func (r *Remote) Open(ctx context.Context, bucket, key string, opts *OpenOptions) (ReadHandle, error) {
+	var downloadOpts *uplink.DownloadOptions
+	if opts != nil {
+		downloadOpts = &uplink.DownloadOptions{
+			Offset: opts.Offset,
+			Length: opts.Length,
+		}
+	}
+	fh, err := r.project.DownloadObject(ctx, bucket, key, downloadOpts)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	return newUplinkReadHandle(bucket, fh), nil
+}
+
+// Stat returns information about an object at the specified key.
+func (r *Remote) Stat(ctx context.Context, bucket, key string) (*ObjectInfo, error) {
+	fstat, err := r.project.StatObject(ctx, bucket, key)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	stat := uplinkObjectToObjectInfo(bucket, fstat)
+	return &stat, nil
 }
 
 // Create returns a WriteHandle for the object identified by a given bucket and key.

@@ -71,6 +71,26 @@ func TestCpDownload(t *testing.T) {
 
 		state.Succeed(t, "cp", "sj://user/fo", "/home/user/dest", "--recursive").RequireLocalFiles(t)
 	})
+
+	t.Run("Range", func(t *testing.T) {
+		state := ultest.Setup(commands,
+			ultest.WithFile("sj://user/file-for-byte-range", "abcdefghijklmnopqrstuvwxyz"),
+		)
+
+		// multiple byte ranges not supported
+		state.Fail(t, "cp", "sj://user/file-for-byte-range", "/home/user/dest/file-for-byte-range", "--range", "bytes=0-1,2-3").RequireFailure(t).RequireLocalFiles(t)
+
+		state.Succeed(t, "cp", "sj://user/file-for-byte-range", "/home/user/dest/file-for-byte-range", "--range", "bytes=0-2").RequireLocalFiles(t,
+			ultest.File{Loc: "/home/user/dest/file-for-byte-range", Contents: "abc"},
+		)
+
+		state.Succeed(t, "cp", "sj://user/file-for-byte-range", "/home/user/dest/file-for-byte-range", "--range", "bytes=-1").RequireLocalFiles(t,
+			ultest.File{Loc: "/home/user/dest/file-for-byte-range", Contents: "z"},
+		)
+
+		// invalid range
+		state.Fail(t, "cp", "sj://user/file-for-byte-range", "/home/user/dest/file-for-byte-range", "--range", "bytes=0,-1").RequireFailure(t).RequireLocalFiles(t)
+	})
 }
 
 func TestCpUpload(t *testing.T) {
