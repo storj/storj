@@ -44,6 +44,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
@@ -337,6 +338,7 @@ func (system *Satellite) PrivateAddr() string { return system.API.Server.Private
 func (planet *Planet) newSatellites(ctx context.Context, count int, databases satellitedbtest.SatelliteDatabases) (_ []*Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	geoIP := geoip.MockIPToCountry{"US", "DE", "GB"}
 	var satellites []*Satellite
 
 	for i := 0; i < count; i++ {
@@ -353,6 +355,9 @@ func (planet *Planet) newSatellites(ctx context.Context, count int, databases sa
 		if err != nil {
 			return nil, err
 		}
+
+		// override geoip database
+		system.Overlay.Service.GeoIP = geoIP
 
 		log.Debug("id=" + system.ID().String() + " addr=" + system.Addr())
 		satellites = append(satellites, system)

@@ -9,12 +9,12 @@ import (
 	"net"
 	"time"
 
-	"github.com/oschwald/maxminddb-golang"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -288,7 +288,7 @@ type Service struct {
 	db     DB
 	config Config
 
-	geoIP                  *maxminddb.Reader
+	GeoIP                  geoip.IPToCountry
 	UploadSelectionCache   *UploadSelectionCache
 	DownloadSelectionCache *DownloadSelectionCache
 }
@@ -300,12 +300,9 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 		return nil, err
 	}
 
-	var geoIP *maxminddb.Reader
+	var geoIP geoip.IPToCountry
 	if config.GeoIP.GeoLocationDB != "" {
-		geoIP, err = maxminddb.Open(config.GeoIP.GeoLocationDB)
-		if err != nil {
-			return nil, err
-		}
+		geoIP, err = geoip.OpenMaxmindDB(config.GeoIP.GeoLocationDB)
 	}
 
 	return &Service{
@@ -313,7 +310,7 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 		db:     db,
 		config: config,
 
-		geoIP: geoIP,
+		GeoIP: geoIP,
 
 		UploadSelectionCache: NewUploadSelectionCache(log, db,
 			config.NodeSelectionCache.Staleness, config.Node,
@@ -329,8 +326,8 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 
 // Close closes resources.
 func (service *Service) Close() error {
-	if service.geoIP != nil {
-		return service.geoIP.Close()
+	if service.GeoIP != nil {
+		return service.GeoIP.Close()
 	}
 
 	return nil
@@ -491,39 +488,6 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
-type ipInfo struct {
-	Country struct {
-		IsoCode string `maxminddb:"iso_code"`
-	} `maxminddb:"country"`
-}
-
-func (service *Service) lookupCountryCode(node NodeCheckInInfo) string {
-	if service.geoIP == nil {
-		return ""
-	}
-
-	host, _, err := net.SplitHostPort(node.LastIPPort)
-	if err != nil {
-		service.log.Debug("failed to split ip-port for geoip lookup",
-			zap.String("node address", node.Address.Address),
-			zap.Stringer("Node ID", node.NodeID),
-			zap.Error(err))
-		return ""
-	}
-
-	info := &ipInfo{}
-	err = service.geoIP.Lookup(net.ParseIP(host), info)
-	if err != nil {
-		service.log.Debug("failed to obtain country code for geoip lookup",
-			zap.String("node address", node.Address.Address),
-			zap.Stringer("Node ID", node.NodeID),
-			zap.Error(err))
-		return ""
-	}
-
-	return info.Country.IsoCode
-}
-
 // UpdateCheckIn updates a single storagenode's check-in info if needed.
 /*
 The check-in info is updated in the database if:
@@ -568,7 +532,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		(node.Capacity != nil && node.Capacity.FreeDisk != oldInfo.Capacity.FreeDisk)
 
 	if oldInfo.CountryCode == "" || oldInfo.LastIPPort != node.LastIPPort {
-		node.CountryCode = service.lookupCountryCode(node)
+		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
 	}
 
 	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
