@@ -21,7 +21,7 @@ export class PaymentsMock implements PaymentsApi {
         this.mockCoupon = coupon;
     }
 
-    setupAccount(): Promise<void> {
+    setupAccount(): Promise<string> {
         throw new Error('Method not implemented');
     }
 

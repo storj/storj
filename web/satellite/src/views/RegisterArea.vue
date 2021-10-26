@@ -311,6 +311,10 @@ export default class RegisterArea extends Vue {
         if (this.$route.query.partner) {
             this.user.partner = this.$route.query.partner.toString();
         }
+
+        if (this.$route.query.promo) {
+            this.user.signupPromoCode = this.$route.query.promo.toString();
+        }
     }
 
     /**

@@ -36,29 +36,61 @@ func (accounts *accounts) Invoices() payments.Invoices {
 
 // Setup creates a payment account for the user.
 // If account is already set up it will return nil.
-func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email string) (err error) {
+func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) (couponType payments.CouponType, err error) {
 	defer mon.Task()(&ctx, userID, email)(&err)
+
+	couponType = payments.FreeTierCoupon
 
 	_, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
 	if err == nil {
-		return nil
+		return couponType, nil
 	}
 
 	params := &stripe.CustomerParams{
 		Email: stripe.String(email),
 	}
-	// If a free tier coupon is provided, apply this on account creation.
-	if accounts.service.StripeFreeTierCouponID != "" {
+
+	if signupPromoCode == "" {
+
+		params.Coupon = stripe.String(accounts.service.StripeFreeTierCouponID)
+
+		customer, err := accounts.service.stripeClient.Customers().New(params)
+		if err != nil {
+			return couponType, Error.Wrap(err)
+		}
+
+		// TODO: delete customer from stripe, if db insertion fails
+		return couponType, Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
+	}
+
+	promoCodeIter := accounts.service.stripeClient.PromoCodes().List(&stripe.PromotionCodeListParams{
+		Code: stripe.String(signupPromoCode),
+	})
+
+	var promoCode *stripe.PromotionCode
+
+	if promoCodeIter.Next() {
+		promoCode = promoCodeIter.PromotionCode()
+	} else {
+		couponType = payments.NoCoupon
+	}
+
+	// If signup promo code is provided, apply this on account creation.
+	// If a free tier coupon is provided with no signup promo code, apply this on account creation.
+	if promoCode != nil && promoCode.Coupon != nil {
+		params.Coupon = stripe.String(promoCode.Coupon.ID)
+		couponType = payments.SignupCoupon
+	} else if accounts.service.StripeFreeTierCouponID != "" {
 		params.Coupon = stripe.String(accounts.service.StripeFreeTierCouponID)
 	}
 
 	customer, err := accounts.service.stripeClient.Customers().New(params)
 	if err != nil {
-		return Error.Wrap(err)
+		return couponType, Error.Wrap(err)
 	}
 
 	// TODO: delete customer from stripe, if db insertion fails
-	return Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
+	return couponType, Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
 }
 
 // Balance returns an integer amount in cents that represents the current balance of payment account.

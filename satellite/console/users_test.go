@@ -21,20 +21,21 @@ import (
 )
 
 const (
-	lastName       = "lastName"
-	email          = "email@mail.test"
-	passValid      = "123456"
-	name           = "name"
-	newName        = "newName"
-	newLastName    = "newLastName"
-	newEmail       = "newEmail@mail.test"
-	newPass        = "newPass1234567890123456789012345"
-	position       = "position"
-	companyName    = "companyName"
-	employeeCount  = "0"
-	workingOn      = "workingOn"
-	isProfessional = true
-	mfaSecretKey   = "mfaSecretKey"
+	lastName        = "lastName"
+	email           = "email@mail.test"
+	passValid       = "123456"
+	name            = "name"
+	newName         = "newName"
+	newLastName     = "newLastName"
+	newEmail        = "newEmail@mail.test"
+	newPass         = "newPass1234567890123456789012345"
+	position        = "position"
+	companyName     = "companyName"
+	employeeCount   = "0"
+	workingOn       = "workingOn"
+	isProfessional  = true
+	mfaSecretKey    = "mfaSecretKey"
+	signupPromoCode = "STORJ50"
 )
 
 func TestUserRepository(t *testing.T) {
@@ -66,17 +67,18 @@ func TestUserRepository(t *testing.T) {
 
 		// test professional user
 		user = &console.User{
-			ID:             testrand.UUID(),
-			FullName:       name,
-			ShortName:      lastName,
-			Email:          email,
-			PasswordHash:   []byte(passValid),
-			CreatedAt:      time.Now(),
-			IsProfessional: isProfessional,
-			Position:       position,
-			CompanyName:    companyName,
-			EmployeeCount:  employeeCount,
-			WorkingOn:      workingOn,
+			ID:              testrand.UUID(),
+			FullName:        name,
+			ShortName:       lastName,
+			Email:           email,
+			PasswordHash:    []byte(passValid),
+			CreatedAt:       time.Now(),
+			IsProfessional:  isProfessional,
+			Position:        position,
+			CompanyName:     companyName,
+			EmployeeCount:   employeeCount,
+			WorkingOn:       workingOn,
+			SignupPromoCode: signupPromoCode,
 		}
 		testUsers(ctx, t, repository, user)
 	})
@@ -183,11 +185,11 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, name, userByEmail.FullName)
 		assert.Equal(t, lastName, userByEmail.ShortName)
 		assert.Equal(t, user.PartnerID, userByEmail.PartnerID)
+		assert.Equal(t, user.SignupPromoCode, userByEmail.SignupPromoCode)
 		assert.False(t, user.PaidTier)
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
-		assert.Empty(t, user.SignupPromoCode)
 
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByEmail.WorkingOn)
@@ -206,10 +208,10 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, name, userByID.FullName)
 		assert.Equal(t, lastName, userByID.ShortName)
 		assert.Equal(t, user.PartnerID, userByID.PartnerID)
+		assert.Equal(t, user.SignupPromoCode, userByID.SignupPromoCode)
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
-		assert.Empty(t, user.SignupPromoCode)
 
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByID.WorkingOn)

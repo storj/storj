@@ -38,9 +38,10 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := console.CreateUser{
-		Email:    input.Email,
-		FullName: input.FullName,
-		Password: input.Password,
+		Email:           input.Email,
+		FullName:        input.FullName,
+		Password:        input.Password,
+		SignupPromoCode: input.SignupPromoCode,
 	}
 
 	err = user.IsValid()
@@ -85,6 +86,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		ProjectLimit:          server.config.ConsoleConfig.DefaultProjectLimit,
 		ProjectStorageLimit:   server.config.ConsoleConfig.UsageLimits.Storage.Free.Int64(),
 		ProjectBandwidthLimit: server.config.ConsoleConfig.UsageLimits.Bandwidth.Free.Int64(),
+		SignupPromoCode:       user.SignupPromoCode,
 	})
 	if err != nil {
 		sendJSONError(w, "failed to insert user",
@@ -92,7 +94,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = server.payments.Setup(ctx, newuser.ID, newuser.Email)
+	_, err = server.payments.Setup(ctx, newuser.ID, newuser.Email, newuser.SignupPromoCode)
 	if err != nil {
 		sendJSONError(w, "failed to create payment account for user",
 			err.Error(), http.StatusInternalServerError)
