@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
@@ -127,11 +128,12 @@ func TestGraphqlMutation(t *testing.T) {
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			FullName:  "John Roll",
-			ShortName: "Roll",
-			Email:     "test@mail.test",
-			UserAgent: []byte("120bf202-8252-437e-ac12-0e364bee852e"),
-			Password:  "123a123",
+			FullName:        "John Roll",
+			ShortName:       "Roll",
+			Email:           "test@mail.test",
+			UserAgent:       []byte("120bf202-8252-437e-ac12-0e364bee852e"),
+			Password:        "123a123",
+			SignupPromoCode: "promo1",
 		}
 
 		regToken, err := service.CreateRegToken(ctx, 1)
@@ -141,8 +143,12 @@ func TestGraphqlMutation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, createUser.UserAgent, rootUser.UserAgent)
 
-		err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email)
+		couponType, err := paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email, rootUser.SignupPromoCode)
+
+		var signupCouponType payments.CouponType = payments.SignupCoupon
+
 		require.NoError(t, err)
+		assert.Equal(t, signupCouponType, couponType)
 
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)

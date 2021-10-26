@@ -54,12 +54,13 @@ export class PaymentsHttpApi implements PaymentsApi {
      *
      * @throws Error
      */
-    public async setupAccount(): Promise<void> {
+    public async setupAccount(): Promise<string> {
         const path = `${this.ROOT_PATH}/account`;
         const response = await this.client.post(path, null);
+        const couponType = await response.json();
 
         if (response.ok) {
-            return;
+            return couponType;
         }
 
         if (response.status === 401) {

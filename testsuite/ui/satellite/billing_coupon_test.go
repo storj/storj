@@ -15,43 +15,49 @@ import (
 	"storj.io/storj/testsuite/ui/uitest"
 )
 
+func navigateToBilling(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser, signupQuery string) *rod.Page {
+	signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup" + signupQuery
+	fullName := "John Doe"
+	emailAddress := "test@email.com"
+	password := "qazwsx123"
+
+	page := openPage(browser, signupPageURL)
+
+	page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
+	page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+	page.MustElement("[aria-roledescription=password] input").MustInput(password)
+	page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
+	page.MustElement(".checkmark").MustClick()
+	page.Keyboard.MustPress(input.Enter)
+	waitVueTick(page)
+	confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
+	require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
+
+	// first time user logs in
+	page.MustElement("[href=\"/login\"]").MustClick()
+	waitVueTick(page)
+	page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+	page.MustElement("[aria-roledescription=password] input").MustInput(password)
+	page.Keyboard.MustPress(input.Enter)
+	waitVueTick(page)
+
+	// skip onboarding process
+	page.MustElement("[href=\"/project-dashboard\"]").MustClick()
+	dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
+	require.Contains(t, dashboardTitle, "Dashboard")
+
+	// go to billing page
+	page.MustElement("[aria-roledescription=account-area]").MustClick()
+	page.MustElementR("p", "Billing").MustClick()
+	waitVueTick(page)
+
+	return page
+}
+
 func TestCouponCodes(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
-		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
-		fullName := "John Doe"
-		emailAddress := "test@email.test"
-		password := "qazwsx123"
 
-		page := openPage(browser, signupPageURL)
-
-		// first time User signs up
-		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
-		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
-		page.MustElement("[aria-roledescription=password] input").MustInput(password)
-		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
-		page.MustElement(".checkmark").MustClick()
-		page.Keyboard.MustPress(input.Enter)
-		waitVueTick(page)
-		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
-
-		// first time user logs in
-		page.MustElement("[href=\"/login\"]").MustClick()
-		waitVueTick(page)
-		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
-		page.MustElement("[aria-roledescription=password] input").MustInput(password)
-		page.Keyboard.MustPress(input.Enter)
-		waitVueTick(page)
-
-		// skip onboarding process
-		page.MustElement("[href=\"/project-dashboard\"]").MustClick()
-		dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, dashboardTitle, "Dashboard")
-
-		// go to billing page
-		page.MustElement("[aria-roledescription=account-area]").MustClick()
-		page.MustElementR("p", "Billing").MustClick()
-		waitVueTick(page)
+		page := navigateToBilling(t, ctx, planet, browser, "")
 
 		couponText := page.MustElement(".coupon-area__container__text-container").MustText()
 		require.Contains(t, couponText, "Add a Coupon to Get Started")
@@ -119,5 +125,29 @@ func TestCouponCodes(t *testing.T) {
 			}
 			page.MustElementR("p", "You've exceeded limit of attempts")
 		}
+	})
+}
+
+func TestCouponCodeSignupGood(t *testing.T) {
+	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
+
+		page := navigateToBilling(t, ctx, planet, browser, "/?promo=promo1")
+
+		couponText := page.MustElement(".coupon-area__container__text-container").MustText()
+		require.Contains(t, couponText, "Test Promo Code 1")
+		require.Contains(t, couponText, "$5 off")
+
+	})
+}
+
+func TestCouponCodeSignupBad(t *testing.T) {
+	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
+
+		page := navigateToBilling(t, ctx, planet, browser, "/?promo=badCode")
+
+		couponText := page.MustElement(".coupon-area__container__text-container").MustText()
+		require.Contains(t, couponText, "Add a Coupon to Get Started")
+		require.Contains(t, couponText, "Your coupon will show up here.")
+
 	})
 }

@@ -66,6 +66,7 @@ export class User {
         public employeeCount: string = '',
         public haveSalesContact: boolean = false,
         public mfaRecoveryCodeCount: number = 0,
+        public signupPromoCode: string = '',
     ) {}
 
     public getFullName(): string {

@@ -44,3 +44,15 @@ const (
 	// CouponForever indicates that a coupon is applied every billing period forever.
 	CouponForever = "forever"
 )
+
+// CouponType is an enum representing the outcome a coupon validation check.
+type CouponType string
+
+const (
+	// NoCoupon represents an invalid coupon registration attempt.
+	NoCoupon CouponType = "noCoupon"
+	// FreeTierCoupon represents the default free tier coupon.
+	FreeTierCoupon = "freeTierCoupon"
+	// SignupCoupon represents a valid promo code coupon.
+	SignupCoupon = "signupCoupon"
+)

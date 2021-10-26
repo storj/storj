@@ -33,7 +33,7 @@ export class AuthHttpApi implements UsersApi {
         if (response.status == 429) {
             throw new ErrorTooManyRequests(this.rateLimitErrMsg);
         }
-        
+
         throw new Error('Failed to send email');
     }
 
@@ -241,7 +241,7 @@ export class AuthHttpApi implements UsersApi {
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string, recaptchaResponse: string): Promise<void> {
+    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean, signupPromoCode: string }, secret: string, recaptchaResponse: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -257,10 +257,11 @@ export class AuthHttpApi implements UsersApi {
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
             recaptchaResponse: recaptchaResponse,
+            signupPromoCode: user.signupPromoCode,
         };
         const response = await this.http.post(path, JSON.stringify(body));
+        const result = await response.json();
         if (!response.ok) {
-            const result = await response.json();
             const errMsg = result.error || 'Cannot register user';
             switch (response.status) {
             case 400:
@@ -273,6 +274,7 @@ export class AuthHttpApi implements UsersApi {
                 throw new Error(errMsg);
             }
         }
+        return result;
     }
 
     /**
@@ -336,7 +338,7 @@ export class AuthHttpApi implements UsersApi {
         if (response.ok) {
             return;
         }
-        
+
         const result = await response.json();
         if (!response.ok) {
             const errMsg = result.error || 'Cannot disable MFA. Please try again later';

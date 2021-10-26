@@ -230,15 +230,15 @@ func (s *Service) Payments() PaymentsService {
 }
 
 // SetupAccount creates payment account for authorized user.
-func (paymentService PaymentsService) SetupAccount(ctx context.Context) (err error) {
+func (paymentService PaymentsService) SetupAccount(ctx context.Context) (_ payments.CouponType, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "setup payment account")
 	if err != nil {
-		return Error.Wrap(err)
+		return payments.NoCoupon, Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email)
+	return paymentService.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email, auth.User.SignupPromoCode)
 }
 
 // AccountBalance return account balance.
@@ -630,6 +630,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			CompanyName:      user.CompanyName,
 			EmployeeCount:    user.EmployeeCount,
 			HaveSalesContact: user.HaveSalesContact,
+			SignupPromoCode:  user.SignupPromoCode,
 		}
 
 		if user.UserAgent != nil {

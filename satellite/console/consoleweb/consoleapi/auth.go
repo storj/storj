@@ -166,6 +166,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		EmployeeCount     string `json:"employeeCount"`
 		HaveSalesContact  bool   `json:"haveSalesContact"`
 		RecaptchaResponse string `json:"recaptchaResponse"`
+		SignupPromoCode   string `json:"signupPromoCode"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -250,6 +251,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				HaveSalesContact:  registerData.HaveSalesContact,
 				RecaptchaResponse: registerData.RecaptchaResponse,
 				IP:                ip,
+				SignupPromoCode:   registerData.SignupPromoCode,
 			},
 			secret,
 		)
