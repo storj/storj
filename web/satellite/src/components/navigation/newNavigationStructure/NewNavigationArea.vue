@@ -3,7 +3,7 @@
 
 <template>
     <div v-if="!isNavigationHidden" class="navigation-area">
-        <div class="navigation-area__container">
+        <div ref="navigationContainer" class="navigation-area__container">
             <div class="navigation-area__container__wrap">
                 <LogoIcon class="navigation-area__container__wrap__logo" @click.stop="onLogoClick" />
                 <SmallLogoIcon class="navigation-area__container__wrap__small-logo" @click.stop="onLogoClick" />
@@ -209,7 +209,24 @@ export default class NewNavigationArea extends Vue {
     public $refs!: {
         resourcesContainer: HTMLDivElement;
         quickStartContainer: HTMLDivElement;
+        navigationContainer: HTMLDivElement;
     };
+
+    /**
+     * Mounted hook after initial render.
+     * Adds scroll event listener to close dropdowns.
+     */
+    public mounted(): void {
+        this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns)
+    }
+
+    /**
+     * Mounted hook before component destroy.
+     * Removes scroll event listener.
+     */
+    public beforeDestroy(): void {
+        this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns)
+    }
 
     /**
      * Reloads page.
@@ -454,7 +471,7 @@ export default class NewNavigationArea extends Vue {
         opacity: 0.1;
     }
 
-    @media screen and (max-width: 768px) {
+    @media screen and (max-width: 1280px) {
 
         .navigation-area {
             min-width: unset;

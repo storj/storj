@@ -287,7 +287,7 @@ export default class AccountArea extends Vue {
         background-color: #f7f8fb;
     }
 
-    @media screen and (max-width: 768px) {
+    @media screen and (max-width: 1280px) {
 
         .account-area__info {
             display: none;

@@ -356,7 +356,7 @@ export default class NewProjectSelection extends Vue {
         background-color: #fafafb;
     }
 
-    @media screen and (max-width: 768px) {
+    @media screen and (max-width: 1280px) {
 
         .project-selection__selected {
 
