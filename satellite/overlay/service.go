@@ -301,7 +301,7 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 		return nil, err
 	}
 
-	var geoIP geoip.IPToCountry = &geoip.MockIPToCountry{}
+	var geoIP geoip.IPToCountry = geoip.MockIPToCountry(config.GeoIP.MockCountries)
 	if config.GeoIP.GeoLocationDB != "" {
 		geoIP, err = geoip.OpenMaxmindDB(config.GeoIP.GeoLocationDB)
 		if err != nil {
