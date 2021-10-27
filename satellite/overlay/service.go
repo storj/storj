@@ -93,7 +93,7 @@ type DB interface {
 	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (err error)
 
 	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
@@ -216,22 +216,23 @@ type ExitStatusRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node.
 type NodeDossier struct {
 	pb.Node
-	Type                  pb.NodeType
-	Operator              pb.NodeOperator
-	Capacity              pb.NodeCapacity
-	Reputation            NodeStats
-	Version               pb.NodeVersion
-	Contained             bool
-	Disqualified          *time.Time
-	UnknownAuditSuspended *time.Time
-	OfflineSuspended      *time.Time
-	OfflineUnderReview    *time.Time
-	PieceCount            int64
-	ExitStatus            ExitStatus
-	CreatedAt             time.Time
-	LastNet               string
-	LastIPPort            string
-	CountryCode           location.CountryCode
+	Type                   pb.NodeType
+	Operator               pb.NodeOperator
+	Capacity               pb.NodeCapacity
+	Reputation             NodeStats
+	Version                pb.NodeVersion
+	Contained              bool
+	Disqualified           *time.Time
+	DisqualificationReason *DisqualificationReason
+	UnknownAuditSuspended  *time.Time
+	OfflineSuspended       *time.Time
+	OfflineUnderReview     *time.Time
+	PieceCount             int64
+	ExitStatus             ExitStatus
+	CreatedAt              time.Time
+	LastNet                string
+	LastIPPort             string
+	CountryCode            location.CountryCode
 }
 
 // NodeStats contains statistics about a node.
@@ -641,9 +642,9 @@ func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.DisqualifyNode(ctx, nodeID)
+	return service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.

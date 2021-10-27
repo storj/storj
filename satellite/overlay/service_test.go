@@ -87,7 +87,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		err = store.UpdateCheckIn(ctx, d, time.Now().UTC(), nodeSelectionConfig)
 		require.NoError(t, err)
 		// disqualify one node
-		err = service.DisqualifyNode(ctx, valid3ID)
+		err = service.DisqualifyNode(ctx, valid3ID, overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 	}
 
@@ -440,7 +440,7 @@ func TestKnownReliable(t *testing.T) {
 		oc := satellite.DB.OverlayCache()
 
 		// Disqualify storage node #0
-		err := oc.DisqualifyNode(ctx, planet.StorageNodes[0].ID())
+		err := oc.DisqualifyNode(ctx, planet.StorageNodes[0].ID(), time.Now().UTC(), overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		// Stop storage node #1

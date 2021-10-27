@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 )
 
 func TestRollupNoDeletes(t *testing.T) {
@@ -366,7 +367,7 @@ func dqNodes(ctx *testcontext.Context, planet *testplanet.Planet) (map[storj.Nod
 			continue
 		}
 
-		err := planet.Satellites[0].Overlay.DB.DisqualifyNode(ctx, n.ID())
+		err := planet.Satellites[0].Overlay.DB.DisqualifyNode(ctx, n.ID(), time.Now().UTC(), overlay.DisqualificationReasonUnknown)
 		if err != nil {
 			return nil, err
 		}

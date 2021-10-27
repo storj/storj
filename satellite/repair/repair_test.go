@@ -138,7 +138,7 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToDisqualify[node.ID()] {
-				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID())
+				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID(), time.Now(), overlay.DisqualificationReasonUnknown)
 				require.NoError(t, err)
 				continue
 			}
@@ -305,7 +305,7 @@ func TestDataRepairPendingObject(t *testing.T) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToDisqualify[node.ID()] {
-				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID())
+				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID(), time.Now(), overlay.DisqualificationReasonUnknown)
 				require.NoError(t, err)
 				continue
 			}
@@ -1311,7 +1311,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		}
 
 		for nodeID := range nodesToDQ {
-			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID, time.Now(), overlay.DisqualificationReasonUnknown)
 			require.NoError(t, err)
 
 		}
@@ -1396,7 +1396,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		}
 
 		for nodeID := range nodesToDQ {
-			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID, time.Now(), overlay.DisqualificationReasonUnknown)
 			require.NoError(t, err)
 
 		}
@@ -1659,7 +1659,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		remotePieces := segment.Pieces
 
 		for i := 0; i < toDQ; i++ {
-			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, remotePieces[i].StorageNode)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, remotePieces[i].StorageNode, time.Now(), overlay.DisqualificationReasonUnknown)
 			require.NoError(t, err)
 		}
 
@@ -1671,7 +1671,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		// Disqualify nodes so that online nodes < minimum threshold
 		// This will make the segment irreparable
 		for _, piece := range remotePieces {
-			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, piece.StorageNode)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, piece.StorageNode, time.Now(), overlay.DisqualificationReasonUnknown)
 			require.NoError(t, err)
 		}
 
@@ -1852,7 +1852,7 @@ func TestRepairMultipleDisqualifiedAndSuspended(t *testing.T) {
 		// disqualify and suspend nodes
 		for i := 0; i < toDisqualify; i++ {
 			nodesToDisqualify[remotePieces[i].StorageNode] = true
-			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, remotePieces[i].StorageNode)
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, remotePieces[i].StorageNode, time.Now(), overlay.DisqualificationReasonUnknown)
 			require.NoError(t, err)
 		}
 		for i := toDisqualify; i < toDisqualify+toSuspend; i++ {

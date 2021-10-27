@@ -714,7 +714,7 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.N
 		message = &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitFailed{
 			ExitFailed: signed,
 		}}
-		err = endpoint.overlay.DisqualifyNode(ctx, nodeID)
+		err = endpoint.overlay.DisqualifyNode(ctx, nodeID, overlay.DisqualificationReasonUnknown)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

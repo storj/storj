@@ -265,7 +265,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 						err := overlaydb.TestSuspendNodeUnknownAudit(ctx, nodeID, now)
 						require.NoError(b, err)
 					case 1:
-						err := overlaydb.DisqualifyNode(ctx, nodeID)
+						err := overlaydb.DisqualifyNode(ctx, nodeID, time.Now(), overlay.DisqualificationReasonUnknown)
 						require.NoError(b, err)
 					case 2:
 						err := overlaydb.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{

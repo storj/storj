@@ -137,13 +137,15 @@ func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID 
 }
 
 // TestDisqualifyNode disqualifies a storage node.
-func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
-	err = service.db.DisqualifyNode(ctx, nodeID, time.Now())
+func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason overlay.DisqualificationReason) (err error) {
+	disqualifiedAt := time.Now()
+
+	err = service.db.DisqualifyNode(ctx, nodeID, disqualifiedAt)
 	if err != nil {
 		return err
 	}
 
-	return service.overlay.DisqualifyNode(ctx, nodeID)
+	return service.overlay.DisqualifyNode(ctx, nodeID, disqualifiedAt, reason)
 }
 
 // TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.

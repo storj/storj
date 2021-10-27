@@ -137,7 +137,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		segment := segments[0]
 		disqualifiedNode := segment.Pieces[0].StorageNode
 
-		err = satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode)
+		err = satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode, overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0)
@@ -170,7 +170,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		disqualifiedNode := planet.StorageNodes[0]
 		satellitePeer.Audit.Worker.Loop.Pause()
 
-		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID())
+		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID(), overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		request := overlay.FindStorageNodesRequest{
@@ -213,7 +213,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		satellitePeer.Audit.Worker.Loop.Pause()
 
 		disqualifiedNode := planet.StorageNodes[0]
-		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID())
+		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID(), overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		info := overlay.NodeCheckInInfo{
