@@ -301,7 +301,7 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 		return nil, err
 	}
 
-	var geoIP geoip.IPToCountry
+	var geoIP geoip.IPToCountry = &geoip.MockIPToCountry{}
 	if config.GeoIP.GeoLocationDB != "" {
 		geoIP, err = geoip.OpenMaxmindDB(config.GeoIP.GeoLocationDB)
 		if err != nil {
@@ -330,11 +330,7 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 
 // Close closes resources.
 func (service *Service) Close() error {
-	if service.GeoIP != nil {
-		return service.GeoIP.Close()
-	}
-
-	return nil
+	return service.GeoIP.Close()
 }
 
 // Get looks up the provided nodeID from the overlay.
@@ -556,7 +552,8 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	}
 
 	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
-		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort {
+		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort ||
+		oldInfo.CountryCode != node.CountryCode {
 		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 	}
 
