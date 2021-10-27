@@ -511,6 +511,14 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	}
 
 	if oldInfo == nil {
+		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
+		if err != nil {
+			service.log.Debug("failed to resolve country code for node",
+				zap.String("node address", node.Address.Address),
+				zap.Stringer("Node ID", node.NodeID),
+				zap.Error(err))
+		}
+
 		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 	}
 
@@ -543,6 +551,8 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 				zap.Stringer("Node ID", node.NodeID),
 				zap.Error(err))
 		}
+	} else {
+		node.CountryCode = oldInfo.CountryCode
 	}
 
 	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
