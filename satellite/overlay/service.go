@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/metabase"
 )
@@ -303,6 +304,9 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 	var geoIP geoip.IPToCountry
 	if config.GeoIP.GeoLocationDB != "" {
 		geoIP, err = geoip.OpenMaxmindDB(config.GeoIP.GeoLocationDB)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
 	return &Service{
@@ -533,6 +537,12 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 
 	if oldInfo.CountryCode == "" || oldInfo.LastIPPort != node.LastIPPort {
 		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
+		if err != nil {
+			service.log.Debug("failed to resolve country code for node",
+				zap.String("node address", node.Address.Address),
+				zap.Stringer("Node ID", node.NodeID),
+				zap.Error(err))
+		}
 	}
 
 	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
