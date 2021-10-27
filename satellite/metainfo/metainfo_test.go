@@ -27,8 +27,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
@@ -2153,4 +2155,84 @@ func TestDeleteNonExistentObject(t *testing.T) {
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 	})
+}
+
+func TestMoveObject_Geofencing(t *testing.T) {
+	testplanet.Run(t,
+		testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			satellite := planet.Satellites[0]
+			buckets := satellite.API.Buckets.Service
+			uplink := planet.Uplinks[0]
+			projectID := uplink.Projects[0].ID
+
+			// create buckets with different placement
+			createGeofencedBucket(t, ctx, buckets, projectID, "global1", storj.EveryCountry)
+			createGeofencedBucket(t, ctx, buckets, projectID, "global2", storj.EveryCountry)
+			createGeofencedBucket(t, ctx, buckets, projectID, "us1", storj.US)
+			createGeofencedBucket(t, ctx, buckets, projectID, "us2", storj.US)
+			createGeofencedBucket(t, ctx, buckets, projectID, "eu1", storj.EU)
+
+			// upload an object to one of the global buckets
+			err := uplink.Upload(ctx, satellite, "global1", "testobject", []byte{})
+			require.NoError(t, err)
+
+			project, err := uplink.GetProject(ctx, satellite)
+			require.NoError(t, err)
+
+			// move the object to a new key within the same bucket
+			err = project.MoveObject(ctx, "global1", "testobject", "global1", "movedobject", nil)
+			require.NoError(t, err)
+
+			// move the object to the other global bucket
+			err = project.MoveObject(ctx, "global1", "movedobject", "global2", "movedobject", nil)
+			require.NoError(t, err)
+
+			// move the object to a geofenced bucket - should fail
+			err = project.MoveObject(ctx, "global2", "movedobject", "us1", "movedobject", nil)
+			require.Error(t, err)
+
+			// upload an object to one of the US-geofenced buckets
+			err = uplink.Upload(ctx, satellite, "us1", "testobject", []byte{})
+			require.NoError(t, err)
+
+			// move the object to a new key within the same bucket
+			err = project.MoveObject(ctx, "us1", "testobject", "us1", "movedobject", nil)
+			require.NoError(t, err)
+
+			// move the object to the other US-geofenced bucket
+			err = project.MoveObject(ctx, "us1", "movedobject", "us2", "movedobject", nil)
+			require.NoError(t, err)
+
+			// move the object to the EU-geofenced bucket - should fail
+			err = project.MoveObject(ctx, "us2", "movedobject", "eu1", "movedobject", nil)
+			require.Error(t, err)
+
+			// move the object to a non-geofenced bucket - should fail
+			err = project.MoveObject(ctx, "us2", "movedobject", "global1", "movedobject", nil)
+			require.Error(t, err)
+		},
+	)
+}
+
+func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, buckets *buckets.Service, projectID uuid.UUID, bucketName string, placement storj.PlacementConstraint) {
+	// generate the bucket id
+	bucketID, err := uuid.New()
+	require.NoError(t, err)
+
+	// create the bucket
+	_, err = buckets.CreateBucket(ctx, storj.Bucket{
+		ID:        bucketID,
+		Name:      bucketName,
+		ProjectID: projectID,
+		Placement: placement,
+	})
+	require.NoError(t, err)
+
+	// check that the bucket placement is correct
+	bucket, err := buckets.GetBucket(ctx, []byte(bucketName), projectID)
+	require.NoError(t, err)
+	require.Equal(t, placement, bucket.Placement)
 }
