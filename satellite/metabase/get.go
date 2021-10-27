@@ -191,7 +191,8 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 				encrypted_size, plain_offset, plain_size,
 				encrypted_etag,
 				redundancy,
-				inline_data, remote_alias_pieces
+				inline_data, remote_alias_pieces,
+				placement
 			FROM segments
 			WHERE
 				stream_id IN (SELECT stream_id FROM objects WHERE
@@ -211,6 +212,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -258,7 +260,8 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			encrypted_size, plain_offset, plain_size,
 			encrypted_etag,
 			redundancy,
-			inline_data, remote_alias_pieces
+			inline_data, remote_alias_pieces,
+			placement
 		FROM segments
 		WHERE
 			stream_id = $1 AND
@@ -271,6 +274,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -312,7 +316,8 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			encrypted_size, plain_offset, plain_size,
 			encrypted_etag,
 			redundancy,
-			inline_data, remote_alias_pieces
+			inline_data, remote_alias_pieces,
+			placement
 		FROM segments
 		WHERE
 			stream_id IN (SELECT stream_id FROM objects WHERE
@@ -334,6 +339,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

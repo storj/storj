@@ -275,6 +275,8 @@ type CommitSegment struct {
 	Redundancy storj.RedundancyScheme
 
 	Pieces Pieces
+
+	Placement storj.PlacementConstraint
 }
 
 // CommitSegment commits segment to the database.
@@ -322,7 +324,8 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size, encrypted_etag,
 			redundancy,
-			remote_alias_pieces
+			remote_alias_pieces,
+			placement
 		) VALUES (
 			(SELECT stream_id
 				FROM objects WHERE
@@ -336,7 +339,8 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 			$3, $4, $5,
 			$6, $7, $8, $9,
 			$10,
-			$11
+			$11,
+			$17
 		)
 		ON CONFLICT(stream_id, position)
 		DO UPDATE SET
@@ -344,13 +348,15 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 			root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
 			encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
 			redundancy = $10,
-			remote_alias_pieces = $11
+			remote_alias_pieces = $11,
+			placement = $17
 		`, opts.Position, opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		redundancyScheme{&opts.Redundancy},
 		aliasPieces,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		opts.Placement,
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {

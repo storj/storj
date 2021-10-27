@@ -36,6 +36,7 @@ func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
 			CipherSuite: storj.EncAESGCM,
 			BlockSize:   9 * 10,
 		},
+		Placement: storj.EU,
 	}
 }
 
@@ -69,6 +70,7 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultSegmentsSize, bucket.DefaultSegmentsSize)
 		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
+		require.Equal(t, expectedBucket.Placement, bucket.Placement)
 
 		// GetMinimalBucket
 		minimalBucket, err := bucketsDB.GetMinimalBucket(ctx, []byte("testbucket"), project.ID)
@@ -77,7 +79,15 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.False(t, minimalBucket.CreatedAt.IsZero())
 
 		_, err = bucketsDB.GetMinimalBucket(ctx, []byte("not-existing-bucket"), project.ID)
-		require.True(t, storj.ErrBucketNotFound.Has(err))
+		require.True(t, storj.ErrBucketNotFound.Has(err), err)
+
+		// GetBucketPlacement
+		placement, err := bucketsDB.GetBucketPlacement(ctx, []byte("testbucket"), project.ID)
+		require.NoError(t, err)
+		require.Equal(t, expectedBucket.Placement, placement)
+
+		_, err = bucketsDB.GetBucketPlacement(ctx, []byte("not-existing-bucket"), project.ID)
+		require.True(t, storj.ErrBucketNotFound.Has(err), err)
 
 		// CountBuckets
 		count, err = bucketsDB.CountBuckets(ctx, project.ID)

@@ -65,6 +65,8 @@ type RawSegment struct {
 
 	InlineData []byte
 	Pieces     Pieces
+
+	Placement storj.PlacementConstraint
 }
 
 // RawState contains full state of a table.
@@ -176,7 +178,8 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 			plain_offset, plain_size,
 			encrypted_etag,
 			redundancy,
-			inline_data, remote_alias_pieces
+			inline_data, remote_alias_pieces, 
+			placement
 		FROM segments
 		ORDER BY stream_id ASC, position ASC
 	`)
@@ -208,6 +211,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 
 			&seg.InlineData,
 			&aliasPieces,
+			&seg.Placement,
 		)
 		if err != nil {
 			return nil, Error.New("testingGetAllSegments scan failed: %w", err)

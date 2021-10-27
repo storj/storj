@@ -617,12 +617,13 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	exists, err := endpoint.buckets.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
+		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	} else if !exists {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
 	objectKeyLength := len(req.EncryptedPath)
@@ -700,6 +701,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		StreamId:             streamID[:],
 		MultipartObject:      object.FixedSegmentSize <= 0,
 		EncryptionParameters: req.EncryptionParameters,
+		Placement:            int32(placement),
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -1049,7 +1051,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	// convert to response
-
 	protoObject, err := endpoint.objectToProto(ctx, object, nil)
 	if err != nil {
 		endpoint.log.Error("unable to convert object to proto", zap.Error(err))
@@ -1220,12 +1221,13 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	exists, err := endpoint.buckets.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
+		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	} else if !exists {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
 	limit := int(req.Limit)
@@ -1279,7 +1281,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata, placement)
 				if err != nil {
 					return err
 				}
@@ -1323,13 +1325,13 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	// TODO this needs to be optimized to avoid DB call on each request
-	exists, err := endpoint.buckets.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
+		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	} else if !exists {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
 	cursor := metabase.StreamIDCursor{}
@@ -1365,7 +1367,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", true)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", true, placement)
 				if err != nil {
 					return err
 				}
@@ -1675,6 +1677,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: redundancy.TotalCount(),
+		Placement:      storj.PlacementConstraint(streamID.Placement),
 	}
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, request)
 	if err != nil {
@@ -1875,6 +1878,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		RootPieceID: segmentID.RootPieceId,
 		Redundancy:  rs,
 		Pieces:      pieces,
+		Placement:   storj.PlacementConstraint(streamID.Placement),
 	}
 
 	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
@@ -2434,7 +2438,6 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metaba
 	defer mon.Task()(&ctx)(&err)
 	// We should ignore client cancelling and always try to delete segments.
 	ctx = context2.WithoutCancellation(ctx)
-
 	deletedObjects = make([]*pb.Object, len(result.Objects))
 	for i, object := range result.Objects {
 		deletedObject, err := endpoint.objectToProto(ctx, object, endpoint.defaultRS)
@@ -2493,6 +2496,8 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
 		},
+		//TODO: this is the only one place where placement is not added to the StreamID
+		// bucket info  would be required to add placement here
 	})
 	if err != nil {
 		return nil, err
@@ -2559,7 +2564,10 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	return result, nil
 }
 
-func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey, includeMetadata bool) (item *pb.ObjectListItem, err error) {
+func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte,
+	entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey,
+	includeMetadata bool, placement storj.PlacementConstraint) (item *pb.ObjectListItem, err error) {
+
 	expires := time.Time{}
 	if entry.ExpiresAt != nil {
 		expires = *entry.ExpiresAt
@@ -2630,6 +2638,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 				CipherSuite: pb.CipherSuite(entry.Encryption.CipherSuite),
 				BlockSize:   int64(entry.Encryption.BlockSize),
 			},
+			Placement: int32(placement),
 		})
 		if err != nil {
 			return nil, err
@@ -2754,12 +2763,13 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	// we are verifying existence of target bucket only because source bucket
 	// will be checked while quering source object
 	// TODO this needs to be optimized to avoid DB call on each request
-	exists, err := endpoint.buckets.HasBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
 	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, fmt.Sprintf("bucket not found: %s", req.NewBucket))
+		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	} else if !exists {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, fmt.Sprintf("bucket not found: %s", req.NewBucket))
 	}
 
 	result, err := endpoint.metabase.BeginMoveObject(ctx, metabase.BeginMoveObject{
@@ -2789,6 +2799,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
 			BlockSize:   int64(result.EncryptionParameters.BlockSize),
 		},
+		Placement: int32(placement),
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))

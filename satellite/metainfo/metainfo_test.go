@@ -620,15 +620,22 @@ func TestBucketExistenceCheck(t *testing.T) {
 func TestBeginCommit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.GeoIP.MockCountries = []string{"DE"}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		bucketsDB := planet.Satellites[0].API.Buckets.Service
+		buckets := planet.Satellites[0].API.Buckets.Service
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
+			Placement: storj.EU,
 		}
-		_, err := bucketsDB.CreateBucket(ctx, bucket)
+
+		_, err := buckets.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -654,6 +661,11 @@ func TestBeginCommit(t *testing.T) {
 		}
 		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
+
+		streamID := internalpb.StreamID{}
+		err = pb.Unmarshal(beginObjectResponse.StreamID.Bytes(), &streamID)
+		require.NoError(t, err)
+		require.Equal(t, int32(storj.EU), streamID.Placement)
 
 		response, err := metainfoClient.BeginSegment(ctx, metaclient.BeginSegmentParams{
 			StreamID: beginObjectResponse.StreamID,
@@ -745,7 +757,7 @@ func TestInlineSegment(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		bucketsDB := planet.Satellites[0].API.Buckets.Service
+		buckets := planet.Satellites[0].API.Buckets.Service
 
 		// TODO maybe split into separate cases
 		// Test:
@@ -762,7 +774,7 @@ func TestInlineSegment(t *testing.T) {
 			Name:      "inline-segments-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := bucketsDB.CreateBucket(ctx, bucket)
+		_, err := buckets.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -894,6 +906,41 @@ func TestInlineSegment(t *testing.T) {
 	})
 }
 
+func TestUploadWithPlacement(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.GeoIP.MockCountries = []string{"DE"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		bucketName := "initial-bucket"
+		objectName := "file1"
+
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		fmt.Println(apiKey)
+		buckets := planet.Satellites[0].API.Buckets.Service
+
+		bucket := storj.Bucket{
+			Name:      bucketName,
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
+			Placement: storj.EU,
+		}
+		_, err := buckets.CreateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		// this should be bigger than the max inline segment
+		content := make([]byte, 5000)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.Name, objectName, content)
+		require.NoError(t, err)
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(segments))
+		require.Equal(t, storj.EU, segments[0].Placement)
+	})
+}
 func TestRemoteSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -1560,13 +1607,13 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		bucketsDB := planet.Satellites[0].API.Buckets.Service
+		buckets := planet.Satellites[0].API.Buckets.Service
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := bucketsDB.CreateBucket(ctx, bucket)
+		_, err := buckets.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)

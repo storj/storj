@@ -24,13 +24,14 @@ type bucketsDB struct {
 func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	partnerID := dbx.BucketMetainfo_Create_Fields{}
+	optionalFields := dbx.BucketMetainfo_Create_Fields{}
 	if !bucket.PartnerID.IsZero() || bucket.UserAgent != nil {
-		partnerID = dbx.BucketMetainfo_Create_Fields{
+		optionalFields = dbx.BucketMetainfo_Create_Fields{
 			PartnerId: dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:]),
 			UserAgent: dbx.BucketMetainfo_UserAgent(bucket.UserAgent),
 		}
 	}
+	optionalFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
 	row, err := db.db.Create_BucketMetainfo(ctx,
 		dbx.BucketMetainfo_Id(bucket.ID[:]),
@@ -46,7 +47,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 		dbx.BucketMetainfo_DefaultRedundancyRepairShares(int(bucket.DefaultRedundancyScheme.RepairShares)),
 		dbx.BucketMetainfo_DefaultRedundancyOptimalShares(int(bucket.DefaultRedundancyScheme.OptimalShares)),
 		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancyScheme.TotalShares)),
-		partnerID,
+		optionalFields,
 	)
 	if err != nil {
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
@@ -73,6 +74,27 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
+}
+
+// GetBucketPlacement returns with the placement constraint identifier.
+func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storj.PlacementConstraint, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxPlacement, err := db.db.Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return storj.EveryCountry, storj.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return storj.EveryCountry, storj.ErrBucket.Wrap(err)
+	}
+	placement = storj.EveryCountry
+	if dbxPlacement.Placement != nil {
+		placement = storj.PlacementConstraint(*dbxPlacement.Placement)
+	}
+
+	return placement, nil
 }
 
 // GetMinimalBucket returns existing bucket with minimal number of fields.
