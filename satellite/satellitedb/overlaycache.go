@@ -1037,6 +1037,7 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 		WHERE last_contact_success < $1
 			AND disqualified is NULL
 			AND exit_finished_at is NULL
+			AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
 		LIMIT $2
 	`), cutoff, limit)
 	if err != nil {
