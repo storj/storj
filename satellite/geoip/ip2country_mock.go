@@ -3,8 +3,6 @@
 
 package geoip
 
-import "net"
-
 // MockIPToCountry provides a mock solution for looking up country codes in testplanet tests. This is done using the
 // last byte of the ip address and mod'ing it into a country code.
 type MockIPToCountry []string
@@ -14,15 +12,12 @@ func (m MockIPToCountry) Close() error {
 }
 
 func (m MockIPToCountry) LookupISOCountryCode(address string) (string, error) {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
+	ip, err := addressToIP(address)
+	if err != nil || ip == nil {
 		return "", err
 	}
 
-	ip := net.ParseIP(host)
 	lastBlock := int(ip[len(ip)-1])
-
-	// mod or div?
 	return m[lastBlock%len(m)], nil
 }
 

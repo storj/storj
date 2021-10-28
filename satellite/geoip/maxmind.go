@@ -4,10 +4,20 @@
 package geoip
 
 import (
-	"net"
-
 	"github.com/oschwald/maxminddb-golang"
 )
+
+// OpenMaxmindDB will use the provided filepath to open the target maxmind database.
+func OpenMaxmindDB(filepath string) (*MaxmindDB, error) {
+	geoIP, err := maxminddb.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MaxmindDB{
+		db: geoIP,
+	}, nil
+}
 
 type ipInfo struct {
 	Country struct {
@@ -25,13 +35,13 @@ func (m *MaxmindDB) Close() error {
 }
 
 func (m *MaxmindDB) LookupISOCountryCode(address string) (string, error) {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
+	ip, err := addressToIP(address)
+	if err != nil || ip == nil {
 		return "", err
 	}
 
 	info := &ipInfo{}
-	err = m.db.Lookup(net.ParseIP(host), info)
+	err = m.db.Lookup(ip, info)
 	if err != nil {
 		return "", err
 	}
