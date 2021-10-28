@@ -25,9 +25,9 @@ type Config struct {
 	MaxPiecesPerBatch   int `help:"maximum number of pieces per batch" default:"5000" testDefault:"4000"`
 	MaxPiecesPerRequest int `help:"maximum number pieces per single request" default:"1000" testDefault:"2000"`
 
-	DialTimeout    time.Duration `help:"timeout for dialing nodes (0 means satellite default)" default:"0" testDefault:"2s"`
-	FailThreshold  time.Duration `help:"threshold for retrying a failed node" releaseDefault:"5m" devDefault:"2s"`
-	RequestTimeout time.Duration `help:"timeout for a single delete request" releaseDefault:"1m" devDefault:"2s"`
+	DialTimeout    time.Duration `help:"timeout for dialing nodes (0 means satellite default)" default:"3s" testDefault:"2s"`
+	FailThreshold  time.Duration `help:"threshold for retrying a failed node" releaseDefault:"10m" devDefault:"2s"`
+	RequestTimeout time.Duration `help:"timeout for a single delete request" releaseDefault:"15s" devDefault:"2s"`
 }
 
 const (

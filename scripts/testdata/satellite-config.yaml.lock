@@ -404,10 +404,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.overlay: true
 
 # timeout for dialing nodes (0 means satellite default)
-# metainfo.piece-deletion.dial-timeout: 0s
+# metainfo.piece-deletion.dial-timeout: 3s
 
 # threshold for retrying a failed node
-# metainfo.piece-deletion.fail-threshold: 5m0s
+# metainfo.piece-deletion.fail-threshold: 10m0s
 
 # maximum number of concurrent requests to storage nodes
 # metainfo.piece-deletion.max-concurrency: 100
@@ -422,7 +422,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.piece-deletion.max-pieces-per-request: 1000
 
 # timeout for a single delete request
-# metainfo.piece-deletion.request-timeout: 1m0s
+# metainfo.piece-deletion.request-timeout: 15s
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
