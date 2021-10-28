@@ -46,8 +46,8 @@ type NodeSelectionConfig struct {
 }
 
 type GeoIPConfig struct {
-	GeoLocationDB string `help:"the location of the maxmind database containing geoip information"`
-	MockCountries []string
+	GeoLocationDB string   `help:"the location of the maxmind database containing geoip information"`
+	MockCountries []string `help:"a mock list of countries the satellite will attribute to nodes (useful for testing)"`
 }
 
 func (aost *AsOfSystemTimeConfig) isValid() error {

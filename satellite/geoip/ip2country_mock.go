@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information
 
 package geoip
@@ -20,10 +20,10 @@ func (m MockIPToCountry) LookupISOCountryCode(address string) (string, error) {
 	}
 
 	ip := net.ParseIP(host)
-	lastBlock := int(ip[len(ip) - 1])
+	lastBlock := int(ip[len(ip)-1])
 
 	// mod or div?
-	return m[lastBlock % len(m)], nil
+	return m[lastBlock%len(m)], nil
 }
 
 var _ IPToCountry = MockIPToCountry{}

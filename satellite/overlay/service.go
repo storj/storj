@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/metabase"
 )

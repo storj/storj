@@ -25,7 +25,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/version"
-
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/testredis"
