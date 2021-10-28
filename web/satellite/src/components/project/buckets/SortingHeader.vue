@@ -13,6 +13,9 @@
             <p class="sort-header-container__item__name">BANDWIDTH</p>
         </div>
         <div class="sort-header-container__item">
+            <p class="sort-header-container__item__name">OBJECTS</p>
+        </div>
+        <div class="sort-header-container__item">
             <p class="sort-header-container__item__name">SEGMENTS</p>
         </div>
     </div>

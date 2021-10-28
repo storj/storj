@@ -279,7 +279,8 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			bucket_storage_tallies.total_bytes,
 			bucket_storage_tallies.inline,
 			bucket_storage_tallies.remote,
-			bucket_storage_tallies.total_segments_count
+			bucket_storage_tallies.total_segments_count,
+			bucket_storage_tallies.object_count
 		FROM
 			bucket_storage_tallies
 		WHERE
@@ -304,7 +305,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			tally := accounting.BucketStorageTally{}
 
 			var inline, remote int64
-			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.TotalBytes, &inline, &remote, &tally.TotalSegmentCount)
+			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.TotalBytes, &inline, &remote, &tally.TotalSegmentCount, &tally.ObjectCount)
 			if err != nil {
 				return nil, errs.Combine(err, storageTalliesRows.Close())
 			}
@@ -331,13 +332,14 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 	usage = new(accounting.ProjectUsage)
 	usage.Egress = memory.Size(totalEgress).Int64()
-	// sum up storage and objects
+	// sum up storage, objects, and segments
 	for _, tallies := range bucketsTallies {
 		for i := len(tallies) - 1; i > 0; i-- {
 			current := (tallies)[i]
 			hours := (tallies)[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
 			usage.Storage += memory.Size(current.Bytes()).Float64() * hours
 			usage.SegmentCount += float64(current.TotalSegmentCount) * hours
+			usage.ObjectCount += float64(current.ObjectCount) * hours
 		}
 	}
 
@@ -614,7 +616,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ? AND action = ?`)
 
-	storageQuery := db.db.Rebind(`SELECT total_bytes, inline, remote, total_segments_count
+	storageQuery := db.db.Rebind(`SELECT total_bytes, inline, remote, object_count, total_segments_count
 		FROM bucket_storage_tallies
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
 		ORDER BY interval_start DESC
@@ -646,7 +648,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 
 		var tally accounting.BucketStorageTally
 		var inline, remote int64
-		err = storageRow.Scan(&tally.TotalBytes, &inline, &remote, &tally.TotalSegmentCount)
+		err = storageRow.Scan(&tally.TotalBytes, &inline, &remote, &tally.ObjectCount, &tally.TotalSegmentCount)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				return nil, err
@@ -660,6 +662,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		// fill storage and object count
 		bucketUsage.Storage = memory.Size(tally.Bytes()).GB()
 		bucketUsage.SegmentCount = tally.TotalSegmentCount
+		bucketUsage.ObjectCount = tally.ObjectCount
 
 		bucketUsages = append(bucketUsages, bucketUsage)
 	}
