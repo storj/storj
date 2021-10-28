@@ -29,7 +29,7 @@ const store = new Vuex.Store<{
     bucketsModule: typeof bucketsModule.state,
 }>({modules: { projectsModule, bucketsModule } });
 const state = store.state.bucketsModule;
-const bucket = new Bucket('test', 10, 10, 1, new Date(), new Date());
+const bucket = new Bucket('test', 10, 10, 1, 1, new Date(), new Date());
 const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 7, search: 'test', totalCount: 1 };
 
 describe('actions', () => {

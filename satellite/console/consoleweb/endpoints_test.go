@@ -205,6 +205,7 @@ func TestBuckets(t *testing.T) {
 										bucketName
 										storage
 										egress
+										objectCount
 										segmentCount
 										since
 										before
@@ -342,6 +343,7 @@ func TestProjects(t *testing.T) {
 										bucketName
 										storage
 										egress
+										objectCount
 										segmentCount
 										since
 										before
@@ -582,6 +584,7 @@ func TestWrongUser(t *testing.T) {
 										bucketName
 										storage
 										egress
+										objectCount
 										segmentCount
 										since
 										before
@@ -728,6 +731,7 @@ func TestWrongUser(t *testing.T) {
 										bucketName
 										storage
 										egress
+										objectCount
 										segmentCount
 										since
 										before

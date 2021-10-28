@@ -72,6 +72,7 @@ type ProjectUsage struct {
 	Storage      float64 `json:"storage"`
 	Egress       int64   `json:"egress"`
 	SegmentCount float64 `json:"segmentCount"`
+	ObjectCount  float64 `json:"objectCount"`
 
 	Since  time.Time `json:"since"`
 	Before time.Time `json:"before"`
@@ -90,6 +91,7 @@ type BucketUsage struct {
 
 	Storage      float64
 	Egress       float64
+	ObjectCount  int64
 	SegmentCount int64
 
 	Since  time.Time
