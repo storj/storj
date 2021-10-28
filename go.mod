@@ -50,7 +50,7 @@ require (
 	storj.io/common v0.0.0-20211021003554-f155346ccc11
 	storj.io/drpc v0.0.26
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
-	storj.io/private v0.0.0-20211022095408-ad8a59190f12
+	storj.io/private v0.0.0-20211028215455-880524381bb1
 	storj.io/uplink v1.7.1-0.20211012154306-65bb87992c7c
 )
 
