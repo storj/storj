@@ -8,7 +8,7 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 
-const bucket = new Bucket('name', 1, 1, 1, new Date(), new Date());
+const bucket = new Bucket('name', 1, 1, 1, 1, new Date(), new Date());
 
 describe('BucketItem.vue', () => {
     it('renders correctly', (): void => {

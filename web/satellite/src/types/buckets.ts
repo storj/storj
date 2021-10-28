@@ -30,6 +30,7 @@ export class Bucket {
         public name: string = '',
         public storage: number = 0,
         public egress: number = 0,
+        public objectCount: number = 0,
         public segmentCount: number = 0,
         public since: Date = new Date(),
         public before: Date = new Date(),
