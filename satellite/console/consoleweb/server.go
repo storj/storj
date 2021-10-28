@@ -369,7 +369,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		PathwayOverviewEnabled          bool
 		StorageTBPrice                  string
 		EgressTBPrice                   string
-		ObjectPrice                     string
+		SegmentPrice                    string
 		RecaptchaEnabled                bool
 		RecaptchaSiteKey                string
 		NewOnboarding                   bool
@@ -401,7 +401,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.DefaultPaidBandwidthLimit = server.config.UsageLimits.Bandwidth.Paid
 	data.StorageTBPrice = server.pricing.StorageTBPrice
 	data.EgressTBPrice = server.pricing.EgressTBPrice
-	data.ObjectPrice = server.pricing.ObjectPrice
+	data.SegmentPrice = server.pricing.SegmentPrice
 	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
 	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
 	data.NewOnboarding = server.config.NewOnboarding

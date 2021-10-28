@@ -552,6 +552,7 @@ func (db *coinPaymentsTransactions) listPendingTransitionShim(ctx context.Contex
 			FROM coinpayments_transactions
 			WHERE status IN (?,?)
 			AND created_at <= ?
+			ORDER BY created_at DESC
 			LIMIT ? OFFSET ?`)
 
 	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusPending, coinpayments.StatusReceived, before, limit+1, offset)

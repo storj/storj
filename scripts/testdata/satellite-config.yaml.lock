@@ -98,7 +98,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.csp-enabled: true
 
 # default project limits for users
-# console.default-project-limit: 3
+# console.default-project-limit: 1
 
 # url link to documentation
 # console.documentation-url: https://docs.storj.io/
@@ -185,13 +185,13 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
 # the default free-tier bandwidth usage limit
-# console.usage-limits.bandwidth.free: 50.00 GB
+# console.usage-limits.bandwidth.free: 150.00 GB
 
 # the default paid-tier bandwidth usage limit
 # console.usage-limits.bandwidth.paid: 100.00 TB
 
 # the default free-tier storage usage limit
-# console.usage-limits.storage.free: 50.00 GB
+# console.usage-limits.storage.free: 150.00 GB
 
 # the default paid-tier storage usage limit
 # console.usage-limits.storage.paid: 25.00 TB
@@ -404,10 +404,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.overlay: true
 
 # timeout for dialing nodes (0 means satellite default)
-# metainfo.piece-deletion.dial-timeout: 0s
+# metainfo.piece-deletion.dial-timeout: 3s
 
 # threshold for retrying a failed node
-# metainfo.piece-deletion.fail-threshold: 5m0s
+# metainfo.piece-deletion.fail-threshold: 10m0s
 
 # maximum number of concurrent requests to storage nodes
 # metainfo.piece-deletion.max-concurrency: 100
@@ -422,7 +422,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.piece-deletion.max-pieces-per-request: 1000
 
 # timeout for a single delete request
-# metainfo.piece-deletion.request-timeout: 1m0s
+# metainfo.piece-deletion.request-timeout: 15s
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
@@ -541,11 +541,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price node receive for storing TB of repair in cents
 # payments.node-repair-bandwidth-price: 1000
 
-# price user should pay for each object stored in network per month
-# payments.object-price: "0"
-
 # payments provider to use
 # payments.provider: ""
+
+# price user should pay for each segment stored in network per month
+# payments.segment-price: "0"
 
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"

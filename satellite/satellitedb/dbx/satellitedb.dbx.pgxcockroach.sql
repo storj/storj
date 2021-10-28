@@ -352,7 +352,8 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	project_id bytea NOT NULL,
 	storage double precision NOT NULL,
 	egress bigint NOT NULL,
-	objects bigint NOT NULL,
+	objects bigint,
+	segments bigint,
 	period_start timestamp with time zone NOT NULL,
 	period_end timestamp with time zone NOT NULL,
 	state integer NOT NULL,
@@ -389,6 +390,7 @@ CREATE TABLE users (
 	mfa_enabled boolean NOT NULL DEFAULT false,
 	mfa_secret_key text,
 	mfa_recovery_codes text,
+	signup_promo_code text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (

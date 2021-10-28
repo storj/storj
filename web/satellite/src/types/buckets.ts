@@ -30,10 +30,10 @@ export class Bucket {
         public name: string = '',
         public storage: number = 0,
         public egress: number = 0,
-        public objectCount: number = 0,
+        public segmentCount: number = 0,
         public since: Date = new Date(),
         public before: Date = new Date(),
-    ) {}
+    ) { }
 }
 
 /**
@@ -48,7 +48,7 @@ export class BucketPage {
         public pageCount: number = 0,
         public currentPage: number = 0,
         public totalCount: number = 0,
-    ) {}
+    ) { }
 }
 
 /**
@@ -59,5 +59,5 @@ export class BucketCursor {
         public search: string = '',
         public limit: number = 0,
         public page: number = 0,
-    ) {}
+    ) { }
 }

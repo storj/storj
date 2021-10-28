@@ -530,7 +530,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
+			pc.SegmentPrice,
 			pc.BonusRate)
 
 		if err != nil {
@@ -580,7 +580,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		pricing := paymentsconfig.PricingValues{
 			StorageTBPrice: config.Payments.StorageTBPrice,
 			EgressTBPrice:  config.Payments.EgressTBPrice,
-			ObjectPrice:    config.Payments.ObjectPrice,
+			SegmentPrice:   config.Payments.SegmentPrice,
 		}
 
 		peer.Console.Endpoint = consoleweb.NewServer(

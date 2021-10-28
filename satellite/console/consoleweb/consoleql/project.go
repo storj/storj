@@ -66,8 +66,8 @@ const (
 	FieldStorage = "storage"
 	// FieldEgress is a field name for egress total.
 	FieldEgress = "egress"
-	// FieldObjectCount is a field name for objects count.
-	FieldObjectCount = "objectCount"
+	// FieldSegmentCount is a field name for segments count.
+	FieldSegmentCount = "segmentCount"
 	// FieldPageCount is a field name for total page count.
 	FieldPageCount = "pageCount"
 	// FieldCurrentPage is a field name for current page number.
@@ -336,7 +336,7 @@ func graphqlBucketUsage() *graphql.Object {
 			FieldEgress: &graphql.Field{
 				Type: graphql.Float,
 			},
-			FieldObjectCount: &graphql.Field{
+			FieldSegmentCount: &graphql.Field{
 				Type: graphql.Float,
 			},
 			SinceArg: &graphql.Field{
@@ -417,7 +417,7 @@ func graphqlProjectUsage() *graphql.Object {
 			FieldEgress: &graphql.Field{
 				Type: graphql.Float,
 			},
-			FieldObjectCount: &graphql.Field{
+			FieldSegmentCount: &graphql.Field{
 				Type: graphql.Float,
 			},
 			SinceArg: &graphql.Field{

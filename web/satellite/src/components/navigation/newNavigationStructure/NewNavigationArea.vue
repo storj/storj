@@ -3,9 +3,10 @@
 
 <template>
     <div v-if="!isNavigationHidden" class="navigation-area">
-        <div class="navigation-area__container">
+        <div ref="navigationContainer" class="navigation-area__container">
             <div class="navigation-area__container__wrap">
                 <LogoIcon class="navigation-area__container__wrap__logo" @click.stop="onLogoClick" />
+                <SmallLogoIcon class="navigation-area__container__wrap__small-logo" @click.stop="onLogoClick" />
                 <div class="navigation-area__container__wrap__edit">
                     <NewProjectSelection />
                 </div>
@@ -32,7 +33,7 @@
                         <ResourcesIcon class="navigation-area__container__wrap__item-container__left__image" />
                         <p class="navigation-area__container__wrap__item-container__left__label">Resources</p>
                     </div>
-                    <ArrowIcon />
+                    <ArrowIcon class="navigation-area__container__wrap__item-container__arrow" />
                     <GuidesDropdown
                         v-if="isResourcesDropdownShown"
                         :close="closeDropdowns"
@@ -89,7 +90,7 @@
                         <QuickStartIcon class="navigation-area__container__wrap__item-container__left__image" />
                         <p class="navigation-area__container__wrap__item-container__left__label">Quick Start</p>
                     </div>
-                    <ArrowIcon />
+                    <ArrowIcon class="navigation-area__container__wrap__item-container__arrow" />
                     <GuidesDropdown
                         v-if="isQuickStartDropdownShown"
                         :close="closeDropdowns"
@@ -147,6 +148,7 @@ import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 
 import LogoIcon from '@/../static/images/logo.svg';
+import SmallLogoIcon from '@/../static/images/smallLogo.svg';
 import AccessGrantsIcon from '@/../static/images/navigation/accessGrants.svg';
 import DashboardIcon from '@/../static/images/navigation/projectDashboard.svg';
 import BucketsIcon from '@/../static/images/navigation/buckets.svg';
@@ -169,6 +171,7 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
         GuidesDropdown,
         AccountArea,
         LogoIcon,
+        SmallLogoIcon,
         DashboardIcon,
         AccessGrantsIcon,
         UsersIcon,
@@ -206,7 +209,24 @@ export default class NewNavigationArea extends Vue {
     public $refs!: {
         resourcesContainer: HTMLDivElement;
         quickStartContainer: HTMLDivElement;
+        navigationContainer: HTMLDivElement;
     };
+
+    /**
+     * Mounted hook after initial render.
+     * Adds scroll event listener to close dropdowns.
+     */
+    public mounted(): void {
+        this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns)
+    }
+
+    /**
+     * Mounted hook before component destroy.
+     * Removes scroll event listener.
+     */
+    public beforeDestroy(): void {
+        this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns)
+    }
 
     /**
      * Reloads page.
@@ -345,6 +365,10 @@ export default class NewNavigationArea extends Vue {
                     min-height: 37px;
                 }
 
+                &__small-logo {
+                    display: none;
+                }
+
                 &__edit {
                     padding: 0 20px;
                     margin: 32px 0;
@@ -445,5 +469,35 @@ export default class NewNavigationArea extends Vue {
         margin: 0 24px;
         background-color: #091c45;
         opacity: 0.1;
+    }
+
+    @media screen and (max-width: 1280px) {
+
+        .navigation-area {
+            min-width: unset;
+            max-width: unset;
+
+            &__container__wrap {
+
+                &__logo {
+                    display: none;
+                }
+
+                &__item-container {
+                    justify-content: center;
+
+                    &__left__label,
+                    &__arrow {
+                        display: none;
+                    }
+                }
+
+                &__small-logo {
+                    cursor: pointer;
+                    min-height: 40px;
+                    display: block;
+                }
+            }
+        }
     }
 </style>

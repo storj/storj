@@ -65,6 +65,7 @@ type CreateUser struct {
 	HaveSalesContact  bool   `json:"haveSalesContact"`
 	RecaptchaResponse string `json:"recaptchaResponse"`
 	IP                string `json:"ip"`
+	SignupPromoCode   string `json:"signupPromoCode"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -139,4 +140,6 @@ type User struct {
 	MFAEnabled       bool     `json:"mfaEnabled"`
 	MFASecretKey     string   `json:"mfaSecretKey"`
 	MFARecoveryCodes []string `json:"mfaRecoveryCodes"`
+
+	SignupPromoCode string `json:"signupPromoCode"`
 }

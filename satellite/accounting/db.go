@@ -69,9 +69,9 @@ type StorageNodeUsage struct {
 // ProjectUsage consist of period total storage, egress
 // and objects count per hour for certain Project in bytes.
 type ProjectUsage struct {
-	Storage     float64 `json:"storage"`
-	Egress      int64   `json:"egress"`
-	ObjectCount float64 `json:"objectCount"`
+	Storage      float64 `json:"storage"`
+	Egress       int64   `json:"egress"`
+	SegmentCount float64 `json:"segmentCount"`
 
 	Since  time.Time `json:"since"`
 	Before time.Time `json:"before"`
@@ -88,9 +88,9 @@ type BucketUsage struct {
 	ProjectID  uuid.UUID
 	BucketName string
 
-	Storage     float64
-	Egress      float64
-	ObjectCount int64
+	Storage      float64
+	Egress       float64
+	SegmentCount int64
 
 	Since  time.Time
 	Before time.Time

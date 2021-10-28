@@ -390,31 +390,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	planet.databases = append(planet.databases, db)
 
-	var config satellite.Config
-	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
-		cfgstruct.UseTestDefaults(),
-		cfgstruct.ConfDir(storageDir),
-		cfgstruct.IdentityDir(storageDir),
-		cfgstruct.ConfigVar("TESTINTERVAL", defaultInterval.String()))
-
-	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB, metabase.Config{
-		MinPartSize:      config.Metainfo.MinPartSize,
-		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if planet.config.Reconfigure.SatelliteMetabaseDB != nil {
-		var newMetabaseDB *metabase.DB
-		newMetabaseDB, err = planet.config.Reconfigure.SatelliteMetabaseDB(log.Named("metabase"), index, metabaseDB)
-		if err != nil {
-			return nil, errs.Combine(err, metabaseDB.Close())
-		}
-		metabaseDB = newMetabaseDB
-	}
-	planet.databases = append(planet.databases, metabaseDB)
-
 	redis, err := testredis.Mini(ctx)
 	if err != nil {
 		return nil, err
@@ -426,6 +401,13 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	if err != nil {
 		return nil, err
 	}
+
+	var config satellite.Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
+		cfgstruct.UseTestDefaults(),
+		cfgstruct.ConfDir(storageDir),
+		cfgstruct.IdentityDir(storageDir),
+		cfgstruct.ConfigVar("TESTINTERVAL", defaultInterval.String()))
 
 	// TODO: these are almost certainly mistakenly set to the zero value
 	// in tests due to a prior mismatch between testplanet config and
@@ -492,6 +474,24 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	if planet.config.Reconfigure.Satellite != nil {
 		planet.config.Reconfigure.Satellite(log, index, &config)
 	}
+
+	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB, metabase.Config{
+		MinPartSize:      config.Metainfo.MinPartSize,
+		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if planet.config.Reconfigure.SatelliteMetabaseDB != nil {
+		var newMetabaseDB *metabase.DB
+		newMetabaseDB, err = planet.config.Reconfigure.SatelliteMetabaseDB(log.Named("metabase"), index, metabaseDB)
+		if err != nil {
+			return nil, errs.Combine(err, metabaseDB.Close())
+		}
+		metabaseDB = newMetabaseDB
+	}
+	planet.databases = append(planet.databases, metabaseDB)
 
 	versionInfo := planet.NewVersionInfo()
 

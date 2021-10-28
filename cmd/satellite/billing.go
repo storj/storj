@@ -64,7 +64,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		db.ProjectAccounting(),
 		pc.StorageTBPrice,
 		pc.EgressTBPrice,
-		pc.ObjectPrice,
+		pc.SegmentPrice,
 		pc.BonusRate)
 }
 

@@ -655,8 +655,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, err
 	}
 
-	// use only satellite values for Redundancy Scheme
-	pbRS := endpoint.defaultRS
 	streamID, err := uuid.New()
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -689,15 +687,13 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		Encryption: encryptionParameters,
 	})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:               req.Bucket,
 		EncryptedObjectKey:   req.EncryptedPath,
 		Version:              int32(object.Version),
-		Redundancy:           pbRS,
 		CreationDate:         object.CreatedAt,
 		ExpirationDate:       req.ExpiresAt,
 		StreamId:             streamID[:],
@@ -717,7 +713,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedPath:    req.EncryptedPath,
 		Version:          req.Version,
 		StreamId:         satStreamID,
-		RedundancyScheme: pbRS,
+		RedundancyScheme: endpoint.defaultRS,
 	}, nil
 }
 
@@ -780,8 +776,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		Encryption: encryption,
 	})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	return &pb.ObjectCommitResponse{}, nil
@@ -819,11 +814,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		},
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	var segmentRS *pb.RedundancyScheme
@@ -911,11 +902,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		},
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	// get the range segments
@@ -931,11 +918,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		Limit:    int(req.Limit),
 	})
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	// get the download response for the first segment
@@ -952,15 +935,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			Position: segments.Segments[0].Position,
 		})
 		if err != nil {
-			// object was deleted between the steps
-			if storj.ErrObjectNotFound.Has(err) {
-				return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-			}
-			if metabase.ErrInvalidRequest.Has(err) {
-				return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-			}
-			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, endpoint.convertMetabaseErr(err)
 		}
 
 		downloadSizes := endpoint.calculateDownloadSizes(streamRange, segment, object.Encryption)
@@ -1289,11 +1264,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		},
 	)
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("unable to list objects", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
@@ -1378,13 +1349,8 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 			return nil
 		},
 	)
-
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("unable to list pending object streams", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	endpoint.log.Info("List pending object streams", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
@@ -1476,11 +1442,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			// No error info is returned if neither Read, nor List permission is granted
 			return &pb.ObjectBeginDeleteResponse{}, nil
 		}
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Wrap(rpcstatus.NotFound, err)
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	var object *pb.Object
@@ -1541,11 +1503,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		},
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	pieceCountByNodeID, err := endpoint.metabase.GetStreamPieceCountByNodeID(ctx,
@@ -1553,8 +1511,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 			StreamID: object.StreamID,
 		})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	nodeIDs := make([]storj.NodeID, 0, len(pieceCountByNodeID))
@@ -1638,11 +1595,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	return &pb.ObjectUpdateMetadataResponse{}, nil
@@ -1682,7 +1635,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, err
 	}
 
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(streamID.Redundancy)
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(endpoint.defaultRS)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
@@ -1734,8 +1687,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		Pieces:      pieces,
 	})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{
@@ -1785,16 +1737,15 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	// cheap basic verification
-
-	if numResults := len(req.UploadResult); numResults < int(streamID.Redundancy.GetSuccessThreshold()) {
+	if numResults := len(req.UploadResult); numResults < int(endpoint.defaultRS.GetSuccessThreshold()) {
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
 			zap.Int("upload pieces results", numResults),
-			zap.Int32("redundancy optimal threshold", streamID.Redundancy.GetSuccessThreshold()),
+			zap.Int32("redundancy optimal threshold", endpoint.defaultRS.GetSuccessThreshold()),
 			zap.Stringer("Segment ID", req.SegmentId),
 		)
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
-			numResults, streamID.Redundancy.GetSuccessThreshold(),
+			numResults, endpoint.defaultRS.GetSuccessThreshold(),
 		)
 	}
 
@@ -1933,11 +1884,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	err = endpoint.metabase.CommitSegment(ctx, mbCommitSegment)
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	return &pb.SegmentCommitResponse{
@@ -2026,11 +1973,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		InlineData: req.EncryptedInlineData,
 	})
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
@@ -2085,11 +2028,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		Limit: int(req.Limit),
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	response, err := convertStreamListResults(result)
@@ -2194,8 +2133,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		})
 	}
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	// Update the current bandwidth cache value incrementing the SegmentSize.
@@ -2393,7 +2331,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 
 	result, err := endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
@@ -2404,7 +2342,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			zap.Binary("object", []byte(object)),
 			zap.Error(err),
 		)
-		return deletedObjects, err
+		return deletedObjects, Error.Wrap(err)
 	}
 
 	return deletedObjects, nil
@@ -2423,7 +2361,7 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 		ObjectLocation: location,
 	})
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
@@ -2516,7 +2454,6 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		ExpirationDate:     expires,
 		StreamId:           object.StreamID[:],
 		MultipartObject:    multipartObject,
-		Redundancy:         rs,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
@@ -2654,9 +2591,6 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 			ExpirationDate:     item.ExpiresAt,
 			StreamId:           entry.StreamID[:],
 			MultipartObject:    entry.FixedSegmentSize <= 0,
-			// TODO: defaultRS may change while the upload is pending.
-			// Ideally, we should remove redundancy from satStreamID.
-			Redundancy: endpoint.defaultRS,
 			EncryptionParameters: &pb.EncryptionParameters{
 				CipherSuite: pb.CipherSuite(entry.Encryption.CipherSuite),
 				BlockSize:   int64(entry.Encryption.BlockSize),
@@ -2801,15 +2735,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
-		switch {
-		case storj.ErrObjectNotFound.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		case metabase.ErrInvalidRequest.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		default:
-			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	response, err := convertBeginMoveObjectResults(result)
@@ -2822,7 +2748,6 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
 		Version:            int32(metabase.DefaultVersion),
-		Redundancy:         endpoint.defaultRS,
 		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
@@ -2941,20 +2866,25 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
 	})
 	if err != nil {
-		switch {
-		case storj.ErrObjectNotFound.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		case metabase.ErrSegmentNotFound.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		case metabase.ErrInvalidRequest.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		default:
-			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	return &pb.ObjectFinishMoveResponse{}, nil
+}
+
+// convertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
+func (endpoint *Endpoint) convertMetabaseErr(err error) error {
+	switch {
+	case storj.ErrObjectNotFound.Has(err):
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	case metabase.ErrSegmentNotFound.Has(err):
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	case metabase.ErrInvalidRequest.Has(err):
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	default:
+		endpoint.log.Error("internal", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
 }
 
 // protobufkeysToMetabase converts []*pb.EncryptedKeyAndNonce to []metabase.EncryptedKeyAndNonce.

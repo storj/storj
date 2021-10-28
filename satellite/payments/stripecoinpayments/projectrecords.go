@@ -35,7 +35,7 @@ type CreateProjectRecord struct {
 	ProjectID uuid.UUID
 	Storage   float64
 	Egress    int64
-	Objects   float64
+	Segments  float64
 }
 
 // ProjectRecord holds project usage particular for billing period.
@@ -44,7 +44,7 @@ type ProjectRecord struct {
 	ProjectID   uuid.UUID
 	Storage     float64
 	Egress      int64
-	Objects     float64
+	Segments    float64
 	PeriodStart time.Time
 	PeriodEnd   time.Time
 	State       int

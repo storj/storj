@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="account-area" :class="{ active: isDropdown }" aria-roledescription="account-area" @click.stop="toggleDropdown">
+    <div ref="accountArea" class="account-area" :class="{ active: isDropdown }" aria-roledescription="account-area" @click.stop="toggleDropdown">
         <div class="account-area__avatar">
             <h1 class="account-area__avatar__letter">{{ avatarLetter }}</h1>
         </div>
@@ -11,7 +11,7 @@
             <p v-if="user.paidTier" class="account-area__info__type">Pro account</p>
             <p v-else class="account-area__info__type">Free account</p>
         </div>
-        <div v-if="isDropdown" v-click-outside="closeDropdown" class="account-area__dropdown">
+        <div v-if="isDropdown" v-click-outside="closeDropdown" class="account-area__dropdown" :style="style">
             <div class="account-area__dropdown__header">
                 <p class="account-area__dropdown__header__greet">👋🏼 &nbsp; Hi, {{ user.fullName }}</p>
                 <p class="account-area__dropdown__header__sat">{{ satellite }}</p>
@@ -67,6 +67,13 @@ import LogoutIcon from '@/../static/images/navigation/logout.svg';
 })
 export default class AccountArea extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+    private dropdownYPos = 0;
+    private dropdownXPos = 0;
+    private dropdownWidth = 0;
+
+    public $refs!: {
+        accountArea: HTMLDivElement,
+    }
 
     /**
      * Navigates user to account settings page.
@@ -120,6 +127,13 @@ export default class AccountArea extends Vue {
      * Toggles account dropdown visibility.
      */
     public toggleDropdown(): void {
+        const DROPDOWN_HEIGHT = 262;
+        const accountContainer = this.$refs.accountArea.getBoundingClientRect();
+
+        this.dropdownYPos = accountContainer.top - DROPDOWN_HEIGHT;
+        this.dropdownXPos = accountContainer.left;
+        this.dropdownWidth = accountContainer.width;
+
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
     }
 
@@ -128,6 +142,13 @@ export default class AccountArea extends Vue {
      */
     public closeDropdown(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    }
+
+    /**
+     * Returns bottom and left position of dropdown.
+     */
+    public get style(): Record<string, string> {
+        return { top: `${this.dropdownYPos}px`, left: `${this.dropdownXPos}px`, width: `${this.dropdownWidth}px` };
     }
 
     /**
@@ -169,8 +190,7 @@ export default class AccountArea extends Vue {
         display: flex;
         align-items: center;
         cursor: pointer;
-        position: relative;
-        flex-shrink: unset;
+        position: static;
 
         &__avatar {
             width: 40px;
@@ -181,7 +201,6 @@ export default class AccountArea extends Vue {
             justify-content: center;
             background: #2582ff;
             cursor: pointer;
-            margin-right: 16px;
 
             &__letter {
                 font-family: 'font_medium', sans-serif;
@@ -192,6 +211,7 @@ export default class AccountArea extends Vue {
         }
 
         &__info {
+            margin-left: 16px;
 
             &__email {
                 font-family: 'font_bold', sans-serif;
@@ -212,10 +232,8 @@ export default class AccountArea extends Vue {
 
         &__dropdown {
             position: absolute;
-            left: 0;
-            bottom: 100%;
             background: #fff;
-            width: 240px;
+            min-width: 230px;
             z-index: 1;
             cursor: default;
             border: 1px solid #ebeef1;
@@ -267,5 +285,12 @@ export default class AccountArea extends Vue {
 
     .active {
         background-color: #f7f8fb;
+    }
+
+    @media screen and (max-width: 1280px) {
+
+        .account-area__info {
+            display: none;
+        }
     }
 </style>

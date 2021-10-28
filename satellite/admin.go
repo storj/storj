@@ -132,7 +132,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
+			pc.SegmentPrice,
 			pc.BonusRate)
 
 		if err != nil {

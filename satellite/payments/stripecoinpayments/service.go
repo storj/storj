@@ -62,7 +62,7 @@ type Service struct {
 
 	StorageMBMonthPriceCents decimal.Decimal
 	EgressMBPriceCents       decimal.Decimal
-	ObjectMonthPriceCents    decimal.Decimal
+	SegmentMonthPriceCents   decimal.Decimal
 	// BonusRate amount of percents
 	BonusRate int64
 	// Coupon Values
@@ -80,7 +80,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate int64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, segmentPrice string, bonusRate int64) (*Service, error) {
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -97,7 +97,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 	if err != nil {
 		return nil, err
 	}
-	objectMonthDollars, err := decimal.NewFromString(objectPrice)
+	segmentMonthDollars, err := decimal.NewFromString(segmentPrice)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 	// change the precision from TB dollars to MB cents
 	storageMBMonthPriceCents := storageTBMonthDollars.Shift(-6).Shift(2)
 	egressMBPriceCents := egressTBDollars.Shift(-6).Shift(2)
-	objectMonthPriceCents := objectMonthDollars.Shift(2)
+	segmentMonthPriceCents := segmentMonthDollars.Shift(2)
 
 	return &Service{
 		log:                      log,
@@ -116,7 +116,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		coinPayments:             coinPaymentsClient,
 		StorageMBMonthPriceCents: storageMBMonthPriceCents,
 		EgressMBPriceCents:       egressMBPriceCents,
-		ObjectMonthPriceCents:    objectMonthPriceCents,
+		SegmentMonthPriceCents:   segmentMonthPriceCents,
 		BonusRate:                bonusRate,
 		StripeFreeTierCouponID:   config.StripeFreeTierCouponID,
 		AutoAdvance:              config.AutoAdvance,
@@ -476,7 +476,7 @@ func (service *Service) createProjectRecords(ctx context.Context, customerID str
 				ProjectID: project.ID,
 				Storage:   usage.Storage,
 				Egress:    usage.Egress,
-				Objects:   usage.ObjectCount,
+				Segments:  usage.SegmentCount,
 			},
 		)
 	}
@@ -591,7 +591,7 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 // InvoiceItemsFromProjectRecord calculates Stripe invoice item from project record.
 func (service *Service) InvoiceItemsFromProjectRecord(projName string, record ProjectRecord) (result []*stripe.InvoiceItemParams) {
 	projectItem := &stripe.InvoiceItemParams{}
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Storage (MB-Month)", projName))
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Segment Storage (MB-Month)", projName))
 	projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(record.Storage).IntPart())
 	storagePrice, _ := service.StorageMBMonthPriceCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
@@ -605,11 +605,12 @@ func (service *Service) InvoiceItemsFromProjectRecord(projName string, record Pr
 	result = append(result, projectItem)
 
 	projectItem = &stripe.InvoiceItemParams{}
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee (Object-Month)", projName))
-	projectItem.Quantity = stripe.Int64(objectMonthDecimal(record.Objects).IntPart())
-	objectPrice, _ := service.ObjectMonthPriceCents.Float64()
-	projectItem.UnitAmountDecimal = stripe.Float64(objectPrice)
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Segment Fee (Segment-Month)", projName))
+	projectItem.Quantity = stripe.Int64(segmentMonthDecimal(record.Segments).IntPart())
+	segmentPrice, _ := service.SegmentMonthPriceCents.Float64()
+	projectItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
 	result = append(result, projectItem)
+	service.log.Info("invoice items", zap.Any("result", result))
 
 	return result
 }
@@ -785,27 +786,27 @@ func (service *Service) finalizeInvoice(ctx context.Context, invoiceID string) (
 
 // projectUsagePrice represents pricing for project usage.
 type projectUsagePrice struct {
-	Storage decimal.Decimal
-	Egress  decimal.Decimal
-	Objects decimal.Decimal
+	Storage  decimal.Decimal
+	Egress   decimal.Decimal
+	Segments decimal.Decimal
 }
 
 // Total returns project usage price total.
 func (price projectUsagePrice) Total() decimal.Decimal {
-	return price.Storage.Add(price.Egress).Add(price.Objects)
+	return price.Storage.Add(price.Egress).Add(price.Segments)
 }
 
 // Total returns project usage price total.
 func (price projectUsagePrice) TotalInt64() int64 {
-	return price.Storage.Add(price.Egress).Add(price.Objects).IntPart()
+	return price.Storage.Add(price.Egress).Add(price.Segments).IntPart()
 }
 
 // calculateProjectUsagePrice calculate project usage price.
-func (service *Service) calculateProjectUsagePrice(egress int64, storage, objects float64) projectUsagePrice {
+func (service *Service) calculateProjectUsagePrice(egress int64, storage, segments float64) projectUsagePrice {
 	return projectUsagePrice{
-		Storage: service.StorageMBMonthPriceCents.Mul(storageMBMonthDecimal(storage)).Round(0),
-		Egress:  service.EgressMBPriceCents.Mul(egressMBDecimal(egress)).Round(0),
-		Objects: service.ObjectMonthPriceCents.Mul(objectMonthDecimal(objects)).Round(0),
+		Storage:  service.StorageMBMonthPriceCents.Mul(storageMBMonthDecimal(storage)).Round(0),
+		Egress:   service.EgressMBPriceCents.Mul(egressMBDecimal(egress)).Round(0),
+		Segments: service.SegmentMonthPriceCents.Mul(segmentMonthDecimal(segments)).Round(0),
 	}
 }
 
@@ -827,8 +828,8 @@ func egressMBDecimal(egress int64) decimal.Decimal {
 	return decimal.NewFromInt(egress).Shift(-6).Round(0)
 }
 
-// objectMonthDecimal converts objects usage from Object-Hours to Object-Months.
+// segmentMonthDecimal converts segments usage from Segment-Hours to Segment-Months.
 // The result is rounded to the nearest whole number, but returned as Decimal for convenience.
-func objectMonthDecimal(objects float64) decimal.Decimal {
-	return decimal.NewFromFloat(objects).Div(decimal.NewFromInt(hoursPerMonth)).Round(0)
+func segmentMonthDecimal(segments float64) decimal.Decimal {
+	return decimal.NewFromFloat(segments).Div(decimal.NewFromInt(hoursPerMonth)).Round(0)
 }

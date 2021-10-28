@@ -672,7 +672,8 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	project_id bytea NOT NULL,
 	storage double precision NOT NULL,
 	egress bigint NOT NULL,
-	objects bigint NOT NULL,
+	objects bigint,
+	segments bigint,
 	period_start timestamp with time zone NOT NULL,
 	period_end timestamp with time zone NOT NULL,
 	state integer NOT NULL,
@@ -709,6 +710,7 @@ CREATE TABLE users (
 	mfa_enabled boolean NOT NULL DEFAULT false,
 	mfa_secret_key text,
 	mfa_recovery_codes text,
+	signup_promo_code text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -1247,7 +1249,8 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	project_id bytea NOT NULL,
 	storage double precision NOT NULL,
 	egress bigint NOT NULL,
-	objects bigint NOT NULL,
+	objects bigint,
+	segments bigint,
 	period_start timestamp with time zone NOT NULL,
 	period_end timestamp with time zone NOT NULL,
 	state integer NOT NULL,
@@ -1284,6 +1287,7 @@ CREATE TABLE users (
 	mfa_enabled boolean NOT NULL DEFAULT false,
 	mfa_secret_key text,
 	mfa_recovery_codes text,
+	signup_promo_code text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -7496,7 +7500,8 @@ type StripecoinpaymentsInvoiceProjectRecord struct {
 	ProjectId   []byte
 	Storage     float64
 	Egress      int64
-	Objects     int64
+	Objects     *int64
+	Segments    *int64
 	PeriodStart time.Time
 	PeriodEnd   time.Time
 	State       int
@@ -7505,6 +7510,11 @@ type StripecoinpaymentsInvoiceProjectRecord struct {
 
 func (StripecoinpaymentsInvoiceProjectRecord) _Table() string {
 	return "stripecoinpayments_invoice_project_records"
+}
+
+type StripecoinpaymentsInvoiceProjectRecord_Create_Fields struct {
+	Objects  StripecoinpaymentsInvoiceProjectRecord_Objects_Field
+	Segments StripecoinpaymentsInvoiceProjectRecord_Segments_Field
 }
 
 type StripecoinpaymentsInvoiceProjectRecord_Update_Fields struct {
@@ -7590,11 +7600,26 @@ func (StripecoinpaymentsInvoiceProjectRecord_Egress_Field) _Column() string { re
 type StripecoinpaymentsInvoiceProjectRecord_Objects_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value *int64
 }
 
 func StripecoinpaymentsInvoiceProjectRecord_Objects(v int64) StripecoinpaymentsInvoiceProjectRecord_Objects_Field {
-	return StripecoinpaymentsInvoiceProjectRecord_Objects_Field{_set: true, _value: v}
+	return StripecoinpaymentsInvoiceProjectRecord_Objects_Field{_set: true, _value: &v}
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_Objects_Raw(v *int64) StripecoinpaymentsInvoiceProjectRecord_Objects_Field {
+	if v == nil {
+		return StripecoinpaymentsInvoiceProjectRecord_Objects_Null()
+	}
+	return StripecoinpaymentsInvoiceProjectRecord_Objects(*v)
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_Objects_Null() StripecoinpaymentsInvoiceProjectRecord_Objects_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_Objects_Field{_set: true, _null: true}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_Objects_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
 }
 
 func (f StripecoinpaymentsInvoiceProjectRecord_Objects_Field) value() interface{} {
@@ -7605,6 +7630,40 @@ func (f StripecoinpaymentsInvoiceProjectRecord_Objects_Field) value() interface{
 }
 
 func (StripecoinpaymentsInvoiceProjectRecord_Objects_Field) _Column() string { return "objects" }
+
+type StripecoinpaymentsInvoiceProjectRecord_Segments_Field struct {
+	_set   bool
+	_null  bool
+	_value *int64
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_Segments(v int64) StripecoinpaymentsInvoiceProjectRecord_Segments_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_Segments_Field{_set: true, _value: &v}
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_Segments_Raw(v *int64) StripecoinpaymentsInvoiceProjectRecord_Segments_Field {
+	if v == nil {
+		return StripecoinpaymentsInvoiceProjectRecord_Segments_Null()
+	}
+	return StripecoinpaymentsInvoiceProjectRecord_Segments(*v)
+}
+
+func StripecoinpaymentsInvoiceProjectRecord_Segments_Null() StripecoinpaymentsInvoiceProjectRecord_Segments_Field {
+	return StripecoinpaymentsInvoiceProjectRecord_Segments_Field{_set: true, _null: true}
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_Segments_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f StripecoinpaymentsInvoiceProjectRecord_Segments_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripecoinpaymentsInvoiceProjectRecord_Segments_Field) _Column() string { return "segments" }
 
 type StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field struct {
 	_set   bool
@@ -7777,6 +7836,7 @@ type User struct {
 	MfaEnabled       bool
 	MfaSecretKey     *string
 	MfaRecoveryCodes *string
+	SignupPromoCode  *string
 }
 
 func (User) _Table() string { return "users" }
@@ -7797,6 +7857,7 @@ type User_Create_Fields struct {
 	MfaEnabled       User_MfaEnabled_Field
 	MfaSecretKey     User_MfaSecretKey_Field
 	MfaRecoveryCodes User_MfaRecoveryCodes_Field
+	SignupPromoCode  User_SignupPromoCode_Field
 }
 
 type User_Update_Fields struct {
@@ -7818,6 +7879,7 @@ type User_Update_Fields struct {
 	MfaEnabled       User_MfaEnabled_Field
 	MfaSecretKey     User_MfaSecretKey_Field
 	MfaRecoveryCodes User_MfaRecoveryCodes_Field
+	SignupPromoCode  User_SignupPromoCode_Field
 }
 
 type User_Id_Field struct {
@@ -8367,6 +8429,38 @@ func (f User_MfaRecoveryCodes_Field) value() interface{} {
 }
 
 func (User_MfaRecoveryCodes_Field) _Column() string { return "mfa_recovery_codes" }
+
+type User_SignupPromoCode_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func User_SignupPromoCode(v string) User_SignupPromoCode_Field {
+	return User_SignupPromoCode_Field{_set: true, _value: &v}
+}
+
+func User_SignupPromoCode_Raw(v *string) User_SignupPromoCode_Field {
+	if v == nil {
+		return User_SignupPromoCode_Null()
+	}
+	return User_SignupPromoCode(*v)
+}
+
+func User_SignupPromoCode_Null() User_SignupPromoCode_Field {
+	return User_SignupPromoCode_Field{_set: true, _null: true}
+}
+
+func (f User_SignupPromoCode_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f User_SignupPromoCode_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_SignupPromoCode_Field) _Column() string { return "signup_promo_code" }
 
 type ValueAttribution struct {
 	ProjectId   []byte
@@ -10113,15 +10207,16 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	__employee_count_val := optional.EmployeeCount.value()
 	__mfa_secret_key_val := optional.MfaSecretKey.value()
 	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
+	__signup_promo_code_val := optional.SignupPromoCode.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, user_agent, created_at, position, company_name, company_size, working_on, employee_count, mfa_secret_key, mfa_recovery_codes")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, user_agent, created_at, position, company_name, company_size, working_on, employee_count, mfa_secret_key, mfa_recovery_codes, signup_promo_code")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val)
+	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val, __signup_promo_code_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -10168,7 +10263,7 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10668,10 +10763,10 @@ func (obj *pgxImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Co
 	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 	stripecoinpayments_invoice_project_record_storage StripecoinpaymentsInvoiceProjectRecord_Storage_Field,
 	stripecoinpayments_invoice_project_record_egress StripecoinpaymentsInvoiceProjectRecord_Egress_Field,
-	stripecoinpayments_invoice_project_record_objects StripecoinpaymentsInvoiceProjectRecord_Objects_Field,
 	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
 	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
-	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
+	optional StripecoinpaymentsInvoiceProjectRecord_Create_Fields) (
 	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -10680,22 +10775,23 @@ func (obj *pgxImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Co
 	__project_id_val := stripecoinpayments_invoice_project_record_project_id.value()
 	__storage_val := stripecoinpayments_invoice_project_record_storage.value()
 	__egress_val := stripecoinpayments_invoice_project_record_egress.value()
-	__objects_val := stripecoinpayments_invoice_project_record_objects.value()
+	__objects_val := optional.Objects.value()
+	__segments_val := optional.Segments.value()
 	__period_start_val := stripecoinpayments_invoice_project_record_period_start.value()
 	__period_end_val := stripecoinpayments_invoice_project_record_period_end.value()
 	__state_val := stripecoinpayments_invoice_project_record_state.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_project_records ( id, project_id, storage, egress, objects, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_project_records ( id, project_id, storage, egress, objects, segments, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
+	__values = append(__values, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __segments_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11129,7 +11225,7 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -11153,7 +11249,7 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 			}
 
 			user = &User{}
-			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
+			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
 			if err != nil {
 				return nil, err
 			}
@@ -11187,7 +11283,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -11196,7 +11292,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -12997,7 +13093,7 @@ func (obj *pgxImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_
 	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.project_id = ? AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.project_id = ? AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ?")
 
 	var __values []interface{}
 	__values = append(__values, stripecoinpayments_invoice_project_record_project_id.value(), stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value())
@@ -13006,7 +13102,7 @@ func (obj *pgxImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsInvoiceProjectRecord)(nil), obj.makeErr(err)
 	}
@@ -13022,7 +13118,7 @@ func (obj *pgxImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStar
 	rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ? AND stripecoinpayments_invoice_project_records.state = ? LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ? AND stripecoinpayments_invoice_project_records.state = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value(), stripecoinpayments_invoice_project_record_state.value())
@@ -13042,7 +13138,7 @@ func (obj *pgxImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStar
 
 			for __rows.Next() {
 				stripecoinpayments_invoice_project_record := &StripecoinpaymentsInvoiceProjectRecord{}
-				err = __rows.Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+				err = __rows.Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -14288,7 +14384,7 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -14384,6 +14480,11 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
 	}
 
+	if update.SignupPromoCode._set {
+		__values = append(__values, update.SignupPromoCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_promo_code = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -14397,7 +14498,7 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -14814,7 +14915,7 @@ func (obj *pgxImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx cont
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_project_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_project_records.id = ? RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_project_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_project_records.id = ? RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -14838,7 +14939,7 @@ func (obj *pgxImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -15918,15 +16019,16 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	__employee_count_val := optional.EmployeeCount.value()
 	__mfa_secret_key_val := optional.MfaSecretKey.value()
 	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
+	__signup_promo_code_val := optional.SignupPromoCode.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, user_agent, created_at, position, company_name, company_size, working_on, employee_count, mfa_secret_key, mfa_recovery_codes")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, user_agent, created_at, position, company_name, company_size, working_on, employee_count, mfa_secret_key, mfa_recovery_codes, signup_promo_code")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val)
+	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val, __signup_promo_code_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -15973,7 +16075,7 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16473,10 +16575,10 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx c
 	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 	stripecoinpayments_invoice_project_record_storage StripecoinpaymentsInvoiceProjectRecord_Storage_Field,
 	stripecoinpayments_invoice_project_record_egress StripecoinpaymentsInvoiceProjectRecord_Egress_Field,
-	stripecoinpayments_invoice_project_record_objects StripecoinpaymentsInvoiceProjectRecord_Objects_Field,
 	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
 	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
-	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
+	optional StripecoinpaymentsInvoiceProjectRecord_Create_Fields) (
 	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -16485,22 +16587,23 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx c
 	__project_id_val := stripecoinpayments_invoice_project_record_project_id.value()
 	__storage_val := stripecoinpayments_invoice_project_record_storage.value()
 	__egress_val := stripecoinpayments_invoice_project_record_egress.value()
-	__objects_val := stripecoinpayments_invoice_project_record_objects.value()
+	__objects_val := optional.Objects.value()
+	__segments_val := optional.Segments.value()
 	__period_start_val := stripecoinpayments_invoice_project_record_period_start.value()
 	__period_end_val := stripecoinpayments_invoice_project_record_period_end.value()
 	__state_val := stripecoinpayments_invoice_project_record_state.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_project_records ( id, project_id, storage, egress, objects, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_project_records ( id, project_id, storage, egress, objects, segments, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
+	__values = append(__values, __id_val, __project_id_val, __storage_val, __egress_val, __objects_val, __segments_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16934,7 +17037,7 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -16958,7 +17061,7 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 			}
 
 			user = &User{}
-			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
+			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
 			if err != nil {
 				return nil, err
 			}
@@ -16992,7 +17095,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -17001,7 +17104,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -18802,7 +18905,7 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_Proje
 	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.project_id = ? AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.project_id = ? AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ?")
 
 	var __values []interface{}
 	__values = append(__values, stripecoinpayments_invoice_project_record_project_id.value(), stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value())
@@ -18811,7 +18914,7 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_Proje
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsInvoiceProjectRecord)(nil), obj.makeErr(err)
 	}
@@ -18827,7 +18930,7 @@ func (obj *pgxcockroachImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_P
 	rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ? AND stripecoinpayments_invoice_project_records.state = ? LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ? AND stripecoinpayments_invoice_project_records.state = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value(), stripecoinpayments_invoice_project_record_state.value())
@@ -18847,7 +18950,7 @@ func (obj *pgxcockroachImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_P
 
 			for __rows.Next() {
 				stripecoinpayments_invoice_project_record := &StripecoinpaymentsInvoiceProjectRecord{}
-				err = __rows.Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+				err = __rows.Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -20093,7 +20196,7 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -20189,6 +20292,11 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
 	}
 
+	if update.SignupPromoCode._set {
+		__values = append(__values, update.SignupPromoCode.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("signup_promo_code = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -20202,7 +20310,7 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20619,7 +20727,7 @@ func (obj *pgxcockroachImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_project_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_project_records.id = ? RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_project_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_project_records.id = ? RETURNING stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -20643,7 +20751,7 @@ func (obj *pgxcockroachImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -22048,16 +22156,16 @@ func (rx *Rx) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Context,
 	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 	stripecoinpayments_invoice_project_record_storage StripecoinpaymentsInvoiceProjectRecord_Storage_Field,
 	stripecoinpayments_invoice_project_record_egress StripecoinpaymentsInvoiceProjectRecord_Egress_Field,
-	stripecoinpayments_invoice_project_record_objects StripecoinpaymentsInvoiceProjectRecord_Objects_Field,
 	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
 	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
-	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
+	optional StripecoinpaymentsInvoiceProjectRecord_Create_Fields) (
 	stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_StripecoinpaymentsInvoiceProjectRecord(ctx, stripecoinpayments_invoice_project_record_id, stripecoinpayments_invoice_project_record_project_id, stripecoinpayments_invoice_project_record_storage, stripecoinpayments_invoice_project_record_egress, stripecoinpayments_invoice_project_record_objects, stripecoinpayments_invoice_project_record_period_start, stripecoinpayments_invoice_project_record_period_end, stripecoinpayments_invoice_project_record_state)
+	return tx.Create_StripecoinpaymentsInvoiceProjectRecord(ctx, stripecoinpayments_invoice_project_record_id, stripecoinpayments_invoice_project_record_project_id, stripecoinpayments_invoice_project_record_storage, stripecoinpayments_invoice_project_record_egress, stripecoinpayments_invoice_project_record_period_start, stripecoinpayments_invoice_project_record_period_end, stripecoinpayments_invoice_project_record_state, optional)
 
 }
 
@@ -23253,10 +23361,10 @@ type Methods interface {
 		stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 		stripecoinpayments_invoice_project_record_storage StripecoinpaymentsInvoiceProjectRecord_Storage_Field,
 		stripecoinpayments_invoice_project_record_egress StripecoinpaymentsInvoiceProjectRecord_Egress_Field,
-		stripecoinpayments_invoice_project_record_objects StripecoinpaymentsInvoiceProjectRecord_Objects_Field,
 		stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
 		stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
-		stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+		stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
+		optional StripecoinpaymentsInvoiceProjectRecord_Create_Fields) (
 		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
 
 	Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
