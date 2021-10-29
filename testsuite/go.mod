@@ -10,7 +10,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20211102144601-401a79f0706a
+	storj.io/common v0.0.0-20211108092228-14e900b161d9
 	storj.io/gateway-mt v1.14.4-0.20211015103214-01eddbc864fb
 	storj.io/private v0.0.0-20211029202355-a7eae71c382a
 	storj.io/storj v0.12.1-0.20211102170500-1de8a695e84a
