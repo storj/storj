@@ -14,6 +14,10 @@ func (m MockIPToCountry) Close() error {
 
 // LookupISOCountryCode accepts an IP address.
 func (m MockIPToCountry) LookupISOCountryCode(address string) (string, error) {
+	if len(m) == 0 {
+		return "", nil
+	}
+
 	ip, err := addressToIP(address)
 	if err != nil || ip == nil {
 		return "", err
