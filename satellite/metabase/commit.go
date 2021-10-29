@@ -38,19 +38,37 @@ type BeginObjectNextVersion struct {
 	ExpiresAt              *time.Time
 	ZombieDeletionDeadline *time.Time
 
+	EncryptedMetadata             []byte // optional
+	EncryptedMetadataNonce        []byte // optional
+	EncryptedMetadataEncryptedKey []byte // optional
+
 	Encryption storj.EncryptionParameters
+}
+
+// Verify verifies get object reqest fields.
+func (opts *BeginObjectNextVersion) Verify() error {
+	if err := opts.ObjectStream.Verify(); err != nil {
+		return err
+	}
+
+	if opts.Version != NextVersion {
+		return ErrInvalidRequest.New("Version should be metabase.NextVersion")
+	}
+
+	if opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil) {
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty if EncryptedMetadata is empty")
+	} else if opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil) {
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not empty if EncryptedMetadata is not empty")
+	}
+	return nil
 }
 
 // BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
 func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (committed Version, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := opts.ObjectStream.Verify(); err != nil {
+	if err := opts.Verify(); err != nil {
 		return -1, err
-	}
-
-	if opts.Version != NextVersion {
-		return -1, ErrInvalidRequest.New("Version should be metabase.NextVersion")
 	}
 
 	if opts.ZombieDeletionDeadline == nil {
@@ -62,7 +80,8 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
-			zombie_deletion_deadline
+			zombie_deletion_deadline,
+			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
 		) VALUES (
 			$1, $2, $3,
 				coalesce((
@@ -73,11 +92,14 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 					LIMIT 1
 				), 1),
 			$4, $5, $6,
-			$7)
+			$7,
+			$8, $9, $10)
 		RETURNING version
 	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
-		opts.ZombieDeletionDeadline)
+		opts.ZombieDeletionDeadline,
+		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
+	)
 
 	var v int64
 	if err := row.Scan(&v); err != nil {
@@ -96,19 +118,37 @@ type BeginObjectExactVersion struct {
 	ExpiresAt              *time.Time
 	ZombieDeletionDeadline *time.Time
 
+	EncryptedMetadata             []byte // optional
+	EncryptedMetadataNonce        []byte // optional
+	EncryptedMetadataEncryptedKey []byte // optional
+
 	Encryption storj.EncryptionParameters
+}
+
+// Verify verifies get object reqest fields.
+func (opts *BeginObjectExactVersion) Verify() error {
+	if err := opts.ObjectStream.Verify(); err != nil {
+		return err
+	}
+
+	if opts.Version == NextVersion {
+		return ErrInvalidRequest.New("Version should not be metabase.NextVersion")
+	}
+
+	if opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil) {
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty if EncryptedMetadata is empty")
+	} else if opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil) {
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not empty if EncryptedMetadata is not empty")
+	}
+	return nil
 }
 
 // BeginObjectExactVersion adds a pending object to the database, with specific version.
 func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (committed Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := opts.ObjectStream.Verify(); err != nil {
+	if err := opts.Verify(); err != nil {
 		return Object{}, err
-	}
-
-	if opts.Version == NextVersion {
-		return Object{}, ErrInvalidRequest.New("Version should not be metabase.NextVersion")
 	}
 
 	if opts.ZombieDeletionDeadline == nil {
@@ -133,16 +173,20 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
-			zombie_deletion_deadline
+			zombie_deletion_deadline,
+			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7,
-			$8
+			$8,
+			$9, $10, $11
 		)
 		RETURNING status, created_at
 	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
-		opts.ZombieDeletionDeadline).
+		opts.ZombieDeletionDeadline,
+		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
+	).
 		Scan(
 			&object.Status, &object.CreatedAt,
 		)
