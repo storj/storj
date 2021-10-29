@@ -30,10 +30,12 @@ type MaxmindDB struct {
 	db *maxminddb.Reader
 }
 
+// Close will disconnect the underlying connection to the database.
 func (m *MaxmindDB) Close() error {
 	return m.db.Close()
 }
 
+// LookupISOCountryCode accepts an IP address.
 func (m *MaxmindDB) LookupISOCountryCode(address string) (string, error) {
 	ip, err := addressToIP(address)
 	if err != nil || ip == nil {

@@ -7,10 +7,12 @@ package geoip
 // last byte of the ip address and mod'ing it into a country code.
 type MockIPToCountry []string
 
+// Close does nothing for the MockIPToCountry.
 func (m MockIPToCountry) Close() error {
 	return nil
 }
 
+// LookupISOCountryCode accepts an IP address.
 func (m MockIPToCountry) LookupISOCountryCode(address string) (string, error) {
 	ip, err := addressToIP(address)
 	if err != nil || ip == nil {

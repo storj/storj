@@ -45,8 +45,9 @@ type NodeSelectionConfig struct {
 	AsOfSystemTime AsOfSystemTimeConfig
 }
 
+// GeoIPConfig is a configuration struct that helps configure the GeoIP lookup features on the satellite.
 type GeoIPConfig struct {
-	GeoLocationDB string   `help:"the location of the maxmind database containing geoip information"`
+	GeoLocationDB string   `help:"the location of the maxmind database containing geoip country information"`
 	MockCountries []string `help:"a mock list of countries the satellite will attribute to nodes (useful for testing)"`
 }
 
