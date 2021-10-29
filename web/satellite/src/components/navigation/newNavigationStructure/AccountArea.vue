@@ -8,12 +8,12 @@
         </div>
         <div class="account-area__info">
             <h2 class="account-area__info__email">{{ user.email }}</h2>
-            <p v-if="user.paidTier" class="account-area__info__type">Pro account</p>
+            <p v-if="usersCCAmount" class="account-area__info__type">Pro account</p>
             <p v-else class="account-area__info__type">Free account</p>
         </div>
         <div v-if="isDropdown" v-click-outside="closeDropdown" class="account-area__dropdown" :style="style">
             <div class="account-area__dropdown__header">
-                <p class="account-area__dropdown__header__greet">👋🏼 &nbsp; Hi, {{ user.fullName }}</p>
+                <p class="account-area__dropdown__header__greet">👋🏼 Hi, {{ user.fullName }}</p>
                 <p class="account-area__dropdown__header__sat">{{ satellite }}</p>
             </div>
             <div class="account-area__dropdown__item" @click="navigateToSettings">
@@ -24,7 +24,7 @@
                 <BillingIcon />
                 <p class="account-area__dropdown__item__label">Billing</p>
             </div>
-            <div v-if="!user.paidTier" class="account-area__dropdown__item" @click="onUpgrade">
+            <div v-if="!usersCCAmount" class="account-area__dropdown__item" @click="onUpgrade">
                 <PlanIcon />
                 <p class="account-area__dropdown__item__label">Upgrade Plan</p>
             </div>
@@ -127,10 +127,14 @@ export default class AccountArea extends Vue {
      * Toggles account dropdown visibility.
      */
     public toggleDropdown(): void {
-        const DROPDOWN_HEIGHT = 262;
+        let dropdownHeight = 262; // pixels
+        if (this.usersCCAmount) {
+            dropdownHeight = 210;
+        }
+
         const accountContainer = this.$refs.accountArea.getBoundingClientRect();
 
-        this.dropdownYPos = accountContainer.top - DROPDOWN_HEIGHT;
+        this.dropdownYPos = accountContainer.top - dropdownHeight;
         this.dropdownXPos = accountContainer.left;
         this.dropdownWidth = accountContainer.width;
 
@@ -173,10 +177,17 @@ export default class AccountArea extends Vue {
     }
 
     /**
-     * Returns first letter of user`s name.
+     * Returns first letter of user's name.
      */
     public get avatarLetter(): string {
         return this.$store.getters.userName.slice(0, 1).toUpperCase();
+    }
+
+    /**
+     * Returns amount of user's credit cards from store.
+     */
+    public get usersCCAmount(): number {
+        return this.$store.state.paymentsModule.creditCards.length;
     }
 }
 </script>
@@ -193,8 +204,8 @@ export default class AccountArea extends Vue {
         position: static;
 
         &__avatar {
-            width: 40px;
-            height: 40px;
+            min-width: 40px;
+            min-height: 40px;
             border-radius: 20px;
             display: flex;
             align-items: center;
@@ -212,6 +223,7 @@ export default class AccountArea extends Vue {
 
         &__info {
             margin-left: 16px;
+            max-width: calc(100% - 40px - 16px);
 
             &__email {
                 font-family: 'font_bold', sans-serif;
@@ -253,6 +265,9 @@ export default class AccountArea extends Vue {
                     font-size: 14px;
                     line-height: 20px;
                     color: #56606d;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                    overflow: hidden;
                 }
 
                 &__sat {
