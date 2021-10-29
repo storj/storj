@@ -496,6 +496,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many concurrent orders to process at once. zero is unlimited
 # orders.orders-semaphore-size: 2
 
+# the location of the maxmind database containing geoip country information
+# overlay.geo-ip.db: ""
+
+# a mock list of countries the satellite will attribute to nodes (useful for testing)
+# overlay.geo-ip.mock-countries: '[]'
+
 # the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
 # overlay.node-check-in-wait-period: 2h0m0s
 

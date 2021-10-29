@@ -22,6 +22,7 @@ var (
 type Config struct {
 	Node                  NodeSelectionConfig
 	NodeSelectionCache    UploadSelectionCacheConfig
+	GeoIP                 GeoIPConfig
 	UpdateStatsBatchSize  int           `help:"number of update requests to process per transaction" default:"100"`
 	NodeCheckInWaitPeriod time.Duration `help:"the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)" default:"2h" testDefault:"30s"`
 }
@@ -42,6 +43,12 @@ type NodeSelectionConfig struct {
 	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB" testDefault:"100.00MB"`
 
 	AsOfSystemTime AsOfSystemTimeConfig
+}
+
+// GeoIPConfig is a configuration struct that helps configure the GeoIP lookup features on the satellite.
+type GeoIPConfig struct {
+	DB            string   `help:"the location of the maxmind database containing geoip country information"`
+	MockCountries []string `help:"a mock list of countries the satellite will attribute to nodes (useful for testing)"`
 }
 
 func (aost *AsOfSystemTimeConfig) isValid() error {

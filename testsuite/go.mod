@@ -10,7 +10,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20211108092228-14e900b161d9
+	storj.io/common v0.0.0-20211109113717-5e82e48abc31
 	storj.io/gateway-mt v1.14.4-0.20211015103214-01eddbc864fb
 	storj.io/private v0.0.0-20211029202355-a7eae71c382a
 	storj.io/storj v0.12.1-0.20211102170500-1de8a695e84a
@@ -142,6 +142,7 @@ require (
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/olivere/elastic/v7 v7.0.22 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
+	github.com/oschwald/maxminddb-golang v1.8.0 // indirect
 	github.com/pelletier/go-toml v1.9.0 // indirect
 	github.com/philhofer/fwd v1.1.1 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
@@ -199,7 +200,7 @@ require (
 	go.opentelemetry.io/otel/trace v0.18.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
+	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect

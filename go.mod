@@ -24,6 +24,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
+	github.com/oschwald/maxminddb-golang v1.8.0
 	github.com/pquerna/otp v1.3.0
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.17
@@ -39,7 +40,7 @@ require (
 	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20211020064051-0ec99a608a1b
@@ -47,7 +48,7 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	storj.io/common v0.0.0-20211108092228-14e900b161d9
+	storj.io/common v0.0.0-20211109113717-5e82e48abc31
 	storj.io/drpc v0.0.26
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20211029202355-a7eae71c382a

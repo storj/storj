@@ -14,6 +14,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
+	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -111,14 +113,15 @@ type DB interface {
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
 type NodeCheckInInfo struct {
-	NodeID     storj.NodeID
-	Address    *pb.NodeAddress
-	LastNet    string
-	LastIPPort string
-	IsUp       bool
-	Operator   *pb.NodeOperator
-	Capacity   *pb.NodeCapacity
-	Version    *pb.NodeVersion
+	NodeID      storj.NodeID
+	Address     *pb.NodeAddress
+	LastNet     string
+	LastIPPort  string
+	IsUp        bool
+	Operator    *pb.NodeOperator
+	Capacity    *pb.NodeCapacity
+	Version     *pb.NodeVersion
+	CountryCode location.CountryCode
 }
 
 // InfoResponse contains node dossier info requested from the storage node.
@@ -234,6 +237,7 @@ type NodeDossier struct {
 	CreatedAt             time.Time
 	LastNet               string
 	LastIPPort            string
+	CountryCode           location.CountryCode
 }
 
 // NodeStats contains statistics about a node.
@@ -258,10 +262,11 @@ type NodeLastContact struct {
 
 // SelectedNode is used as a result for creating orders limits.
 type SelectedNode struct {
-	ID         storj.NodeID
-	Address    *pb.NodeAddress
-	LastNet    string
-	LastIPPort string
+	ID          storj.NodeID
+	Address     *pb.NodeAddress
+	LastNet     string
+	LastIPPort  string
+	CountryCode location.CountryCode
 }
 
 // Clone returns a deep clone of the selected node.
@@ -285,20 +290,32 @@ type Service struct {
 	db     DB
 	config Config
 
+	GeoIP                  geoip.IPToCountry
 	UploadSelectionCache   *UploadSelectionCache
 	DownloadSelectionCache *DownloadSelectionCache
 }
 
 // NewService returns a new Service.
 func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
-	if err := config.Node.AsOfSystemTime.isValid(); err != nil {
+	err := config.Node.AsOfSystemTime.isValid()
+	if err != nil {
 		return nil, err
+	}
+
+	var geoIP geoip.IPToCountry = geoip.NewMockIPToCountry(config.GeoIP.MockCountries)
+	if config.GeoIP.DB != "" {
+		geoIP, err = geoip.OpenMaxmindDB(config.GeoIP.DB)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
 	return &Service{
 		log:    log,
 		db:     db,
 		config: config,
+
+		GeoIP: geoIP,
 
 		UploadSelectionCache: NewUploadSelectionCache(log, db,
 			config.NodeSelectionCache.Staleness, config.Node,
@@ -313,7 +330,9 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 }
 
 // Close closes resources.
-func (service *Service) Close() error { return nil }
+func (service *Service) Close() error {
+	return service.GeoIP.Close()
+}
 
 // Get looks up the provided nodeID from the overlay.
 func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossier, err error) {
@@ -478,12 +497,23 @@ not defined which one will end up in the database.
 */
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	failureMeter := mon.Meter("geofencing_lookup_failed")
+
 	oldInfo, err := service.Get(ctx, node.NodeID)
 	if err != nil && !ErrNodeNotFound.Has(err) {
 		return Error.New("failed to get node info from DB")
 	}
 
 	if oldInfo == nil {
+		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
+		if err != nil {
+			failureMeter.Mark(1)
+			service.log.Debug("failed to resolve country code for node",
+				zap.String("node address", node.Address.Address),
+				zap.Stringer("Node ID", node.NodeID),
+				zap.Error(err))
+		}
+
 		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 	}
 
@@ -508,8 +538,22 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	spaceChanged := (node.Capacity == nil && oldInfo.Capacity.FreeDisk != 0) ||
 		(node.Capacity != nil && node.Capacity.FreeDisk != oldInfo.Capacity.FreeDisk)
 
+	if oldInfo.CountryCode == location.CountryCode(0) || oldInfo.LastIPPort != node.LastIPPort {
+		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
+		if err != nil {
+			failureMeter.Mark(1)
+			service.log.Debug("failed to resolve country code for node",
+				zap.String("node address", node.Address.Address),
+				zap.Stringer("Node ID", node.NodeID),
+				zap.Error(err))
+		}
+	} else {
+		node.CountryCode = oldInfo.CountryCode
+	}
+
 	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
-		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort {
+		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort ||
+		oldInfo.CountryCode != node.CountryCode {
 		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 	}
 
