@@ -87,6 +87,7 @@ type Request struct {
 	NewFraction float64
 	Distinct    bool
 	ExcludedIDs []storj.NodeID
+	Placement   storj.PlacementConstraint
 }
 
 // Select selects requestedCount nodes where there will be newFraction nodes.
@@ -109,6 +110,8 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*Node, err
 	if request.ExcludedIDs != nil {
 		criteria.ExcludeNodeIDs = request.ExcludedIDs
 	}
+
+	criteria.Placement = request.Placement
 
 	if request.Distinct {
 		criteria.AutoExcludeSubnets = make(map[string]struct{})

@@ -1396,8 +1396,8 @@ storj.io/common v0.0.0-20210805073808-8e0feb09e92a/go.mod h1:mhZYWpTojKsACxWE66R
 storj.io/common v0.0.0-20210916151047-6aaeb34bb916/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
 storj.io/common v0.0.0-20211006105453-d3fff091f9d2/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
 storj.io/common v0.0.0-20211019072056-34a5992b4856/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
-storj.io/common v0.0.0-20211102144601-401a79f0706a h1:6AF6LcFbZ8PtQX6omT6npU8Yhh1g7OG2emZKuLgS5+o=
-storj.io/common v0.0.0-20211102144601-401a79f0706a/go.mod h1:a2Kw7Uipu929OFANfWKLHRoD0JfhgssikEvimd6hbSQ=
+storj.io/common v0.0.0-20211108092228-14e900b161d9 h1:PxSH22djpdRU1wHS45QE6Yy9oSsBnl1frp2tURKOV1k=
+storj.io/common v0.0.0-20211108092228-14e900b161d9/go.mod h1:a2Kw7Uipu929OFANfWKLHRoD0JfhgssikEvimd6hbSQ=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.24/go.mod h1:ofQUDPQbbIymRDKE0tms48k8bLP5Y+dsI9CbXGv3gko=
