@@ -254,8 +254,10 @@ export default class NewProjectSelection extends Vue {
             &__left {
                 display: flex;
                 align-items: center;
+                max-width: calc(100% - 16px);
 
                 &__name {
+                    max-width: calc(100% - 24px - 16px);
                     font-weight: 500;
                     font-size: 14px;
                     line-height: 20px;
