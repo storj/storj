@@ -24,24 +24,7 @@ The constraint will be defined on bucket level. During the object creation, the 
 
 The constraint should be saved both on bucket level (using as a default for every new segments) and segment level. During segment repair and graceful-exit processes we have access only to the segment information therefore we will save the placement constraint information to the segment table too.
 
-As the segment table can be huge, the size of the placement information should be minimal. To make it future-proof the placement information will be stored in protobuf structure: 
-
-```proto
-enum Region {
-    EU = 0;
-    EEA = 1;
-}
-
-enum Country {
-    US = 0;
-    DE = 1;
-}
-
-message Placement {
-    repeated Region regions = 1;
-    repeated Country countries = 2;
-}
-```
+As the segment table can be huge, the size of the placement information should be minimal. We will start with an INT2 field (storaged as full INTEGER by Cockroach) as it's enough for the current requirements (geofencing based on countries and regions). It can be extended later if more sophisticated placement rules are required.
 
 It makes it possible to store one region OR one country only in 3 bytes (fieldtype/selector + list length + enum) but also can be extended any time with any new parameter without breaking backward compatibility.
 
@@ -117,8 +100,8 @@ To make life easy, we plan to add a new administrative API endpoint to enable ge
 ### Required db changes
 
  1. Add `country_code` field to the nodes table 
- 2. Add `default_placement` field to the `bucket_metainfos` table `bytea` 
- 3. Add `placement` field to the `segments` table `bytea` (metainfo)
+ 2. Add `placement` field to the `bucket_metainfos` table `bytea` 
+ 3. Add `placement` field to the `segments` table `int2` (metainfo)
  
 ### Required protocol change
 
