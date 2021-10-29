@@ -709,8 +709,10 @@ func TestBeginCommit(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResponse.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.NoError(t, err)
 
@@ -811,8 +813,10 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResp.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResp.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.NoError(t, err)
 
@@ -1142,7 +1146,9 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metaclient.CommitObjectParams{
-				EncryptedMetadata: metadata,
+				EncryptedMetadata:             metadata,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -1217,8 +1223,10 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metaclient.CommitObjectParams{
-				StreamID:          beginObjectResp.StreamID,
-				EncryptedMetadata: metadata,
+				StreamID:                      beginObjectResp.StreamID,
+				EncryptedMetadata:             metadata,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -1641,8 +1649,10 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResponse.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.Error(t, err)
 		assertInvalidArgument(t, err, true)
@@ -1654,8 +1664,10 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResponse.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.NoError(t, err)
 	})

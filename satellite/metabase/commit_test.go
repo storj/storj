@@ -55,7 +55,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not empty if EncryptedMetadata is not empty",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
 			}.Check(ctx, t, db)
 
 			metabasetest.BeginObjectNextVersion{
@@ -66,7 +66,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty if EncryptedMetadata is empty",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -403,7 +403,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 				Version:  metabase.DefaultVersion,
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not empty if EncryptedMetadata is not empty",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
 			}.Check(ctx, t, db)
 
 			metabasetest.BeginObjectExactVersion{
@@ -414,7 +414,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 				Version:  metabase.DefaultVersion,
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty if EncryptedMetadata is empty",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -2183,6 +2183,42 @@ func TestCommitObject(t *testing.T) {
 			})
 		}
 
+		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    metabase.DefaultVersion,
+						StreamID:   obj.StreamID,
+					},
+					EncryptedMetadata: testrand.BytesInt(32),
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    metabase.DefaultVersion,
+						StreamID:   obj.StreamID,
+					},
+					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
 		t.Run("version without pending", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -2603,6 +2639,100 @@ func TestCommitObject(t *testing.T) {
 
 						SegmentCount: 0,
 						Encryption:   metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit with metadata (no overwrite)", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			expectedMetadata := testrand.Bytes(memory.KiB)
+			expectedMetadataKey := testrand.Bytes(32)
+			expectedMetadataNonce := testrand.Nonce().Bytes()
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             expectedMetadata,
+					EncryptedMetadataEncryptedKey: expectedMetadataKey,
+					EncryptedMetadataNonce:        expectedMetadataNonce,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						Encryption: metabasetest.DefaultEncryption,
+
+						EncryptedMetadata:             expectedMetadata,
+						EncryptedMetadataEncryptedKey: expectedMetadataKey,
+						EncryptedMetadataNonce:        expectedMetadataNonce,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit with metadata (overwrite)", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			expectedMetadata := testrand.Bytes(memory.KiB)
+			expecedMetadataKey := testrand.Bytes(32)
+			expecedMetadataNonce := testrand.Nonce().Bytes()
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             testrand.Bytes(memory.KiB),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             expectedMetadata,
+					EncryptedMetadataEncryptedKey: expecedMetadataKey,
+					EncryptedMetadataNonce:        expecedMetadataNonce,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						Encryption: metabasetest.DefaultEncryption,
+
+						EncryptedMetadata:             expectedMetadata,
+						EncryptedMetadataEncryptedKey: expecedMetadataKey,
+						EncryptedMetadataNonce:        expecedMetadataNonce,
 					},
 				},
 			}.Check(ctx, t, db)

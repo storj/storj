@@ -45,7 +45,7 @@ type BeginObjectNextVersion struct {
 	Encryption storj.EncryptionParameters
 }
 
-// Verify verifies get object reqest fields.
+// Verify verifies get object request fields.
 func (opts *BeginObjectNextVersion) Verify() error {
 	if err := opts.ObjectStream.Verify(); err != nil {
 		return err
@@ -56,9 +56,9 @@ func (opts *BeginObjectNextVersion) Verify() error {
 	}
 
 	if opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty if EncryptedMetadata is empty")
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
 	} else if opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not empty if EncryptedMetadata is not empty")
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
 	return nil
 }
@@ -136,9 +136,9 @@ func (opts *BeginObjectExactVersion) Verify() error {
 	}
 
 	if opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty if EncryptedMetadata is empty")
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
 	} else if opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not empty if EncryptedMetadata is not empty")
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
 	return nil
 }
@@ -457,21 +457,35 @@ type CommitObject struct {
 
 	Encryption storj.EncryptionParameters
 
-	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadataEncryptedKey []byte
+	EncryptedMetadata             []byte // optional
+	EncryptedMetadataNonce        []byte // optional
+	EncryptedMetadataEncryptedKey []byte // optional
+}
+
+// Verify verifies reqest fields.
+func (c *CommitObject) Verify() error {
+	if err := c.ObjectStream.Verify(); err != nil {
+		return err
+	}
+
+	if c.Encryption.CipherSuite != storj.EncUnspecified && c.Encryption.BlockSize <= 0 {
+		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
+	}
+
+	if c.EncryptedMetadata == nil && (c.EncryptedMetadataNonce != nil || c.EncryptedMetadataEncryptedKey != nil) {
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
+	} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+	}
+	return nil
 }
 
 // CommitObject adds a pending object to the database.
 func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := opts.ObjectStream.Verify(); err != nil {
+	if err := opts.Verify(); err != nil {
 		return Object{}, err
-	}
-
-	if opts.Encryption.CipherSuite != storj.EncUnspecified && opts.Encryption.BlockSize <= 0 {
-		return Object{}, ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
@@ -512,26 +526,44 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
+		args := []interface{}{opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+			len(segments),
+			totalPlainSize,
+			totalEncryptedSize,
+			fixedSegmentSize,
+			encryptionParameters{&opts.Encryption}}
+
+		metadataColumns := ""
+		if len(opts.EncryptedMetadata) != 0 {
+			args = append(args,
+				opts.EncryptedMetadataNonce,
+				opts.EncryptedMetadata,
+				opts.EncryptedMetadataEncryptedKey,
+			)
+			metadataColumns = `,
+				encrypted_metadata_nonce         = $11,
+				encrypted_metadata               = $12,
+				encrypted_metadata_encrypted_key = $13
+			`
+		}
+
 		err = tx.QueryRowContext(ctx, `
 			UPDATE objects SET
 				status =`+committedStatus+`,
 				segment_count = $6,
 
-				encrypted_metadata_nonce         = $7,
-				encrypted_metadata               = $8,
-				encrypted_metadata_encrypted_key = $9,
-
-				total_plain_size     = $10,
-				total_encrypted_size = $11,
-				fixed_segment_size   = $12,
+				total_plain_size     = $7,
+				total_encrypted_size = $8,
+				fixed_segment_size   = $9,
 				zombie_deletion_deadline = NULL,
 
 				-- TODO should we allow to override existing encryption parameters or return error if don't match with opts?
 				encryption = CASE
-					WHEN objects.encryption = 0 AND $13 <> 0 THEN $13
-					WHEN objects.encryption = 0 AND $13 = 0 THEN NULL
+					WHEN objects.encryption = 0 AND $10 <> 0 THEN $10
+					WHEN objects.encryption = 0 AND $10 = 0 THEN NULL
 					ELSE objects.encryption
 				END
+			    `+metadataColumns+`
 			WHERE
 				project_id   = $1 AND
 				bucket_name  = $2 AND
@@ -542,18 +574,10 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			RETURNING
 				created_at, expires_at,
 				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
-			len(segments),
-			opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
-			totalPlainSize,
-			totalEncryptedSize,
-			fixedSegmentSize,
-			encryptionParameters{&opts.Encryption},
-		).
-			Scan(
-				&object.CreatedAt, &object.ExpiresAt,
-				encryptionParameters{&object.Encryption},
-			)
+		`, args...).Scan(
+			&object.CreatedAt, &object.ExpiresAt,
+			encryptionParameters{&object.Encryption},
+		)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
