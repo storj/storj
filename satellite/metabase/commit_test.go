@@ -20,6 +20,13 @@ func TestBeginObjectNextVersion(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 
+		objectStream := metabase.ObjectStream{
+			ProjectID:  obj.ProjectID,
+			BucketName: obj.BucketName,
+			ObjectKey:  obj.ObjectKey,
+			StreamID:   obj.StreamID,
+		}
+
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
@@ -37,12 +44,33 @@ func TestBeginObjectNextVersion(t *testing.T) {
 			})
 		}
 
-		objectStream := metabase.ObjectStream{
-			ProjectID:  obj.ProjectID,
-			BucketName: obj.BucketName,
-			ObjectKey:  obj.ObjectKey,
-			StreamID:   obj.StreamID,
-		}
+		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:      objectStream,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedMetadata: testrand.BytesInt(32),
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not empty if EncryptedMetadata is not empty",
+			}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:                  objectStream,
+					Encryption:                    metabasetest.DefaultEncryption,
+					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty if EncryptedMetadata is empty",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 
 		t.Run("disallow exact version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -283,6 +311,54 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("begin object next version with metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			objectStream.Version = metabase.NextVersion
+
+			encryptedMetadata := testrand.BytesInt(64)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataEncryptedKey := testrand.BytesInt(32)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    metabase.DefaultVersion,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.Pending,
+
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -313,6 +389,36 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			ObjectKey:  obj.ObjectKey,
 			StreamID:   obj.StreamID,
 		}
+
+		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objectStream.Version = 1
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:      objectStream,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedMetadata: testrand.BytesInt(32),
+				},
+				Version:  metabase.DefaultVersion,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not empty if EncryptedMetadata is not empty",
+			}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:                  objectStream,
+					Encryption:                    metabasetest.DefaultEncryption,
+					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+				},
+				Version:  metabase.DefaultVersion,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty if EncryptedMetadata is empty",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 
 		t.Run("disallow NextVersion", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -597,6 +703,54 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						Status:    metabase.Committed,
 
 						Encryption: metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("begin object exact version with metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			objectStream.Version = 1
+
+			encryptedMetadata := testrand.BytesInt(64)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataEncryptedKey := testrand.BytesInt(32)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    metabase.DefaultVersion,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.Pending,
+
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
