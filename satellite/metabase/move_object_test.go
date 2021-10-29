@@ -56,6 +56,7 @@ func TestBeginMoveObject(t *testing.T) {
 			expectedObject := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					EncryptedMetadata:             testrand.Bytes(64),
 					EncryptedMetadataNonce:        expectedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: expectedMetadataKey,
 				},
@@ -84,6 +85,7 @@ func TestBeginMoveObject(t *testing.T) {
 				},
 				Result: metabase.BeginMoveObjectResult{
 					StreamID:                  expectedObject.StreamID,
+					EncryptedMetadata:         expectedObject.EncryptedMetadata,
 					EncryptedMetadataKey:      expectedMetadataKey,
 					EncryptedMetadataKeyNonce: expectedMetadataNonce[:],
 					EncryptedKeysNonces:       encKeyAndNonces,
@@ -223,6 +225,7 @@ func TestFinishMoveObject(t *testing.T) {
 			newObj := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					EncryptedMetadata:             testrand.Bytes(64),
 					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
 				},
@@ -271,6 +274,7 @@ func TestFinishMoveObject(t *testing.T) {
 			newObj := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					EncryptedMetadata:             testrand.Bytes(64),
 					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
 				},
@@ -319,6 +323,7 @@ func TestFinishMoveObject(t *testing.T) {
 			newObj := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					EncryptedMetadata:             testrand.Bytes(64),
 					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
 				},

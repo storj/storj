@@ -761,7 +761,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		encryption.BlockSize = streamMeta.EncryptionBlockSize
 	}
 
-	_, err = endpoint.metabase.CommitObject(ctx, metabase.CommitObject{
+	request := metabase.CommitObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
@@ -769,12 +769,26 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			StreamID:   id,
 			Version:    metabase.Version(1),
 		},
-		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
-		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-
 		Encryption: encryption,
-	})
+	}
+	// uplink can send empty metadata with not empty key/nonce
+	// we need to fix it on uplink side but that part will be
+	// needed for backward compatibility
+	if len(req.EncryptedMetadata) != 0 {
+		request.EncryptedMetadata = req.EncryptedMetadata
+		request.EncryptedMetadataNonce = req.EncryptedMetadataNonce[:]
+		request.EncryptedMetadataEncryptedKey = req.EncryptedMetadataEncryptedKey
+
+		// older uplinks might send EncryptedMetadata directly with request but
+		// key/nonce will be part of StreamMeta
+		if req.EncryptedMetadataNonce.IsZero() && len(req.EncryptedMetadataEncryptedKey) == 0 &&
+			streamMeta.LastSegmentMeta != nil {
+			request.EncryptedMetadataNonce = streamMeta.LastSegmentMeta.KeyNonce
+			request.EncryptedMetadataEncryptedKey = streamMeta.LastSegmentMeta.EncryptedKey
+		}
+	}
+
+	_, err = endpoint.metabase.CommitObject(ctx, request)
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
@@ -1585,6 +1599,11 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	var encryptedMetadataNonce []byte
+	if !req.EncryptedMetadataNonce.IsZero() {
+		encryptedMetadataNonce = req.EncryptedMetadataNonce[:]
+	}
+
 	err = endpoint.metabase.UpdateObjectMetadata(ctx, metabase.UpdateObjectMetadata{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -1594,7 +1613,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 			StreamID:   id,
 		},
 		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
+		EncryptedMetadataNonce:        encryptedMetadataNonce,
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 	})
 	if err != nil {
@@ -2769,9 +2788,13 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.ObjectBeginMoveResponse, error) {
 	keys := make([]*pb.EncryptedKeyAndNonce, len(result.EncryptedKeysNonces))
 	for i, key := range result.EncryptedKeysNonces {
-		nonce, err := storj.NonceFromBytes(key.EncryptedKeyNonce)
-		if err != nil {
-			return nil, err
+		var nonce storj.Nonce
+		var err error
+		if len(key.EncryptedKeyNonce) != 0 {
+			nonce, err = storj.NonceFromBytes(key.EncryptedKeyNonce)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		keys[i] = &pb.EncryptedKeyAndNonce{
@@ -2797,10 +2820,15 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 		}
 	}
 
-	metadataNonce, err := storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
-	if err != nil {
-		return nil, err
+	var metadataNonce storj.Nonce
+	var err error
+	if len(result.EncryptedMetadataKeyNonce) != 0 {
+		metadataNonce, err = storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return &pb.ObjectBeginMoveResponse{
 		EncryptedMetadataKey:      result.EncryptedMetadataKey,
 		EncryptedMetadataKeyNonce: metadataNonce,
