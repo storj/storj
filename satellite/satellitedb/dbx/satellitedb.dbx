@@ -284,12 +284,14 @@ model user (
     field short_name         text      ( updatable, nullable )
     field password_hash      blob      ( updatable )
 
-    field status             int       ( updatable, autoinsert )
-    field partner_id         blob      ( nullable )
-    field user_agent         blob      ( nullable )
-    field created_at         timestamp ( autoinsert )
-    field project_limit      int       ( updatable, default 0 )
-    field paid_tier          bool      ( updatable, default false )
+    field status                   int       ( updatable, autoinsert )
+    field partner_id               blob      ( nullable )
+    field user_agent               blob      ( nullable )
+    field created_at               timestamp ( autoinsert )
+    field project_limit            int       ( updatable, default 0 )
+    field project_bandwidth_limit  int64     ( updatable, default 0 )
+    field project_storage_limit    int64     ( updatable, default 0 )
+    field paid_tier                bool      ( updatable, default false )
 
     field position           text      ( updatable, nullable )
     field company_name       text      ( updatable, nullable )
@@ -321,6 +323,11 @@ read one (
 )
 read one (
     select user.project_limit
+    where user.id = ?
+)
+
+read one (
+    select user.project_storage_limit user.project_bandwidth_limit
     where user.id = ?
 )
 

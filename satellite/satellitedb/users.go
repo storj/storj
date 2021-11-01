@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -68,6 +69,12 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	if user.ProjectLimit != 0 {
 		optional.ProjectLimit = dbx.User_ProjectLimit(user.ProjectLimit)
 	}
+	if user.ProjectStorageLimit != 0 {
+		optional.ProjectStorageLimit = dbx.User_ProjectStorageLimit(user.ProjectStorageLimit)
+	}
+	if user.ProjectBandwidthLimit != 0 {
+		optional.ProjectBandwidthLimit = dbx.User_ProjectBandwidthLimit(user.ProjectBandwidthLimit)
+	}
 	if user.IsProfessional {
 		optional.Position = dbx.User_Position(user.Position)
 		optional.CompanyName = dbx.User_CompanyName(user.CompanyName)
@@ -119,14 +126,16 @@ func (users *users) Update(ctx context.Context, user *console.User) (err error) 
 }
 
 // UpdatePaidTier sets whether the user is in the paid tier.
-func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool) (err error) {
+func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = users.db.Update_User_By_Id(
 		ctx,
 		dbx.User_Id(id[:]),
 		dbx.User_Update_Fields{
-			PaidTier: dbx.User_PaidTier(paidTier),
+			PaidTier:              dbx.User_PaidTier(paidTier),
+			ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(projectBandwidthLimit.Int64()),
+			ProjectStorageLimit:   dbx.User_ProjectStorageLimit(projectStorageLimit.Int64()),
 		},
 	)
 
@@ -144,17 +153,31 @@ func (users *users) GetProjectLimit(ctx context.Context, id uuid.UUID) (limit in
 	return row.ProjectLimit, nil
 }
 
+// GetUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
+func (users *users) GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limits *console.ProjectLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := users.db.Get_User_ProjectStorageLimit_User_ProjectBandwidthLimit_By_Id(ctx, dbx.User_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return limitsFromDBX(ctx, row)
+}
+
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
 func toUpdateUser(user *console.User) (*dbx.User_Update_Fields, error) {
 	update := dbx.User_Update_Fields{
-		FullName:        dbx.User_FullName(user.FullName),
-		ShortName:       dbx.User_ShortName(user.ShortName),
-		Email:           dbx.User_Email(user.Email),
-		NormalizedEmail: dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
-		Status:          dbx.User_Status(int(user.Status)),
-		ProjectLimit:    dbx.User_ProjectLimit(user.ProjectLimit),
-		PaidTier:        dbx.User_PaidTier(user.PaidTier),
-		MfaEnabled:      dbx.User_MfaEnabled(user.MFAEnabled),
+		FullName:              dbx.User_FullName(user.FullName),
+		ShortName:             dbx.User_ShortName(user.ShortName),
+		Email:                 dbx.User_Email(user.Email),
+		NormalizedEmail:       dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
+		Status:                dbx.User_Status(int(user.Status)),
+		ProjectLimit:          dbx.User_ProjectLimit(user.ProjectLimit),
+		ProjectStorageLimit:   dbx.User_ProjectStorageLimit(user.ProjectStorageLimit),
+		ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(user.ProjectBandwidthLimit),
+		PaidTier:              dbx.User_PaidTier(user.PaidTier),
+		MfaEnabled:            dbx.User_MfaEnabled(user.MFAEnabled),
 	}
 
 	recoveryBytes, err := json.Marshal(user.MFARecoveryCodes)
@@ -193,17 +216,19 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	}
 
 	result := console.User{
-		ID:               id,
-		FullName:         user.FullName,
-		Email:            user.Email,
-		PasswordHash:     user.PasswordHash,
-		Status:           console.UserStatus(user.Status),
-		CreatedAt:        user.CreatedAt,
-		ProjectLimit:     user.ProjectLimit,
-		PaidTier:         user.PaidTier,
-		IsProfessional:   user.IsProfessional,
-		HaveSalesContact: user.HaveSalesContact,
-		MFAEnabled:       user.MfaEnabled,
+		ID:                    id,
+		FullName:              user.FullName,
+		Email:                 user.Email,
+		PasswordHash:          user.PasswordHash,
+		Status:                console.UserStatus(user.Status),
+		CreatedAt:             user.CreatedAt,
+		ProjectLimit:          user.ProjectLimit,
+		ProjectBandwidthLimit: user.ProjectBandwidthLimit,
+		ProjectStorageLimit:   user.ProjectStorageLimit,
+		PaidTier:              user.PaidTier,
+		IsProfessional:        user.IsProfessional,
+		HaveSalesContact:      user.HaveSalesContact,
+		MFAEnabled:            user.MfaEnabled,
 	}
 
 	if user.PartnerId != nil {
@@ -249,6 +274,20 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		result.SignupPromoCode = *user.SignupPromoCode
 	}
 
+	return &result, nil
+}
+
+// limitsFromDBX is used for creating user project limits entity from autogenerated dbx.User struct.
+func limitsFromDBX(ctx context.Context, limits *dbx.ProjectStorageLimit_ProjectBandwidthLimit_Row) (_ *console.ProjectLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if limits == nil {
+		return nil, errs.New("user parameter is nil")
+	}
+
+	result := console.ProjectLimits{
+		ProjectBandwidthLimit: memory.Size(limits.ProjectBandwidthLimit),
+		ProjectStorageLimit:   memory.Size(limits.ProjectStorageLimit),
+	}
 	return &result, nil
 }
 
