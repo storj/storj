@@ -1,6 +1,36 @@
 # admin peer http listening address
 # admin.address: ""
 
+# default project limits for users
+# admin.console-config.default-project-limit: 1
+
+# enable open registration
+# admin.console-config.open-registration-enabled: false
+
+# password hashing cost (0=automatic)
+# admin.console-config.password-cost: 0
+
+# whether or not reCAPTCHA is enabled for user registration
+# admin.console-config.recaptcha.enabled: false
+
+# reCAPTCHA secret key
+# admin.console-config.recaptcha.secret-key: ""
+
+# reCAPTCHA site key
+# admin.console-config.recaptcha.site-key: ""
+
+# the default free-tier bandwidth usage limit
+# admin.console-config.usage-limits.bandwidth.free: 150.00 GB
+
+# the default paid-tier bandwidth usage limit
+# admin.console-config.usage-limits.bandwidth.paid: 100.00 TB
+
+# the default free-tier storage usage limit
+# admin.console-config.usage-limits.storage.free: 150.00 GB
+
+# the default paid-tier storage usage limit
+# admin.console-config.usage-limits.storage.paid: 25.00 TB
+
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.static-dir: ""
 
