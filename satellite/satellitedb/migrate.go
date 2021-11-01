@@ -1697,6 +1697,28 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN disqualification_reason integer`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add project_bandwidth_limit and project_storage_limit to the user table",
+				Version:     180,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN project_bandwidth_limit bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE users ADD COLUMN project_storage_limit bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add project_bandwidth_limit and project_storage_limit to the user table",
+				Version:     181,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE users SET project_bandwidth_limit = 50000000000, project_storage_limit = 50000000000 
+                                         WHERE (project_bandwidth_limit = 0 AND project_storage_limit = 0 AND paid_tier = false);`,
+					`UPDATE users SET project_bandwidth_limit = 100000000000000, project_storage_limit = 25000000000000 
+                                         WHERE (project_bandwidth_limit = 0 AND project_storage_limit = 0 AND paid_tier = true);`,
+					`UPDATE users SET project_limit = 3 WHERE project_limit = 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
