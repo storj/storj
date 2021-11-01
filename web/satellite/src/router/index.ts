@@ -24,7 +24,6 @@ import BucketsView from '@/components/objects/BucketsView.vue';
 import EncryptData from '@/components/objects/EncryptData.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
 import UploadFile from '@/components/objects/UploadFile.vue';
-import WarningView from '@/components/objects/WarningView.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import OnbCLIStep from '@/components/onboardingTour/steps/CLIStep.vue';
 import CreateAccessGrantStep from "@/components/onboardingTour/steps/oldFlow/CreateAccessGrantStep.vue";
@@ -121,7 +120,6 @@ export abstract class RouteConfig {
     public static AccessGrantGateway = new NavigationLink('gateway', 'Onboarding Access Grant Gateway');
 
     // objects child paths.
-    public static Warning = new NavigationLink('warning', 'Objects Warning');
     public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
@@ -417,11 +415,6 @@ export const router = new Router({
                     component: ObjectsArea,
                     children: [
                         {
-                            path: RouteConfig.Warning.path,
-                            name: RouteConfig.Warning.name,
-                            component: WarningView,
-                        },
-                        {
                             path: RouteConfig.EncryptData.path,
                             name: RouteConfig.EncryptData.name,
                             component: EncryptData,
@@ -500,7 +493,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
-        next(RouteConfig.Objects.with(RouteConfig.Warning).path);
+        next(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
 
         return;
     }

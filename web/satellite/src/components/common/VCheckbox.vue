@@ -2,10 +2,13 @@
 // See LICENSE for copying information.
 
 <template>
-    <label class="container">
-        <input v-model="checked" class="checkmark-input" type="checkbox" @change="onChange">
-        <span class="checkmark" :class="{'error': isCheckboxError}" />
-    </label>
+    <div class="wrap">
+        <label class="container">
+            <input id="checkbox" v-model="checked" class="checkmark-input" type="checkbox" @change="onChange">
+            <span class="checkmark" :class="{'error': isCheckboxError}" />
+        </label>
+        <label class="label" for="checkbox">{{ label }}</label>
+    </div>
 </template>
 
 <script lang="ts">
@@ -17,6 +20,8 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 export default class VCheckbox extends Vue {
     @Prop({default: false})
     private readonly isCheckboxError: boolean;
+    @Prop({default: ''})
+    private readonly label: string;
 
     private checked = false;
 
@@ -30,14 +35,19 @@ export default class VCheckbox extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .wrap {
+        display: flex;
+        align-items: center;
+        width: 100%;
+    }
+
     .container {
         display: block;
         position: relative;
-        padding-left: 20px;
-        height: 23px;
-        width: 23px;
+        padding-left: 15px;
+        height: 20px;
+        width: 20px;
         cursor: pointer;
-        font-size: 22px;
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;
@@ -57,10 +67,11 @@ export default class VCheckbox extends Vue {
         position: absolute;
         top: 0;
         left: 0;
-        height: 25px;
-        width: 25px;
+        height: 20px;
+        width: 20px;
         border: 2px solid rgba(56, 75, 101, 0.4);
         border-radius: 4px;
+        box-sizing: border-box;
     }
 
     .checkmark:after {
@@ -70,8 +81,8 @@ export default class VCheckbox extends Vue {
     }
 
     .container .checkmark:after {
-        left: 9px;
-        top: 5px;
+        left: 4px;
+        top: 0;
         width: 5px;
         height: 10px;
         border: solid white;
@@ -86,8 +97,8 @@ export default class VCheckbox extends Vue {
     }
 
     .container .checkmark-input:checked ~ .checkmark {
-        border: 2px solid #2196f3;
-        background-color: #2196f3;
+        border: 2px solid #376fff;
+        background-color: #376fff;
     }
 
     .checkmark.error {
@@ -96,5 +107,10 @@ export default class VCheckbox extends Vue {
 
     .container .checkmark-input:checked ~ .checkmark:after {
         display: block;
+    }
+
+    .label {
+        cursor: pointer;
+        font-size: 14px;
     }
 </style>

@@ -47,20 +47,20 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		page.MustElementX("(//span[text()=\"Continue in web\"])").MustClick()
 		waitVueTick(page)
 
-		objectBrowserWarning := page.MustElement("[aria-roledescription=sub-title]").MustText()
+		objectBrowserWarning := page.MustElement("[aria-roledescription=objects-title]").MustText()
 		require.Contains(t, objectBrowserWarning, "The object browser uses server side encryption.")
-		page.MustElementX("(//span[text()=\"Continue\"])").MustClick()
-		waitVueTick(page)
 
 		encryptionPassphraseWarningTitle := page.MustElement("[aria-roledescription=warning-title]").MustText()
-		require.Contains(t, encryptionPassphraseWarningTitle, "The object browser uses server side encryption.")
+		require.Contains(t, encryptionPassphraseWarningTitle, "Save your encryption passphrase")
 		customPassphrase := page.MustElement("[aria-roledescription=enter-passphrase-label]")
 		customPassphraseLabel := customPassphrase.MustText()
-		require.Contains(t, customPassphraseLabel, "Enter Your Own Passphrase")
+		require.Contains(t, customPassphraseLabel, "Enter your own passphrase")
 		customPassphrase.MustClick()
 		waitVueTick(page)
 
 		page.MustElement("[aria-roledescription=passphrase] input").MustInput("password123")
+		page.MustElement(".checkmark").MustClick()
+		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
 		waitVueTick(page)
 
