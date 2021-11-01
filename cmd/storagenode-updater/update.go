@@ -51,10 +51,7 @@ func update(ctx context.Context, serviceName, binaryLocation string, ver version
 	}
 
 	if newSemVer.Compare(downloadedVersion) != 0 {
-		err := errs.New("invalid version downloaded: wants %s got %s",
-			newVersion.Version,
-			downloadedVersion.String(),
-		)
+		err := errs.New("invalid version downloaded: wants %s got %s", newVersion.Version, downloadedVersion)
 		return errs.Combine(err, os.Remove(newVersionPath))
 	}
 
