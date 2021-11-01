@@ -77,11 +77,14 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newuser, err := server.db.Console().Users().Insert(ctx, &console.User{
-		ID:           userID,
-		FullName:     user.FullName,
-		ShortName:    user.ShortName,
-		Email:        user.Email,
-		PasswordHash: hash,
+		ID:                    userID,
+		FullName:              user.FullName,
+		ShortName:             user.ShortName,
+		Email:                 user.Email,
+		PasswordHash:          hash,
+		ProjectLimit:          server.config.ConsoleConfig.DefaultProjectLimit,
+		ProjectStorageLimit:   server.config.ConsoleConfig.UsageLimits.Storage.Free.Int64(),
+		ProjectBandwidthLimit: server.config.ConsoleConfig.UsageLimits.Bandwidth.Free.Int64(),
 	})
 	if err != nil {
 		sendJSONError(w, "failed to insert user",

@@ -8,6 +8,7 @@ import (
 	"net/mail"
 	"time"
 
+	"storj.io/common/memory"
 	"storj.io/common/uuid"
 )
 
@@ -26,9 +27,11 @@ type Users interface {
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, user *User) error
 	// UpdatePaidTier sets whether the user is in the paid tier.
-	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool) error
+	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size) error
 	// GetProjectLimit is a method to get the users project limit
 	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
+	// GetUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
+	GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limit *ProjectLimits, err error)
 }
 
 // UserInfo holds User updatable data.
@@ -89,6 +92,12 @@ func (user *CreateUser) IsValid() error {
 	return errs.Combine()
 }
 
+// ProjectLimits holds info for a users bandwidth and storage limits for new projects.
+type ProjectLimits struct {
+	ProjectBandwidthLimit memory.Size `json:"projectBandwidthLimit"`
+	ProjectStorageLimit   memory.Size `json:"projectStorageLimit"`
+}
+
 // AuthUser holds info for user authentication token requests.
 type AuthUser struct {
 	Email           string `json:"email"`
@@ -125,8 +134,10 @@ type User struct {
 
 	CreatedAt time.Time `json:"createdAt"`
 
-	ProjectLimit int  `json:"projectLimit"`
-	PaidTier     bool `json:"paidTier"`
+	ProjectLimit          int   `json:"projectLimit"`
+	ProjectStorageLimit   int64 `json:"projectStorageLimit"`
+	ProjectBandwidthLimit int64 `json:"projectBandwidthLimit"`
+	PaidTier              bool  `json:"paidTier"`
 
 	IsProfessional bool   `json:"isProfessional"`
 	Position       string `json:"position"`

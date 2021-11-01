@@ -29,6 +29,8 @@ type Config struct {
 	Address string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
 
 	AuthorizationToken string `internal:"true"`
+
+	ConsoleConfig console.Config
 }
 
 // DB is databases needed for the admin server.
@@ -55,6 +57,8 @@ type Server struct {
 	payments payments.Accounts
 
 	nowFn func() time.Time
+
+	config Config
 }
 
 // NewServer returns a new administration Server.
@@ -69,6 +73,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 		payments: accounts,
 
 		nowFn: time.Now,
+
+		config: config,
 	}
 
 	server.server.Handler = &protectedServer{
