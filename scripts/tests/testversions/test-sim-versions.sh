@@ -94,8 +94,7 @@ install_sim(){
     if [ -d "${work_dir}/cmd/gateway" ]; then
         (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
     else
-        # TODO(artur): replace 'main' with 'latest' after the gateway is being released again
-        GOBIN=${bin_dir} go install -race storj.io/gateway@main
+        GOBIN=${bin_dir} go install -race storj.io/gateway@latest
     fi
     if [ -d "${work_dir}/cmd/multinode" ]; then
         # as storj-sim is most likely installed from $PWD and contains storj-sim version which requires multinode

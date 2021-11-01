@@ -93,9 +93,8 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/certificates \
 		storj.io/storj/cmd/multinode
 
-	## install exact version of storj/gateway
-	## TODO(artur): replace 'main' with 'latest' after the gateway is being released again
-	go install -race -v storj.io/gateway@main
+	## install the latest stable version of Gateway-ST
+	go install -race -v storj.io/gateway@latest
 
 ##@ Test
 
