@@ -35,6 +35,8 @@ type Config struct {
 	StaticDir string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
 
 	AuthorizationToken string `internal:"true"`
+
+	ConsoleConfig console.Config
 }
 
 // DB is databases needed for the admin server.
@@ -60,6 +62,8 @@ type Server struct {
 	payments payments.Accounts
 
 	nowFn func() time.Time
+
+	config Config
 }
 
 // NewServer returns a new administration Server.
@@ -73,6 +77,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 		payments: accounts,
 
 		nowFn: time.Now,
+
+		config: config,
 	}
 
 	root := mux.NewRouter()

@@ -381,6 +381,8 @@ CREATE TABLE users (
 	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
+	project_bandwidth_limit bigint NOT NULL DEFAULT 0,
+	project_storage_limit bigint NOT NULL DEFAULT 0,
 	paid_tier boolean NOT NULL DEFAULT false,
 	position text,
 	company_name text,

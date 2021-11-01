@@ -3,10 +3,18 @@
 
 package console
 
+import "storj.io/common/memory"
+
 // ProjectUsageLimits holds project usage limits and current usage.
 type ProjectUsageLimits struct {
 	StorageLimit   int64 `json:"storageLimit"`
 	BandwidthLimit int64 `json:"bandwidthLimit"`
 	StorageUsed    int64 `json:"storageUsed"`
 	BandwidthUsed  int64 `json:"bandwidthUsed"`
+}
+
+// UserProjectLimits holds a users storage and bandwidth limits for new projects.
+type UserProjectLimits struct {
+	BandwidthLimit memory.Size `json:"bandwidthLimit"`
+	StorageLimit   memory.Size `json:"storageUsed"`
 }

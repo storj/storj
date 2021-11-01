@@ -266,7 +266,9 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 
 	if !auth.User.PaidTier {
 		// put this user into the paid tier and convert projects to upgraded limits.
-		err = paymentService.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true)
+		err = paymentService.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true,
+			paymentService.service.config.UsageLimits.Bandwidth.Paid,
+			paymentService.service.config.UsageLimits.Storage.Paid)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -631,6 +633,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		} else {
 			newUser.ProjectLimit = s.config.DefaultProjectLimit
 		}
+
+		// TODO: move the project limits into the registration token.
+		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
+		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
 
 		u, err = tx.Users().Insert(ctx,
 			newUser,
@@ -1094,14 +1100,13 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
+	newProjectLimits, err := s.getUserProjectLimits(ctx, auth.User.ID)
+	if err != nil {
+		return nil, ErrProjLimit.Wrap(err)
+	}
+
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		storageLimit := s.config.UsageLimits.Storage.Free
-		bandwidthLimit := s.config.UsageLimits.Bandwidth.Free
-		if auth.User.PaidTier {
-			storageLimit = s.config.UsageLimits.Storage.Paid
-			bandwidthLimit = s.config.UsageLimits.Bandwidth.Paid
-		}
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
@@ -1109,8 +1114,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				OwnerID:        auth.User.ID,
 				PartnerID:      auth.User.PartnerID,
 				UserAgent:      auth.User.UserAgent,
-				StorageLimit:   &storageLimit,
-				BandwidthLimit: &bandwidthLimit,
+				StorageLimit:   &newProjectLimits.StorageLimit,
+				BandwidthLimit: &newProjectLimits.BandwidthLimit,
 			},
 		)
 		if err != nil {
@@ -1788,9 +1793,6 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
-	if limit == 0 {
-		limit = s.config.DefaultProjectLimit
-	}
 
 	projects, err := s.GetUsersProjects(ctx)
 	if err != nil {
@@ -1802,6 +1804,21 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 	}
 
 	return len(projects), nil
+}
+
+// getUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
+func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_ *UserProjectLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := s.store.Users().GetUserProjectLimits(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &UserProjectLimits{
+		StorageLimit:   result.ProjectStorageLimit,
+		BandwidthLimit: result.ProjectBandwidthLimit,
+	}, nil
 }
 
 // CreateRegToken creates new registration token. Needed for testing.
