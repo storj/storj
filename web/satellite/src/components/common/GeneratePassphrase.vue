@@ -4,25 +4,30 @@
 <template>
     <div class="encrypt-container">
         <EncryptIcon />
-        <h1 class="encrypt-container__title">Encrypt your data</h1>
+        <h1 class="encrypt-container__title" aria-roledescription="enc-title">Encryption passphrase</h1>
         <p class="encrypt-container__info">
-            The encryption passphrase is used to encrypt and access the data that you upload to Storj. We strongly
-            encourage you to use a mnemonic phrase, which is automatically generated on the client-side for you.
+            The encryption passphrase is used to encrypt and access the data that you upload to Storj.
         </p>
-        <div class="encrypt-container__header">
-            <p class="encrypt-container__header__rec">RECOMMENDED</p>
-            <div class="encrypt-container__header__row">
-                <p class="encrypt-container__header__row__gen" :class="{ active: isGenerate }" @click="setToGenerate">Generate Phrase</p>
-                <div class="encrypt-container__header__row__right">
-                    <p class="encrypt-container__header__row__right__enter" :class="{ active: !isGenerate }" aria-roledescription="enter-passphrase-label" @click="setToEnter">
-                        Enter Your Own Passphrase
+        <div class="encrypt-container__functional">
+            <div class="encrypt-container__functional__header">
+                <p class="encrypt-container__functional__header__gen" :class="{ active: isGenerate }" @click="setToGenerate">
+                    Generate a new passphrase
+                </p>
+                <div class="encrypt-container__functional__header__right" :class="{ active: !isGenerate }">
+                    <p
+                        class="encrypt-container__functional__header__right__enter"
+                        :class="{ active: !isGenerate }"
+                        aria-roledescription="enter-passphrase-label"
+                        @click="setToEnter"
+                    >
+                        Enter your own passphrase
                     </p>
-                    <VInfo class="encrypt-container__header__row__right__info-button">
+                    <VInfo class="encrypt-container__functional__header__right__info-button">
                         <template #icon>
-                            <InfoIcon class="encrypt-container__header__row__right__info-button__image" />
+                            <InfoIcon class="encrypt-container__functional__header__right__info-button__image" :class="{ active: !isGenerate }" />
                         </template>
                         <template #message>
-                            <p class="encrypt-container__header__row__right__info-button__message">
+                            <p class="encrypt-container__functional__header__right__info-button__message">
                                 We strongly encourage you to use a mnemonic phrase, which is automatically generated on
                                 the client-side for you. Alternatively, you can enter your own passphrase.
                             </p>
@@ -30,32 +35,42 @@
                     </VInfo>
                 </div>
             </div>
-        </div>
-        <div v-if="isGenerate" class="encrypt-container__generate">
-            <p class="encrypt-container__generate__value">{{ passphrase }}</p>
-            <VButton
-                class="encrypt-container__generate__button"
-                label="Copy"
-                width="66px"
-                height="30px"
-                is-blue-white="true"
-                :on-press="onCopyClick"
-            />
-        </div>
-        <div v-else class="encrypt-container__enter">
-            <HeaderlessInput
-                placeholder="Enter a passphrase here..."
-                :error="enterError"
-                role-description="passphrase"
-                @setData="setPassphrase"
-            />
-        </div>
-        <p class="encrypt-container__download" @click="onDownloadClick">Download as a text file</p>
-        <div class="encrypt-container__warning">
-            <h2 class="encrypt-container__warning__title" aria-roledescription="warning-title">The object browser uses server side encryption.</h2>
-            <p class="encrypt-container__warning__msg">
-                If you want to use our product with only end-to-end encryption, you may want to use our command line solution.
+            <div v-if="isGenerate" class="encrypt-container__functional__generate">
+                <p class="encrypt-container__functional__generate__value">{{ passphrase }}</p>
+                <VButton
+                    class="encrypt-container__functional__generate__button"
+                    label="Copy"
+                    width="66px"
+                    height="30px"
+                    is-blue-white="true"
+                    is-uppercase="true"
+                    :on-press="onCopyClick"
+                />
+            </div>
+            <div v-else class="encrypt-container__functional__enter">
+                <HeaderlessInput
+                    label="Your Passphrase"
+                    placeholder="Enter a passphrase here..."
+                    :error="enterError"
+                    role-description="passphrase"
+                    is-password="true"
+                    @setData="setPassphrase"
+                />
+            </div>
+            <h2 class="encrypt-container__functional__warning-title" aria-roledescription="warning-title">
+                Save your encryption passphrase
+            </h2>
+            <p class="encrypt-container__functional__warning-msg">
+                Please note that Storj does not know or store your encryption passphrase. If you lose it, you will not
+                be able to recover your files.
             </p>
+            <p class="encrypt-container__functional__download" @click="onDownloadClick">Download as a text file</p>
+            <VCheckbox
+                class="encrypt-container__functional__checkbox"
+                label="I understand, and I have saved the passphrase."
+                :is-checkbox-error="isCheckboxError"
+                @setData="setSavingConfirmation"
+            />
         </div>
         <div class="encrypt-container__buttons">
             <VButton
@@ -63,7 +78,7 @@
                 height="64px"
                 border-radius="62px"
                 :on-press="onNextButtonClick"
-                :is-disabled="isLoading"
+                :is-disabled="isLoading || !isSavingConfirmed"
             />
         </div>
     </div>
@@ -71,7 +86,7 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import * as bip39 from "bip39";
+import { generateMnemonic } from "bip39";
 
 import { LocalData, UserIDPassSalt } from "@/utils/localData";
 import { Download } from "@/utils/download";
@@ -79,9 +94,10 @@ import { Download } from "@/utils/download";
 import VButton from '@/components/common/VButton.vue';
 import VInfo from "@/components/common/VInfo.vue";
 import HeaderlessInput from "@/components/common/HeaderlessInput.vue";
+import VCheckbox from "@/components/common/VCheckbox.vue";
 
 import EncryptIcon from "@/../static/images/objects/encrypt.svg";
-import InfoIcon from "@/../static/images/common/greyInfo.svg";
+import InfoIcon from "@/../static/images/common/smallGreyInfo.svg";
 
 // @vue/component
 @Component({
@@ -91,6 +107,7 @@ import InfoIcon from "@/../static/images/common/greyInfo.svg";
         VInfo,
         VButton,
         HeaderlessInput,
+        VCheckbox,
     },
 })
 export default class GeneratePassphrase extends Vue {
@@ -104,6 +121,8 @@ export default class GeneratePassphrase extends Vue {
     public isGenerate = true;
     public enterError = '';
     public passphrase = '';
+    public isSavingConfirmed = false;
+    public isCheckboxError = false;
 
     /**
      * Lifecycle hook after initial render.
@@ -117,8 +136,12 @@ export default class GeneratePassphrase extends Vue {
             return;
         }
 
-        this.passphrase = bip39.generateMnemonic();
+        this.passphrase = generateMnemonic();
         this.setParentPassphrase(this.passphrase);
+    }
+
+    public setSavingConfirmation(value: boolean): void {
+        this.isSavingConfirmed = value;
     }
 
     /**
@@ -171,7 +194,7 @@ export default class GeneratePassphrase extends Vue {
     public setToGenerate(): void {
         if (this.enterError) this.enterError = '';
 
-        this.passphrase = bip39.generateMnemonic();
+        this.passphrase = generateMnemonic();
         this.setParentPassphrase(this.passphrase);
         this.isGenerate = true;
     }
@@ -186,6 +209,12 @@ export default class GeneratePassphrase extends Vue {
             return;
         }
 
+        if (!this.isSavingConfirmed) {
+            this.isCheckboxError = true;
+
+            return;
+        }
+
         await this.onNextClick();
     }
 }
@@ -194,12 +223,15 @@ export default class GeneratePassphrase extends Vue {
 <style scoped lang="scss">
     .encrypt-container {
         font-family: 'font_regular', sans-serif;
-        padding: 60px;
+        padding: 40px 60px 60px 60px;
         max-width: 500px;
         background: #fcfcfc;
         box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
         border-radius: 20px;
         margin: 30px auto 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
 
         &__title {
             font-family: 'font_bold', sans-serif;
@@ -207,55 +239,57 @@ export default class GeneratePassphrase extends Vue {
             line-height: 56px;
             letter-spacing: 1px;
             color: #14142b;
-            margin: 35px 0 10px 0;
+            margin: 10px 0;
         }
 
         &__info {
             font-size: 16px;
-            line-height: 32px;
+            line-height: 28px;
             letter-spacing: 0.75px;
             color: #1b2533;
             margin-bottom: 20px;
+            text-align: center;
+            max-width: 420px;
         }
 
-        &__header {
+        &__functional {
+            border: 1px solid #e6e9ef;
+            border-radius: 10px;
+            padding: 20px 0;
 
-            &__rec {
-                font-size: 12px;
-                line-height: 15px;
-                color: #1b2533;
-                opacity: 0.4;
-                margin-bottom: 15px;
-            }
-
-            &__row {
+            &__header {
+                width: calc(100% - 50px);
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
+                padding: 0 25px;
+                border-bottom: 1px solid #e6e9ef;
 
                 &__gen {
-                    font-family: 'font_bold', sans-serif;
-                    font-size: 16px;
-                    line-height: 19px;
+                    font-family: 'font_medium', sans-serif;
+                    font-size: 14px;
+                    line-height: 17px;
                     color: #a9b5c1;
-                    padding-bottom: 10px;
-                    border-bottom: 5px solid #fff;
+                    padding-bottom: 20px;
+                    border-bottom: 4px solid #fff;
                     cursor: pointer;
+                    white-space: nowrap;
                 }
 
                 &__right {
                     display: flex;
                     align-items: flex-start;
+                    padding-bottom: 20px;
+                    border-bottom: 4px solid #fff;
+                    cursor: pointer;
 
                     &__enter {
-                        font-family: 'font_bold', sans-serif;
-                        font-size: 16px;
-                        line-height: 19px;
+                        font-family: 'font_medium', sans-serif;
+                        font-size: 14px;
+                        line-height: 17px;
                         color: #a9b5c1;
-                        cursor: pointer;
                         margin-right: 10px;
-                        padding-bottom: 10px;
-                        border-bottom: 5px solid #fff;
+                        white-space: nowrap;
                     }
 
                     &__info-button {
@@ -272,59 +306,58 @@ export default class GeneratePassphrase extends Vue {
                     }
                 }
             }
-        }
 
-        &__generate {
-            margin-top: 25px;
-            display: flex;
-            align-items: center;
-            padding: 25px;
-            background: #eff0f7;
-            border-radius: 10px;
+            &__generate {
+                display: flex;
+                align-items: center;
+                padding: 16px 22px;
+                background: #eff0f7;
+                border-radius: 10px;
+                margin: 25px 25px 0 25px;
 
-            &__value {
-                font-size: 16px;
-                line-height: 28px;
-                color: #384b65;
+                &__value {
+                    font-size: 14px;
+                    line-height: 25px;
+                    color: #384b65;
+                }
+
+                &__button {
+                    margin-left: 32px;
+                    min-width: 66px;
+                }
             }
 
-            &__button {
-                margin-left: 32px;
-                min-width: 66px;
+            &__enter {
+                margin: 25px 25px 0 25px;
             }
-        }
 
-        &__enter {
-            margin-top: 25px;
-        }
-
-        &__download {
-            font-family: 'font_bold', sans-serif;
-            font-size: 16px;
-            line-height: 19px;
-            color: #0068dc;
-            cursor: pointer;
-            margin: 20px 0;
-        }
-
-        &__warning {
-            border: 1px solid #e6e9ef;
-            border-radius: 10px;
-            padding: 25px;
-
-            &__title {
+            &__download {
                 font-family: 'font_bold', sans-serif;
                 font-size: 16px;
                 line-height: 19px;
-                color: #df1616;
-                margin-bottom: 10px;
+                color: #0068dc;
+                cursor: pointer;
+                margin: 20px 25px;
+                display: inline-block;
             }
 
-            &__msg {
+            &__warning-title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 16px;
+                line-height: 19px;
+                color: #1b2533;
+                margin: 25px 25px 10px 25px;
+            }
+
+            &__warning-msg {
                 font-size: 14px;
                 line-height: 20px;
                 color: #1b2533;
-                margin-bottom: 10px;
+                margin: 0 25px;
+            }
+
+            &__checkbox {
+                margin: 0 25px;
             }
         }
 
@@ -333,17 +366,16 @@ export default class GeneratePassphrase extends Vue {
             display: flex;
             align-items: center;
             margin-top: 30px;
-
-            &__back,
-            &__skip {
-                margin-right: 24px;
-            }
         }
     }
 
     .active {
         color: #0149ff;
         border-color: #0149ff;
+    }
+
+    .active svg rect {
+        fill: #0149ff;
     }
 
     ::v-deep .info__box__message {
