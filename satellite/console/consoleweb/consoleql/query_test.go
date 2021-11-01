@@ -112,10 +112,11 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			FullName:  "John",
-			ShortName: "",
-			Email:     "mtest@mail.test",
-			Password:  "123a123",
+			FullName:        "John",
+			ShortName:       "",
+			Email:           "mtest@mail.test",
+			Password:        "123a123",
+			SignupPromoCode: "STORJ50",
 		}
 
 		regToken, err := service.CreateRegToken(ctx, 2)
@@ -124,7 +125,7 @@ func TestGraphqlQuery(t *testing.T) {
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		require.NoError(t, err)
 
-		err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email)
+		_, err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email, rootUser.SignupPromoCode)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {

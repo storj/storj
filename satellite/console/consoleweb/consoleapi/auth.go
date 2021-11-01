@@ -130,6 +130,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+
 	var registerData struct {
 		FullName          string `json:"fullName"`
 		ShortName         string `json:"shortName"`
@@ -146,6 +147,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		EmployeeCount     string `json:"employeeCount"`
 		HaveSalesContact  bool   `json:"haveSalesContact"`
 		RecaptchaResponse string `json:"recaptchaResponse"`
+		SignupPromoCode   string `json:"signupPromoCode"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -185,9 +187,11 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			HaveSalesContact:  registerData.HaveSalesContact,
 			RecaptchaResponse: registerData.RecaptchaResponse,
 			IP:                ip,
+			SignupPromoCode:   registerData.SignupPromoCode,
 		},
 		secret,
 	)
+
 	if err != nil {
 		a.serveJSONError(w, err)
 		return

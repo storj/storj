@@ -45,7 +45,8 @@ func (p *Payments) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	err = p.service.Payments().SetupAccount(ctx)
+	couponType, err := p.service.Payments().SetupAccount(ctx)
+
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -54,6 +55,11 @@ func (p *Payments) SetupAccount(w http.ResponseWriter, r *http.Request) {
 
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	err = json.NewEncoder(w).Encode(couponType)
+	if err != nil {
+		p.log.Error("failed to write json token deposit response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 

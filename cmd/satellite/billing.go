@@ -95,8 +95,9 @@ func parseBillingPeriod(s string) (time.Time, error) {
 
 // userData contains the uuid and email of a satellite user.
 type userData struct {
-	ID    uuid.UUID
-	Email string
+	ID              uuid.UUID
+	Email           string
+	SignupPromoCode string
 }
 
 // generateStripeCustomers creates missing stripe-customers for users in our database.
@@ -106,7 +107,7 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 
 		cusDB := db.StripeCoinPayments().Customers().Raw()
 
-		rows, err := cusDB.Query(ctx, "SELECT id, email FROM users WHERE id NOT IN (SELECT user_id from stripe_customers) AND users.status=1")
+		rows, err := cusDB.Query(ctx, "SELECT id, email, signup_promo_code FROM users WHERE id NOT IN (SELECT user_id from stripe_customers) AND users.status=1")
 		if err != nil {
 			return err
 		}
@@ -123,7 +124,7 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 				return err
 			}
 
-			err = accounts.Setup(ctx, user.ID, user.Email)
+			_, err = accounts.Setup(ctx, user.ID, user.Email, user.SignupPromoCode)
 			if err != nil {
 				return err
 			}

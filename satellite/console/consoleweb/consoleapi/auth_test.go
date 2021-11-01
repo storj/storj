@@ -54,28 +54,30 @@ func TestAuth_Register(t *testing.T) {
 		} {
 			func() {
 				registerData := struct {
-					FullName       string `json:"fullName"`
-					ShortName      string `json:"shortName"`
-					Email          string `json:"email"`
-					Partner        string `json:"partner"`
-					UserAgent      []byte `json:"userAgent"`
-					Password       string `json:"password"`
-					SecretInput    string `json:"secret"`
-					ReferrerUserID string `json:"referrerUserId"`
-					IsProfessional bool   `json:"isProfessional"`
-					Position       string `json:"Position"`
-					CompanyName    string `json:"CompanyName"`
-					EmployeeCount  string `json:"EmployeeCount"`
+					FullName        string `json:"fullName"`
+					ShortName       string `json:"shortName"`
+					Email           string `json:"email"`
+					Partner         string `json:"partner"`
+					UserAgent       string `json:"userAgent"`
+					Password        string `json:"password"`
+					SecretInput     string `json:"secret"`
+					ReferrerUserID  string `json:"referrerUserId"`
+					IsProfessional  bool   `json:"isProfessional"`
+					Position        string `json:"Position"`
+					CompanyName     string `json:"CompanyName"`
+					EmployeeCount   string `json:"EmployeeCount"`
+					SignupPromoCode string `json:"signupPromoCode"`
 				}{
-					FullName:       "testuser" + strconv.Itoa(i),
-					ShortName:      "test",
-					Email:          "user@test" + strconv.Itoa(i),
-					Partner:        test.Partner,
-					Password:       "abc123",
-					IsProfessional: true,
-					Position:       "testposition",
-					CompanyName:    "companytestname",
-					EmployeeCount:  "0",
+					FullName:        "testuser" + strconv.Itoa(i),
+					ShortName:       "test",
+					Email:           "user@test" + strconv.Itoa(i),
+					Partner:         test.Partner,
+					Password:        "abc123",
+					IsProfessional:  true,
+					Position:        "testposition",
+					CompanyName:     "companytestname",
+					EmployeeCount:   "0",
+					SignupPromoCode: "STORJ50",
 				}
 
 				jsonBody, err := json.Marshal(registerData)
