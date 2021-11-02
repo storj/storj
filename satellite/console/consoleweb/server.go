@@ -94,6 +94,7 @@ type Config struct {
 	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"true"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"false"`
 	NewBrowser                      bool    `help:"indicates if new browser should be used" default:"false"`
+	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"false"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -380,6 +381,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultPaidBandwidthLimit       memory.Size
 		NewNavigation                   bool
 		NewBrowser                      bool
+		NewObjectsFlow                  bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -410,6 +412,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NewOnboarding = server.config.NewOnboarding
 	data.NewNavigation = server.config.NewNavigation
 	data.NewBrowser = server.config.NewBrowser
+	data.NewObjectsFlow = server.config.NewObjectsFlow
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {
