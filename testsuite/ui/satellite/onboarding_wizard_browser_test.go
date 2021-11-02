@@ -11,12 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testplanet"
 	"storj.io/storj/testsuite/ui/uitest"
 )
 
 func TestOnboardingWizardBrowser(t *testing.T) {
-	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
+	uitest.Edge(t, func(t *testing.T, ctx *testcontext.Context, planet *uitest.EdgePlanet, browser *rod.Browser) {
 		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
 		fullName := "John Doe"
 		emailAddress := "test@email.com"
@@ -44,28 +43,33 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		waitVueTick(page)
 
 		// testing onboarding workflow browser
+		wait := page.MustWaitRequestIdle()
 		page.MustElementX("(//span[text()=\"Continue in web\"])").MustClick()
-		waitVueTick(page)
+		wait()
 
-		objectBrowserWarning := page.MustElement("[aria-roledescription=objects-title]").MustText()
-		require.Contains(t, objectBrowserWarning, "The object browser uses server side encryption.")
+		// Buckets Page
+		bucketsTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, bucketsTitle, "Buckets")
+		page.Race().ElementR("p", "demo-bucket").MustHandle(func(el *rod.Element) {
+			el.MustClick()
+			waitVueTick(page)
+		}).MustDo()
 
-		encryptionPassphraseWarningTitle := page.MustElement("[aria-roledescription=warning-title]").MustText()
-		require.Contains(t, encryptionPassphraseWarningTitle, "Save your encryption passphrase")
+		// Passphrase screen
+		encryptionTitle := page.MustElement("[aria-roledescription=objects-title]").MustText()
+		require.Contains(t, encryptionTitle, "The object browser uses server side encryption.")
 		customPassphrase := page.MustElement("[aria-roledescription=enter-passphrase-label]")
 		customPassphraseLabel := customPassphrase.MustText()
 		require.Contains(t, customPassphraseLabel, "Enter your own passphrase")
 		customPassphrase.MustClick()
 		waitVueTick(page)
-
 		page.MustElement("[aria-roledescription=passphrase] input").MustInput("password123")
 		page.MustElement(".checkmark").MustClick()
 		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
 		waitVueTick(page)
 
-		// Buckets Page
-		bucketsTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, bucketsTitle, "Buckets")
+		// Verify that browser component has loaded and that the dropzone is present
+		page.MustElementR("h4", "Drop Files Here to Upload")
 	})
 }

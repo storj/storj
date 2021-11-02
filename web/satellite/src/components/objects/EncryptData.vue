@@ -22,6 +22,7 @@
         </div>
         <GeneratePassphrase
             :on-next-click="onNextClick"
+            :on-back-click="onBackClick"
             :set-parent-passphrase="setPassphrase"
             :is-loading="isLoading"
         />
@@ -63,6 +64,9 @@ import pbkdf2 from 'pbkdf2';
 import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from "@/utils/localData";
+import { GatewayCredentials } from "@/types/accessGrants";
+import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
+import { MetaUtils } from "@/utils/meta";
 
 import GeneratePassphrase from "@/components/common/GeneratePassphrase.vue";
 import FAQBullet from "@/components/objects/FAQBullet.vue";
@@ -75,6 +79,8 @@ import FAQBullet from "@/components/objects/FAQBullet.vue";
     },
 })
 export default class EncryptData extends Vue {
+    private worker: Worker;
+
     public isLoading = false;
     public passphrase = '';
 
@@ -91,10 +97,34 @@ export default class EncryptData extends Vue {
     }
 
     /**
+     * Lifecycle hook after initial render.
+     * Sets local worker if new flow is used.
+     */
+    public mounted(): void {
+        if (this.isNewObjectsFlow) {
+            if (!this.apiKey) {
+                this.$router.push(RouteConfig.Objects.with(RouteConfig.BucketsManagement).path)
+            }
+
+            this.setWorker();
+        }
+    }
+
+    /**
      * Sets passphrase from child component.
      */
     public setPassphrase(passphrase: string): void {
         this.passphrase = passphrase;
+    }
+
+    /**
+     * Sets local worker with worker instantiated in store.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
+        this.worker.onerror = (error: ErrorEvent) => {
+            this.$notify.error(error.message);
+        };
     }
 
     /**
@@ -120,9 +150,72 @@ export default class EncryptData extends Vue {
         await LocalData.setUserIDPassSalt(this.$store.getters.user.id, keyToBeStored, SALT);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
 
+        if (this.isNewObjectsFlow) {
+            try {
+                await this.setAccess();
+                await this.$router.push(RouteConfig.UploadFile.path);
+            } catch (e) {
+                await this.$notify.error(e.message);
+            }
+
+            this.isLoading = false;
+
+            return;
+        }
+
         this.isLoading = false;
 
-        await this.$router.push({name: RouteConfig.BucketsManagement.name});
+        await this.$router.push(RouteConfig.BucketsManagement.path);
+    }
+
+    /**
+     * Holds on back button click logic.
+     */
+    public onBackClick(): void {
+        this.$router.push(RouteConfig.BucketsManagement.path);
+    }
+
+    /**
+     * Sets access to S3 client.
+     */
+    public async setAccess(): Promise<void> {
+        const now = new Date();
+        const inThreeDays = new Date(now.setDate(now.getDate() + 3));
+
+        await this.worker.postMessage({
+            'type': 'SetPermission',
+            'isDownload': true,
+            'isUpload': true,
+            'isList': true,
+            'isDelete': true,
+            'notAfter': inThreeDays.toISOString(),
+            'buckets': this.bucket ? [this.bucket] : [],
+            'apiKey': this.apiKey,
+        });
+
+        const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        if (grantEvent.data.error) {
+            throw new Error(grantEvent.data.error);
+        }
+
+        const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        this.worker.postMessage({
+            'type': 'GenerateAccess',
+            'apiKey': grantEvent.data.value,
+            'passphrase': this.passphrase,
+            'projectID': this.$store.getters.selectedProject.id,
+            'satelliteNodeURL': satelliteNodeURL,
+        });
+
+        const accessGrantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        if (accessGrantEvent.data.error) {
+            throw new Error(accessGrantEvent.data.error);
+        }
+
+        const accessGrant = accessGrantEvent.data.value;
+
+        const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
     }
 
     /**
@@ -137,6 +230,27 @@ export default class EncryptData extends Vue {
                 error ? reject(error) : response(key);
             });
         });
+    }
+
+    /**
+     * Returns apiKey from store.
+     */
+    private get apiKey(): string {
+        return this.$store.state.objectsModule.apiKey;
+    }
+
+    /**
+     * Returns bucket name from store.
+     */
+    private get bucket(): string {
+        return this.$store.state.objectsModule.fileComponentBucketName;
+    }
+
+    /**
+     * Returns objects flow status from store.
+     */
+    private get isNewObjectsFlow(): string {
+        return this.$store.state.appStateModule.isNewObjectsFlow;
     }
 }
 </script>
