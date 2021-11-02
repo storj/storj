@@ -42,6 +42,7 @@ class State {
         public couponCodeSignupUIEnabled = false,
         public isNewOnbCLIFlow = false,
         public isNewNavStructure = false,
+        public isNewObjectsFlow = false,
     ){}
 }
 
@@ -146,6 +147,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS](state: State, isNewNavStructure: boolean): void {
             state.isNewNavStructure = isNewNavStructure;
+        },
+        [APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS](state: State, isNewObjectsFlow: boolean): void {
+            state.isNewObjectsFlow = isNewObjectsFlow;
         },
         [APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS](state: State, couponCodeBillingUIEnabled: boolean): void {
             state.couponCodeBillingUIEnabled = couponCodeBillingUIEnabled;
@@ -283,6 +287,9 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS]: function ({commit}: AppContext, isNewNavStructure: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure);
+        },
+        [APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS]: function ({commit}: AppContext, isNewObjectsFlow: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow);
         },
         [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({commit}: AppContext, couponCodeBillingUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);

@@ -41,6 +41,7 @@ export default class App extends Vue {
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
         const isNewOnboardingFlow = MetaUtils.getMetaContent('new-onboarding-flow');
         const isNewNavStructure = MetaUtils.getMetaContent('new-navigation-structure');
+        const isNewObjectsFlow = MetaUtils.getMetaContent('new-objects-flow');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -77,6 +78,10 @@ export default class App extends Vue {
 
         if (isNewNavStructure) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure === 'true');
+        }
+
+        if (isNewObjectsFlow) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow === 'true');
         }
     }
 }
