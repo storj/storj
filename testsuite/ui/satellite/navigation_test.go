@@ -70,11 +70,11 @@ func TestNavigation(t *testing.T) {
 		dashboardTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, dashboardTitle1, "Dashboard")
 
-		// project dashboard route
+		// objects route
 		page.MustElementR("p", "Objects").MustClick()
 		waitVueTick(page)
-		objectsTitle := page.MustElement("[aria-roledescription=enc-title]").MustText()
-		require.Contains(t, objectsTitle, "Encryption passphrase")
+		objectsTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, objectsTitle, "Buckets")
 
 		// access grants route
 		page.MustElementR("p", "Access").MustClick()
@@ -124,8 +124,8 @@ func TestNavigation(t *testing.T) {
 		page.MustElementR("p", "Quick Start").MustClick()
 		page.MustElement("[aria-roledescription=objects-route]").MustClick()
 		waitVueTick(page)
-		objectsTitle1 := page.MustElement("[aria-roledescription=enc-title]").MustText()
-		require.Contains(t, objectsTitle1, "Encryption passphrase")
+		objectsTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, objectsTitle1, "Buckets")
 
 		// onboarding cli flow route
 		page.MustElementR("p", "Quick Start").MustClick()

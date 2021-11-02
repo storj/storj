@@ -54,6 +54,7 @@
                     :error="enterError"
                     role-description="passphrase"
                     is-password="true"
+                    :disabled="isLoading"
                     @setData="setPassphrase"
                 />
             </div>
@@ -73,6 +74,16 @@
             />
         </div>
         <div class="encrypt-container__buttons">
+            <VButton
+                v-if="isNewObjectsFlow"
+                class="encrypt-container__buttons__back"
+                label="< Back"
+                height="64px"
+                border-radius="62px"
+                is-blue-white="true"
+                :on-press="onBackClick"
+                :is-disabled="isLoading"
+            />
             <VButton
                 label="Next >"
                 height="64px"
@@ -113,6 +124,8 @@ import InfoIcon from "@/../static/images/common/smallGreyInfo.svg";
 export default class GeneratePassphrase extends Vue {
     @Prop({ default: () => null })
     public readonly onNextClick: () => unknown;
+    @Prop({ default: () => null })
+    public readonly onBackClick: () => unknown;
     @Prop({ default: () => null })
     public readonly setParentPassphrase: (passphrase: string) => void;
     @Prop({ default: false })
@@ -216,6 +229,13 @@ export default class GeneratePassphrase extends Vue {
         }
 
         await this.onNextClick();
+    }
+
+    /**
+     * Returns objects flow status from store.
+     */
+    public get isNewObjectsFlow(): string {
+        return this.$store.state.appStateModule.isNewObjectsFlow;
     }
 }
 </script>
@@ -366,6 +386,10 @@ export default class GeneratePassphrase extends Vue {
             display: flex;
             align-items: center;
             margin-top: 30px;
+
+            &__back {
+                margin-right: 24px;
+            }
         }
     }
 

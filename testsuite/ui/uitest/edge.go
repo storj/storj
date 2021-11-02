@@ -72,6 +72,7 @@ func Edge(t *testing.T, test EdgeTest) {
 					config.Console.StaticDir = dir
 				}
 				config.Console.NewOnboarding = true
+				config.Console.NewObjectsFlow = true
 				// TODO: this should be dynamically set from the auth service
 				config.Console.GatewayCredentialsRequestURL = "http://" + authSvcAddr
 			},

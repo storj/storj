@@ -11,7 +11,6 @@ export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',
     SET_GATEWAY_CREDENTIALS: 'setGatewayCredentials',
     SET_API_KEY: 'setApiKey',
-    SET_ACCESS_GRANT: 'setAccessGrant',
     SET_S3_CLIENT: 'setS3Client',
     SET_PASSPHRASE: 'setPassphrase',
     SET_FILE_COMPONENT_BUCKET_NAME: 'setFileComponentBucketName',
@@ -25,7 +24,6 @@ export const OBJECTS_ACTIONS = {
 export const OBJECTS_MUTATIONS = {
     SET_GATEWAY_CREDENTIALS: 'setGatewayCredentials',
     SET_API_KEY: 'setApiKey',
-    SET_ACCESS_GRANT: 'setAccessGrant',
     CLEAR: 'clearObjects',
     SET_S3_CLIENT: 'setS3Client',
     SET_BUCKETS: 'setBuckets',
@@ -39,7 +37,6 @@ export const DEMO_BUCKET_NAME = 'demo-bucket';
 const {
     CLEAR,
     SET_API_KEY,
-    SET_ACCESS_GRANT,
     SET_GATEWAY_CREDENTIALS,
     SET_S3_CLIENT,
     SET_BUCKETS,
@@ -50,7 +47,6 @@ const {
 
 export class ObjectsState {
     public apiKey = '';
-    public accessGrant = '';
     public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
     public s3Client: S3 = new S3({
         s3ForcePathStyle: true,
@@ -84,9 +80,6 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
             [SET_API_KEY](state: ObjectsState, apiKey: string) {
                 state.apiKey = apiKey;
             },
-            [SET_ACCESS_GRANT](state: ObjectsState, accessGrant: string) {
-                state.accessGrant = accessGrant;
-            },
             [SET_GATEWAY_CREDENTIALS](state: ObjectsState, credentials: GatewayCredentials) {
                 state.gatewayCredentials = credentials;
             },
@@ -117,7 +110,6 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
             [CLEAR](state: ObjectsState) {
                 state.apiKey = '';
                 state.passphrase = '';
-                state.accessGrant = '';
                 state.gatewayCredentials = new GatewayCredentials();
                 state.s3Client = new S3({
                     s3ForcePathStyle: true,
@@ -131,9 +123,6 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
         actions: {
             setApiKey: function({commit}: ObjectsContext, apiKey: string): void {
                 commit(SET_API_KEY, apiKey);
-            },
-            setAccessGrant: function({commit}: ObjectsContext, accessGrant: string): void {
-                commit(SET_ACCESS_GRANT, accessGrant);
             },
             setGatewayCredentials: function({commit}: ObjectsContext, credentials: GatewayCredentials): void {
                 commit(SET_GATEWAY_CREDENTIALS, credentials);

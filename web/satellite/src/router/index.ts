@@ -493,6 +493,12 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
+        if (store.state.appStateModule.isNewObjectsFlow) {
+            next(RouteConfig.Objects.with(RouteConfig.BucketsManagement).path);
+
+            return;
+        }
+
         next(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
 
         return;

@@ -47,7 +47,11 @@ export default class UploadFile extends Vue {
      */
     public mounted(): void {
         if (!this.bucket) {
-            this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
+            if (this.isNewObjectsFlow) {
+                this.$router.push(RouteConfig.Objects.with(RouteConfig.BucketsManagement).path);
+            } else {
+                this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
+            }
 
             return;
         }
@@ -134,13 +138,6 @@ export default class UploadFile extends Vue {
     }
 
     /**
-     * Indicates if upload cancel popup is visible.
-     */
-    public get isCancelUploadPopupVisible(): boolean {
-        return this.$store.state.appStateModule.appState.isUploadCancelPopupVisible;
-    }
-
-    /**
      * Generates public access key.
      */
     private async accessKey(cleanApiKey: string, path: string): Promise<string> {
@@ -183,6 +180,20 @@ export default class UploadFile extends Vue {
         const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: data.value, isPublic: true});
 
         return gatewayCredentials.accessKeyId;
+    }
+
+    /**
+     * Indicates if upload cancel popup is visible.
+     */
+    public get isCancelUploadPopupVisible(): boolean {
+        return this.$store.state.appStateModule.appState.isUploadCancelPopupVisible;
+    }
+
+    /**
+     * Returns objects flow status from store.
+     */
+    private get isNewObjectsFlow(): string {
+        return this.$store.state.appStateModule.isNewObjectsFlow;
     }
 
     /**
