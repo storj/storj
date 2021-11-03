@@ -63,7 +63,7 @@ func init() {
 func shareMain(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := withTelemetry(cmd)
 
-	isPublic := (shareCfg.Public || shareCfg.URL || shareCfg.DNS != "")
+	isPublic := shareCfg.Public || shareCfg.URL || shareCfg.DNS != ""
 
 	if isPublic {
 		if shareCfg.NotAfter == "" {
