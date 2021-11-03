@@ -172,6 +172,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if new onboarding flow should be rendered
 # console.new-onboarding: true
 
+# indicates if new project dashboard should be used
+# console.new-project-dashboard: false
+
 # enable open registration
 # console.open-registration-enabled: false
 
