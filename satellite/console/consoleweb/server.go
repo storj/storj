@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -63,6 +62,7 @@ var (
 type Config struct {
 	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
+	Watch           bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
 	// TODO: remove after Vanguard release
@@ -157,13 +157,16 @@ type Server struct {
 
 	pricing paymentsconfig.PricingValues
 
-	schema    graphql.Schema
-	templates struct {
-		index               *template.Template
-		notFound            *template.Template
-		internalServerError *template.Template
-		usageReport         *template.Template
-	}
+	schema graphql.Schema
+
+	templatesCache *templates
+}
+
+type templates struct {
+	index               *template.Template
+	notFound            *template.Template
+	internalServerError *template.Template
+	usageReport         *template.Template
 }
 
 // NewServer creates new instance of console server.
@@ -293,7 +296,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	err = server.initializeTemplates()
+	_, err = server.loadTemplates()
 	if err != nil {
 		// TODO: should it return error if some template can not be initialized or just log about it?
 		return Error.Wrap(err)
@@ -408,12 +411,14 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NewNavigation = server.config.NewNavigation
 	data.NewBrowser = server.config.NewBrowser
 
-	if server.templates.index == nil {
-		server.log.Error("index template is not set")
+	templates, err := server.loadTemplates()
+	if err != nil || templates.index == nil {
+		server.log.Error("unable to load templates", zap.Error(err))
+		fmt.Fprintf(w, "Unable to load templates. See whether satellite UI has been built.")
 		return
 	}
 
-	if err := server.templates.index.Execute(w, data); err != nil {
+	if err := templates.index.Execute(w, data); err != nil {
 		server.log.Error("index template could not be executed", zap.Error(err))
 		return
 	}
@@ -508,7 +513,12 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
+	templates, err := server.loadTemplates()
+	if err != nil {
+		server.log.Error("unable to load templates", zap.Error(err))
+		return
+	}
+	if err = templates.usageReport.Execute(w, bucketRollups); err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
 	}
 }
@@ -720,14 +730,24 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 
 	switch status {
 	case http.StatusInternalServerError:
-		err := server.templates.internalServerError.Execute(w, nil)
+		templates, err := server.loadTemplates()
 		if err != nil {
-			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
+			server.log.Error("unable to load templates", zap.Error(err))
+			return
+		}
+		err = templates.internalServerError.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse internalServerError template", zap.Error(err))
 		}
 	case http.StatusNotFound:
-		err := server.templates.notFound.Execute(w, nil)
+		templates, err := server.loadTemplates()
 		if err != nil {
-			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
+			server.log.Error("unable to load templates", zap.Error(err))
+			return
+		}
+		err = templates.notFound.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse pageNotFound template", zap.Error(err))
 		}
 	}
 }
@@ -777,29 +797,50 @@ func (server *Server) brotliMiddleware(fn http.Handler) http.Handler {
 	})
 }
 
-// initializeTemplates is used to initialize all templates.
-func (server *Server) initializeTemplates() (err error) {
-	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
+// loadTemplates is used to initialize all templates.
+func (server *Server) loadTemplates() (_ *templates, err error) {
+	if server.config.Watch {
+		return server.parseTemplates()
+	}
+
+	if server.templatesCache != nil {
+		return server.templatesCache, nil
+	}
+
+	templates, err := server.parseTemplates()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	server.templatesCache = templates
+	return server.templatesCache, nil
+}
+
+func (server *Server) parseTemplates() (_ *templates, err error) {
+	var t templates
+
+	t.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {
 		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
+		// Loading index is optional.
 	}
 
-	server.templates.usageReport, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
+	t.usageReport, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
 	if err != nil {
-		return Error.Wrap(err)
+		return &t, Error.Wrap(err)
 	}
 
-	server.templates.notFound, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
+	t.notFound, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
 	if err != nil {
-		return Error.Wrap(err)
+		return &t, Error.Wrap(err)
 	}
 
-	server.templates.internalServerError, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "500.html"))
+	t.internalServerError, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "500.html"))
 	if err != nil {
-		return Error.Wrap(err)
+		return &t, Error.Wrap(err)
 	}
 
-	return nil
+	return &t, nil
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
