@@ -14,7 +14,7 @@
                 to your
                 <b class="upload-object__msg__bold">Desktop.</b>
             </p>
-            <Icon class="upload-object__icon" />
+            <img class="upload-object__icon" src="@/../static/images/onboardingTour/cheesecake.jpg" alt="Cheesecake">
             <p class="upload-object__msg">
                 Now to upload the photo, use the copy command.
             </p>
@@ -42,15 +42,12 @@ import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowCo
 import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
 import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vue";
 
-import Icon from "@/../static/images/onboardingTour/uploadObjectStep.svg";
-
 // @vue/component
 @Component({
     components: {
         CLIFlowContainer,
         OSContainer,
         TabWithCopy,
-        Icon,
     }
 })
 export default class UploadObject extends Vue {
@@ -87,6 +84,7 @@ export default class UploadObject extends Vue {
 
         &__icon {
             margin: 20px 0 40px 0;
+            width: 100%;
         }
     }
 
