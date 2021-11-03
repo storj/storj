@@ -32,6 +32,7 @@ import OldOverviewStep from '@/components/onboardingTour/steps/oldFlow/OldOvervi
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
+import NewProjectDashboard from "@/components/project/NewProjectDashboard.vue";
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import CLIInstall from "@/components/onboardingTour/steps/cliFlow/CLIInstall.vue";
@@ -50,6 +51,7 @@ import AGPermissions from "@/components/onboardingTour/steps/cliFlow/AGPermissio
 import store from '@/store';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { NavigationLink } from '@/types/navigation';
+import { MetaUtils } from "@/utils/meta";
 
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
@@ -72,6 +74,7 @@ export abstract class RouteConfig {
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
+    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', 'Dashboard ');
     public static Users = new NavigationLink('/project-members', 'Users');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
@@ -128,6 +131,11 @@ export abstract class RouteConfig {
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
+}
+
+const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard') === 'true';
+if (isNewProjectDashboard) {
+    RouteConfig.ProjectDashboard = RouteConfig.NewProjectDashboard
 }
 
 export const notProjectRelatedRoutes = [
@@ -221,6 +229,11 @@ export const router = new Router({
                             component: CreditsHistory,
                         },
                     ],
+                },
+                {
+                    path: RouteConfig.NewProjectDashboard.path,
+                    name: RouteConfig.NewProjectDashboard.name,
+                    component: NewProjectDashboard,
                 },
                 {
                     path: RouteConfig.ProjectDashboard.path,
