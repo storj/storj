@@ -1,11 +1,12 @@
 //  Copyright (C) 2021 Storj Labs, Inc.
 //  See LICENSE for copying information.
 
-package endpoints
+package introspect
 
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -23,10 +24,12 @@ func check(e error) { // easy error handler.
 }
 
 // introspect takes a url and returns a byte slice of endpoints.
-func introspect(src string) []byte { // pass in the src url and return []byte.
+func introspect(src string) (endpoints []byte, err error) { // pass in the src url and return []byte.
 
 	u, err := url.Parse(src) // parse the url to remove https://  and /path/tofile.
-	check(err)               // this is needed to set the host property of the header.
+	if err != nil {          // this is needed to set the host property of the header.
+		fmt.Println("Oh noes!!")
+	}
 	ctx := context.Background()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", src, bytes.NewBuffer(graphql))
@@ -51,5 +54,5 @@ func introspect(src string) []byte { // pass in the src url and return []byte.
 	body, err := ioutil.ReadAll(resp.Body)
 	check(err)
 
-	return body
+	return body, nil
 }
