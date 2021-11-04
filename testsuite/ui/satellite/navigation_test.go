@@ -88,6 +88,12 @@ func TestNavigation(t *testing.T) {
 		membersTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, membersTitle, "Project Members")
 
+		// billing route
+		page.MustElementR("p", "Billing").MustClick()
+		waitVueTick(page)
+		pmTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, pmTitle, "Payment Method")
+
 		// resources dropdown
 		page.MustElementR("p", "Resources").MustClick()
 		docsLinkTitle := page.MustElement("[href=\"https://docs.storj.io/\"] div h2").MustText()
@@ -100,14 +106,15 @@ func TestNavigation(t *testing.T) {
 		// quick start dropdown
 		// create project route
 		page.MustElementR("p", "Quick Start").MustClick()
-		page.MustElement("[href=\"/create-project\"]").MustClick()
+		page.MustElement("[aria-roledescription=create-project-route]").MustClick()
 		waitVueTick(page)
 		createProjectTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, createProjectTitle1, "Create a Project")
 		page.MustNavigateBack()
 
 		// create access grant route
-		page.MustElement("[href=\"/access-grants/create-grant\"]").MustClick()
+		page.MustElementR("p", "Quick Start").MustClick()
+		page.MustElement("[aria-roledescription=create-ag-route]").MustClick()
 		waitVueTick(page)
 		nameAGTitle := page.MustElement("[aria-roledescription=name-ag-title]").MustText()
 		require.Contains(t, nameAGTitle, "Name Your Access Grant")
@@ -115,7 +122,7 @@ func TestNavigation(t *testing.T) {
 
 		// objects route
 		page.MustElementR("p", "Quick Start").MustClick()
-		page.MustElement("[href=\"/objects\"]").MustClick()
+		page.MustElement("[aria-roledescription=objects-route]").MustClick()
 		waitVueTick(page)
 		objectsTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, objectsTitle1, "Object Browser")
@@ -123,7 +130,7 @@ func TestNavigation(t *testing.T) {
 		// onboarding cli flow route
 		page.MustElementR("p", "Quick Start").MustClick()
 		wait := page.MustWaitRequestIdle()
-		page.MustElement("[href=\"/onboarding-tour/cli/api-key\"]").MustClick()
+		page.MustElement("[aria-roledescription=cli-flow-route]").MustClick()
 		wait()
 		apiKeyGeneratedTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, apiKeyGeneratedTitle, "API Key Generated")
@@ -135,8 +142,6 @@ func TestNavigation(t *testing.T) {
 		}).MustDo()
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
 		waitVueTick(page)
-		page.MustElement("[href=\"/project-dashboard\"]").MustClick()
-		waitVueTick(page)
 
 		// account dropdown
 		// account settings route
@@ -145,20 +150,6 @@ func TestNavigation(t *testing.T) {
 		waitVueTick(page)
 		settingsTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, settingsTitle, "Account Settings")
-
-		// billing route
-		page.MustElement("[aria-roledescription=account-area]").MustClick()
-		page.MustElementR("p", "Billing").MustClick()
-		waitVueTick(page)
-		pmTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, pmTitle, "Payment Method")
-
-		// upgrade account popup
-		page.MustElement("[aria-roledescription=account-area]").MustClick()
-		page.MustElementR("p", "Upgrade Plan").MustClick()
-		upgradeTitle := page.MustElement("[aria-roledescription=modal-title]").MustText()
-		require.Contains(t, upgradeTitle, "Upgrade to Pro Account")
-		page.MustElement(".close-cross-container").MustClick()
 
 		// logout route
 		page.MustElement("[aria-roledescription=account-area]").MustClick()

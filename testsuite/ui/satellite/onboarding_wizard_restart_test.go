@@ -51,7 +51,7 @@ func TestRestartOnboardingWizard(t *testing.T) {
 		// Testing restart tour functionality
 		page.MustElementR("p", "Quick Start").MustClick()
 		wait := page.MustWaitRequestIdle()
-		page.MustElement("[href=\"/onboarding-tour/cli/api-key\"]").MustClick()
+		page.MustElement("[aria-roledescription=cli-flow-route]").MustClick()
 		wait()
 		apiKeyGeneratedTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, apiKeyGeneratedTitle, "API Key Generated")

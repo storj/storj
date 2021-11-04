@@ -65,7 +65,7 @@ import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 import { Project } from "@/types/projects";
 
 import ProjectIcon from '@/../static/images/navigation/project.svg';
-import ArrowImage from '@/../static/images/navigation/arrow.svg';
+import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
@@ -85,7 +85,6 @@ export default class NewProjectSelection extends Vue {
     private FIRST_PAGE = 1;
     private dropdownYPos = 0;
     private dropdownXPos = 0;
-    private dropdownWidth = 0;
 
     public isLoading = false;
 
@@ -101,9 +100,10 @@ export default class NewProjectSelection extends Vue {
 
         const selectionContainer = this.$refs.projectSelection.getBoundingClientRect();
 
-        this.dropdownYPos = selectionContainer.top + selectionContainer.height;
-        this.dropdownXPos = selectionContainer.left;
-        this.dropdownWidth = selectionContainer.width;
+        const FIVE_PIXELS = 5;
+        const TWENTY_PIXELS = 20;
+        this.dropdownYPos = selectionContainer.top - FIVE_PIXELS;
+        this.dropdownXPos = selectionContainer.right - TWENTY_PIXELS;
 
         this.toggleDropdown();
 
@@ -158,7 +158,7 @@ export default class NewProjectSelection extends Vue {
      * Returns top and left position of dropdown.
      */
     public get style(): Record<string, string> {
-        return { top: `${this.dropdownYPos}px`, left: `${this.dropdownXPos}px`, width: `${this.dropdownWidth}px` };
+        return { top: `${this.dropdownYPos}px`, left: `${this.dropdownXPos}px` };
     }
 
     /**
@@ -241,15 +241,15 @@ export default class NewProjectSelection extends Vue {
         width: 100%;
 
         &__selected {
-            border: 1px solid #ebeef1;
             box-sizing: border-box;
-            border-radius: 8px;
-            padding: 18px;
+            padding: 22px 32px;
+            border-left: 4px solid #fff;
             width: 100%;
             display: flex;
             align-items: center;
             justify-content: space-between;
             cursor: pointer;
+            position: static;
 
             &__left {
                 display: flex;
@@ -268,18 +268,15 @@ export default class NewProjectSelection extends Vue {
                     text-overflow: ellipsis;
                 }
             }
-
-            &__arrow {
-                min-width: 14px;
-            }
         }
 
         &__dropdown {
             position: absolute;
-            min-width: 230px;
+            min-width: 240px;
+            max-width: 240px;
             background-color: #fff;
             box-shadow: 0 2px 16px rgba(0, 0, 0, 0.1);
-            border-radius: 0 0 8px 8px;
+            border-radius: 8px;
             z-index: 1;
 
             &__loader-container {
@@ -355,14 +352,31 @@ export default class NewProjectSelection extends Vue {
     }
 
     .active {
-        background-color: #fafafb;
+        border-color: #0149ff;
+        background-color: #f7f8fb;
+
+        p {
+            color: #0149ff;
+            font-weight: 600;
+        }
+
+        svg path {
+            fill: #0149ff;
+        }
     }
 
     @media screen and (max-width: 1280px) {
 
         .project-selection__selected {
 
-            &__left__name,
+            &__left {
+                min-width: 18px;
+
+                &__name {
+                    display: none;
+                }
+            }
+
             &__arrow {
                 display: none;
             }
