@@ -1,7 +1,7 @@
 //  Copyright (C) 2021 Storj Labs, Inc.
 //  See LICENSE for copying information.
 
-package endpoints_test
+package introspect_test
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-func EndpointsTest(t *testing.T) {
+func IntrospectTest(t esting.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -21,38 +21,42 @@ var (
 	err     = errs.Class("graphql")
 )
 
-type Server struct {
+type server struct {
 	fullpath  string
 	sataddr   string
 	satendpnt string // "/api/v0/graphql"
 }
 
+// Endpoint defines a configuration for anintrospection endpoint.
 type Endpoint struct {
 	Log      *zap.Logger
 	request  []byte
-	server   *Server
+	server   *server
 	response []byte
 }
 
-func New(log *zap.Logger, r []byte) (endpoint *Endpoint, err error) {
+// New creates a new instance of Endpoint
+func newEndpoint(log *zap.Logger, r []byte) *Endpoint {
 	return &Endpoint{
 		Log:     log,
 		request: graphql,
-		server: Server{
+		server: &server{
 			satendpnt: "/api/v0/graphql",
 		},
 	}
 }
 
-// introspect takes a url and returns a byte slice of endpoints and an error message.
-func Introspect(src string) (endpoints []byte, err error) { // pass in the src url and return []byte slice and error || nil.
-	url, err := url.Parse(src) // parse the url to remove https://  and /path/tofile.
-	if err != nil {            // this is needed to set the host property of the header.
+// Introspect takes a url and returns a byte slice of endpoints and an error message.//dst url := planet.Satellites[0].ConsoleURL()
+func Introspect(dst string) (endpoints []byte, err error) { // pass in the dst url and return []byte slice and error or nil.
+	e, err := newEndpoint(log*zap.Logger, graphql)
+
+	e.server.fullpath, err = url.Parse(dst) // parse the url to remove https://  and /path/tofile.
+	if err != nil {                         // this is needed to set the host property of the header.
 		fmt.Println("Oh noes!!")
 	}
 	ctx := context.Background()
 
-	req, err := http.NewRequestWithContext(ctx, "POST", src, bytes.NewBuffer(graphql))
+	req, err := http.NewRequestWithContext(ctx, "POST", dst, bytes.NewBuffer(graphql))
 	check(err)
 	req.Header.Set("Pragma", "no-cache")
 	req.Header.Set("Cache-Control", "no-cache")
