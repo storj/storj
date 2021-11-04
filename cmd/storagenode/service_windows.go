@@ -10,8 +10,6 @@
 // The --config-dir argument can be omitted if the config.yaml is available at
 // C:\Windows\System32\config\systemprofile\AppData\Roaming\Storj\Storagenode\config.yaml
 
-// +build windows
-
 package main
 
 import (
@@ -25,22 +23,22 @@ import (
 	"storj.io/private/process"
 )
 
-func init() {
+func startAsService() bool {
 	isService, err := svc.IsWindowsService()
 	if err != nil {
 		zap.L().Fatal("Failed to determine if session is a service.", zap.Error(err))
 	}
 	if !isService {
-		return
+		return false
 	}
 
 	// Check if the 'run' command is invoked
 	if len(os.Args) < 2 {
-		return
+		return false
 	}
 
 	if os.Args[1] != "run" {
-		return
+		return false
 	}
 
 	// Initialize the Windows Service handler
@@ -48,8 +46,8 @@ func init() {
 	if err != nil {
 		zap.L().Fatal("Service failed.", zap.Error(err))
 	}
-	// avoid starting main() when service was stopped
-	os.Exit(0)
+
+	return true
 }
 
 type service struct{}

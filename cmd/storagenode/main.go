@@ -382,5 +382,8 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func main() {
+	if startAsService() {
+		return
+	}
 	process.ExecCustomDebug(rootCmd)
 }
