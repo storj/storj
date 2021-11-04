@@ -2,31 +2,35 @@
 // See LICENSE for copying information.
 
 <template>
-    <div ref="accountArea" class="account-area" :class="{ active: isDropdown }" aria-roledescription="account-area" @click.stop="toggleDropdown">
-        <div class="account-area__avatar">
-            <h1 class="account-area__avatar__letter">{{ avatarLetter }}</h1>
-        </div>
-        <div class="account-area__info">
-            <h2 class="account-area__info__email">{{ user.email }}</h2>
-            <p v-if="usersCCAmount" class="account-area__info__type">Pro account</p>
-            <p v-else class="account-area__info__type">Free account</p>
+    <div ref="accountArea" class="account-area">
+        <div class="account-area__wrap" :class="{ active: isDropdown }" aria-roledescription="account-area" @click.stop="toggleDropdown">
+            <div class="account-area__wrap__left">
+                <AccountIcon class="account-area__wrap__left__icon" />
+                <p class="account-area__wrap__left__label">My Account</p>
+            </div>
+            <ArrowImage class="account-area__wrap__arrow" />
         </div>
         <div v-if="isDropdown" v-click-outside="closeDropdown" class="account-area__dropdown" :style="style">
             <div class="account-area__dropdown__header">
-                <p class="account-area__dropdown__header__greet">👋🏼 Hi, {{ user.fullName }}</p>
-                <p class="account-area__dropdown__header__sat">{{ satellite }}</p>
+                <div class="account-area__dropdown__header__left">
+                    <SatelliteIcon />
+                    <h2 class="account-area__dropdown__header__left__label">Satellite</h2>
+                </div>
+                <div class="account-area__dropdown__header__right">
+                    <p class="account-area__dropdown__header__right__sat">{{ satellite }}</p>
+                    <a
+                        class="account-area__dropdown__header__right__link"
+                        href="https://docs.storj.io/dcs/concepts/satellite"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <InfoIcon />
+                    </a>
+                </div>
             </div>
             <div class="account-area__dropdown__item" @click="navigateToSettings">
                 <SettingsIcon />
                 <p class="account-area__dropdown__item__label">Account Settings</p>
-            </div>
-            <div class="account-area__dropdown__item" @click="navigateToBilling">
-                <BillingIcon />
-                <p class="account-area__dropdown__item__label">Billing</p>
-            </div>
-            <div v-if="!usersCCAmount" class="account-area__dropdown__item" @click="onUpgrade">
-                <PlanIcon />
-                <p class="account-area__dropdown__item__label">Upgrade Plan</p>
             </div>
             <div class="account-area__dropdown__item" @click="onLogout">
                 <LogoutIcon />
@@ -49,19 +53,22 @@ import { USER_ACTIONS } from "@/store/modules/users";
 import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 import { OBJECTS_ACTIONS } from "@/store/modules/objects";
-import { PAYMENTS_MUTATIONS } from "@/store/modules/payments";
 
+import InfoIcon from '@/../static/images/navigation/info.svg';
+import SatelliteIcon from '@/../static/images/navigation/satellite.svg';
+import AccountIcon from '@/../static/images/navigation/account.svg';
+import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
-import BillingIcon from '@/../static/images/navigation/billing.svg';
-import PlanIcon from '@/../static/images/navigation/plan.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
 
 // @vue/component
 @Component({
     components: {
+        InfoIcon,
+        SatelliteIcon,
+        AccountIcon,
+        ArrowImage,
         SettingsIcon,
-        BillingIcon,
-        PlanIcon,
         LogoutIcon,
     }
 })
@@ -69,7 +76,6 @@ export default class AccountArea extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
     private dropdownYPos = 0;
     private dropdownXPos = 0;
-    private dropdownWidth = 0;
 
     public $refs!: {
         accountArea: HTMLDivElement,
@@ -79,21 +85,8 @@ export default class AccountArea extends Vue {
      * Navigates user to account settings page.
      */
     public navigateToSettings(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path)
-    }
-
-    /**
-     * Navigates user to account billing page.
-     */
-    public navigateToBilling(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path)
-    }
-
-    /**
-     * Toggles upgrade account popup.
-     */
-    public onUpgrade(): void {
-        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+        this.closeDropdown();
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
     }
 
     /**
@@ -127,16 +120,13 @@ export default class AccountArea extends Vue {
      * Toggles account dropdown visibility.
      */
     public toggleDropdown(): void {
-        let dropdownHeight = 262; // pixels
-        if (this.usersCCAmount) {
-            dropdownHeight = 210;
-        }
-
+        const DROPDOWN_HEIGHT = 158; // pixels
+        const SIXTEEN_PIXELS = 16;
+        const TWENTY_PIXELS = 20;
         const accountContainer = this.$refs.accountArea.getBoundingClientRect();
 
-        this.dropdownYPos = accountContainer.top - dropdownHeight;
-        this.dropdownXPos = accountContainer.left;
-        this.dropdownWidth = accountContainer.width;
+        this.dropdownYPos = accountContainer.bottom - DROPDOWN_HEIGHT - SIXTEEN_PIXELS;
+        this.dropdownXPos = accountContainer.right - TWENTY_PIXELS;
 
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
     }
@@ -152,7 +142,7 @@ export default class AccountArea extends Vue {
      * Returns bottom and left position of dropdown.
      */
     public get style(): Record<string, string> {
-        return { top: `${this.dropdownYPos}px`, left: `${this.dropdownXPos}px`, width: `${this.dropdownWidth}px` };
+        return { top: `${this.dropdownYPos}px`, left: `${this.dropdownXPos}px` };
     }
 
     /**
@@ -175,105 +165,82 @@ export default class AccountArea extends Vue {
     public get user(): User {
         return this.$store.getters.user;
     }
-
-    /**
-     * Returns first letter of user's name.
-     */
-    public get avatarLetter(): string {
-        return this.$store.getters.userName.slice(0, 1).toUpperCase();
-    }
-
-    /**
-     * Returns amount of user's credit cards from store.
-     */
-    public get usersCCAmount(): number {
-        return this.$store.state.paymentsModule.creditCards.length;
-    }
 }
 </script>
 
 <style scoped lang="scss">
     .account-area {
-        margin: 32px 20px;
-        padding: 8px;
-        width: calc(100% - 56px);
-        border-radius: 0 0 10px 10px;
-        display: flex;
-        align-items: center;
-        cursor: pointer;
-        position: static;
+        width: 100%;
+        margin-top: 40px;
 
-        &__avatar {
-            min-width: 40px;
-            min-height: 40px;
-            border-radius: 20px;
+        &__wrap {
+            box-sizing: border-box;
+            padding: 22px 32px;
+            border-left: 4px solid #fff;
+            width: 100%;
             display: flex;
             align-items: center;
-            justify-content: center;
-            background: #2582ff;
+            justify-content: space-between;
             cursor: pointer;
+            position: static;
 
-            &__letter {
-                font-family: 'font_medium', sans-serif;
-                font-size: 16px;
-                line-height: 23px;
-                color: #fff;
-            }
-        }
+            &__left {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
 
-        &__info {
-            margin-left: 16px;
-            max-width: calc(100% - 40px - 16px);
-
-            &__email {
-                font-family: 'font_bold', sans-serif;
-                font-size: 14px;
-                line-height: 20px;
-                color: #56606d;
-                white-space: nowrap;
-                text-overflow: ellipsis;
-                overflow: hidden;
-            }
-
-            &__type {
-                font-size: 14px;
-                line-height: 20px;
-                color: #56606d;
+                &__label {
+                    font-size: 14px;
+                    line-height: 20px;
+                    color: #56606d;
+                    margin-left: 24px;
+                }
             }
         }
 
         &__dropdown {
             position: absolute;
             background: #fff;
-            min-width: 230px;
+            min-width: 240px;
+            max-width: 240px;
             z-index: 1;
             cursor: default;
             border: 1px solid #ebeef1;
             box-sizing: border-box;
             box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
-            border-radius: 8px 8px 0 0;
+            border-radius: 8px;
 
             &__header {
+                background: #fafafb;
                 padding: 16px;
                 width: calc(100% - 32px);
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
 
-                &__greet {
-                    font-family: 'font_bold', sans-serif;
-                    font-size: 14px;
-                    line-height: 20px;
-                    color: #56606d;
-                    white-space: nowrap;
-                    text-overflow: ellipsis;
-                    overflow: hidden;
-                }
+                &__left,
+                &__right {
+                    display: flex;
+                    align-items: center;
 
-                &__sat {
-                    font-size: 14px;
-                    line-height: 20px;
-                    color: #56606d;
+                    &__label {
+                        font-family: 'font_medium', sans-serif;
+                        font-size: 14px;
+                        line-height: 20px;
+                        color: #56606d;
+                        margin-left: 16px;
+                    }
+
+                    &__sat {
+                        font-size: 14px;
+                        line-height: 20px;
+                        color: #56606d;
+                        margin-right: 16px;
+                    }
+
+                    &__link {
+                        max-height: 16px;
+                    }
                 }
             }
 
@@ -299,13 +266,31 @@ export default class AccountArea extends Vue {
     }
 
     .active {
+        border-color: #0149ff;
         background-color: #f7f8fb;
+
+        .account-area__wrap {
+
+            &__left__label {
+                color: #0149ff;
+                font-weight: 600;
+            }
+
+            &__left__icon path,
+            &__arrow path {
+                fill: #0149ff;
+            }
+        }
     }
 
     @media screen and (max-width: 1280px) {
 
-        .account-area__info {
-            display: none;
+        .account-area__wrap {
+
+            &__left__label,
+            &__arrow {
+                display: none;
+            }
         }
     }
 </style>

@@ -10,6 +10,7 @@
                 <div class="navigation-area__container__wrap__edit">
                     <NewProjectSelection />
                 </div>
+                <div class="navigation-area__container__wrap__border" />
                 <router-link
                     v-for="navItem in navigation"
                     :key="navItem.name"
@@ -23,17 +24,18 @@
                     </div>
                 </router-link>
                 <div class="navigation-area__container__wrap__border" />
-                <div
-                    ref="resourcesContainer"
-                    class="navigation-area__container__wrap__item-container"
-                    :class="{ active: isResourcesDropdownShown }"
-                    @click.stop="toggleResourcesDropdown"
-                >
-                    <div class="navigation-area__container__wrap__item-container__left">
-                        <ResourcesIcon class="navigation-area__container__wrap__item-container__left__image" />
-                        <p class="navigation-area__container__wrap__item-container__left__label">Resources</p>
+                <div ref="resourcesContainer" class="container-wrapper">
+                    <div
+                        class="navigation-area__container__wrap__item-container"
+                        :class="{ active: isResourcesDropdownShown }"
+                        @click.stop="toggleResourcesDropdown"
+                    >
+                        <div class="navigation-area__container__wrap__item-container__left">
+                            <ResourcesIcon class="navigation-area__container__wrap__item-container__left__image" />
+                            <p class="navigation-area__container__wrap__item-container__left__label">Resources</p>
+                        </div>
+                        <ArrowIcon class="navigation-area__container__wrap__item-container__arrow" />
                     </div>
-                    <ArrowIcon class="navigation-area__container__wrap__item-container__arrow" />
                     <GuidesDropdown
                         v-if="isResourcesDropdownShown"
                         :close="closeDropdowns"
@@ -80,54 +82,55 @@
                         </a>
                     </GuidesDropdown>
                 </div>
-                <div
-                    ref="quickStartContainer"
-                    class="navigation-area__container__wrap__item-container"
-                    :class="{ active: isQuickStartDropdownShown }"
-                    @click.stop="toggleQuickStartDropdown"
-                >
-                    <div class="navigation-area__container__wrap__item-container__left">
-                        <QuickStartIcon class="navigation-area__container__wrap__item-container__left__image" />
-                        <p class="navigation-area__container__wrap__item-container__left__label">Quick Start</p>
+                <div ref="quickStartContainer" class="container-wrapper">
+                    <div
+                        class="navigation-area__container__wrap__item-container"
+                        :class="{ active: isQuickStartDropdownShown }"
+                        @click.stop="toggleQuickStartDropdown"
+                    >
+                        <div class="navigation-area__container__wrap__item-container__left">
+                            <QuickStartIcon class="navigation-area__container__wrap__item-container__left__image" />
+                            <p class="navigation-area__container__wrap__item-container__left__label">Quick Start</p>
+                        </div>
+                        <ArrowIcon class="navigation-area__container__wrap__item-container__arrow" />
                     </div>
-                    <ArrowIcon class="navigation-area__container__wrap__item-container__arrow" />
                     <GuidesDropdown
                         v-if="isQuickStartDropdownShown"
                         :close="closeDropdowns"
                         :y-position="quickStartDropdownYPos"
                         :x-position="quickStartDropdownXPos"
                     >
-                        <router-link class="dropdown-item" :to="newProjectRoute">
+                        <div class="dropdown-item" aria-roledescription="create-project-route" @click.stop="navigateToNewProject">
                             <NewProjectIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
                                 <h2 class="dropdown-item__text__title">New Project</h2>
                                 <p class="dropdown-item__text__label">Create a new project.</p>
                             </div>
-                        </router-link>
+                        </div>
                         <div class="dropdown-border" />
-                        <router-link class="dropdown-item" :to="createAGRoute">
+                        <div class="dropdown-item" aria-roledescription="create-ag-route" @click.stop="navigateToCreateAG">
                             <CreateAGIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
                                 <h2 class="dropdown-item__text__title">Create an Access Grant</h2>
                                 <p class="dropdown-item__text__label">Start the wizard to create a new access grant.</p>
                             </div>
-                        </router-link>
+                        </div>
                         <div class="dropdown-border" />
-                        <router-link class="dropdown-item" :to="objectsRoute">
+                        <div class="dropdown-item" aria-roledescription="objects-route" @click.stop="navigateToObjects">
                             <UploadInWebIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
                                 <h2 class="dropdown-item__text__title">Upload in Web</h2>
                                 <p class="dropdown-item__text__label">Start uploading files in the web browser.</p>
                             </div>
-                        </router-link>
+                        </div>
                         <div class="dropdown-border" />
-                        <router-link class="dropdown-item" :to="cliFlowRoute">
+                        <div class="dropdown-item" aria-roledescription="cli-flow-route" @click.stop="navigateToCLIFlow">
                             <UploadInCLIIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
                                 <h2 class="dropdown-item__text__title">Upload using CLI</h2>
                                 <p class="dropdown-item__text__label">Start guide for using the Uplink CLI.</p>
                             </div>
-                        </router-link>
+                        </div>
                     </GuidesDropdown>
                 </div>
             </div>
@@ -153,6 +156,7 @@ import AccessGrantsIcon from '@/../static/images/navigation/accessGrants.svg';
 import DashboardIcon from '@/../static/images/navigation/projectDashboard.svg';
 import BucketsIcon from '@/../static/images/navigation/buckets.svg';
 import UsersIcon from '@/../static/images/navigation/users.svg';
+import BillingIcon from '@/../static/images/navigation/billing.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
@@ -175,6 +179,7 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
         DashboardIcon,
         AccessGrantsIcon,
         UsersIcon,
+        BillingIcon,
         BucketsIcon,
         ResourcesIcon,
         QuickStartIcon,
@@ -190,10 +195,6 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
 })
 export default class NewNavigationArea extends Vue {
     private readonly TWENTY_PIXELS = 20;
-    public readonly newProjectRoute = RouteConfig.CreateProject.path;
-    public readonly createAGRoute = RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).path;
-    public readonly objectsRoute = RouteConfig.Objects.path;
-    public readonly cliFlowRoute = RouteConfig.OnboardingTour.with(RouteConfig.CLIStep.with(RouteConfig.APIKey)).path;
 
     public resourcesDropdownYPos = 0;
     public resourcesDropdownXPos = 0;
@@ -204,6 +205,7 @@ export default class NewNavigationArea extends Vue {
         RouteConfig.Objects.withIcon(BucketsIcon),
         RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
         RouteConfig.Users.withIcon(UsersIcon),
+        RouteConfig.Account.with(RouteConfig.Billing).withIcon(BillingIcon),
     ];
 
     public $refs!: {
@@ -218,6 +220,7 @@ export default class NewNavigationArea extends Vue {
      */
     public mounted(): void {
         this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns)
+        window.addEventListener('resize', this.closeDropdowns)
     }
 
     /**
@@ -226,6 +229,44 @@ export default class NewNavigationArea extends Vue {
      */
     public beforeDestroy(): void {
         this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns)
+        window.removeEventListener('resize', this.closeDropdowns)
+    }
+
+    /**
+     * Redirects to create project screen.
+     */
+    public navigateToCreateAG(): void {
+        this.closeDropdowns();
+        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).path).catch(() => {return;});
+    }
+
+    /**
+     * Redirects to objects screen.
+     */
+    public navigateToObjects(): void {
+        this.closeDropdowns();
+        this.$router.push(RouteConfig.Objects.path).catch(() => {return;});
+    }
+
+    /**
+     * Redirects to onboarding CLI flow screen.
+     */
+    public navigateToCLIFlow(): void {
+        this.closeDropdowns();
+        this.$router.push({
+            name: RouteConfig.APIKey.name,
+            params: {
+                backRoute: this.$route.path,
+            }
+        });
+    }
+
+    /**
+     * Redirects to create access grant screen.
+     */
+    public navigateToNewProject(): void {
+        this.closeDropdowns();
+        this.$router.push(RouteConfig.CreateProject.path);
     }
 
     /**
@@ -337,6 +378,10 @@ export default class NewNavigationArea extends Vue {
         fill: rgb(53, 64, 73);
     }
 
+    .container-wrapper {
+        width: 100%;
+    }
+
     .navigation-area {
         min-width: 280px;
         max-width: 280px;
@@ -370,9 +415,8 @@ export default class NewNavigationArea extends Vue {
                 }
 
                 &__edit {
-                    padding: 0 20px;
-                    margin: 32px 0;
-                    width: calc(100% - 40px);
+                    margin-top: 40px;
+                    width: 100%;
                 }
 
                 &__item-container {
@@ -416,8 +460,12 @@ export default class NewNavigationArea extends Vue {
         background-color: #f7f8fb;
         color: #0149ff;
 
-        .navigation-area__container__wrap__item-container__left__image path {
-            fill: #0149ff;
+        .navigation-area__container__wrap__item-container {
+
+            &__left__image path,
+            &__arrow path {
+                fill: #0149ff;
+            }
         }
     }
 
@@ -438,6 +486,7 @@ export default class NewNavigationArea extends Vue {
         align-items: center;
         font-family: 'font_regular', sans-serif;
         padding: 10px 24px;
+        cursor: pointer;
 
         &__icon {
             margin-left: 15px;

@@ -125,6 +125,12 @@ export default class APIKey extends Vue {
      * Navigates to previous screen.
      */
     public async onBackClick(): Promise<void> {
+        if (this.$route.params.backRoute) {
+            await this.$router.push(this.$route.params.backRoute).catch(() => {return; });
+
+            return;
+        }
+
         await this.$router.push(RouteConfig.OnboardingTour.path).catch(() => {return; })
     }
 
