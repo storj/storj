@@ -14,7 +14,6 @@ package main
 
 import (
 	"os"
-	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -62,26 +61,26 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 		process.Exec(rootCmd)
 		return nil
 	})
+	defer group.Wait()
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
+cmdloop:
 	for c := range r {
 		switch c.Cmd {
 		case svc.Interrogate:
 			zap.L().Info("Interrogate request received.")
 			changes <- c.CurrentStatus
-			// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
-			time.Sleep(100 * time.Millisecond)
-			changes <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
 			zap.L().Info("Stop/Shutdown request received.")
-			changes <- svc.Status{State: svc.StopPending}
+
 			// Cancel the command's root context to cleanup resources
 			_, cancel := process.Ctx(runCmd)
 			cancel()
-			_ = group.Wait() // process.Exec does not return an error
-			// After returning the Windows Service is stopped and the process terminates
-			return false, 0
+
+			changes <- svc.Status{State: svc.StopPending, Accepts: cmdsAccepted}
+
+			break cmdloop
 		default:
 			zap.L().Info("Unexpected control request.", zap.Uint32("Event Type", c.EventType))
 		}
