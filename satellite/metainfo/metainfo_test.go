@@ -1077,9 +1077,7 @@ func TestBatch(t *testing.T) {
 			numOfBuckets := 5
 			for i := 0; i < numOfBuckets; i++ {
 				requests = append(requests, &metaclient.CreateBucketParams{
-					Name:                []byte("test-bucket-" + strconv.Itoa(i)),
-					PathCipher:          storj.EncAESGCM,
-					DefaultSegmentsSize: memory.MiB.Int64(),
+					Name: []byte("test-bucket-" + strconv.Itoa(i)),
 				})
 			}
 			requests = append(requests, &metaclient.ListBucketsParams{
