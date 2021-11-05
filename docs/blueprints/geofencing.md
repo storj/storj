@@ -92,7 +92,9 @@ To make life easy, we plan to add a new administrative API endpoint to enable ge
 
 - `POST /api/projects/{project-id}/bucket/{bucket-name}/geofence` enables geofencing for a specific bucket within a project.
   - This call takes a single query string parameter `?region=:code` that binds the bucket to a specific geographic region.
+  - This call is successful only if the bucket is empty.
 - `DELETE /api/projects/{project-id}/bucket/{bucket-name}/geofence` disables geofencing for a specific bucket within a project.
+  - This call is successful only if the bucket is empty.
 - `GET /api/projects/{project-id}/bucket/{bucket-name}/geofence` can return the current geofencing state.
 
 **Note:** The `POST` and `DELETE` operations should only be allowed on an empty bucket.
