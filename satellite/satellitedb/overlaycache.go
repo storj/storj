@@ -287,6 +287,60 @@ func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeI
 	return nodes, Error.Wrap(rows.Err())
 }
 
+// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
+func (cache *overlaycache) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.NodeReputation, err error) {
+	for {
+		nodes, err = cache.getOnlineNodesForAuditRepair(ctx, nodeIDs, onlineWindow)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodes, err
+		}
+		break
+	}
+
+	return nodes, err
+}
+
+func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows tagsql.Rows
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT last_net, id, address, last_ip_port, vetted_at,
+			unknown_audit_suspended, offline_suspended
+		FROM nodes
+		WHERE id = any($1::bytea[])
+			AND disqualified IS NULL
+			AND exit_finished_at IS NULL
+			AND last_contact_success > $2
+	`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	nodes := make(map[storj.NodeID]*overlay.NodeReputation)
+	for rows.Next() {
+		var node overlay.NodeReputation
+		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort, &node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended)
+		if err != nil {
+			return nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+
+		nodes[node.ID] = &node
+	}
+
+	return nodes, Error.Wrap(rows.Err())
+}
+
 // KnownOffline filters a set of nodes to offline nodes.
 func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	for {
@@ -967,14 +1021,16 @@ func decodeWalletFeatures(encoded string) []string {
 
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
-		Latency90:             dbNode.Latency90,
-		VettedAt:              dbNode.VettedAt,
-		LastContactSuccess:    dbNode.LastContactSuccess,
-		LastContactFailure:    dbNode.LastContactFailure,
-		Disqualified:          dbNode.Disqualified,
-		UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
-		OfflineUnderReview:    dbNode.UnderReview,
-		OfflineSuspended:      dbNode.OfflineSuspended,
+		Latency90:          dbNode.Latency90,
+		LastContactSuccess: dbNode.LastContactSuccess,
+		LastContactFailure: dbNode.LastContactFailure,
+		OfflineUnderReview: dbNode.UnderReview,
+		Status: overlay.ReputationStatus{
+			VettedAt:              dbNode.VettedAt,
+			Disqualified:          dbNode.Disqualified,
+			UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
+			OfflineSuspended:      dbNode.OfflineSuspended,
+		},
 	}
 	return nodeStats
 }

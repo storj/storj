@@ -34,26 +34,26 @@ type reputations struct {
 // 2. Depends on the result of the first step,
 //	a. if existing row is returned, do compare-and-swap.
 //	b. if no row found, insert a new row.
-func (reputations *reputations) Update(ctx context.Context, updateReq reputation.UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, changed bool, err error) {
+func (reputations *reputations) Update(ctx context.Context, updateReq reputation.UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
 		// get existing reputation stats
 		dbNode, err := reputations.db.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(updateReq.NodeID.Bytes()))
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, false, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 
 		// if this is a new node, we will insert a new entry into the table
 		if dbNode == nil {
 			historyBytes, err := pb.Marshal(&internalpb.AuditHistory{})
 			if err != nil {
-				return nil, false, Error.Wrap(err)
+				return nil, Error.Wrap(err)
 			}
 
 			auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, historyBytes, updateReq, now)
 			if err != nil {
-				return nil, false, Error.Wrap(err)
+				return nil, Error.Wrap(err)
 			}
 
 			// set default reputation stats for new node
@@ -76,30 +76,23 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 					continue
 				}
 
-				return nil, false, Error.Wrap(err)
+				return nil, Error.Wrap(err)
 			}
 
 			rep := getNodeStatus(stats)
-			return &rep, !rep.Equal(overlay.ReputationStatus{}), nil
+			return &rep, nil
 		}
-
-		// do not update reputation if node is disqualified
-		if dbNode.Disqualified != nil {
-			return nil, false, nil
-		}
-
-		oldStats := getNodeStatus(dbNode)
 
 		auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, dbNode.AuditHistory, updateReq, now)
 		if err != nil {
-			return nil, false, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 
 		updateFields := reputations.populateUpdateFields(dbNode, updateReq, auditHistoryResponse, now)
 		oldAuditHistory := dbx.Reputation_AuditHistory(dbNode.AuditHistory)
 		dbNode, err = reputations.db.Update_Reputation_By_Id_And_AuditHistory(ctx, dbx.Reputation_Id(updateReq.NodeID.Bytes()), oldAuditHistory, updateFields)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, false, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 
 		// if update failed due to concurrent audit_history updates, we will try
@@ -110,30 +103,11 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 		}
 
 		newStats := getNodeStatus(dbNode)
-		return &newStats, !newStats.Equal(oldStats), nil
+		return &newStats, nil
 	}
 
 }
 
-// SetNodeStatus updates node reputation status.
-func (reputations *reputations) SetNodeStatus(ctx context.Context, id storj.NodeID, status overlay.ReputationStatus) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	updateFields := dbx.Reputation_Update_Fields{
-		Disqualified:          dbx.Reputation_Disqualified_Raw(status.Disqualified),
-		UnknownAuditSuspended: dbx.Reputation_UnknownAuditSuspended_Raw(status.UnknownAuditSuspended),
-		OfflineSuspended:      dbx.Reputation_OfflineSuspended_Raw(status.OfflineSuspended),
-		VettedAt:              dbx.Reputation_VettedAt_Raw(status.VettedAt),
-	}
-
-	_, err = reputations.db.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(id.Bytes()), updateFields)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-
-}
 func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*reputation.Info, error) {
 	res, err := reputations.db.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
 	if err != nil {

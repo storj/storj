@@ -120,7 +120,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
-	orderLimits, privateKey, cachedIPsAndPorts, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentInfo, skip)
+	orderLimits, privateKey, cachedNodesInfo, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentInfo, skip)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			mon.Counter("not_enough_shares_for_audit").Inc(1)
@@ -128,6 +128,11 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		}
 		return Report{}, err
 	}
+	cachedNodesReputation := make(map[storj.NodeID]overlay.ReputationStatus, len(cachedNodesInfo))
+	for id, info := range cachedNodesInfo {
+		cachedNodesReputation[id] = info.Reputation
+	}
+	defer func() { report.NodesReputation = cachedNodesReputation }()
 
 	// NOTE offlineNodes will include disqualified nodes because they aren't in
 	// the skip list
@@ -138,7 +143,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			zap.String("Segment", segmentInfoString(segment)))
 	}
 
-	shares, err := verifier.DownloadShares(ctx, orderLimits, privateKey, cachedIPsAndPorts, randomIndex, segmentInfo.Redundancy.ShareSize)
+	shares, err := verifier.DownloadShares(ctx, orderLimits, privateKey, cachedNodesInfo, randomIndex, segmentInfo.Redundancy.ShareSize)
 	if err != nil {
 		return Report{
 			Offlines: offlineNodes,
@@ -289,7 +294,7 @@ func segmentInfoString(segment Segment) string {
 }
 
 // DownloadShares downloads shares from the nodes where remote pieces are located.
-func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPsAndPorts map[storj.NodeID]string, stripeIndex int32, shareSize int32) (shares map[int]Share, err error) {
+func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, stripeIndex int32, shareSize int32) (shares map[int]Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares = make(map[int]Share, len(limits))
@@ -301,9 +306,14 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 			continue
 		}
 
-		ip := cachedIPsAndPorts[limit.Limit.StorageNodeId]
+		var ipPort string
+		node, ok := cachedNodesInfo[limit.Limit.StorageNodeId]
+		if ok && node.LastIPPort != "" {
+			ipPort = node.LastIPPort
+		}
+
 		go func(i int, limit *pb.AddressedOrderLimit) {
-			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, ip, stripeIndex, shareSize, i)
+			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, ipPort, stripeIndex, shareSize, i)
 			if err != nil {
 				share = Share{
 					Error:    err,
@@ -345,6 +355,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 		nodeID       storj.NodeID
 		status       int
 		pendingAudit *PendingAudit
+		reputation   overlay.ReputationStatus
 		release      bool
 		err          error
 	}
@@ -431,7 +442,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				return
 			}
 
-			limit, piecePrivateKey, cachedIPAndPort, err := verifier.orders.CreateAuditOrderLimit(ctx, pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
+			limit, piecePrivateKey, cachedNodeInfo, err := verifier.orders.CreateAuditOrderLimit(ctx, pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeDisqualified.Has(err) {
 					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
@@ -444,7 +455,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 					return
 				}
 				if overlay.ErrNodeOffline.Has(err) {
-					ch <- result{nodeID: pending.NodeID, status: offline}
+					ch <- result{nodeID: pending.NodeID, status: offline, reputation: cachedNodeInfo.Reputation}
 					verifier.log.Debug("Reverify: order limit not created (offline)", zap.Stringer("Node ID", pending.NodeID))
 					return
 				}
@@ -453,7 +464,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				return
 			}
 
-			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, cachedIPAndPort, pending.StripeIndex, pending.ShareSize, int(pieceNum))
+			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, cachedNodeInfo.LastIPPort, pending.StripeIndex, pending.ShareSize, int(pieceNum))
 
 			// check if the pending audit was deleted while downloading the share
 			_, getErr := verifier.containment.Get(ctx, pending.NodeID)
@@ -473,18 +484,18 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				if rpc.Error.Has(err) {
 					if errs.Is(err, context.DeadlineExceeded) {
 						// dial timeout
-						ch <- result{nodeID: pending.NodeID, status: offline}
+						ch <- result{nodeID: pending.NodeID, status: offline, reputation: cachedNodeInfo.Reputation}
 						verifier.log.Debug("Reverify: dial timeout (offline)", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 						return
 					}
 					if errs2.IsRPC(err, rpcstatus.Unknown) {
 						// dial failed -- offline node
 						verifier.log.Debug("Reverify: dial failed (offline)", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
-						ch <- result{nodeID: pending.NodeID, status: offline}
+						ch <- result{nodeID: pending.NodeID, status: offline, reputation: cachedNodeInfo.Reputation}
 						return
 					}
 					// unknown transport error
-					ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending, release: true}
+					ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending, reputation: cachedNodeInfo.Reputation, release: true}
 					verifier.log.Info("Reverify: unknown transport error (skipped)", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
@@ -497,24 +508,24 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 						return
 					}
 					// missing share
-					ch <- result{nodeID: pending.NodeID, status: failed, release: true}
+					ch <- result{nodeID: pending.NodeID, status: failed, reputation: cachedNodeInfo.Reputation, release: true}
 					verifier.log.Info("Reverify: piece not found (audit failed)", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
 				if errs2.IsRPC(err, rpcstatus.DeadlineExceeded) {
 					// dial successful, but download timed out
-					ch <- result{nodeID: pending.NodeID, status: contained, pendingAudit: pending}
+					ch <- result{nodeID: pending.NodeID, status: contained, pendingAudit: pending, reputation: cachedNodeInfo.Reputation}
 					verifier.log.Info("Reverify: download timeout (contained)", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
 				// unknown error
-				ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending, release: true}
+				ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending, reputation: cachedNodeInfo.Reputation, release: true}
 				verifier.log.Info("Reverify: unknown error (skipped)", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 				return
 			}
 			downloadedHash := pkcrypto.SHA256Hash(share.Data)
 			if bytes.Equal(downloadedHash, pending.ExpectedShareHash) {
-				ch <- result{nodeID: pending.NodeID, status: success, release: true}
+				ch <- result{nodeID: pending.NodeID, status: success, reputation: cachedNodeInfo.Reputation, release: true}
 				verifier.log.Info("Reverify: hashes match (audit success)", zap.Stringer("Node ID", pending.NodeID))
 			} else {
 				err := verifier.checkIfSegmentAltered(ctx, pendingSegment)
@@ -525,13 +536,17 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				}
 				verifier.log.Info("Reverify: hashes mismatch (audit failed)", zap.Stringer("Node ID", pending.NodeID),
 					zap.Binary("expected hash", pending.ExpectedShareHash), zap.Binary("downloaded hash", downloadedHash))
-				ch <- result{nodeID: pending.NodeID, status: failed, release: true}
+				ch <- result{nodeID: pending.NodeID, status: failed, reputation: cachedNodeInfo.Reputation, release: true}
 			}
 		}(pending)
 	}
 
+	reputations := make(map[storj.NodeID]overlay.ReputationStatus)
 	for range pieces {
 		result := <-ch
+
+		reputations[result.nodeID] = result.reputation
+
 		switch result.status {
 		case skipped:
 		case success:
@@ -555,6 +570,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 			}
 		}
 	}
+	report.NodesReputation = reputations
 
 	mon.Meter("reverify_successes_global").Mark(len(report.Successes))     //mon:locked
 	mon.Meter("reverify_offlines_global").Mark(len(report.Offlines))       //mon:locked

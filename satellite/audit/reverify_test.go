@@ -72,10 +72,10 @@ func TestReverifySuccess(t *testing.T) {
 		pieces := segment.Pieces
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
+		limit, privateKey, cachedNodeInfo, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].Number))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedNodeInfo.LastIPPort, randomIndex, shareSize, int(pieces[0].Number))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -151,10 +151,10 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		pieces := segment.Pieces
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
+		limit, privateKey, cachedNodeInfo, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].Number))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedNodeInfo.LastIPPort, randomIndex, shareSize, int(pieces[0].Number))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -796,10 +796,10 @@ func TestReverifyDifferentShare(t *testing.T) {
 		shareSize := segment1.Redundancy.ShareSize
 		rootPieceID := segment1.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, cachedNodeInfo, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(selectedPieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedNodeInfo.LastIPPort, randomIndex, shareSize, int(selectedPieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -955,10 +955,10 @@ func TestReverifyExpired2(t *testing.T) {
 		shareSize := segment1.Redundancy.ShareSize
 		rootPieceID := segment1.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, cachedNodeInfo, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(selectedPieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedNodeInfo.LastIPPort, randomIndex, shareSize, int(selectedPieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -1052,10 +1052,10 @@ func TestReverifySlowDownload(t *testing.T) {
 		shareSize := segment.Redundancy.ShareSize
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, slowNode, slowPiece.Number, rootPieceID, shareSize)
+		limit, privateKey, cachedNodeInfo, err := orders.CreateAuditOrderLimit(ctx, slowNode, slowPiece.Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(slowPiece.Number))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedNodeInfo.LastIPPort, randomIndex, shareSize, int(slowPiece.Number))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -1141,10 +1141,10 @@ func TestReverifyUnknownError(t *testing.T) {
 		shareSize := segment.Redundancy.ShareSize
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, badNode, badPiece.Number, rootPieceID, shareSize)
+		limit, privateKey, cachedNodeInfo, err := orders.CreateAuditOrderLimit(ctx, badNode, badPiece.Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(badPiece.Number))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedNodeInfo.LastIPPort, randomIndex, shareSize, int(badPiece.Number))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -1234,10 +1234,10 @@ func TestMaxReverifyCount(t *testing.T) {
 		shareSize := segment.Redundancy.ShareSize
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, slowNode, slowPiece.Number, rootPieceID, shareSize)
+		limit, privateKey, cachedNodeInfo, err := orders.CreateAuditOrderLimit(ctx, slowNode, slowPiece.Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(slowPiece.Number))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedNodeInfo.LastIPPort, randomIndex, shareSize, int(slowPiece.Number))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{

@@ -29,6 +29,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
@@ -65,7 +66,7 @@ func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*pie
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
 // If piece hash verification fails, it will return all failed node IDs.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, cachedIPsAndPorts map[storj.NodeID]string, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, _ audit.Pieces, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, _ audit.Pieces, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -123,11 +124,11 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				inProgress++
 				cond.L.Unlock()
 
-				lastIPPort := cachedIPsAndPorts[limit.GetLimit().StorageNodeId]
+				info := cachedNodesInfo[limit.GetLimit().StorageNodeId]
 				address := limit.GetStorageNodeAddress().GetAddress()
 				var triedLastIPPort bool
-				if lastIPPort != "" && lastIPPort != address {
-					address = lastIPPort
+				if info.LastIPPort != "" && info.LastIPPort != address {
+					address = info.LastIPPort
 					triedLastIPPort = true
 				}
 

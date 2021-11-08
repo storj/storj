@@ -89,12 +89,12 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		n1Info, err = cache.Get(ctx, node1.ID())
 		require.NoError(t, err)
 		require.NotNil(t, n1Info.Disqualified)
-		require.Equal(t, n1DQTime, n1Info.Reputation.Disqualified)
+		require.Equal(t, n1DQTime, n1Info.Reputation.Status.Disqualified)
 
 		n2Info, err = cache.Get(ctx, node2.ID())
 		require.NoError(t, err)
 		require.NotNil(t, n2Info.Disqualified)
-		require.Equal(t, n2DQTime, n2Info.Reputation.Disqualified)
+		require.Equal(t, n2DQTime, n2Info.Reputation.Status.Disqualified)
 	})
 }
 
@@ -128,14 +128,14 @@ func TestDQStrayNodesFailedPingback(t *testing.T) {
 		d, err := oc.Get(ctx, testID)
 		require.NoError(t, err)
 		require.Equal(t, time.Time{}, d.Reputation.LastContactSuccess.UTC())
-		require.Nil(t, d.Reputation.Disqualified)
+		require.Nil(t, d.Reputation.Status.Disqualified)
 
 		sat.Overlay.DQStrayNodes.Loop.TriggerWait()
 
 		d, err = oc.Get(ctx, testID)
 		require.NoError(t, err)
 		require.Equal(t, time.Time{}, d.Reputation.LastContactSuccess.UTC())
-		require.Nil(t, d.Reputation.Disqualified)
+		require.Nil(t, d.Reputation.Status.Disqualified)
 	})
 }
 

@@ -233,7 +233,9 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
-		err = satellitePeer.Reputation.Service.ApplyAudit(ctx, disqualifiedNode.ID(), reputation.AuditSuccess)
+		node, err := satellitePeer.Overlay.Service.Get(ctx, disqualifiedNode.ID())
+		require.NoError(t, err)
+		err = satellitePeer.Reputation.Service.ApplyAudit(ctx, disqualifiedNode.ID(), overlay.ReputationStatus{Disqualified: node.Disqualified}, reputation.AuditSuccess)
 		require.NoError(t, err)
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 	})

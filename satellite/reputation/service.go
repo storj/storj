@@ -15,8 +15,7 @@ import (
 
 // DB is an interface for storing reputation data.
 type DB interface {
-	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, changed bool, err error)
-	SetNodeStatus(ctx context.Context, id storj.NodeID, status overlay.ReputationStatus) error
+	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, err error)
 	Get(ctx context.Context, nodeID storj.NodeID) (*Info, error)
 
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
@@ -67,10 +66,11 @@ func NewService(log *zap.Logger, overlay overlay.DB, db DB, config Config) *Serv
 }
 
 // ApplyAudit receives an audit result and applies it to the relevant node in DB.
-func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, result AuditType) (err error) {
+func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, reputation overlay.ReputationStatus, result AuditType) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	statusUpdate, changed, err := service.db.Update(ctx, UpdateRequest{
+	now := time.Now()
+	statusUpdate, err := service.db.Update(ctx, UpdateRequest{
 		NodeID:       nodeID,
 		AuditOutcome: result,
 
@@ -81,12 +81,18 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, res
 		SuspensionDQEnabled:      service.config.SuspensionDQEnabled,
 		AuditsRequiredForVetting: service.config.AuditCount,
 		AuditHistory:             service.config.AuditHistory,
-	}, time.Now())
+	}, now)
 	if err != nil {
 		return err
 	}
 
-	if changed {
+	// only update node if its health status has changed, or it's a newly vetted
+	// node.
+	// this prevents the need to require caller of ApplyAudit() to always know
+	// the VettedAt time for a node.
+	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
+	// for the VettedAt status is done using time values that are truncated to second precision.
+	if hasReputationChanged(*statusUpdate, reputation, now) {
 		err = service.overlay.UpdateReputation(ctx, nodeID, statusUpdate)
 		if err != nil {
 			return err
@@ -153,3 +159,30 @@ func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeI
 
 // Close closes resources.
 func (service *Service) Close() error { return nil }
+
+// hasReputationChanged determines if the current node reputation is different from the newly updated reputation. This
+// function will only consider the Disqualified, UnknownAudiSuspended and OfflineSuspended statuses for changes.
+func hasReputationChanged(updated, current overlay.ReputationStatus, now time.Time) bool {
+	if statusChanged(current.Disqualified, updated.Disqualified) ||
+		statusChanged(current.UnknownAuditSuspended, updated.UnknownAuditSuspended) ||
+		statusChanged(current.OfflineSuspended, updated.OfflineSuspended) {
+		return true
+	}
+	// check for newly vetted nodes.
+	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
+	// for the VettedAt status is done using time values that are truncated to second precision.
+	if updated.VettedAt != nil && updated.VettedAt.Truncate(time.Second).Equal(now.Truncate(time.Second)) {
+		return true
+	}
+	return false
+}
+
+// statusChanged determines if the two given statuses are different.
+func statusChanged(s1, s2 *time.Time) bool {
+	if s1 == nil && s2 == nil {
+		return false
+	} else if s1 != nil && s2 != nil {
+		return !s1.Equal(*s1)
+	}
+	return true
+}

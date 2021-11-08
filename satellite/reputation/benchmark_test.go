@@ -36,7 +36,7 @@ func BenchmarkReputation(b *testing.B) {
 		b.Run("UpdateStatsSuccess", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				_, _, err := reputationdb.Update(ctx, reputation.UpdateRequest{
+				_, err := reputationdb.Update(ctx, reputation.UpdateRequest{
 					NodeID:       id,
 					AuditOutcome: reputation.AuditSuccess,
 					AuditHistory: testAuditHistoryConfig(),
@@ -48,7 +48,7 @@ func BenchmarkReputation(b *testing.B) {
 		b.Run("UpdateStatsFailure", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				_, _, err := reputationdb.Update(ctx, reputation.UpdateRequest{
+				_, err := reputationdb.Update(ctx, reputation.UpdateRequest{
 					NodeID:       id,
 					AuditOutcome: reputation.AuditFailure,
 					AuditHistory: testAuditHistoryConfig(),
@@ -60,7 +60,7 @@ func BenchmarkReputation(b *testing.B) {
 		b.Run("UpdateStatsUnknown", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				_, _, err := reputationdb.Update(ctx, reputation.UpdateRequest{
+				_, err := reputationdb.Update(ctx, reputation.UpdateRequest{
 					NodeID:       id,
 					AuditOutcome: reputation.AuditUnknown,
 					AuditHistory: testAuditHistoryConfig(),
@@ -72,7 +72,7 @@ func BenchmarkReputation(b *testing.B) {
 		b.Run("UpdateStatsOffline", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				_, _, err := reputationdb.Update(ctx, reputation.UpdateRequest{
+				_, err := reputationdb.Update(ctx, reputation.UpdateRequest{
 					NodeID:       id,
 					AuditOutcome: reputation.AuditOffline,
 					AuditHistory: testAuditHistoryConfig(),

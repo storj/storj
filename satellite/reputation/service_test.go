@@ -15,6 +15,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -30,7 +31,7 @@ func TestConcurrentAudit(t *testing.T) {
 		n := 5
 		for i := 0; i < n; i++ {
 			group.Go(func() error {
-				err := planet.Satellites[0].Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[0].ID(), reputation.AuditSuccess)
+				err := planet.Satellites[0].Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[0].ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 				return err
 			})
 		}
@@ -63,19 +64,37 @@ func TestApplyAudit(t *testing.T) {
 		require.NoError(t, err)
 		require.Zero(t, node.TotalAuditCount)
 
-		err = service.ApplyAudit(ctx, nodeID, reputation.AuditSuccess)
+		status := overlay.ReputationStatus{
+			Disqualified:          node.Disqualified,
+			UnknownAuditSuspended: node.UnknownAuditSuspended,
+			OfflineSuspended:      node.OfflineSuspended,
+			VettedAt:              node.VettedAt,
+		}
+		err = service.ApplyAudit(ctx, nodeID, status, reputation.AuditSuccess)
 		require.NoError(t, err)
 
 		node, err = service.Get(ctx, nodeID)
 		require.NoError(t, err)
 		auditAlpha := node.AuditReputationAlpha
 		auditBeta := node.AuditReputationBeta
+		status = overlay.ReputationStatus{
+			Disqualified:          node.Disqualified,
+			UnknownAuditSuspended: node.UnknownAuditSuspended,
+			OfflineSuspended:      node.OfflineSuspended,
+			VettedAt:              node.VettedAt,
+		}
 
-		err = service.ApplyAudit(ctx, nodeID, reputation.AuditSuccess)
+		err = service.ApplyAudit(ctx, nodeID, status, reputation.AuditSuccess)
 		require.NoError(t, err)
 
 		stats, err := service.Get(ctx, nodeID)
 		require.NoError(t, err)
+		status = overlay.ReputationStatus{
+			Disqualified:          stats.Disqualified,
+			UnknownAuditSuspended: stats.UnknownAuditSuspended,
+			OfflineSuspended:      stats.OfflineSuspended,
+			VettedAt:              stats.VettedAt,
+		}
 
 		expectedAuditAlpha := config.AuditLambda*auditAlpha + config.AuditWeight
 		expectedAuditBeta := config.AuditLambda * auditBeta
@@ -85,7 +104,7 @@ func TestApplyAudit(t *testing.T) {
 		auditAlpha = expectedAuditAlpha
 		auditBeta = expectedAuditBeta
 
-		err = service.ApplyAudit(ctx, nodeID, reputation.AuditFailure)
+		err = service.ApplyAudit(ctx, nodeID, status, reputation.AuditFailure)
 		require.NoError(t, err)
 
 		stats, err = service.Get(ctx, nodeID)

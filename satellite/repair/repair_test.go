@@ -2948,15 +2948,16 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, len(segment.Pieces) > 1)
 
-		limits, privateKey, _, err := testSatellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		limits, privateKey, cachedNodesInfo, err := testSatellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
 		require.NoError(t, err)
 
-		cachedIPsAndPorts := make(map[storj.NodeID]string)
 		for i, l := range limits {
 			if l == nil {
 				continue
 			}
-			cachedIPsAndPorts[l.Limit.StorageNodeId] = fmt.Sprintf("garbageXXX#:%d", i)
+			info := cachedNodesInfo[l.Limit.StorageNodeId]
+			info.LastIPPort = fmt.Sprintf("garbageXXX#:%d", i)
+			cachedNodesInfo[l.Limit.StorageNodeId] = info
 		}
 
 		mock := &mockConnector{}
@@ -2965,7 +2966,7 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
 
-		readCloser, pieces, err := ec.Get(ctx, limits, cachedIPsAndPorts, privateKey, redundancy, int64(segment.EncryptedSize))
+		readCloser, pieces, err := ec.Get(ctx, limits, cachedNodesInfo, privateKey, redundancy, int64(segment.EncryptedSize))
 		require.NoError(t, err)
 		require.Len(t, pieces.Failed, 0)
 		require.NotNil(t, readCloser)
@@ -2973,9 +2974,9 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		// repair will only download minimum required
 		minReq := redundancy.RequiredCount()
 		var numDialed int
-		for _, ip := range cachedIPsAndPorts {
+		for _, info := range cachedNodesInfo {
 			for _, dialed := range mock.addressesDialed {
-				if dialed == ip {
+				if dialed == info.LastIPPort {
 					numDialed++
 					if numDialed == minReq {
 						break
@@ -3019,13 +3020,12 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, len(segment.Pieces) > 1)
 
-		limits, privateKey, _, err := testSatellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		limits, privateKey, cachedNodesInfo, err := testSatellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
 		require.NoError(t, err)
 
 		// make it so that when the cached IP is dialed, we dial the "right" address,
 		// but when the "right" address is dialed (meaning it came from the OrderLimit,
 		// we dial something else!
-		cachedIPsAndPorts := make(map[storj.NodeID]string)
 		mock := &mockConnector{
 			dialInstead: make(map[string]string),
 		}
@@ -3034,11 +3034,13 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 			if l == nil {
 				continue
 			}
-			ip := fmt.Sprintf("garbageXXX#:%d", i)
-			cachedIPsAndPorts[l.Limit.StorageNodeId] = ip
+
+			info := cachedNodesInfo[l.Limit.StorageNodeId]
+			info.LastIPPort = fmt.Sprintf("garbageXXX#:%d", i)
+			cachedNodesInfo[l.Limit.StorageNodeId] = info
 
 			address := l.StorageNodeAddress.Address
-			mock.dialInstead[ip] = address
+			mock.dialInstead[info.LastIPPort] = address
 			mock.dialInstead[address] = "utter.failure?!*"
 
 			realAddresses = append(realAddresses, address)
@@ -3049,16 +3051,16 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
 
-		readCloser, pieces, err := ec.Get(ctx, limits, cachedIPsAndPorts, privateKey, redundancy, int64(segment.EncryptedSize))
+		readCloser, pieces, err := ec.Get(ctx, limits, cachedNodesInfo, privateKey, redundancy, int64(segment.EncryptedSize))
 		require.NoError(t, err)
 		require.Len(t, pieces.Failed, 0)
 		require.NotNil(t, readCloser)
 		// repair will only download minimum required.
 		minReq := redundancy.RequiredCount()
 		var numDialed int
-		for _, ip := range cachedIPsAndPorts {
+		for _, info := range cachedNodesInfo {
 			for _, dialed := range mock.addressesDialed {
-				if dialed == ip {
+				if dialed == info.LastIPPort {
 					numDialed++
 					if numDialed == minReq {
 						break

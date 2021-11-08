@@ -680,7 +680,7 @@ func TestUpdateReputation(t *testing.T) {
 		require.Nil(t, info.Disqualified)
 		require.Nil(t, info.UnknownAuditSuspended)
 		require.Nil(t, info.OfflineSuspended)
-		require.Nil(t, info.Reputation.VettedAt)
+		require.Nil(t, info.Reputation.Status.VettedAt)
 
 		t0 := time.Now().Truncate(time.Hour)
 		t1 := t0.Add(time.Hour)
@@ -701,7 +701,7 @@ func TestUpdateReputation(t *testing.T) {
 		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
 		require.Equal(t, reputationChange.UnknownAuditSuspended, info.UnknownAuditSuspended)
 		require.Equal(t, reputationChange.OfflineSuspended, info.OfflineSuspended)
-		require.Equal(t, reputationChange.VettedAt, info.Reputation.VettedAt)
+		require.Equal(t, reputationChange.VettedAt, info.Reputation.Status.VettedAt)
 
 		reputationChange.Disqualified = &t0
 
@@ -766,7 +766,7 @@ func TestVetAndUnvetNode(t *testing.T) {
 		require.NoError(t, err)
 		dossier, err := service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Nil(t, dossier.Reputation.VettedAt)
+		require.Nil(t, dossier.Reputation.Status.VettedAt)
 
 		// vet again
 		vettedTime, err := service.TestVetNode(ctx, node.ID())
@@ -774,13 +774,13 @@ func TestVetAndUnvetNode(t *testing.T) {
 		require.NotNil(t, vettedTime)
 		dossier, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.NotNil(t, dossier.Reputation.VettedAt)
+		require.NotNil(t, dossier.Reputation.Status.VettedAt)
 
 		// unvet again
 		err = service.TestUnvetNode(ctx, node.ID())
 		require.NoError(t, err)
 		dossier, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Nil(t, dossier.Reputation.VettedAt)
+		require.Nil(t, dossier.Reputation.Status.VettedAt)
 	})
 }

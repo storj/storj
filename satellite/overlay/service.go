@@ -43,6 +43,10 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 type DB interface {
 	// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
 	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*SelectedNode, error)
+	// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
+	// The return value contains necessary information to create orders as well as nodes'
+	// current reputation status.
+	GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
 	// SelectStorageNodes looks up nodes based on criteria
 	SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *NodeCriteria) ([]*SelectedNode, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
@@ -243,14 +247,11 @@ type NodeDossier struct {
 
 // NodeStats contains statistics about a node.
 type NodeStats struct {
-	Latency90             int64
-	LastContactSuccess    time.Time
-	LastContactFailure    time.Time
-	VettedAt              *time.Time
-	Disqualified          *time.Time
-	UnknownAuditSuspended *time.Time
-	OfflineUnderReview    *time.Time
-	OfflineSuspended      *time.Time
+	Latency90          int64
+	LastContactSuccess time.Time
+	LastContactFailure time.Time
+	OfflineUnderReview *time.Time
+	Status             ReputationStatus
 }
 
 // NodeLastContact contains the ID, address, and timestamp.
@@ -268,6 +269,15 @@ type SelectedNode struct {
 	LastNet     string
 	LastIPPort  string
 	CountryCode location.CountryCode
+}
+
+// NodeReputation is used as a result for creating orders limits for audits.
+type NodeReputation struct {
+	ID         storj.NodeID
+	Address    *pb.NodeAddress
+	LastNet    string
+	LastIPPort string
+	Reputation ReputationStatus
 }
 
 // Clone returns a deep clone of the selected node.
@@ -349,6 +359,13 @@ func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs 
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow)
+}
+
+// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
+func (service *Service) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.GetOnlineNodesForAuditRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
 }
 
 // GetNodeIPs returns a map of node ip:port for the supplied nodeIDs.

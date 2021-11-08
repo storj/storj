@@ -191,7 +191,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			node := planet.StorageNodes[i]
 			reputable[node.ID()] = true
-			err := repService.ApplyAudit(ctx, node.ID(), reputation.AuditSuccess)
+			err := repService.ApplyAudit(ctx, node.ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
 
@@ -229,7 +229,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		for i := 5; i < 10; i++ {
 			node := planet.StorageNodes[i]
 			reputable[node.ID()] = true
-			err := repService.ApplyAudit(ctx, node.ID(), reputation.AuditSuccess)
+			err := repService.ApplyAudit(ctx, node.ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
 
@@ -397,7 +397,7 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 		// nodes at indices 0, 2, 4, 6, 8 are gracefully exiting
 		for i, node := range planet.StorageNodes {
 			for k := 0; k < i; k++ {
-				err := satellite.Reputation.Service.ApplyAudit(ctx, node.ID(), reputation.AuditSuccess)
+				err := satellite.Reputation.Service.ApplyAudit(ctx, node.ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 				require.NoError(t, err)
 			}
 
@@ -630,7 +630,7 @@ func TestDistinctIPs(t *testing.T) {
 		satellite := planet.Satellites[0]
 		// Vets nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
-			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), reputation.AuditSuccess)
+			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)
@@ -657,7 +657,7 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 		satellite := planet.Satellites[0]
 		// Vets nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
-			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), reputation.AuditSuccess)
+			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)

@@ -14,6 +14,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -126,7 +127,7 @@ func TestContainUpdateStats(t *testing.T) {
 		require.NoError(t, err)
 
 		// update node stats
-		err = planet.Satellites[0].Reputation.Service.ApplyAudit(ctx, info1.NodeID, reputation.AuditSuccess)
+		err = planet.Satellites[0].Reputation.Service.ApplyAudit(ctx, info1.NodeID, overlay.ReputationStatus{}, reputation.AuditSuccess)
 		require.NoError(t, err)
 
 		// check contained flag set to false

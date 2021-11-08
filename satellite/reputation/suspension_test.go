@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -71,7 +72,7 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 		testStartTime := time.Now()
 
 		// give node one unknown audit - bringing unknown audit rep to 0.5, and suspending node
-		err = repService.ApplyAudit(ctx, nodeID, reputation.AuditUnknown)
+		err = repService.ApplyAudit(ctx, nodeID, node.Reputation.Status, reputation.AuditUnknown)
 		require.NoError(t, err)
 
 		reputationInfo, err := repService.Get(ctx, nodeID)
@@ -91,7 +92,7 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 
 		// give node two successful audits - bringing unknown audit rep to 0.75, and unsuspending node
 		for i := 0; i < 2; i++ {
-			err = repService.ApplyAudit(ctx, nodeID, reputation.AuditSuccess)
+			err = repService.ApplyAudit(ctx, nodeID, node.Reputation.Status, reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
 		node, err = oc.Get(ctx, nodeID)
@@ -116,7 +117,7 @@ func TestAuditSuspendFailedAudit(t *testing.T) {
 
 		// give node one failed audit - bringing audit rep to 0.5, and disqualifying node
 		// expect that suspended field and unknown audit reputation remain unchanged
-		err = repService.ApplyAudit(ctx, nodeID, reputation.AuditFailure)
+		err = repService.ApplyAudit(ctx, nodeID, node.Reputation.Status, reputation.AuditFailure)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -152,19 +153,27 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		nodesStatus := make(map[storj.NodeID]overlay.ReputationStatus)
 		// no nodes should be disqualified
 		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
 			n, err := repService.Get(ctx, node)
 			require.NoError(t, err)
 			require.Nil(t, n.Disqualified)
+			nodesStatus[node] = overlay.ReputationStatus{
+				Disqualified:          n.Disqualified,
+				UnknownAuditSuspended: n.UnknownAuditSuspended,
+				OfflineSuspended:      n.OfflineSuspended,
+				VettedAt:              n.VettedAt,
+			}
 		}
 
 		// give one node a successful audit, one a failed audit, one an offline audit, and one an unknown audit
 		report := audit.Report{
-			Successes: storj.NodeIDList{successNodeID},
-			Fails:     storj.NodeIDList{failNodeID},
-			Offlines:  storj.NodeIDList{offlineNodeID},
-			Unknown:   storj.NodeIDList{unknownNodeID},
+			Successes:       storj.NodeIDList{successNodeID},
+			Fails:           storj.NodeIDList{failNodeID},
+			Offlines:        storj.NodeIDList{offlineNodeID},
+			Unknown:         storj.NodeIDList{unknownNodeID},
+			NodesReputation: nodesStatus,
 		}
 		auditService := planet.Satellites[0].Audit
 		_, err := auditService.Reporter.RecordAudits(ctx, report)
@@ -208,20 +217,29 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 			err := repService.TestSuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
 			require.NoError(t, err)
 		}
+		nodesStatus := make(map[storj.NodeID]overlay.ReputationStatus)
 
 		// no nodes should be disqualified
 		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
 			n, err := oc.Get(ctx, node)
 			require.NoError(t, err)
 			require.Nil(t, n.Disqualified)
+			nodesStatus[node] = overlay.ReputationStatus{
+				Disqualified:          n.Disqualified,
+				UnknownAuditSuspended: n.UnknownAuditSuspended,
+				OfflineSuspended:      n.OfflineSuspended,
+				VettedAt:              n.Reputation.Status.VettedAt,
+			}
+
 		}
 
 		// give one node a successful audit, one a failed audit, one an offline audit, and one an unknown audit
 		report := audit.Report{
-			Successes: storj.NodeIDList{successNodeID},
-			Fails:     storj.NodeIDList{failNodeID},
-			Offlines:  storj.NodeIDList{offlineNodeID},
-			Unknown:   storj.NodeIDList{unknownNodeID},
+			Successes:       storj.NodeIDList{successNodeID},
+			Fails:           storj.NodeIDList{failNodeID},
+			Offlines:        storj.NodeIDList{offlineNodeID},
+			Unknown:         storj.NodeIDList{unknownNodeID},
+			NodesReputation: nodesStatus,
 		}
 		auditService := planet.Satellites[0].Audit
 		_, err := auditService.Reporter.RecordAudits(ctx, report)
@@ -289,7 +307,7 @@ func TestOfflineAuditSuspensionDisabled(t *testing.T) {
 
 		// check that unsuspended node does not get suspended
 		for i := 0; i <= int(trackingPeriodLength/windowSize); i++ {
-			_, _, err = reputationdb.Update(ctx, req, currentWindow)
+			_, err = reputationdb.Update(ctx, req, currentWindow)
 			require.NoError(t, err)
 			currentWindow = currentWindow.Add(windowSize)
 		}
@@ -302,7 +320,7 @@ func TestOfflineAuditSuspensionDisabled(t *testing.T) {
 
 		// check that enabling flag suspends the node
 		req.AuditHistory.OfflineSuspensionEnabled = true
-		_, _, err = reputationdb.Update(ctx, req, currentWindow)
+		_, err = reputationdb.Update(ctx, req, currentWindow)
 		require.NoError(t, err)
 
 		reputationInfo, err = reputationdb.Get(ctx, nodeID)
@@ -313,7 +331,7 @@ func TestOfflineAuditSuspensionDisabled(t *testing.T) {
 
 		// check that disabling flag clears suspension and under review
 		req.AuditHistory.OfflineSuspensionEnabled = false
-		_, _, err = reputationdb.Update(ctx, req, currentWindow)
+		_, err = reputationdb.Update(ctx, req, currentWindow)
 		require.NoError(t, err)
 
 		reputationInfo, err = reputationdb.Get(ctx, nodeID)
@@ -371,7 +389,7 @@ func TestOfflineSuspend(t *testing.T) {
 		// give node an offline audit
 		// node's score is still 1 until its first window is complete
 		nextWindowTime := time.Now()
-		_, _, err = reputationdb.Update(ctx, updateReq, nextWindowTime)
+		_, err = reputationdb.Update(ctx, updateReq, nextWindowTime)
 		require.NoError(t, err)
 
 		reputationInfo, err := reputationdb.Get(ctx, nodeID)
@@ -385,7 +403,7 @@ func TestOfflineSuspend(t *testing.T) {
 
 		// node now has one full window, so its score should be 0
 		// should not be suspended or DQ since it only has 1 window out of 2 for tracking period
-		_, _, err = reputationdb.Update(ctx, updateReq, nextWindowTime)
+		_, err = reputationdb.Update(ctx, updateReq, nextWindowTime)
 		require.NoError(t, err)
 
 		reputationInfo, err = reputationdb.Get(ctx, nodeID)
@@ -485,7 +503,7 @@ func setOnlineScore(ctx context.Context, reqPtr reputation.UpdateRequest, desire
 			}
 			updateReq.AuditHistory.GracePeriod = gracePeriod
 
-			_, _, err = reputationdb.Update(ctx, updateReq, nextWindowTime)
+			_, err = reputationdb.Update(ctx, updateReq, nextWindowTime)
 			if err != nil {
 				return nextWindowTime, err
 			}

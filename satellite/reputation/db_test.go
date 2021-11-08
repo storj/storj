@@ -38,27 +38,24 @@ func TestUpdate(t *testing.T) {
 			AuditsRequiredForVetting: planet.Satellites[0].Config.Reputation.AuditCount,
 			AuditHistory:             testAuditHistoryConfig(),
 		}
-		nodeStats, changed, err := db.Update(ctx, updateReq, time.Now())
+		nodeStats, err := db.Update(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 		assert.Nil(t, nodeStats.VettedAt)
-		require.False(t, changed)
 
 		// 2 audits -> vetted
 		updateReq.NodeID = node.ID()
 		updateReq.AuditOutcome = reputation.AuditOffline
-		nodeStats, changed, err = db.Update(ctx, updateReq, time.Now())
+		nodeStats, err = db.Update(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 		assert.NotNil(t, nodeStats.VettedAt)
-		require.True(t, changed)
 
 		// Don't overwrite node's vetted_at timestamp
 		updateReq.NodeID = node.ID()
 		updateReq.AuditOutcome = reputation.AuditSuccess
-		nodeStats2, changed, err := db.Update(ctx, updateReq, time.Now())
+		nodeStats2, err := db.Update(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 		assert.NotNil(t, nodeStats2.VettedAt)
 		assert.Equal(t, nodeStats.VettedAt, nodeStats2.VettedAt)
-		require.False(t, changed)
 
 	})
 }

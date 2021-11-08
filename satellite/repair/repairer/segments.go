@@ -232,7 +232,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := repairer.orders.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, healthyPieces)
+	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, healthyPieces)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
@@ -286,7 +286,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Download the segment using just the healthy pieces
-	segmentReader, piecesReport, err := repairer.ec.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+	segmentReader, piecesReport, err := repairer.ec.Get(ctx, getOrderLimits, cachedNodesInfo, getPrivateKey, redundancy, int64(segment.EncryptedSize))
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Meter("repair_too_many_nodes_failed").Mark(0) //mon:locked
@@ -346,7 +346,15 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
 	// only report audit result when segment can be successfully downloaded
-	var report audit.Report
+	cachedNodesReputation := make(map[storj.NodeID]overlay.ReputationStatus, len(cachedNodesInfo))
+	for id, info := range cachedNodesInfo {
+		cachedNodesReputation[id] = info.Reputation
+	}
+
+	report := audit.Report{
+		NodesReputation: cachedNodesReputation,
+	}
+
 	for _, piece := range piecesReport.Successful {
 		report.Successes = append(report.Successes, piece.StorageNode)
 	}

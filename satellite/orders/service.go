@@ -263,7 +263,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabas
 }
 
 // CreateAuditOrderLimits creates the order limits for auditing the pieces of a segment.
-func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment metabase.Segment, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPsAndPorts map[storj.NodeID]string, err error) {
+func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment metabase.Segment, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
@@ -271,7 +271,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment meta
 		nodeIDs[i] = piece.StorageNode
 	}
 
-	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	nodes, err := service.overlay.GetOnlineNodesForAuditRepair(ctx, nodeIDs)
 	if err != nil {
 		service.log.Debug("error getting nodes from overlay", zap.Error(err))
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
@@ -283,7 +283,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment meta
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
 
-	cachedIPsAndPorts = make(map[storj.NodeID]string)
+	cachedNodesInfo = make(map[storj.NodeID]overlay.NodeReputation)
 	var nodeErrors errs.Group
 	var limitsCount int16
 	limits := make([]*pb.AddressedOrderLimit, segment.Redundancy.TotalShares)
@@ -298,9 +298,8 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment meta
 		}
 
 		address := node.Address.Address
-		if node.LastIPPort != "" {
-			cachedIPsAndPorts[piece.StorageNode] = node.LastIPPort
-		}
+		cachedNodesInfo[piece.StorageNode] = *node
+
 		limit, err := signer.Sign(ctx, storj.NodeURL{
 			ID:      piece.StorageNode,
 			Address: address,
@@ -318,31 +317,40 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment meta
 		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
 	}
 
-	return limits, signer.PrivateKey, cachedIPsAndPorts, nil
+	return limits, signer.PrivateKey, cachedNodesInfo, nil
 }
 
 // CreateAuditOrderLimit creates an order limit for auditing a single the piece from a segment.
-func (service *Service) CreateAuditOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPAndPort string, err error) {
+func (service *Service) CreateAuditOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, nodeInfo *overlay.NodeReputation, err error) {
 	// TODO reduce number of params ?
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.overlay.Get(ctx, nodeID)
 	if err != nil {
-		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
+		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
+
+	nodeInfo = &overlay.NodeReputation{
+		ID:         nodeID,
+		Address:    node.Address,
+		LastNet:    node.LastNet,
+		LastIPPort: node.LastIPPort,
+		Reputation: node.Reputation.Status,
+	}
+
 	if node.Disqualified != nil {
-		return nil, storj.PiecePrivateKey{}, "", overlay.ErrNodeDisqualified.New("%v", nodeID)
+		return nil, storj.PiecePrivateKey{}, nodeInfo, overlay.ErrNodeDisqualified.New("%v", nodeID)
 	}
 	if node.ExitStatus.ExitFinishedAt != nil {
-		return nil, storj.PiecePrivateKey{}, "", overlay.ErrNodeFinishedGE.New("%v", nodeID)
+		return nil, storj.PiecePrivateKey{}, nodeInfo, overlay.ErrNodeFinishedGE.New("%v", nodeID)
 	}
 	if !service.overlay.IsOnline(node) {
-		return nil, storj.PiecePrivateKey{}, "", overlay.ErrNodeOffline.New("%v", nodeID)
+		return nil, storj.PiecePrivateKey{}, nodeInfo, overlay.ErrNodeOffline.New("%v", nodeID)
 	}
 
 	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize), metabase.BucketLocation{})
 	if err != nil {
-		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
+		return nil, storj.PiecePrivateKey{}, nodeInfo, Error.Wrap(err)
 	}
 
 	orderLimit, err := signer.Sign(ctx, storj.NodeURL{
@@ -350,10 +358,10 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, nodeID storj.
 		Address: node.Address.Address,
 	}, int32(pieceNum))
 	if err != nil {
-		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
+		return nil, storj.PiecePrivateKey{}, nodeInfo, Error.Wrap(err)
 	}
 
-	return orderLimit, signer.PrivateKey, node.LastIPPort, nil
+	return orderLimit, signer.PrivateKey, nodeInfo, nil
 }
 
 // CreateGetRepairOrderLimits creates the order limits for downloading the
@@ -361,7 +369,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, nodeID storj.
 //
 // The length of the returned orders slice is the total number of pieces of the
 // segment, setting to null the ones which don't correspond to a healthy piece.
-func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, healthy metabase.Pieces) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPsAndPorts map[storj.NodeID]string, err error) {
+func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, healthy metabase.Pieces) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
@@ -377,7 +385,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 		nodeIDs[i] = piece.StorageNode
 	}
 
-	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	nodes, err := service.overlay.GetOnlineNodesForAuditRepair(ctx, nodeIDs)
 	if err != nil {
 		service.log.Debug("error getting nodes from overlay", zap.Error(err))
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
@@ -388,7 +396,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
 
-	cachedIPsAndPorts = make(map[storj.NodeID]string)
+	cachedNodesInfo = make(map[storj.NodeID]overlay.NodeReputation, len(healthy))
 	var nodeErrors errs.Group
 	var limitsCount int
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
@@ -399,9 +407,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 			continue
 		}
 
-		if node.LastIPPort != "" {
-			cachedIPsAndPorts[piece.StorageNode] = node.LastIPPort
-		}
+		cachedNodesInfo[piece.StorageNode] = *node
 
 		limit, err := signer.Sign(ctx, storj.NodeURL{
 			ID:      piece.StorageNode,
@@ -424,7 +430,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
 
-	return limits, signer.PrivateKey, cachedIPsAndPorts, nil
+	return limits, signer.PrivateKey, cachedNodesInfo, nil
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of segment to newNodes.
