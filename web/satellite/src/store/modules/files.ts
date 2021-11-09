@@ -4,7 +4,6 @@
 /* eslint-disable */
 
 import S3 from "aws-sdk/clients/s3";
-import * as R from "ramda";
 
 const listCache = new Map();
 
@@ -52,17 +51,20 @@ export default {
                 size: (a: BrowserObject, b: BrowserObject): number => a.Size - b.Size
             };
 
-            // sort by appropriate function
-            const sortedFiles = R.sort(fns[state.headingSorted], state.files);
+            // TODO(performance): avoid several passes over the slice.
 
+            // sort by appropriate function
+            const sortedFiles = state.files.slice();
+            sortedFiles.sort(fns[state.headingSorted]);
             // reverse if descending order
-            const orderedFiles =
-				state.orderBy === "asc" ? sortedFiles : R.reverse(sortedFiles);
+            if(state.orderBy !== "asc") {
+                sortedFiles.reverse();
+            }
 
             // display folders and then files
             const groupedFiles = [
-                ...orderedFiles.filter((file) => file.type === "folder"),
-                ...orderedFiles.filter((file) => file.type === "file")
+                ...sortedFiles.filter((file) => file.type === "folder"),
+                ...sortedFiles.filter((file) => file.type === "file")
             ];
 
             return groupedFiles;
