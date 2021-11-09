@@ -45,6 +45,7 @@ export default {
     name: "app",
     file: "public/build/bundle.js",
   },
+  preserveSymlinks: true,
   plugins: [
     svelte({
       preprocess: sveltePreprocess({ sourceMap: !production }),
