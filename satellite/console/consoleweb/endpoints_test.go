@@ -751,6 +751,21 @@ func TestWrongUser(t *testing.T) {
 	})
 }
 
+func TestIntrospection(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		test := newTest(t, ctx, planet)
+		user := test.defaultUser()
+		user2 := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
+		test.login(user.email, user.password)
+
+		{
+
+		}
+	})
+}
+
 type test struct {
 	t      *testing.T
 	ctx    *testcontext.Context
