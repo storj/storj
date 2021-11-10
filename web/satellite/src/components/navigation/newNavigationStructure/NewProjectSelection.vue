@@ -54,9 +54,11 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VLoader from "@/components/common/VLoader.vue";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from "@/store/modules/projects";
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from "@/utils/localData";
 import { OBJECTS_ACTIONS } from "@/store/modules/objects";
 import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
@@ -85,6 +87,7 @@ export default class NewProjectSelection extends Vue {
     private FIRST_PAGE = 1;
     private dropdownYPos = 0;
     private dropdownXPos = 0;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public isLoading = false;
 
@@ -208,6 +211,7 @@ export default class NewProjectSelection extends Vue {
      */
     public onProjectsLinkClick(): void {
         if (this.$route.name !== RouteConfig.ProjectsList.name) {
+            this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Manage Projects");
             this.$router.push(RouteConfig.ProjectsList.path);
         }
 
@@ -219,6 +223,7 @@ export default class NewProjectSelection extends Vue {
      */
     public onCreateLinkClick(): void {
         if (this.$route.name !== RouteConfig.CreateProject.name) {
+            this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Create New Project");
             this.$router.push(RouteConfig.CreateProject.path);
         }
 

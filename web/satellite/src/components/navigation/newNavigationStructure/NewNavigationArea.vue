@@ -17,6 +17,7 @@
                     :aria-label="navItem.name"
                     class="navigation-area__container__wrap__item-container"
                     :to="navItem.path"
+                    @click.native="trackClickEvent(navItem.name)"
                 >
                     <div class="navigation-area__container__wrap__item-container__left">
                         <component :is="navItem.icon" class="navigation-area__container__wrap__item-container__left__image" />
@@ -47,6 +48,7 @@
                             href="https://docs.storj.io/"
                             target="_blank"
                             rel="noopener noreferrer"
+                            @click.prevent="trackExternalLinkClickEvent('https://docs.storj.io/')"
                         >
                             <DocsIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
@@ -60,6 +62,7 @@
                             href="https://forum.storj.io/"
                             target="_blank"
                             rel="noopener noreferrer"
+                            @click.prevent="trackExternalLinkClickEvent('https://forum.storj.io/')"
                         >
                             <ForumIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
@@ -73,6 +76,7 @@
                             href="https://supportdcs.storj.io/hc/en-us"
                             target="_blank"
                             rel="noopener noreferrer"
+                            @click.prevent="trackExternalLinkClickEvent('https://supportdcs.storj.io/hc/en-us')"
                         >
                             <SupportIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
@@ -146,9 +150,11 @@ import NewProjectSelection from '@/components/navigation/newNavigationStructure/
 import GuidesDropdown from '@/components/navigation/newNavigationStructure/GuidesDropdown.vue';
 import AccountArea from '@/components/navigation/newNavigationStructure/AccountArea.vue';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import LogoIcon from '@/../static/images/logo.svg';
@@ -196,6 +202,7 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
 })
 export default class NewNavigationArea extends Vue {
     private readonly TWENTY_PIXELS = 20;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public resourcesDropdownYPos = 0;
     public resourcesDropdownXPos = 0;
@@ -237,6 +244,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to create project screen.
      */
     public navigateToCreateAG(): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Create an Access Grant");
         this.closeDropdowns();
         this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).path).catch(() => {return;});
     }
@@ -245,6 +253,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to objects screen.
      */
     public navigateToBuckets(): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Buckets");
         this.closeDropdowns();
         this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
     }
@@ -253,6 +262,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to onboarding CLI flow screen.
      */
     public navigateToCLIFlow(): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Upload using CLI");
         this.closeDropdowns();
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
         this.$router.push({name: RouteConfig.AGName.name});
@@ -262,6 +272,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to create access grant screen.
      */
     public navigateToNewProject(): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "New Project");
         this.closeDropdowns();
         this.$router.push(RouteConfig.CreateProject.path);
     }
@@ -344,6 +355,21 @@ export default class NewNavigationArea extends Vue {
      */
     public get isQuickStartDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.isQuickStartDropdownShown;
+    }
+
+    /**
+     * Sends external link click event to segment and opens link.
+     */
+    public trackExternalLinkClickEvent(link: string): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, link);
+        window.open(link)
+    }
+
+    /**
+     * Sends new path click event to segment.
+     */
+    public trackClickEvent(name: string): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, name);
     }
 }
 </script>
