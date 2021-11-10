@@ -10,7 +10,7 @@
                     :class="{ 'image-active': isAccountSettingsPage }"
                 />
             </div>
-            <p class="settings-dropdown__choice__label" :class="{ active: isAccountSettingsPage }">
+            <p @click="trackClickEvent(`Account Settings`)" class="settings-dropdown__choice__label" :class="{ active: isAccountSettingsPage }">
                 Account Settings
             </p>
         </div>
@@ -21,7 +21,7 @@
                     :class="{ 'image-active': isBillingPage }"
                 />
             </div>
-            <p class="settings-dropdown__choice__label" :class="{ active: isBillingPage }">
+            <p @click.prevent.stop="trackClickEvent(`Billing`)" class="settings-dropdown__choice__label" :class="{ active: isBillingPage }">
                 Billing
             </p>
         </div>
@@ -34,7 +34,10 @@ import { Component, Vue } from 'vue-property-decorator';
 import BillingIcon from '@/../static/images/header/billing.svg';
 import SettingsIcon from '@/../static/images/header/settings.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 
 // @vue/component
 @Component({
@@ -44,6 +47,9 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class SettingsDropdown extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Indicates if current route is account settings page.
      */
@@ -78,6 +84,10 @@ export default class SettingsDropdown extends Vue {
         }
 
         this.closeDropdown();
+    }
+
+    public trackClickEvent(name: string): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, name);
     }
 
     /**

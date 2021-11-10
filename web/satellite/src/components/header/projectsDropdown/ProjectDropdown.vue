@@ -56,6 +56,11 @@ import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+
 // @vue/component
 @Component({
     components: {
@@ -68,6 +73,7 @@ export default class ProjectDropdown extends Vue {
     public readonly isLoading: boolean;
 
     private FIRST_PAGE = 1;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Fetches all project related information.
@@ -121,6 +127,7 @@ export default class ProjectDropdown extends Vue {
      */
     public onProjectsLinkClick(): void {
         if (this.$route.name !== RouteConfig.ProjectsList.name) {
+            this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Manage Projects");
             this.$router.push(RouteConfig.ProjectsList.path);
         }
 

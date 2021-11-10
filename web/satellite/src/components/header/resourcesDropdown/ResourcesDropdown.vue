@@ -8,6 +8,7 @@
             href="https://docs.storj.io/"
             target="_blank"
             rel="noopener noreferrer"
+            @click.prevent="trackClickEvent('https://docs.storj.io/')"
         >
             <DocsIcon class="resources-dropdown__item-container__image" />
             <p class="resources-dropdown__item-container__title">Docs</p>
@@ -17,6 +18,7 @@
             href="https://forum.storj.io/"
             target="_blank"
             rel="noopener noreferrer"
+            @click.prevent="trackClickEvent('https://forum.storj.io/')"
         >
             <CommunityIcon class="resources-dropdown__item-container__image" />
             <p class="resources-dropdown__item-container__title">Community</p>
@@ -26,6 +28,7 @@
             href="https://supportdcs.storj.io/hc/en-us"
             target="_blank"
             rel="noopener noreferrer"
+            @click.prevent="trackClickEvent('https://supportdcs.storj.io/hc/en-us')"
         >
             <SupportIcon class="resources-dropdown__item-container__image" />
             <p class="resources-dropdown__item-container__title">Support</p>
@@ -62,17 +65,11 @@ export default class ResourcesDropdown extends Vue {
         return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
-    public onDocsIconClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, 'https://docs.storj.io/node');
+    public trackClickEvent(link: string): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, link);
+        window.open(link)
     }
 
-    public onCommunityIconClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, 'https://storj.io/community/');
-    }
-
-    public onSupportIconClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, 'mailto:support@storj.io');
-    }
 }
 </script>
 

@@ -10,6 +10,7 @@
             :aria-label="navItem.name"
             class="navigation-area__item-container"
             :to="navItem.path"
+            @click.native="trackClickEvent(navItem.name)"
         >
             <div class="navigation-area__item-container__link">
                 <component :is="navItem.icon" class="navigation-area__item-container__link__icon" />
@@ -37,9 +38,11 @@ import ResourcesSelection from '@/components/header/resourcesDropdown/ResourcesS
 import SettingsSelection from '@/components/header/settingsDropdown/SettingsSelection.vue';
 import TeamIcon from '@/../static/images/navigation/team.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from '@/utils/meta';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -56,6 +59,9 @@ import { MetaUtils } from '@/utils/meta';
 })
 export default class NavigationArea extends Vue {
     public navigation: NavigationLink[] = [];
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
 
     /**
      * Lifecycle hook before initial render.
@@ -86,6 +92,10 @@ export default class NavigationArea extends Vue {
      */
     public get isNavigationHidden(): boolean {
         return this.isOnboardingTour || this.isCreateProjectPage;
+    }
+
+    public trackClickEvent(name: string): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, name);
     }
 
     /**
