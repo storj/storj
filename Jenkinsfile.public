@@ -347,7 +347,7 @@ pipeline {
                 anyOf {
                     branch 'main'
                     branch pattern: "release-.*", comparator: "REGEXP"
-                    changeset "testsuite/**"
+                    changeset "testsuite/ui/**"
                     changeset "web/**"
                     changeset "satellite/console/**"
                     changeset "storagenode/console/**"
