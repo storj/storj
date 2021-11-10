@@ -27,8 +27,12 @@ class ViewsState {
         public isUploadCancelPopupVisible = false,
         public isSuccessfulPasswordResetShown = false,
 
-        public setDefaultPaymentMethodID: string = "",
-        public deletePaymentMethodID: string = "",
+        public onbAGStepBackRoute = "",
+        public onbAPIKeyStepBackRoute = "",
+        public onbCleanApiKey = "",
+        public onbApiKey = "",
+        public setDefaultPaymentMethodID = "",
+        public deletePaymentMethodID = "",
     ) {}
 }
 
@@ -141,6 +145,21 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: State, isBetaSatellite: boolean): void {
             state.isBetaSatellite = isBetaSatellite;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS](state: State, isNewOnbCLIFlow: boolean): void {
+            state.isNewOnbCLIFlow = isNewOnbCLIFlow;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE](state: State, backRoute: string): void {
+            state.appState.onbAGStepBackRoute = backRoute;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE](state: State, backRoute: string): void {
+            state.appState.onbAPIKeyStepBackRoute = backRoute;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_API_KEY](state: State, apiKey: string): void {
+            state.appState.onbApiKey = apiKey;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY](state: State, apiKey: string): void {
+            state.appState.onbCleanApiKey = apiKey;
         },
         [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS](state: State, isNewOnbCLIFlow: boolean): void {
             state.isNewOnbCLIFlow = isNewOnbCLIFlow;

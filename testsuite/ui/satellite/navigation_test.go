@@ -129,17 +129,27 @@ func TestNavigation(t *testing.T) {
 
 		// onboarding cli flow route
 		page.MustElementR("p", "Quick Start").MustClick()
-		wait := page.MustWaitRequestIdle()
 		page.MustElement("[aria-roledescription=cli-flow-route]").MustClick()
+		agNameTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, agNameTitle, "Lets Create an Access Grant")
+		page.MustElement("[aria-roledescription=name] input").MustInput("test AG name")
+		wait := page.MustWaitRequestIdle()
+		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
 		wait()
-		apiKeyGeneratedTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, apiKeyGeneratedTitle, "API Key Generated")
+		agPermissionsTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, agPermissionsTitle, "Access Permissions")
+		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
+		waitVueTick(page)
 		page.Race().Element("[aria-roledescription=satellite-address]").MustHandle(func(el *rod.Element) {
 			require.NotEmpty(t, el.MustText())
 		}).MustDo()
 		page.Race().Element("[aria-roledescription=api-key]").MustHandle(func(el *rod.Element) {
 			require.NotEmpty(t, el.MustText())
 		}).MustDo()
+		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
+		waitVueTick(page)
+		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
+		waitVueTick(page)
 		page.MustElementX("(//span[text()=\"< Back\"])").MustClick()
 		waitVueTick(page)
 
