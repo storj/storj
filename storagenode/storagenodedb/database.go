@@ -296,10 +296,11 @@ func (db *DB) openExistingDatabase(ctx context.Context, dbName string) error {
 	path := db.filepathFromDBName(dbName)
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			db.log.Info("database does not exists", zap.String("database", dbName))
+			// When we haven't created the database, yet, then stat fails.
+			db.log.Info("database does not exist", zap.String("database", dbName))
 			return nil
 		}
-		return ErrDatabase.Wrap(err)
+		return ErrDatabase.New("%s database file %q does not exist: %w", dbName, path, err)
 	}
 
 	return db.openDatabase(ctx, dbName)
@@ -320,7 +321,7 @@ func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 
 	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
-		return ErrDatabase.Wrap(err)
+		return ErrDatabase.New("%s opening file %q failed: %w", dbName, path, err)
 	}
 
 	mDB := db.SQLDBs[dbName]
@@ -480,7 +481,12 @@ func (db *DB) closeDatabase(dbName string) (err error) {
 	if dbHandle == nil {
 		return nil
 	}
-	return ErrDatabase.Wrap(dbHandle.Close())
+
+	err = dbHandle.Close()
+	if err != nil {
+		return ErrDatabase.New("%s close failed: %w", dbName, err)
+	}
+	return nil
 }
 
 // V0PieceInfo returns the instance of the V0PieceInfoDB database.
@@ -568,7 +574,7 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 	if _, err := os.Stat(path); err == nil {
 		err = os.Remove(path)
 		if err != nil {
-			return ErrDatabase.Wrap(err)
+			return ErrDatabase.New("%s failed to remove %q: %w", dbName, path, err)
 		}
 	}
 
@@ -582,7 +588,7 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		db.rawDatabaseFromName(dbName),
 		tablesToKeep...)
 	if err != nil {
-		return ErrDatabase.Wrap(err)
+		return ErrDatabase.New("%s migrate tables to database: %w", dbName, err)
 	}
 
 	// We need to close and re-open the database we have just migrated *to* in
