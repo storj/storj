@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -1239,6 +1238,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, entry := range collector {
+				// fields that should always be set
+				require.NotEmpty(t, entry.ObjectKey)
+				require.NotEmpty(t, entry.StreamID)
+				require.NotZero(t, entry.Version)
+				require.False(t, entry.Encryption.IsZero())
+
 				require.True(t, entry.CreatedAt.IsZero())
 				require.Nil(t, entry.ExpiresAt)
 				require.Zero(t, entry.Status)
@@ -1246,7 +1251,6 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.Zero(t, entry.TotalPlainSize)
 				require.Zero(t, entry.TotalEncryptedSize)
 				require.Zero(t, entry.FixedSegmentSize)
-				require.Equal(t, storj.EncryptionParameters{}, entry.Encryption)
 
 				require.NotNil(t, entry.EncryptedMetadataNonce)
 				require.NotNil(t, entry.EncryptedMetadata)
