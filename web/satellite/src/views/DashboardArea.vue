@@ -15,7 +15,7 @@
             </template>
             <template v-if="isNewNavStructure">
                 <div class="dashboard__wrap__new-main-area">
-                    <NewNavigationArea />
+                    <NewNavigationArea v-if="!isNavigationHidden" />
                     <div
                         class="dashboard__wrap__new-main-area__content-wrap"
                         :class="{
@@ -204,6 +204,33 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Checks if stored project is in fetched projects array and selects it.
+     * Selects first fetched project if check is not successful.
+     * @param fetchedProjects - fetched projects array
+     */
+    private selectProject(fetchedProjects: Project[]): void {
+        const storedProjectID = LocalData.getSelectedProjectId();
+        const isProjectInFetchedProjects = fetchedProjects.some(project => project.id === storedProjectID);
+        if (storedProjectID && isProjectInFetchedProjects) {
+            this.storeProject(storedProjectID);
+
+            return;
+        }
+
+        // Length of fetchedProjects array is checked before selectProject() function call.
+        this.storeProject(fetchedProjects[0].id);
+    }
+
+    /**
+     * Stores project to vuex store and browser's local storage.
+     * @param projectID - project id string
+     */
+    private storeProject(projectID: string): void {
+        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        LocalData.setSelectedProjectId(projectID);
+    }
+
+    /**
      * Returns amount of rendered info bars.
      * It is used to set height of content's container.
      */
@@ -276,30 +303,17 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Checks if stored project is in fetched projects array and selects it.
-     * Selects first fetched project if check is not successful.
-     * @param fetchedProjects - fetched projects array
+     * Indicates if navigation side bar is hidden.
      */
-    private selectProject(fetchedProjects: Project[]): void {
-        const storedProjectID = LocalData.getSelectedProjectId();
-        const isProjectInFetchedProjects = fetchedProjects.some(project => project.id === storedProjectID);
-        if (storedProjectID && isProjectInFetchedProjects) {
-            this.storeProject(storedProjectID);
-
-            return;
-        }
-
-        // Length of fetchedProjects array is checked before selectProject() function call.
-        this.storeProject(fetchedProjects[0].id);
+    public get isNavigationHidden(): boolean {
+        return this.isOnboardingTour || this.isCreateProjectPage;
     }
 
     /**
-     * Stores project to vuex store and browser's local storage.
-     * @param projectID - project id string
+     * Indicates if current route is create project page.
      */
-    private storeProject(projectID: string): void {
-        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
-        LocalData.setSelectedProjectId(projectID);
+    private get isCreateProjectPage(): boolean {
+        return this.$route.name === RouteConfig.CreateProject.name;
     }
 
     /**

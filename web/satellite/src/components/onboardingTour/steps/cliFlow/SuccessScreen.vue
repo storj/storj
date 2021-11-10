@@ -6,10 +6,9 @@
         <Icon />
         <h1 class="success-screen__title" aria-roledescription="title">Wonderful</h1>
         <p class="success-screen__msg">
-            This was easy right :)
+            This was easy right? We wish you all the best with your projects.
             <span v-if="!creditCards.length">
-                Wish you all the best with your projects. To upgrade your account and upload up to
-                75TB, just add your card or STORJ tokens.
+                To upgrade your account and upload up to 75TB, just add your card or STORJ tokens.
             </span>
         </p>
         <div class="success-screen__buttons">

@@ -44,6 +44,8 @@ import DownloadObject from "@/components/onboardingTour/steps/cliFlow/DownloadOb
 import ShareObject from "@/components/onboardingTour/steps/cliFlow/ShareObject.vue";
 import RegistrationSuccess from "@/components/common/RegistrationSuccess.vue";
 import SuccessScreen from "@/components/onboardingTour/steps/cliFlow/SuccessScreen.vue";
+import AGName from "@/components/onboardingTour/steps/cliFlow/AGName.vue";
+import AGPermissions from "@/components/onboardingTour/steps/cliFlow/AGPermissions.vue";
 
 import store from '@/store';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
@@ -99,6 +101,8 @@ export abstract class RouteConfig {
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
     public static OnbCLIStep = new NavigationLink('cli', 'Onboarding CLI');
+    public static AGName = new NavigationLink('ag-name', 'Onboarding AG Name');
+    public static AGPermissions = new NavigationLink('ag-permissions', 'Onboarding AG Permissions');
     public static APIKey = new NavigationLink('api-key', 'Onboarding API Key');
     public static CLIInstall = new NavigationLink('cli-install', 'Onboarding CLI Install');
     public static CLISetup = new NavigationLink('cli-setup', 'Onboarding CLI Setup');
@@ -290,6 +294,16 @@ export const router = new Router({
                             name: RouteConfig.OnbCLIStep.name,
                             component: OnbCLIStep,
                             children: [
+                                {
+                                    path: RouteConfig.AGName.path,
+                                    name: RouteConfig.AGName.name,
+                                    component: AGName,
+                                },
+                                {
+                                    path: RouteConfig.AGPermissions.path,
+                                    name: RouteConfig.AGPermissions.name,
+                                    component: AGPermissions,
+                                },
                                 {
                                     path: RouteConfig.APIKey.path,
                                     name: RouteConfig.APIKey.name,

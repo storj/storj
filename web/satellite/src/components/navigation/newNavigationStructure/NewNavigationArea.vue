@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="!isNavigationHidden" class="navigation-area">
+    <div class="navigation-area">
         <div ref="navigationContainer" class="navigation-area__container">
             <div class="navigation-area__container__wrap">
                 <LogoIcon class="navigation-area__container__wrap__logo" @click.stop="onLogoClick" />
@@ -149,6 +149,7 @@ import AccountArea from '@/components/navigation/newNavigationStructure/AccountA
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import LogoIcon from '@/../static/images/logo.svg';
 import SmallLogoIcon from '@/../static/images/smallLogo.svg';
@@ -253,12 +254,8 @@ export default class NewNavigationArea extends Vue {
      */
     public navigateToCLIFlow(): void {
         this.closeDropdowns();
-        this.$router.push({
-            name: RouteConfig.APIKey.name,
-            params: {
-                backRoute: this.$route.path,
-            }
-        });
+        this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
+        this.$router.push({name: RouteConfig.AGName.name});
     }
 
     /**
@@ -347,28 +344,6 @@ export default class NewNavigationArea extends Vue {
      */
     public get isQuickStartDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.isQuickStartDropdownShown;
-    }
-
-    /**
-     * Indicates if navigation side bar is hidden.
-     */
-    public get isNavigationHidden(): boolean {
-        return this.isOnboardingTour || this.isCreateProjectPage;
-    }
-
-    /**
-     * Indicates if current route is create project page.
-     */
-    private get isCreateProjectPage(): boolean {
-        return this.$route.name === RouteConfig.CreateProject.name;
-    }
-
-    /**
-     * Indicates  if current route is onboarding tour.
-     * Overviewstep needs navigation.
-     */
-    private get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>

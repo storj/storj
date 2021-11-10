@@ -14,12 +14,14 @@
                 border-radius="52px"
                 is-grey-blue="true"
                 :on-press="onBackClick"
+                :is-disabled="isLoading"
             />
             <VButton
                 label="Next >"
                 height="64px"
                 border-radius="52px"
                 :on-press="onNextClick"
+                :is-disabled="isLoading"
             />
         </div>
     </div>
@@ -43,17 +45,19 @@ export default class CLIFlowContainer extends Vue {
     public readonly onBackClick: () => unknown;
     @Prop({ default: ''})
     public readonly title: string;
+    @Prop({ default: false})
+    public readonly isLoading: boolean;
 }
 </script>
 
 <style scoped lang="scss">
     .flow-container {
         font-family: 'font_regular', sans-serif;
-        background: #fcfcfc;
+        background: #fff;
         box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
         border-radius: 20px;
         padding: 48px;
-        max-width: 484px;
+        max-width: 500px;
 
         &__title {
             margin: 20px 0;
