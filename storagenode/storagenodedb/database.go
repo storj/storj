@@ -300,7 +300,7 @@ func (db *DB) openExistingDatabase(ctx context.Context, dbName string) error {
 			db.log.Info("database does not exist", zap.String("database", dbName))
 			return nil
 		}
-		return ErrDatabase.New("%s database file %q does not exist: %w", dbName, path, err)
+		return ErrDatabase.New("%s couldn't be read (%q): %w", dbName, path, err)
 	}
 
 	return db.openDatabase(ctx, dbName)
