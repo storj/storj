@@ -262,11 +262,10 @@ func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterato
 	if it.prefixLimit == "" {
 		return it.db.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, status,
+				object_key, stream_id, version, encryption, status,
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 			FROM objects
 			WHERE
@@ -284,11 +283,10 @@ func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterato
 	// works with CRDB.
 	return it.db.db.QueryContext(ctx, `
 		SELECT
-			object_key, stream_id, version, status,
+			object_key, stream_id, version, encryption, status,
 			created_at, expires_at,
 			segment_count,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encryption,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 		FROM objects
 		WHERE
@@ -313,7 +311,8 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 	querySelectFields := `
 		object_key
 		,stream_id
-		,version`
+		,version
+		,encryption`
 
 	if it.includeSystemMetadata {
 		querySelectFields += `
@@ -323,8 +322,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 			,segment_count
 			,total_plain_size
 			,total_encrypted_size
-			,fixed_segment_size
-			,encryption`
+			,fixed_segment_size`
 	}
 
 	if it.includeCustomMetadata {
@@ -392,11 +390,10 @@ func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql
 
 	return it.db.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, status,
+				object_key, stream_id, version, encryption, status,
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 			FROM objects
 			WHERE
@@ -421,6 +418,7 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 		&item.ObjectKey,
 		&item.StreamID,
 		&item.Version,
+		encryptionParameters{&item.Encryption},
 	}
 
 	if it.includeSystemMetadata {
@@ -432,7 +430,6 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 			&item.TotalPlainSize,
 			&item.TotalEncryptedSize,
 			&item.FixedSegmentSize,
-			encryptionParameters{&item.Encryption},
 		)
 	}
 
