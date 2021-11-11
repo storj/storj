@@ -899,7 +899,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
 		endpoint.log.Error("Retrieving project bandwidth total failed; bandwidth limit won't be enforced", zap.Error(err))
 	} else if exceeded {
-		endpoint.log.Error("Monthly bandwidth limit exceeded",
+		endpoint.log.Warn("Monthly bandwidth limit exceeded",
 			zap.Stringer("Limit", limit),
 			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
@@ -2119,7 +2119,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
 		endpoint.log.Error("Retrieving project bandwidth total failed; bandwidth limit won't be enforced", zap.Error(err))
 	} else if exceeded {
-		endpoint.log.Error("Monthly bandwidth limit exceeded",
+		endpoint.log.Warn("Monthly bandwidth limit exceeded",
 			zap.Stringer("Limit", limit),
 			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
@@ -2678,7 +2678,7 @@ func (endpoint *Endpoint) checkExceedsStorageUsage(ctx context.Context, projectI
 			zap.Error(err),
 		)
 	} else if exceeded {
-		endpoint.log.Error("Monthly storage limit exceeded",
+		endpoint.log.Warn("Monthly storage limit exceeded",
 			zap.Stringer("Limit", limit),
 			zap.Stringer("Project ID", projectID),
 		)
