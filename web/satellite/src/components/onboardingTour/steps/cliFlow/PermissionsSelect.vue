@@ -19,7 +19,7 @@
                 alt="Arrow down (expand)"
             />
         </div>
-        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="permissions-select__dropdown" @close="closeDropdown">
+        <div v-if="isDropdownVisible" v-click-outside="closeDropdown" class="permissions-select__dropdown" @close="closeDropdown">
             <div class="permissions-select__dropdown__item">
                 <input id="download" type="checkbox" name="download" :checked="storedIsDownload" @change="toggleIsDownload">
                 <label class="permissions-select__dropdown__item__label" for="download">Download</label>
@@ -41,9 +41,10 @@
 </template>
 
 <script lang="ts">
-import {Component, Vue} from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 import { ACCESS_GRANTS_MUTATIONS } from "@/store/modules/accessGrants";
+import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
@@ -55,20 +56,19 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 })
 export default class PermissionsSelect extends Vue {
     public isLoading = true;
-    public isDropdownShown = false;
 
     /**
      * Toggles dropdown visibility.
      */
     public toggleDropdown(): void {
-        this.isDropdownShown = !this.isDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PERMISSIONS_DROPDOWN);
     }
 
     /**
      * Closes dropdown.
      */
     public closeDropdown(): void {
-        this.isDropdownShown = false;
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 
     /**
@@ -97,6 +97,13 @@ export default class PermissionsSelect extends Vue {
      */
     public toggleIsDelete(): void {
         this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DELETE_PERMISSION)
+    }
+
+    /**
+     * Indicates if dropdown is visible.
+     */
+    public get isDropdownVisible(): boolean {
+        return this.$store.state.appStateModule.appState.isPermissionsDropdownShown;
     }
 
     /**
@@ -173,6 +180,7 @@ export default class PermissionsSelect extends Vue {
             background-color: #fff;
             padding: 10px 20px;
             width: calc(100% - 40px);
+            box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
 
             &__item {
                 display: flex;

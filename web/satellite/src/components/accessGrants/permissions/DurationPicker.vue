@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="duration-picker">
+    <div v-click-outside="closePicker" class="duration-picker">
         <div class="duration-picker__list">
             <ul class="duration-picker__list__column">
                 <li class="duration-picker__list__column-item" @click="onForeverClick">Forever</li>
@@ -35,6 +35,7 @@ import DatePicker from 'vue2-datepicker';
 import 'vue2-datepicker/index.css';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import { DurationPermission } from '@/types/accessGrants';
 
 // @vue/component
@@ -69,7 +70,7 @@ export default class DurationPicker extends Vue {
 
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
         this.$emit('setLabel', 'Forever');
-        this.$emit('close');
+        this.closePicker();
     }
 
     /**
@@ -82,7 +83,7 @@ export default class DurationPicker extends Vue {
 
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
         this.$emit('setLabel', '1 Month');
-        this.$emit('close');
+        this.closePicker();
     }
 
     /**
@@ -95,7 +96,7 @@ export default class DurationPicker extends Vue {
 
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
         this.$emit('setLabel', '24 Hours');
-        this.$emit('close');
+        this.closePicker();
     }
 
     /**
@@ -108,7 +109,7 @@ export default class DurationPicker extends Vue {
 
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
         this.$emit('setLabel', '1 Week');
-        this.$emit('close');
+        this.closePicker();
     }
 
     /**
@@ -121,7 +122,7 @@ export default class DurationPicker extends Vue {
 
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
         this.$emit('setLabel', '6 Months');
-        this.$emit('close');
+        this.closePicker();
     }
 
     /**
@@ -134,7 +135,14 @@ export default class DurationPicker extends Vue {
 
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
         this.$emit('setLabel', '1 Year');
-        this.$emit('close');
+        this.closePicker();
+    }
+
+    /**
+     * Closes duration picker.
+     */
+    public closePicker(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 }
 </script>

@@ -13,17 +13,14 @@
                 alt="Arrow down (expand)"
             />
         </div>
-        <BucketsDropdown
-            v-if="isDropdownShown"
-            v-click-outside="closeDropdown"
-            @close="closeDropdown"
-        />
+        <BucketsDropdown v-if="isDropdownShown" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
@@ -36,20 +33,18 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
     },
 })
 export default class BucketsSelection extends Vue {
-    public isDropdownShown = false;
-
     /**
      * Toggles dropdown visibility.
      */
     public toggleDropdown(): void {
-        this.isDropdownShown = !this.isDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_BUCKET_NAMES_DROPDOWN);
     }
 
     /**
-     * Closes dropdown.
+     * Indicates if dropdown is shown.
      */
-    public closeDropdown(): void {
-        this.isDropdownShown = false;
+    public get isDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isBucketNamesDropdownShown;
     }
 
     /**

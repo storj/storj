@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="buckets-dropdown">
+    <div v-click-outside="closeDropdown" class="buckets-dropdown">
         <div class="buckets-dropdown__container">
             <p class="buckets-dropdown__container__all" @click.stop="selectAllBuckets">
                 All
@@ -49,6 +49,7 @@ import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 
 // @vue/component
 @Component({
@@ -65,7 +66,7 @@ export default class BucketsDropdown extends Vue {
      */
     public selectAllBuckets(): void {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
-        this.$emit('close');
+        this.closeDropdown();
     }
 
     /**
@@ -81,6 +82,13 @@ export default class BucketsDropdown extends Vue {
      */
     public isNameSelected(name: string): boolean {
         return this.selectedBucketNames.includes(name);
+    }
+
+    /**
+     * Closes dropdown.
+     */
+    public closeDropdown(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 
     /**
@@ -114,7 +122,7 @@ export default class BucketsDropdown extends Vue {
 
     .buckets-dropdown {
         position: absolute;
-        z-index: 1120;
+        z-index: 2;
         left: 0;
         top: calc(100% + 5px);
         box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
@@ -123,11 +131,11 @@ export default class BucketsDropdown extends Vue {
         border: 1px solid rgba(56, 75, 101, 0.4);
         width: 100%;
         padding: 10px 0;
+        cursor: default;
 
         &__container {
-            overflow-y: scroll;
+            overflow-y: auto;
             overflow-x: hidden;
-            height: auto;
             width: 100%;
             max-height: 230px;
             background-color: #fff;
@@ -204,13 +212,22 @@ export default class BucketsDropdown extends Vue {
                     justify-content: space-between;
                     padding: 15px 20px;
                     width: calc(100% - 40px);
+                    cursor: pointer;
 
                     &__left {
                         display: flex;
                         align-items: center;
+                        max-width: 100%;
+
+                        &__icon {
+                            min-width: 14px;
+                        }
 
                         &__label {
                             margin: 0 0 0 15px;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                            overflow: hidden;
                         }
                     }
 

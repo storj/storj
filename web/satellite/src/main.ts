@@ -1,9 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue, { VNode } from 'vue';
+import Vue from 'vue';
 import VueClipboard from 'vue-clipboard2';
-import { DirectiveBinding } from 'vue/types/options';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 
@@ -24,27 +23,32 @@ const notificator = new NotificatorPlugin();
 Vue.use(notificator);
 Vue.use(VueClipboard);
 
-let clickOutsideEvent: EventListener;
+/**
+ * Click outside handlers.
+ */
+const handlers = new Map();
+document.addEventListener('click', event => {
+    for (const handler of handlers.values()) {
+        handler(event);
+    }
+});
 
 /**
  * Binds closing action to outside popups area.
  */
 Vue.directive('click-outside', {
-    bind: function (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
-        clickOutsideEvent = function(event: Event): void {
-            if (el === event.target || el.contains(event.target as Node)) {
-                return;
-            }
-
-            if (vnode.context) {
-                vnode.context[binding.expression](event);
+    bind(el, binding) {
+        const handler = event => {
+            if (el !== event.target && !el.contains(event.target)) {
+                binding.value(event);
             }
         };
 
-        document.body.addEventListener('click', clickOutsideEvent);
+        handlers.set(el, handler);
     },
-    unbind: function(): void {
-        document.body.removeEventListener('click', clickOutsideEvent);
+
+    unbind(el) {
+        handlers.delete(el);
     },
 });
 
