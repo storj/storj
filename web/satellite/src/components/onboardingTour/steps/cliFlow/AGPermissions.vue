@@ -145,7 +145,7 @@ export default class AGPermissions extends Vue {
      * Generates and returns restricted key from clean API key.
      */
     private async generateRestrictedKey(): Promise<string> {
-        await this.worker.postMessage({
+        let permissionsMsg = {
             'type': 'SetPermission',
             'isDownload': this.storedIsDownload,
             'isUpload': this.storedIsUpload,
@@ -153,7 +153,12 @@ export default class AGPermissions extends Vue {
             'isDelete': this.storedIsDelete,
             'buckets': this.selectedBucketNames,
             'apiKey': this.cleanAPIKey,
-        });
+        }
+
+        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
+        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
+
+        await this.worker.postMessage(permissionsMsg);
 
         const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         if (grantEvent.data.error) {
@@ -204,6 +209,20 @@ export default class AGPermissions extends Vue {
     private get storedIsDelete(): boolean {
         return this.$store.state.accessGrantsModule.isDelete;
     }
+
+    /**
+     * Returns not before date permission from store.
+     */
+    private get notBeforePermission(): Date | null {
+        return this.$store.state.accessGrantsModule.permissionNotBefore;
+    }
+
+    /**
+     * Returns not after date permission from store.
+     */
+    private get notAfterPermission(): Date | null {
+        return this.$store.state.accessGrantsModule.permissionNotAfter;
+    }
 }
 </script>
 
@@ -222,6 +241,10 @@ export default class AGPermissions extends Vue {
         }
 
         &__bucket-bullets {
+            display: flex;
+            align-items: center;
+            max-width: 100%;
+            flex-wrap: wrap;
 
             &__container {
                 display: flex;
