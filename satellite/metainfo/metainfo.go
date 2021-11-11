@@ -897,7 +897,11 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
-		endpoint.log.Error("Retrieving project bandwidth total failed; bandwidth limit won't be enforced", zap.Error(err))
+		endpoint.log.Error(
+			"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 	} else if exceeded {
 		endpoint.log.Warn("Monthly bandwidth limit exceeded",
 			zap.Stringer("Limit", limit),
@@ -960,7 +964,11 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			// log it and continue. it's most likely our own fault that we couldn't
 			// track it, and the only thing that will be affected is our per-project
 			// bandwidth limits.
-			endpoint.log.Error("Could not track the new project's bandwidth usage", zap.Stringer("Project ID", keyInfo.ProjectID), zap.Error(err))
+			endpoint.log.Error(
+				"Could not track the new project's bandwidth usage",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Error(err),
+			)
 		}
 
 		encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
@@ -2117,7 +2125,11 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
 
 	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
-		endpoint.log.Error("Retrieving project bandwidth total failed; bandwidth limit won't be enforced", zap.Error(err))
+		endpoint.log.Error(
+			"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 	} else if exceeded {
 		endpoint.log.Warn("Monthly bandwidth limit exceeded",
 			zap.Stringer("Limit", limit),
@@ -2675,6 +2687,7 @@ func (endpoint *Endpoint) checkExceedsStorageUsage(ctx context.Context, projectI
 	if err != nil {
 		endpoint.log.Error(
 			"Retrieving project storage totals failed; storage usage limit won't be enforced",
+			zap.Stringer("Project ID", projectID),
 			zap.Error(err),
 		)
 	} else if exceeded {
