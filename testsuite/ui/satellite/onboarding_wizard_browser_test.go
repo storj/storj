@@ -70,6 +70,6 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		waitVueTick(page)
 
 		// Verify that browser component has loaded and that the dropzone is present
-		page.MustElementR("h4", "Drop Files Here to Upload")
+		page.MustElementR("p", "Drop Files Here to Upload")
 	})
 }

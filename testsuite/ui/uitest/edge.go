@@ -19,7 +19,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
@@ -72,6 +71,7 @@ func Edge(t *testing.T, test EdgeTest) {
 					config.Console.StaticDir = dir
 				}
 				config.Console.NewOnboarding = true
+				config.Console.NewObjectsFlow = true
 				config.Console.NewBrowser = true
 				// TODO: this should be dynamically set from the auth service
 				config.Console.GatewayCredentialsRequestURL = "http://" + authSvcAddr
@@ -92,7 +92,7 @@ func Edge(t *testing.T, test EdgeTest) {
 		authClient, err := authclient.New(authURL, "super-secret", 5*time.Minute)
 		require.NoError(t, err)
 
-		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient)
+		gateway, err := server.New(gwConfig, planet.Log().Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient)
 		require.NoError(t, err)
 
 		defer ctx.Check(gateway.Close)
@@ -108,7 +108,7 @@ func Edge(t *testing.T, test EdgeTest) {
 			authConfig.AllowedSatellites = append(authConfig.AllowedSatellites, sat.NodeURL().String())
 		}
 
-		auth, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, ctx.Dir("authservice"))
+		auth, err := auth.New(ctx, planet.Log().Named("auth"), authConfig, ctx.Dir("authservice"))
 		require.NoError(t, err)
 
 		defer ctx.Check(auth.Close)
@@ -129,7 +129,7 @@ func Edge(t *testing.T, test EdgeTest) {
 		edge.Gateway.Addr = gateway.Address()
 		edge.Auth.Addr = authSvcAddr
 
-		Browser(t, ctx, func(browser *rod.Browser) {
+		Browser(t, ctx, planet, func(browser *rod.Browser) {
 			test(t, ctx, edge, browser)
 		})
 	})

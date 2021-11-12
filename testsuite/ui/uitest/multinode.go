@@ -27,7 +27,7 @@ func Multinode(t *testing.T, multinodeCount int, test Test) {
 		},
 		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		Browser(t, ctx, func(browser *rod.Browser) {
+		Browser(t, ctx, planet, func(browser *rod.Browser) {
 			test(t, ctx, planet, browser)
 		})
 	})
