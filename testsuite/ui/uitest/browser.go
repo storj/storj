@@ -12,14 +12,16 @@ import (
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/cdp"
 	"github.com/go-rod/rod/lib/defaults"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/go-rod/rod/lib/utils"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/testplanet"
 )
 
 // Our testing suite heavily uses randomly selected ports, which may collide
@@ -28,11 +30,11 @@ import (
 func init() { defaults.LockPort = 0 }
 
 // Browser starts a browser for testing using environment variables for configuration.
-func Browser(t *testing.T, ctx *testcontext.Context, fn func(*rod.Browser)) {
+func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, fn func(*rod.Browser)) {
 	showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
 	slowBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") == "slow"
 
-	logLauncher := zaptest.NewLogger(t).Named("launcher")
+	logLauncher := planet.Log().Named("launcher")
 
 	browserLoaded := browserTimeoutDetector(10 * time.Second)
 	defer browserLoaded()
@@ -44,8 +46,6 @@ func Browser(t *testing.T, ctx *testcontext.Context, fn func(*rod.Browser)) {
 		NoSandbox(true).
 		UserDataDir(ctx.Dir("browser")).
 		Logger(zapWriter{Logger: logLauncher}).
-		Set("enable-logging").
-		Set("disable-gpu").
 		Set("disable-web-security") // TODO: ensure we have proper CORS for testing.
 
 	if browserHost := os.Getenv("STORJ_TEST_BROWER_HOSTPORT"); browserHost != "" {
@@ -66,12 +66,17 @@ func Browser(t *testing.T, ctx *testcontext.Context, fn func(*rod.Browser)) {
 	url, err := launch.Launch()
 	require.NoError(t, err)
 
-	logBrowser := zaptest.NewLogger(t).Named("rod")
+	logBrowser := planet.Log().Named("rod")
+	logBrowserCDP := logBrowser.Named("cdp")
+
+	client := cdp.New(url).Logger(utils.Log(func(msg ...interface{}) {
+		logBrowserCDP.Debug(fmt.Sprintln(msg...))
+	}))
 
 	browser := rod.New().
 		Timeout(time.Minute).
 		Sleeper(MaxDuration(5 * time.Second)).
-		ControlURL(url).
+		Client(client).
 		Logger(utils.Log(func(msg ...interface{}) {
 			logBrowser.Info(fmt.Sprintln(msg...))
 		})).
@@ -82,7 +87,10 @@ func Browser(t *testing.T, ctx *testcontext.Context, fn func(*rod.Browser)) {
 		browser = browser.SlowMotion(300 * time.Millisecond).Trace(true)
 	}
 
-	defer ctx.Check(browser.Close)
+	defer ctx.Check(func() error {
+		// browser.Close may sometimes return context.Canceled.
+		return errs2.IgnoreCanceled(browser.Close())
+	})
 
 	require.NoError(t, browser.Connect())
 
@@ -109,7 +117,7 @@ func browserTimeoutDetector(duration time.Duration) context.CancelFunc {
 // MaxDuration returns a sleeper constructor with the max duration.
 func MaxDuration(max time.Duration) func() utils.Sleeper {
 	return func() utils.Sleeper {
-		singleSleep := 50 * time.Millisecond
+		singleSleep := 100 * time.Millisecond
 		totalSlept := time.Duration(0)
 		return func(ctx context.Context) error {
 			if totalSlept > max {
@@ -125,6 +133,7 @@ func MaxDuration(max time.Duration) func() utils.Sleeper {
 			select {
 			case <-t.C:
 			case <-ctx.Done():
+				return ctx.Err()
 			}
 
 			return nil
