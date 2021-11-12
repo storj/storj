@@ -622,7 +622,7 @@ func TestBeginCommit(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		bucketsDB := planet.Satellites[0].DB.Buckets()
+		bucketsDB := planet.Satellites[0].API.Buckets.Service
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
@@ -745,7 +745,7 @@ func TestInlineSegment(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		bucketsDB := planet.Satellites[0].DB.Buckets()
+		bucketsDB := planet.Satellites[0].API.Buckets.Service
 
 		// TODO maybe split into separate cases
 		// Test:
@@ -1560,7 +1560,7 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		bucketsDB := planet.Satellites[0].DB.Buckets()
+		bucketsDB := planet.Satellites[0].API.Buckets.Service
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",

@@ -11,8 +11,8 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -76,7 +76,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 }
 
 // GetMinimalBucket returns existing bucket with minimal number of fields.
-func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ metainfo.Bucket, err error) {
+func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	row, err := db.db.Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
@@ -84,11 +84,11 @@ func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, pr
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return metainfo.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
+			return buckets.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
 		}
-		return metainfo.Bucket{}, storj.ErrBucket.Wrap(err)
+		return buckets.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
-	return metainfo.Bucket{
+	return buckets.Bucket{
 		Name:      bucketName,
 		CreatedAt: row.CreatedAt,
 	}, nil
@@ -130,10 +130,6 @@ func (db *bucketsDB) GetBucketID(ctx context.Context, bucket metabase.BucketLoca
 func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if bucket.PartnerID.IsZero() && bucket.UserAgent == nil {
-		return storj.Bucket{}, Error.New("no partner ID or user agent found")
-	}
-
 	var updateFields dbx.BucketMetainfo_Update_Fields
 	if !bucket.PartnerID.IsZero() {
 		updateFields.PartnerId = dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:])
@@ -142,6 +138,8 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 	if bucket.UserAgent != nil {
 		updateFields.UserAgent = dbx.BucketMetainfo_UserAgent(bucket.UserAgent)
 	}
+
+	updateFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
 	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]), dbx.BucketMetainfo_Name([]byte(bucket.Name)), updateFields)
 	if err != nil {
@@ -281,6 +279,10 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
+	}
+
+	if dbxBucket.Placement != nil {
+		bucket.Placement = storj.PlacementConstraint(*dbxBucket.Placement)
 	}
 
 	if dbxBucket.PartnerId != nil {

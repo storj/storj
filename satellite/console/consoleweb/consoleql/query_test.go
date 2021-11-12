@@ -15,8 +15,8 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testredis"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/analytics"
@@ -27,11 +27,12 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestGraphqlQuery(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
 		log := zaptest.NewLogger(t)
 
 		partnersService := rewards.NewPartnersService(
@@ -82,7 +83,7 @@ func TestGraphqlQuery(t *testing.T) {
 			db.Console(),
 			db.ProjectAccounting(),
 			projectUsage,
-			db.Buckets(),
+			sat.API.Buckets.Service,
 			partnersService,
 			paymentsService.Accounts(),
 			analyticsService,
