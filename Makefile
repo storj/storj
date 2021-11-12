@@ -187,7 +187,7 @@ satellite-admin-ui:
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
 		node:16.11.1 \
-	  /bin/bash -c "npm run build"
+	  /bin/bash -c "npm ci && npm run build"
 
 .PHONY: satellite-wasm
 satellite-wasm:
