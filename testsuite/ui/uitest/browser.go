@@ -41,7 +41,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 
 	launch := launcher.New().
 		Headless(!showBrowser).
-		Leakless(false).
+		Leakless(true).
 		Devtools(false).
 		NoSandbox(true).
 		UserDataDir(ctx.Dir("browser")).

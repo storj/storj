@@ -30,22 +30,25 @@ func (log zapWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
+func configureSatellite(log *zap.Logger, index int, config *satellite.Config) {
+	if dir := os.Getenv("STORJ_TEST_SATELLITE_WEB"); dir != "" {
+		config.Console.StaticDir = dir
+	}
+	config.Console.NewOnboarding = true
+	config.Console.NewNavigation = true
+	config.Console.NewBrowser = true
+	config.Console.NewObjectsFlow = true
+	config.Console.CouponCodeBillingUIEnabled = true
+}
+
 // Run starts a new UI test.
 func Run(t *testing.T, test Test) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				if dir := os.Getenv("STORJ_TEST_SATELLITE_WEB"); dir != "" {
-					config.Console.StaticDir = dir
-				}
-				config.Console.NewOnboarding = true
-				config.Console.NewNavigation = true
-				config.Console.NewBrowser = true
-				config.Console.CouponCodeBillingUIEnabled = true
-				config.Console.NewObjectsFlow = true
-			},
+			Satellite: configureSatellite,
 		},
+		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		Browser(t, ctx, planet, func(browser *rod.Browser) {
 			test(t, ctx, planet, browser)

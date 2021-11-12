@@ -67,12 +67,7 @@ func Edge(t *testing.T, test EdgeTest) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				if dir := os.Getenv("STORJ_TEST_SATELLITE_WEB"); dir != "" {
-					config.Console.StaticDir = dir
-				}
-				config.Console.NewOnboarding = true
-				config.Console.NewObjectsFlow = true
-				config.Console.NewBrowser = true
+				configureSatellite(log, index, config)
 				// TODO: this should be dynamically set from the auth service
 				config.Console.GatewayCredentialsRequestURL = "http://" + authSvcAddr
 			},
