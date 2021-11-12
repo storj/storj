@@ -101,6 +101,9 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	api.HandleFunc("/projects/{project}/apikeys", server.listAPIKeys).Methods("GET")
 	api.HandleFunc("/projects/{project}/apikeys", server.addAPIKey).Methods("POST")
 	api.HandleFunc("/projects/{project}/apikeys/{name}", server.deleteAPIKeyByName).Methods("DELETE")
+	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.createGeofenceForBucket).Methods("POST")
+	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.deleteGeofenceForBucket).Methods("DELETE")
+	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.checkGeofenceForBucket).Methods("GET")
 	api.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
 
 	// This handler must be the last one because it uses the root as prefix,
