@@ -57,10 +57,10 @@ func Test_AllBucketNames(t *testing.T) {
 			ProjectID: project.ID,
 		}
 
-		_, err = sat.DB.Buckets().CreateBucket(ctx, bucket1)
+		_, err = sat.API.Buckets.Service.CreateBucket(ctx, bucket1)
 		require.NoError(t, err)
 
-		_, err = sat.DB.Buckets().CreateBucket(ctx, bucket2)
+		_, err = sat.API.Buckets.Service.CreateBucket(ctx, bucket2)
 		require.NoError(t, err)
 
 		// we are using full name as a password

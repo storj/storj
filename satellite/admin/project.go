@@ -445,7 +445,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	options := storj.BucketListOptions{Limit: 1, Direction: storj.Forward}
-	buckets, err := server.db.Buckets().ListBuckets(ctx, projectUUID, options, macaroon.AllowedBuckets{All: true})
+	buckets, err := server.buckets.ListBuckets(ctx, projectUUID, options, macaroon.AllowedBuckets{All: true})
 	if err != nil {
 		sendJSONError(w, "unable to list buckets",
 			err.Error(), http.StatusInternalServerError)

@@ -114,7 +114,7 @@ func TestBucketAttribution(t *testing.T) {
 			_, err = project.CreateBucket(ctx, "bucket")
 			require.NoError(t, err, errTag)
 
-			bucketInfo, err := satellite.DB.Buckets().GetBucket(ctx, []byte("bucket"), satProject.ID)
+			bucketInfo, err := satellite.API.Buckets.Service.GetBucket(ctx, []byte("bucket"), satProject.ID)
 			require.NoError(t, err, errTag)
 			assert.Equal(t, tt.expectedAttribution, bucketInfo.UserAgent, errTag)
 

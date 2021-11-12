@@ -19,10 +19,10 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -273,7 +273,7 @@ func (dbc *satelliteDBCollection) NodeAPIVersion() nodeapiversion.DB {
 }
 
 // Buckets returns database for interacting with buckets.
-func (dbc *satelliteDBCollection) Buckets() metainfo.BucketsDB {
+func (dbc *satelliteDBCollection) Buckets() buckets.DB {
 	return &bucketsDB{db: dbc.getByName("buckets")}
 }
 

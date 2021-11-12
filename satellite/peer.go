@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -89,7 +90,7 @@ type DB interface {
 	// Containment returns database for containment
 	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
-	Buckets() metainfo.BucketsDB
+	Buckets() buckets.DB
 	// GracefulExit returns database for graceful exit
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.

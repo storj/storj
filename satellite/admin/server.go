@@ -20,8 +20,8 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
@@ -47,8 +47,6 @@ type DB interface {
 	Console() console.DB
 	// StripeCoinPayments returns database for satellite stripe coin payments
 	StripeCoinPayments() stripecoinpayments.DB
-	// Buckets returns database for satellite buckets
-	Buckets() metainfo.BucketsDB
 }
 
 // Server provides endpoints for administrative tasks.
@@ -60,6 +58,7 @@ type Server struct {
 
 	db       DB
 	payments payments.Accounts
+	buckets  *buckets.Service
 
 	nowFn func() time.Time
 
@@ -67,7 +66,7 @@ type Server struct {
 }
 
 // NewServer returns a new administration Server.
-func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.Accounts, config Config) *Server {
+func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, accounts payments.Accounts, config Config) *Server {
 	server := &Server{
 		log: log,
 
@@ -75,6 +74,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 
 		db:       db,
 		payments: accounts,
+		buckets:  buckets,
 
 		nowFn: time.Now,
 

@@ -246,10 +246,10 @@ func TestService(t *testing.T) {
 					ProjectID: up2Pro1.ID,
 				}
 
-				_, err := sat.DB.Buckets().CreateBucket(authCtx2, bucket1)
+				_, err := sat.API.Buckets.Service.CreateBucket(authCtx2, bucket1)
 				require.NoError(t, err)
 
-				_, err = sat.DB.Buckets().CreateBucket(authCtx2, bucket2)
+				_, err = sat.API.Buckets.Service.CreateBucket(authCtx2, bucket2)
 				require.NoError(t, err)
 
 				bucketNames, err := service.GetAllBucketNames(authCtx2, up2Pro1.ID)
