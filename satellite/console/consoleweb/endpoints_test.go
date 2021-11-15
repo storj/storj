@@ -752,17 +752,22 @@ func TestWrongUser(t *testing.T) {
 			// TODO: wrong error code
 			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 		}
-	})
-}
-
-func TestIntrospection(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		test := newTest(t, ctx, planet)
-
-		{
-
+		{ //Introspectiin
+			resp, body := test.request(http.MethodPost, "/graphql",
+				test.toJSON(map[string]interface{}{
+					"query": `
+						{
+							myProjects {
+								name
+								id
+								description
+								createdAt
+								ownerId
+								__typename
+							}
+						}`}))
+			require.Contains(t, body, test.defaultProjectID())
+			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 	})
 }
