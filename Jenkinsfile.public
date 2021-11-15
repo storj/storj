@@ -199,8 +199,8 @@ pipeline {
 
                     post {
                         always {
-                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
                             archiveArtifacts artifacts: '.build/tests.json'
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
                             junit '.build/tests.xml'
 
                             script {
@@ -382,13 +382,13 @@ pipeline {
             steps {
                 sh 'psql -U postgres -c \'create database testui;\''
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'cd testsuite && go test -parallel 1 -p 1 -short -vet=off -timeout 32m -json -race ./... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
+                    sh 'cd testsuite && go test -parallel 1 -p 1 -short -vet=off -timeout 5m -json -race ./... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
                 }
             }
             post {
                 always {
-                    sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
                     archiveArtifacts artifacts: '.build/ui-tests.json'
+                    sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
                     junit '.build/ui-tests.xml'
                 }
             }

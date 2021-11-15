@@ -46,9 +46,8 @@ func Run(t *testing.T, test Test) {
 				config.Console.NewObjectsFlow = true
 			},
 		},
-		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		Browser(t, ctx, func(browser *rod.Browser) {
+		Browser(t, ctx, planet, func(browser *rod.Browser) {
 			test(t, ctx, planet, browser)
 		})
 	})
