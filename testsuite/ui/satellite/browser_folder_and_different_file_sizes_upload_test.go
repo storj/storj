@@ -26,7 +26,10 @@ func TestBrowserFolderAndDifferentFileSizesUpload(t *testing.T) {
 
 		// Navigate into browser with new onboarding.
 		page.MustElementR("a", "Skip and go directly to dashboard").MustClick()
-		page.MustElementR("p", "Objects").MustClick()
+		page.MustElementR("p", "Buckets").MustClick()
+		wait := page.MustWaitRequestIdle()
+		page.MustElementR("p", "demo-bucket").MustClick()
+		wait()
 		page.MustElementR("label", "I understand, and I have saved the passphrase.").MustClick()
 		page.MustElementR("span", "Next >").MustClick()
 
@@ -65,9 +68,9 @@ func TestBrowserFolderAndDifferentFileSizesUpload(t *testing.T) {
 			require.Equal(t, "   ", page.MustElement("[placeholder=\"Name of the folder\"]").MustText(), "Folder input does not contain the empty invalid name")
 			page.MustElementR("button", "Cancel").MustClick()
 
-			wait := page.MustWaitRequestIdle()
+			wait1 := page.MustWaitRequestIdle()
 			page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/test0bytes.txt")
-			wait()
+			wait1()
 			page.MustElementR("span", "testing/testData/test0bytes.txt")
 			page.MustElement("#close-modal").MustClick()
 			page.MustElementR("[aria-roledescription=file]", "test0bytes.txt").MustClick()

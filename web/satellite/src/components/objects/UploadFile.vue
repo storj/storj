@@ -48,9 +48,9 @@ export default class UploadFile extends Vue {
     public mounted(): void {
         if (!this.bucket) {
             if (this.isNewObjectsFlow) {
-                this.$router.push(RouteConfig.Objects.with(RouteConfig.BucketsManagement).path);
+                this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
             } else {
-                this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
+                this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
             }
 
             return;
@@ -71,7 +71,7 @@ export default class UploadFile extends Vue {
             accessKey: this.$store.state.objectsModule.gatewayCredentials.accessKeyId,
             secretKey: this.$store.state.objectsModule.gatewayCredentials.secretKey,
             bucket: this.bucket,
-            browserRoot: RouteConfig.Objects.with(RouteConfig.UploadFile).path,
+            browserRoot: RouteConfig.Buckets.with(RouteConfig.UploadFile).path,
             getObjectMapUrl: async (path: string) => await this.generateObjectMapUrl(path),
             getSharedLink: async (path: string) => await this.generateShareLinkUrl(path),
         });
@@ -81,7 +81,7 @@ export default class UploadFile extends Vue {
      * Redirects to buckets list view.
      */
     public goToBuckets(): void {
-        this.$router.push(RouteConfig.Objects.with(RouteConfig.BucketsManagement).path);
+        this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     }
 
     /**

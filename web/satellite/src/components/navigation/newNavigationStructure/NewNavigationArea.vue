@@ -116,7 +116,7 @@
                             </div>
                         </div>
                         <div class="dropdown-border" />
-                        <div class="dropdown-item" aria-roledescription="objects-route" @click.stop="navigateToObjects">
+                        <div class="dropdown-item" aria-roledescription="objects-route" @click.stop="navigateToBuckets">
                             <UploadInWebIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
                                 <h2 class="dropdown-item__text__title">Upload in Web</h2>
@@ -203,7 +203,7 @@ export default class NewNavigationArea extends Vue {
     public quickStartDropdownXPos = 0;
     public navigation: NavigationLink[] = [
         RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-        RouteConfig.Objects.withIcon(BucketsIcon),
+        RouteConfig.Buckets.withIcon(BucketsIcon),
         RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
         RouteConfig.Users.withIcon(UsersIcon),
         RouteConfig.Account.with(RouteConfig.Billing).withIcon(BillingIcon),
@@ -244,9 +244,9 @@ export default class NewNavigationArea extends Vue {
     /**
      * Redirects to objects screen.
      */
-    public navigateToObjects(): void {
+    public navigateToBuckets(): void {
         this.closeDropdowns();
-        this.$router.push(RouteConfig.Objects.path).catch(() => {return;});
+        this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
     }
 
     /**
@@ -362,6 +362,7 @@ export default class NewNavigationArea extends Vue {
         max-width: 280px;
         background-color: #fff;
         font-family: 'font_regular', sans-serif;
+        box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
 
         &__container {
             display: flex;

@@ -28,7 +28,7 @@ const store = new Vuex.Store({ modules: { projectsModule } });
 
 const expectedLinks: NavigationLink[] = [
     RouteConfig.ProjectDashboard,
-    RouteConfig.Objects,
+    RouteConfig.Buckets,
     RouteConfig.AccessGrants,
     RouteConfig.Users,
 ];
