@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -30,6 +29,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
@@ -62,6 +62,7 @@ var (
 type Config struct {
 	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
+	Watch           bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
 	// TODO: remove after Vanguard release
@@ -79,7 +80,7 @@ type Config struct {
 	PartneredSatellites             SatList `help:"names and addresses of partnered satellites in JSON list format" default:"[[\"US1\",\"https://us1.storj.io\"],[\"EU1\",\"https://eu1.storj.io\"],[\"AP1\",\"https://ap1.storj.io\"]]"`
 	GeneralRequestURL               string  `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string  `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string  `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io"`
+	GatewayCredentialsRequestURL    string  `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io" devDefault:""`
 	IsBetaSatellite                 bool    `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string  `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string  `help:"url link for for beta satellite support" default:""`
@@ -90,7 +91,10 @@ type Config struct {
 	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"false"`
+	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"true"`
+	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"false"`
+	NewBrowser                      bool    `help:"indicates if new browser should be used" default:"false"`
+	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"false"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -154,13 +158,16 @@ type Server struct {
 
 	pricing paymentsconfig.PricingValues
 
-	schema    graphql.Schema
-	templates struct {
-		index               *template.Template
-		notFound            *template.Template
-		internalServerError *template.Template
-		usageReport         *template.Template
-	}
+	schema graphql.Schema
+
+	templatesCache *templates
+}
+
+type templates struct {
+	index               *template.Template
+	notFound            *template.Template
+	internalServerError *template.Template
+	usageReport         *template.Template
 }
 
 // NewServer creates new instance of console server.
@@ -290,7 +297,7 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	err = server.initializeTemplates()
+	_, err = server.loadTemplates()
 	if err != nil {
 		// TODO: should it return error if some template can not be initialized or just log about it?
 		return Error.Wrap(err)
@@ -366,10 +373,15 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		PathwayOverviewEnabled          bool
 		StorageTBPrice                  string
 		EgressTBPrice                   string
-		ObjectPrice                     string
+		SegmentPrice                    string
 		RecaptchaEnabled                bool
 		RecaptchaSiteKey                string
 		NewOnboarding                   bool
+		DefaultPaidStorageLimit         memory.Size
+		DefaultPaidBandwidthLimit       memory.Size
+		NewNavigation                   bool
+		NewBrowser                      bool
+		NewObjectsFlow                  bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -390,19 +402,26 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
 	data.LinksharingURL = server.config.LinksharingURL
 	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
+	data.DefaultPaidStorageLimit = server.config.UsageLimits.Storage.Paid
+	data.DefaultPaidBandwidthLimit = server.config.UsageLimits.Bandwidth.Paid
 	data.StorageTBPrice = server.pricing.StorageTBPrice
 	data.EgressTBPrice = server.pricing.EgressTBPrice
-	data.ObjectPrice = server.pricing.ObjectPrice
+	data.SegmentPrice = server.pricing.SegmentPrice
 	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
 	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
 	data.NewOnboarding = server.config.NewOnboarding
+	data.NewNavigation = server.config.NewNavigation
+	data.NewBrowser = server.config.NewBrowser
+	data.NewObjectsFlow = server.config.NewObjectsFlow
 
-	if server.templates.index == nil {
-		server.log.Error("index template is not set")
+	templates, err := server.loadTemplates()
+	if err != nil || templates.index == nil {
+		server.log.Error("unable to load templates", zap.Error(err))
+		fmt.Fprintf(w, "Unable to load templates. See whether satellite UI has been built.")
 		return
 	}
 
-	if err := server.templates.index.Execute(w, data); err != nil {
+	if err := templates.index.Execute(w, data); err != nil {
 		server.log.Error("index template could not be executed", zap.Error(err))
 		return
 	}
@@ -497,7 +516,12 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err = server.templates.usageReport.Execute(w, bucketRollups); err != nil {
+	templates, err := server.loadTemplates()
+	if err != nil {
+		server.log.Error("unable to load templates", zap.Error(err))
+		return
+	}
+	if err = templates.usageReport.Execute(w, bucketRollups); err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
 	}
 }
@@ -553,7 +577,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	defer mon.Task()(&ctx)(nil)
 	activationToken := r.URL.Query().Get("token")
 
-	err := server.service.ActivateAccount(ctx, activationToken)
+	token, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		server.log.Error("activation: failed to activate account",
 			zap.String("token", activationToken),
@@ -573,7 +597,9 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	http.Redirect(w, r, server.config.AccountActivationRedirectURL, http.StatusTemporaryRedirect)
+	server.cookieAuth.SetTokenCookie(w, token)
+
+	http.Redirect(w, r, server.config.ExternalAddress, http.StatusTemporaryRedirect)
 }
 
 func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -707,14 +733,24 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 
 	switch status {
 	case http.StatusInternalServerError:
-		err := server.templates.internalServerError.Execute(w, nil)
+		templates, err := server.loadTemplates()
 		if err != nil {
-			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
+			server.log.Error("unable to load templates", zap.Error(err))
+			return
+		}
+		err = templates.internalServerError.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse internalServerError template", zap.Error(err))
 		}
 	case http.StatusNotFound:
-		err := server.templates.notFound.Execute(w, nil)
+		templates, err := server.loadTemplates()
 		if err != nil {
-			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
+			server.log.Error("unable to load templates", zap.Error(err))
+			return
+		}
+		err = templates.notFound.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse pageNotFound template", zap.Error(err))
 		}
 	}
 }
@@ -764,29 +800,50 @@ func (server *Server) brotliMiddleware(fn http.Handler) http.Handler {
 	})
 }
 
-// initializeTemplates is used to initialize all templates.
-func (server *Server) initializeTemplates() (err error) {
-	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
+// loadTemplates is used to initialize all templates.
+func (server *Server) loadTemplates() (_ *templates, err error) {
+	if server.config.Watch {
+		return server.parseTemplates()
+	}
+
+	if server.templatesCache != nil {
+		return server.templatesCache, nil
+	}
+
+	templates, err := server.parseTemplates()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	server.templatesCache = templates
+	return server.templatesCache, nil
+}
+
+func (server *Server) parseTemplates() (_ *templates, err error) {
+	var t templates
+
+	t.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {
 		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
+		// Loading index is optional.
 	}
 
-	server.templates.usageReport, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
+	t.usageReport, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
 	if err != nil {
-		return Error.Wrap(err)
+		return &t, Error.Wrap(err)
 	}
 
-	server.templates.notFound, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "404.html"))
+	t.notFound, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
 	if err != nil {
-		return Error.Wrap(err)
+		return &t, Error.Wrap(err)
 	}
 
-	server.templates.internalServerError, err = template.ParseFiles(path.Join(server.config.StaticDir, "static", "errors", "500.html"))
+	t.internalServerError, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "500.html"))
 	if err != nil {
-		return Error.Wrap(err)
+		return &t, Error.Wrap(err)
 	}
 
-	return nil
+	return &t, nil
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.

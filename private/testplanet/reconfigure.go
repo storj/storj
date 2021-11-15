@@ -11,6 +11,7 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/storj/multinode"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/storagenode"
@@ -30,6 +31,9 @@ type Reconfigure struct {
 	VersionControl func(config *versioncontrol.Config)
 
 	Identities func(log *zap.Logger, version storj.IDVersion) *testidentity.Identities
+
+	MultinodeDB func(index int, db multinode.DB, log *zap.Logger) (multinode.DB, error)
+	Multinode   func(index int, config *multinode.Config)
 }
 
 // DisablePeerCAWhitelist returns a `Reconfigure` that sets `UsePeerCAWhitelist` for

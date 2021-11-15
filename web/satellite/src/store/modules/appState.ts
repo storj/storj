@@ -15,20 +15,27 @@ class ViewsState {
         public isAccountDropdownShown = false,
         public isSelectProjectDropdownShown = false,
         public isResourcesDropdownShown = false,
+        public isQuickStartDropdownShown = false,
         public isSettingsDropdownShown = false,
         public isEditProjectDropdownShown = false,
         public isFreeCreditsDropdownShown = false,
         public isAvailableBalanceDropdownShown = false,
         public isPeriodsDropdownShown = false,
-        public isSuccessfulRegistrationShown = false,
+        public isBucketNamesDropdownShown = false,
+        public isDatePickerShown = false,
+        public isPermissionsDropdownShown = false,
         public isEditProfilePopupShown = false,
         public isChangePasswordPopupShown = false,
         public isPaymentSelectionShown = false,
         public isUploadCancelPopupVisible = false,
         public isSuccessfulPasswordResetShown = false,
 
-        public setDefaultPaymentMethodID: string = "",
-        public deletePaymentMethodID: string = "",
+        public onbAGStepBackRoute = "",
+        public onbAPIKeyStepBackRoute = "",
+        public onbCleanApiKey = "",
+        public onbApiKey = "",
+        public setDefaultPaymentMethodID = "",
+        public deletePaymentMethodID = "",
     ) {}
 }
 
@@ -41,6 +48,8 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewOnbCLIFlow = false,
+        public isNewNavStructure = false,
+        public isNewObjectsFlow = false,
     ){}
 }
 
@@ -52,47 +61,45 @@ interface AppContext {
 export const appStateModule = {
     state: new State(),
     mutations: {
-        // Mutation changing add projectMembers members popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: State): void {
             state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
         },
-        // Mutation changing account dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_ACCOUNT_DROPDOWN](state: State): void {
             state.appState.isAccountDropdownShown = !state.appState.isAccountDropdownShown;
         },
-        // Mutation changing select project dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_SELECT_PROJECT_DROPDOWN](state: State): void {
             state.appState.isSelectProjectDropdownShown = !state.appState.isSelectProjectDropdownShown;
         },
-        // Mutation changing resources dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_RESOURCES_DROPDOWN](state: State): void {
             state.appState.isResourcesDropdownShown = !state.appState.isResourcesDropdownShown;
         },
-        // Mutation changing settings dropdown visibility
+        [APP_STATE_MUTATIONS.TOGGLE_QUICK_START_DROPDOWN](state: State): void {
+            state.appState.isQuickStartDropdownShown = !state.appState.isQuickStartDropdownShown;
+        },
         [APP_STATE_MUTATIONS.TOGGLE_SETTINGS_DROPDOWN](state: State): void {
             state.appState.isSettingsDropdownShown = !state.appState.isSettingsDropdownShown;
         },
-        // Mutation changing edit project dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROJECT_DROPDOWN](state: State): void {
             state.appState.isEditProjectDropdownShown = !state.appState.isEditProjectDropdownShown;
         },
-        // Mutation changing free credits dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_FREE_CREDITS_DROPDOWN](state: State): void {
             state.appState.isFreeCreditsDropdownShown = !state.appState.isFreeCreditsDropdownShown;
         },
-        // Mutation changing available balance dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_AVAILABLE_BALANCE_DROPDOWN](state: State): void {
             state.appState.isAvailableBalanceDropdownShown = !state.appState.isAvailableBalanceDropdownShown;
         },
-        // Mutation changing periods dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_PERIODS_DROPDOWN](state: State): void {
             state.appState.isPeriodsDropdownShown = !state.appState.isPeriodsDropdownShown;
         },
-        // Mutation changing 'successful registration' area visibility.
-        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION](state: State): void {
-            state.appState.isSuccessfulRegistrationShown = !state.appState.isSuccessfulRegistrationShown;
+        [APP_STATE_MUTATIONS.TOGGLE_DATEPICKER_DROPDOWN](state: State): void {
+            state.appState.isDatePickerShown = !state.appState.isDatePickerShown;
         },
-        // Mutation changing 'successful password reset' area visibility.
+        [APP_STATE_MUTATIONS.TOGGLE_BUCKET_NAMES_DROPDOWN](state: State): void {
+            state.appState.isBucketNamesDropdownShown = !state.appState.isBucketNamesDropdownShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_PERMISSIONS_DROPDOWN](state: State): void {
+            state.appState.isPermissionsDropdownShown = !state.appState.isPermissionsDropdownShown;
+        },
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET](state: State): void {
             state.appState.isSuccessfulPasswordResetShown = !state.appState.isSuccessfulPasswordResetShown;
         },
@@ -111,22 +118,24 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.deletePaymentMethodID = id;
         },
-        // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: State): void {
             state.appState.isAccountDropdownShown = false;
             state.appState.isSelectProjectDropdownShown = false;
             state.appState.isResourcesDropdownShown = false;
+            state.appState.isQuickStartDropdownShown = false;
             state.appState.isSettingsDropdownShown = false;
             state.appState.isEditProjectDropdownShown = false;
             state.appState.isFreeCreditsDropdownShown = false;
             state.appState.isAvailableBalanceDropdownShown = false;
+            state.appState.isPermissionsDropdownShown = false;
             state.appState.isPeriodsDropdownShown = false;
             state.appState.isPaymentSelectionShown = false;
+            state.appState.isDatePickerShown = false;
+            state.appState.isBucketNamesDropdownShown = false;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: State, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
         },
-        // Mutation changing payment selection visibility
         [APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION](state: State, value: boolean): void {
             state.appState.isPaymentSelectionShown = value;
         },
@@ -142,6 +151,27 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS](state: State, isNewOnbCLIFlow: boolean): void {
             state.isNewOnbCLIFlow = isNewOnbCLIFlow;
         },
+        [APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE](state: State, backRoute: string): void {
+            state.appState.onbAGStepBackRoute = backRoute;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE](state: State, backRoute: string): void {
+            state.appState.onbAPIKeyStepBackRoute = backRoute;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_API_KEY](state: State, apiKey: string): void {
+            state.appState.onbApiKey = apiKey;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY](state: State, apiKey: string): void {
+            state.appState.onbCleanApiKey = apiKey;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS](state: State, isNewOnbCLIFlow: boolean): void {
+            state.isNewOnbCLIFlow = isNewOnbCLIFlow;
+        },
+        [APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS](state: State, isNewNavStructure: boolean): void {
+            state.isNewNavStructure = isNewNavStructure;
+        },
+        [APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS](state: State, isNewObjectsFlow: boolean): void {
+            state.isNewObjectsFlow = isNewObjectsFlow;
+        },
         [APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS](state: State, couponCodeBillingUIEnabled: boolean): void {
             state.couponCodeBillingUIEnabled = couponCodeBillingUIEnabled;
         },
@@ -150,7 +180,6 @@ export const appStateModule = {
         },
     },
     actions: {
-        // Commits mutation for changing app popups and dropdowns visibility state
         [APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS]: function ({commit, state}: AppContext): void {
             if (!state.appState.isAddTeamMembersPopupShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
@@ -178,6 +207,13 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_RESOURCES_DROPDOWN);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_QUICK_START_DROPDOWN]: function ({commit, state}: AppContext): void {
+            if (!state.appState.isQuickStartDropdownShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_QUICK_START_DROPDOWN);
         },
         [APP_STATE_ACTIONS.TOGGLE_SETTINGS_DROPDOWN]: function ({commit, state}: AppContext): void {
             if (!state.appState.isSettingsDropdownShown) {
@@ -214,19 +250,33 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.TOGGLE_PERIODS_DROPDOWN);
         },
+        [APP_STATE_ACTIONS.TOGGLE_DATEPICKER_DROPDOWN]: function ({commit, state}: AppContext): void {
+            if (!state.appState.isDatePickerShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_DATEPICKER_DROPDOWN);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_BUCKET_NAMES_DROPDOWN]: function ({commit, state}: AppContext): void {
+            if (!state.appState.isBucketNamesDropdownShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_BUCKET_NAMES_DROPDOWN);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_PERMISSIONS_DROPDOWN]: function ({commit, state}: AppContext): void {
+            if (!state.appState.isPermissionsDropdownShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_PERMISSIONS_DROPDOWN);
+        },
         [APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION]: function ({commit, state}: AppContext, value: boolean): void {
             if (!state.appState.isPaymentSelectionShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION, value);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION]: function ({commit, state}: AppContext): void {
-            if (!state.appState.isSuccessfulRegistrationShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         },
         [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET]: function ({commit, state}: AppContext): void {
             if (!state.appState.isSuccessfulPasswordResetShown) {
@@ -275,6 +325,12 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_ONB_CLI_FLOW_STATUS]: function ({commit}: AppContext, isNewOnbCLIFlow: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS, isNewOnbCLIFlow);
+        },
+        [APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS]: function ({commit}: AppContext, isNewNavStructure: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure);
+        },
+        [APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS]: function ({commit}: AppContext, isNewObjectsFlow: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow);
         },
         [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({commit}: AppContext, couponCodeBillingUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);

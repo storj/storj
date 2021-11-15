@@ -24,7 +24,7 @@ func TestUsers(t *testing.T) {
 		// create user
 		userPassHash := testrand.Bytes(8)
 
-		// create an user with partnerID
+		// create a user with partnerID
 		_, err := consoleDB.Users().Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
 			FullName:     "John Doe",

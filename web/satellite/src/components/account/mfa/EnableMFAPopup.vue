@@ -6,7 +6,7 @@
         <div class="enable-mfa__container">
             <h1 class="enable-mfa__container__title">Two-Factor Authentication</h1>
             <p v-if="isScan" class="enable-mfa__container__subtitle">
-                Scan this QR code in your favorite TOTP app to get get started.
+                Scan this QR code in your favorite TOTP app to get started.
             </p>
             <p v-if="isEnable" class="enable-mfa__container__subtitle max-width">
                 Enter the authentication code generated in your TOTP app to confirm your account is connected.
@@ -101,7 +101,7 @@ export default class EnableMFAPopup extends Vue {
     public readonly toggleModal: () => void;
 
     public readonly qrLink =
-        `otpauth://totp/${encodeURIComponent(this.$store.getters.user.email)}?secret=${this.userMFASecret}&issuer=${encodeURIComponent('STORJ DCS')}&algorithm=SHA1&digits=6&period=30`;
+        `otpauth://totp/${encodeURIComponent(this.$store.getters.user.email)}?secret=${this.userMFASecret}&issuer=${encodeURIComponent(`STORJ ${this.satellite}`)}&algorithm=SHA1&digits=6&period=30`;
     public isScan = true;
     public isEnable = false;
     public isCodes = false;
@@ -166,6 +166,13 @@ export default class EnableMFAPopup extends Vue {
         }
 
         this.isLoading = false;
+    }
+
+    /**
+     * Returns satellite name from store.
+     */
+    private get satellite(): string {
+        return this.$store.state.appStateModule.satelliteName;
     }
 
     /**

@@ -3,7 +3,7 @@
 
 <template>
     <div class="settings">
-        <h1 class="settings__title">Account Settings</h1>
+        <h1 class="settings__title" aria-roledescription="title">Account Settings</h1>
         <div class="settings__edit-profile">
             <div class="settings__edit-profile__row">
                 <div class="settings__edit-profile__avatar">

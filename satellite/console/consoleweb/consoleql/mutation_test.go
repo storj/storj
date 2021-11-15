@@ -72,7 +72,7 @@ func TestGraphqlMutation(t *testing.T) {
 		pc := paymentsconfig.Config{
 			StorageTBPrice: "10",
 			EgressTBPrice:  "45",
-			ObjectPrice:    "0.0000022",
+			SegmentPrice:   "0.0000022",
 		}
 
 		paymentsService, err := stripecoinpayments.NewService(
@@ -88,12 +88,8 @@ func TestGraphqlMutation(t *testing.T) {
 			db.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.SegmentPrice,
+			pc.BonusRate)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
@@ -107,7 +103,6 @@ func TestGraphqlMutation(t *testing.T) {
 			paymentsService.Accounts(),
 			analyticsService,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
-			5000,
 		)
 		require.NoError(t, err)
 
@@ -130,7 +125,7 @@ func TestGraphqlMutation(t *testing.T) {
 			FullName:  "John Roll",
 			ShortName: "Roll",
 			Email:     "test@mail.test",
-			PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
+			UserAgent: []byte("120bf202-8252-437e-ac12-0e364bee852e"),
 			Password:  "123a123",
 		}
 
@@ -139,7 +134,7 @@ func TestGraphqlMutation(t *testing.T) {
 
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		require.NoError(t, err)
-		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
+		require.Equal(t, createUser.UserAgent, rootUser.UserAgent)
 
 		err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
@@ -147,7 +142,7 @@ func TestGraphqlMutation(t *testing.T) {
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
 
-		err = service.ActivateAccount(ctx, activationToken)
+		_, err = service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
 		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
@@ -234,7 +229,7 @@ func TestGraphqlMutation(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			err = service.ActivateAccount(ctx, activationToken1)
+			_, err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 
 			user1.Email = "u1@mail.test"
@@ -258,7 +253,7 @@ func TestGraphqlMutation(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			err = service.ActivateAccount(ctx, activationToken2)
+			_, err = service.ActivateAccount(ctx, activationToken2)
 			require.NoError(t, err)
 
 			user2.Email = "u2@mail.test"

@@ -9,7 +9,7 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
-    TokenDeposit,
+    TokenDeposit
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -94,11 +94,11 @@ export class PaymentsHttpApi implements PaymentsApi {
                     new Date(charge.before),
                     charge.egress,
                     charge.storage,
-                    charge.objectCount,
+                    charge.segmentCount,
                     charge.projectId,
                     charge.storagePrice,
                     charge.egressPrice,
-                    charge.objectPrice,
+                    charge.segmentPrice,
                 ),
             );
         }

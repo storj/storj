@@ -70,7 +70,7 @@ import BucketIcon from '@/../static/images/objects/bucket.svg';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { DEMO_BUCKET_NAME, OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
@@ -88,7 +88,6 @@ export default class BucketsView extends Vue {
     private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
     private worker: Worker;
     private grantWithPermissions = '';
-    private accessGrant = '';
     private createBucketName = '';
     private deleteBucketName = '';
 
@@ -104,7 +103,7 @@ export default class BucketsView extends Vue {
      * Setup gateway credentials.
      */
     public async mounted(): Promise<void> {
-        if (!this.$store.state.objectsModule.passphrase) {
+        if (!this.$store.state.objectsModule.passphrase && !this.isNewObjectsFlow) {
             await this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
 
             return;
@@ -116,7 +115,7 @@ export default class BucketsView extends Vue {
             await this.setAccess();
             await this.fetchBuckets();
 
-            if (!this.bucketsList.length) this.showCreateBucketPopup();
+            if (!this.bucketsList.length) await this.createDemoBucket();
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
         }
@@ -152,23 +151,26 @@ export default class BucketsView extends Vue {
         }
 
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        let passphrase = '';
+        if (!this.isNewObjectsFlow) {
+            passphrase = this.passphrase;
+        }
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': this.grantWithPermissions,
-            'passphrase': this.passphrase,
+            'passphrase': passphrase,
             'projectID': this.$store.getters.selectedProject.id,
             'satelliteNodeURL': satelliteNodeURL,
         });
 
         const accessGrantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-        this.accessGrant = accessGrantEvent.data.value;
         if (accessGrantEvent.data.error) {
             throw new Error(accessGrantEvent.data.error);
         }
 
-        await this.$store.dispatch(OBJECTS_ACTIONS.SET_ACCESS_GRANT, this.accessGrant);
+        const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.accessGrant});
+        const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
     }
@@ -202,7 +204,14 @@ export default class BucketsView extends Vue {
 
         try {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            if (this.isNewObjectsFlow) {
+                await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+                this.createBucketName = '';
+                this.isRequestProcessing = false;
+                this.hideCreateBucketPopup();
+
+                return;
+            }
         } catch (error) {
             const BUCKET_ALREADY_EXISTS_ERROR = 'BucketAlreadyExists';
 
@@ -222,6 +231,34 @@ export default class BucketsView extends Vue {
         this.isRequestProcessing = false;
 
         this.openBucket(bucket);
+    }
+
+    /**
+     * Creates first ever demo bucket for user.
+     */
+    public async createDemoBucket(): Promise<void> {
+        if (this.isRequestProcessing) return;
+
+        this.isRequestProcessing = true;
+
+        try {
+            await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_DEMO_BUCKET);
+            if (this.isNewObjectsFlow) {
+                await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+                this.isRequestProcessing = false;
+
+                return;
+            }
+        } catch (error) {
+            await this.$notify.error(error.message);
+            this.isRequestProcessing = false;
+
+            return;
+        }
+
+        this.isRequestProcessing = false;
+
+        this.openBucket(DEMO_BUCKET_NAME);
     }
 
     /**
@@ -324,6 +361,13 @@ export default class BucketsView extends Vue {
      */
     public openBucket(bucketName: string): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
+
+        if (this.isNewObjectsFlow) {
+            this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
+
+            return;
+        }
+
         this.$router.push(RouteConfig.Objects.with(RouteConfig.UploadFile).path);
     }
 
@@ -339,6 +383,13 @@ export default class BucketsView extends Vue {
      */
     private get passphrase(): string {
         return this.$store.state.objectsModule.passphrase;
+    }
+
+    /**
+     * Returns objects flow status from store.
+     */
+    private get isNewObjectsFlow(): string {
+        return this.$store.state.appStateModule.isNewObjectsFlow;
     }
 
     /**

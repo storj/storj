@@ -5,12 +5,19 @@ package metainfo
 
 import (
 	"context"
+	"time"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
+
+// Bucket contains minimal bucket fields for metainfo protocol.
+type Bucket struct {
+	Name      []byte
+	CreatedAt time.Time
+}
 
 // BucketsDB is the interface for the database to interact with buckets.
 //
@@ -20,6 +27,8 @@ type BucketsDB interface {
 	CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error)
 	// Get returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error)
+	// GetMinimalBucket returns existing bucket with minimal number of fields.
+	GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket Bucket, err error)
 	// HasBucket returns if a bucket exists.
 	HasBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (exists bool, err error)
 	// GetBucketID returns an existing bucket id.

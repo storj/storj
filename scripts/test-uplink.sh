@@ -81,10 +81,60 @@ uplink cp "sj://$BUCKET/diff-size-segments_upl_p2"    "$DST_DIR/diff-size-segmen
 
 uplink ls "sj://$BUCKET/small-upload-testfile" | grep "small-upload-testfile"
 
+# test ranged download of object
+uplink cp "sj://$BUCKET/put-file" "$DST_DIR/put-file-from-cp-range" --range bytes=0-5 --progress=false
+EXPECTED_FILE_SIZE="6"
+ACTUAL_FILE_SIZE=$(get_file_size "$DST_DIR/put-file-from-cp-range")
+if [ "$EXPECTED_FILE_SIZE" != "$ACTUAL_FILE_SIZE" ]
+then
+    echo "expected downloaded file size to be equal to $EXPECTED_FILE_SIZE, got $ACTUAL_FILE_SIZE"
+    exit 1
+fi
+
+# test ranged download with multiple byte range
+set +e
+EXPECTED_ERROR="retrieval of multiple byte ranges of data not supported: 2 provided"
+ERROR=$(uplink cp "sj://$BUCKET/put-file" "$DST_DIR/put-file-from-cp-range" --range bytes=0-5,6-10)
+if [ $ERROR != $EXPECTED_ERROR ]
+then
+    echo EXPECTED_ERROR
+    exit 1
+fi
+set -e
+
 # test server-side move operation
 uplink mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-upload-testfile"
 uplink ls "sj://$BUCKET/moved-big-upload-testfile" | grep "moved-big-upload-testfile"
 uplink mv "sj://$BUCKET/moved-big-upload-testfile" "sj://$BUCKET/big-upload-testfile"
+
+# test server-side move operation between different prefixes.
+
+# destination and source should both be prefixes.
+set +e
+EXPECTED_ERROR="both source and destination should be a prefixes"
+ERROR=$(uplink mv "sj://$BUCKET/" "sj://$BUCKET/new-prefix/file")
+if [ $ERROR != $EXPECTED_ERROR ]
+then
+    echo EXPECTED_ERROR
+    exit 1
+fi
+set -e
+
+# checking if all files are moved from bucket to bucket/prefix.
+EXPECTED_FILES=$(uplink ls "sj://$BUCKET/" | wc -l)
+uplink mv "sj://$BUCKET/" "sj://$BUCKET/new-prefix/"
+FILES=$(uplink ls "sj://$BUCKET/new-prefix/" | wc -l)
+if [ "$FILES" == $EXPECTED_FILES ]
+then
+    echo "listing returns $FILES files as expected"
+else
+    echo "listing returns $FILES files but want $EXPECTED_FILES"
+    exit 1
+fi
+
+# moving files back.
+uplink mv "sj://$BUCKET/new-prefix/" "sj://$BUCKET/"
+uplink ls "sj://$BUCKET/"
 
 uplink rm "sj://$BUCKET/small-upload-testfile"
 uplink rm "sj://$BUCKET/big-upload-testfile"
@@ -92,7 +142,6 @@ uplink rm "sj://$BUCKET/multisegment-upload-testfile"
 uplink rm "sj://$BUCKET/diff-size-segments"
 uplink rm "sj://$BUCKET/diff-size-segments_upl_p2"
 uplink rm "sj://$BUCKET/put-file"
-
 uplink ls "sj://$BUCKET"
 
 uplink rb "sj://$BUCKET"

@@ -45,7 +45,10 @@ export const ACCESS_GRANTS_MUTATIONS = {
     SET_SEARCH_QUERY: 'setAccessGrantsSearchQuery',
     SET_PAGE_NUMBER: 'setAccessGrantsPage',
     SET_DURATION_PERMISSION: 'setAccessGrantsDurationPermission',
-    SET_ONBOARDING_CLI_API_KEY: 'setOnboardingCLIApiKey',
+    TOGGLE_IS_DOWNLOAD_PERMISSION: 'toggleAccessGrantsIsDownloadPermission',
+    TOGGLE_IS_UPLOAD_PERMISSION: 'toggleAccessGrantsIsUploadPermission',
+    TOGGLE_IS_LIST_PERMISSION: 'toggleAccessGrantsIsListPermission',
+    TOGGLE_IS_DELETE_PERMISSION: 'toggleAccessGrantsIsDeletePermission',
 };
 
 const {
@@ -59,10 +62,13 @@ const {
     SET_SEARCH_QUERY,
     SET_PAGE_NUMBER,
     SET_DURATION_PERMISSION,
+    TOGGLE_IS_DOWNLOAD_PERMISSION,
+    TOGGLE_IS_UPLOAD_PERMISSION,
+    TOGGLE_IS_LIST_PERMISSION,
+    TOGGLE_IS_DELETE_PERMISSION,
     SET_GATEWAY_CREDENTIALS,
     SET_ACCESS_GRANTS_WEB_WORKER,
     STOP_ACCESS_GRANTS_WEB_WORKER,
-    SET_ONBOARDING_CLI_API_KEY,
 } = ACCESS_GRANTS_MUTATIONS;
 
 export class AccessGrantsState {
@@ -72,10 +78,13 @@ export class AccessGrantsState {
     public selectedBucketNames: string[] = [];
     public permissionNotBefore: Date | null = null;
     public permissionNotAfter: Date | null = null;
+    public isDownload = true;
+    public isUpload = true;
+    public isList = true;
+    public isDelete = true;
     public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
     public accessGrantsWebWorker: Worker | null = null;
     public isAccessGrantsWebWorkerReady = false;
-    public onboardingCLIApiKey: string;
 }
 
 interface AccessGrantsContext {
@@ -97,26 +106,12 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
     return {
         state: new AccessGrantsState(),
         mutations: {
-            [SET_ACCESS_GRANTS_WEB_WORKER](state: AccessGrantsState): void {
-                state.accessGrantsWebWorker = new Worker('@/../static/wasm/accessGrant.worker.js', { type: 'module' });
-                state.accessGrantsWebWorker.onmessage = (event: MessageEvent) => {
-                    const data = event.data;
-                    if (data !== 'configured') {
-                        console.error('Failed to configure access grants web worker');
-
-                        return;
-                    }
-
-                    state.isAccessGrantsWebWorkerReady = true;
-                };
-                state.accessGrantsWebWorker.onerror = (error: ErrorEvent) => {
-                    console.error(`Failed to configure access grants web worker. ${error.message}`);
-                };
+            [SET_ACCESS_GRANTS_WEB_WORKER](state: AccessGrantsState, worker: Worker): void {
+                state.accessGrantsWebWorker = worker;
+                state.isAccessGrantsWebWorkerReady = true;
             },
             [STOP_ACCESS_GRANTS_WEB_WORKER](state: AccessGrantsState): void {
-                state.accessGrantsWebWorker?.postMessage({
-                    'type': 'Stop',
-                });
+                state.accessGrantsWebWorker?.terminate();
                 state.accessGrantsWebWorker = null;
                 state.isAccessGrantsWebWorkerReady = false;
             },
@@ -143,8 +138,17 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 state.permissionNotBefore = permission.notBefore;
                 state.permissionNotAfter = permission.notAfter;
             },
-            [SET_ONBOARDING_CLI_API_KEY](state: AccessGrantsState, apiKey: string) {
-                state.onboardingCLIApiKey = apiKey;
+            [TOGGLE_IS_DOWNLOAD_PERMISSION](state: AccessGrantsState) {
+                state.isDownload = !state.isDownload;
+            },
+            [TOGGLE_IS_UPLOAD_PERMISSION](state: AccessGrantsState) {
+                state.isUpload = !state.isUpload;
+            },
+            [TOGGLE_IS_LIST_PERMISSION](state: AccessGrantsState) {
+                state.isList = !state.isList;
+            },
+            [TOGGLE_IS_DELETE_PERMISSION](state: AccessGrantsState) {
+                state.isDelete = !state.isDelete;
             },
             [CHANGE_SORT_ORDER](state: AccessGrantsState, order: AccessGrantsOrderBy) {
                 state.cursor.order = order;
@@ -204,8 +208,24 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             },
         },
         actions: {
-            setAccessGrantsWebWorker: function({commit}: AccessGrantsContext): void {
-                commit(SET_ACCESS_GRANTS_WEB_WORKER);
+            setAccessGrantsWebWorker: async function ({commit}: AccessGrantsContext): Promise<void> {
+                const worker = new Worker('@/../static/wasm/accessGrant.worker.js', { type: 'module' });
+                worker.postMessage({'type': 'Setup'})
+
+                const event: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
+                if (event.data.error) {
+                    throw new Error(event.data.error);
+                }
+
+                if (event.data !== 'configured') {
+                    throw new Error('Failed to configure access grants web worker');
+                }
+
+                worker.onerror = (error: ErrorEvent) => {
+                    throw new Error(`Failed to configure access grants web worker. ${error.message}`);
+                };
+
+                commit(SET_ACCESS_GRANTS_WEB_WORKER, worker)
             },
             stopAccessGrantsWebWorker: function({commit}: AccessGrantsContext): void {
                 commit(STOP_ACCESS_GRANTS_WEB_WORKER);
@@ -220,9 +240,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 return accessGrantsPage;
             },
             createAccessGrant: async function ({rootGetters}: AccessGrantsContext, name: string): Promise<AccessGrant> {
-                const accessGrant = await api.create(rootGetters.selectedProject.id, name);
-
-                return accessGrant;
+                return await api.create(rootGetters.selectedProject.id, name);
             },
             deleteAccessGrants: async function({state}: AccessGrantsContext): Promise<void> {
                 await api.delete(state.selectedAccessGrantsIds);

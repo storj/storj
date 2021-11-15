@@ -20,16 +20,18 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/memory"
+	"storj.io/common/ranger/httpranger"
 	"storj.io/common/sync2"
 	"storj.io/uplink"
 	"storj.io/uplink/private/object"
 )
 
 var (
-	progress    *bool
-	expires     *string
-	metadata    *string
-	parallelism *int
+	progress     *bool
+	expires      *string
+	metadata     *string
+	parallelism  *int
+	byteRangeStr *string
 )
 
 func init() {
@@ -44,8 +46,9 @@ func init() {
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
 	metadata = cpCmd.Flags().String("metadata", "", "optional metadata for the object. Please use a single level JSON object of string to string only")
 	parallelism = cpCmd.Flags().Int("parallelism", 1, "controls how many parallel uploads/downloads of a single object will be performed")
+	byteRangeStr = cpCmd.Flags().String("range", "", "Downloads the specified range bytes of an object. For more information about the HTTP Range header, see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35")
 
-	setBasicFlags(cpCmd.Flags(), "progress", "expires", "metadata", "parallelism")
+	setBasicFlags(cpCmd.Flags(), "progress", "expires", "metadata", "parallelism", "range")
 }
 
 // upload transfers src from local machine to s3 compatible object dst.
@@ -280,6 +283,10 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("parallelism must be at least 1")
 	}
 
+	if *parallelism > 1 && *byteRangeStr != "" {
+		return fmt.Errorf("--parellelism and --range flags are mutually exclusive")
+	}
+
 	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
@@ -306,8 +313,34 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	}
 
 	var bar *progressbar.ProgressBar
+	var contentLength int64
 	if *parallelism <= 1 {
-		download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), nil)
+		var downloadOpts *uplink.DownloadOptions
+
+		if *byteRangeStr != "" {
+			// TODO: if range option will be frequently used we may think about avoiding this call
+			statObject, err := project.StatObject(ctx, src.Bucket(), src.Path())
+			if err != nil {
+				return err
+			}
+			bRange, err := httpranger.ParseRange(*byteRangeStr, statObject.System.ContentLength)
+			if err != nil && bRange == nil {
+				return fmt.Errorf("error parsing range: %w", err)
+			}
+			if len(bRange) == 0 {
+				return fmt.Errorf("invalid range")
+			}
+			if len(bRange) > 1 {
+				return fmt.Errorf("retrieval of multiple byte ranges of data not supported: %d provided", len(bRange))
+			}
+			downloadOpts = &uplink.DownloadOptions{
+				Offset: bRange[0].Start,
+				Length: bRange[0].Length,
+			}
+			contentLength = bRange[0].Length
+		}
+
+		download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), downloadOpts)
 		if err != nil {
 			return err
 		}
@@ -315,8 +348,11 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 
 		var reader io.ReadCloser
 		if showProgress {
-			info := download.Info()
-			bar = progressbar.New64(info.System.ContentLength)
+			if contentLength <= 0 {
+				info := download.Info()
+				contentLength = info.System.ContentLength
+			}
+			bar = progressbar.New64(contentLength)
 			reader = bar.NewProxyReader(download)
 			bar.Start()
 		} else {

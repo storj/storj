@@ -56,7 +56,7 @@ func TestGraphqlQuery(t *testing.T) {
 		pc := paymentsconfig.Config{
 			StorageTBPrice: "10",
 			EgressTBPrice:  "45",
-			ObjectPrice:    "0.0000022",
+			SegmentPrice:   "0.0000022",
 		}
 
 		paymentsService, err := stripecoinpayments.NewService(
@@ -72,12 +72,8 @@ func TestGraphqlQuery(t *testing.T) {
 			db.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.SegmentPrice,
+			pc.BonusRate)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
@@ -91,7 +87,6 @@ func TestGraphqlQuery(t *testing.T) {
 			paymentsService.Accounts(),
 			analyticsService,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
-			5000,
 		)
 		require.NoError(t, err)
 
@@ -139,7 +134,7 @@ func TestGraphqlQuery(t *testing.T) {
 				"mtest@mail.test",
 			)
 			require.NoError(t, err)
-			err = service.ActivateAccount(ctx, activationToken)
+			_, err = service.ActivateAccount(ctx, activationToken)
 			require.NoError(t, err)
 			rootUser.Email = "mtest@mail.test"
 		})
@@ -214,7 +209,7 @@ func TestGraphqlQuery(t *testing.T) {
 				"muu1@mail.test",
 			)
 			require.NoError(t, err)
-			err = service.ActivateAccount(ctx, activationToken1)
+			_, err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 			user1.Email = "muu1@mail.test"
 		})
@@ -237,7 +232,7 @@ func TestGraphqlQuery(t *testing.T) {
 				"muu2@mail.test",
 			)
 			require.NoError(t, err)
-			err = service.ActivateAccount(ctx, activationToken2)
+			_, err = service.ActivateAccount(ctx, activationToken2)
 			require.NoError(t, err)
 			user2.Email = "muu2@mail.test"
 		})

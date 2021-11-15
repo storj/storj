@@ -561,7 +561,8 @@ func TestListGetObjects(t *testing.T) {
 
 		expectedBucketName := "testbucket"
 		items, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte(expectedBucketName),
+			Bucket:                []byte(expectedBucketName),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Equal(t, len(files), len(items))
@@ -708,13 +709,16 @@ func TestBeginCommit(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResponse.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.NoError(t, err)
 
 		objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte(bucket.Name),
+			Bucket:                []byte(bucket.Name),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
@@ -809,13 +813,16 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResp.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResp.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.NoError(t, err)
 
 		objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte(bucket.Name),
+			Bucket:                []byte(bucket.Name),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
@@ -1077,9 +1084,7 @@ func TestBatch(t *testing.T) {
 			numOfBuckets := 5
 			for i := 0; i < numOfBuckets; i++ {
 				requests = append(requests, &metaclient.CreateBucketParams{
-					Name:                []byte("test-bucket-" + strconv.Itoa(i)),
-					PathCipher:          storj.EncAESGCM,
-					DefaultSegmentsSize: memory.MiB.Int64(),
+					Name: []byte("test-bucket-" + strconv.Itoa(i)),
 				})
 			}
 			requests = append(requests, &metaclient.ListBucketsParams{
@@ -1141,7 +1146,9 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metaclient.CommitObjectParams{
-				EncryptedMetadata: metadata,
+				EncryptedMetadata:             metadata,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -1216,8 +1223,10 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metaclient.CommitObjectParams{
-				StreamID:          beginObjectResp.StreamID,
-				EncryptedMetadata: metadata,
+				StreamID:                      beginObjectResp.StreamID,
+				EncryptedMetadata:             metadata,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -1640,8 +1649,10 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResponse.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.Error(t, err)
 		assertInvalidArgument(t, err, true)
@@ -1653,8 +1664,10 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResponse.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.NoError(t, err)
 	})
@@ -1980,9 +1993,10 @@ func TestStableUploadID(t *testing.T) {
 
 		// List the root of the bucket recursively
 		listResp, _, err := client.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:    []byte("testbucket"),
-			Status:    int32(metabase.Pending),
-			Recursive: true,
+			Bucket:                []byte("testbucket"),
+			Status:                int32(metabase.Pending),
+			Recursive:             true,
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp, 1)
@@ -1991,9 +2005,10 @@ func TestStableUploadID(t *testing.T) {
 
 		// List with prefix non-recursively
 		listResp2, _, err := client.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:          []byte("testbucket"),
-			Status:          int32(metabase.Pending),
-			EncryptedPrefix: []byte("a/b/"),
+			Bucket:                []byte("testbucket"),
+			Status:                int32(metabase.Pending),
+			EncryptedPrefix:       []byte("a/b/"),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp2, 1)
@@ -2002,10 +2017,11 @@ func TestStableUploadID(t *testing.T) {
 
 		// List with prefix recursively
 		listResp3, _, err := client.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:          []byte("testbucket"),
-			Status:          int32(metabase.Pending),
-			EncryptedPrefix: []byte("a/b/"),
-			Recursive:       true,
+			Bucket:                []byte("testbucket"),
+			Status:                int32(metabase.Pending),
+			EncryptedPrefix:       []byte("a/b/"),
+			Recursive:             true,
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp3, 1)

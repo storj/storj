@@ -134,6 +134,9 @@ func (info *Info) Env() []string {
 	if info.Address != "" {
 		env = append(env, name+"_ADDR="+info.Address)
 	}
+	if info.ID != "" && info.Address != "" {
+		env = append(env, name+"_URL="+info.ID+"@"+info.Address)
+	}
 	if info.Directory != "" {
 		env = append(env, name+"_DIR="+info.Directory)
 	}

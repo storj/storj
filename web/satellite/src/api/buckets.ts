@@ -32,6 +32,7 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
                             storage,
                             egress,
                             objectCount,
+                            segmentCount,
                             since,
                             before
                         },
@@ -97,6 +98,7 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
                 key.storage,
                 key.egress,
                 key.objectCount,
+                key.segmentCount,
                 new Date(key.since),
                 new Date(key.before)));
 

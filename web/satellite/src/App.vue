@@ -40,6 +40,8 @@ export default class App extends Vue {
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
         const isNewOnboardingFlow = MetaUtils.getMetaContent('new-onboarding-flow');
+        const isNewNavStructure = MetaUtils.getMetaContent('new-navigation-structure');
+        const isNewObjectsFlow = MetaUtils.getMetaContent('new-objects-flow');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -65,11 +67,21 @@ export default class App extends Vue {
         if (couponCodeBillingUIEnabled) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled === 'true');
         }
+
         if (couponCodeSignupUIEnabled) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
         }
+
         if (isNewOnboardingFlow) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_ONB_CLI_FLOW_STATUS, isNewOnboardingFlow === 'true');
+        }
+
+        if (isNewNavStructure) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure === 'true');
+        }
+
+        if (isNewObjectsFlow) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow === 'true');
         }
     }
 }
@@ -90,6 +102,10 @@ export default class App extends Vue {
     img,
     a {
         -webkit-user-drag: none;
+    }
+
+    #app {
+        height: 100%;
     }
 
     @font-face {

@@ -16,7 +16,7 @@
                 </div>
                 <div class="login-area__content-area__container">
                     <div class="login-area__content-area__container__title-area">
-                        <h1 class="login-area__content-area__container__title-area__title">Sign In</h1>
+                        <h1 class="login-area__content-area__container__title-area__title" aria-roledescription="sign-in-title">Sign In</h1>
 
                         <div class="login-area__expand" @click.stop="toggleDropdown">
                             <span class="login-area__expand__value">{{ satelliteName }}</span>
@@ -263,7 +263,7 @@ export default class Login extends Vue {
         }
 
         try {
-            await this.auth.token(this.email, this.password, this.passcode, this.recoveryCode);
+            await this.auth.token(this.email.trim(), this.password, this.passcode.trim(), this.recoveryCode.trim());
         } catch (error) {
             if (error instanceof ErrorMFARequired) {
                 if (this.isMFARequired) this.isMFAError = true;

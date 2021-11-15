@@ -61,7 +61,7 @@ goimports-st: ## Applies goimports to every go file in `git status` (ignores unt
 	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
 
 .PHONY: build-packages
-build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm build-multinode-npm ## Test docker images locally
+build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm build-multinode-npm build-satellite-admin-npm ## Test docker images locally
 build-packages-race:
 	go build -v ./...
 build-packages-normal:
@@ -72,6 +72,8 @@ build-storagenode-npm:
 	cd web/storagenode && npm ci
 build-multinode-npm:
 	cd web/multinode && npm ci
+build-satellite-admin-npm:
+	cd satellite/admin/ui && npm ci
 
 ##@ Simulator
 
@@ -93,9 +95,8 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/certificates \
 		storj.io/storj/cmd/multinode
 
-	## install exact version of storj/gateway
-	## TODO(artur): replace 'main' with 'latest' after the gateway is being released again
-	go install -race -v storj.io/gateway@main
+	## install the latest stable version of Gateway-ST
+	go install -race -v storj.io/gateway@latest
 
 ##@ Test
 
@@ -149,7 +150,7 @@ storagenode-console:
 		-w /go/src/storj.io/storj/web/storagenode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:14.15.3 \
+		node:16.11.1 \
 	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
 	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
@@ -167,13 +168,26 @@ multinode-console:
 		-w /go/src/storj.io/storj/web/multinode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:14.15.3 \
+		node:16.11.1 \
 	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
 	go-bindata -prefix web/multinode/ -fs -o multinode/console/consoleassets/bindata.resource.go -pkg consoleassets web/multinode/dist/... web/multinode/static/...
 	# configure existing go code to know about the new assets
 	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> multinode/console/consoleassets/bindata.resource.go
 	gofmt -w -s multinode/console/consoleassets/bindata.resource.go
+
+.PHONY: satellite-admin-ui
+satellite-admin-ui:
+	# build web assets
+	rm -rf satellite/admin/ui/public/build
+	# install npm dependencies for being embedded by Go embed.
+	docker run --rm -i \
+		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
+		-w /go/src/storj.io/storj/satellite/admin/ui \
+		-e HOME=/tmp \
+		-u $(shell id -u):$(shell id -g) \
+		node:16.11.1 \
+	  /bin/bash -c "npm ci && npm run build"
 
 .PHONY: satellite-wasm
 satellite-wasm:
@@ -287,7 +301,7 @@ identity_%:
 inspector_%:
 	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: satellite_%
-satellite_%:
+satellite_%: satellite-admin-ui
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
@@ -304,9 +318,12 @@ versioncontrol_%:
 .PHONY: multinode_%
 multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: uplinkng_%
+uplinkng_%:
+	$(MAKE) binary-check COMPONENT=uplinkng GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode
+COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode uplinkng
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries

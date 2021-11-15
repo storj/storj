@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/storj/cmd/uplinkng/ulext"
+	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
@@ -24,6 +25,7 @@ type cmdRm struct {
 	recursive   bool
 	parallelism int
 	encrypted   bool
+	pending     bool
 
 	location ulloc.Location
 }
@@ -51,6 +53,9 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 	c.encrypted = params.Flag("encrypted", "Interprets keys base64 encoded without decrypting", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
+	c.pending = params.Flag("pending", "Remove pending object uploads instead", false,
+		clingy.Transform(strconv.ParseBool),
+	).(bool)
 
 	c.location = params.Arg("location", "Location to remove (sj://BUCKET[/KEY])",
 		clingy.Transform(ulloc.Parse),
@@ -65,7 +70,10 @@ func (c *cmdRm) Execute(ctx clingy.Context) error {
 	defer func() { _ = fs.Close() }()
 
 	if !c.recursive {
-		if err := fs.Remove(ctx, c.location); err != nil {
+		err := fs.Remove(ctx, c.location, &ulfs.RemoveOptions{
+			Pending: c.pending,
+		})
+		if err != nil {
 			return err
 		}
 
@@ -73,7 +81,10 @@ func (c *cmdRm) Execute(ctx clingy.Context) error {
 		return nil
 	}
 
-	iter, err := fs.ListObjects(ctx, c.location, c.recursive)
+	iter, err := fs.List(ctx, c.location, &ulfs.ListOptions{
+		Recursive: true,
+		Pending:   c.pending,
+	})
 	if err != nil {
 		return err
 	}
@@ -102,7 +113,10 @@ func (c *cmdRm) Execute(ctx clingy.Context) error {
 		loc := iter.Item().Loc
 
 		ok := limiter.Go(ctx, func() {
-			if err := fs.Remove(ctx, loc); err != nil {
+			err := fs.Remove(ctx, loc, &ulfs.RemoveOptions{
+				Pending: c.pending,
+			})
+			if err != nil {
 				fprintln(ctx.Stderr(), "remove", loc, "failed:", err.Error())
 				addError(err)
 			} else {

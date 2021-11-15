@@ -24,16 +24,19 @@ populate_sno_versions(){
 RUN_TYPE=${RUN_TYPE:-"jenkins"}
 
 # set peers' versions
-# in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
+# in stage 1: satellite and storagenode use latest release version, uplink uses all 3 highest point release from all major releases plus versions from $IMPORTANT_VERSIONS
 # in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the all versions from stage 1 plus main
+IMPORTANT_VERSIONS=('v1.0.0 v1.15.4 v1.19.9 v1.27.6 v1.28.2 v1.29.5 v1.30.4')     # first stable version, next 2 versions representative for pre metainfo refactoring, other represent current rclone, duplicati etc.
+
 git fetch --tags
 major_release_tags=$(
     git tag -l --sort -version:refname |                             # get the tag list
     grep -v rc |                                                     # remove release candidates
     sort -n -k2,2 -t'.' --unique |                                   # only keep the largest patch version
     sort -V |                                                        # resort based using "version sort"
-    awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 35 || $2 >= 1 && $3 != 3 {print $0}' # keep only >= v0.31.x and v1.0.0 except v1.3.x
+    tail -n 3                                                        # kepep only last 3 releases
 )
+major_release_tags=$(echo $IMPORTANT_VERSIONS $major_release_tags )
 current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
@@ -91,8 +94,7 @@ install_sim(){
     if [ -d "${work_dir}/cmd/gateway" ]; then
         (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
     else
-        # TODO(artur): replace 'main' with 'latest' after the gateway is being released again
-        GOBIN=${bin_dir} go install -race storj.io/gateway@main
+        GOBIN=${bin_dir} go install -race storj.io/gateway@latest
     fi
     if [ -d "${work_dir}/cmd/multinode" ]; then
         # as storj-sim is most likely installed from $PWD and contains storj-sim version which requires multinode

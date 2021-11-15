@@ -69,9 +69,10 @@ type StorageNodeUsage struct {
 // ProjectUsage consist of period total storage, egress
 // and objects count per hour for certain Project in bytes.
 type ProjectUsage struct {
-	Storage     float64 `json:"storage"`
-	Egress      int64   `json:"egress"`
-	ObjectCount float64 `json:"objectCount"`
+	Storage      float64 `json:"storage"`
+	Egress       int64   `json:"egress"`
+	SegmentCount float64 `json:"segmentCount"`
+	ObjectCount  float64 `json:"objectCount"`
 
 	Since  time.Time `json:"since"`
 	Before time.Time `json:"before"`
@@ -88,9 +89,10 @@ type BucketUsage struct {
 	ProjectID  uuid.UUID
 	BucketName string
 
-	Storage     float64
-	Egress      float64
-	ObjectCount int64
+	Storage      float64
+	Egress       float64
+	ObjectCount  int64
+	SegmentCount int64
 
 	Since  time.Time
 	Before time.Time
@@ -184,7 +186,7 @@ type ProjectAccounting interface {
 	// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.
 	GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int, asOfSystemInterval time.Duration) (int64, error)
 	// GetProjectDailyBandwidth returns bandwidth (allocated and settled) for the specified day.
-	GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, int64, error)
+	GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, int64, int64, error)
 	// DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time
 	DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) error
 

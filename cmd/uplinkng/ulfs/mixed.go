@@ -32,11 +32,11 @@ func (m *Mixed) Close() error {
 }
 
 // Open returns a ReadHandle to either a local file, remote object, or stdin.
-func (m *Mixed) Open(ctx clingy.Context, loc ulloc.Location) (ReadHandle, error) {
+func (m *Mixed) Open(ctx clingy.Context, loc ulloc.Location, opts *OpenOptions) (ReadHandle, error) {
 	if bucket, key, ok := loc.RemoteParts(); ok {
-		return m.remote.Open(ctx, bucket, key)
+		return m.remote.Open(ctx, bucket, key, opts)
 	} else if path, ok := loc.LocalParts(); ok {
-		return m.local.Open(ctx, path)
+		return m.local.Open(ctx, path, opts)
 	}
 	return newGenericReadHandle(ctx.Stdin()), nil
 }
@@ -52,34 +52,24 @@ func (m *Mixed) Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, err
 }
 
 // Remove deletes either a local file or remote object.
-func (m *Mixed) Remove(ctx context.Context, loc ulloc.Location) error {
+func (m *Mixed) Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error {
 	if bucket, key, ok := loc.RemoteParts(); ok {
-		return m.remote.Remove(ctx, bucket, key)
+		return m.remote.Remove(ctx, bucket, key, opts)
 	} else if path, ok := loc.LocalParts(); ok {
-		return m.local.Remove(ctx, path)
+		return m.local.Remove(ctx, path, opts)
 	}
 	return nil
 }
 
-// ListObjects lists either files and directories with some local path prefix or remote objects
+// List lists either files and directories with some local path prefix or remote objects
 // with a given bucket and key.
-func (m *Mixed) ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error) {
+func (m *Mixed) List(ctx context.Context, prefix ulloc.Location, opts *ListOptions) (ObjectIterator, error) {
 	if bucket, key, ok := prefix.RemoteParts(); ok {
-		return m.remote.ListObjects(ctx, bucket, key, recursive), nil
+		return m.remote.List(ctx, bucket, key, opts), nil
 	} else if path, ok := prefix.LocalParts(); ok {
-		return m.local.ListObjects(ctx, path, recursive)
+		return m.local.List(ctx, path, opts)
 	}
 	return nil, errs.New("unable to list objects for prefix %q", prefix)
-}
-
-// ListUploads lists all of the pending uploads for remote objects with some given bucket and key.
-func (m *Mixed) ListUploads(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error) {
-	if bucket, key, ok := prefix.RemoteParts(); ok {
-		return m.remote.ListUploads(ctx, bucket, key, recursive), nil
-	} else if prefix.Local() {
-		return emptyObjectIterator{}, nil
-	}
-	return nil, errs.New("unable to list uploads for prefix %q", prefix)
 }
 
 // IsLocalDir returns true if the location is a directory that is local.
@@ -88,4 +78,14 @@ func (m *Mixed) IsLocalDir(ctx context.Context, loc ulloc.Location) bool {
 		return m.local.IsLocalDir(ctx, path)
 	}
 	return false
+}
+
+// Stat returns information about an object at the specified Location.
+func (m *Mixed) Stat(ctx context.Context, loc ulloc.Location) (*ObjectInfo, error) {
+	if bucket, key, ok := loc.RemoteParts(); ok {
+		return m.remote.Stat(ctx, bucket, key)
+	} else if path, ok := loc.LocalParts(); ok {
+		return m.local.Stat(ctx, path)
+	}
+	return nil, errs.New("unable to stat loc %q", loc.Loc())
 }

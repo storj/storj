@@ -331,8 +331,9 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 						Cursor: metabase.IterateCursor{
 							Key: object.ObjectKey,
 						},
-						Status:          metabase.Committed,
-						IncludeMetadata: true,
+						Status:                metabase.Committed,
+						IncludeCustomMetadata: true,
+						IncludeSystemMetadata: true,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						var item metabase.ObjectEntry
 						for it.Next(ctx, &item) {

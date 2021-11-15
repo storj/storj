@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -22,6 +23,7 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/private/dbutil/dbschema"
 	"storj.io/private/dbutil/pgtest"
@@ -41,12 +43,33 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 	if err != nil {
 		return nil, nil, err
 	}
+	sort.Strings(matches)
+
+	// Limit the number of snapshots we are checking for Cockroach
+	// because the database creation is not as fast.
+	if strings.Contains(connstr, "cockroach") {
+		const cockroachSnapshotLimit = 10
+		if len(matches) > cockroachSnapshotLimit {
+			matches = matches[len(matches)-cockroachSnapshotLimit:]
+		}
+	}
 
 	snapshots.List = make([]*dbschema.Snapshot, len(matches))
+
+	var sem sync2.Semaphore
+	if strings.Contains(connstr, "cockroach") {
+		sem.Init(4)
+	} else {
+		sem.Init(16)
+	}
+
 	var group errgroup.Group
 	for i, match := range matches {
 		i, match := i, match
 		group.Go(func() error {
+			sem.Lock()
+			defer sem.Unlock()
+
 			version := parseTestdataVersion(match)
 			if version < 0 {
 				return errs.New("invalid testdata file %q: %v", match, err)
@@ -195,11 +218,31 @@ func migrateTest(t *testing.T, connStr string) {
 	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, rawdb.Schema())
 	require.NoError(t, err)
 
-	var finalSchema *dbschema.Schema
-
 	// get migration for this database
 	migrations := db.(migrationTestingAccess).MigrationTestingDefaultDB().PostgresMigration()
-	for i, step := range migrations.Steps {
+
+	// find the first matching migration step for the snapshots
+	firstSnapshot := snapshots.List[0]
+	stepIndex := func() int {
+		for i, step := range migrations.Steps {
+			if step.Version == firstSnapshot.Version {
+				return i
+			}
+		}
+		return -1
+	}()
+
+	// migrate up to the first loaded snapshot
+	err = migrations.TargetVersion(firstSnapshot.Version).Run(ctx, log.Named("initial-migration"))
+	require.NoError(t, err)
+	_, err = rawdb.ExecContext(ctx, firstSnapshot.LookupSection(dbschema.MainData))
+	require.NoError(t, err)
+	_, err = rawdb.ExecContext(ctx, firstSnapshot.LookupSection(dbschema.NewData))
+	require.NoError(t, err)
+
+	// test rest of the steps with snapshots
+	var finalSchema *dbschema.Schema
+	for i, step := range migrations.Steps[stepIndex+1:] {
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
 		// find the matching expected version
@@ -239,6 +282,16 @@ func migrateTest(t *testing.T, connStr string) {
 
 		// keep the last version around
 		finalSchema = currentSchema
+	}
+
+	// TODO(cam): remove this check with the migration step to drop the columns
+	nodes, ok := finalSchema.FindTable("nodes")
+	if ok {
+		nodes.RemoveColumn("contained")
+	}
+	reps, ok := finalSchema.FindTable("reputations")
+	if ok {
+		reps.RemoveColumn("contained")
 	}
 
 	// verify that we also match the dbx version

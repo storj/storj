@@ -530,12 +530,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.SegmentPrice,
+			pc.BonusRate)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -576,7 +572,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Payments.Accounts,
 			peer.Analytics.Service,
 			consoleConfig.Config,
-			config.Payments.MinCoinPayment,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -585,7 +580,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		pricing := paymentsconfig.PricingValues{
 			StorageTBPrice: config.Payments.StorageTBPrice,
 			EgressTBPrice:  config.Payments.EgressTBPrice,
-			ObjectPrice:    config.Payments.ObjectPrice,
+			SegmentPrice:   config.Payments.SegmentPrice,
 		}
 
 		peer.Console.Endpoint = consoleweb.NewServer(

@@ -37,7 +37,6 @@ import ExpandIcon from '@/../static/images/common/BlueExpand.svg';
 import HideIcon from '@/../static/images/common/BlueHide.svg';
 
 import { RouteConfig } from '@/router';
-import { Route } from 'vue-router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
@@ -57,23 +56,6 @@ export default class PeriodSelection extends Vue {
         'Previous Billing Period',
     ];
     public currentOption: string = this.periodOptions[0];
-
-    /**
-     * Lifecycle hook before changing location.
-     * Returns component state to default.
-     * @param to
-     * @param from
-     * @param next
-     */
-    public async beforeRouteLeave(_to: Route, _from: Route, next: () => void): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-
-        next();
-    }
 
     /**
      * Indicates if periods dropdown is shown.

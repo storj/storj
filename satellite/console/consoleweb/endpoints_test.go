@@ -137,8 +137,7 @@ func TestPayments(t *testing.T) {
 
 		{ // Get_PaymentCards_EmptyReturn
 			resp, body := test.request(http.MethodGet, "/payments/cards", nil)
-			// TODO: this should be []
-			require.JSONEq(t, "null", body)
+			require.JSONEq(t, "[]", body)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
@@ -150,7 +149,7 @@ func TestPayments(t *testing.T) {
 
 		{ // Get_BillingHistory
 			resp, body := test.request(http.MethodGet, "/payments/billing-history", nil)
-			require.Contains(t, body, "description")
+			require.JSONEq(t, "[]", body)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
@@ -207,6 +206,7 @@ func TestBuckets(t *testing.T) {
 										storage
 										egress
 										objectCount
+										segmentCount
 										since
 										before
 										__typename
@@ -344,6 +344,7 @@ func TestProjects(t *testing.T) {
 										storage
 										egress
 										objectCount
+										segmentCount
 										since
 										before
 										__typename
@@ -584,6 +585,7 @@ func TestWrongUser(t *testing.T) {
 										storage
 										egress
 										objectCount
+										segmentCount
 										since
 										before
 										__typename
@@ -730,6 +732,7 @@ func TestWrongUser(t *testing.T) {
 										storage
 										egress
 										objectCount
+										segmentCount
 										since
 										before
 										__typename

@@ -68,6 +68,15 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
 
+		// GetMinimalBucket
+		minimalBucket, err := bucketsDB.GetMinimalBucket(ctx, []byte("testbucket"), project.ID)
+		require.NoError(t, err)
+		require.Equal(t, []byte("testbucket"), minimalBucket.Name)
+		require.False(t, minimalBucket.CreatedAt.IsZero())
+
+		_, err = bucketsDB.GetMinimalBucket(ctx, []byte("not-existing-bucket"), project.ID)
+		require.True(t, storj.ErrBucketNotFound.Has(err))
+
 		// CountBuckets
 		count, err = bucketsDB.CountBuckets(ctx, project.ID)
 		require.NoError(t, err)

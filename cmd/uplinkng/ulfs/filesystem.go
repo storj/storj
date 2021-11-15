@@ -16,15 +16,38 @@ import (
 	"storj.io/uplink"
 )
 
+// ListOptions describes options to the List command.
+type ListOptions struct {
+	Recursive bool
+	Pending   bool
+	Expanded  bool
+}
+
+func (lo *ListOptions) isRecursive() bool { return lo != nil && lo.Recursive }
+func (lo *ListOptions) isPending() bool   { return lo != nil && lo.Pending }
+
+// RemoveOptions describes options to the Remove command.
+type RemoveOptions struct {
+	Pending bool
+}
+
+func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
+
+// OpenOptions describes options for Filesystem.Open.
+type OpenOptions struct {
+	Offset int64
+	Length int64
+}
+
 // Filesystem represents either the local Filesystem or the data backed by a project.
 type Filesystem interface {
 	Close() error
-	Open(ctx clingy.Context, loc ulloc.Location) (ReadHandle, error)
+	Open(ctx clingy.Context, loc ulloc.Location, opts *OpenOptions) (ReadHandle, error)
 	Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, error)
-	Remove(ctx context.Context, loc ulloc.Location) error
-	ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error)
-	ListUploads(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error)
+	Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error
+	List(ctx context.Context, prefix ulloc.Location, opts *ListOptions) (ObjectIterator, error)
 	IsLocalDir(ctx context.Context, loc ulloc.Location) bool
+	Stat(ctx context.Context, loc ulloc.Location) (*ObjectInfo, error)
 }
 
 //
@@ -38,6 +61,8 @@ type ObjectInfo struct {
 	IsPrefix      bool
 	Created       time.Time
 	ContentLength int64
+	Expires       time.Time
+	Metadata      uplink.CustomMetadata
 }
 
 // uplinkObjectToObjectInfo returns an objectInfo converted from an *uplink.Object.
@@ -47,6 +72,8 @@ func uplinkObjectToObjectInfo(bucket string, obj *uplink.Object) ObjectInfo {
 		IsPrefix:      obj.IsPrefix,
 		Created:       obj.System.Created,
 		ContentLength: obj.System.ContentLength,
+		Expires:       obj.System.Expires,
+		Metadata:      obj.Custom,
 	}
 }
 
@@ -57,6 +84,8 @@ func uplinkUploadInfoToObjectInfo(bucket string, upl *uplink.UploadInfo) ObjectI
 		IsPrefix:      upl.IsPrefix,
 		Created:       upl.System.Created,
 		ContentLength: upl.System.ContentLength,
+		Expires:       upl.System.Expires,
+		Metadata:      upl.Custom,
 	}
 }
 

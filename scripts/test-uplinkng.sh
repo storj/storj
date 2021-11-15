@@ -72,12 +72,34 @@ uplinkng cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=f
 
 uplinkng ls "sj://$BUCKET/small-upload-testfile" --access $STORJ_ACCESS | grep "small-upload-testfile"
 
+# test ranged download of object
+uplinkng cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR/file-from-cp-range" --progress=false --range bytes=0-5
+EXPECTED_FILE_SIZE="6"
+ACTUAL_FILE_SIZE=$(get_file_size "$DST_DIR/file-from-cp-range")
+if [ "$EXPECTED_FILE_SIZE" != "$ACTUAL_FILE_SIZE" ]
+then
+    echo "expected downloaded file size to be equal to $EXPECTED_FILE_SIZE, got $ACTUAL_FILE_SIZE"
+    exit 1
+fi
+
+# test ranged download with multiple byte range
+set +e
+EXPECTED_ERROR="retrieval of multiple byte ranges of data not supported: 2 provided"
+ERROR=$(uplinkng cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR/file-from-cp-range" --range bytes=0-5,6-10)
+if [ $ERROR != $EXPECTED_ERROR ]
+then
+    echo EXPECTED_ERROR
+    exit 1
+fi
+set -e
+
 uplinkng rm "sj://$BUCKET/small-upload-testfile"        --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/big-upload-testfile"          --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/multisegment-upload-testfile" --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/diff-size-segments"           --access $STORJ_ACCESS
 
 uplinkng ls "sj://$BUCKET" --access $STORJ_ACCESS
+uplinkng ls -x true "sj://$BUCKET" --access $STORJ_ACCESS
 
 uplinkng rb "sj://$BUCKET" --access $STORJ_ACCESS
 

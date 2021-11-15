@@ -41,11 +41,6 @@ func loopFunc(ctx context.Context) error {
 }
 
 func updateSelf(ctx context.Context, binaryLocation string, ver version.Process) error {
-	suggestedVersion, err := ver.Suggested.SemVer()
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
 	currentVersion, err := binaryVersion(binaryLocation)
 	if err != nil {
 		return errs.Wrap(err)
@@ -57,18 +52,18 @@ func updateSelf(ctx context.Context, binaryLocation string, ver version.Process)
 	)
 
 	// should update
-	shouldUpdate, reason, err := version.ShouldUpdateVersion(currentVersion, nodeID, ver)
+	newVersion, reason, err := version.ShouldUpdateVersion(currentVersion, nodeID, ver)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	if !shouldUpdate {
+	if newVersion.IsZero() {
 		zap.L().Info(reason, zap.String("Service", updaterServiceName))
 		return nil
 	}
 
-	newVersionPath := prependExtension(binaryLocation, ver.Suggested.Version)
+	newVersionPath := prependExtension(binaryLocation, newVersion.Version)
 
-	if err = downloadBinary(ctx, parseDownloadURL(ver.Suggested.URL), newVersionPath); err != nil {
+	if err = downloadBinary(ctx, parseDownloadURL(newVersion.URL), newVersionPath); err != nil {
 		return errs.Wrap(err)
 	}
 
@@ -77,11 +72,13 @@ func updateSelf(ctx context.Context, binaryLocation string, ver version.Process)
 		return errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
 	}
 
-	if suggestedVersion.Compare(downloadedVersion) != 0 {
-		err := errs.New("invalid version downloaded: wants %s got %s",
-			suggestedVersion.String(),
-			downloadedVersion.String(),
-		)
+	newSemVer, err := newVersion.SemVer()
+	if err != nil {
+		return errs.Combine(err, os.Remove(newVersionPath))
+	}
+
+	if newSemVer.Compare(downloadedVersion) != 0 {
+		err := errs.New("invalid version downloaded: wants %s got %s", newVersion.Version, downloadedVersion)
 		return errs.Combine(err, os.Remove(newVersionPath))
 	}
 

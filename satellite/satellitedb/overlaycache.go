@@ -18,6 +18,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/private/dbutil/cockroachutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
@@ -56,7 +57,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port, vetted_at
+		SELECT id, address, last_net, last_ip_port, vetted_at, country_code
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.DefaultInterval) + `
 			WHERE disqualified IS NULL
@@ -100,7 +101,9 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var vettedAt *time.Time
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt)
+		var countryCode string
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt, &countryCode)
+		node.CountryCode = location.ToCountryCode(countryCode)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -499,7 +502,6 @@ func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.Node_Update_Fields{}
-	updateFields.Contained = dbx.Node_Contained(request.Contained)
 	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
 	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
 	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
@@ -921,7 +923,6 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Timestamp:  info.Timestamp,
 			Release:    info.Release,
 		},
-		Contained:             info.Contained,
 		Disqualified:          info.Disqualified,
 		UnknownAuditSuspended: info.UnknownAuditSuspended,
 		OfflineSuspended:      info.OfflineSuspended,
@@ -933,6 +934,9 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	}
 	if info.LastIpPort != nil {
 		node.LastIPPort = *info.LastIpPort
+	}
+	if info.CountryCode != nil {
+		node.CountryCode = location.ToCountryCode(*info.CountryCode)
 	}
 
 	return node, nil
@@ -1039,6 +1043,7 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 		WHERE last_contact_success < $1
 			AND disqualified is NULL
 			AND exit_finished_at is NULL
+			AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
 		LIMIT $2
 	`), cutoff, limit)
 	if err != nil {
@@ -1097,7 +1102,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				ELSE nodes.last_contact_failure
 			END,
 			last_ip_port=$16,
-			wallet_features=$17
+			wallet_features=$17,
+			country_code=$18
 		WHERE id = $1
 	`, // args $1 - $4
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(),
@@ -1113,6 +1119,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		node.LastIPPort,
 		// args $17,
 		walletFeatures,
+		// args $18,
+		node.CountryCode.String(),
 	)
 
 	if err == nil {
@@ -1131,7 +1139,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_contact_failure,
 				major, minor, patch, hash, timestamp, release,
 				last_ip_port,
-				wallet_features
+				wallet_features,
+				country_code
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
@@ -1144,7 +1153,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END,
 				$10, $11, $12, $13, $14, $15,
 				$17,
-				$18
+				$18,
+				$19
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1165,7 +1175,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					ELSE nodes.last_contact_failure
 				END,
 				last_ip_port=$17,
-				wallet_features=$18;
+				wallet_features=$18,
+				country_code=$19;
 			`,
 		// args $1 - $5
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
@@ -1181,6 +1192,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		node.LastIPPort,
 		// args $18,
 		walletFeatures,
+		// args $19,
+		node.CountryCode.String(),
 	)
 	if err != nil {
 		return Error.Wrap(err)

@@ -22,7 +22,6 @@ func TestContainIncrementAndGet(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
-		cache := planet.Satellites[0].DB.OverlayCache()
 
 		input := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
@@ -36,11 +35,6 @@ func TestContainIncrementAndGet(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, input, output)
-
-		// check contained flag set to true
-		node, err := cache.Get(ctx, input.NodeID)
-		require.NoError(t, err)
-		assert.True(t, node.Contained)
 
 		nodeID1 := planet.StorageNodes[1].ID()
 		_, err = containment.Get(ctx, nodeID1)

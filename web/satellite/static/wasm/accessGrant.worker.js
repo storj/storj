@@ -9,24 +9,27 @@ if (!WebAssembly.instantiate) {
     self.postMessage(new Error('web assembly is not supported'));
 }
 
-const go = new Go();
-const instantiateStreaming = WebAssembly.instantiateStreaming || async function (resp, importObject) {
-    const response = await resp;
-    const source = await response.arrayBuffer();
-
-    return await WebAssembly.instantiate(source, importObject);
-};
-const response = fetch('/static/static/wasm/access.wasm');
-instantiateStreaming(response, go.importObject).then(result => {
-    go.run(result.instance)
-    self.postMessage('configured');
-}).catch(err => self.postMessage(new Error(err.message)));
-
-self.onmessage = function (event) {
+self.onmessage = async function (event) {
     const data = event.data;
     let result;
     let apiKey;
     switch (data.type) {
+        case 'Setup':
+            try {
+                const go = new Go();
+                const response = await fetch('/static/static/wasm/access.wasm')
+                const buffer = await response.arrayBuffer();
+                const module = await WebAssembly.compile(buffer);
+                const instance = await WebAssembly.instantiate(module, go.importObject);
+
+                go.run(instance)
+
+                self.postMessage('configured');
+            } catch (e) {
+                self.postMessage(new Error(e.message))
+            }
+
+            break;
         case 'GenerateAccess':
             apiKey = data.apiKey;
             const passphrase = data.passphrase;
@@ -67,9 +70,6 @@ self.onmessage = function (event) {
             }
 
             self.postMessage(result);
-            break;
-        case 'Stop':
-            self.close();
             break;
         default:
             self.postMessage(new Error('provided message event type is not supported'));

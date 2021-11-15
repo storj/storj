@@ -5,6 +5,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -72,7 +73,14 @@ func (ex *external) SaveConfig(values map[string]string) error {
 func (ex *external) saveConfig(entries []ini.Entry) error {
 	// TODO(jeff): write it atomically
 
-	newFh, err := os.Create(ex.ConfigFile())
+	path := ex.ConfigFile()
+	dir := filepath.Dir(path)
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return errs.Wrap(err)
+	}
+
+	newFh, err := os.Create(path)
 	if err != nil {
 		return errs.Wrap(err)
 	}

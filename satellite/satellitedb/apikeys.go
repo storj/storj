@@ -176,6 +176,10 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		optional.PartnerId = dbx.ApiKey_PartnerId(info.PartnerID[:])
 	}
 
+	if info.UserAgent != nil {
+		optional.UserAgent = dbx.ApiKey_UserAgent(info.UserAgent)
+	}
+
 	dbKey, err := keys.methods.Create_ApiKey(
 		ctx,
 		dbx.ApiKey_Id(id[:]),
@@ -238,6 +242,10 @@ func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo,
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if key.UserAgent != nil {
+		result.UserAgent = key.UserAgent
 	}
 
 	return result, nil

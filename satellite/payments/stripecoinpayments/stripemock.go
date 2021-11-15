@@ -41,7 +41,29 @@ var mocks = struct {
 	m: make(map[storj.NodeID]*mockStripeState),
 }
 
-const testPromoCode string = "testpromocode"
+var (
+	testPromoCodes = map[string]*stripe.PromotionCode{
+		"promo1": {
+			ID: "p1",
+			Coupon: &stripe.Coupon{
+				AmountOff: 500,
+				Currency:  stripe.CurrencyUSD,
+				Name:      "Test Promo Code 1",
+			},
+		},
+		"promo2": {
+			ID: "p2",
+			Coupon: &stripe.Coupon{
+				PercentOff: 50,
+				Name:       "Test Promo Code 2",
+			},
+		},
+	}
+	promoIDs = map[string]*stripe.PromotionCode{
+		"p1": testPromoCodes["promo1"],
+		"p2": testPromoCodes["promo2"],
+	}
+)
 
 // mockStripeState Stripe client mock.
 type mockStripeState struct {
@@ -80,9 +102,6 @@ func NewStripeMock(id storj.NodeID, customersDB CustomersDB, usersDB console.Use
 
 	state, ok := mocks.m[id]
 	if !ok {
-		promoCodes := make(map[string][]*stripe.PromotionCode)
-		promoCodes[testPromoCode] = []*stripe.PromotionCode{{}}
-
 		state = &mockStripeState{
 			customers:                   &mockCustomersState{},
 			paymentMethods:              newMockPaymentMethods(),
@@ -91,7 +110,7 @@ func NewStripeMock(id storj.NodeID, customersDB CustomersDB, usersDB console.Use
 			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
 			charges:                     &mockCharges{},
 			promoCodes: &mockPromoCodes{
-				promoCodes: promoCodes,
+				promoCodes: testPromoCodes,
 			},
 		}
 		mocks.m[id] = state
@@ -262,8 +281,8 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 	if params.Metadata != nil {
 		customer.Metadata = params.Metadata
 	}
-	if params.PromotionCode != nil {
-		customer.Discount = &stripe.Discount{Coupon: &stripe.Coupon{}}
+	if params.PromotionCode != nil && promoIDs[*params.PromotionCode] != nil {
+		customer.Discount = &stripe.Discount{Coupon: promoIDs[*params.PromotionCode].Coupon}
 	}
 
 	// TODO update customer with more params as necessary
@@ -471,7 +490,7 @@ func (m *mockCharges) List(listParams *stripe.ChargeListParams) *charge.Iter {
 }
 
 type mockPromoCodes struct {
-	promoCodes map[string][]*stripe.PromotionCode
+	promoCodes map[string]*stripe.PromotionCode
 }
 
 func (m *mockPromoCodes) List(params *stripe.PromotionCodeListParams) *promotioncode.Iter {
@@ -479,15 +498,15 @@ func (m *mockPromoCodes) List(params *stripe.PromotionCodeListParams) *promotion
 	defer mocks.Unlock()
 
 	query := stripe.Query(func(p *stripe.Params, b *form.Values) ([]interface{}, stripe.ListContainer, error) {
-		promoCodes := m.promoCodes[*params.Code]
-		ret := make([]interface{}, len(promoCodes))
-
-		for i, v := range promoCodes {
-			ret[i] = v
+		promoCode := m.promoCodes[*params.Code]
+		if promoCode == nil {
+			return make([]interface{}, 0), &stripe.ListMeta{TotalCount: 0}, nil
 		}
+		ret := make([]interface{}, 1)
+		ret[0] = promoCode
 
 		listMeta := &stripe.ListMeta{
-			TotalCount: uint32(len(promoCodes)),
+			TotalCount: 1,
 		}
 
 		lc := newListContainer(listMeta)

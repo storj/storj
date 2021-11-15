@@ -34,7 +34,6 @@ type Info struct {
 	AuditSuccessCount           int64
 	TotalAuditCount             int64
 	VettedAt                    *time.Time
-	Contained                   bool
 	Disqualified                *time.Time
 	Suspended                   *time.Time
 	UnknownAuditSuspended       *time.Time

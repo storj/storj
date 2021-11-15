@@ -5,6 +5,7 @@ package ulfs
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -25,11 +26,17 @@ func NewLocal() *Local {
 }
 
 // Open returns a read ReadHandle for the given local path.
-func (l *Local) Open(ctx context.Context, path string) (ReadHandle, error) {
+func (l *Local) Open(ctx context.Context, path string, opts *OpenOptions) (ReadHandle, error) {
 	fh, err := os.Open(path)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
+	if opts != nil {
+		fr := io.NewSectionReader(fh, opts.Offset, opts.Length)
+		return newGenericReadHandle(fr), nil
+	}
+
 	return newOSReadHandle(fh)
 }
 
@@ -55,7 +62,11 @@ func (l *Local) Create(ctx context.Context, path string) (WriteHandle, error) {
 }
 
 // Remove unlinks the file at the path. It is not an error if the file does not exist.
-func (l *Local) Remove(ctx context.Context, path string) error {
+func (l *Local) Remove(ctx context.Context, path string, opts *RemoveOptions) error {
+	if opts.isPending() {
+		return nil
+	}
+
 	if err := os.Remove(path); os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
@@ -65,9 +76,13 @@ func (l *Local) Remove(ctx context.Context, path string) error {
 	return nil
 }
 
-// ListObjects returns an ObjectIterator listing files and directories that have string prefix
+// List returns an ObjectIterator listing files and directories that have string prefix
 // with the provided path.
-func (l *Local) ListObjects(ctx context.Context, path string, recursive bool) (ObjectIterator, error) {
+func (l *Local) List(ctx context.Context, path string, opts *ListOptions) (ObjectIterator, error) {
+	if opts.isPending() {
+		return emptyObjectIterator{}, nil
+	}
+
 	prefix := path
 	if idx := strings.LastIndex(path, "/"); idx >= 0 {
 		prefix = path[:idx+1]
@@ -80,7 +95,7 @@ func (l *Local) ListObjects(ctx context.Context, path string, recursive bool) (O
 	prefix += string(filepath.Separator)
 
 	var files []os.FileInfo
-	if recursive {
+	if opts.isRecursive() {
 		err = filepath.Walk(prefix, func(path string, info os.FileInfo, err error) error {
 			if err == nil && !info.IsDir() {
 				rel, err := filepath.Rel(prefix, path)
@@ -112,7 +127,7 @@ func (l *Local) ListObjects(ctx context.Context, path string, recursive bool) (O
 	})
 
 	var trim ulloc.Location
-	if !recursive {
+	if !opts.isRecursive() {
 		trim = ulloc.NewLocal(prefix)
 	}
 
@@ -133,6 +148,20 @@ func (l *Local) IsLocalDir(ctx context.Context, path string) bool {
 		return false
 	}
 	return fi.IsDir()
+}
+
+// Stat returns an ObjectInfo describing the provided path.
+func (l *Local) Stat(ctx context.Context, path string) (*ObjectInfo, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ObjectInfo{
+		Loc:           ulloc.NewLocal(path),
+		Created:       fi.ModTime(),
+		ContentLength: fi.Size(),
+	}, nil
 }
 
 type namedFileInfo struct {

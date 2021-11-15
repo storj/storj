@@ -457,6 +457,7 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 }
 
 func (db *DB) scanObjectDeletion(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, segments []DeletedSegmentInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	objects = make([]Object, 0, 10)
@@ -508,6 +509,7 @@ func (db *DB) scanObjectDeletion(ctx context.Context, location ObjectLocation, r
 }
 
 func (db *DB) scanMultipleObjectsDeletion(ctx context.Context, rows tagsql.Rows) (objects []Object, segments []DeletedSegmentInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	objects = make([]Object, 0, 10)

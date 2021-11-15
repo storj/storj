@@ -137,6 +137,12 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return true, invalidRepairError.New("cannot repair inline segment")
 	}
 
+	// ignore segment if expired
+	if segment.Expired(repairer.nowFn()) {
+		repairer.log.Debug("segment has expired", zap.Stringer("Stream ID", segment.StreamID), zap.Uint64("Position", queueSegment.Position.Encode()))
+		return true, nil
+	}
+
 	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return true, invalidRepairError.New("invalid redundancy strategy: %w", err)

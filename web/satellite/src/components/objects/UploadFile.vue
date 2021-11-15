@@ -4,7 +4,7 @@
 <template>
     <div>
         <p class="back" @click="goToBuckets">&lt;- Back to Buckets</p>
-        <div class="file-browser">
+        <div :class="{ 'file-browser': !newBrowser }">
             <FileBrowser />
         </div>
         <UploadCancelPopup v-if="isCancelUploadPopupVisible" />
@@ -12,10 +12,11 @@
 </template>
 
 <script lang="ts">
-import { FileBrowser } from 'browser';
+import * as browser from 'browser';
 import { Component, Vue } from 'vue-property-decorator';
 
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
+import InternalFileBrowser from '@/components/browser/FileBrowser.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -23,6 +24,8 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
+const newBrowser = MetaUtils.getMetaContent('new-browser') === "true";
+const FileBrowser = newBrowser ? InternalFileBrowser : browser.FileBrowser;
 
 // @vue/component
 @Component({
@@ -35,6 +38,7 @@ export default class UploadFile extends Vue {
     private linksharingURL = '';
     private worker: Worker;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+    private readonly newBrowser: boolean = newBrowser;
 
     /**
      * Lifecycle hook after initial render.
@@ -43,7 +47,11 @@ export default class UploadFile extends Vue {
      */
     public mounted(): void {
         if (!this.bucket) {
-            this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
+            if (this.isNewObjectsFlow) {
+                this.$router.push(RouteConfig.Objects.with(RouteConfig.BucketsManagement).path);
+            } else {
+                this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
+            }
 
             return;
         }
@@ -130,13 +138,6 @@ export default class UploadFile extends Vue {
     }
 
     /**
-     * Indicates if upload cancel popup is visible.
-     */
-    public get isCancelUploadPopupVisible(): boolean {
-        return this.$store.state.appStateModule.appState.isUploadCancelPopupVisible;
-    }
-
-    /**
      * Generates public access key.
      */
     private async accessKey(cleanApiKey: string, path: string): Promise<string> {
@@ -179,6 +180,20 @@ export default class UploadFile extends Vue {
         const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: data.value, isPublic: true});
 
         return gatewayCredentials.accessKeyId;
+    }
+
+    /**
+     * Indicates if upload cancel popup is visible.
+     */
+    public get isCancelUploadPopupVisible(): boolean {
+        return this.$store.state.appStateModule.appState.isUploadCancelPopupVisible;
+    }
+
+    /**
+     * Returns objects flow status from store.
+     */
+    private get isNewObjectsFlow(): string {
+        return this.$store.state.appStateModule.isNewObjectsFlow;
     }
 
     /**

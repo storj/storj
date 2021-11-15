@@ -730,10 +730,13 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
 	}
 
+	endpoint.log.Info("restore trash started", zap.Stringer("Satellite ID", peer.ID))
 	err = endpoint.store.RestoreTrash(ctx, peer.ID)
 	if err != nil {
+		endpoint.log.Error("restore trash failed", zap.Stringer("Satellite ID", peer.ID), zap.Error(err))
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
+	endpoint.log.Info("restore trash finished", zap.Stringer("Satellite ID", peer.ID))
 
 	return &pb.RestoreTrashResponse{}, nil
 }

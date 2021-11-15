@@ -13,7 +13,12 @@
         <template #content class="cli">
             <p class="cli__msg">
                 Make sure you've already downloaded the
-                <a href="https://docs.storj.io/dcs/api-reference/uplink-cli" class="cli__msg__link" target="_blank" rel="noopener noreferrer">
+                <a
+                    href="https://docs.storj.io/dcs/downloads/download-uplink-cli"
+                    class="cli__msg__link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
                     Uplink CLI
                 </a>
                 and run

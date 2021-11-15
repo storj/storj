@@ -53,7 +53,7 @@ func TestRollupArchiveChore(t *testing.T) {
 				bucketName = fmt.Sprintf("%s%d", "testbucket", i)
 
 				err := satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx,
-					projectID, []byte(bucketName), pb.PieceAction_GET, bwAmount, timestamp,
+					projectID, []byte(bucketName), pb.PieceAction_GET, bwAmount, 0, timestamp,
 				)
 				require.NoError(t, err)
 

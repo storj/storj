@@ -26,7 +26,7 @@ export class Validator {
      * Checks string to satisfy bucket name rules.
      */
     public static bucketName(value: string): boolean {
-        const rgx = /^[a-z0-9]+$/;
+        const rgx = /^[a-z0-9.-]+$/;
 
         return rgx.test(value);
     }

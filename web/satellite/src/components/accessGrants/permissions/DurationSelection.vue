@@ -15,9 +15,7 @@
         </div>
         <DurationPicker
             v-if="isDurationPickerVisible"
-            v-click-outside="closePicker"
             @setLabel="setDateRangeLabel"
-            @close="closePicker"
         />
     </div>
 </template>
@@ -25,6 +23,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import DurationPicker from '@/components/accessGrants/permissions/DurationPicker.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
@@ -38,21 +37,25 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 })
 
 export default class DurationSelection extends Vue {
-    public isDurationPickerVisible = false;
     public dateRangeLabel = 'Forever';
+
+    /**
+     * Mounted hook after initial render.
+     * Sets previously selected date range if exists.
+     */
+    public mounted(): void {
+        if (this.notBeforePermission && this.notAfterPermission) {
+            const fromFormattedString = this.notBeforePermission.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+            const toFormattedString = this.notAfterPermission.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+            this.dateRangeLabel = `${fromFormattedString} - ${toFormattedString}`;
+        }
+    }
 
     /**
      * Toggles duration picker.
      */
     public togglePicker(): void {
-        this.isDurationPickerVisible = !this.isDurationPickerVisible;
-    }
-
-    /**
-     * Closes duration picker.
-     */
-    public closePicker(): void {
-        this.isDurationPickerVisible = false;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DATEPICKER_DROPDOWN);
     }
 
     /**
@@ -60,6 +63,27 @@ export default class DurationSelection extends Vue {
      */
     public setDateRangeLabel(label: string): void {
         this.dateRangeLabel = label;
+    }
+
+    /**
+     * Indicates if date picker is shown.
+     */
+    public get isDurationPickerVisible(): boolean {
+        return this.$store.state.appStateModule.appState.isDatePickerShown;
+    }
+
+    /**
+     * Returns not before date permission from store.
+     */
+    private get notBeforePermission(): Date | null {
+        return this.$store.state.accessGrantsModule.permissionNotBefore;
+    }
+
+    /**
+     * Returns not after date permission from store.
+     */
+    private get notAfterPermission(): Date | null {
+        return this.$store.state.accessGrantsModule.permissionNotAfter;
     }
 }
 </script>

@@ -24,6 +24,7 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -52,6 +53,7 @@ type Config struct {
 	SatelliteCount   int
 	StorageNodeCount int
 	UplinkCount      int
+	MultinodeCount   int
 
 	IdentityVersion *storj.IDVersion
 	Reconfigure     Reconfigure
@@ -67,6 +69,7 @@ type DatabaseConfig struct {
 
 // Planet is a full storj system setup.
 type Planet struct {
+	ctx       *testcontext.Context
 	id        string
 	log       *zap.Logger
 	config    Config
@@ -82,6 +85,7 @@ type Planet struct {
 	VersionControl *versioncontrol.Peer
 	Satellites     []*Satellite
 	StorageNodes   []*StorageNode
+	Multinodes     []*Multinode
 	Uplinks        []*Uplink
 
 	identities    *testidentity.Identities
@@ -122,13 +126,14 @@ func (peer *closablePeer) Close() error {
 }
 
 // NewCustom creates a new full system with the specified configuration.
-func NewCustom(ctx context.Context, log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
+func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
 	if config.IdentityVersion == nil {
 		version := storj.LatestIDVersion()
 		config.IdentityVersion = &version
 	}
 
 	planet := &Planet{
+		ctx:    ctx,
 		log:    log,
 		id:     config.Name + "/" + pgutil.CreateRandomTestingSchemaName(6),
 		config: config,
@@ -152,14 +157,22 @@ func NewCustom(ctx context.Context, log *zap.Logger, config Config, satelliteDat
 	}
 	planet.whitelistPath = whitelistPath
 
-	planet.VersionControl, err = planet.newVersionControlServer()
+	err = planet.createPeers(ctx, satelliteDatabases)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
+	return planet, nil
+}
 
-	planet.Satellites, err = planet.newSatellites(ctx, config.SatelliteCount, satelliteDatabases)
+func (planet *Planet) createPeers(ctx context.Context, satelliteDatabases satellitedbtest.SatelliteDatabases) (err error) {
+	planet.VersionControl, err = planet.newVersionControlServer()
 	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
+		return errs.Wrap(err)
+	}
+
+	planet.Satellites, err = planet.newSatellites(ctx, planet.config.SatelliteCount, satelliteDatabases)
+	if err != nil {
+		return errs.Wrap(err)
 	}
 
 	whitelistedSatellites := make(storj.NodeURLs, 0, len(planet.Satellites))
@@ -167,17 +180,22 @@ func NewCustom(ctx context.Context, log *zap.Logger, config Config, satelliteDat
 		whitelistedSatellites = append(whitelistedSatellites, satellite.NodeURL())
 	}
 
-	planet.StorageNodes, err = planet.newStorageNodes(ctx, config.StorageNodeCount, whitelistedSatellites)
+	planet.StorageNodes, err = planet.newStorageNodes(ctx, planet.config.StorageNodeCount, whitelistedSatellites)
 	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
+		return errs.Wrap(err)
 	}
 
-	planet.Uplinks, err = planet.newUplinks(ctx, "uplink", config.UplinkCount)
+	planet.Multinodes, err = planet.newMultinodes(ctx, "multinode", planet.config.MultinodeCount)
 	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
+		return errs.Wrap(err)
 	}
 
-	return planet, nil
+	planet.Uplinks, err = planet.newUplinks(ctx, "uplink", planet.config.UplinkCount)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
 }
 
 // Start starts all the nodes.
@@ -295,11 +313,11 @@ func (planet *Planet) Shutdown() error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		// TODO: add diagnostics to see what hasn't been properly shut down
-		timer := time.NewTimer(30 * time.Second)
+		timer := time.NewTimer(10 * time.Second)
 		defer timer.Stop()
 		select {
 		case <-timer.C:
+			planet.log.Error("Planet took too long to shutdown\n" + planet.ctx.StackTrace())
 			panic("planet took too long to shutdown")
 		case <-ctx.Done():
 		}

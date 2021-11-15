@@ -23,6 +23,11 @@ import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/m
 import { makeUsersModule } from '@/store/modules/users';
 import { User } from '@/types/users';
 
+import { MetaUtils } from '@/utils/meta';
+import internalFiles from '@/store/modules/files';
+import * as externalBrowser from 'browser';
+const files = MetaUtils.getMetaContent('new-browser') === "true" ? internalFiles : externalBrowser.files;
+
 Vue.use(Vuex);
 
 type Mutation<State> =
@@ -61,7 +66,7 @@ export interface ModulesState {
     usersModule: User;
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
-    files: typeof files.state;
+    files: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 // Satellite store (vuex)

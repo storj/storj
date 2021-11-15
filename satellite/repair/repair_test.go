@@ -1349,13 +1349,13 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 	})
 }
 
-// TestRemoveExpiredSegmentFromQueue
+// TestRepairExpiredSegment
 // - Upload tests data to 7 nodes
 // - Kill nodes so that repair threshold > online nodes > minimum threshold
 // - Call checker to add segment to the repair queue
 // - Modify segment to be expired
 // - Run the repairer
-// - Verify segment is still in the repair queue. We don't want the data repairer to have any special treatment for expired segment.
+// - Verify segment is no longer in the repair queue.
 func TestRepairExpiredSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -1431,7 +1431,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		// Verify that the segment is still in the queue
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 1, count)
+		require.Equal(t, 0, count)
 	})
 }
 

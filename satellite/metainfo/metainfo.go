@@ -88,7 +88,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
-func NewEndpoint(log *zap.Logger, buckets BucketsDB, metabase *metabase.DB,
+func NewEndpoint(log *zap.Logger, buckets BucketsDB, metabaseDB *metabase.DB,
 	deletePieces *piecedeletion.Service, orders *orders.Service, cache *overlay.Service,
 	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
@@ -115,7 +115,7 @@ func NewEndpoint(log *zap.Logger, buckets BucketsDB, metabase *metabase.DB,
 	return &Endpoint{
 		log:                 log,
 		buckets:             buckets,
-		metabase:            metabase,
+		metabase:            metabaseDB,
 		deletePieces:        deletePieces,
 		orders:              orders,
 		overlay:             cache,
@@ -188,7 +188,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		return nil, err
 	}
 
-	bucket, err := endpoint.buckets.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetMinimalBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -198,7 +198,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(bucket, endpoint.defaultRS)
+	convBucket, err := convertBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
 	if err != nil {
 		return resp, err
 	}
@@ -278,7 +278,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(bucket, endpoint.defaultRS)
+	convBucket, err := convertBucketToProto(Bucket{
+		Name:      []byte(bucket.Name),
+		CreatedAt: bucket.Created,
+	}, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
 	if err != nil {
 		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
@@ -339,12 +342,12 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	}
 
 	var (
-		bucket     storj.Bucket
+		bucket     Bucket
 		convBucket *pb.Bucket
 	)
 	if canRead || canList {
 		// Info about deleted bucket is returned only if either Read, or List permission is granted.
-		bucket, err = endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+		bucket, err = endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
 		if err != nil {
 			if storj.ErrBucketNotFound.Has(err) {
 				return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -352,7 +355,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			return nil, err
 		}
 
-		convBucket, err = convertBucketToProto(bucket, endpoint.defaultRS)
+		convBucket, err = convertBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
 		if err != nil {
 			return nil, err
 		}
@@ -528,9 +531,6 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 		return storj.Bucket{}, err
 	}
 
-	defaultRS := req.GetDefaultRedundancyScheme()
-	defaultEP := req.GetDefaultEncryptionParameters()
-
 	// TODO: resolve partner id
 	var partnerID uuid.UUID
 	err = partnerID.UnmarshalJSON(req.GetPartnerId())
@@ -542,61 +542,31 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	}
 
 	return storj.Bucket{
-		ID:                  bucketID,
-		Name:                string(req.GetName()),
-		ProjectID:           projectID,
-		PartnerID:           partnerID,
-		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
-		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
-		DefaultRedundancyScheme: storj.RedundancyScheme{
-			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
-			ShareSize:      defaultRS.GetErasureShareSize(),
-			RequiredShares: int16(defaultRS.GetMinReq()),
-			RepairShares:   int16(defaultRS.GetRepairThreshold()),
-			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
-			TotalShares:    int16(defaultRS.GetTotal()),
-		},
-		DefaultEncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
-			BlockSize:   int32(defaultEP.BlockSize),
-		},
+		ID:        bucketID,
+		Name:      string(req.GetName()),
+		ProjectID: projectID,
+		PartnerID: partnerID,
 	}, nil
 }
 
-func convertBucketToProto(bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucket *pb.Bucket, err error) {
-	if bucket == (storj.Bucket{}) {
+func convertBucketToProto(bucket Bucket, rs *pb.RedundancyScheme, maxSegmentSize memory.Size) (pbBucket *pb.Bucket, err error) {
+	if len(bucket.Name) == 0 {
 		return nil, nil
 	}
 
-	partnerID, err := bucket.PartnerID.MarshalJSON()
-	if err != nil {
-		return pbBucket, rpcstatus.Error(rpcstatus.Internal, "UUID marshal error")
-	}
+	return &pb.Bucket{
+		Name:      bucket.Name,
+		CreatedAt: bucket.CreatedAt,
 
-	pbBucket = &pb.Bucket{
-		Name:                    []byte(bucket.Name),
-		PathCipher:              pb.CipherSuite(bucket.PathCipher),
-		PartnerId:               partnerID,
-		CreatedAt:               bucket.Created,
-		DefaultSegmentSize:      bucket.DefaultSegmentsSize,
+		// default satellite values
+		PathCipher:              pb.CipherSuite_ENC_AESGCM,
+		DefaultSegmentSize:      maxSegmentSize.Int64(),
 		DefaultRedundancyScheme: rs,
 		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
-			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
+			CipherSuite: pb.CipherSuite_ENC_AESGCM,
+			BlockSize:   int64(rs.ErasureShareSize * rs.MinReq),
 		},
-	}
-
-	// this part is to provide default ciphers (path and encryption) for old uplinks
-	// new uplinks are using ciphers from encryption access
-	if pbBucket.PathCipher == pb.CipherSuite_ENC_UNSPECIFIED {
-		pbBucket.PathCipher = pb.CipherSuite_ENC_AESGCM
-	}
-	if pbBucket.DefaultEncryptionParameters.CipherSuite == pb.CipherSuite_ENC_UNSPECIFIED {
-		pbBucket.DefaultEncryptionParameters.CipherSuite = pb.CipherSuite_ENC_AESGCM
-		pbBucket.DefaultEncryptionParameters.BlockSize = int64(rs.ErasureShareSize * rs.MinReq)
-	}
-
-	return pbBucket, nil
+	}, nil
 }
 
 // BeginObject begins object.
@@ -685,8 +655,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, err
 	}
 
-	// use only satellite values for Redundancy Scheme
-	pbRS := endpoint.defaultRS
 	streamID, err := uuid.New()
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -719,15 +687,13 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		Encryption: encryptionParameters,
 	})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:               req.Bucket,
 		EncryptedObjectKey:   req.EncryptedPath,
 		Version:              int32(object.Version),
-		Redundancy:           pbRS,
 		CreationDate:         object.CreatedAt,
 		ExpirationDate:       req.ExpiresAt,
 		StreamId:             streamID[:],
@@ -747,7 +713,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedPath:    req.EncryptedPath,
 		Version:          req.Version,
 		StreamId:         satStreamID,
-		RedundancyScheme: pbRS,
+		RedundancyScheme: endpoint.defaultRS,
 	}, nil
 }
 
@@ -795,7 +761,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		encryption.BlockSize = streamMeta.EncryptionBlockSize
 	}
 
-	_, err = endpoint.metabase.CommitObject(ctx, metabase.CommitObject{
+	request := metabase.CommitObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
@@ -803,15 +769,28 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			StreamID:   id,
 			Version:    metabase.Version(1),
 		},
-		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
-		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-
 		Encryption: encryption,
-	})
+	}
+	// uplink can send empty metadata with not empty key/nonce
+	// we need to fix it on uplink side but that part will be
+	// needed for backward compatibility
+	if len(req.EncryptedMetadata) != 0 {
+		request.EncryptedMetadata = req.EncryptedMetadata
+		request.EncryptedMetadataNonce = req.EncryptedMetadataNonce[:]
+		request.EncryptedMetadataEncryptedKey = req.EncryptedMetadataEncryptedKey
+
+		// older uplinks might send EncryptedMetadata directly with request but
+		// key/nonce will be part of StreamMeta
+		if req.EncryptedMetadataNonce.IsZero() && len(req.EncryptedMetadataEncryptedKey) == 0 &&
+			streamMeta.LastSegmentMeta != nil {
+			request.EncryptedMetadataNonce = streamMeta.LastSegmentMeta.KeyNonce
+			request.EncryptedMetadataEncryptedKey = streamMeta.LastSegmentMeta.EncryptedKey
+		}
+	}
+
+	_, err = endpoint.metabase.CommitObject(ctx, request)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	return &pb.ObjectCommitResponse{}, nil
@@ -849,11 +828,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		},
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	var segmentRS *pb.RedundancyScheme
@@ -922,9 +897,13 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
-		endpoint.log.Error("Retrieving project bandwidth total failed; bandwidth limit won't be enforced", zap.Error(err))
+		endpoint.log.Error(
+			"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 	} else if exceeded {
-		endpoint.log.Error("Monthly bandwidth limit exceeded",
+		endpoint.log.Warn("Monthly bandwidth limit exceeded",
 			zap.Stringer("Limit", limit),
 			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
@@ -941,11 +920,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		},
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	// get the range segments
@@ -961,11 +936,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		Limit:    int(req.Limit),
 	})
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	// get the download response for the first segment
@@ -982,15 +953,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			Position: segments.Segments[0].Position,
 		})
 		if err != nil {
-			// object was deleted between the steps
-			if storj.ErrObjectNotFound.Has(err) {
-				return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-			}
-			if metabase.ErrInvalidRequest.Has(err) {
-				return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-			}
-			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, endpoint.convertMetabaseErr(err)
 		}
 
 		downloadSizes := endpoint.calculateDownloadSizes(streamRange, segment, object.Encryption)
@@ -1001,7 +964,11 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			// log it and continue. it's most likely our own fault that we couldn't
 			// track it, and the only thing that will be affected is our per-project
 			// bandwidth limits.
-			endpoint.log.Error("Could not track the new project's bandwidth usage", zap.Stringer("Project ID", keyInfo.ProjectID), zap.Error(err))
+			endpoint.log.Error(
+				"Could not track the new project's bandwidth usage",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Error(err),
+			)
 		}
 
 		encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
@@ -1285,9 +1252,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		cursor = string(prefix) + cursor
 	}
 
-	includeMetadata := true
+	includeCustomMetadata := true
+	includeSystemMetadata := true
 	if req.UseObjectIncludes {
-		includeMetadata = req.ObjectIncludes.Metadata
+		includeCustomMetadata = req.ObjectIncludes.Metadata
+		includeSystemMetadata = !req.ObjectIncludes.ExcludeSystemMetadata
 	}
 
 	resp = &pb.ObjectListResponse{}
@@ -1301,14 +1270,15 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				Key:     metabase.ObjectKey(cursor),
 				Version: 1, // TODO: set to a the version from the protobuf request when it supports this
 			},
-			Recursive:       req.Recursive,
-			BatchSize:       limit + 1,
-			Status:          status,
-			IncludeMetadata: includeMetadata,
+			Recursive:             req.Recursive,
+			BatchSize:             limit + 1,
+			Status:                status,
+			IncludeCustomMetadata: includeCustomMetadata,
+			IncludeSystemMetadata: includeSystemMetadata,
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeMetadata)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata)
 				if err != nil {
 					return err
 				}
@@ -1319,11 +1289,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		},
 	)
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("unable to list objects", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
@@ -1408,13 +1374,8 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 			return nil
 		},
 	)
-
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("unable to list pending object streams", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	endpoint.log.Info("List pending object streams", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
@@ -1506,11 +1467,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			// No error info is returned if neither Read, nor List permission is granted
 			return &pb.ObjectBeginDeleteResponse{}, nil
 		}
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Wrap(rpcstatus.NotFound, err)
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	var object *pb.Object
@@ -1571,11 +1528,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		},
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	pieceCountByNodeID, err := endpoint.metabase.GetStreamPieceCountByNodeID(ctx,
@@ -1583,8 +1536,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 			StreamID: object.StreamID,
 		})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	nodeIDs := make([]storj.NodeID, 0, len(pieceCountByNodeID))
@@ -1655,6 +1607,11 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	var encryptedMetadataNonce []byte
+	if !req.EncryptedMetadataNonce.IsZero() {
+		encryptedMetadataNonce = req.EncryptedMetadataNonce[:]
+	}
+
 	err = endpoint.metabase.UpdateObjectMetadata(ctx, metabase.UpdateObjectMetadata{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -1664,15 +1621,11 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 			StreamID:   id,
 		},
 		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
+		EncryptedMetadataNonce:        encryptedMetadataNonce,
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	return &pb.ObjectUpdateMetadataResponse{}, nil
@@ -1712,7 +1665,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, err
 	}
 
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(streamID.Redundancy)
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(endpoint.defaultRS)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
@@ -1764,8 +1717,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		Pieces:      pieces,
 	})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{
@@ -1815,16 +1767,15 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	// cheap basic verification
-
-	if numResults := len(req.UploadResult); numResults < int(streamID.Redundancy.GetSuccessThreshold()) {
+	if numResults := len(req.UploadResult); numResults < int(endpoint.defaultRS.GetSuccessThreshold()) {
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
 			zap.Int("upload pieces results", numResults),
-			zap.Int32("redundancy optimal threshold", streamID.Redundancy.GetSuccessThreshold()),
+			zap.Int32("redundancy optimal threshold", endpoint.defaultRS.GetSuccessThreshold()),
 			zap.Stringer("Segment ID", req.SegmentId),
 		)
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
-			numResults, streamID.Redundancy.GetSuccessThreshold(),
+			numResults, endpoint.defaultRS.GetSuccessThreshold(),
 		)
 	}
 
@@ -1963,11 +1914,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	err = endpoint.metabase.CommitSegment(ctx, mbCommitSegment)
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	return &pb.SegmentCommitResponse{
@@ -2056,11 +2003,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		InlineData: req.EncryptedInlineData,
 	})
 	if err != nil {
-		if metabase.ErrInvalidRequest.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
@@ -2115,11 +2058,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		Limit: int(req.Limit),
 	})
 	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	response, err := convertStreamListResults(result)
@@ -2186,9 +2125,13 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
 
 	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
-		endpoint.log.Error("Retrieving project bandwidth total failed; bandwidth limit won't be enforced", zap.Error(err))
+		endpoint.log.Error(
+			"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 	} else if exceeded {
-		endpoint.log.Error("Monthly bandwidth limit exceeded",
+		endpoint.log.Warn("Monthly bandwidth limit exceeded",
 			zap.Stringer("Limit", limit),
 			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
@@ -2224,8 +2167,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		})
 	}
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	// Update the current bandwidth cache value incrementing the SegmentSize.
@@ -2312,49 +2254,14 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}, nil
 }
 
-// DeletePart deletes a single part from satellite db and from storage nodes.
+// DeletePart is a no-op.
+//
+// It was used to perform the deletion of a single part from satellite db and
+// from storage nodes. We made this method noop because now we can overwrite
+// segments for pending objects. It's returning no error to avoid failures with
+// uplinks that still are using this method.
 func (endpoint *Endpoint) DeletePart(ctx context.Context, req *pb.PartDeleteRequest) (resp *pb.PartDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
-
-	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionDelete,
-		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedObjectKey,
-		Time:          time.Now(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	id, err := uuid.FromBytes(streamID.StreamId)
-	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	err = endpoint.metabase.DeletePart(ctx, metabase.DeletePart{
-		StreamID:   id,
-		PartNumber: uint32(req.PartNumber),
-
-		DeletePieces: func(ctx context.Context, segment metabase.DeletedSegmentInfo) error {
-			endpoint.deleteSegmentPieces(ctx, []metabase.DeletedSegmentInfo{segment})
-			return nil
-		},
-	})
-	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
 
 	return &pb.PartDeleteResponse{}, nil
 }
@@ -2458,7 +2365,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 
 	result, err := endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
@@ -2469,7 +2376,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			zap.Binary("object", []byte(object)),
 			zap.Error(err),
 		)
-		return deletedObjects, err
+		return deletedObjects, Error.Wrap(err)
 	}
 
 	return deletedObjects, nil
@@ -2488,7 +2395,7 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 		ObjectLocation: location,
 	})
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
@@ -2523,6 +2430,7 @@ func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metaba
 }
 
 func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// We should ignore client cancelling and always try to delete segments.
 	ctx = context2.WithoutCancellation(ctx)
 
@@ -2541,6 +2449,9 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metaba
 }
 
 func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []metabase.DeletedSegmentInfo) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	nodesPieces := groupPiecesByNodeID(segments)
 
 	var requests []piecedeletion.Request
@@ -2555,7 +2466,8 @@ func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []me
 
 	// Only return an error if we failed to delete the objects. If we failed
 	// to delete pieces, let garbage collector take care of it.
-	if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
+	err = endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold)
+	if err != nil {
 		endpoint.log.Error("failed to delete pieces", zap.Error(err))
 	}
 }
@@ -2576,7 +2488,6 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		ExpirationDate:     expires,
 		StreamId:           object.StreamID[:],
 		MultipartObject:    multipartObject,
-		Redundancy:         rs,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
@@ -2714,9 +2625,6 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 			ExpirationDate:     item.ExpiresAt,
 			StreamId:           entry.StreamID[:],
 			MultipartObject:    entry.FixedSegmentSize <= 0,
-			// TODO: defaultRS may change while the upload is pending.
-			// Ideally, we should remove redundancy from satStreamID.
-			Redundancy: endpoint.defaultRS,
 			EncryptionParameters: &pb.EncryptionParameters{
 				CipherSuite: pb.CipherSuite(entry.Encryption.CipherSuite),
 				BlockSize:   int64(entry.Encryption.BlockSize),
@@ -2779,10 +2687,11 @@ func (endpoint *Endpoint) checkExceedsStorageUsage(ctx context.Context, projectI
 	if err != nil {
 		endpoint.log.Error(
 			"Retrieving project storage totals failed; storage usage limit won't be enforced",
+			zap.Stringer("Project ID", projectID),
 			zap.Error(err),
 		)
 	} else if exceeded {
-		endpoint.log.Error("Monthly storage limit exceeded",
+		endpoint.log.Warn("Monthly storage limit exceeded",
 			zap.Stringer("Limit", limit),
 			zap.Stringer("Project ID", projectID),
 		)
@@ -2861,15 +2770,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
-		switch {
-		case storj.ErrObjectNotFound.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		case metabase.ErrInvalidRequest.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		default:
-			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	response, err := convertBeginMoveObjectResults(result)
@@ -2882,7 +2783,6 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
 		Version:            int32(metabase.DefaultVersion),
-		Redundancy:         endpoint.defaultRS,
 		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
@@ -2901,9 +2801,13 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.ObjectBeginMoveResponse, error) {
 	keys := make([]*pb.EncryptedKeyAndNonce, len(result.EncryptedKeysNonces))
 	for i, key := range result.EncryptedKeysNonces {
-		nonce, err := storj.NonceFromBytes(key.EncryptedKeyNonce)
-		if err != nil {
-			return nil, err
+		var nonce storj.Nonce
+		var err error
+		if len(key.EncryptedKeyNonce) != 0 {
+			nonce, err = storj.NonceFromBytes(key.EncryptedKeyNonce)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		keys[i] = &pb.EncryptedKeyAndNonce{
@@ -2929,10 +2833,15 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 		}
 	}
 
-	metadataNonce, err := storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
-	if err != nil {
-		return nil, err
+	var metadataNonce storj.Nonce
+	var err error
+	if len(result.EncryptedMetadataKeyNonce) != 0 {
+		metadataNonce, err = storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return &pb.ObjectBeginMoveResponse{
 		EncryptedMetadataKey:      result.EncryptedMetadataKey,
 		EncryptedMetadataKeyNonce: metadataNonce,
@@ -3001,20 +2910,25 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
 	})
 	if err != nil {
-		switch {
-		case storj.ErrObjectNotFound.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		case metabase.ErrSegmentNotFound.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		case metabase.ErrInvalidRequest.Has(err):
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		default:
-			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	return &pb.ObjectFinishMoveResponse{}, nil
+}
+
+// convertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
+func (endpoint *Endpoint) convertMetabaseErr(err error) error {
+	switch {
+	case storj.ErrObjectNotFound.Has(err):
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	case metabase.ErrSegmentNotFound.Has(err):
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	case metabase.ErrInvalidRequest.Has(err):
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	default:
+		endpoint.log.Error("internal", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
 }
 
 // protobufkeysToMetabase converts []*pb.EncryptedKeyAndNonce to []metabase.EncryptedKeyAndNonce.

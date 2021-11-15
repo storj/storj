@@ -96,7 +96,7 @@ func TestBilling_InlineFiles(t *testing.T) {
 		usage := getProjectTotal(ctx, t, planet, 0, projectID, since)
 
 		// Usage should be > 0
-		require.NotZero(t, usage.ObjectCount)
+		require.NotZero(t, usage.SegmentCount)
 		require.NotZero(t, usage.Storage)
 		require.NotZero(t, usage.Egress)
 	})
@@ -131,8 +131,8 @@ func TestBilling_FilesAfterDeletion(t *testing.T) {
 		// Get usage for uploaded file before we delete it
 		usageBefore := getProjectTotal(ctx, t, planet, 0, projectID, since)
 
-		// ObjectCount and Storage should be > 0
-		require.NotZero(t, usageBefore.ObjectCount)
+		// SegmentCount and Storage should be > 0
+		require.NotZero(t, usageBefore.SegmentCount)
 		require.NotZero(t, usageBefore.Storage)
 		require.Zero(t, usageBefore.Egress)
 
@@ -146,7 +146,7 @@ func TestBilling_FilesAfterDeletion(t *testing.T) {
 		usageAfter := getProjectTotal(ctx, t, planet, 0, projectID, since)
 
 		// Verify data is correct. We don’t bill for the data after deleting objects, usage should be equal
-		require.Equal(t, usageBefore.ObjectCount, usageAfter.ObjectCount, "Object count should be equal")
+		require.Equal(t, usageBefore.SegmentCount, usageAfter.SegmentCount, "Segment count should be equal")
 		require.Equal(t, usageBefore.Storage, usageAfter.Storage, "Storage should be equal")
 		require.Zero(t, usageAfter.Egress, "Egress should be 0")
 	})

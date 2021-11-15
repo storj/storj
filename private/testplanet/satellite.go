@@ -232,7 +232,7 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 		return nil, err
 	}
 
-	err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
+	_, err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		return nil, err
 	}
@@ -390,21 +390,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	planet.databases = append(planet.databases, db)
 
-	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB)
-	if err != nil {
-		return nil, err
-	}
-
-	if planet.config.Reconfigure.SatelliteMetabaseDB != nil {
-		var newMetabaseDB *metabase.DB
-		newMetabaseDB, err = planet.config.Reconfigure.SatelliteMetabaseDB(log.Named("metabase"), index, metabaseDB)
-		if err != nil {
-			return nil, errs.Combine(err, metabaseDB.Close())
-		}
-		metabaseDB = newMetabaseDB
-	}
-	planet.databases = append(planet.databases, metabaseDB)
-
 	redis, err := testredis.Mini(ctx)
 	if err != nil {
 		return nil, err
@@ -440,7 +425,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Tally.ReadRollupBatchSize = 0
 	config.Rollup.DeleteTallies = false
 	config.Payments.BonusRate = 0
-	config.Payments.MinCoinPayment = 0
 	config.Payments.NodeEgressBandwidthPrice = 0
 	config.Payments.NodeRepairBandwidthPrice = 0
 	config.Payments.NodeAuditBandwidthPrice = 0
@@ -490,6 +474,24 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	if planet.config.Reconfigure.Satellite != nil {
 		planet.config.Reconfigure.Satellite(log, index, &config)
 	}
+
+	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB, metabase.Config{
+		MinPartSize:      config.Metainfo.MinPartSize,
+		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if planet.config.Reconfigure.SatelliteMetabaseDB != nil {
+		var newMetabaseDB *metabase.DB
+		newMetabaseDB, err = planet.config.Reconfigure.SatelliteMetabaseDB(log.Named("metabase"), index, metabaseDB)
+		if err != nil {
+			return nil, errs.Combine(err, metabaseDB.Close())
+		}
+		metabaseDB = newMetabaseDB
+	}
+	planet.databases = append(planet.databases, metabaseDB)
 
 	versionInfo := planet.NewVersionInfo()
 

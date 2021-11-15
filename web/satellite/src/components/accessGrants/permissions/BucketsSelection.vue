@@ -5,7 +5,6 @@
     <div class="buckets-selection">
         <div
             class="buckets-selection__toggle-container"
-            :class="{ disabled: isOnboardingTour }"
             @click.stop="toggleDropdown"
         >
             <h1 class="buckets-selection__toggle-container__name">{{ selectionLabel }}</h1>
@@ -14,22 +13,17 @@
                 alt="Arrow down (expand)"
             />
         </div>
-        <BucketsDropdown
-            v-if="isDropdownShown"
-            v-click-outside="closeDropdown"
-            @close="closeDropdown"
-        />
+        <BucketsDropdown v-if="isDropdownShown" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-
-import { RouteConfig } from '@/router';
 
 // @vue/component
 @Component({
@@ -39,29 +33,18 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class BucketsSelection extends Vue {
-    public isDropdownShown = false;
-
     /**
      * Toggles dropdown visibility.
      */
     public toggleDropdown(): void {
-        if (this.isOnboardingTour) return;
-
-        this.isDropdownShown = !this.isDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_BUCKET_NAMES_DROPDOWN);
     }
 
     /**
-     * Closes dropdown.
+     * Indicates if dropdown is shown.
      */
-    public closeDropdown(): void {
-        this.isDropdownShown = false;
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
+    public get isDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isBucketNamesDropdownShown;
     }
 
     /**
@@ -114,11 +97,5 @@ export default class BucketsSelection extends Vue {
                 margin: 0;
             }
         }
-    }
-
-    .disabled {
-        pointer-events: none;
-        background: #f5f6fa;
-        border: 1px solid rgba(56, 75, 101, 0.4);
     }
 </style>

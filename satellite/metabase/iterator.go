@@ -18,14 +18,15 @@ import (
 type objectsIterator struct {
 	db *DB
 
-	projectID       uuid.UUID
-	bucketName      []byte
-	status          ObjectStatus
-	prefix          ObjectKey
-	prefixLimit     ObjectKey
-	batchSize       int
-	recursive       bool
-	includeMetadata bool
+	projectID             uuid.UUID
+	bucketName            []byte
+	status                ObjectStatus
+	prefix                ObjectKey
+	prefixLimit           ObjectKey
+	batchSize             int
+	recursive             bool
+	includeCustomMetadata bool
+	includeSystemMetadata bool
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -51,13 +52,14 @@ func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn fun
 	it := &objectsIterator{
 		db: db,
 
-		projectID:       opts.ProjectID,
-		bucketName:      []byte(opts.BucketName),
-		prefix:          opts.Prefix,
-		prefixLimit:     prefixLimit(opts.Prefix),
-		batchSize:       opts.BatchSize,
-		recursive:       true,
-		includeMetadata: true,
+		projectID:             opts.ProjectID,
+		bucketName:            []byte(opts.BucketName),
+		prefix:                opts.Prefix,
+		prefixLimit:           prefixLimit(opts.Prefix),
+		batchSize:             opts.BatchSize,
+		recursive:             true,
+		includeCustomMetadata: true,
+		includeSystemMetadata: true,
 
 		curIndex:    0,
 		cursor:      firstIterateCursor(true, opts.Cursor, opts.Prefix),
@@ -80,14 +82,15 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 	it := &objectsIterator{
 		db: db,
 
-		projectID:       opts.ProjectID,
-		bucketName:      []byte(opts.BucketName),
-		status:          opts.Status,
-		prefix:          opts.Prefix,
-		prefixLimit:     prefixLimit(opts.Prefix),
-		batchSize:       opts.BatchSize,
-		recursive:       opts.Recursive,
-		includeMetadata: opts.IncludeMetadata,
+		projectID:             opts.ProjectID,
+		bucketName:            []byte(opts.BucketName),
+		status:                opts.Status,
+		prefix:                opts.Prefix,
+		prefixLimit:           prefixLimit(opts.Prefix),
+		batchSize:             opts.BatchSize,
+		recursive:             opts.Recursive,
+		includeCustomMetadata: opts.IncludeCustomMetadata,
+		includeSystemMetadata: opts.IncludeSystemMetadata,
 
 		curIndex: 0,
 		cursor:   firstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
@@ -117,13 +120,14 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 	it := &objectsIterator{
 		db: db,
 
-		projectID:       opts.ProjectID,
-		bucketName:      []byte(opts.BucketName),
-		prefix:          "",
-		prefixLimit:     "",
-		batchSize:       opts.BatchSize,
-		recursive:       true,
-		includeMetadata: true,
+		projectID:             opts.ProjectID,
+		bucketName:            []byte(opts.BucketName),
+		prefix:                "",
+		prefixLimit:           "",
+		batchSize:             opts.BatchSize,
+		recursive:             true,
+		includeCustomMetadata: true,
+		includeSystemMetadata: true,
 
 		curIndex: 0,
 		cursor: iterateCursor{
@@ -258,12 +262,11 @@ func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterato
 	if it.prefixLimit == "" {
 		return it.db.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, status,
+				object_key, stream_id, version, encryption, status,
 				created_at, expires_at,
 				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 			FROM objects
 			WHERE
 				project_id = $1 AND bucket_name = $2
@@ -280,12 +283,11 @@ func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterato
 	// works with CRDB.
 	return it.db.db.QueryContext(ctx, `
 		SELECT
-			object_key, stream_id, version, status,
+			object_key, stream_id, version, encryption, status,
 			created_at, expires_at,
 			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encryption
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 		FROM objects
 		WHERE
 			project_id = $1 AND bucket_name = $2
@@ -305,9 +307,29 @@ func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterato
 func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	metadataQuerySelectFields := ""
-	if it.includeMetadata {
-		metadataQuerySelectFields = "encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,"
+	// minimum needed for cursor
+	querySelectFields := `
+		object_key
+		,stream_id
+		,version
+		,encryption`
+
+	if it.includeSystemMetadata {
+		querySelectFields += `
+			,status
+			,created_at
+			,expires_at
+			,segment_count
+			,total_plain_size
+			,total_encrypted_size
+			,fixed_segment_size`
+	}
+
+	if it.includeCustomMetadata {
+		querySelectFields += `
+			,encrypted_metadata_nonce
+			,encrypted_metadata
+			,encrypted_metadata_encrypted_key`
 	}
 
 	cursorCompare := ">"
@@ -318,12 +340,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 	if it.prefixLimit == "" {
 		return it.db.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, status,
-				created_at, expires_at,
-				segment_count,
-				`+metadataQuerySelectFields+`
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
+				`+querySelectFields+`
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
@@ -343,12 +360,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 	// works with CRDB.
 	return it.db.db.QueryContext(ctx, `
 		SELECT
-			object_key, stream_id, version, status,
-			created_at, expires_at,
-			segment_count,
-			`+metadataQuerySelectFields+`
-			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encryption
+			`+querySelectFields+`
 		FROM objects
 		WHERE
 			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
@@ -378,12 +390,11 @@ func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql
 
 	return it.db.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, status,
+				object_key, stream_id, version, encryption, status,
 				created_at, expires_at,
 				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
 			FROM objects
 			WHERE
 				project_id = $1 AND bucket_name = $2
@@ -403,24 +414,34 @@ func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql
 func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 	item.IsPrefix = false
 
-	if it.includeMetadata {
-		err = it.curRows.Scan(
-			&item.ObjectKey, &item.StreamID, &item.Version, &item.Status,
-			&item.CreatedAt, &item.ExpiresAt,
+	fields := []interface{}{
+		&item.ObjectKey,
+		&item.StreamID,
+		&item.Version,
+		encryptionParameters{&item.Encryption},
+	}
+
+	if it.includeSystemMetadata {
+		fields = append(fields,
+			&item.Status,
+			&item.CreatedAt,
+			&item.ExpiresAt,
 			&item.SegmentCount,
-			&item.EncryptedMetadataNonce, &item.EncryptedMetadata, &item.EncryptedMetadataEncryptedKey,
-			&item.TotalPlainSize, &item.TotalEncryptedSize, &item.FixedSegmentSize,
-			encryptionParameters{&item.Encryption},
-		)
-	} else {
-		err = it.curRows.Scan(
-			&item.ObjectKey, &item.StreamID, &item.Version, &item.Status,
-			&item.CreatedAt, &item.ExpiresAt,
-			&item.SegmentCount,
-			&item.TotalPlainSize, &item.TotalEncryptedSize, &item.FixedSegmentSize,
-			encryptionParameters{&item.Encryption},
+			&item.TotalPlainSize,
+			&item.TotalEncryptedSize,
+			&item.FixedSegmentSize,
 		)
 	}
+
+	if it.includeCustomMetadata {
+		fields = append(fields,
+			&item.EncryptedMetadataNonce,
+			&item.EncryptedMetadata,
+			&item.EncryptedMetadataEncryptedKey,
+		)
+	}
+
+	err = it.curRows.Scan(fields...)
 
 	if err != nil {
 		return err

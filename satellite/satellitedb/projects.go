@@ -97,6 +97,9 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	if !project.PartnerID.IsZero() {
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
 	}
+	if project.UserAgent != nil {
+		createFields.UserAgent = dbx.Project_UserAgent(project.UserAgent)
+	}
 	if project.StorageLimit != nil {
 		createFields.UsageLimit = dbx.Project_UsageLimit(project.StorageLimit.Int64())
 	}
@@ -328,6 +331,11 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		}
 	}
 
+	var userAgent []byte
+	if len(project.UserAgent) > 0 {
+		userAgent = project.UserAgent
+	}
+
 	ownerID, err := uuid.FromBytes(project.OwnerId)
 	if err != nil {
 		return nil, err
@@ -338,6 +346,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		Name:           project.Name,
 		Description:    project.Description,
 		PartnerID:      partnerID,
+		UserAgent:      userAgent,
 		OwnerID:        ownerID,
 		RateLimit:      project.RateLimit,
 		BurstLimit:     project.BurstLimit,

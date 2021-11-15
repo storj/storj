@@ -1001,6 +1001,7 @@ func TestReverifyExpired2(t *testing.T) {
 // TestReverifySlowDownload checks that a node that times out while sending data to the
 // audit service gets put into containment mode.
 func TestReverifySlowDownload(t *testing.T) {
+	const auditTimeout = time.Second
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -1011,7 +1012,7 @@ func TestReverifySlowDownload(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 					config.Audit.MinBytesPerSecond = 100 * memory.KiB
-					config.Audit.MinDownloadTimeout = 1 * time.Second
+					config.Audit.MinDownloadTimeout = auditTimeout
 				},
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 			),
@@ -1074,24 +1075,24 @@ func TestReverifySlowDownload(t *testing.T) {
 		node := planet.FindNode(slowNode)
 		slowNodeDB := node.DB.(*testblobs.SlowDB)
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
-		delay := 1 * time.Second
+		delay := 10 * auditTimeout
 		slowNodeDB.SetLatency(delay)
 
 		report, err := audits.Verifier.Reverify(ctx, queueSegment)
 		require.NoError(t, err)
 
-		require.Len(t, report.Successes, 0)
-		require.Len(t, report.Fails, 0)
-		require.Len(t, report.Offlines, 0)
-		require.Len(t, report.PendingAudits, 1)
-		require.Len(t, report.Unknown, 0)
-		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+		assert.Len(t, report.Successes, 0)
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
+		assert.Len(t, report.PendingAudits, 1)
+		assert.Len(t, report.Unknown, 0)
+		assert.Equal(t, report.PendingAudits[0].NodeID, slowNode)
 
 		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		_, err = containment.Get(ctx, slowNode)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 }
 
@@ -1182,6 +1183,7 @@ func TestReverifyUnknownError(t *testing.T) {
 }
 
 func TestMaxReverifyCount(t *testing.T) {
+	const auditTimeout = time.Second
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -1192,7 +1194,7 @@ func TestMaxReverifyCount(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 					config.Audit.MinBytesPerSecond = 100 * memory.KiB
-					config.Audit.MinDownloadTimeout = 1 * time.Second
+					config.Audit.MinDownloadTimeout = auditTimeout
 				},
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 			),
@@ -1255,7 +1257,7 @@ func TestMaxReverifyCount(t *testing.T) {
 		node := planet.FindNode(slowNode)
 		slowNodeDB := node.DB.(*testblobs.SlowDB)
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
-		delay := 3 * time.Second
+		delay := 10 * auditTimeout
 		slowNodeDB.SetLatency(delay)
 
 		oldRep, err := satellite.Reputation.Service.Get(ctx, slowNode)
@@ -1265,38 +1267,38 @@ func TestMaxReverifyCount(t *testing.T) {
 		for i := 0; i < planet.Satellites[0].Config.Audit.MaxReverifyCount; i++ {
 			report, err := audits.Verifier.Reverify(ctx, queueSegment)
 			require.NoError(t, err)
-			require.Len(t, report.Successes, 0)
-			require.Len(t, report.Fails, 0)
-			require.Len(t, report.Offlines, 0)
-			require.Len(t, report.PendingAudits, 1)
-			require.Len(t, report.Unknown, 0)
-			require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+			assert.Len(t, report.Successes, 0)
+			assert.Len(t, report.Fails, 0)
+			assert.Len(t, report.Offlines, 0)
+			assert.Len(t, report.PendingAudits, 1)
+			assert.Len(t, report.Unknown, 0)
+			assert.Equal(t, report.PendingAudits[0].NodeID, slowNode)
 
 			_, err = audits.Reporter.RecordAudits(ctx, report)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			_, err = containment.Get(ctx, slowNode)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}
 
 		// final timeout should trigger failure and removal from containment
 		report, err := audits.Verifier.Reverify(ctx, queueSegment)
 		require.NoError(t, err)
-		require.Len(t, report.Successes, 0)
-		require.Len(t, report.Fails, 0)
-		require.Len(t, report.Offlines, 0)
-		require.Len(t, report.PendingAudits, 1)
-		require.Len(t, report.Unknown, 0)
-		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+		assert.Len(t, report.Successes, 0)
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
+		assert.Len(t, report.PendingAudits, 1)
+		assert.Len(t, report.Unknown, 0)
+		assert.Equal(t, report.PendingAudits[0].NodeID, slowNode)
 
 		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		_, err = containment.Get(ctx, slowNode)
-		require.True(t, audit.ErrContainedNotFound.Has(err))
+		assert.True(t, audit.ErrContainedNotFound.Has(err))
 
 		newRep, err := satellite.Reputation.Service.Get(ctx, slowNode)
 		require.NoError(t, err)
-		require.Less(t, oldRep.AuditReputationBeta, newRep.AuditReputationBeta)
+		assert.Less(t, oldRep.AuditReputationBeta, newRep.AuditReputationBeta)
 	})
 }

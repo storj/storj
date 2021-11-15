@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -18,6 +19,13 @@ import (
 func TestBeginObjectNextVersion(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
+
+		objectStream := metabase.ObjectStream{
+			ProjectID:  obj.ProjectID,
+			BucketName: obj.BucketName,
+			ObjectKey:  obj.ObjectKey,
+			StreamID:   obj.StreamID,
+		}
 
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
@@ -36,12 +44,33 @@ func TestBeginObjectNextVersion(t *testing.T) {
 			})
 		}
 
-		objectStream := metabase.ObjectStream{
-			ProjectID:  obj.ProjectID,
-			BucketName: obj.BucketName,
-			ObjectKey:  obj.ObjectKey,
-			StreamID:   obj.StreamID,
-		}
+		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:      objectStream,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedMetadata: testrand.BytesInt(32),
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
+			}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream:                  objectStream,
+					Encryption:                    metabasetest.DefaultEncryption,
+					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 
 		t.Run("disallow exact version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -282,6 +311,54 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("begin object next version with metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			objectStream.Version = metabase.NextVersion
+
+			encryptedMetadata := testrand.BytesInt(64)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataEncryptedKey := testrand.BytesInt(32)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    metabase.DefaultVersion,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.Pending,
+
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -312,6 +389,36 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			ObjectKey:  obj.ObjectKey,
 			StreamID:   obj.StreamID,
 		}
+
+		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objectStream.Version = 1
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:      objectStream,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedMetadata: testrand.BytesInt(32),
+				},
+				Version:  metabase.DefaultVersion,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
+			}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:                  objectStream,
+					Encryption:                    metabasetest.DefaultEncryption,
+					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+				},
+				Version:  metabase.DefaultVersion,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 
 		t.Run("disallow NextVersion", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -596,6 +703,54 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						Status:    metabase.Committed,
 
 						Encryption: metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("begin object exact version with metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			objectStream.Version = 1
+
+			encryptedMetadata := testrand.BytesInt(64)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataEncryptedKey := testrand.BytesInt(32)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    metabase.DefaultVersion,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.Pending,
+
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -1170,8 +1325,6 @@ func TestCommitSegment(t *testing.T) {
 					PlainOffset:   0,
 					Redundancy:    metabasetest.DefaultRedundancy,
 				},
-				ErrClass: &metabase.ErrConflict,
-				ErrText:  "segment already exists",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1202,6 +1355,102 @@ func TestCommitSegment(t *testing.T) {
 						Redundancy: metabasetest.DefaultRedundancy,
 
 						Pieces: pieces,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("overwrite", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now1 := time.Now()
+			zombieDeadline := now1.Add(24 * time.Hour)
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			rootPieceID1 := testrand.PieceID()
+			rootPieceID2 := testrand.PieceID()
+			pieces1 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			pieces2 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			metabasetest.BeginSegment{
+				Opts: metabase.BeginSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+					RootPieceID:  rootPieceID1,
+					Pieces:       pieces1,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+					RootPieceID:  rootPieceID1,
+					Pieces:       pieces1,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+					RootPieceID:  rootPieceID2,
+					Pieces:       pieces2,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now1,
+						Status:       metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
+						CreatedAt: now,
+
+						RootPieceID:       rootPieceID2,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						EncryptedSize: 1024,
+						PlainOffset:   0,
+						PlainSize:     512,
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces2,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -1567,8 +1816,6 @@ func TestCommitInlineSegment(t *testing.T) {
 					PlainSize:   512,
 					PlainOffset: 0,
 				},
-				ErrClass: &metabase.ErrConflict,
-				ErrText:  "segment already exists",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1595,6 +1842,80 @@ func TestCommitInlineSegment(t *testing.T) {
 						PlainSize:   512,
 
 						InlineData:    []byte{1, 2, 3},
+						EncryptedSize: 3,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("overwrite", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now1 := time.Now()
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+					InlineData:   []byte{1, 2, 3},
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					PlainSize:   512,
+					PlainOffset: 0,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+					InlineData:   []byte{4, 5, 6},
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					PlainSize:   512,
+					PlainOffset: 0,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now1,
+						Status:       metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
+						CreatedAt: now,
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						PlainOffset: 0,
+						PlainSize:   512,
+
+						InlineData:    []byte{4, 5, 6},
 						EncryptedSize: 3,
 					},
 				},
@@ -1861,6 +2182,42 @@ func TestCommitObject(t *testing.T) {
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 		}
+
+		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    metabase.DefaultVersion,
+						StreamID:   obj.StreamID,
+					},
+					EncryptedMetadata: testrand.BytesInt(32),
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    metabase.DefaultVersion,
+						StreamID:   obj.StreamID,
+					},
+					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 
 		t.Run("version without pending", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -2284,6 +2641,519 @@ func TestCommitObject(t *testing.T) {
 						Encryption:   metabasetest.DefaultEncryption,
 					},
 				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit with metadata (no overwrite)", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			expectedMetadata := testrand.Bytes(memory.KiB)
+			expectedMetadataKey := testrand.Bytes(32)
+			expectedMetadataNonce := testrand.Nonce().Bytes()
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             expectedMetadata,
+					EncryptedMetadataEncryptedKey: expectedMetadataKey,
+					EncryptedMetadataNonce:        expectedMetadataNonce,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						Encryption: metabasetest.DefaultEncryption,
+
+						EncryptedMetadata:             expectedMetadata,
+						EncryptedMetadataEncryptedKey: expectedMetadataKey,
+						EncryptedMetadataNonce:        expectedMetadataNonce,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit with metadata (overwrite)", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			expectedMetadata := testrand.Bytes(memory.KiB)
+			expecedMetadataKey := testrand.Bytes(32)
+			expecedMetadataNonce := testrand.Nonce().Bytes()
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             testrand.Bytes(memory.KiB),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             expectedMetadata,
+					EncryptedMetadataEncryptedKey: expecedMetadataKey,
+					EncryptedMetadataNonce:        expecedMetadataNonce,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						Encryption: metabasetest.DefaultEncryption,
+
+						EncryptedMetadata:             expectedMetadata,
+						EncryptedMetadataEncryptedKey: expecedMetadataKey,
+						EncryptedMetadataNonce:        expecedMetadataNonce,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
+	metabasetest.RunWithConfig(t, metabase.Config{
+		MinPartSize:      5 * memory.MiB,
+		MaxNumberOfParts: 1000,
+	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		t.Run("part size less then 5MB", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			rootPieceID := testrand.PieceID()
+			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce[:],
+
+					EncryptedSize: 2 * memory.MiB.Int32(),
+					PlainSize:     2 * memory.MiB.Int32(),
+					Redundancy:    metabasetest.DefaultRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 1, Index: 0},
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce[:],
+
+					EncryptedSize: 2 * memory.MiB.Int32(),
+					PlainSize:     2 * memory.MiB.Int32(),
+					Redundancy:    metabasetest.DefaultRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+				ErrClass: &metabase.Error,
+				ErrText:  "size of part number 0 is below minimum threshold, got: 2.0 MiB, min: 5.0 MiB",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
+						CreatedAt: now,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce[:],
+
+						EncryptedSize: 2 * memory.MiB.Int32(),
+						PlainSize:     2 * memory.MiB.Int32(),
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 1, Index: 0},
+						CreatedAt: now,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce[:],
+
+						EncryptedSize: 2 * memory.MiB.Int32(),
+						PlainSize:     2 * memory.MiB.Int32(),
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("size validation with part with multiple segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			now := time.Now()
+
+			rootPieceID := testrand.PieceID()
+			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 1, Index: 0},
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce[:],
+
+					EncryptedSize: memory.MiB.Int32(),
+					PlainSize:     memory.MiB.Int32(),
+					Redundancy:    metabasetest.DefaultRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 1, Index: 1},
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce[:],
+
+					EncryptedSize: memory.MiB.Int32(),
+					PlainSize:     memory.MiB.Int32(),
+					Redundancy:    metabasetest.DefaultRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						SegmentCount:       2,
+						FixedSegmentSize:   -1,
+						TotalPlainSize:     2 * memory.MiB.Int64(),
+						TotalEncryptedSize: 2 * memory.MiB.Int64(),
+
+						Encryption: metabasetest.DefaultEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 1, Index: 0},
+						CreatedAt: now,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce[:],
+
+						EncryptedSize: memory.MiB.Int32(),
+						PlainSize:     memory.MiB.Int32(),
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 1, Index: 1},
+						CreatedAt: now,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce[:],
+
+						EncryptedSize: memory.MiB.Int32(),
+						PlainSize:     memory.MiB.Int32(),
+						PlainOffset:   memory.MiB.Int64(),
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("size validation with multiple parts", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			rootPieceID := testrand.PieceID()
+			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
+			partsSizes := []memory.Size{6 * memory.MiB, 1 * memory.MiB, 1 * memory.MiB}
+
+			for i, size := range partsSizes {
+				metabasetest.CommitSegment{
+					Opts: metabase.CommitSegment{
+						ObjectStream: obj,
+						Position:     metabase.SegmentPosition{Part: uint32(i + 1), Index: 1},
+						RootPieceID:  rootPieceID,
+						Pieces:       pieces,
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce[:],
+
+						EncryptedSize: size.Int32(),
+						PlainSize:     size.Int32(),
+						Redundancy:    metabasetest.DefaultRedundancy,
+					},
+				}.Check(ctx, t, db)
+			}
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+				ErrClass: &metabase.Error,
+				ErrText:  "size of part number 2 is below minimum threshold, got: 1.0 MiB, min: 5.0 MiB",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 1, Index: 1},
+						CreatedAt: now,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce[:],
+
+						EncryptedSize: 6 * memory.MiB.Int32(),
+						PlainSize:     6 * memory.MiB.Int32(),
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 2, Index: 1},
+						CreatedAt: now,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce[:],
+
+						EncryptedSize: memory.MiB.Int32(),
+						PlainSize:     memory.MiB.Int32(),
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 3, Index: 1},
+						CreatedAt: now,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce[:],
+
+						EncryptedSize: memory.MiB.Int32(),
+						PlainSize:     memory.MiB.Int32(),
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
+	metabasetest.RunWithConfig(t, metabase.Config{
+		MinPartSize:      5 * memory.MiB,
+		MaxNumberOfParts: 3,
+	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		t.Run("number of parts check", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			rootPieceID := testrand.PieceID()
+			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Nonce()
+
+			var segments []metabase.RawSegment
+
+			for i := 1; i < 5; i++ {
+				metabasetest.CommitSegment{
+					Opts: metabase.CommitSegment{
+						ObjectStream: obj,
+						Position:     metabase.SegmentPosition{Part: uint32(i), Index: 0},
+						RootPieceID:  rootPieceID,
+						Pieces:       pieces,
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce[:],
+
+						EncryptedSize: 6 * memory.MiB.Int32(),
+						PlainSize:     6 * memory.MiB.Int32(),
+						Redundancy:    metabasetest.DefaultRedundancy,
+					},
+				}.Check(ctx, t, db)
+
+				segments = append(segments, metabase.RawSegment{
+					StreamID:  obj.StreamID,
+					Position:  metabase.SegmentPosition{Part: uint32(i), Index: 0},
+					CreatedAt: now,
+
+					RootPieceID:       rootPieceID,
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce[:],
+
+					EncryptedSize: 6 * memory.MiB.Int32(),
+					PlainSize:     6 * memory.MiB.Int32(),
+
+					Redundancy: metabasetest.DefaultRedundancy,
+
+					Pieces: pieces,
+				})
+			}
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+				ErrClass: &metabase.Error,
+				ErrText:  "exceeded maximum number of parts: 3",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+				Segments: segments,
 			}.Check(ctx, t, db)
 		})
 	})

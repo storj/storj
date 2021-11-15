@@ -3,7 +3,7 @@
 exports[`Team HeaderArea renders correctly 1`] = `
 <div class="team-header-container">
   <div class="team-header-container__title-area">
-    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <h1 aria-roledescription="title" class="team-header-container__title-area__title">Project Members</h1>
     <vinfo-stub title="" buttonlabel="" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">
@@ -24,7 +24,7 @@ exports[`Team HeaderArea renders correctly 1`] = `
 exports[`Team HeaderArea renders correctly with 1 selected user and delete clicked once 1`] = `
 <div class="team-header-container">
   <div class="team-header-container__title-area">
-    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <h1 aria-roledescription="title" class="team-header-container__title-area__title">Project Members</h1>
     <vinfo-stub title="" buttonlabel="" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">
@@ -48,7 +48,7 @@ exports[`Team HeaderArea renders correctly with 1 selected user and delete click
 exports[`Team HeaderArea renders correctly with 2 selected users and delete clicked once 1`] = `
 <div class="team-header-container">
   <div class="team-header-container__title-area">
-    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <h1 aria-roledescription="title" class="team-header-container__title-area__title">Project Members</h1>
     <vinfo-stub title="" buttonlabel="" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">
@@ -72,7 +72,7 @@ exports[`Team HeaderArea renders correctly with 2 selected users and delete clic
 exports[`Team HeaderArea renders correctly with opened Add team member popup 1`] = `
 <div class="team-header-container">
   <div class="team-header-container__title-area">
-    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <h1 aria-roledescription="title" class="team-header-container__title-area__title">Project Members</h1>
     <vinfo-stub title="" buttonlabel="" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">
@@ -93,7 +93,7 @@ exports[`Team HeaderArea renders correctly with opened Add team member popup 1`]
 exports[`Team HeaderArea renders correctly with selected users 1`] = `
 <div class="team-header-container">
   <div class="team-header-container__title-area">
-    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <h1 aria-roledescription="title" class="team-header-container__title-area__title">Project Members</h1>
     <vinfo-stub title="" buttonlabel="" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">

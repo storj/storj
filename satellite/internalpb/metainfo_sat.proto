@@ -9,7 +9,6 @@ package satellite.metainfo;
 import "encryption.proto";
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
-import "pointerdb.proto";
 import "metainfo.proto";
 
 message StreamID {
@@ -17,7 +16,6 @@ message StreamID {
     bytes  encrypted_object_key = 2;
     int32  version = 3;
 
-    pointerdb.RedundancyScheme redundancy = 4;
     encryption.EncryptionParameters encryption_parameters = 12;
 
     google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];

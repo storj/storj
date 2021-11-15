@@ -7,6 +7,7 @@
         <p class="container__item">{{ itemData.storage.toFixed(2) }}GB</p>
         <p class="container__item">{{ itemData.egress.toFixed(2) }}GB</p>
         <p class="container__item">{{ itemData.objectCount.toString() }}</p>
+        <p class="container__item">{{ itemData.segmentCount.toString() }}</p>
     </div>
 </template>
 
@@ -18,7 +19,7 @@ import { Bucket } from '@/types/buckets';
 // @vue/component
 @Component
 export default class BucketItem extends Vue {
-    @Prop({default: () => new Bucket('', 0, 0, 0, new Date(), new Date())})
+    @Prop({default: () => new Bucket('', 0, 0, 0, 0, new Date(), new Date())})
     private readonly itemData: Bucket;
 }
 </script>

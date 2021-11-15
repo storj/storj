@@ -48,7 +48,7 @@ func commands(cmds clingy.Commands, ex ulext.External) {
 	cmds.New("share", "Shares restricted accesses to objects", newCmdShare(ex))
 	cmds.New("mb", "Create a new bucket", newCmdMb(ex))
 	cmds.New("rb", "Remove a bucket bucket", newCmdRb(ex))
-	cmds.New("cp", "Copies files or objects into or out of tardigrade", newCmdCp(ex))
+	cmds.New("cp", "Copies files or objects into or out of storj", newCmdCp(ex))
 	cmds.New("ls", "Lists buckets, prefixes, or objects", newCmdLs(ex))
 	cmds.New("rm", "Remove an object", newCmdRm(ex))
 	cmds.Group("meta", "Object metadata related commands", func() {

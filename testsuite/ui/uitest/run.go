@@ -4,22 +4,19 @@
 package uitest
 
 import (
-	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/utils"
-	"github.com/stretchr/testify/require"
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 )
+
+var mon = monkit.Package()
 
 // Test defines common services for uitests.
 type Test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser)
@@ -35,58 +32,24 @@ func (log zapWriter) Write(data []byte) (int, error) {
 
 // Run starts a new UI test.
 func Run(t *testing.T, test Test) {
-	if os.Getenv("STORJ_TEST_SATELLITE_WEB") == "" {
-		t.Skip("Enable UI tests by setting STORJ_TEST_SATELLITE_WEB to built npm")
-	}
-	if os.Getenv("STORJ_TEST_SATELLITE_WEB") == "omit" {
-		return
-	}
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.StaticDir = os.Getenv("STORJ_TEST_SATELLITE_WEB")
+				if dir := os.Getenv("STORJ_TEST_SATELLITE_WEB"); dir != "" {
+					config.Console.StaticDir = dir
+				}
+				config.Console.NewOnboarding = true
+				config.Console.NewNavigation = true
+				config.Console.NewBrowser = true
+				config.Console.CouponCodeBillingUIEnabled = true
+				config.Console.NewObjectsFlow = true
 			},
 		},
 		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
-
-		logLauncher := zaptest.NewLogger(t).Named("launcher")
-
-		launch := launcher.New().
-			Headless(!showBrowser).
-			Leakless(false).
-			Devtools(false).
-			NoSandbox(true).
-			UserDataDir(ctx.Dir("browser")).
-			Logger(zapWriter{Logger: logLauncher})
-
-		if browserBin := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
-			launch = launch.Bin(browserBin)
-		}
-
-		defer launch.Cleanup()
-
-		url, err := launch.Launch()
-		require.NoError(t, err)
-
-		logBrowser := zaptest.NewLogger(t).Named("rod")
-
-		browser := rod.New().
-			Timeout(time.Minute).
-			ControlURL(url).
-			SlowMotion(300 * time.Millisecond).
-			Logger(utils.Log(func(msg ...interface{}) {
-				logBrowser.Info(fmt.Sprintln(msg...))
-			})).
-			Context(ctx).
-			WithPanic(func(v interface{}) { require.Fail(t, "check failed", v) })
-		defer ctx.Check(browser.Close)
-
-		require.NoError(t, browser.Connect())
-
-		test(t, ctx, planet, browser)
+		Browser(t, ctx, func(browser *rod.Browser) {
+			test(t, ctx, planet, browser)
+		})
 	})
 }

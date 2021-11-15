@@ -50,14 +50,6 @@ export class LocalData {
 
         localStorage.setItem(LocalData.userIdPassSalt, JSON.stringify(data));
     }
-
-    public static getServerSideEncryptionAcknowledge(): boolean {
-        return Boolean(localStorage.getItem(LocalData.serverSideEncryptionAcknowledge));
-    }
-
-    public static setServerSideEncryptionAcknowledge(): void {
-        localStorage.setItem(LocalData.serverSideEncryptionAcknowledge, 'true');
-    }
 }
 
 /**

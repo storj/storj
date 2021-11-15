@@ -23,7 +23,7 @@ const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
 
 const store = new Vuex.Store({ modules: { bucketUsageModule, projectsModule }});
-const bucket = new Bucket('name', 1, 1, 1, new Date(), new Date());
+const bucket = new Bucket('name', 1, 1, 1, 1, new Date(), new Date());
 
 describe('BucketArea.vue', () => {
     it('renders correctly without bucket', (): void => {
