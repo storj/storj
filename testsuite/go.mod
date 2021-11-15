@@ -10,7 +10,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20211109113717-5e82e48abc31
+	storj.io/common v0.0.0-20211111143956-15b749504e31
 	storj.io/gateway-mt v1.14.4-0.20211015103214-01eddbc864fb
 	storj.io/private v0.0.0-20211029202355-a7eae71c382a
 	storj.io/storj v0.12.1-0.20211102170500-1de8a695e84a
@@ -68,7 +68,7 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.5.5 // indirect
-	github.com/google/pprof v0.0.0-20211008130755-947d60d73cc0 // indirect
+	github.com/google/pprof v0.0.0-20211108044417-e9b028704de0 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
@@ -188,7 +188,7 @@ require (
 	github.com/ysmood/gson v0.6.4 // indirect
 	github.com/ysmood/leakless v0.7.0 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
-	github.com/zeebo/admission/v3 v3.0.2 // indirect
+	github.com/zeebo/admission/v3 v3.0.3 // indirect
 	github.com/zeebo/errs v1.2.2 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
@@ -204,7 +204,7 @@ require (
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20211020064051-0ec99a608a1b // indirect
+	golang.org/x/sys v0.0.0-20211109065445-02f5c0300f6e // indirect
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
