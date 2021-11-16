@@ -221,13 +221,11 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	lostPiecesSet := sliceToSet(missingPieces)
 
 	var healthyPieces, unhealthyPieces metabase.Pieces
-	healthyMap := make(map[uint16]bool)
 	// Populate healthyPieces with all pieces from the segment except those correlating to indices in lostPieces
 	for _, piece := range pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.StorageNode)
 		if !lostPiecesSet[piece.Number] {
 			healthyPieces = append(healthyPieces, piece)
-			healthyMap[piece.Number] = true
 		} else {
 			unhealthyPieces = append(unhealthyPieces, piece)
 		}
