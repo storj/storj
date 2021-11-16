@@ -297,6 +297,9 @@ func (planet *Planet) FindNode(nodeID storj.NodeID) *StorageNode {
 	return nil
 }
 
+// Log returns the root logger.
+func (planet *Planet) Log() *zap.Logger { return planet.log }
+
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {
 	if !planet.started {
