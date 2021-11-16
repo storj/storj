@@ -103,6 +103,7 @@ var (
 	runRepairerCmd = &cobra.Command{
 		Use:   "repair",
 		Short: "Run the repair service",
+		Args:  cobra.ExactArgs(1),
 		RunE:  cmdRepairerRun,
 	}
 	runAdminCmd = &cobra.Command{

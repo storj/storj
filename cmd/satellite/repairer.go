@@ -4,19 +4,30 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
-	"storj.io/common/errs2"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/private/process"
 	"storj.io/private/version"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/uplink/private/eestream"
 )
 
 func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
@@ -103,7 +114,136 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
-	runError := peer.Run(ctx)
-	closeError := peer.Close()
-	return errs2.IgnoreCanceled(errs.Combine(runError, closeError))
+	segments, err := parseInput(args[0])
+	if err != nil {
+		log.Error("Failed to retrieve segment info from file", zap.Error(err))
+		return err
+	}
+	for _, segment := range segments {
+		streamIDBytes, err := storj.StreamIDFromString(segment.StreamID)
+		if err != nil {
+			log.Debug("Failed to parse stream ID", zap.String("input", segment.StreamID), zap.Error(err))
+			continue
+		}
+		streamID, err := uuid.FromBytes(streamIDBytes)
+		if err != nil {
+			log.Debug("Failed to parse stream ID", zap.String("input", segment.StreamID), zap.Error(err))
+			continue
+		}
+
+		position := metabase.SegmentPositionFromEncoded(segment.Position)
+		orderlimits, err := DownloadPieces(ctx, metabaseDB, peer.Overlay,
+			peer.Orders.Service, peer.EcRepairer, streamID, position)
+		if err != nil {
+			log.Debug("Failed to download pieces", zap.String("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position), zap.Error(err))
+			for _, limit := range orderlimits {
+				log.Debug("Order limit", zap.String("", fmt.Sprintf("%#v", limit)))
+			}
+		}
+		log.Debug("Successful download", zap.String("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position), zap.Error(err))
+	}
+
+	return peer.Close()
+}
+
+func DownloadPieces(
+	ctx context.Context,
+	metabaseDB *metabase.DB,
+	overlay *overlay.Service,
+	orders *orders.Service,
+	ec *repairer.ECRepairer,
+	streamID uuid.UUID,
+	position metabase.SegmentPosition,
+) (_ []*pb.AddressedOrderLimit, err error) {
+	segment, err := metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		StreamID: streamID,
+		Position: position,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// We don't verify if the segment is inline or expired on purpose.
+
+	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+	if err != nil {
+		return nil, err
+	}
+
+	pieces := segment.Pieces
+	missingPieces, err := overlay.GetMissingPieces(ctx, pieces)
+	if err != nil {
+		return nil, err
+	}
+
+	numHealthy := len(pieces) - len(missingPieces)
+	if numHealthy < int(segment.Redundancy.RequiredShares) {
+		return nil, fmt.Errorf("irreparable segment: %s/%d/%d", streamID, position.Encode(), numHealthy)
+	}
+
+	lostPiecesSet := sliceToSet(missingPieces)
+	var healthyPieces metabase.Pieces
+	for _, piece := range pieces {
+		if !lostPiecesSet[piece.Number] {
+			healthyPieces = append(healthyPieces, piece)
+		}
+	}
+
+	getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := orders.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, healthyPieces)
+	if err != nil {
+		return nil, err
+	}
+
+	reader, _, err := ec.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+	if err != nil {
+
+		return getOrderLimits, err
+	}
+	defer func() { err = errs.Combine(err, reader.Close()) }()
+
+	return getOrderLimits, nil
+}
+
+func sliceToSet(slice []uint16) map[uint16]bool {
+	set := make(map[uint16]bool, len(slice))
+	for _, value := range slice {
+		set[value] = true
+	}
+	return set
+}
+
+func parseInput(input string) (_ []SegmentInfo, err error) {
+	// Open our jsonFile
+	jsonFile, err := os.Open(input)
+	if err != nil {
+		return nil, err
+	}
+	defer jsonFile.Close()
+
+	data, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseSegment(data)
+}
+
+type SegmentInfo struct {
+	StreamID string
+	Position uint64
+}
+
+func parseSegment(data []byte) ([]SegmentInfo, error) {
+	/*
+		TODO: better parsing handling so we can directly import the json log from GCP
+	*/
+	type segments struct {
+		Info []SegmentInfo
+	}
+	var payload segments
+	err := json.Unmarshal(data, &payload)
+	if err != nil {
+		return nil, err
+	}
+	return payload.Info, nil
 }
