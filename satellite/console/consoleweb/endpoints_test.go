@@ -23,7 +23,7 @@ func TestAuth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		test := newTest(t, ctx, planet)
+		test := NewTest(t, ctx, planet)
 		user := test.defaultUser()
 
 		{ // Register User
@@ -117,7 +117,7 @@ func TestPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		test := newTest(t, ctx, planet)
+		test := NewTest(t, ctx, planet)
 		user := test.defaultUser()
 
 		{ // Unauthorized
@@ -165,7 +165,7 @@ func TestBuckets(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		test := newTest(t, ctx, planet)
+		test := NewTest(t, ctx, planet)
 		user := test.defaultUser()
 
 		{ // Unauthorized
@@ -232,7 +232,7 @@ func TestAPIKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		test := newTest(t, ctx, planet)
+		test := NewTest(t, ctx, planet)
 		user := test.defaultUser()
 		test.login(user.email, user.password)
 
@@ -302,7 +302,7 @@ func TestProjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		test := newTest(t, ctx, planet)
+		test := NewTest(t, ctx, planet)
 		user := test.defaultUser()
 		user2 := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
 		test.login(user.email, user.password)
@@ -560,7 +560,7 @@ func TestWrongUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		test := newTest(t, ctx, planet)
+		test := NewTest(t, ctx, planet)
 		user := test.defaultUser()
 		_ = user
 		user2 := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
@@ -779,7 +779,7 @@ type test struct {
 	client *http.Client
 }
 
-func newTest(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) test {
+func NewTest(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) test {
 	jar, err := cookiejar.New(nil)
 	require.NoError(t, err)
 	return test{t: t, ctx: ctx, planet: planet, client: &http.Client{Jar: jar}}
