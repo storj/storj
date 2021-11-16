@@ -92,8 +92,8 @@ type Config struct {
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"true"`
-	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"false"`
-	NewBrowser                      bool    `help:"indicates if new browser should be used" default:"false"`
+	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
+	NewBrowser                      bool    `help:"indicates if new browser should be used" default:"true"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"false"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
