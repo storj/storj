@@ -72,7 +72,7 @@ func TestCheckIn(t *testing.T) {
 			require.Equal(t, expectedLastFailure.Truncate(time.Second).UTC(),
 				oldInfo.Reputation.LastContactFailure.Truncate(time.Second).UTC(), testName)
 
-			require.Equal(t, location.CountryCode(location.UnitedStates), oldInfo.CountryCode)
+			require.Equal(t, location.UnitedStates, oldInfo.CountryCode)
 		}
 
 		infoCheck("First check-in", now, now, lastFail)

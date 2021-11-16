@@ -43,12 +43,12 @@ require (
 	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20211020064051-0ec99a608a1b
+	golang.org/x/sys v0.0.0-20211109065445-02f5c0300f6e
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	storj.io/common v0.0.0-20211109113717-5e82e48abc31
+	storj.io/common v0.0.0-20211111143956-15b749504e31
 	storj.io/drpc v0.0.26
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20211029202355-a7eae71c382a
@@ -72,7 +72,7 @@ require (
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/pprof v0.0.0-20211008130755-947d60d73cc0 // indirect
+	github.com/google/pprof v0.0.0-20211108044417-e9b028704de0 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -103,7 +103,7 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
-	github.com/zeebo/admission/v3 v3.0.2 // indirect
+	github.com/zeebo/admission/v3 v3.0.3 // indirect
 	github.com/zeebo/errs/v2 v2.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect

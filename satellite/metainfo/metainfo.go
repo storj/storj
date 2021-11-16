@@ -25,6 +25,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
@@ -67,7 +68,7 @@ type Endpoint struct {
 	pb.DRPCMetainfoUnimplementedServer
 
 	log                  *zap.Logger
-	buckets              BucketsDB
+	buckets              *buckets.Service
 	metabase             *metabase.DB
 	deletePieces         *piecedeletion.Service
 	orders               *orders.Service
@@ -88,7 +89,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
-func NewEndpoint(log *zap.Logger, buckets BucketsDB, metabaseDB *metabase.DB,
+func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	deletePieces *piecedeletion.Service, orders *orders.Service, cache *overlay.Service,
 	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
@@ -278,7 +279,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(Bucket{
+	convBucket, err := convertBucketToProto(buckets.Bucket{
 		Name:      []byte(bucket.Name),
 		CreatedAt: bucket.Created,
 	}, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
@@ -342,7 +343,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	}
 
 	var (
-		bucket     Bucket
+		bucket     buckets.Bucket
 		convBucket *pb.Bucket
 	)
 	if canRead || canList {
@@ -549,7 +550,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	}, nil
 }
 
-func convertBucketToProto(bucket Bucket, rs *pb.RedundancyScheme, maxSegmentSize memory.Size) (pbBucket *pb.Bucket, err error) {
+func convertBucketToProto(bucket buckets.Bucket, rs *pb.RedundancyScheme, maxSegmentSize memory.Size) (pbBucket *pb.Bucket, err error) {
 	if len(bucket.Name) == 0 {
 		return nil, nil
 	}

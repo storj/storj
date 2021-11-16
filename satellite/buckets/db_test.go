@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metainfo_test
+package buckets_test
 
 import (
 	"testing"
@@ -13,9 +13,8 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
@@ -41,12 +40,15 @@ func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
 }
 
 func TestBasicBucketOperations(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
 		consoleDB := db.Console()
+
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)
 
-		bucketsDB := db.Buckets()
+		bucketsDB := sat.API.Buckets.Service
 		expectedBucket := newTestBucket("testbucket", project.ID)
 
 		count, err := bucketsDB.CountBuckets(ctx, project.ID)
@@ -109,12 +111,15 @@ func TestListBucketsAllAllowed(t *testing.T) {
 		{"non matching cursor, more", "ccc", 3, 3, true},
 		{"first bucket cursor, more", "0test", 5, 5, true},
 	}
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
 		consoleDB := db.Console()
+
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)
 
-		bucketsDB := db.Buckets()
+		bucketsDB := sat.API.Buckets.Service
 
 		allowedBuckets := macaroon.AllowedBuckets{
 			Buckets: map[string]struct{}{},
@@ -169,12 +174,15 @@ func TestListBucketsNotAllowed(t *testing.T) {
 		{"last bucket cursor, allow all", "zzz", 2, 1, false, true, map[string]struct{}{"zzz": {}}, []string{"zzz"}},
 		{"empty string cursor, allow all, more", "", 5, 5, true, true, map[string]struct{}{"": {}}, []string{"123", "0test", "999", "aaa", "bbb"}},
 	}
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
 		consoleDB := db.Console()
+
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)
 
-		bucketsDB := db.Buckets()
+		bucketsDB := sat.API.Buckets.Service
 
 		{ // setup some test buckets
 			var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",

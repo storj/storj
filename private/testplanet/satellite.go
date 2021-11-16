@@ -531,7 +531,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
-	adminPeer, err := planet.newAdmin(ctx, index, identity, db, config, versionInfo)
+	adminPeer, err := planet.newAdmin(ctx, index, identity, db, metabaseDB, config, versionInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -649,13 +649,13 @@ func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.
 	return satellite.NewAPI(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
-func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Admin, err error) {
+func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Admin, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	prefix := "satellite-admin" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
-	return satellite.NewAdmin(log, identity, db, versionInfo, &config, nil)
+	return satellite.NewAdmin(log, identity, db, metabaseDB, versionInfo, &config, nil)
 }
 
 func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Repairer, err error) {

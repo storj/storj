@@ -30,6 +30,11 @@ Requires setting `Authorization` header for requests.
                 * [POST /api/projects/{project-id}/limit?bandwidth={value}](#post-apiprojectsproject-idlimitbandwidthvalue)
                 * [POST /api/projects/{project-id}/limit?rate={value}](#post-apiprojectsproject-idlimitratevalue)
                 * [POST /api/projects/{project-id}/limit?buckets={value}](#post-apiprojectsproject-idlimitbucketsvalue)
+        * [Bucket Management](#bucket-management)
+            * [Geofencing](#geofencing)
+                * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue)
+                * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence](#delete-apiprojectsproject-idbucketsbucket-namegeofence)
+                * [GET /api/projects/{project-id}/buckets/{bucket-name}/geofence](#get-apiprojectsproject-idbucketsbucket-namegeofence)
         * [APIKey Management](#apikey-management)
             * [DELETE /api/apikeys/{apikey}](#delete-apiapikeysapikey)
 
@@ -278,6 +283,36 @@ Updates rate limit for a project.
 ##### POST /api/projects/{project-id}/limit?buckets={value}
 
 Updates bucket limit for a project.
+
+### Bucket Management
+
+This set of APIs provide administrative functionality over bucket functionality.
+
+#### Geofencing
+
+Manage geofencing capabilities for a given bucket.
+
+##### POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}
+
+Enables the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work. Valid
+values for the `region` parameter are:
+
+- `EU` - restrict placement to data nodes that reside in the [European Union][]
+- `EEA` - restrict placement to data nodes that reside in the [European Economic Area][]
+- `US` - restricts placement to data nodes in the United States
+- `DE` - restricts placement to data nodes in Germany
+
+[European Union]: https://github.com/storj/common/blob/main/storj/location/region.go#L14
+
+[European Economic Area]: https://github.com/storj/common/blob/main/storj/location/region.go#L7
+
+##### DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence
+
+Removes the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work.
+
+##### GET /api/projects/{project-id}/buckets/{bucket-name}/geofence
+
+Pulls the current geofence configuration for the specified bucket.
 
 ### APIKey Management
 
