@@ -142,6 +142,8 @@ export class ProjectLimits {
         public bandwidthUsed: number = 0,
         public storageLimit: number = 0,
         public storageUsed: number = 0,
+        public objectCount: number = 0,
+        public segmentCount: number = 0,
     ) {}
 }
 
