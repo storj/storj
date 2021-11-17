@@ -4,11 +4,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -16,7 +17,6 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/process"
 	"storj.io/private/version"
@@ -114,33 +114,21 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
-	segments, err := parseInput(args[0])
+	segments, err := parseInput(log, args[0])
 	if err != nil {
 		log.Error("Failed to retrieve segment info from file", zap.Error(err))
 		return err
 	}
 	for _, segment := range segments {
-		streamIDBytes, err := storj.StreamIDFromString(segment.StreamID)
-		if err != nil {
-			log.Debug("Failed to parse stream ID", zap.String("input", segment.StreamID), zap.Error(err))
-			continue
-		}
-		streamID, err := uuid.FromBytes(streamIDBytes)
-		if err != nil {
-			log.Debug("Failed to parse stream ID", zap.String("input", segment.StreamID), zap.Error(err))
-			continue
-		}
-
-		position := metabase.SegmentPositionFromEncoded(segment.Position)
 		orderlimits, err := DownloadPieces(ctx, metabaseDB, peer.Overlay,
-			peer.Orders.Service, peer.EcRepairer, streamID, position)
+			peer.Orders.Service, peer.EcRepairer, segment.StreamID, segment.Position)
 		if err != nil {
-			log.Debug("Failed to download pieces", zap.String("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position), zap.Error(err))
+			log.Debug("Failed to download pieces", zap.Stringer("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position.Encode()), zap.Error(err))
 			for _, limit := range orderlimits {
 				log.Debug("Order limit", zap.String("", fmt.Sprintf("%#v", limit)))
 			}
 		}
-		log.Debug("Successful download", zap.String("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position), zap.Error(err))
+		log.Debug("Successful download", zap.Stringer("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position.Encode()), zap.Error(err))
 	}
 
 	return peer.Close()
@@ -212,38 +200,41 @@ func sliceToSet(slice []uint16) map[uint16]bool {
 	return set
 }
 
-func parseInput(input string) (_ []SegmentInfo, err error) {
-	// Open our jsonFile
-	jsonFile, err := os.Open(input)
+func parseInput(log *zap.Logger, input string) (segments []SegmentInfo, err error) {
+	f, err := os.Open(input)
 	if err != nil {
 		return nil, err
 	}
-	defer jsonFile.Close()
+	defer func() { err = errs.Combine(err, f.Close()) }()
 
-	data, err := ioutil.ReadAll(jsonFile)
-	if err != nil {
-		return nil, err
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		data := strings.Split(scanner.Text(), ",")
+		if len(data) < 2 {
+			continue
+		}
+		// Parse the access data to ensure it is well formed
+		streamID, err := uuid.FromString(data[0])
+		if err != nil {
+			log.Debug("Failed to parse stream ID", zap.String("input", data[0]), zap.Error(err))
+			continue
+		}
+		p, err := strconv.ParseUint(data[1], 10, 64)
+		if err != nil {
+			continue
+		}
+
+		segments = append(segments, SegmentInfo{StreamID: streamID, Position: metabase.SegmentPositionFromEncoded(p)})
 	}
 
-	return parseSegment(data)
+	if err := scanner.Err(); err != nil {
+		return segments, err
+	}
+
+	return segments, nil
 }
 
 type SegmentInfo struct {
-	StreamID string
-	Position uint64
-}
-
-func parseSegment(data []byte) ([]SegmentInfo, error) {
-	/*
-		TODO: better parsing handling so we can directly import the json log from GCP
-	*/
-	type segments struct {
-		Info []SegmentInfo
-	}
-	var payload segments
-	err := json.Unmarshal(data, &payload)
-	if err != nil {
-		return nil, err
-	}
-	return payload.Info, nil
+	StreamID uuid.UUID
+	Position metabase.SegmentPosition
 }
