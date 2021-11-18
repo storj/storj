@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -17,6 +18,7 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/pb"
+	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/private/process"
 	"storj.io/private/version"
@@ -119,17 +121,33 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		log.Error("Failed to retrieve segment info from file", zap.Error(err))
 		return err
 	}
-	for _, segment := range segments {
-		orderlimits, err := DownloadPieces(ctx, metabaseDB, peer.Overlay,
-			peer.Orders.Service, peer.EcRepairer, segment.StreamID, segment.Position)
-		if err != nil {
-			log.Debug("Failed to download pieces", zap.Stringer("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position.Encode()), zap.Error(err))
-			for _, limit := range orderlimits {
-				log.Debug("Order limit", zap.String("", fmt.Sprintf("%#v", limit)))
-			}
+	loop := sync2.NewCycle(time.Minute * 30)
+	defer loop.Close()
+
+	limiter := sync2.NewLimiter(10)
+
+	loop.Run(ctx, func(ctx context.Context) error {
+		log.Debug("Starting segments download")
+		for _, segment := range segments {
+			segment := segment
+			limiter.Go(ctx, func() {
+				orderlimits, err := DownloadPieces(ctx, metabaseDB, peer.Overlay,
+					peer.Orders.Service, peer.EcRepairer, segment.StreamID, segment.Position)
+				if err != nil {
+					log.Debug("Failed to download pieces", zap.Stringer("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position.Encode()), zap.Error(err))
+					for _, limit := range orderlimits {
+						log.Debug("Order limit", zap.String("", fmt.Sprintf("%#v", limit)))
+					}
+					return
+				}
+				log.Debug("Successful download", zap.Stringer("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position.Encode()), zap.Error(err))
+			})
 		}
-		log.Debug("Successful download", zap.Stringer("StreamID", segment.StreamID), zap.Uint64("Position", segment.Position.Encode()), zap.Error(err))
-	}
+
+		limiter.Wait()
+		log.Debug("Finished segments download")
+		return nil
+	})
 
 	return peer.Close()
 }
