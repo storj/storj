@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
-import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
@@ -16,21 +15,26 @@ import { HttpClient } from '@/utils/httpClient';
 export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
+    private readonly rateLimitErrMsg = 'You\'ve exceeded limit of attempts, try again in 5 minutes';
 
     /**
      * Used to resend an registration confirmation email.
      *
-     * @param userId - id of newly created user
+     * @param email - email of newly created user
      * @throws Error
      */
-    public async resendEmail(userId: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/resend-email/${userId}`;
-        const response = await this.http.post(path, userId);
+    public async resendEmail(email: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/resend-email/${email}`;
+        const response = await this.http.post(path, email);
         if (response.ok) {
             return;
         }
 
-        throw new Error('can not resend Email');
+        if (response.status == 429) {
+            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+        }
+        
+        throw new Error('Failed to send email');
     }
 
     /**
@@ -61,13 +65,15 @@ export class AuthHttpApi implements UsersApi {
             return result;
         }
 
+        const result = await response.json();
+        const errMsg = result.error || 'Failed to receive authentication token';
         switch (response.status) {
         case 401:
-            throw new ErrorUnauthorized('Your email or password was incorrect, please try again');
+            throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
         default:
-            throw new Error('Can not receive authentication token');
+            throw new Error(errMsg);
         }
     }
 
@@ -104,7 +110,16 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        throw new Error('There is no such email');
+        const result = await response.json();
+        const errMsg = result.error || 'Failed to send password reset link';
+        switch (response.status) {
+        case 404:
+            throw new ErrorUnauthorized(errMsg);
+        case 429:
+            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+        default:
+            throw new Error(errMsg);
+        }
     }
 
     /**
@@ -226,7 +241,7 @@ export class AuthHttpApi implements UsersApi {
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string, recaptchaResponse: string): Promise<string> {
+    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string, recaptchaResponse: string): Promise<void> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -244,24 +259,20 @@ export class AuthHttpApi implements UsersApi {
             recaptchaResponse: recaptchaResponse,
         };
         const response = await this.http.post(path, JSON.stringify(body));
-        const result = await response.json();
         if (!response.ok) {
+            const result = await response.json();
             const errMsg = result.error || 'Cannot register user';
             switch (response.status) {
             case 400:
                 throw new ErrorBadRequest(errMsg);
             case 401:
                 throw new ErrorUnauthorized(errMsg);
-            case 409:
-                throw new ErrorEmailUsed(errMsg);
             case 429:
-                throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+                throw new ErrorTooManyRequests(this.rateLimitErrMsg);
             default:
                 throw new Error(errMsg);
             }
         }
-
-        return result;
     }
 
     /**

@@ -225,9 +225,9 @@ func TestService(t *testing.T) {
 				err = service.ChangeEmail(authCtx2, newEmail)
 				require.NoError(t, err)
 
-				userWithUpdatedEmail, err := service.GetUserByEmail(authCtx2, newEmail)
+				user, _, err := service.GetUserByEmailWithUnverified(authCtx2, newEmail)
 				require.NoError(t, err)
-				require.Equal(t, newEmail, userWithUpdatedEmail.Email)
+				require.Equal(t, newEmail, user.Email)
 
 				err = service.ChangeEmail(authCtx2, newEmail)
 				require.Error(t, err)
@@ -437,7 +437,7 @@ func TestMFA(t *testing.T) {
 
 			request.MFAPasscode = wrongCode
 			token, err = service.Token(ctx, request)
-			require.True(t, console.ErrUnauthorized.Has(err))
+			require.True(t, console.ErrMFAPasscode.Has(err))
 			require.Empty(t, token)
 
 			// Expect token when providing valid passcode.
@@ -469,7 +469,7 @@ func TestMFA(t *testing.T) {
 
 				// Expect no token due to providing previously-used recovery code.
 				token, err = service.Token(ctx, request)
-				require.True(t, console.ErrUnauthorized.Has(err))
+				require.True(t, console.ErrMFARecoveryCode.Has(err))
 				require.Empty(t, token)
 
 				updateAuth()
@@ -582,7 +582,7 @@ func TestResetPassword(t *testing.T) {
 		require.True(t, console.ErrRecoveryToken.Has(err))
 
 		// Expect error when providing good but expired token.
-		err = service.ResetPassword(ctx, tokenStr, newPass, token.CreatedAt.Add(console.TokenExpirationTime).Add(time.Second))
+		err = service.ResetPassword(ctx, tokenStr, newPass, token.CreatedAt.Add(sat.Config.Console.TokenExpirationTime).Add(time.Second))
 		require.True(t, console.ErrTokenExpiration.Has(err))
 
 		// Expect error when providing good token with bad (too short) password.

@@ -103,7 +103,11 @@ func TestGraphqlMutation(t *testing.T) {
 			partnersService,
 			paymentsService.Accounts(),
 			analyticsService,
-			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
+			console.Config{
+				PasswordCost:        console.TestPasswordCost,
+				DefaultProjectLimit: 5,
+				TokenExpirationTime: 24 * time.Hour,
+			},
 		)
 		require.NoError(t, err)
 

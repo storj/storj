@@ -230,7 +230,6 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { User } from '@/types/users';
-import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 
@@ -430,6 +429,13 @@ export default class RegisterArea extends Vue {
     }
 
     /**
+     * Returns the email of the created user.
+     */
+    public get email(): string {
+        return this.user.email;
+    }
+
+    /**
      * Sets user's company name field from value string.
      */
     public setCompanyName(value: string): void {
@@ -561,9 +567,9 @@ export default class RegisterArea extends Vue {
         this.user.haveSalesContact = this.haveSalesContact;
 
         try {
-            this.userId = await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
-            LocalData.setUserId(this.userId);
-            await this.detectBraveBrowser() ? await this.$router.push(RouteConfig.RegisterSuccess.path) : location.replace(RouteConfig.RegisterSuccess.path);
+            await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
+            const successPath = RouteConfig.RegisterSuccess.path + "?email=" + this.user.email;
+            await this.detectBraveBrowser() ? await this.$router.push(successPath) : location.replace(successPath);
         } catch (error) {
             if (this.$refs.recaptcha) {
                 this.$refs.recaptcha.reset();

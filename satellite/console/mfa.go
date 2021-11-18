@@ -30,14 +30,11 @@ const (
 
 var (
 	// ErrMFAMissing is error type that occurs when a request is incomplete
-	// due to missing MFA passcode and recovery code.
-	ErrMFAMissing = errs.Class("MFA code required")
+	// due to missing MFA passcode or recovery code.
+	ErrMFAMissing = errs.Class("MFA credentials missing")
 
 	// ErrMFAConflict is error type that occurs when both a passcode and recovery code are given.
 	ErrMFAConflict = errs.Class("MFA conflict")
-
-	// ErrMFALogin is error type caused by MFA that occurs when logging in / retrieving token.
-	ErrMFALogin = errs.Class("MFA login")
 
 	// ErrMFARecoveryCode is error type that represents usage of invalid MFA recovery code.
 	ErrMFARecoveryCode = errs.Class("MFA recovery code")

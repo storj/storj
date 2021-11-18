@@ -53,6 +53,7 @@ import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from "@/utils/meta";
 
+const ActivateAccount = () => import('@/views/ActivateAccount.vue');
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
@@ -70,6 +71,7 @@ export abstract class RouteConfig {
     public static Login = new NavigationLink('/login', 'Login');
     public static Register = new NavigationLink('/signup', 'Register');
     public static RegisterSuccess = new NavigationLink('/signup-success', 'RegisterSuccess');
+    public static Activate = new NavigationLink('/activate', 'Activate');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Account = new NavigationLink('/account', 'Account');
@@ -142,6 +144,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Login.name,
     RouteConfig.Register.name,
     RouteConfig.RegisterSuccess.name,
+    RouteConfig.Activate.name,
     RouteConfig.ForgotPassword.name,
     RouteConfig.ResetPassword.name,
     RouteConfig.Billing.name,
@@ -168,6 +171,11 @@ export const router = new Router({
             path: RouteConfig.RegisterSuccess.path,
             name: RouteConfig.RegisterSuccess.name,
             component: RegistrationSuccess,
+        },
+        {
+            path: RouteConfig.Activate.path,
+            name: RouteConfig.Activate.name,
+            component: ActivateAccount,
         },
         {
             path: RouteConfig.ForgotPassword.path,

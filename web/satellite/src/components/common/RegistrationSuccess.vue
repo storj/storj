@@ -10,8 +10,13 @@
             <div class="register-success-area__form-container">
                 <MailIcon />
                 <h2 class="register-success-area__form-container__title" aria-roledescription="title">You're almost there!</h2>
+                <div v-if="showManualActivationMsg" class="register-success-area__form-container__sub-title">
+                    If an account with the email address
+                    <p class="register-success-area__form-container__sub-title__email">{{ userEmail }}</p>
+                    exists, a verification email has been sent.
+                </div>
                 <p class="register-success-area__form-container__sub-title">
-                    Check your email to confirm your account and get started.
+                    Check your inbox to activate your account and get started.
                 </p>
                 <p class="register-success-area__form-container__text">
                     Didn't receive a verification email?
@@ -25,7 +30,7 @@
                         width="450px"
                         height="50px"
                         :on-press="onResendEmailButtonClick"
-                        :is-disabled="isResendEmailButtonDisabled"
+                        :is-disabled="secondsToWait != 0"
                     />
                 </div>
                 <p class="register-success-area__form-container__contact">
@@ -46,7 +51,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -54,7 +59,6 @@ import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
 
 import { AuthHttpApi } from '@/api/auth';
-import { LocalData } from '@/utils/localData';
 import { RouteConfig } from "@/router";
 
 // @vue/component
@@ -66,8 +70,12 @@ import { RouteConfig } from "@/router";
     },
 })
 export default class RegistrationSuccess extends Vue {
-    private isResendEmailButtonDisabled = true;
-    private timeToEnableResendEmailButton = '00:30';
+    @Prop({default: ''})
+    private readonly email: string;
+    @Prop({default: true})
+    private readonly showManualActivationMsg: boolean;
+
+    private secondsToWait = 30;
     private intervalID: ReturnType<typeof setInterval>;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
@@ -93,6 +101,13 @@ export default class RegistrationSuccess extends Vue {
     }
 
     /**
+     * Gets email (either passed in as prop or via query param).
+     */
+    public get userEmail(): string {
+        return this.email || this.$route.query.email.toString();
+    }
+
+    /**
      * Reloads page.
      */
     public onLogoClick(): void {
@@ -107,24 +122,25 @@ export default class RegistrationSuccess extends Vue {
     }
 
     /**
+     * Returns the time left until the Resend Email button is enabled in mm:ss form.
+     */
+    public get timeToEnableResendEmailButton(): string {
+        return `${Math.floor(this.secondsToWait / 60).toString().padStart(2, '0')}:${(this.secondsToWait % 60).toString().padStart(2, '0')}`;
+    }
+
+    /**
      * Resend email if interval timer is expired.
      */
     public async onResendEmailButtonClick(): Promise<void> {
-        if (this.isResendEmailButtonDisabled) {
-            return;
-        }
-
-        this.isResendEmailButtonDisabled = true;
-
-        const userId = LocalData.getUserId();
-        if (!userId) {
+        const email = this.userEmail;
+        if (this.secondsToWait != 0 || !email) {
             return;
         }
 
         try {
-            await this.auth.resendEmail(userId);
+            await this.auth.resendEmail(email);
         } catch (error) {
-            await this.$notify.error('Could not send email.');
+            await this.$notify.error(error.message);
         }
 
         this.startResendEmailCountdown();
@@ -134,17 +150,11 @@ export default class RegistrationSuccess extends Vue {
      * Resets timer blocking email resend button spamming.
      */
     private startResendEmailCountdown(): void {
-        let countdown = 30;
+        this.secondsToWait = 30;
 
         this.intervalID = setInterval(() => {
-            countdown--;
-
-            const secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
-            this.timeToEnableResendEmailButton = `00:${secondsLeft}`;
-
-            if (countdown <= 0) {
+            if (--this.secondsToWait <= 0) {
                 clearInterval(this.intervalID);
-                this.isResendEmailButtonDisabled = false;
             }
         }, 1000);
     }
@@ -205,6 +215,11 @@ export default class RegistrationSuccess extends Vue {
                 margin: 0;
                 max-width: 350px;
                 text-align: center;
+                margin-bottom: 27px;
+
+                &__email {
+                    font-family: 'font_bold', sans-serif;
+                }
             }
 
             &__text {
@@ -212,7 +227,6 @@ export default class RegistrationSuccess extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: #252525;
-                margin: 27px 0 0 0;
             }
 
             &__verification-cooldown {
