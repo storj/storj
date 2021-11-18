@@ -489,12 +489,14 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			"requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
+	actionSeriesTag := monkit.NewSeriesTag("action", limit.Action.String())
+
 	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
-	mon.Counter("download_started_count").Inc(1)
+	mon.Counter("download_started_count", actionSeriesTag).Inc(1)
 
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
-		mon.Counter("download_failure_count").Inc(1)
-		mon.Meter("download_verify_orderlimit_failed").Mark(1)
+		mon.Counter("download_failure_count", actionSeriesTag).Inc(1)
+		mon.Meter("download_verify_orderlimit_failed", actionSeriesTag).Mark(1)
 		endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		return err
 	}
@@ -513,25 +515,25 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		}
 		downloadDuration := dt.Nanoseconds()
 		if errs2.IsCanceled(err) {
-			mon.Counter("download_cancel_count").Inc(1)
-			mon.Meter("download_cancel_byte_meter").Mark64(downloadSize)
-			mon.IntVal("download_cancel_size_bytes").Observe(downloadSize)
-			mon.IntVal("download_cancel_duration_ns").Observe(downloadDuration)
-			mon.FloatVal("download_cancel_rate_bytes_per_sec").Observe(downloadRate)
+			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
+			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
+			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)
+			mon.IntVal("download_cancel_duration_ns", actionSeriesTag).Observe(downloadDuration)
+			mon.FloatVal("download_cancel_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
 			endpoint.log.Info("download canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		} else if err != nil {
-			mon.Counter("download_failure_count").Inc(1)
-			mon.Meter("download_failure_byte_meter").Mark64(downloadSize)
-			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
-			mon.IntVal("download_failure_duration_ns").Observe(downloadDuration)
-			mon.FloatVal("download_failure_rate_bytes_per_sec").Observe(downloadRate)
+			mon.Counter("download_failure_count", actionSeriesTag).Inc(1)
+			mon.Meter("download_failure_byte_meter", actionSeriesTag).Mark64(downloadSize)
+			mon.IntVal("download_failure_size_bytes", actionSeriesTag).Observe(downloadSize)
+			mon.IntVal("download_failure_duration_ns", actionSeriesTag).Observe(downloadDuration)
+			mon.FloatVal("download_failure_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
 			endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
-			mon.Counter("download_success_count").Inc(1)
-			mon.Meter("download_success_byte_meter").Mark64(downloadSize)
-			mon.IntVal("download_success_size_bytes").Observe(downloadSize)
-			mon.IntVal("download_success_duration_ns").Observe(downloadDuration)
-			mon.FloatVal("download_success_rate_bytes_per_sec").Observe(downloadRate)
+			mon.Counter("download_success_count", actionSeriesTag).Inc(1)
+			mon.Meter("download_success_byte_meter", actionSeriesTag).Mark64(downloadSize)
+			mon.IntVal("download_success_size_bytes", actionSeriesTag).Observe(downloadSize)
+			mon.IntVal("download_success_duration_ns", actionSeriesTag).Observe(downloadDuration)
+			mon.FloatVal("download_success_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
 			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		}
 	}()
