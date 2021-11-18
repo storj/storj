@@ -78,7 +78,7 @@ export abstract class RouteConfig {
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
     public static AccessGrants = new NavigationLink('/access-grants', 'Access');
     public static ProjectsList = new NavigationLink('/projects', 'Projects');
-    public static Objects = new NavigationLink('/objects', 'Objects');
+    public static Buckets = new NavigationLink('/buckets', 'Buckets');
 
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -125,7 +125,7 @@ export abstract class RouteConfig {
 
     // objects child paths.
     public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
-    public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
+    public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
 }
@@ -424,8 +424,8 @@ export const router = new Router({
                     component: ProjectsList,
                 },
                 {
-                    path: RouteConfig.Objects.path,
-                    name: RouteConfig.Objects.name,
+                    path: RouteConfig.Buckets.path,
+                    name: RouteConfig.Buckets.name,
                     component: ObjectsArea,
                     children: [
                         {
@@ -463,9 +463,8 @@ export const router = new Router({
     ],
 });
 
-router.beforeEach(async (to, from, next) => {
-    if (((from.name === RouteConfig.UploadFile.name) || (from.name === RouteConfig.UploadFileChildren.name))
-        && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+router.beforeEach(async (to, _, next) => {
+    if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
         if (areUploadsInProgress) return;
     }
@@ -506,14 +505,14 @@ router.beforeEach(async (to, from, next) => {
         return;
     }
 
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Buckets)) {
         if (store.state.appStateModule.isNewObjectsFlow) {
-            next(RouteConfig.Objects.with(RouteConfig.BucketsManagement).path);
+            next(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
 
             return;
         }
 
-        next(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
+        next(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
 
         return;
     }

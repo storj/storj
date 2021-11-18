@@ -91,6 +91,7 @@ type Config struct {
 	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
+	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
 	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"true"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
 	NewBrowser                      bool    `help:"indicates if new browser should be used" default:"true"`
@@ -376,6 +377,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		SegmentPrice                    string
 		RecaptchaEnabled                bool
 		RecaptchaSiteKey                string
+		NewProjectDashboard             bool
 		NewOnboarding                   bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
@@ -409,6 +411,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.SegmentPrice = server.pricing.SegmentPrice
 	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
 	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
+	data.NewProjectDashboard = server.config.NewProjectDashboard
 	data.NewOnboarding = server.config.NewOnboarding
 	data.NewNavigation = server.config.NewNavigation
 	data.NewBrowser = server.config.NewBrowser

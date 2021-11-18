@@ -39,6 +39,7 @@ export default class App extends Vue {
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
+        const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard');
         const isNewOnboardingFlow = MetaUtils.getMetaContent('new-onboarding-flow');
         const isNewNavStructure = MetaUtils.getMetaContent('new-navigation-structure');
         const isNewObjectsFlow = MetaUtils.getMetaContent('new-objects-flow');
@@ -70,6 +71,10 @@ export default class App extends Vue {
 
         if (couponCodeSignupUIEnabled) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
+        }
+
+        if (isNewProjectDashboard) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard === 'true');
         }
 
         if (isNewOnboardingFlow) {

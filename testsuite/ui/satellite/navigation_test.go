@@ -70,11 +70,11 @@ func TestNavigation(t *testing.T) {
 		dashboardTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, dashboardTitle1, "Dashboard")
 
-		// objects route
-		page.MustElementR("p", "Objects").MustClick()
+		// buckets route
+		page.MustElementR("p", "Buckets").MustClick()
 		waitVueTick(page)
-		objectsTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, objectsTitle, "Buckets")
+		bucketsTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, bucketsTitle, "Buckets")
 
 		// access grants route
 		page.MustElementR("p", "Access").MustClick()

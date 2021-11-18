@@ -148,7 +148,7 @@ export default class OldOverviewStep extends Vue {
      */
     public async onUploadInBrowserClick(): Promise<void> {
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
-        await this.$router.push(RouteConfig.Objects.path);
+        await this.$router.push(RouteConfig.Buckets.path);
     }
 
     /**
