@@ -8,4 +8,8 @@ export enum AnalyticsEvent {
     EXTERNAL_LINK_CLICKED = 'External Link Clicked',
     PATH_SELECTED = 'Path Selected',
     LINK_SHARED = 'Link Shared',
+    OBJECT_UPLOADED = 'Object Uploaded',
+    API_KEY_GENERATED = 'API Key Generated',
+    PROJECT_CREATED = 'Project Created',
+    ACCOUNT_CREATED = 'Project Created',
 }

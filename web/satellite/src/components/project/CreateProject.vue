@@ -70,6 +70,8 @@ import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
+import { AnalyticsEvent } from "@/utils/constants/analyticsEventNames";
+import { AnalyticsHttpApi } from "@/api/analytics";
 
 // @vue/component
 @Component({
@@ -83,6 +85,8 @@ export default class NewProjectPopup extends Vue {
     private description = '';
     private createdProjectId = '';
     private isLoading = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public projectName = '';
     public nameError = '';
@@ -140,6 +144,7 @@ export default class NewProjectPopup extends Vue {
         try {
             const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
             this.createdProjectId = createdProject.id;
+            await this.analytics.eventTriggered(AnalyticsEvent.PROJECT_CREATED);
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
@@ -148,6 +153,8 @@ export default class NewProjectPopup extends Vue {
         }
 
         this.selectCreatedProject();
+
+
 
         await this.$notify.success('Project created successfully!');
 

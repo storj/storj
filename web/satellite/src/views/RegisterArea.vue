@@ -233,6 +233,8 @@ import { User } from '@/types/users';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
+import { AnalyticsEvent } from "@/utils/constants/analyticsEventNames";
+import { AnalyticsHttpApi } from "@/api/analytics";
 
 // @vue/component
 @Component({
@@ -281,6 +283,8 @@ export default class RegisterArea extends Vue {
     private recaptchaResponseToken = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('recaptcha-enabled') === 'true';
     private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('recaptcha-site-key');
@@ -563,6 +567,7 @@ export default class RegisterArea extends Vue {
         try {
             this.userId = await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
             LocalData.setUserId(this.userId);
+            await this.analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED);
             await this.detectBraveBrowser() ? await this.$router.push(RouteConfig.RegisterSuccess.path) : location.replace(RouteConfig.RegisterSuccess.path);
         } catch (error) {
             if (this.$refs.recaptcha) {
