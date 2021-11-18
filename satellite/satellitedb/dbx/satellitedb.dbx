@@ -312,6 +312,10 @@ create user ( )
 update user ( where user.id = ? )
 delete user ( where user.id = ? )
 
+read all (
+    select user
+    where user.normalized_email = ?
+)
 read one (
     select user
     where user.normalized_email = ?

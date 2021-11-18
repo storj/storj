@@ -28,6 +28,7 @@ type users struct {
 func (users *users) Get(ctx context.Context, id uuid.UUID) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := users.db.Get_User_By_Id(ctx, dbx.User_Id(id[:]))
+
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +36,34 @@ func (users *users) Get(ctx context.Context, id uuid.UUID) (_ *console.User, err
 	return userFromDBX(ctx, user)
 }
 
-// GetByEmail is a method for querying user by email from the database.
+// GetByEmailWithUnverified is a method for querying users by email from the database.
+func (users *users) GetByEmailWithUnverified(ctx context.Context, email string) (verified *console.User, unverified []console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	usersDbx, err := users.db.All_User_By_NormalizedEmail(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var errors errs.Group
+	for _, userDbx := range usersDbx {
+		u, err := userFromDBX(ctx, userDbx)
+		if err != nil {
+			errors.Add(err)
+			continue
+		}
+
+		if u.Status == console.Active {
+			verified = u
+		} else {
+			unverified = append(unverified, *u)
+		}
+	}
+
+	return verified, unverified, errors.Err()
+}
+
+// GetByEmail is a method for querying user by verified email from the database.
 func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := users.db.Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))

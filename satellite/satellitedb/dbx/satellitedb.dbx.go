@@ -11403,6 +11403,51 @@ func (obj *pgxImpl) Get_Reputation_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) All_User_By_NormalizedEmail(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
+	rows []*User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code FROM users WHERE users.normalized_email = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_normalized_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				user := &User{}
+				err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	user *User, err error) {
@@ -17318,6 +17363,51 @@ func (obj *pgxcockroachImpl) Get_Reputation_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) All_User_By_NormalizedEmail(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
+	rows []*User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code FROM users WHERE users.normalized_email = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_normalized_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				user := &User{}
+				err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	user *User, err error) {
@@ -22267,6 +22357,16 @@ func (rx *Rx) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx 
 	return tx.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, storagenode_storage_tally_interval_end_time_greater_or_equal)
 }
 
+func (rx *Rx) All_User_By_NormalizedEmail(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field) (
+	rows []*User, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_User_By_NormalizedEmail(ctx, user_normalized_email)
+}
+
 func (rx *Rx) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
 	count int64, err error) {
@@ -23617,6 +23717,10 @@ type Methods interface {
 	All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
 		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
 		rows []*StoragenodeStorageTally, err error)
+
+	All_User_By_NormalizedEmail(ctx context.Context,
+		user_normalized_email User_NormalizedEmail_Field) (
+		rows []*User, err error)
 
 	Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
