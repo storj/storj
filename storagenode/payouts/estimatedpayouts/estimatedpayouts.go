@@ -82,24 +82,22 @@ func (estimatedPayout *EstimatedPayout) Set(current, previous PayoutMonthly, now
 	estimatedPayout.CurrentMonth = current
 	estimatedPayout.PreviousMonth = previous
 
-	daysPerMonth := float64(date.UTCEndOfMonth(now).Day())
-	daysSinceJoined := now.Sub(joinedAt).Hours() / 24
-	if daysSinceJoined < 1 {
-		daysSinceJoined = 1
-	}
+	beginOfMonth := date.UTCBeginOfMonth(now)
+	endOfMonth := date.UTCEndOfMonth(now)
 
-	if daysSinceJoined >= float64(now.Day()) {
-		daysPast := float64(now.Day()) - 1
-		if daysPast < 1 {
-			daysPast = 1
-		}
+	// Joined before the first day of this month
+	if joinedAt.Before(beginOfMonth) {
+		minutesPast := now.Sub(beginOfMonth).Minutes()
+		estimatedMinutesJoinedCurrentMonth := endOfMonth.Sub(beginOfMonth).Minutes()
 
-		payoutPerDay := estimatedPayout.CurrentMonth.Payout / daysPast
-		estimatedPayout.CurrentMonthExpectations += int64(payoutPerDay * daysPerMonth)
+		payoutPerMin := estimatedPayout.CurrentMonth.Payout / minutesPast
+		estimatedPayout.CurrentMonthExpectations += int64(payoutPerMin * estimatedMinutesJoinedCurrentMonth)
 		return
 	}
-
-	estimatedPayout.CurrentMonthExpectations += int64(estimatedPayout.CurrentMonth.Payout / math.Round(daysSinceJoined) * daysPerMonth)
+	// Joined this month
+	minutesSinceJoined := now.Sub(joinedAt).Minutes()
+	estimatedMinutesJoinedCurrentMonth := endOfMonth.Sub(joinedAt).Minutes()
+	estimatedPayout.CurrentMonthExpectations += int64(estimatedPayout.CurrentMonth.Payout / minutesSinceJoined * estimatedMinutesJoinedCurrentMonth)
 }
 
 // Add adds estimate into the receiver.

@@ -24,7 +24,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 	}
 	tests := []test{
 		// 28 days in month
-		{time.Date(2021, 2, 1, 16, 0, 0, 0, time.UTC), 2800.00, time.Date(2021, 1, 1, 12, 0, 0, 0, time.UTC),
+		{time.Date(2021, 2, 1, 16, 0, 0, 0, time.UTC), 4199.00, time.Date(2021, 1, 1, 12, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,
@@ -48,7 +48,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 				Payout:                  payout,
 				Held:                    901,
 			}},
-		{time.Date(2021, 2, 28, 10, 0, 0, 0, time.UTC), 103, time.Date(2021, 1, 26, 10, 0, 0, 0, time.UTC),
+		{time.Date(2021, 2, 28, 10, 0, 0, 0, time.UTC), 102, time.Date(2021, 1, 26, 10, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,
@@ -72,7 +72,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 				Payout:                  payout,
 				Held:                    901,
 			}},
-		{time.Date(2021, 2, 28, 10, 0, 0, 0, time.UTC), 215, time.Date(2021, 2, 15, 10, 0, 0, 0, time.UTC),
+		{time.Date(2021, 2, 28, 10, 0, 0, 0, time.UTC), 104, time.Date(2021, 2, 15, 10, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,
@@ -97,7 +97,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 				Held:                    901,
 			}},
 		// 31 days in month
-		{time.Date(2021, 3, 1, 19, 0, 0, 0, time.UTC), 3100.0, time.Date(2021, 1, 1, 19, 0, 0, 0, time.UTC),
+		{time.Date(2021, 3, 1, 19, 0, 0, 0, time.UTC), 3915.0, time.Date(2021, 1, 1, 19, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,
@@ -121,7 +121,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 				Payout:                  payout,
 				Held:                    901,
 			}},
-		{time.Date(2021, 3, 31, 21, 0, 0, 0, time.UTC), 103, time.Date(2021, 1, 31, 21, 0, 0, 0, time.UTC),
+		{time.Date(2021, 3, 31, 21, 0, 0, 0, time.UTC), 100, time.Date(2021, 1, 31, 21, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,
@@ -145,7 +145,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 				Payout:                  payout,
 				Held:                    901,
 			}},
-		{time.Date(2021, 3, 31, 21, 0, 0, 0, time.UTC), 193, time.Date(2021, 3, 15, 21, 0, 0, 0, time.UTC),
+		{time.Date(2021, 3, 31, 21, 0, 0, 0, time.UTC), 100, time.Date(2021, 3, 15, 21, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,

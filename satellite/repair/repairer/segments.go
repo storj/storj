@@ -221,13 +221,11 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	lostPiecesSet := sliceToSet(missingPieces)
 
 	var healthyPieces, unhealthyPieces metabase.Pieces
-	healthyMap := make(map[uint16]bool)
 	// Populate healthyPieces with all pieces from the segment except those correlating to indices in lostPieces
 	for _, piece := range pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.StorageNode)
 		if !lostPiecesSet[piece.Number] {
 			healthyPieces = append(healthyPieces, piece)
-			healthyMap[piece.Number] = true
 		} else {
 			unhealthyPieces = append(unhealthyPieces, piece)
 		}
@@ -317,24 +315,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	if len(piecesReport.Contained) > 0 {
 		repairer.log.Debug("unexpected contained pieces during repair", zap.Int("count", len(piecesReport.Contained)))
 	}
-	var report audit.Report
-	for _, piece := range piecesReport.Successful {
-		report.Successes = append(report.Successes, piece.StorageNode)
-	}
-	for _, piece := range piecesReport.Failed {
-		report.Fails = append(report.Fails, piece.StorageNode)
-	}
-	for _, piece := range piecesReport.Offline {
-		report.Offlines = append(report.Offlines, piece.StorageNode)
-	}
-	for _, piece := range piecesReport.Unknown {
-		report.Unknown = append(report.Unknown, piece.StorageNode)
-	}
-	_, reportErr := repairer.reporter.RecordAudits(ctx, report)
-	if reportErr != nil {
-		// failed updates should not affect repair, therefore we will not return the error
-		repairer.log.Debug("failed to record audit", zap.Error(reportErr))
-	}
 
 	if err != nil {
 		// If the context was closed during the Get phase, it will appear here as though
@@ -364,6 +344,26 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return true, repairReconstructError.New("segment could not be reconstructed: %w", err)
 	}
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
+
+	// only report audit result when segment can be successfully downloaded
+	var report audit.Report
+	for _, piece := range piecesReport.Successful {
+		report.Successes = append(report.Successes, piece.StorageNode)
+	}
+	for _, piece := range piecesReport.Failed {
+		report.Fails = append(report.Fails, piece.StorageNode)
+	}
+	for _, piece := range piecesReport.Offline {
+		report.Offlines = append(report.Offlines, piece.StorageNode)
+	}
+	for _, piece := range piecesReport.Unknown {
+		report.Unknown = append(report.Unknown, piece.StorageNode)
+	}
+	_, reportErr := repairer.reporter.RecordAudits(ctx, report)
+	if reportErr != nil {
+		// failed updates should not affect repair, therefore we will not return the error
+		repairer.log.Debug("failed to record audit", zap.Error(reportErr))
+	}
 
 	// Upload the repaired pieces
 	successfulNodes, _, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, repairer.timeout, minSuccessfulNeeded)

@@ -24,7 +24,10 @@ func TestBrowserFeatures(t *testing.T) {
 
 		// Navigate into browser with new onboarding.
 		page.MustElementR("a", "Skip and go directly to dashboard").MustClick()
-		page.MustElementR("p", "Objects").MustClick()
+		page.MustElementR("p", "Buckets").MustClick()
+		wait := page.MustWaitRequestIdle()
+		page.MustElementR("p", "demo-bucket").MustClick()
+		wait()
 		page.MustElementR("label", "I understand, and I have saved the passphrase.").MustClick()
 		page.MustElementR("span", "Next >").MustClick()
 
@@ -48,7 +51,8 @@ func TestBrowserFeatures(t *testing.T) {
 
 		// Navigate into the folder and make sure the dropzone is visible.
 		page.MustElementR("[aria-roledescription=folder]", "folderCreatedThroughInput").MustClick()
-		require.Equal(t, " folderCreatedThroughInput", page.MustElement("a[aria-current=\"page\"]").MustText(), "Navigating into the folder `folderCreatedThroughInput` has not been successful")
+		folderName := page.MustElement("a[aria-current=\"page\"] a").MustText()
+		require.Contains(t, folderName, "folderCreatedThroughInput", "Navigating into the folder `folderCreatedThroughInput` has not been successful")
 		page.MustElementR("p", "Drop Files Here to Upload")
 
 		// Attempt to create a new folder but cancel.
@@ -57,9 +61,9 @@ func TestBrowserFeatures(t *testing.T) {
 		page.MustElementR("button", "Cancel").MustClick()
 
 		// Add a file into folder and check that dropzone is still visible.
-		wait := page.MustWaitRequestIdle()
+		wait1 := page.MustWaitRequestIdle()
 		page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/img.png")
-		wait()
+		wait1()
 		page.MustElementR("span", "folderCreatedThroughInput/img.png")
 		page.MustElement("#close-modal").MustClick()
 		page.MustElementR("[aria-roledescription=file]", "img.png")
@@ -155,7 +159,7 @@ func TestBrowserFeatures(t *testing.T) {
 		page.MustElement("tr[scope=\"row\"]").MustClick()
 		page.MustElement("#header-delete").MustClick()
 		page.MustElementR("button", "No").MustClick()
-		page.MustElementR("a[href=\"/objects/upload/folderCreatedThroughInput/\"]", "folderCreatedThroughInput")
+		page.MustElementR("a[href=\"/buckets/upload/folderCreatedThroughInput/\"]", "folderCreatedThroughInput")
 
 		// Delete a folder by selecting and clicking on trashcan.
 		page.MustElement("tr[scope=row]").MustClick()
@@ -210,7 +214,7 @@ func TestBrowserFeatures(t *testing.T) {
 
 		// Navigate into folder and create another folder of the same name, and check that the dropzone is present.
 		page.MustElementR("[aria-roledescription=folder]", "Свобода").MustClick()
-		page.MustElement("[href=\"/objects/upload/Свобода/\"]")
+		page.MustElement("[href=\"/buckets/upload/Свобода/\"]")
 		page.MustElementR("p", "Drop Files Here to Upload")
 		page.MustElementR("button", "New Folder").MustClick()
 		page.MustElement("[placeholder=\"Name of the folder\"]").MustInput("Свобода")
