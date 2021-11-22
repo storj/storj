@@ -372,6 +372,26 @@ CREATE TABLE bucket_storage_tallies (
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 );
+CREATE TABLE clients (
+	id bytea NOT NULL,
+	secret bytea NOT NULL,
+	domain text NOT NULL,
+	user_id bytea NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE codes (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope bytea NOT NULL,
+	redirect_uri text NOT NULL,
+	challenge text NOT NULL,
+	challenge_method text NOT NULL,
+	code bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	claimed_at timestamp with time zone,
+	PRIMARY KEY ( code )
+);
 CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
@@ -689,6 +709,16 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );
+CREATE TABLE tokens (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope bytea NOT NULL,
+	kind integer NOT NULL,
+	token bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( token )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -790,6 +820,8 @@ CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket
 CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
+CREATE INDEX codes_user_id_index ON codes ( user_id ) ;
+CREATE INDEX codes_client_id_index ON codes ( client_id ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
@@ -802,6 +834,8 @@ CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON stora
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
+CREATE INDEX tokens_user_id_index ON tokens ( user_id ) ;
+CREATE INDEX tokens_client_id_index ON tokens ( client_id ) ;
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id ) ;`
 }
 
@@ -954,6 +988,26 @@ CREATE TABLE bucket_storage_tallies (
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 );
+CREATE TABLE clients (
+	id bytea NOT NULL,
+	secret bytea NOT NULL,
+	domain text NOT NULL,
+	user_id bytea NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE codes (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope bytea NOT NULL,
+	redirect_uri text NOT NULL,
+	challenge text NOT NULL,
+	challenge_method text NOT NULL,
+	code bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	claimed_at timestamp with time zone,
+	PRIMARY KEY ( code )
+);
 CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
@@ -1271,6 +1325,16 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );
+CREATE TABLE tokens (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope bytea NOT NULL,
+	kind integer NOT NULL,
+	token bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( token )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -1372,6 +1436,8 @@ CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket
 CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
+CREATE INDEX codes_user_id_index ON codes ( user_id ) ;
+CREATE INDEX codes_client_id_index ON codes ( client_id ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
@@ -1384,6 +1450,8 @@ CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON stora
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
+CREATE INDEX tokens_user_id_index ON tokens ( user_id ) ;
+CREATE INDEX tokens_client_id_index ON tokens ( client_id ) ;
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id ) ;`
 }
 
@@ -2239,6 +2307,319 @@ func (f BucketStorageTally_MetadataSize_Field) value() interface{} {
 }
 
 func (BucketStorageTally_MetadataSize_Field) _Column() string { return "metadata_size" }
+
+type Client struct {
+	Id     []byte
+	Secret []byte
+	Domain string
+	UserId []byte
+}
+
+func (Client) _Table() string { return "clients" }
+
+type Client_Update_Fields struct {
+}
+
+type Client_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Client_Id(v []byte) Client_Id_Field {
+	return Client_Id_Field{_set: true, _value: v}
+}
+
+func (f Client_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Client_Id_Field) _Column() string { return "id" }
+
+type Client_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Client_Secret(v []byte) Client_Secret_Field {
+	return Client_Secret_Field{_set: true, _value: v}
+}
+
+func (f Client_Secret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Client_Secret_Field) _Column() string { return "secret" }
+
+type Client_Domain_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Client_Domain(v string) Client_Domain_Field {
+	return Client_Domain_Field{_set: true, _value: v}
+}
+
+func (f Client_Domain_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Client_Domain_Field) _Column() string { return "domain" }
+
+type Client_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Client_UserId(v []byte) Client_UserId_Field {
+	return Client_UserId_Field{_set: true, _value: v}
+}
+
+func (f Client_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Client_UserId_Field) _Column() string { return "user_id" }
+
+type Code struct {
+	ClientId        []byte
+	UserId          []byte
+	Scope           []byte
+	RedirectUri     string
+	Challenge       string
+	ChallengeMethod string
+	Code            []byte
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	ClaimedAt       *time.Time
+}
+
+func (Code) _Table() string { return "codes" }
+
+type Code_Create_Fields struct {
+	ClaimedAt Code_ClaimedAt_Field
+}
+
+type Code_Update_Fields struct {
+}
+
+type Code_ClientId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Code_ClientId(v []byte) Code_ClientId_Field {
+	return Code_ClientId_Field{_set: true, _value: v}
+}
+
+func (f Code_ClientId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_ClientId_Field) _Column() string { return "client_id" }
+
+type Code_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Code_UserId(v []byte) Code_UserId_Field {
+	return Code_UserId_Field{_set: true, _value: v}
+}
+
+func (f Code_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_UserId_Field) _Column() string { return "user_id" }
+
+type Code_Scope_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Code_Scope(v []byte) Code_Scope_Field {
+	return Code_Scope_Field{_set: true, _value: v}
+}
+
+func (f Code_Scope_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_Scope_Field) _Column() string { return "scope" }
+
+type Code_RedirectUri_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Code_RedirectUri(v string) Code_RedirectUri_Field {
+	return Code_RedirectUri_Field{_set: true, _value: v}
+}
+
+func (f Code_RedirectUri_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_RedirectUri_Field) _Column() string { return "redirect_uri" }
+
+type Code_Challenge_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Code_Challenge(v string) Code_Challenge_Field {
+	return Code_Challenge_Field{_set: true, _value: v}
+}
+
+func (f Code_Challenge_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_Challenge_Field) _Column() string { return "challenge" }
+
+type Code_ChallengeMethod_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Code_ChallengeMethod(v string) Code_ChallengeMethod_Field {
+	return Code_ChallengeMethod_Field{_set: true, _value: v}
+}
+
+func (f Code_ChallengeMethod_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_ChallengeMethod_Field) _Column() string { return "challenge_method" }
+
+type Code_Code_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Code_Code(v []byte) Code_Code_Field {
+	return Code_Code_Field{_set: true, _value: v}
+}
+
+func (f Code_Code_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_Code_Field) _Column() string { return "code" }
+
+type Code_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Code_CreatedAt(v time.Time) Code_CreatedAt_Field {
+	return Code_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Code_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Code_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Code_ExpiresAt(v time.Time) Code_ExpiresAt_Field {
+	return Code_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f Code_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type Code_ClaimedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Code_ClaimedAt(v time.Time) Code_ClaimedAt_Field {
+	return Code_ClaimedAt_Field{_set: true, _value: &v}
+}
+
+func Code_ClaimedAt_Raw(v *time.Time) Code_ClaimedAt_Field {
+	if v == nil {
+		return Code_ClaimedAt_Null()
+	}
+	return Code_ClaimedAt(*v)
+}
+
+func Code_ClaimedAt_Null() Code_ClaimedAt_Field {
+	return Code_ClaimedAt_Field{_set: true, _null: true}
+}
+
+func (f Code_ClaimedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Code_ClaimedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Code_ClaimedAt_Field) _Column() string { return "claimed_at" }
 
 type CoinpaymentsTransaction struct {
 	Id        string
@@ -7894,6 +8275,154 @@ func (f StripecoinpaymentsTxConversionRate_CreatedAt_Field) value() interface{} 
 }
 
 func (StripecoinpaymentsTxConversionRate_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Token struct {
+	ClientId  []byte
+	UserId    []byte
+	Scope     []byte
+	Kind      int
+	Token     []byte
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+func (Token) _Table() string { return "tokens" }
+
+type Token_Update_Fields struct {
+}
+
+type Token_ClientId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Token_ClientId(v []byte) Token_ClientId_Field {
+	return Token_ClientId_Field{_set: true, _value: v}
+}
+
+func (f Token_ClientId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Token_ClientId_Field) _Column() string { return "client_id" }
+
+type Token_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Token_UserId(v []byte) Token_UserId_Field {
+	return Token_UserId_Field{_set: true, _value: v}
+}
+
+func (f Token_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Token_UserId_Field) _Column() string { return "user_id" }
+
+type Token_Scope_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Token_Scope(v []byte) Token_Scope_Field {
+	return Token_Scope_Field{_set: true, _value: v}
+}
+
+func (f Token_Scope_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Token_Scope_Field) _Column() string { return "scope" }
+
+type Token_Kind_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Token_Kind(v int) Token_Kind_Field {
+	return Token_Kind_Field{_set: true, _value: v}
+}
+
+func (f Token_Kind_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Token_Kind_Field) _Column() string { return "kind" }
+
+type Token_Token_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Token_Token(v []byte) Token_Token_Field {
+	return Token_Token_Field{_set: true, _value: v}
+}
+
+func (f Token_Token_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Token_Token_Field) _Column() string { return "token" }
+
+type Token_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Token_CreatedAt(v time.Time) Token_CreatedAt_Field {
+	return Token_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Token_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Token_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Token_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Token_ExpiresAt(v time.Time) Token_ExpiresAt_Field {
+	return Token_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f Token_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Token_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type User struct {
 	Id                    []byte
@@ -15757,6 +16286,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_tx_conversion_rates;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -16028,6 +16567,26 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM codes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM clients;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -21649,6 +22208,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_tx_conversion_rates;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -21920,6 +22489,26 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM codes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM clients;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}

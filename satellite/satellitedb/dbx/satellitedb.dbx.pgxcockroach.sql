@@ -52,6 +52,26 @@ CREATE TABLE bucket_storage_tallies (
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 );
+CREATE TABLE clients (
+	id bytea NOT NULL,
+	secret bytea NOT NULL,
+	domain text NOT NULL,
+	user_id bytea NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE codes (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope bytea NOT NULL,
+	redirect_uri text NOT NULL,
+	challenge text NOT NULL,
+	challenge_method text NOT NULL,
+	code bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	claimed_at timestamp with time zone,
+	PRIMARY KEY ( code )
+);
 CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
@@ -369,6 +389,16 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );
+CREATE TABLE tokens (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope bytea NOT NULL,
+	kind integer NOT NULL,
+	token bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( token )
+);
 CREATE TABLE users (
 	id bytea NOT NULL,
 	email text NOT NULL,
@@ -470,6 +500,8 @@ CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket
 CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
+CREATE INDEX codes_user_id_index ON codes ( user_id ) ;
+CREATE INDEX codes_client_id_index ON codes ( client_id ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
@@ -482,4 +514,6 @@ CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON stora
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
+CREATE INDEX tokens_user_id_index ON tokens ( user_id ) ;
+CREATE INDEX tokens_client_id_index ON tokens ( client_id ) ;
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id ) ;
