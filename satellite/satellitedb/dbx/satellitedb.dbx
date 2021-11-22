@@ -1305,3 +1305,33 @@ update node_api_version (
 	where node_api_version.api_version < ?
 	noreturn
 )
+
+// oauth_client stores information about known clients developed against stroj.
+model oauth_client (
+    key id
+
+    index ( fields user_id )
+
+    field id                blob
+    field encrypted_secret  blob ( updatable ) // encrypted
+    field redirect_url      text ( updatable )
+    field user_id           blob
+    field app_name          text ( updatable )
+    field app_logo_url      text ( updatable )
+)
+
+create oauth_client ()
+
+read one (
+    select oauth_client
+    where oauth_client.id = ?
+)
+
+update oauth_client (
+    where oauth_client.id = ?
+    noreturn
+)
+
+delete oauth_client (
+    where oauth_client.id = ?
+)

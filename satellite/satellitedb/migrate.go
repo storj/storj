@@ -1743,6 +1743,23 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN last_verification_reminder timestamp with time zone`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add oauth_clients table and user index",
+				Version:     185,
+				Action: migrate.SQL{
+					`CREATE TABLE oauth_clients (
+						id bytea NOT NULL,
+						encrypted_secret bytea NOT NULL,
+						redirect_url text NOT NULL,
+						user_id bytea NOT NULL,
+						app_name text NOT NULL,
+						app_logo_url text NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;`,
+				},
+			},
 
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.

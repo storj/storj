@@ -483,6 +483,15 @@ CREATE TABLE node_api_versions (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE oauth_clients (
+	id bytea NOT NULL,
+	encrypted_secret bytea NOT NULL,
+	redirect_url text NOT NULL,
+	user_id bytea NOT NULL,
+	app_name text NOT NULL,
+	app_logo_url text NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
@@ -798,6 +807,7 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
@@ -1068,6 +1078,15 @@ CREATE TABLE node_api_versions (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE oauth_clients (
+	id bytea NOT NULL,
+	encrypted_secret bytea NOT NULL,
+	redirect_url text NOT NULL,
+	user_id bytea NOT NULL,
+	app_name text NOT NULL,
+	app_logo_url text NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
@@ -1383,6 +1402,7 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
@@ -4413,6 +4433,138 @@ func (f NodeApiVersion_UpdatedAt_Field) value() interface{} {
 }
 
 func (NodeApiVersion_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type OauthClient struct {
+	Id              []byte
+	EncryptedSecret []byte
+	RedirectUrl     string
+	UserId          []byte
+	AppName         string
+	AppLogoUrl      string
+}
+
+func (OauthClient) _Table() string { return "oauth_clients" }
+
+type OauthClient_Update_Fields struct {
+	EncryptedSecret OauthClient_EncryptedSecret_Field
+	RedirectUrl     OauthClient_RedirectUrl_Field
+	AppName         OauthClient_AppName_Field
+	AppLogoUrl      OauthClient_AppLogoUrl_Field
+}
+
+type OauthClient_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func OauthClient_Id(v []byte) OauthClient_Id_Field {
+	return OauthClient_Id_Field{_set: true, _value: v}
+}
+
+func (f OauthClient_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthClient_Id_Field) _Column() string { return "id" }
+
+type OauthClient_EncryptedSecret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func OauthClient_EncryptedSecret(v []byte) OauthClient_EncryptedSecret_Field {
+	return OauthClient_EncryptedSecret_Field{_set: true, _value: v}
+}
+
+func (f OauthClient_EncryptedSecret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthClient_EncryptedSecret_Field) _Column() string { return "encrypted_secret" }
+
+type OauthClient_RedirectUrl_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OauthClient_RedirectUrl(v string) OauthClient_RedirectUrl_Field {
+	return OauthClient_RedirectUrl_Field{_set: true, _value: v}
+}
+
+func (f OauthClient_RedirectUrl_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthClient_RedirectUrl_Field) _Column() string { return "redirect_url" }
+
+type OauthClient_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func OauthClient_UserId(v []byte) OauthClient_UserId_Field {
+	return OauthClient_UserId_Field{_set: true, _value: v}
+}
+
+func (f OauthClient_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthClient_UserId_Field) _Column() string { return "user_id" }
+
+type OauthClient_AppName_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OauthClient_AppName(v string) OauthClient_AppName_Field {
+	return OauthClient_AppName_Field{_set: true, _value: v}
+}
+
+func (f OauthClient_AppName_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthClient_AppName_Field) _Column() string { return "app_name" }
+
+type OauthClient_AppLogoUrl_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OauthClient_AppLogoUrl(v string) OauthClient_AppLogoUrl_Field {
+	return OauthClient_AppLogoUrl_Field{_set: true, _value: v}
+}
+
+func (f OauthClient_AppLogoUrl_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthClient_AppLogoUrl_Field) _Column() string { return "app_logo_url" }
 
 type Offer struct {
 	Id                        int
@@ -11278,6 +11430,39 @@ func (obj *pgxImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_OauthClient(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field,
+	oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
+	oauth_client_redirect_url OauthClient_RedirectUrl_Field,
+	oauth_client_user_id OauthClient_UserId_Field,
+	oauth_client_app_name OauthClient_AppName_Field,
+	oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
+	oauth_client *OauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := oauth_client_id.value()
+	__encrypted_secret_val := oauth_client_encrypted_secret.value()
+	__redirect_url_val := oauth_client_redirect_url.value()
+	__user_id_val := oauth_client_user_id.value()
+	__app_name_val := oauth_client_app_name.value()
+	__app_logo_url_val := oauth_client_app_logo_url.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __encrypted_secret_val, __redirect_url_val, __user_id_val, __app_name_val, __app_logo_url_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_client = &OauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_client.Id, &oauth_client.EncryptedSecret, &oauth_client.RedirectUrl, &oauth_client.UserId, &oauth_client.AppName, &oauth_client.AppLogoUrl)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth_client, nil
+
+}
+
 func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -13913,6 +14098,28 @@ func (obj *pgxImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx c
 
 }
 
+func (obj *pgxImpl) Get_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field) (
+	oauth_client *OauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url FROM oauth_clients WHERE oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_client = &OauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_client.Id, &oauth_client.EncryptedSecret, &oauth_client.RedirectUrl, &oauth_client.UserId, &oauth_client.AppName, &oauth_client.AppLogoUrl)
+	if err != nil {
+		return (*OauthClient)(nil), obj.makeErr(err)
+	}
+	return oauth_client, nil
+
+}
+
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -15560,6 +15767,58 @@ func (obj *pgxImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx 
 	return nil
 }
 
+func (obj *pgxImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field,
+	update OauthClient_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE oauth_clients.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.EncryptedSecret._set {
+		__values = append(__values, update.EncryptedSecret.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("encrypted_secret = ?"))
+	}
+
+	if update.RedirectUrl._set {
+		__values = append(__values, update.RedirectUrl.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("redirect_url = ?"))
+	}
+
+	if update.AppName._set {
+		__values = append(__values, update.AppName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_name = ?"))
+	}
+
+	if update.AppLogoUrl._set {
+		__values = append(__values, update.AppLogoUrl.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_logo_url = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, oauth_client_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -15916,6 +16175,33 @@ func (obj *pgxImpl) Delete_Coupon_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM oauth_clients WHERE oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl pgxImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pgconn.PgError); ok {
@@ -16191,6 +16477,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM offers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_clients;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17300,6 +17596,39 @@ func (obj *pgxcockroachImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_OauthClient(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field,
+	oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
+	oauth_client_redirect_url OauthClient_RedirectUrl_Field,
+	oauth_client_user_id OauthClient_UserId_Field,
+	oauth_client_app_name OauthClient_AppName_Field,
+	oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
+	oauth_client *OauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := oauth_client_id.value()
+	__encrypted_secret_val := oauth_client_encrypted_secret.value()
+	__redirect_url_val := oauth_client_redirect_url.value()
+	__user_id_val := oauth_client_user_id.value()
+	__app_name_val := oauth_client_app_name.value()
+	__app_logo_url_val := oauth_client_app_logo_url.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __encrypted_secret_val, __redirect_url_val, __user_id_val, __app_name_val, __app_logo_url_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_client = &OauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_client.Id, &oauth_client.EncryptedSecret, &oauth_client.RedirectUrl, &oauth_client.UserId, &oauth_client.AppName, &oauth_client.AppLogoUrl)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth_client, nil
 
 }
 
@@ -19938,6 +20267,28 @@ func (obj *pgxcockroachImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEq
 
 }
 
+func (obj *pgxcockroachImpl) Get_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field) (
+	oauth_client *OauthClient, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url FROM oauth_clients WHERE oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_client = &OauthClient{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_client.Id, &oauth_client.EncryptedSecret, &oauth_client.RedirectUrl, &oauth_client.UserId, &oauth_client.AppName, &oauth_client.AppLogoUrl)
+	if err != nil {
+		return (*OauthClient)(nil), obj.makeErr(err)
+	}
+	return oauth_client, nil
+
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -21585,6 +21936,58 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_
 	return nil
 }
 
+func (obj *pgxcockroachImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field,
+	update OauthClient_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_clients SET "), __sets, __sqlbundle_Literal(" WHERE oauth_clients.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.EncryptedSecret._set {
+		__values = append(__values, update.EncryptedSecret.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("encrypted_secret = ?"))
+	}
+
+	if update.RedirectUrl._set {
+		__values = append(__values, update.RedirectUrl.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("redirect_url = ?"))
+	}
+
+	if update.AppName._set {
+		__values = append(__values, update.AppName.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_name = ?"))
+	}
+
+	if update.AppLogoUrl._set {
+		__values = append(__values, update.AppLogoUrl.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("app_logo_url = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, oauth_client_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -21941,6 +22344,33 @@ func (obj *pgxcockroachImpl) Delete_Coupon_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Delete_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM oauth_clients WHERE oauth_clients.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_client_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl pgxcockroachImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pgconn.PgError); ok {
@@ -22216,6 +22646,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM offers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_clients;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -22770,6 +23210,22 @@ func (rx *Rx) Create_CouponUsage(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_OauthClient(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field,
+	oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
+	oauth_client_redirect_url OauthClient_RedirectUrl_Field,
+	oauth_client_user_id OauthClient_UserId_Field,
+	oauth_client_app_name OauthClient_AppName_Field,
+	oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
+	oauth_client *OauthClient, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_OauthClient(ctx, oauth_client_id, oauth_client_encrypted_secret, oauth_client_redirect_url, oauth_client_user_id, oauth_client_app_name, oauth_client_app_logo_url)
+
+}
+
 func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -22999,6 +23455,16 @@ func (rx *Rx) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Posi
 	return tx.Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num)
 }
 
+func (rx *Rx) Delete_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_OauthClient_By_Id(ctx, oauth_client_id)
+}
+
 func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -23197,6 +23663,16 @@ func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_Node_By_Id(ctx, node_id)
+}
+
+func (rx *Rx) Get_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field) (
+	oauth_client *OauthClient, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_OauthClient_By_Id(ctx, oauth_client_id)
 }
 
 func (rx *Rx) Get_PeerIdentity_By_NodeId(ctx context.Context,
@@ -23740,6 +24216,17 @@ func (rx *Rx) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishe
 	return tx.UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx, node_id, update)
 }
 
+func (rx *Rx) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field,
+	update OauthClient_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_OauthClient_By_Id(ctx, oauth_client_id, update)
+}
+
 func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	update PeerIdentity_Update_Fields) (
@@ -24059,6 +24546,15 @@ type Methods interface {
 		coupon_usage_period CouponUsage_Period_Field) (
 		coupon_usage *CouponUsage, err error)
 
+	Create_OauthClient(ctx context.Context,
+		oauth_client_id OauthClient_Id_Field,
+		oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
+		oauth_client_redirect_url OauthClient_RedirectUrl_Field,
+		oauth_client_user_id OauthClient_UserId_Field,
+		oauth_client_app_name OauthClient_AppName_Field,
+		oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
+		oauth_client *OauthClient, err error)
+
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
 		project_name Project_Name_Field,
@@ -24167,6 +24663,10 @@ type Methods interface {
 		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 		deleted bool, err error)
 
+	Delete_OauthClient_By_Id(ctx context.Context,
+		oauth_client_id OauthClient_Id_Field) (
+		deleted bool, err error)
+
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
@@ -24251,6 +24751,10 @@ type Methods interface {
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		node *Node, err error)
+
+	Get_OauthClient_By_Id(ctx context.Context,
+		oauth_client_id OauthClient_Id_Field) (
+		oauth_client *OauthClient, err error)
 
 	Get_PeerIdentity_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
@@ -24501,6 +25005,11 @@ type Methods interface {
 	UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context,
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
+		oauth_client_id OauthClient_Id_Field,
+		update OauthClient_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
