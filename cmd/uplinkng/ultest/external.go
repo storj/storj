@@ -32,3 +32,7 @@ func (ex *external) OpenFilesystem(ctx context.Context, access string, options .
 func (ex *external) OpenProject(ctx context.Context, access string, options ...ulext.Option) (*uplink.Project, error) {
 	return ex.project, nil
 }
+
+func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err error) {
+	return uplink.ParseAccess(accessName)
+}
