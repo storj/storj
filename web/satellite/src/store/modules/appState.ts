@@ -47,6 +47,7 @@ class State {
         public isBetaSatellite = false,
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
+        public isNewProjectDashboard = false,
         public isNewOnbCLIFlow = false,
         public isNewNavStructure = false,
         public isNewObjectsFlow = false,
@@ -147,6 +148,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: State, isBetaSatellite: boolean): void {
             state.isBetaSatellite = isBetaSatellite;
+        },
+        [APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS](state: State, isNewProjectDashboard: boolean): void {
+            state.isNewProjectDashboard = isNewProjectDashboard;
         },
         [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS](state: State, isNewOnbCLIFlow: boolean): void {
             state.isNewOnbCLIFlow = isNewOnbCLIFlow;
@@ -322,6 +326,9 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({commit}: AppContext, isBetaSatellite: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);
+        },
+        [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({commit}: AppContext, isNewProjectDashboard: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard);
         },
         [APP_STATE_ACTIONS.SET_ONB_CLI_FLOW_STATUS]: function ({commit}: AppContext, isNewOnbCLIFlow: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS, isNewOnbCLIFlow);

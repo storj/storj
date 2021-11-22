@@ -66,6 +66,7 @@ import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from "@/utils/localData";
 import { GatewayCredentials } from "@/types/accessGrants";
 import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 import { MetaUtils } from "@/utils/meta";
 
 import GeneratePassphrase from "@/components/common/GeneratePassphrase.vue";
@@ -88,12 +89,8 @@ export default class EncryptData extends Vue {
      * Sets passphrase from child component.
      */
     public navigateToCLIFlow(): void {
-        this.$router.push({
-            name: RouteConfig.APIKey.name,
-            params: {
-                backRoute: this.$route.path,
-            }
-        })
+        this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
+        this.$router.push({name: RouteConfig.AGName.name});
     }
 
     /**
@@ -103,7 +100,7 @@ export default class EncryptData extends Vue {
     public mounted(): void {
         if (this.isNewObjectsFlow) {
             if (!this.apiKey) {
-                this.$router.push(RouteConfig.Objects.with(RouteConfig.BucketsManagement).path)
+                this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path)
             }
 
             this.setWorker();

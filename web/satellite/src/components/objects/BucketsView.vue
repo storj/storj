@@ -60,7 +60,7 @@
 
 <script lang="ts">
 import { Bucket } from 'aws-sdk/clients/s3';
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Watch } from 'vue-property-decorator';
 
 import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -104,11 +104,28 @@ export default class BucketsView extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$store.state.objectsModule.passphrase && !this.isNewObjectsFlow) {
-            await this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
+            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
 
             return;
         }
 
+        await this.setBucketsView();
+    }
+
+    @Watch('selectedProjectID')
+    public async handleProjectChange(): Promise<void> {
+        if (this.isNewObjectsFlow) {
+            this.isLoading = true;
+
+            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+            await this.setBucketsView();
+        }
+    }
+
+    /**
+     * Sets buckets view when needed.
+     */
+    public async setBucketsView(): Promise<void> {
         try {
             await this.setWorker();
             await this.removeTemporaryAccessGrant();
@@ -363,12 +380,12 @@ export default class BucketsView extends Vue {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
 
         if (this.isNewObjectsFlow) {
-            this.$router.push(RouteConfig.Objects.with(RouteConfig.EncryptData).path);
+            this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
 
             return;
         }
 
-        this.$router.push(RouteConfig.Objects.with(RouteConfig.UploadFile).path);
+        this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
     }
 
     /**
@@ -390,6 +407,13 @@ export default class BucketsView extends Vue {
      */
     private get isNewObjectsFlow(): string {
         return this.$store.state.appStateModule.isNewObjectsFlow;
+    }
+
+    /**
+     * Returns selected project id from store.
+     */
+    private get selectedProjectID(): string {
+        return this.$store.getters.selectedProject.id;
     }
 
     /**

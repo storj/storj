@@ -96,7 +96,7 @@ export default class OverviewStep extends Vue {
         this.isLoading = true;
 
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
-        await this.$router.push(RouteConfig.Objects.path).catch(() => {return; });
+        await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
 
         this.isLoading = false;
     }
