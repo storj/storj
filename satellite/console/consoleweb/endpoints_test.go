@@ -752,23 +752,6 @@ func TestWrongUser(t *testing.T) {
 			// TODO: wrong error code
 			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 		}
-		{ //Introspectiin
-			resp, body := test.request(http.MethodPost, "/graphql",
-				test.toJSON(map[string]interface{}{
-					"query": `
-						{
-							myProjects {
-								name
-								id
-								description
-								createdAt
-								ownerId
-								__typename
-							}
-						}`}))
-			require.Contains(t, body, test.defaultProjectID())
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
 	})
 }
 
