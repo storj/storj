@@ -203,10 +203,10 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		require.NoError(t, err)
 
 		rollups := []orders.BucketBandwidthRollup{
-			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000 /* counted */, Settled: 1000},
-			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000 /* counted */, Settled: 1000},
+			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000 /* counted */, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000 /* counted */, Settled: 1000, IntervalStart: hour},
 		}
-		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
+		err = db.Orders().UpdateBandwidthBatch(ctx, rollups)
 		require.NoError(t, err)
 
 		// allocated bandwidth should correspond to the sum of bandwidth corresponding to GET action (4000 here)
@@ -246,20 +246,20 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		require.NoError(t, err)
 
 		rollups = []orders.BucketBandwidthRollup{
-			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT_GRACEFUL_EXIT, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_PUT_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET_AUDIT, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_PUT_GRACEFUL_EXIT, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_PUT_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_GET_AUDIT, Inline: 1000, Allocated: 1000, Settled: 1000},
-			{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_GET_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT_GRACEFUL_EXIT, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_PUT_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET_AUDIT, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_PUT_GRACEFUL_EXIT, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_PUT_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_GET_AUDIT, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
+			{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_GET_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000, IntervalStart: hour},
 		}
-		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
+		err = db.Orders().UpdateBandwidthBatch(ctx, rollups)
 		require.NoError(t, err)
 
 		// things that should be partially counted (settled amount lower than allocated amount)
@@ -269,10 +269,10 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		require.NoError(t, err)
 
 		rollups = []orders.BucketBandwidthRollup{
-			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000, Settled: 300, Dead: 700},
-			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000, Settled: 500, Dead: 500},
+			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000, Settled: 300, Dead: 700, IntervalStart: hour},
+			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000, Settled: 500, Dead: 500, IntervalStart: hour},
 		}
-		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
+		err = db.Orders().UpdateBandwidthBatch(ctx, rollups)
 		require.NoError(t, err)
 
 		alloc, err = db.ProjectAccounting().GetProjectBandwidth(ctx, p1, now.Year(), now.Month(), now.Day(), 0)
@@ -399,7 +399,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 
 func TestUsageRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const (
 			numBuckets     = 5
@@ -414,9 +414,11 @@ func TestUsageRollups(t *testing.T) {
 
 		project1 := planet.Uplinks[0].Projects[0].ID
 		project2 := planet.Uplinks[1].Projects[0].ID
+		project3 := planet.Uplinks[2].Projects[0].ID
 
 		p1base := binary.BigEndian.Uint64(project1[:8]) >> 48
 		p2base := binary.BigEndian.Uint64(project2[:8]) >> 48
+		p3base := binary.BigEndian.Uint64(project3[:8]) >> 48
 
 		getValue := func(i, j int, base uint64) int64 {
 			a := uint64((i+1)*(j+1)) ^ base
@@ -429,6 +431,8 @@ func TestUsageRollups(t *testing.T) {
 			pb.PieceAction_GET_AUDIT,
 			pb.PieceAction_GET_REPAIR,
 		}
+
+		var rollups []orders.BucketBandwidthRollup
 
 		var buckets []string
 		for i := 0; i < numBuckets; i++ {
@@ -468,8 +472,39 @@ func TestUsageRollups(t *testing.T) {
 				require.NoError(t, err)
 			}
 
+			err = planet.Uplinks[2].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			require.NoError(t, err)
+
+			// project 3
+			for _, action := range actions {
+				value := getValue(1, i, p2base)
+
+				rollups = append(rollups, orders.BucketBandwidthRollup{
+					ProjectID:     project3,
+					BucketName:    bucketName,
+					Action:        action,
+					IntervalStart: now.Add(-time.Hour * 2),
+					Inline:        value,
+					Allocated:     value * 6,
+					Settled:       value * 3,
+				})
+
+				rollups = append(rollups, orders.BucketBandwidthRollup{
+					ProjectID:     project3,
+					BucketName:    bucketName,
+					Action:        action,
+					IntervalStart: now,
+					Inline:        value,
+					Allocated:     value * 6,
+					Settled:       value * 3,
+				})
+			}
+
 			buckets = append(buckets, bucketName)
 		}
+
+		err := db.Orders().UpdateBandwidthBatch(ctx, rollups)
+		require.NoError(t, err)
 
 		for i := 0; i < tallyIntervals; i++ {
 			interval := start.Add(tallyInterval * time.Duration(i))
@@ -484,8 +519,13 @@ func TestUsageRollups(t *testing.T) {
 					ProjectID:  project2,
 					BucketName: bucket,
 				}
+				bucketLoc3 := metabase.BucketLocation{
+					ProjectID:  project3,
+					BucketName: bucket,
+				}
 				value1 := getValue(i, j, p1base) * 10
 				value2 := getValue(i, j, p2base) * 10
+				value3 := getValue(i, j, p3base) * 10
 
 				tally1 := &accounting.BucketTally{
 					BucketLocation: bucketLoc1,
@@ -503,8 +543,17 @@ func TestUsageRollups(t *testing.T) {
 					MetadataSize:   value2,
 				}
 
+				tally3 := &accounting.BucketTally{
+					BucketLocation: bucketLoc3,
+					ObjectCount:    value3,
+					TotalSegments:  value3 + value3,
+					TotalBytes:     value3 + value3,
+					MetadataSize:   value3,
+				}
+
 				bucketTallies[bucketLoc1] = tally1
 				bucketTallies[bucketLoc2] = tally2
+				bucketTallies[bucketLoc3] = tally3
 			}
 
 			err := db.ProjectAccounting().SaveTallies(ctx, interval, bucketTallies)
@@ -521,6 +570,20 @@ func TestUsageRollups(t *testing.T) {
 			projTotal2, err := usageRollups.GetProjectTotal(ctx, project2, start, now)
 			require.NoError(t, err)
 			require.NotNil(t, projTotal2)
+
+			projTotal3, err := usageRollups.GetProjectTotal(ctx, project3, start, now)
+			require.NoError(t, err)
+			require.NotNil(t, projTotal3)
+
+			projTotal3Prev2Hours, err := usageRollups.GetProjectTotal(ctx, project3, now.Add(-time.Hour*2), now.Add(-time.Hour*1))
+			require.NoError(t, err)
+			require.NotNil(t, projTotal3Prev2Hours)
+			require.NotZero(t, projTotal3Prev2Hours.Egress)
+
+			projTotal3Prev3Hours, err := usageRollups.GetProjectTotal(ctx, project3, now.Add(-time.Hour*3), now.Add(-time.Hour*2))
+			require.NoError(t, err)
+			require.NotNil(t, projTotal3Prev3Hours)
+			require.NotZero(t, projTotal3Prev3Hours.Egress)
 		})
 
 		t.Run("test bucket usage rollups", func(t *testing.T) {
@@ -531,6 +594,18 @@ func TestUsageRollups(t *testing.T) {
 			rollups2, err := usageRollups.GetBucketUsageRollups(ctx, project2, start, now)
 			require.NoError(t, err)
 			require.NotNil(t, rollups2)
+
+			rollups3, err := usageRollups.GetBucketUsageRollups(ctx, project3, start, now)
+			require.NoError(t, err)
+			require.NotNil(t, rollups3)
+
+			rollups3Prev2Hours, err := usageRollups.GetBucketUsageRollups(ctx, project3, now.Add(-time.Hour*2), now.Add(-time.Hour*1))
+			require.NoError(t, err)
+			require.NotNil(t, rollups3Prev2Hours)
+
+			rollups3Prev3Hours, err := usageRollups.GetBucketUsageRollups(ctx, project3, now.Add(-time.Hour*3), now.Add(-time.Hour*2))
+			require.NoError(t, err)
+			require.NotNil(t, rollups3Prev3Hours)
 		})
 
 		t.Run("test bucket totals", func(t *testing.T) {
@@ -546,6 +621,18 @@ func TestUsageRollups(t *testing.T) {
 			totals2, err := usageRollups.GetBucketTotals(ctx, project2, cursor, start, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals2)
+
+			totals3, err := usageRollups.GetBucketTotals(ctx, project3, cursor, start, now)
+			require.NoError(t, err)
+			require.NotNil(t, totals3)
+
+			totals3Prev2Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*2), now.Add(-time.Hour*1))
+			require.NoError(t, err)
+			require.NotNil(t, totals3Prev2Hours)
+
+			totals3Prev3Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*3), now.Add(-time.Hour*2))
+			require.NoError(t, err)
+			require.NotNil(t, totals3Prev3Hours)
 		})
 
 		t.Run("Get paged", func(t *testing.T) {

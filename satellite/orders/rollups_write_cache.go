@@ -26,9 +26,10 @@ type CacheData struct {
 
 // CacheKey is the key information for the cached map below.
 type CacheKey struct {
-	ProjectID  uuid.UUID
-	BucketName string
-	Action     pb.PieceAction
+	ProjectID     uuid.UUID
+	BucketName    string
+	Action        pb.PieceAction
+	IntervalStart int64
 }
 
 // RollupData contains the pending rollups waiting to be flushed to the db.
@@ -43,7 +44,6 @@ type RollupsWriteCache struct {
 
 	mu             sync.Mutex
 	pendingRollups RollupData
-	latestTime     time.Time
 	stopped        bool
 	flushing       bool
 
@@ -77,16 +77,12 @@ func (cache *RollupsWriteCache) UpdateBucketBandwidthSettle(ctx context.Context,
 }
 
 // resetCache should only be called after you have acquired the cache lock. It
-// will reset the various cache values and return the pendingRollups,
-// latestTime, and currentSize.
-func (cache *RollupsWriteCache) resetCache() (RollupData, time.Time) {
+// will reset the various cache values and return the pendingRollups.
+func (cache *RollupsWriteCache) resetCache() RollupData {
 	pendingRollups := cache.pendingRollups
 	cache.pendingRollups = make(RollupData)
 
-	latestTime := cache.latestTime
-	cache.latestTime = time.Time{}
-
-	return pendingRollups, latestTime
+	return pendingRollups
 }
 
 // Flush resets cache then flushes the everything in the rollups write cache to the database.
@@ -110,11 +106,11 @@ func (cache *RollupsWriteCache) Flush(ctx context.Context) {
 	}
 
 	cache.flushing = true
-	pendingRollups, latestTime := cache.resetCache()
+	pendingRollups := cache.resetCache()
 
 	cache.mu.Unlock()
 
-	cache.flush(ctx, pendingRollups, latestTime)
+	cache.flush(ctx, pendingRollups)
 }
 
 // CloseAndFlush flushes anything in the cache and marks the cache as stopped.
@@ -130,24 +126,25 @@ func (cache *RollupsWriteCache) CloseAndFlush(ctx context.Context) error {
 }
 
 // flush flushes the everything in the rollups write cache to the database.
-func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups RollupData, latestTime time.Time) {
+func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups RollupData) {
 	defer mon.Task()(&ctx)(nil)
 
 	if len(pendingRollups) > 0 {
 		rollups := make([]BucketBandwidthRollup, 0, len(pendingRollups))
 		for cacheKey, cacheData := range pendingRollups {
 			rollups = append(rollups, BucketBandwidthRollup{
-				ProjectID:  cacheKey.ProjectID,
-				BucketName: cacheKey.BucketName,
-				Action:     cacheKey.Action,
-				Inline:     cacheData.Inline,
-				Allocated:  cacheData.Allocated,
-				Settled:    cacheData.Settled,
-				Dead:       cacheData.Dead,
+				ProjectID:     cacheKey.ProjectID,
+				BucketName:    cacheKey.BucketName,
+				IntervalStart: time.Unix(cacheKey.IntervalStart, 0),
+				Action:        cacheKey.Action,
+				Inline:        cacheData.Inline,
+				Allocated:     cacheData.Allocated,
+				Settled:       cacheData.Settled,
+				Dead:          cacheData.Dead,
 			})
 		}
 
-		err := cache.DB.UpdateBucketBandwidthBatch(ctx, latestTime, rollups)
+		err := cache.DB.UpdateBandwidthBatch(ctx, rollups)
 		if err != nil {
 			mon.Event("rollups_write_cache_flush_lost")
 			cache.log.Error("MONEY LOST! Bucket bandwidth rollup batch flush failed.", zap.Error(err))
@@ -173,9 +170,10 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 	}
 
 	key := CacheKey{
-		ProjectID:  projectID,
-		BucketName: string(bucketName),
-		Action:     action,
+		ProjectID:     projectID,
+		BucketName:    string(bucketName),
+		Action:        action,
+		IntervalStart: time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, intervalStart.Location()).Unix(),
 	}
 
 	// pevent unbounded memory memory growth if we're not flushing fast enough
@@ -185,9 +183,6 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 		mon.Event("rollups_write_cache_update_lost")
 		cache.log.Error("MONEY LOST! Flushing too slow to keep up with demand.")
 	} else {
-		if cache.latestTime.IsZero() || intervalStart.After(cache.latestTime) {
-			cache.latestTime = intervalStart
-		}
 
 		data.Allocated += allocated
 		data.Inline += inline
@@ -202,12 +197,12 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 
 	if !cache.flushing {
 		cache.flushing = true
-		pendingRollups, latestTime := cache.resetCache()
+		pendingRollups := cache.resetCache()
 
 		cache.wg.Add(1)
 		go func() {
 			defer cache.wg.Done()
-			cache.flush(ctx, pendingRollups, latestTime)
+			cache.flush(ctx, pendingRollups)
 		}()
 	}
 
