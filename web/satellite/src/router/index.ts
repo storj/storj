@@ -32,7 +32,7 @@ import OldOverviewStep from '@/components/onboardingTour/steps/oldFlow/OldOvervi
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
-import NewProjectDashboard from "@/components/project/NewProjectDashboard.vue";
+import NewProjectDashboard from "@/components/project/newProjectDashboard/NewProjectDashboard.vue";
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import CLIInstall from "@/components/onboardingTour/steps/cliFlow/CLIInstall.vue";

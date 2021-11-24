@@ -23,8 +23,8 @@ export interface ProjectsApi {
      * Update project name and description.
      *
      * @param projectId - project ID
-     * @param name - project name
-     * @param description - project description
+     * @param updateProjectFields - project fields to update
+     * @param updateProjectLimits - project limits to update
      * @returns Project[]
      * @throws Error
      */
@@ -177,5 +177,41 @@ export class ProjectsCursor {
     public constructor(
         public limit: number = 0,
         public page: number = 0,
+    ) {}
+}
+
+/**
+ * DataStamp is storage/bandwidth usage stamp for satellite at some point in time
+ */
+export class DataStamp {
+    public value: number;
+    public intervalStart: Date;
+
+    public constructor(value = 0, intervalStart: Date = new Date()) {
+        this.value = value;
+        this.intervalStart = intervalStart;
+    }
+
+    /**
+     * Creates new empty instance of stamp with defined date
+     * @param date - holds specific date of the month
+     * @returns Stamp - new empty instance of stamp with defined date
+     */
+    public static emptyWithDate(date: number): DataStamp {
+        const now = new Date();
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
+
+        return new DataStamp(0, now);
+    }
+}
+
+/**
+ * ProjectsStorageBandwidthDaily is used to describe project's daily storage and bandwidth usage.
+ */
+export class ProjectsStorageBandwidthDaily {
+    public constructor(
+        public bandwidth: DataStamp[] = [],
+        public storage: DataStamp[] = [],
     ) {}
 }

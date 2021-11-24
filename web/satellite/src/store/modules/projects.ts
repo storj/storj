@@ -3,17 +3,20 @@
 
 import { StoreModule } from '@/store';
 import {
+    DataStamp,
     Project,
     ProjectFields,
     ProjectLimits,
     ProjectsApi,
     ProjectsCursor,
     ProjectsPage,
+    ProjectsStorageBandwidthDaily,
 } from '@/types/projects';
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',
     FETCH_OWNED: 'fetchOwnedProjects',
+    FETCH_DAILY_DATA: 'fetchDailyData',
     CREATE: 'createProject',
     CREATE_DEFAULT_PROJECT: 'createDefaultProject',
     SELECT: 'selectProject',
@@ -41,6 +44,7 @@ export const PROJECTS_MUTATIONS = {
     SET_TOTAL_LIMITS: 'SET_TOTAL_LIMITS',
     SET_PAGE_NUMBER: 'SET_PAGE_NUMBER',
     SET_PAGE: 'SET_PAGE',
+    SET_DAILY_DATA: 'SET_DAILY_DATA',
 };
 
 const defaultSelectedProject = new Project('', '', '', '', '', true, 0);
@@ -52,6 +56,8 @@ export class ProjectsState {
     public totalLimits: ProjectLimits = new ProjectLimits();
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
+    public bandwidthChartData: DataStamp[] = [];
+    public storageChartData: DataStamp[] = [];
 }
 
 interface ProjectsContext {
@@ -67,6 +73,7 @@ interface ProjectsContext {
 
 const {
     FETCH,
+    FETCH_DAILY_DATA,
     CREATE,
     CREATE_DEFAULT_PROJECT,
     SELECT,
@@ -95,6 +102,7 @@ const {
     SET_TOTAL_LIMITS,
     SET_PAGE_NUMBER,
     SET_PAGE,
+    SET_DAILY_DATA,
 } = PROJECTS_MUTATIONS;
 const projectsPageLimit = 7;
 
@@ -174,6 +182,10 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
             [SET_PAGE](state: ProjectsState, page: ProjectsPage) {
                 state.page = page;
             },
+            [SET_DAILY_DATA](state: ProjectsState, payload: ProjectsStorageBandwidthDaily) {
+                state.bandwidthChartData = payload.bandwidth;
+                state.storageChartData = payload.storage;
+            },
         },
         actions: {
             [FETCH]: async function ({commit}: ProjectsContext): Promise<Project[]> {
@@ -190,6 +202,10 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 commit(SET_PAGE, projectsPage);
 
                 return projectsPage;
+            },
+            [FETCH_DAILY_DATA]: async function ({commit}: ProjectsContext, payload: ProjectsStorageBandwidthDaily): Promise<void> {
+                // TODO: rework when backend is ready
+                commit(SET_DAILY_DATA, payload);
             },
             [CREATE]: async function ({commit}: ProjectsContext, createProjectFields: ProjectFields): Promise<Project> {
                 const project = await api.create(createProjectFields);
