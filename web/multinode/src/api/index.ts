@@ -13,6 +13,15 @@ export class UnauthorizedError extends Error {
 }
 
 /**
+ * NotFound is a custom error type for page not found
+ */
+export class NotFoundError extends Error {
+    public constructor(message = 'not found') {
+        super(message);
+    }
+}
+
+/**
  * BadRequestError is a custom error type for performing bad request.
  */
 export class BadRequestError extends Error {
@@ -56,6 +65,7 @@ export class APIClient {
 
         switch (response.status) {
         case 401: throw new UnauthorizedError(body.error);
+        case 404: throw new NotFoundError(body.error);
         case 400: throw new BadRequestError(body.error);
         case 500:
         default:

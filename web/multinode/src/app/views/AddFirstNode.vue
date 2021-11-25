@@ -48,6 +48,7 @@ import VButton from '@/app/components/common/VButton.vue';
 
 import { Config as RouterConfig } from '@/app/router';
 import { CreateNodeFields } from '@/nodes';
+import { NotFoundError,BadRequestError } from '@/api';
 
 // @vue/component
 @Component({
@@ -99,12 +100,28 @@ export default class AddFirstNode extends Vue {
 
             return;
         }
-
         try {
             await this.$store.dispatch('nodes/add', this.nodeToAdd);
         } catch (error) {
             console.error(error.message);
             this.isLoading = false;
+
+            if(error instanceof NotFoundError) {
+                this.$notify({
+                    group: 'alerts',
+                    type: 'error',
+                    title: 'Error',
+                    text: '404. Please check your Public IP Address'
+                });
+            } else if(error instanceof BadRequestError) {
+                this.$notify({
+                    group: 'alerts',
+                    type: 'error',
+                    title: 'Error',
+                    text: '400. Please check your NodeID and API Key'
+                });
+            }
+
         }
 
         await this.$router.push(RouterConfig.MyNodes.path);

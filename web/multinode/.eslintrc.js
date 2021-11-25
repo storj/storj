@@ -43,7 +43,7 @@ module.exports = {
         "vue/no-unused-refs": ["warn"],
         "vue/no-useless-v-bind": ["warn"],
 
-        'vue/no-unregistered-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
+        'vue/no-unregistered-components': ['warn', { ignorePatterns: ['router-link', 'router-view', 'notifications'] }],
 
         'storj/vue/require-annotation': 'warn',
     },
