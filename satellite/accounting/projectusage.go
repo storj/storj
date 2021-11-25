@@ -215,6 +215,23 @@ func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID
 	return usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, increment, usage.bandwidthCacheTTL, usage.nowFn())
 }
 
+// GetProjectSegmentUsage get the current segment usage from cache.
+//
+// It can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Cache.GetProjectSegmentUsage.
+func (usage *Service) GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
+	return usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
+}
+
+// UpdateProjectSegmentUsage increments the segment cache key for a specific project.
+//
+// It can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Cache.UpdatProjectSegmentUsage.
+func (usage *Service) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
+	// TODO rename bandwidthCacheTTL to cacheTTL
+	return usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment, usage.bandwidthCacheTTL)
+}
+
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added spaceUsed bytes of storage (from the user's
 // perspective; i.e. segment size).

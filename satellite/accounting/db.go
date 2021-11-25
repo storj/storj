@@ -248,14 +248,20 @@ type ProjectAccounting interface {
 //
 // architecture: Database
 type Cache interface {
-	// GetProjectStorageUsage  returns the project's storage usage.
+	// GetProjectStorageUsage returns the project's storage usage.
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error)
-	// GetProjectBandwidthUsage  returns the project's bandwidth usage.
+	// GetProjectBandwidthUsage returns the project's bandwidth usage.
 	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
+	// GetProjectSegmentUsage returns the project's segment usage.
+	GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error)
 	// UpdateProjectBandthUsage updates the project's bandwidth usage increasing
 	// it. The projectID is inserted to the increment when it doesn't exists,
 	// hence this method will never return ErrKeyNotFound error's class.
 	UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) error
+	// UpdateProjectSegmentUsage updates the project's segment usage increasing
+	// it. The projectID is inserted to the increment when it doesn't exists,
+	// hence this method will never return ErrKeyNotFound error's class.
+	UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration) error
 	// AddProjectStorageUsage adds to the projects storage usage the spacedUsed.
 	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
 	// this method will never return ErrKeyNotFound.
