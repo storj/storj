@@ -37,6 +37,15 @@
 # enable analytics reporting
 # analytics.enabled: false
 
+# hubspot api key
+# analytics.hubspot.api-key: ""
+
+# the number of events that can be in the queue before dropping
+# analytics.hubspot.channel-size: 10000
+
+# creates a new limiter with limit set to
+# analytics.hubspot.concurrent-sends: 25
+
 # segment write key
 # analytics.segment-write-key: ""
 

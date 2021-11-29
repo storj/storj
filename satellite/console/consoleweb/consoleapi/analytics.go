@@ -56,16 +56,16 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.serveJSONError(w, http.StatusInternalServerError, err)
 	}
-	userID, err := a.service.GetUserID(ctx)
+
+	auth, err := console.GetAuth(ctx)
 	if err != nil {
 		a.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
-
 	if et.Link != "" {
-		a.analytics.TrackLinkEvent(et.EventName, userID, et.Link)
+		a.analytics.TrackLinkEvent(et.EventName, auth.User.ID, auth.User.Email, et.Link)
 	} else {
-		a.analytics.TrackEvent(et.EventName, userID)
+		a.analytics.TrackEvent(et.EventName, auth.User.ID, auth.User.Email)
 	}
 	w.WriteHeader(http.StatusOK)
 }
