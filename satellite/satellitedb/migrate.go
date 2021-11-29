@@ -16,6 +16,7 @@ import (
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/satellite/rewards"
 )
 
 //go:generate go run migrate_gen.go
@@ -1718,6 +1719,66 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
                                          WHERE (project_bandwidth_limit = 0 AND project_storage_limit = 0 AND paid_tier = true);`,
 					`UPDATE users SET project_limit = 3 WHERE project_limit = 0;`,
 				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "migrate data from the partner_id column to the user_agent column for users, projects, api_keys, bucket_metainfos, and value_attributions tables",
+				Version:     182,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					migratePartner := func(rowQuery, updateQuery string) (err error) {
+						partnersDB := rewards.DefaultPartnersDB
+						rows, err := db.QueryContext(ctx, rowQuery)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						defer func() { err = ErrMigrate.Wrap(errs.Combine(rows.Err(), rows.Close(), err)) }()
+						for rows.Next() {
+							var id []byte
+							var partnerID []byte
+							err = rows.Scan(&id, &partnerID)
+							if err != nil {
+								return err
+							}
+							partnerInfo, err := partnersDB.ByID(ctx, string(partnerID))
+							if err != nil {
+								_, err = db.Exec(ctx, updateQuery, partnerID, id)
+							} else {
+								_, err = db.Exec(ctx, updateQuery, partnerInfo.Name, id)
+							}
+							if err != nil {
+								return err
+							}
+						}
+						return err
+					}
+					// migrate users table
+					err := migratePartner("SELECT id, partner_id FROM users WHERE partner_id IS NOT NULL",
+						"UPDATE users SET user_agent = $1 WHERE id = $2")
+					if err != nil {
+						return err
+					}
+					// migrate projects table
+					err = migratePartner("SELECT id, partner_id FROM projects WHERE partner_id IS NOT NULL",
+						"UPDATE projects SET user_agent = $1 WHERE id = $2")
+					if err != nil {
+						return err
+					}
+					// migrate api_key table
+					err = migratePartner("SELECT id, partner_id FROM api_keys WHERE partner_id IS NOT NULL",
+						"UPDATE api_keys SET user_agent = $1 WHERE id = $2")
+					if err != nil {
+						return err
+					}
+					// migrate bucket_metainfo table
+					err = migratePartner("SELECT id, partner_id FROM bucket_metainfos WHERE partner_id IS NOT NULL",
+						"UPDATE bucket_metainfos SET user_agent = $1 WHERE id = $2")
+					if err != nil {
+						return err
+					}
+					// migrate value_attributions table
+					return migratePartner("SELECT project_id, partner_id FROM value_attributions WHERE partner_id IS NOT NULL",
+						"UPDATE value_attributions SET user_agent = $1 WHERE project_id = $2")
+				}),
 			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
