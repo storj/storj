@@ -8,7 +8,7 @@
  */
 
 import type { Operation } from "./ui-generator";
-import { InputText, Textarea } from "./ui-generator";
+import { InputText, Select } from "./ui-generator";
 
 // API must be implemented by any class which expose the access to a specific
 // API.
@@ -27,6 +27,75 @@ export class Admin {
         params: [["API key", new InputText("text", true)]],
         func: async (apiKey: string): Promise<null> => {
           return this.fetch("DELETE", `apikeys/${apiKey}`) as Promise<null>;
+        },
+      },
+    ],
+    bucket: [
+      {
+        name: "delete geofencing",
+        desc: "Delete the geofencing configuration of the specified bucket. The bucket MUST be empty",
+        params: [
+          ["Project ID", new InputText("text", true)],
+          ["Bucket name", new InputText("text", true)],
+        ],
+        func: async (
+          projectId: string,
+          bucketName: string
+        ): Promise<object> => {
+          return this.fetch(
+            "DELETE",
+            `projects/${projectId}/buckets/${bucketName}/geofence`
+          );
+        },
+      },
+      {
+        name: "Get geofencing",
+        desc: "Get the geofencing configuration of the specified bucket",
+        params: [
+          ["Project ID", new InputText("text", true)],
+          ["Bucket name", new InputText("text", true)],
+        ],
+        func: async (
+          projectId: string,
+          bucketName: string
+        ): Promise<object> => {
+          return this.fetch(
+            "GET",
+            `projects/${projectId}/buckets/${bucketName}/geofence`
+          );
+        },
+      },
+      {
+        name: "Set geofencing",
+        desc: "Set the geofencing configuration of the specified bucket. The bucket MUST be empty",
+        params: [
+          ["Project ID", new InputText("text", true)],
+          ["Bucket name", new InputText("text", true)],
+          [
+            "Region",
+            new Select(false, true, [
+              { text: "European Union", value: "EU" },
+              { text: "European Economic Area", value: "EEA" },
+              { text: "United States", value: "US" },
+              { text: "Germany", value: "DE" },
+            ]),
+          ],
+        ],
+        func: async (
+          projectId: string,
+          bucketName: string,
+          region: string
+        ): Promise<object> => {
+          const query = this.urlQueryFromObject({ region });
+          if (query === "") {
+            throw new APIError("region cannot be empty");
+          }
+
+          return this.fetch(
+            "POST",
+            `projects/${projectId}/buckets/${bucketName}/geofence`,
+            query
+          );
         },
       },
     ],
