@@ -258,12 +258,19 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// see if referrer was provided in URL query, otherwise use the Referer header in the request.
+		referrer := r.URL.Query().Get("referrer")
+		if referrer == "" {
+			referrer = r.Referer()
+		}
 		trackCreateUserFields := analytics.TrackCreateUserFields{
-			ID:          user.ID,
-			AnonymousID: loadSession(r),
-			FullName:    user.FullName,
-			Email:       user.Email,
-			Type:        analytics.Personal,
+			ID:           user.ID,
+			AnonymousID:  loadSession(r),
+			FullName:     user.FullName,
+			Email:        user.Email,
+			Type:         analytics.Personal,
+			OriginHeader: origin,
+			Referrer:     referrer,
 		}
 		if user.IsProfessional {
 			trackCreateUserFields.Type = analytics.Professional
