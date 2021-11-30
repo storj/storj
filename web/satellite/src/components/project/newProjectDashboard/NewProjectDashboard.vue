@@ -27,22 +27,34 @@
         <div class="project-dashboard__stats-header">
             <h2 class="project-dashboard__stats-header__title">Project Stats</h2>
             <div class="project-dashboard__stats-header__buttons">
+                <DateRangeSelection
+                    :date-range="chartsDateRange"
+                    :on-date-pick="onChartsDateRangePick"
+                    :is-open="isChartsDatePicker"
+                    :toggle="toggleChartsDatePicker"
+                />
                 <VButton
                     v-if="!isProAccount"
                     label="Upgrade Plan"
                     width="114px"
                     height="40px"
+                    font-size="13px"
                     :on-press="onUpgradeClick"
-                    is-white="true"
                 />
                 <VButton
                     v-else
+                    class="new-project-button"
                     label="New Project"
-                    width="114px"
+                    width="130px"
                     height="40px"
+                    font-size="13px"
                     :on-press="onCreateProjectClick"
-                    :is-white="!limits.objectCount"
-                />
+                    :is-white="true"
+                >
+                    <template #icon>
+                        <NewProjectIcon />
+                    </template>
+                </VButton>
             </div>
         </div>
         <div class="project-dashboard__charts">
@@ -129,16 +141,20 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { PROJECTS_ACTIONS } from "@/store/modules/projects";
+import { PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from "@/store/modules/projects";
 import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from "@/store/modules/payments";
+import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import { RouteConfig } from "@/router";
-import { DataStamp, ProjectLimits, ProjectsStorageBandwidthDaily } from "@/types/projects";
+import { DataStamp, ProjectLimits, ProjectsStorageBandwidthDaily, ProjectUsageDateRange } from "@/types/projects";
 import { Dimensions, Size } from "@/utils/bytesSize";
 
 import VLoader from "@/components/common/VLoader.vue";
 import InfoContainer from "@/components/project/newProjectDashboard/InfoContainer.vue";
 import DashboardChart from "@/components/project/newProjectDashboard/DashboardChart.vue";
 import VButton from "@/components/common/VButton.vue";
+import DateRangeSelection from "@/components/project/newProjectDashboard/DateRangeSelection.vue";
+
+import NewProjectIcon from "@/../static/images/project/newProject.svg";
 
 // @vue/component
 @Component({
@@ -147,6 +163,8 @@ import VButton from "@/components/common/VButton.vue";
         VButton,
         InfoContainer,
         DashboardChart,
+        DateRangeSelection,
+        NewProjectIcon,
     }
 })
 export default class NewProjectDashboard extends Vue {
@@ -229,6 +247,29 @@ export default class NewProjectDashboard extends Vue {
     }
 
     /**
+     * toggleChartsDatePicker holds logic for toggling charts date picker.
+     */
+    public toggleChartsDatePicker(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHARTS_DATEPICKER_DROPDOWN);
+    }
+
+    /**
+     * onChartsDateRangePick holds logic for choosing date range for charts.
+     * @param dateRange
+     */
+    public onChartsDateRangePick(dateRange: Date[]): void {
+        // TODO: rework when backend is ready
+        this.$store.commit(PROJECTS_MUTATIONS.SET_CHARTS_DATE_RANGE, new ProjectUsageDateRange(dateRange[0], dateRange[1]));
+    }
+
+    /**
+     * Indicates if charts date picker is shown.
+     */
+    public get isChartsDatePicker(): boolean {
+        return this.$store.state.appStateModule.appState.isChartsDatePickerShown;
+    }
+
+    /**
      * Returns current limits from store.
      */
     public get limits(): ProjectLimits {
@@ -305,6 +346,13 @@ export default class NewProjectDashboard extends Vue {
             return new DataStamp(Math.floor(Math.random() * 1000000000000), d);
         })
     }
+
+    /**
+     * Returns charts date range from store.
+     */
+    private get chartsDateRange(): ProjectUsageDateRange | null {
+        return this.$store.getters.chartsDateRange;
+    }
 }
 </script>
 
@@ -368,8 +416,8 @@ export default class NewProjectDashboard extends Vue {
                 display: flex;
                 align-items: center;
 
-                > *:last-child {
-                    margin-left: 25px;
+                > .container {
+                    margin-left: 16px;
                 }
             }
         }
@@ -434,6 +482,20 @@ export default class NewProjectDashboard extends Vue {
                 &:visited {
                     color: #000;
                 }
+            }
+        }
+    }
+
+    .new-project-button {
+
+        svg {
+            margin-right: 9px;
+        }
+
+        &:hover {
+
+            svg path {
+                fill: #fff;
             }
         }
     }

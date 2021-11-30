@@ -55,7 +55,7 @@ export default class DurationSelection extends Vue {
      * Toggles duration picker.
      */
     public togglePicker(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DATEPICKER_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_AG_DATEPICKER_DROPDOWN);
     }
 
     /**
@@ -69,7 +69,7 @@ export default class DurationSelection extends Vue {
      * Indicates if date picker is shown.
      */
     public get isDurationPickerVisible(): boolean {
-        return this.$store.state.appStateModule.appState.isDatePickerShown;
+        return this.$store.state.appStateModule.appState.isAGDatePickerShown;
     }
 
     /**

@@ -215,3 +215,13 @@ export class ProjectsStorageBandwidthDaily {
         public storage: DataStamp[] = [],
     ) {}
 }
+
+/**
+ * ProjectUsageDateRange is used to describe project's usage by date range.
+ */
+export class ProjectUsageDateRange {
+    public constructor(
+        public since: Date,
+        public before: Date,
+    ) {}
+}
