@@ -46,6 +46,7 @@ build-dev-deps: ## Install dependencies for builds
 	go get golang.org/x/tools/cover
 	go get github.com/go-bindata/go-bindata/go-bindata
 	go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo
+	go get github.com/github-release/github-release
 
 .PHONY: lint
 lint: ## Analyze and find programs in source code
@@ -369,6 +370,10 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 		; fi \
 	; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
+
+.PHONY: draft-release
+draft-release:
+	scripts/draft-release.sh ${BRANCHNAME} "release/${TAG}"
 
 ##@ Clean
 

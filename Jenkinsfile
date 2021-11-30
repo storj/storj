@@ -135,6 +135,14 @@ node('node') {
 
       echo "Current build result: ${currentBuild.result}"
     }
+    stage('Draft Release') {
+      withCredentials([string(credentialsId: 'GITHUB_RELEASE_TOKEN', variable: 'GITHUB_TOKEN')]) {
+        lastStage = env.STAGE_NAME
+        sh 'make draft-release'
+
+        echo "Current build result: ${currentBuild.result}"
+      }
+    }
 
   }
   catch (err) {
