@@ -84,11 +84,13 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 		}
 
 		for _, testCase := range testCases {
-			baseURL := fmt.Sprintf("http://%s/api/projects/%s/buckets/%s/geofence", address, testCase.project, string(testCase.bucket))
+			baseURL := fmt.Sprintf("http://%s/api/projects/%s/buckets/%s", address, testCase.project, string(testCase.bucket))
 			t.Log(baseURL)
+			baseGeofenceURL := fmt.Sprintf("http://%s/api/projects/%s/buckets/%s/geofence", address, testCase.project, string(testCase.bucket))
+			t.Log(baseGeofenceURL)
 
 			t.Run(testCase.name, func(t *testing.T) {
-				assertReq(ctx, t, baseURL+"?region=EU", "POST", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
+				assertReq(ctx, t, baseGeofenceURL+"?region=EU", "POST", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
 
 				if testCase.status == http.StatusOK {
 					b, err := sat.DB.Buckets().GetBucket(ctx, testCase.bucket, testCase.project)
@@ -106,7 +108,7 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 					assertGet(ctx, t, baseURL, string(expected), sat.Config.Console.AuthToken)
 				}
 
-				assertReq(ctx, t, baseURL, "DELETE", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
+				assertReq(ctx, t, baseGeofenceURL, "DELETE", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
 			})
 		}
 	})

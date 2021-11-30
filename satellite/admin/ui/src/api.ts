@@ -32,6 +32,23 @@ export class Admin {
     ],
     bucket: [
       {
+        name: "get",
+        desc: "Get the information of the specified bucket",
+        params: [
+          ["Project ID", new InputText("text", true)],
+          ["Bucket name", new InputText("text", true)],
+        ],
+        func: async (
+          projectId: string,
+          bucketName: string
+        ): Promise<object> => {
+          return this.fetch(
+            "GET",
+            `projects/${projectId}/buckets/${bucketName}`
+          );
+        },
+      },
+      {
         name: "delete geofencing",
         desc: "Delete the geofencing configuration of the specified bucket. The bucket MUST be empty",
         params: [
@@ -49,24 +66,7 @@ export class Admin {
         },
       },
       {
-        name: "Get geofencing",
-        desc: "Get the geofencing configuration of the specified bucket",
-        params: [
-          ["Project ID", new InputText("text", true)],
-          ["Bucket name", new InputText("text", true)],
-        ],
-        func: async (
-          projectId: string,
-          bucketName: string
-        ): Promise<object> => {
-          return this.fetch(
-            "GET",
-            `projects/${projectId}/buckets/${bucketName}/geofence`
-          );
-        },
-      },
-      {
-        name: "Set geofencing",
+        name: "set geofencing",
         desc: "Set the geofencing configuration of the specified bucket. The bucket MUST be empty",
         params: [
           ["Project ID", new InputText("text", true)],
