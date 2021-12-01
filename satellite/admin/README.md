@@ -8,6 +8,7 @@ Requires setting `Authorization` header for requests.
 <!-- toc -->
 - [satellite/admin](#satelliteadmin)
     * [API design](#api-design)
+        * [Successful responses](#successful-responses)
         * [Error responses](#error-responses)
     * [API Endpoints](#api-endpoints)
         * [User Management](#user-management)
@@ -41,6 +42,11 @@ Requires setting `Authorization` header for requests.
 <!-- tocstop -->
 
 ## API design
+
+### Successful responses
+
+For non-get requests (`PUT`, `POST`, `DELETE`), endpoints should return an empty response body on success. `GET`
+requests can return a non-empty body for the resource that we're interacting with.
 
 ### Error responses
 

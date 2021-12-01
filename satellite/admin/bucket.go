@@ -74,7 +74,7 @@ func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, place
 
 	b.Placement = placement
 
-	b, err = server.buckets.UpdateBucket(ctx, b)
+	_, err = server.buckets.UpdateBucket(ctx, b)
 	if err != nil {
 		switch {
 		case storj.ErrBucketNotFound.Has(err):
@@ -87,12 +87,7 @@ func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, place
 		return
 	}
 
-	data, err := json.Marshal(b)
-	if err != nil {
-		sendJSONError(w, "failed to marshal bucket", err.Error(), http.StatusInternalServerError)
-	} else {
-		sendJSONData(w, http.StatusOK, data)
-	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (server *Server) createGeofenceForBucket(w http.ResponseWriter, r *http.Request) {

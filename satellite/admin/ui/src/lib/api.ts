@@ -49,8 +49,11 @@ export class Admin {
 					['Project ID', new InputText('text', true)],
 					['Bucket name', new InputText('text', true)]
 				],
-				func: async (projectId: string, bucketName: string): Promise<Record<string, unknown>> => {
-					return this.fetch('DELETE', `projects/${projectId}/buckets/${bucketName}/geofence`);
+				func: async (projectId: string, bucketName: string): Promise<null> => {
+					return this.fetch(
+						'DELETE',
+						`projects/${projectId}/buckets/${bucketName}/geofence`
+					) as Promise<null>;
 				}
 			},
 			{
@@ -69,17 +72,17 @@ export class Admin {
 						])
 					]
 				],
-				func: async (
-					projectId: string,
-					bucketName: string,
-					region: string
-				): Promise<Record<string, unknown>> => {
+				func: async (projectId: string, bucketName: string, region: string): Promise<null> => {
 					const query = this.urlQueryFromObject({ region });
 					if (query === '') {
 						throw new APIError('region cannot be empty');
 					}
 
-					return this.fetch('POST', `projects/${projectId}/buckets/${bucketName}/geofence`, query);
+					return this.fetch(
+						'POST',
+						`projects/${projectId}/buckets/${bucketName}/geofence`,
+						query
+					) as Promise<null>;
 				}
 			}
 		],
