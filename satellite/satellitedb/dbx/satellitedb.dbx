@@ -344,6 +344,7 @@ model project (
     field description     text      ( updatable )
     field usage_limit     int64     ( nullable, updatable )
     field bandwidth_limit int64     ( nullable, updatable )
+    field segment_limit   int64     ( nullable, updatable, default 1000000)
     field rate_limit      int       ( nullable, updatable )
     field burst_limit     int       ( nullable, updatable )
     field max_buckets     int       ( nullable, updatable )
