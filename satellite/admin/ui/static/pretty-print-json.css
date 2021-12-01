@@ -1,62 +1,62 @@
 /*! pretty-print-json v1.0.3 ~ github.com/center-key/pretty-print-json ~ MIT License */
 .json-key {
-  color: brown;
+	color: brown;
 }
 .json-string {
-  color: olive;
+	color: olive;
 }
 .json-number {
-  color: navy;
+	color: navy;
 }
 .json-boolean {
-  color: teal;
+	color: teal;
 }
 .json-null {
-  color: dimgray;
+	color: dimgray;
 }
 .json-mark {
-  color: black;
+	color: black;
 }
 a.json-link {
-  color: purple;
-  transition: all 400ms;
+	color: purple;
+	transition: all 400ms;
 }
 a.json-link:visited {
-  color: slategray;
+	color: slategray;
 }
 a.json-link:hover {
-  color: blueviolet;
+	color: blueviolet;
 }
 a.json-link:active {
-  color: slategray;
+	color: slategray;
 }
 .dark-mode .json-key {
-  color: indianred;
+	color: indianred;
 }
 .dark-mode .json-string {
-  color: darkkhaki;
+	color: darkkhaki;
 }
 .dark-mode .json-number {
-  color: deepskyblue;
+	color: deepskyblue;
 }
 .dark-mode .json-boolean {
-  color: mediumseagreen;
+	color: mediumseagreen;
 }
 .dark-mode .json-null {
-  color: darkorange;
+	color: darkorange;
 }
 .dark-mode .json-mark {
-  color: silver;
+	color: silver;
 }
 .dark-mode a.json-link {
-  color: mediumorchid;
+	color: mediumorchid;
 }
 .dark-mode a.json-link:visited {
-  color: slategray;
+	color: slategray;
 }
 .dark-mode a.json-link:hover {
-  color: violet;
+	color: violet;
 }
 .dark-mode a.json-link:active {
-  color: silver;
+	color: silver;
 }
