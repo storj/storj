@@ -21,7 +21,11 @@ func CreateSchema(log *zap.Logger, service *console.Service, mailService *mailse
 	}
 
 	return graphql.NewSchema(graphql.SchemaConfig{
-		Query:    creator.RootQuery(),
-		Mutation: creator.RootMutation(),
+		Query:        creator.RootQuery(),
+		Mutation:     creator.RootMutation(),
+		Subscription: &graphql.Object{},
+		Types:        []graphql.Type{},
+		Directives:   []*graphql.Directive{},
+		Extensions:   []graphql.Extension{},
 	})
 }
