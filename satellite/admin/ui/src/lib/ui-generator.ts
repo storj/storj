@@ -29,7 +29,7 @@ export interface Operation {
 	func: (...p: unknown[]) => Promise<Record<string, unknown> | null>;
 }
 
-type ParamUI = InputText | Select | Textarea;
+export type ParamUI = InputText | Select | Textarea;
 
 export class InputText {
 	constructor(

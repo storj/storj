@@ -9,8 +9,11 @@ See `ui-generator.ts` file for knowing about the `Operation` interface which is
 the type of the "operation" value to be passed in.
 -->
 <script lang="ts">
+	import type { SvelteComponent } from 'svelte';
+
 	import { prettyPrintJson as prettyJSON } from 'pretty-print-json';
-	import type { Operation } from '$lib/ui-generator';
+	import type { ParamUI, Operation } from '$lib/ui-generator';
+	import { InputText, Select, Textarea } from '$lib/ui-generator';
 
 	import UIInputText from '$lib/UIGeneratorInputText.svelte';
 	import UISelect from '$lib/UIGeneratorSelect.svelte';
@@ -23,6 +26,22 @@ the type of the "operation" value to be passed in.
 			form.reset();
 			return data;
 		});
+	}
+
+	function componentFromConfig(param: ParamUI): typeof SvelteComponent {
+		if (param instanceof InputText) {
+			return UIInputText;
+		}
+
+		if (param instanceof Select) {
+			return UISelect;
+		}
+
+		if (param instanceof Textarea) {
+			return UITextarea;
+		}
+
+		throw new Error('PANIC unmapped component');
 	}
 
 	$: {
@@ -38,12 +57,6 @@ the type of the "operation" value to be passed in.
 	let opArgs: opArg[] = new Array(operation.params.length);
 	let result: Promise<Record<string, unknown> | null>;
 	let form: HTMLFormElement;
-
-	let componentsMap = {
-		InputText: UIInputText,
-		Select: UISelect,
-		Textarea: UITextarea
-	};
 </script>
 
 <div>
@@ -51,7 +64,7 @@ the type of the "operation" value to be passed in.
 	<form bind:this={form} on:submit|preventDefault={() => execOperation(operation, opArgs)}>
 		{#each operation.params as param, i}
 			<svelte:component
-				this={componentsMap[param[1].constructor.name]}
+				this={componentFromConfig(param[1])}
 				label={param[0]}
 				config={param[1]}
 				bind:value={opArgs[i]}
