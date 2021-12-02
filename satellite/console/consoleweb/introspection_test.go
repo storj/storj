@@ -19,7 +19,7 @@ func TestIntrospection(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
-		
+
 		{ // Get Schema via Introspection
 			resp, body := test.request(
 				http.MethodPost, "/graphql",
@@ -120,7 +120,7 @@ func TestIntrospection(t *testing.T) {
 						  }
 						}
 					  }
-					}`,}))
+					`}))
 
 			fmt.Println(resp)
 			fmt.Println(body)
@@ -133,7 +133,7 @@ func TestAuthAttempts(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
-		
+
 		{ // repeated login attempts should end in too many requests
 			hitRateLimiter := false
 			for i := 0; i < 30; i++ {
