@@ -4,6 +4,7 @@
 package consoleweb_test
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,32 +14,126 @@ import (
 	"storj.io/storj/private/testplanet"
 )
 
-func VerifySchema(t *testing.T) {
+func TestIntrospection(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
-		user := test.defaultUser()
-		test.login(user.email, user.password)
-
-		{ // Register User
-			_ = test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
-		}
-
-		{ // Login_GetToken_Fail
+		
+		{ // Get Schema via Introspection
 			resp, body := test.request(
-				http.MethodPost, "/auth/token",
-				strings.NewReader(`{"email":"wrong@invalid.test","password":"wrong"}`))
-			require.Nil(t, findCookie(resp, "_tokenKey"))
-			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-			_ = body
-			// TODO: require.Contains(t, body, "unauthorized")
-		}
+				http.MethodPost, "/graphql",
+				test.toJSON(map[string]interface{}{
+					"query": `
+					query IntrospectionQuery {
+						__schema {
+						  queryType { name }
+						  mutationType { name }
+						  subscriptionType { name }
+						  types {
+							...FullType
+						  }
+						  directives {
+							name
+							description
+							locations
+							args {
+							  ...InputValue
+							}
+							# deprecated, but included for coverage till removed
+							onOperation
+							onFragment
+							onField
+						  }
+						}
+					  }
+					
+					  fragment FullType on __Type {
+						kind
+						name
+						description
+						fields(includeDeprecated: true) {
+						  name
+						  description
+						  args {
+							...InputValue
+						  }
+						  type {
+							...TypeRef
+						  }
+						  isDeprecated
+						  deprecationReason
+						}
+						inputFields {
+						  ...InputValue
+						}
+						interfaces {
+						  ...TypeRef
+						}
+						enumValues(includeDeprecated: true) {
+						  name
+						  description
+						  isDeprecated
+						  deprecationReason
+						}
+						possibleTypes {
+						  ...TypeRef
+						}
+					  }
+					
+					  fragment InputValue on __InputValue {
+						name
+						description
+						type { ...TypeRef }
+						defaultValue
+					  }
+					
+					  fragment TypeRef on __Type {
+						kind
+						name
+						ofType {
+						  kind
+						  name
+						  ofType {
+							kind
+							name
+							ofType {
+							  kind
+							  name
+							  ofType {
+								kind
+								name
+								ofType {
+								  kind
+								  name
+								  ofType {
+									kind
+									name
+									ofType {
+									  kind
+									  name
+									}
+								  }
+								}
+							  }
+							}
+						  }
+						}
+					  }
+					}`,}))
 
-		{ // Login_GetToken_Pass
-			test.login(user.email, user.password)
+			fmt.Println(resp)
+			fmt.Println(body)
 		}
+	})
+}
 
+func TestAuthAttempts(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		test := newTest(t, ctx, planet)
+		
 		{ // repeated login attempts should end in too many requests
 			hitRateLimiter := false
 			for i := 0; i < 30; i++ {
