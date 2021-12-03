@@ -372,11 +372,15 @@ read one (
     where  project.id = ?
 )
 read one (
+    select project.segment_limit
+    where  project.id = ?
+)
+read one (
     select project.max_buckets
     where project.id = ?
 )
 read one (
-    select project.bandwidth_limit project.usage_limit
+    select project.bandwidth_limit project.usage_limit project.segment_limit
     where  project.id = ?
 )
 
