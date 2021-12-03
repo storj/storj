@@ -31,7 +31,7 @@ export default {
         shiftSelectedFiles: [],
         filesToBeDeleted: [],
         getSharedLink: null,
-        getObjectMapUrl: null,
+        fetchObjectMapUrl: null,
         openedDropdown: null,
         headingSorted: "name",
         orderBy: "asc",
@@ -90,7 +90,7 @@ export default {
                 browserRoot,
                 openModalOnFirstUpload = true,
                 getSharedLink = () => "javascript:null",
-                getObjectMapUrl = () =>
+                fetchObjectMapUrl = () =>
                     new Promise((resolve) =>
                         setTimeout(
                             () =>
@@ -118,7 +118,7 @@ export default {
             state.browserRoot = browserRoot;
             state.openModalOnFirstUpload = openModalOnFirstUpload;
             state.getSharedLink = getSharedLink;
-            state.getObjectMapUrl = getObjectMapUrl;
+            state.fetchObjectMapUrl = fetchObjectMapUrl;
             state.path = "";
         },
 

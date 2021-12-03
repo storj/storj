@@ -1,34 +1,5 @@
-<script lang="ts"> /* eslint-disable */ </script>
-
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
-
-<style scoped>
-/* stylelint-disable */
-
-th {
-    user-select: none;
-    -moz-user-select: none;
-    -khtml-user-select: none;
-    -webkit-user-select: none;
-    -o-user-select: none;
-}
-
-.arrow {
-    cursor: pointer;
-    color: #768394;
-    position: absolute;
-}
-
-a {
-    cursor: pointer;
-}
-
-.table-heading {
-    cursor: pointer;
-    color: #768394;
-}
-</style>
 
 <template>
     <thead>
@@ -192,6 +163,7 @@ a {
                             <div class="d-flex">
                                 <button
                                     class="dropdown-item trash p-3 action"
+                                    type="button"
                                     @click="confirmDeleteSelection"
                                 >
                                     <svg
@@ -214,6 +186,7 @@ a {
                                 </button>
                                 <button
                                     class="dropdown-item p-3 action"
+                                    type="button"
                                     @click="cancelDeleteSelection"
                                 >
                                     <svg
@@ -240,93 +213,221 @@ a {
     </thead>
 </template>
 
-<script>
-// Computed property creators
+<script lang="ts">
+import { Component, Vue } from 'vue-property-decorator';
 
-const isDesc = (heading) =>
-    function () {
+// @vue/component
+@Component
+export default class FileBrowserHeader extends Vue {
+    private hover = "";
+
+    /**
+     * Check if a heading is sorted in descending order.
+     */
+    private isDesc(heading: string): boolean {
         return this.headingSorted === heading && this.orderBy === "desc";
-    };
-
-const showArrow = (heading) =>
-    function () {
-        return this.headingSorted === heading || this.hover === heading;
-    };
-
-const fromFilesStore = (prop) =>
-    function () {
-        return this.$store.state.files[prop];
-    };
-
-// Method creators
-
-const mouseOver = (heading) =>
-    function () {
-        this.hover = heading;
-    };
-
-const sortBy = (heading) =>
-    function () {
-        this.$store.commit("files/sort", heading);
-    };
-
-export default {
-    data: () => ({
-        hover: null
-    }),
-    computed: {
-        headingSorted: fromFilesStore("headingSorted"),
-        orderBy: fromFilesStore("orderBy"),
-
-        nameDesc: isDesc("name"),
-        sizeDesc: isDesc("size"),
-        dateDesc: isDesc("date"),
-
-        showNameArrow: showArrow("name"),
-        showSizeArrow: showArrow("size"),
-        showDateArrow: showArrow("date"),
-
-        filesToDelete() {
-            return (
-                !!this.$store.state.files.selectedAnchorFile ||
-				!!(
-				    this.$store.state.files.unselectedAnchorFile &&
-					(this.$store.state.files.selectedFiles.length > 0 ||
-						this.$store.state.files.shiftSelectedFiles.length > 0)
-				)
-            );
-        },
-
-        displayDropdown() {
-            return this.$store.state.files.openedDropdown === "FileBrowser";
-        }
-    },
-    methods: {
-        sortByName: sortBy("name"),
-        sortBySize: sortBy("size"),
-        sortByDate: sortBy("date"),
-
-        mouseOverName: mouseOver("name"),
-        mouseOverSize: mouseOver("size"),
-        mouseOverDate: mouseOver("date"),
-
-        mouseLeave() {
-            this.hover = null;
-        },
-
-        deleteSelectedDropdown(event) {
-            event.stopPropagation();
-            this.$store.dispatch("files/openFileBrowserDropdown");
-        },
-
-        confirmDeleteSelection() {
-            this.$store.dispatch("files/deleteSelected");
-            this.$store.dispatch("files/closeDropdown");
-        },
-
-        cancelDeleteSelection() {
-            this.$store.dispatch("files/closeDropdown");
-        }
     }
-};
+
+    /**
+     * Check if sorting arrow should be displayed.
+     */
+    private showArrow(heading: string): boolean {
+        return this.headingSorted === heading || this.hover === heading;
+    }
+
+    /**
+     * Retreive a string property from the store.
+     */
+    private fromFilesStore(prop: string): string {
+        return this.$store.state.files[prop];
+    }
+
+    /**
+     * Set the heading of the current heading being hovered over.
+     */
+    private mouseOver(heading: string): void {
+        this.hover = heading;
+    }
+
+    /**
+     * Set the heading for files/folders to be sorted by in the store.
+     */
+    private sortBy(heading: string): void {
+        this.$store.commit("files/sort", heading);
+    }
+
+    /**
+     * Get the current heading being sorted from the store.
+     */
+    private get headingSorted(): string {
+        return this.fromFilesStore("headingSorted");
+    }
+
+    /**
+     * Get the current order being sorted from the store.
+     */
+    private get orderBy(): string {
+        return this.fromFilesStore("orderBy");
+    }
+
+    /**
+     * Check if the name heading is being sorted in descending order.
+     */
+    public get nameDesc(): boolean {
+        return this.isDesc("name");
+    }
+
+    /**
+     * Check if the size heading is being sorted in descending order.
+     */
+    public get sizeDesc(): boolean {
+        return this.isDesc("size");
+    }
+
+    /**
+     * Check if the date heading is being sorted in descending order.
+     */
+    public get dateDesc(): boolean {
+        return this.isDesc("date");
+    }
+
+    /**
+     * Check if the name heading's arrow should be displayed.
+     */
+    public get showNameArrow(): boolean {
+        return this.showArrow("name");
+    }
+
+    /**
+     * Check if the size heading's arrow should be displayed.
+     */
+    public get showSizeArrow(): boolean {
+        return this.showArrow("size");
+    }
+
+    /**
+     * Check if the date heading's arrow should be displayed.
+     */
+    public get showDateArrow(): boolean {
+        return this.showArrow("date");
+    }
+
+    /**
+     * Check if the trashcan to delete selected files/folder should be displayed.
+     */
+    public get filesToDelete(): boolean {
+        return (
+            !!this.$store.state.files.selectedAnchorFile ||
+            !!(
+                this.$store.state.files.unselectedAnchorFile &&
+                (this.$store.state.files.selectedFiles.length > 0 ||
+                    this.$store.state.files.shiftSelectedFiles.length > 0)
+            )
+        );
+    }
+
+    /**
+     * Check if the files/folders deletion dropdown should be displayed.
+     */
+    public get displayDropdown(): boolean {
+        return this.$store.state.files.openedDropdown === "FileBrowser";
+    }
+
+    /**
+     * Sort files/folder based on their name.
+     */
+    public sortByName(): void {
+        this.sortBy("name");
+    }
+
+    /**
+     * Sort files/folder based on their size.
+     */
+    public sortBySize(): void {
+        this.sortBy("size");
+    }
+
+    /**
+     * Sort files/folder based on their date.
+     */
+    public sortByDate(): void {
+        this.sortBy("date");
+    }
+
+    /**
+     * Change the hover property to the name heading on hover.
+     */
+    public mouseOverName(): void {
+        this.mouseOver("name");
+    }
+
+    /**
+     * Change the hover property to the size heading on hover.
+     */
+    public mouseOverSize(): void {
+        this.mouseOver("size");
+    }
+
+    /**
+     * Change the hover property to the date heading on hover.
+     */
+    public mouseOverDate(): void {
+        this.mouseOver("date");
+    }
+
+    /**
+     * Change the hover property to nothing on mouse leave.
+     */
+    public mouseLeave(): void {
+        this.hover = "";
+    }
+
+    /**
+     * Open the deletion of files/folders dropdown.
+     */
+    public deleteSelectedDropdown(event: Event): void {
+        event.stopPropagation();
+        this.$store.dispatch("files/openFileBrowserDropdown");
+    }
+
+    /**
+     * Delete the selected files/folders.
+     */
+    public confirmDeleteSelection(): void {
+        this.$store.dispatch("files/deleteSelected");
+        this.$store.dispatch("files/closeDropdown");
+    }
+
+    /**
+     * Abort files/folder selected for deletion.
+     */
+    public cancelDeleteSelection(): void {
+        this.$store.dispatch("files/closeDropdown");
+    }
+}
 </script>
+
+<style scoped>
+th {
+    user-select: none;
+    -moz-user-select: none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    -o-user-select: none;
+}
+
+.arrow {
+    cursor: pointer;
+    color: #768394;
+    position: absolute;
+}
+
+a {
+    cursor: pointer;
+}
+
+.table-heading {
+    cursor: pointer;
+    color: #768394;
+}
+</style>
