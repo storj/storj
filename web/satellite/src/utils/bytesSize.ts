@@ -11,7 +11,7 @@ export enum Memory {
 }
 
 export enum Dimensions {
-    Bytes = 'Bytes',
+    Bytes = 'B',
     KB = 'KB',
     MB = 'MB',
     GB = 'GB',

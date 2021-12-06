@@ -1643,11 +1643,17 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	prUsageLimits, err := s.getProjectUsageLimits(ctx, projectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	prObjectsSegments, err := s.projectAccounting.GetProjectObjectsSegments(ctx, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1657,6 +1663,8 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		BandwidthLimit: prUsageLimits.BandwidthLimit,
 		StorageUsed:    prUsageLimits.StorageUsed,
 		BandwidthUsed:  prUsageLimits.BandwidthUsed,
+		ObjectCount:    prObjectsSegments.ObjectCount,
+		SegmentCount:   prObjectsSegments.SegmentCount,
 	}, nil
 }
 

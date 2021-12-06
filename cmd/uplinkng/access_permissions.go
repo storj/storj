@@ -32,24 +32,13 @@ type accessPermissions struct {
 }
 
 func (ap *accessPermissions) Setup(params clingy.Parameters) {
-	transformSharePrefix := func(loc ulloc.Location) (uplink.SharePrefix, error) {
-		bucket, key, ok := loc.RemoteParts()
-		if !ok {
-			return uplink.SharePrefix{}, errs.New("invalid prefix: must be remote: %q", loc)
-		}
-		return uplink.SharePrefix{
-			Bucket: bucket,
-			Prefix: key,
-		}, nil
-	}
-
 	ap.prefixes = params.Flag("prefix", "Key prefix access will be restricted to", []ulloc.Location{},
 		clingy.Transform(ulloc.Parse),
 		clingy.Transform(transformSharePrefix),
 		clingy.Repeated,
 	).([]uplink.SharePrefix)
 
-	ap.readonly = params.Flag("readonly", "Implies --disallow-writes and --disallow-deletes", false,
+	ap.readonly = params.Flag("readonly", "Implies --disallow-writes and --disallow-deletes", true,
 		clingy.Transform(strconv.ParseBool)).(bool)
 	ap.writeonly = params.Flag("writeonly", "Implies --disallow-reads and --disallow-lists", false,
 		clingy.Transform(strconv.ParseBool)).(bool)
@@ -66,6 +55,8 @@ func (ap *accessPermissions) Setup(params clingy.Parameters) {
 	now := time.Now()
 	transformHumanDate := clingy.Transform(func(date string) (time.Time, error) {
 		switch {
+		case date == "none":
+			return time.Time{}, nil
 		case date == "":
 			return time.Time{}, nil
 		case date == "now":
@@ -87,12 +78,37 @@ func (ap *accessPermissions) Setup(params clingy.Parameters) {
 		time.Time{}, transformHumanDate, clingy.Type("relative_date")).(time.Time)
 }
 
+func (ap *accessPermissions) SetupWithPrefixArg(params clingy.Parameters) {
+	ap.Setup(params)
+
+	argPrefixes := params.Arg("prefix", "Key prefix access will be restricted to",
+		clingy.Transform(ulloc.Parse),
+		clingy.Transform(transformSharePrefix),
+		clingy.Repeated,
+	).([]uplink.SharePrefix)
+
+	if argPrefixes != nil {
+		ap.prefixes = argPrefixes
+	}
+}
+
+func transformSharePrefix(loc ulloc.Location) (uplink.SharePrefix, error) {
+	bucket, key, ok := loc.RemoteParts()
+	if !ok {
+		return uplink.SharePrefix{}, errs.New("invalid prefix: must be remote: %q", loc)
+	}
+	return uplink.SharePrefix{
+		Bucket: bucket,
+		Prefix: key,
+	}, nil
+}
+
 func (ap *accessPermissions) Apply(access *uplink.Access) (*uplink.Access, error) {
 	permission := uplink.Permission{
-		AllowDelete:   !ap.disallowDeletes && !ap.readonly,
-		AllowList:     !ap.disallowLists && !ap.writeonly,
-		AllowDownload: !ap.disallowReads && !ap.writeonly,
-		AllowUpload:   !ap.disallowWrites && !ap.readonly,
+		AllowDelete:   ap.AllowDelete(),
+		AllowList:     ap.AllowList(),
+		AllowDownload: ap.AllowDownload(),
+		AllowUpload:   ap.AllowUpload(),
 		NotBefore:     ap.notBefore,
 		NotAfter:      ap.notAfter,
 	}
@@ -113,4 +129,20 @@ func (ap *accessPermissions) Apply(access *uplink.Access) (*uplink.Access, error
 	}
 
 	return access, nil
+}
+
+func (ap *accessPermissions) AllowDelete() bool {
+	return !ap.disallowDeletes && !ap.readonly
+}
+
+func (ap *accessPermissions) AllowList() bool {
+	return !ap.disallowLists && !ap.writeonly
+}
+
+func (ap *accessPermissions) AllowDownload() bool {
+	return !ap.disallowReads && !ap.writeonly
+}
+
+func (ap *accessPermissions) AllowUpload() bool {
+	return !ap.disallowWrites && !ap.readonly
 }

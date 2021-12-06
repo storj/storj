@@ -22,7 +22,8 @@ class ViewsState {
         public isAvailableBalanceDropdownShown = false,
         public isPeriodsDropdownShown = false,
         public isBucketNamesDropdownShown = false,
-        public isDatePickerShown = false,
+        public isAGDatePickerShown = false,
+        public isChartsDatePickerShown = false,
         public isPermissionsDropdownShown = false,
         public isEditProfilePopupShown = false,
         public isChangePasswordPopupShown = false,
@@ -92,8 +93,11 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_PERIODS_DROPDOWN](state: State): void {
             state.appState.isPeriodsDropdownShown = !state.appState.isPeriodsDropdownShown;
         },
-        [APP_STATE_MUTATIONS.TOGGLE_DATEPICKER_DROPDOWN](state: State): void {
-            state.appState.isDatePickerShown = !state.appState.isDatePickerShown;
+        [APP_STATE_MUTATIONS.TOGGLE_AG_DATEPICKER_DROPDOWN](state: State): void {
+            state.appState.isAGDatePickerShown = !state.appState.isAGDatePickerShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_CHARTS_DATEPICKER_DROPDOWN](state: State): void {
+            state.appState.isChartsDatePickerShown = !state.appState.isChartsDatePickerShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_BUCKET_NAMES_DROPDOWN](state: State): void {
             state.appState.isBucketNamesDropdownShown = !state.appState.isBucketNamesDropdownShown;
@@ -131,7 +135,8 @@ export const appStateModule = {
             state.appState.isPermissionsDropdownShown = false;
             state.appState.isPeriodsDropdownShown = false;
             state.appState.isPaymentSelectionShown = false;
-            state.appState.isDatePickerShown = false;
+            state.appState.isAGDatePickerShown = false;
+            state.appState.isChartsDatePickerShown = false;
             state.appState.isBucketNamesDropdownShown = false;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: State, newFetchState: AppState): void {
@@ -254,12 +259,19 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.TOGGLE_PERIODS_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_DATEPICKER_DROPDOWN]: function ({commit, state}: AppContext): void {
-            if (!state.appState.isDatePickerShown) {
+        [APP_STATE_ACTIONS.TOGGLE_AG_DATEPICKER_DROPDOWN]: function ({commit, state}: AppContext): void {
+            if (!state.appState.isAGDatePickerShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
-            commit(APP_STATE_MUTATIONS.TOGGLE_DATEPICKER_DROPDOWN);
+            commit(APP_STATE_MUTATIONS.TOGGLE_AG_DATEPICKER_DROPDOWN);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_CHARTS_DATEPICKER_DROPDOWN]: function ({commit, state}: AppContext): void {
+            if (!state.appState.isChartsDatePickerShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_CHARTS_DATEPICKER_DROPDOWN);
         },
         [APP_STATE_ACTIONS.TOGGLE_BUCKET_NAMES_DROPDOWN]: function ({commit, state}: AppContext): void {
             if (!state.appState.isBucketNamesDropdownShown) {

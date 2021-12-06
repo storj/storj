@@ -8,6 +8,7 @@
         :style="style"
         @click="onPress"
     >
+        <slot name="icon" />
         <span class="label" :class="{uppercase: isUppercase}">{{ label }}</span>
     </div>
 </template>
@@ -27,6 +28,8 @@ export default class VButton extends Vue {
     private readonly width: string;
     @Prop({default: 'inherit'})
     private readonly height: string;
+    @Prop({default: '16px'})
+    private readonly fontSize: string;
     @Prop({default: '6px'})
     private readonly borderRadius: string;
     @Prop({default: false})
@@ -47,7 +50,7 @@ export default class VButton extends Vue {
     private readonly onPress: () => void;
 
     public get style(): Record<string, unknown> {
-        return { width: this.width, height: this.height, borderRadius: this.borderRadius };
+        return { width: this.width, height: this.height, borderRadius: this.borderRadius, fontSize: this.fontSize };
     }
 
     public get containerClassName(): string {
@@ -80,7 +83,7 @@ export default class VButton extends Vue {
 
     .white {
         background-color: #fff !important;
-        border: 1px solid #afb7c1 !important;
+        border: 1px solid #d8dee3 !important;
 
         .label {
             color: #354049 !important;
@@ -133,7 +136,6 @@ export default class VButton extends Vue {
 
         .label {
             font-family: 'font_medium', sans-serif;
-            font-size: 16px;
             line-height: 23px;
             color: #fff;
             margin: 0;

@@ -1719,6 +1719,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE users SET project_limit = 3 WHERE project_limit = 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add segment_limit to the projects table",
+				Version:     182,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN segment_limit bigint DEFAULT 1000000`,
+				},
+			},
+
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
