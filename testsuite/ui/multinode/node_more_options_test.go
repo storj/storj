@@ -4,9 +4,11 @@
 package multinode
 
 import (
+	"testing"
+	
 	"github.com/go-rod/rod"
 	"github.com/stretchr/testify/require"
-	"testing"
+	
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
