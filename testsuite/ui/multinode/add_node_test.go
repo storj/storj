@@ -26,25 +26,23 @@ func TestAddNewNodeButton(t *testing.T) {
 		page.MustElement("input#Public\\ IP\\ Address.headered-input").MustInput(node.Addr())
 		page.MustElement("input#API\\ Key.headered-input").MustInput(node.APIKey())
 
-		addNodeButton := page.MustElement(".add-first-node__left-area__button")
+		addNodeButton := page.MustElementR(".add-first-node__left-area__button", "Add Node").MustClick()
 		require.Equal(t, "Add Node", addNodeButton.MustText())
-		addNodeButton.MustClick()
 		page.MustWaitNavigation()
 
 		nodesPageTitle := page.MustElement("h1.my-nodes__title").MustText()
 		require.Equal(t, "My Nodes", nodesPageTitle)
 
 		// Test- Clicks on new node button and checks if it opens up add new node modal
-		newNodeButton := page.MustElementX("//span[contains(text(),'New Node')]")
-		require.Equal(t, "New Node", newNodeButton.MustText())
+		newNodeButton := page.MustElement("div.container > span.label")
 		newNodeButton.MustClick()
 		addNewNodeTitle := page.MustElement("h2:nth-child(1)").MustText()
 		require.Equal(t, "Add New Node", addNewNodeTitle)
 
 		// Test- Cancels the addition of new node in dashboard by clicking X button to cancel
-		xCancelButton := page.MustElement("div.modal__cross > svg:nth-child(1)")
-		xCancelButton.MustClick()
-		require.Equal(t, "My Nodes", nodesPageTitle)
+		page.MustElement("div.modal__cross > svg:nth-child(1)").MustClick()
+		list := page.MustElements("div.modal")
+		require.Equal(t, 0, len(list))
 
 		// Test- Cancels the addition of new node in dashboard by clicking on cancel button
 		newNodeButton.MustClick()
@@ -56,8 +54,7 @@ func TestAddNewNodeButton(t *testing.T) {
 		// Repeat Test- Change Node Display Name
 		moreOptionsButton := page.MustElement("div.options-button > svg:nth-child(1)")
 		moreOptionsButton.MustClick()
-		updateName := page.MustElementX("//div[contains(text(),'Update Name')]")
-		updateName.MustClick()
+		page.MustElement("div.update-name__button").MustClick()
 		setNewNameTitle := page.MustElement("div.modal__header > h2:nth-child(1)").MustText()
 		// checks for new name modal and checks if name was changed
 		require.Equal(t, "Set name for node", setNewNameTitle)

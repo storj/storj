@@ -4,10 +4,9 @@
 package multinode
 
 import (
-	"testing"
-
 	"github.com/go-rod/rod"
 	"github.com/stretchr/testify/require"
+	"testing"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
@@ -25,9 +24,8 @@ func TestDropdownMoreOptionsMultinode(t *testing.T) {
 		page.MustElement("input#Public\\ IP\\ Address.headered-input").MustInput(node.Addr())
 		page.MustElement("input#API\\ Key.headered-input").MustInput(node.APIKey())
 
-		addNodeButton := page.MustElement(".add-first-node__left-area__button")
+		addNodeButton := page.MustElementR(".add-first-node__left-area__button", "Add Node").MustClick()
 		require.Equal(t, "Add Node", addNodeButton.MustText())
-		addNodeButton.MustClick()
 		page.MustWaitNavigation()
 
 		nodesPageTitle := page.MustElement("h1.my-nodes__title").MustText()
@@ -36,8 +34,7 @@ func TestDropdownMoreOptionsMultinode(t *testing.T) {
 		// Test- Change Node Display Name
 		moreOptionsButton0 := page.MustElement("div.options-button > svg:nth-child(1)")
 		moreOptionsButton0.MustClick()
-		updateName0 := page.MustElementX("//div[contains(text(),'Update Name')]")
-		updateName0.MustClick()
+		page.MustElement("div.update-name__button").MustClick()
 		setNewNameTitle := page.MustElement("div.modal__header > h2:nth-child(1)").MustText()
 		// checks for new name modal and checks if name was changed
 		require.Equal(t, "Set name for node", setNewNameTitle)
@@ -53,8 +50,8 @@ func TestDropdownMoreOptionsMultinode(t *testing.T) {
 		// Test- Cancel Change Node Display Name with X Button
 		moreOptionsButton1 := page.MustElement("div.options-button > svg:nth-child(1)")
 		moreOptionsButton1.MustClick()
-		updateName1 := page.MustElementX("//div[contains(text(),'Update Name')]")
-		updateName1.MustClick()
+		page.MustElement("div.update-name__button").MustClick()
+		page.MustElementX("//input[@id='Displayed name']").MustInput("NEWNAME")
 		xButton0 := page.MustElement("div.modal__cross ")
 		xButton0.MustClick()
 		require.Equal(t, "newnodename", newNodeDisplay)
@@ -62,8 +59,8 @@ func TestDropdownMoreOptionsMultinode(t *testing.T) {
 		// Test- Cancel Change Node Display Name with Cancel Button
 		moreOptionsButton2 := page.MustElement("div.options-button > svg:nth-child(1)")
 		moreOptionsButton2.MustClick()
-		updateName2 := page.MustElementX("//div[contains(text(),'Update Name')]")
-		updateName2.MustClick()
+		page.MustElement("div.update-name__button").MustClick()
+		page.MustElementX("//input[@id='Displayed name']").MustInput("NEWNAME")
 		cancelButton0 := page.MustElement("div.container.white")
 		cancelButton0.MustClick()
 		require.Equal(t, "newnodename", newNodeDisplay)
@@ -102,8 +99,8 @@ func TestDropdownMoreOptionsMultinode(t *testing.T) {
 		require.Equal(t, "My Nodes", nodesPageTitle)
 
 		// Test- Copy Node ID, first node has to be added back
-		newNodeButton1 := page.MustElementX("//span[contains(text(),'New Node')]")
-		newNodeButton1.MustClick()
+		newNodeButton := page.MustElement("div.container > span.label")
+		newNodeButton.MustClick()
 		enterNodeIDfield := page.MustElementX("//input[@id='Node ID']")
 		enterNodeIDfield.MustInput(node.ID().String())
 		enterPublicIPAddress := page.MustElementX("//input[@id='Public IP Address']")
@@ -116,11 +113,11 @@ func TestDropdownMoreOptionsMultinode(t *testing.T) {
 		// Then it clicks on the more options for nodes and node ID is copied
 		moreOptionsButton5 := page.MustElement(".options-button")
 		moreOptionsButton5.MustClick()
-		dropDownCopyNodeID := page.MustElementX("//div[contains(text(),'Copy Node ID')]")
+		dropDownCopyNodeID := page.MustElement("div.options:nth-child(2) > div.options__item")
 		dropDownCopyNodeID.MustClick()
 		// Clicks on more options again and then update node name
 		moreOptionsButton5.MustClick()
-		dropDownUpdateName := page.MustElementX("//div[contains(text(),'Update Name')]")
+		dropDownUpdateName := page.MustElement("div.update-name__button")
 		dropDownUpdateName.MustClick()
 		// Paste node ID to input and checks if it matches current name (default nodeID)
 		input := page.MustElementX("//input[@id='Displayed name']")
