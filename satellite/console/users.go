@@ -29,7 +29,7 @@ type Users interface {
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, user *User) error
 	// UpdatePaidTier sets whether the user is in the paid tier.
-	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size) error
+	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64) error
 	// GetProjectLimit is a method to get the users project limit
 	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
 	// GetUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
@@ -98,6 +98,7 @@ func (user *CreateUser) IsValid() error {
 type ProjectLimits struct {
 	ProjectBandwidthLimit memory.Size `json:"projectBandwidthLimit"`
 	ProjectStorageLimit   memory.Size `json:"projectStorageLimit"`
+	ProjectSegmentLimit   int64       `json:"projectSegmentLimit"`
 }
 
 // AuthUser holds info for user authentication token requests.
@@ -139,6 +140,7 @@ type User struct {
 	ProjectLimit          int   `json:"projectLimit"`
 	ProjectStorageLimit   int64 `json:"projectStorageLimit"`
 	ProjectBandwidthLimit int64 `json:"projectBandwidthLimit"`
+	ProjectSegmentLimit   int64 `json:"projectSegmentLimit"`
 	PaidTier              bool  `json:"paidTier"`
 
 	IsProfessional bool   `json:"isProfessional"`

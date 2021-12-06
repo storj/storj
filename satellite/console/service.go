@@ -271,7 +271,9 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		// put this user into the paid tier and convert projects to upgraded limits.
 		err = paymentService.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true,
 			paymentService.service.config.UsageLimits.Bandwidth.Paid,
-			paymentService.service.config.UsageLimits.Storage.Paid)
+			paymentService.service.config.UsageLimits.Storage.Paid,
+			paymentService.service.config.UsageLimits.Segment.Paid,
+		)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -288,6 +290,9 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 			if project.BandwidthLimit == nil || *project.BandwidthLimit < paymentService.service.config.UsageLimits.Bandwidth.Paid {
 				project.BandwidthLimit = new(memory.Size)
 				*project.BandwidthLimit = paymentService.service.config.UsageLimits.Bandwidth.Paid
+			}
+			if project.SegmentLimit == nil || *project.SegmentLimit < paymentService.service.config.UsageLimits.Segment.Paid {
+				*project.SegmentLimit = paymentService.service.config.UsageLimits.Segment.Paid
 			}
 			err = paymentService.service.store.Projects().Update(ctx, &project)
 			if err != nil {
@@ -640,6 +645,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		// TODO: move the project limits into the registration token.
 		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
 		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
+		newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
 
 		u, err = tx.Users().Insert(ctx,
 			newUser,
@@ -1124,6 +1130,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				UserAgent:      auth.User.UserAgent,
 				StorageLimit:   &newProjectLimits.StorageLimit,
 				BandwidthLimit: &newProjectLimits.BandwidthLimit,
+				SegmentLimit:   &newProjectLimits.SegmentLimit,
 			},
 		)
 		if err != nil {
@@ -1204,7 +1211,10 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		if project.StorageLimit != nil && *project.StorageLimit == 0 {
 			return nil, Error.New("current storage limit for project is set to 0 (updating disabled)")
 		}
-		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 {
+		if project.SegmentLimit != nil && *project.SegmentLimit == 0 {
+			return nil, Error.New("current segment limit for project is set to 0 (updating disabled)")
+		}
+		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 || projectInfo.SegmentLimit <= 0 {
 			return nil, Error.New("project limits must be greater than 0")
 		}
 
@@ -1214,6 +1224,10 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 
 		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid {
 			return nil, Error.New("specified bandwidth limit exceeds allowed maximum for current tier")
+		}
+
+		if projectInfo.SegmentLimit > s.config.UsageLimits.Segment.Paid {
+			return nil, Error.New("specified segment limit exceeds allowed maximum for current tier")
 		}
 
 		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
@@ -1236,6 +1250,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		*project.StorageLimit = projectInfo.StorageLimit
 		project.BandwidthLimit = new(memory.Size)
 		*project.BandwidthLimit = projectInfo.BandwidthLimit
+		*project.SegmentLimit = projectInfo.SegmentLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
@@ -1834,6 +1849,7 @@ func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_
 	return &UserProjectLimits{
 		StorageLimit:   result.ProjectStorageLimit,
 		BandwidthLimit: result.ProjectBandwidthLimit,
+		SegmentLimit:   result.ProjectSegmentLimit,
 	}, nil
 }
 

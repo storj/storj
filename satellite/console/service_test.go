@@ -64,6 +64,7 @@ func TestService(t *testing.T) {
 				updatedDescription := "newDescription"
 				updatedStorageLimit := memory.Size(100)
 				updatedBandwidthLimit := memory.Size(100)
+				updatedSegmentLimit := int64(100)
 
 				// user should be in free tier
 				user, err := service.GetUser(ctx, up1Pro1.OwnerID)
@@ -85,6 +86,7 @@ func TestService(t *testing.T) {
 					Description:    updatedDescription,
 					StorageLimit:   updatedStorageLimit,
 					BandwidthLimit: updatedBandwidthLimit,
+					SegmentLimit:   updatedSegmentLimit,
 				})
 				require.NoError(t, err)
 				require.NotEqual(t, up1Pro1.Name, updatedProject.Name)
@@ -95,6 +97,8 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedStorageLimit, *updatedProject.StorageLimit)
 				require.NotEqual(t, *up1Pro1.BandwidthLimit, *updatedProject.BandwidthLimit)
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.BandwidthLimit)
+				require.NotEqual(t, *up1Pro1.SegmentLimit, *updatedProject.SegmentLimit)
+				require.Equal(t, updatedSegmentLimit, *updatedProject.SegmentLimit)
 
 				// Updating someone else project details should not work
 				updatedProject, err = service.UpdateProject(authCtx1, up2Pro1.ID, console.ProjectInfo{
@@ -102,6 +106,7 @@ func TestService(t *testing.T) {
 					Description:    "TestUpdate",
 					StorageLimit:   memory.Size(100),
 					BandwidthLimit: memory.Size(100),
+					SegmentLimit:   100,
 				})
 				require.Error(t, err)
 				require.Nil(t, updatedProject)
@@ -113,6 +118,7 @@ func TestService(t *testing.T) {
 				*size100 = memory.Size(100)
 
 				up1Pro1.StorageLimit = size0
+				up1Pro1.SegmentLimit = (*int64)(size0)
 				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
 				require.NoError(t, err)
 
@@ -121,6 +127,7 @@ func TestService(t *testing.T) {
 					Description:    "1 2 3",
 					StorageLimit:   memory.Size(123),
 					BandwidthLimit: memory.Size(123),
+					SegmentLimit:   123,
 				}
 				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
 				require.Error(t, err)
@@ -128,6 +135,7 @@ func TestService(t *testing.T) {
 
 				up1Pro1.StorageLimit = size100
 				up1Pro1.BandwidthLimit = size0
+
 				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
 				require.NoError(t, err)
 
@@ -137,6 +145,7 @@ func TestService(t *testing.T) {
 
 				up1Pro1.StorageLimit = size100
 				up1Pro1.BandwidthLimit = size100
+				up1Pro1.SegmentLimit = (*int64)(size100)
 				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
 				require.NoError(t, err)
 
@@ -148,6 +157,7 @@ func TestService(t *testing.T) {
 				require.NotNil(t, updatedProject.BandwidthLimit)
 				require.Equal(t, updateInfo.StorageLimit, *updatedProject.StorageLimit)
 				require.Equal(t, updateInfo.BandwidthLimit, *updatedProject.BandwidthLimit)
+				require.Equal(t, updateInfo.SegmentLimit, *updatedProject.SegmentLimit)
 			})
 
 			t.Run("TestAddProjectMembers", func(t *testing.T) {
@@ -307,6 +317,10 @@ func TestPaidTier(t *testing.T) {
 			Free: 2 * memory.GB,
 			Paid: 2 * memory.TB,
 		},
+		Segment: console.SegmentLimitConfig{
+			Free: 10,
+			Paid: 50,
+		},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -325,6 +339,7 @@ func TestPaidTier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Free, *proj1.StorageLimit)
 		require.Equal(t, usageConfig.Bandwidth.Free, *proj1.BandwidthLimit)
+		require.Equal(t, usageConfig.Segment.Free, *proj1.SegmentLimit)
 
 		// user should be in free tier
 		user, err := service.GetUser(ctx, proj1.OwnerID)
@@ -352,12 +367,13 @@ func TestPaidTier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Paid, *proj1.StorageLimit)
 		require.Equal(t, usageConfig.Bandwidth.Paid, *proj1.BandwidthLimit)
+		require.Equal(t, usageConfig.Segment.Paid, *proj1.SegmentLimit)
 
 		// expect new project to be created with paid tier usage limits
 		proj2, err := service.CreateProject(authCtx, console.ProjectInfo{Name: "Project 2"})
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Paid, *proj2.StorageLimit)
-		require.Equal(t, usageConfig.Bandwidth.Paid, *proj2.BandwidthLimit)
+		require.Equal(t, usageConfig.Segment.Paid, *proj2.SegmentLimit)
 	})
 }
 

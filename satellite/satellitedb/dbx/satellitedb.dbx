@@ -291,6 +291,7 @@ model user (
     field project_limit            int       ( updatable, default 0 )
     field project_bandwidth_limit  int64     ( updatable, default 0 )
     field project_storage_limit    int64     ( updatable, default 0 )
+    field project_segment_limit    int64     ( updatable, default 0 )
     field paid_tier                bool      ( updatable, default false )
 
     field position           text      ( updatable, nullable )
@@ -331,7 +332,7 @@ read one (
 )
 
 read one (
-    select user.project_storage_limit user.project_bandwidth_limit
+    select user.project_storage_limit user.project_bandwidth_limit user.project_segment_limit
     where user.id = ?
 )
 
