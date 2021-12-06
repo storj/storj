@@ -5,6 +5,7 @@ package consoleweb_test
 
 import (
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -150,4 +151,61 @@ func TestAuthAttempts(t *testing.T) {
 			require.True(t, hitRateLimiter, "did not hit rate limiter")
 		}
 	})
+}
+
+type file struct {
+	fname    string
+	fullpath string
+	size     int64
+
+	algorithm string
+	checksum  string
+}
+
+func checkfile(fname string) bool { // check that the file exists and is not  directory
+	status, err := os.Stat(fn) // file info will give us an exists status
+	if err != nil {
+		return false
+	}
+
+	if os.IsNotExist(status) { // return false when the file doesn't exist
+		return false
+	}
+	return !status.IsDir() // fall thru and return true for not a directory
+}
+
+func openfile(relativePath string, fname string) (*file, error) {
+	
+	ofile := relativePath + "/" + fname
+	existingFile := checkfile(ofile)
+
+	if existingFile != true {
+		return nil, nil
+	}
+
+	fhand, err := os.Open(ofile) // file handler or err
+	if err != nil {
+		return nil, err
+	}
+	defer closeFile(fhand)
+
+	fileinfo, err := fhand.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	f := file{
+		fname: fname,
+		fullpath: ofile,
+		size:	fileinfo.Size()
+	} // instantiate struct file and set the properties
+
+	return &f // return pointer to file
+}
+
+func closeFile(f *os.File) {
+	err := f.Close()
+	if err != nil {
+		os.Exit(1)
+	}
 }
