@@ -4,14 +4,13 @@
 package consoleweb_test
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	gg"storj.io/common/testcontext"
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -122,9 +121,9 @@ func TestIntrospection(t *testing.T) {
 						}
 					  }
 					`}))
+			require.Equal(test.t, http.StatusOK, resp.StatusCode)
+			_ = body
 
-			fmt.Println(resp)
-			fmt.Println(body)
 		}
 	})
 }
