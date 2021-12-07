@@ -93,6 +93,24 @@ then
 fi
 set -e
 
+# test server-side move operation
+uplinkng mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-upload-testfile" --access $STORJ_ACCESS
+uplinkng ls "sj://$BUCKET/moved-big-upload-testfile" --access $STORJ_ACCESS | grep "moved-big-upload-testfile"
+uplinkng mv "sj://$BUCKET/moved-big-upload-testfile" "sj://$BUCKET/big-upload-testfile" --access $STORJ_ACCESS
+# move prefix
+uplinkng mv "sj://$BUCKET/" "sj://$BUCKET/my-prefix/" --recursive --access $STORJ_ACCESS
+FILES=$(uplinkng ls "sj://$BUCKET/my-prefix/" --access $STORJ_ACCESS | tee $TMPDIR/list | wc -l)
+EXPECTED_FILES="5" # 4 objects + one line more for headers
+if [ "$FILES" == $EXPECTED_FILES ]
+then
+    echo "listing after move returns $FILES files"
+else
+    echo "listing after move returns $FILES files but want $EXPECTED_FILES"
+    cat $TMPDIR/list
+    exit 1
+fi
+uplinkng mv "sj://$BUCKET/my-prefix/" "sj://$BUCKET/" --recursive --access $STORJ_ACCESS
+
 uplinkng rm "sj://$BUCKET/small-upload-testfile"        --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/big-upload-testfile"          --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/multisegment-upload-testfile" --access $STORJ_ACCESS

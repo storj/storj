@@ -18,7 +18,9 @@ import (
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
-	// GetByEmail is a method for querying user by email from the database.
+	// GetByEmailWithUnverified is a method for querying users by email from the database.
+	GetByEmailWithUnverified(ctx context.Context, email string) (*User, []User, error)
+	// GetByEmail is a method for querying user by verified email from the database.
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	// Insert is a method for inserting user into the database.
 	Insert(ctx context.Context, user *User) (*User, error)

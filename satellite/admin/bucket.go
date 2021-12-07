@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 )
 
-func validateGeofencePathParameters(vars map[string]string) (project uuid.NullUUID, bucket []byte, err error) {
+func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID, bucket []byte, err error) {
 	projectUUIDString, ok := vars["project"]
 	if !ok {
 		return project, bucket, fmt.Errorf("project-uuid missing")
@@ -56,7 +56,7 @@ func parsePlacementConstraint(regionCode string) (storj.PlacementConstraint, err
 func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
 	ctx := r.Context()
 
-	project, bucket, err := validateGeofencePathParameters(mux.Vars(r))
+	project, bucket, err := validateBucketPathParameters(mux.Vars(r))
 	if err != nil {
 		sendJSONError(w, err.Error(), "", http.StatusBadRequest)
 		return
@@ -109,10 +109,10 @@ func (server *Server) deleteGeofenceForBucket(w http.ResponseWriter, r *http.Req
 	server.updateBucket(w, r, storj.EveryCountry)
 }
 
-func (server *Server) checkGeofenceForBucket(w http.ResponseWriter, r *http.Request) {
+func (server *Server) getBucketInfo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	project, bucket, err := validateGeofencePathParameters(mux.Vars(r))
+	project, bucket, err := validateBucketPathParameters(mux.Vars(r))
 	if err != nil {
 		sendJSONError(w, err.Error(), "", http.StatusBadRequest)
 		return

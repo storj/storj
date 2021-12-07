@@ -207,6 +207,7 @@ type LoopSegmentEntry struct {
 	PlainSize     int32 // verify
 	Redundancy    storj.RedundancyScheme
 	Pieces        Pieces
+	Placement     storj.PlacementConstraint
 }
 
 // Inline returns true if segment is inline.
@@ -345,7 +346,8 @@ func (it *loopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, 
 			encrypted_size,
 			plain_offset, plain_size,
 			redundancy,
-			remote_alias_pieces
+			remote_alias_pieces,
+			placement
 		FROM segments
 		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
 		WHERE
@@ -368,6 +370,7 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 		&item.PlainOffset, &item.PlainSize,
 		redundancyScheme{&item.Redundancy},
 		&aliasPieces,
+		&item.Placement,
 	)
 	if err != nil {
 		return Error.New("failed to scan segments: %w", err)

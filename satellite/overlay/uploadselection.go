@@ -110,6 +110,7 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 		NewFraction: cache.selectionConfig.NewNodeFraction,
 		Distinct:    cache.selectionConfig.DistinctIP,
 		ExcludedIDs: req.ExcludedIDs,
+		Placement:   req.Placement,
 	})
 	if uploadselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)
@@ -135,10 +136,11 @@ func (cache *UploadSelectionCache) Size() (reputableNodeCount int, newNodeCount 
 func convNodesToSelectedNodes(nodes []*uploadselection.Node) (xs []*SelectedNode) {
 	for _, n := range nodes {
 		xs = append(xs, &SelectedNode{
-			ID:         n.ID,
-			Address:    &pb.NodeAddress{Address: n.Address},
-			LastNet:    n.LastNet,
-			LastIPPort: n.LastIPPort,
+			ID:          n.ID,
+			Address:     &pb.NodeAddress{Address: n.Address},
+			LastNet:     n.LastNet,
+			LastIPPort:  n.LastIPPort,
+			CountryCode: n.CountryCode,
 		})
 	}
 	return xs
@@ -151,8 +153,9 @@ func convSelectedNodesToNodes(nodes []*SelectedNode) (xs []*uploadselection.Node
 				ID:      n.ID,
 				Address: n.Address.Address,
 			},
-			LastNet:    n.LastNet,
-			LastIPPort: n.LastIPPort,
+			LastNet:     n.LastNet,
+			LastIPPort:  n.LastIPPort,
+			CountryCode: n.CountryCode,
 		})
 	}
 	return xs

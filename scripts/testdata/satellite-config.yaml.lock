@@ -167,7 +167,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.new-navigation: true
 
 # indicates if new objects flow should be used
-# console.new-objects-flow: false
+# console.new-objects-flow: true
 
 # indicates if new onboarding flow should be rendered
 # console.new-onboarding: true

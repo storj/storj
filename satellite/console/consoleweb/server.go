@@ -95,7 +95,7 @@ type Config struct {
 	NewOnboarding                   bool    `help:"indicates if new onboarding flow should be rendered" default:"true"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
 	NewBrowser                      bool    `help:"indicates if new browser should be used" default:"true"`
-	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"false"`
+	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig

@@ -101,9 +101,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var vettedAt *time.Time
-		var countryCode string
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt, &countryCode)
-		node.CountryCode = location.ToCountryCode(countryCode)
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt, &node.CountryCode)
 		if err != nil {
 			return nil, nil, err
 		}

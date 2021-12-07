@@ -24,6 +24,7 @@ func Multinode(t *testing.T, multinodeCount int, test Test) {
 					config.Console.StaticDir = dir
 				}
 			},
+			Satellite: configureSatellite,
 		},
 		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -26,6 +26,8 @@ message StreamID {
     bytes satellite_signature = 9;
 
     bytes stream_id = 10;
+
+    int32 placement = 13;
 }
 
 message SegmentID {

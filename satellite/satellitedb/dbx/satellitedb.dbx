@@ -312,6 +312,10 @@ create user ( )
 update user ( where user.id = ? )
 delete user ( where user.id = ? )
 
+read all (
+    select user
+    where user.normalized_email = ?
+)
 read one (
     select user
     where user.normalized_email = ?
@@ -340,6 +344,7 @@ model project (
     field description     text      ( updatable )
     field usage_limit     int64     ( nullable, updatable )
     field bandwidth_limit int64     ( nullable, updatable )
+    field segment_limit   int64     ( nullable, updatable, default 1000000)
     field rate_limit      int       ( nullable, updatable )
     field burst_limit     int       ( nullable, updatable )
     field max_buckets     int       ( nullable, updatable )
@@ -953,6 +958,12 @@ read one (
 
 read one (
 	select bucket_metainfo.id
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read one (
+    select bucket_metainfo.placement
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
 )

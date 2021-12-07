@@ -5,6 +5,7 @@ package console_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -281,5 +282,49 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 
 		_, err = repository.Get(ctx, oldUser.ID)
 		assert.Error(t, err)
+	})
+}
+
+func TestGetUserByEmail(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+		email := "test@mail.test"
+
+		inactiveUser := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Inactive User",
+			Email:        email,
+			PasswordHash: []byte("123a123"),
+		}
+
+		_, err := usersRepo.Insert(ctx, &inactiveUser)
+		require.NoError(t, err)
+
+		_, err = usersRepo.GetByEmail(ctx, email)
+		require.ErrorIs(t, sql.ErrNoRows, err)
+
+		verified, unverified, err := usersRepo.GetByEmailWithUnverified(ctx, email)
+		require.NoError(t, err)
+		require.Nil(t, verified)
+		require.Equal(t, inactiveUser.ID, unverified[0].ID)
+
+		activeUser := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Active User",
+			Email:        email,
+			Status:       console.Active,
+			PasswordHash: []byte("123a123"),
+		}
+
+		_, err = usersRepo.Insert(ctx, &activeUser)
+		require.NoError(t, err)
+
+		// Required to set the active status.
+		err = usersRepo.Update(ctx, &activeUser)
+		require.NoError(t, err)
+
+		dbUser, err := usersRepo.GetByEmail(ctx, email)
+		require.NoError(t, err)
+		require.Equal(t, activeUser.ID, dbUser.ID)
 	})
 }

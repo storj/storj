@@ -51,6 +51,20 @@ func (m *Mixed) Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, err
 	return newGenericWriteHandle(ctx.Stdout()), nil
 }
 
+// Move moves either a local file or remote object.
+func (m *Mixed) Move(ctx clingy.Context, source, dest ulloc.Location) error {
+	if oldbucket, oldkey, ok := source.RemoteParts(); ok {
+		if newbucket, newkey, ok := dest.RemoteParts(); ok {
+			return m.remote.Move(ctx, oldbucket, oldkey, newbucket, newkey)
+		}
+	} else if oldpath, ok := source.LocalParts(); ok {
+		if newpath, ok := dest.LocalParts(); ok {
+			return m.local.Move(ctx, oldpath, newpath)
+		}
+	}
+	return errs.New("moving objects between local and remote is not supported")
+}
+
 // Remove deletes either a local file or remote object.
 func (m *Mixed) Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error {
 	if bucket, key, ok := loc.RemoteParts(); ok {
