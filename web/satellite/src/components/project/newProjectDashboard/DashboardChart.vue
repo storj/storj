@@ -19,7 +19,6 @@ import BaseChart from '@/components/common/BaseChart.vue';
 import VChart from '@/components/common/VChart.vue';
 
 import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/types/chart';
-import { ChartUtils } from "@/utils/chart";
 import { DataStamp } from "@/types/projects";
 import { Size } from "@/utils/bytesSize";
 
@@ -43,7 +42,7 @@ class ChartTooltip {
     components: { VChart }
 })
 export default class DashboardChart extends BaseChart {
-    @Prop({default: []})
+    @Prop({default: () => []})
     public readonly data: DataStamp[];
     @Prop({default: 'chart'})
     public readonly name: string;
@@ -53,13 +52,17 @@ export default class DashboardChart extends BaseChart {
     public readonly borderColor: string;
     @Prop({default: ''})
     public readonly pointBorderColor: string;
+    @Prop({default: new Date()})
+    public readonly since: Date;
+    @Prop({default: new Date()})
+    public readonly before: Date;
 
     /**
      * Returns formatted data to render chart.
      */
     public get chartData(): ChartData {
-        const data: number[] = this.data.map(el => parseFloat(new Size(el.value).formattedBytes))
-        const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(this.data[0].intervalStart, this.data[this.data.length - 1].intervalStart);
+        const data: number[] = this.data.map(el => el.value)
+        const xAxisDateLabels: string[] = this.daysDisplayedOnChart();
 
         return new ChartData(
             xAxisDateLabels,
@@ -78,6 +81,30 @@ export default class DashboardChart extends BaseChart {
             this.tooltipMarkUp(tooltipModel), 76, 81);
 
         Tooltip.custom(tooltipParams);
+    }
+
+    /**
+     * Used to display correct number of data points on chart.
+     */
+    public daysDisplayedOnChart(): string[] {
+        const since = new Date(this.since);
+        // Create an array of future displayed data points.
+        const arr = Array<string>();
+
+        // If there is only one day chosen in date picker then we fill array with only one data point label.
+        if (since.getTime() === this.before.getTime()) {
+            arr.push(`${since.getMonth() + 1}/${since.getDate()}`);
+
+            return arr;
+        }
+
+        // Fill the data points array with correct data points labels.
+        while (since <= this.before) {
+            arr.push(`${since.getMonth() + 1}/${since.getDate()}`);
+            since.setDate(since.getDate() + 1)
+        }
+
+        return arr;
     }
 
     /**

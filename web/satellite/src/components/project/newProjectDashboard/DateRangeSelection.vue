@@ -11,8 +11,8 @@
             <DatepickerIcon class="range-selection__toggle-container__icon" />
             <h1 class="range-selection__toggle-container__label">{{ dateRangeLabel }}</h1>
         </div>
-        <div v-if="isOpen" v-click-outside="closePicker" class="range-selection__popup">
-            <VDateRangePicker :on-date-pick="onDatePick" :is-open="true" :date-range="defaultDateRange" />
+        <div v-show="isOpen" v-click-outside="closePicker" class="range-selection__popup">
+            <VDateRangePicker :on-date-pick="onDatePick" :is-open="true" :date-range="pickerDateRange" />
         </div>
     </div>
 </template>
@@ -21,7 +21,6 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
-import { ProjectUsageDateRange } from "@/types/projects";
 
 import VDateRangePicker from "@/components/common/VDateRangePicker.vue";
 
@@ -36,8 +35,10 @@ import DatepickerIcon from '@/../static/images/project/datepicker.svg';
 })
 
 export default class DateRangeSelection extends Vue {
-    @Prop({ default: null })
-    public readonly dateRange: ProjectUsageDateRange | null;
+    @Prop({ default: new Date() })
+    public readonly since: Date;
+    @Prop({ default: new Date() })
+    public readonly before: Date;
     @Prop({ default: () => false })
     public readonly onDatePick: (dateRange: Date[]) => void;
     @Prop({ default: () => false })
@@ -56,30 +57,20 @@ export default class DateRangeSelection extends Vue {
      * Returns formatted date range string.
      */
     public get dateRangeLabel(): string {
-        if (!this.dateRange) {
-            return 'Last 30 days';
+        if (this.since.getTime() === this.before.getTime()) {
+            return this.since.toLocaleDateString('en-US')
         }
 
-        if (this.dateRange.since.getTime() === this.dateRange.before.getTime()) {
-            return this.dateRange.since.toLocaleDateString('en-US')
-        }
-
-        const sinceFormattedString = this.dateRange.since.toLocaleDateString('en-US');
-        const beforeFormattedString = this.dateRange.before.toLocaleDateString('en-US');
+        const sinceFormattedString = this.since.toLocaleDateString('en-US');
+        const beforeFormattedString = this.before.toLocaleDateString('en-US');
         return `${sinceFormattedString}-${beforeFormattedString}`;
     }
 
     /**
-     * Returns default date range.
+     * Returns date range to be displayed in date range picker.
      */
-    public get defaultDateRange(): Date[] {
-        if (this.dateRange) {
-            return [this.dateRange.since, this.dateRange.before]
-        }
-
-        const previous = new Date()
-        previous.setMonth(previous.getMonth() - 1)
-        return [previous, new Date()]
+    public get pickerDateRange(): Date[] {
+        return [this.since, this.before]
     }
 }
 </script>

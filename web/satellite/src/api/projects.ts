@@ -4,14 +4,17 @@
 import { BaseGql } from '@/api/baseGql';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
+    DataStamp,
     Project,
     ProjectFields,
     ProjectLimits,
     ProjectsApi,
     ProjectsCursor,
     ProjectsPage,
+    ProjectsStorageBandwidthDaily,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
+import { Time } from "@/utils/time";
 
 export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     private readonly http: HttpClient = new HttpClient();
@@ -186,6 +189,51 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         }
 
         throw new Error('can not get total usage limits');
+    }
+
+    /**
+     * Get project daily usage for specific date range.
+     *
+     * @param projectId- project ID
+     * @param start- since date
+     * @param end- before date
+     * throws Error
+     */
+    public async getDailyUsage(projectId: string, start: Date, end: Date): Promise<ProjectsStorageBandwidthDaily> {
+        // Set date range to be in UTC format.
+        start.setUTCDate(start.getDate());
+        start.setUTCHours(0, 0, 0, 0);
+        end.setUTCDate(end.getDate());
+        end.setUTCHours(0, 0, 0, 0);
+        const since = Time.toUnixTimestamp(start).toString();
+        const before = Time.toUnixTimestamp(end).toString();
+        const path = `${this.ROOT_PATH}/${projectId}/daily-usage?from=${since}&to=${before}`;
+        const response = await this.http.get(path);
+
+        if (response.ok) {
+            const usage = await response.json();
+
+            return new ProjectsStorageBandwidthDaily(
+                usage.bandwidthUsage.map(el => {
+                    // Set the timestamps to be the beginning of the day.
+                    const date = new Date(el.date)
+                    date.setHours(0, 0, 0, 0)
+                    return new DataStamp(el.value, date)
+                }),
+                usage.storageUsage.map(el => {
+                    // Set the timestamps to be the beginning of the day.
+                    const date = new Date(el.date)
+                    date.setHours(0, 0, 0, 0)
+                    return new DataStamp(el.value, date)
+                }),
+            );
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not get project daily usage');
     }
 
     /**

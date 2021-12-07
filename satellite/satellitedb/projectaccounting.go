@@ -199,6 +199,46 @@ func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, proje
 	return allocated, settled, dead, err
 }
 
+// GetProjectDailyBandwidthByDateRange returns project daily settled bandwidth usage by specific date range.
+func (db *ProjectAccounting) GetProjectDailyBandwidthByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time) (_ []accounting.ProjectUsageByDay, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	usage := make([]accounting.ProjectUsageByDay, 0)
+	query := db.db.Rebind(`SELECT interval_day, COALESCE(egress_allocated, 0) FROM project_bandwidth_daily_rollups WHERE project_id = ? AND (interval_day BETWEEN ? AND ?)`)
+	rows, err := db.db.QueryContext(ctx, query, projectID[:], from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var day time.Time
+		var amount int64
+
+		err = rows.Scan(&day, &amount)
+		if err != nil {
+			return nil, errs.Combine(err, rows.Close())
+		}
+
+		usage = append(usage, accounting.ProjectUsageByDay{
+			Date:  day,
+			Value: amount,
+		})
+	}
+
+	err = errs.Combine(rows.Err(), rows.Close())
+
+	return usage, err
+}
+
+// GetProjectDailyStorageByDateRange returns project daily storage usage by specific date range.
+func (db *ProjectAccounting) GetProjectDailyStorageByDateRange(ctx context.Context, _ uuid.UUID, _, _ time.Time) (_ []accounting.ProjectUsageByDay, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	usage := make([]accounting.ProjectUsageByDay, 0)
+
+	return usage, err
+}
+
 // DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time.
 func (db *ProjectAccounting) DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)

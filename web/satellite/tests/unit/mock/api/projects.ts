@@ -1,7 +1,15 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Project, ProjectFields, ProjectLimits, ProjectsApi, ProjectsCursor, ProjectsPage } from '@/types/projects';
+import {
+    Project,
+    ProjectFields,
+    ProjectLimits,
+    ProjectsApi,
+    ProjectsCursor,
+    ProjectsPage,
+    ProjectsStorageBandwidthDaily
+} from '@/types/projects';
 
 /**
  * Mock for ProjectsApi
@@ -45,5 +53,9 @@ export class ProjectsApiMock implements ProjectsApi {
 
     getTotalLimits(): Promise<ProjectLimits> {
         return Promise.resolve(this.mockLimits);
+    }
+
+    getDailyUsage(_projectId: string, _start: Date, _end: Date): Promise<ProjectsStorageBandwidthDaily> {
+        throw new Error('not implemented');
     }
 }

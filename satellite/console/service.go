@@ -1662,6 +1662,36 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 	return result, nil
 }
 
+// GetDailyProjectUsage returns daily usage by project ID.
+func (s *Service) GetDailyProjectUsage(ctx context.Context, projectID uuid.UUID, from, to time.Time) (_ *accounting.ProjectDailyUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get daily usage by project ID")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	bandwidthUsage, err := s.projectAccounting.GetProjectDailyBandwidthByDateRange(ctx, projectID, from, to)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	storageUsage, err := s.projectAccounting.GetProjectDailyStorageByDateRange(ctx, projectID, from, to)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &accounting.ProjectDailyUsage{
+		StorageUsage:   storageUsage,
+		BandwidthUsage: bandwidthUsage,
+	}, nil
+}
+
 // GetProjectUsageLimits returns project limits and current usage.
 //
 // Among others,it can return one of the following errors returned by

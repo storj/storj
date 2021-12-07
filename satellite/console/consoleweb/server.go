@@ -222,6 +222,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		"/api/v0/projects/usage-limits",
 		server.withAuth(http.HandlerFunc(usageLimitsController.TotalUsageLimits)),
 	).Methods(http.MethodGet)
+	router.Handle(
+		"/api/v0/projects/{id}/daily-usage",
+		server.withAuth(http.HandlerFunc(usageLimitsController.DailyUsage)),
+	).Methods(http.MethodGet)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.analytics, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()

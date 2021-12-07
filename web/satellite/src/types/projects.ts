@@ -53,6 +53,13 @@ export interface ProjectsApi {
     getTotalLimits(): Promise<ProjectLimits>;
 
     /**
+     * Get project daily usage by specific date range.
+     *
+     * throws Error
+     */
+    getDailyUsage(projectID: string, start: Date, end: Date): Promise<ProjectsStorageBandwidthDaily>;
+
+    /**
      * Fetch owned projects.
      *
      * @returns ProjectsPage
@@ -184,25 +191,18 @@ export class ProjectsCursor {
  * DataStamp is storage/bandwidth usage stamp for satellite at some point in time
  */
 export class DataStamp {
-    public value: number;
-    public intervalStart: Date;
-
-    public constructor(value = 0, intervalStart: Date = new Date()) {
-        this.value = value;
-        this.intervalStart = intervalStart;
-    }
+    public constructor(
+        public value = 0,
+        public intervalStart = new Date()
+    ) {}
 
     /**
      * Creates new empty instance of stamp with defined date
-     * @param date - holds specific date of the month
+     * @param date - holds specific date of the date range
      * @returns Stamp - new empty instance of stamp with defined date
      */
-    public static emptyWithDate(date: number): DataStamp {
-        const now = new Date();
-        now.setUTCDate(date);
-        now.setUTCHours(0, 0, 0, 0);
-
-        return new DataStamp(0, now);
+    public static emptyWithDate(date: Date): DataStamp {
+        return new DataStamp(0, date);
     }
 }
 
@@ -219,9 +219,7 @@ export class ProjectsStorageBandwidthDaily {
 /**
  * ProjectUsageDateRange is used to describe project's usage by date range.
  */
-export class ProjectUsageDateRange {
-    public constructor(
-        public since: Date,
-        public before: Date,
-    ) {}
+export interface ProjectUsageDateRange {
+    since: Date;
+    before: Date;
 }

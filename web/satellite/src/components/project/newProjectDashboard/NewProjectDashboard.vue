@@ -28,7 +28,8 @@
             <h2 class="project-dashboard__stats-header__title">Project Stats</h2>
             <div class="project-dashboard__stats-header__buttons">
                 <DateRangeSelection
-                    :date-range="chartsDateRange"
+                    :since="chartsSinceDate"
+                    :before="chartsBeforeDate"
                     :on-date-pick="onChartsDateRangePick"
                     :is-open="isChartsDatePicker"
                     :toggle="toggleChartsDatePicker"
@@ -70,6 +71,8 @@
                         :width="chartWidth"
                         :height="170"
                         :data="storageUsage"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
                         background-color="#E6EDF7"
                         border-color="#D7E8FF"
                         point-border-color="#003DC1"
@@ -88,6 +91,8 @@
                         :width="chartWidth"
                         :height="170"
                         :data="bandwidthUsage"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
                         background-color="#FFE0E7"
                         border-color="#FFC0CF"
                         point-border-color="#FF458B"
@@ -141,12 +146,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from "@/store/modules/projects";
+import { PROJECTS_ACTIONS } from "@/store/modules/projects";
 import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from "@/store/modules/payments";
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import { RouteConfig } from "@/router";
-import { DataStamp, ProjectLimits, ProjectsStorageBandwidthDaily, ProjectUsageDateRange } from "@/types/projects";
+import { DataStamp, ProjectLimits } from "@/types/projects";
 import { Dimensions, Size } from "@/utils/bytesSize";
+import { ChartUtils } from "@/utils/chart";
 
 import VLoader from "@/components/common/VLoader.vue";
 import InfoContainer from "@/components/project/newProjectDashboard/InfoContainer.vue";
@@ -192,7 +198,11 @@ export default class NewProjectDashboard extends Vue {
         this.recalculateChartWidth();
 
         try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, new ProjectsStorageBandwidthDaily(this.chartTestData(), this.chartTestData()));
+            const now = new Date()
+            const past = new Date()
+            past.setDate(past.getDate() - 30)
+
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since: past, before: now});
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
 
@@ -255,11 +265,15 @@ export default class NewProjectDashboard extends Vue {
 
     /**
      * onChartsDateRangePick holds logic for choosing date range for charts.
+     * Fetches new data for specific date range.
      * @param dateRange
      */
-    public onChartsDateRangePick(dateRange: Date[]): void {
-        // TODO: rework when backend is ready
-        this.$store.commit(PROJECTS_MUTATIONS.SET_CHARTS_DATE_RANGE, new ProjectUsageDateRange(dateRange[0], dateRange[1]));
+    public async onChartsDateRangePick(dateRange: Date[]): Promise<void> {
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since: dateRange[0], before: dateRange[1]})
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
     }
 
     /**
@@ -308,14 +322,28 @@ export default class NewProjectDashboard extends Vue {
      * Returns storage chart data from store.
      */
     public get storageUsage(): DataStamp[] {
-        return this.$store.state.projectsModule.storageChartData;
+        return ChartUtils.populateEmptyUsage(this.$store.state.projectsModule.storageChartData, this.chartsSinceDate, this.chartsBeforeDate);
     }
 
     /**
      * Returns bandwidth chart data from store.
      */
     public get bandwidthUsage(): DataStamp[] {
-        return this.$store.state.projectsModule.bandwidthChartData;
+        return ChartUtils.populateEmptyUsage(this.$store.state.projectsModule.bandwidthChartData, this.chartsSinceDate, this.chartsBeforeDate);
+    }
+
+    /**
+     * Returns charts since date from store.
+     */
+    public get chartsSinceDate(): Date {
+        return this.$store.state.projectsModule.chartDataSince;
+    }
+
+    /**
+     * Returns charts before date from store.
+     */
+    public get chartsBeforeDate(): Date {
+        return this.$store.state.projectsModule.chartDataBefore;
     }
 
     /**
@@ -329,36 +357,12 @@ export default class NewProjectDashboard extends Vue {
             return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
         }
     }
-
-    // TODO: remove when backend is ready
-    private chartTestData(): DataStamp[] {
-        const startDate = new Date("2021-10-01");
-        const endDate = new Date("2021-10-31");
-        const arr = new Array<Date>();
-        const dt = new Date(startDate);
-
-        while (dt <= endDate) {
-            arr.push(new Date(dt));
-            dt.setDate(dt.getDate() + 1);
-        }
-
-        return arr.map(d => {
-            return new DataStamp(Math.floor(Math.random() * 1000000000000), d);
-        })
-    }
-
-    /**
-     * Returns charts date range from store.
-     */
-    private get chartsDateRange(): ProjectUsageDateRange | null {
-        return this.$store.getters.chartsDateRange;
-    }
 }
 </script>
 
 <style scoped lang="scss">
     .project-dashboard {
-        padding: 56px 40px;
+        padding: 56px 55px 56px 40px;
         height: calc(100% - 112px);
         max-width: calc(100vw - 280px - 80px);
         background-image: url('../../../../static/images/project/background.png');
