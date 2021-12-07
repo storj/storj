@@ -65,7 +65,9 @@ func (q *HubspotEvents) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case ev := <-q.events:
-			q.Handle(ctx, ev)
+			q.worker.Go(ctx, func() {
+				q.Handle(ctx, ev)
+			})
 		}
 	}
 }
