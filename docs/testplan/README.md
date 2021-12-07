@@ -9,7 +9,7 @@
 
 ### Why write Testplans?
 
-We believe test plans are important, written Testplans as early as possible before implementation starts work like a checklist and as soon as we finish the implementation we can compare it to the test plan to check for any bugs. Also even before implementation is finished, if a developer can read a test plan beforehand they can prevent most bugs, hence why we believe that the earlier we write a test plan the more bugs we can prevent!
+We believe test plans are important, Testplans written as early as possible before implementation starts work like a checklist and as soon as we finish the implementation we can compare it to the test plan to check for any bugs. Also even before implementation is finished, if a developer can read a test plan beforehand they can prevent most bugs, hence why we believe that the earlier we write a test plan the more bugs we can prevent!
 
 ### Hi! Here is a guide on how to write a basic **testplan** that will go over how to
 
