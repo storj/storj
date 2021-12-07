@@ -78,6 +78,12 @@ type ProjectUsage struct {
 	Before time.Time `json:"before"`
 }
 
+// ProjectObjectsSegments consist of period total objects and segments count for certain Project.
+type ProjectObjectsSegments struct {
+	SegmentCount int64 `json:"segmentCount"`
+	ObjectCount  int64 `json:"objectCount"`
+}
+
 // ProjectLimits contains the storage and bandwidth limits.
 type ProjectLimits struct {
 	Usage     *int64
@@ -202,6 +208,8 @@ type ProjectAccounting interface {
 	GetProjectLimits(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error)
 	// GetProjectTotal returns project usage summary for specified period of time.
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
+	// GetProjectObjectsSegments returns project objects and segments for specified period of time.
+	GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (*ProjectObjectsSegments, error)
 	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
 	// GetBucketTotals returns per bucket usage summary for specified period of time.

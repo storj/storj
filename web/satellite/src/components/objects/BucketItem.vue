@@ -40,7 +40,7 @@ export default class BucketItem extends Vue {
     @Prop({ default: null })
     public readonly itemData: Bucket;
     @Prop({ default: () => '' })
-    public readonly showDeleteBucketPopup;
+    public readonly showDeleteBucketPopup: () => void;
     @Prop({ default: () => '' })
     public readonly openDropdown;
     @Prop({ default: false })
@@ -69,7 +69,7 @@ export default class BucketItem extends Vue {
      * Holds on delete click logic.
      */
     public onDeleteClick(): void {
-        this.showDeleteBucketPopup(this.itemData.Name);
+        this.showDeleteBucketPopup();
         this.closeDropdown();
     }
 }

@@ -13,7 +13,6 @@ import (
 )
 
 func TestValidateRequestParameters(t *testing.T) {
-
 	uid, err := uuid.New()
 	require.NoError(t, err, "failed to generate uuid")
 
@@ -77,7 +76,7 @@ func TestValidateRequestParameters(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			project, bucket, err := validateGeofencePathParameters(testCase.params)
+			project, bucket, err := validateBucketPathParameters(testCase.params)
 
 			require.Equal(t, testCase.project, project)
 			require.Equal(t, testCase.bucket, bucket)
@@ -120,6 +119,5 @@ func TestParsePlacementConstraint(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
-
 	}
 }

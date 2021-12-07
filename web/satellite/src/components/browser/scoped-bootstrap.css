@@ -5791,8 +5791,9 @@ a.file-browser .badge-dark.focus {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    overflow: hidden;
+    overflow: visible !important; /* hack to override double import */
     color: #fff;
+    text-shadow: 0px 1px #000  !important; /* make #fff visible on gray background */
     text-align: center;
     white-space: nowrap;
     background-color: #007bff;

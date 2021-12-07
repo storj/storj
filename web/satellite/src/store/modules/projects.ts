@@ -3,17 +3,21 @@
 
 import { StoreModule } from '@/store';
 import {
+    DataStamp,
     Project,
     ProjectFields,
     ProjectLimits,
     ProjectsApi,
     ProjectsCursor,
     ProjectsPage,
+    ProjectsStorageBandwidthDaily,
+    ProjectUsageDateRange,
 } from '@/types/projects';
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',
     FETCH_OWNED: 'fetchOwnedProjects',
+    FETCH_DAILY_DATA: 'fetchDailyData',
     CREATE: 'createProject',
     CREATE_DEFAULT_PROJECT: 'createDefaultProject',
     SELECT: 'selectProject',
@@ -41,6 +45,8 @@ export const PROJECTS_MUTATIONS = {
     SET_TOTAL_LIMITS: 'SET_TOTAL_LIMITS',
     SET_PAGE_NUMBER: 'SET_PAGE_NUMBER',
     SET_PAGE: 'SET_PAGE',
+    SET_DAILY_DATA: 'SET_DAILY_DATA',
+    SET_CHARTS_DATE_RANGE: 'SET_CHARTS_DATE_RANGE',
 };
 
 const defaultSelectedProject = new Project('', '', '', '', '', true, 0);
@@ -52,6 +58,10 @@ export class ProjectsState {
     public totalLimits: ProjectLimits = new ProjectLimits();
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
+    public bandwidthChartData: DataStamp[] = [];
+    public storageChartData: DataStamp[] = [];
+    public chartDataSince: Date | null = null;
+    public chartDataBefore: Date | null = null;
 }
 
 interface ProjectsContext {
@@ -67,6 +77,7 @@ interface ProjectsContext {
 
 const {
     FETCH,
+    FETCH_DAILY_DATA,
     CREATE,
     CREATE_DEFAULT_PROJECT,
     SELECT,
@@ -95,6 +106,8 @@ const {
     SET_TOTAL_LIMITS,
     SET_PAGE_NUMBER,
     SET_PAGE,
+    SET_DAILY_DATA,
+    SET_CHARTS_DATE_RANGE,
 } = PROJECTS_MUTATIONS;
 const projectsPageLimit = 7;
 
@@ -166,6 +179,11 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 state.projects = [];
                 state.selectedProject = defaultSelectedProject;
                 state.currentLimits = new ProjectLimits();
+                state.totalLimits = new ProjectLimits();
+                state.storageChartData = [];
+                state.bandwidthChartData = [];
+                state.chartDataSince = null;
+                state.chartDataBefore = null;
             },
             [SET_PAGE_NUMBER](state: ProjectsState, pageNumber: number) {
                 state.cursor.page = pageNumber;
@@ -173,6 +191,14 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
             },
             [SET_PAGE](state: ProjectsState, page: ProjectsPage) {
                 state.page = page;
+            },
+            [SET_DAILY_DATA](state: ProjectsState, payload: ProjectsStorageBandwidthDaily) {
+                state.bandwidthChartData = payload.bandwidth;
+                state.storageChartData = payload.storage;
+            },
+            [SET_CHARTS_DATE_RANGE](state: ProjectsState, payload: ProjectUsageDateRange) {
+                state.chartDataSince = payload.since;
+                state.chartDataBefore = payload.before;
             },
         },
         actions: {
@@ -190,6 +216,10 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 commit(SET_PAGE, projectsPage);
 
                 return projectsPage;
+            },
+            [FETCH_DAILY_DATA]: async function ({commit}: ProjectsContext, payload: ProjectsStorageBandwidthDaily): Promise<void> {
+                // TODO: rework when backend is ready
+                commit(SET_DAILY_DATA, payload);
             },
             [CREATE]: async function ({commit}: ProjectsContext, createProjectFields: ProjectFields): Promise<Project> {
                 const project = await api.create(createProjectFields);
@@ -326,6 +356,13 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 });
 
                 return projectsCount;
+            },
+            chartsDateRange: (state: ProjectsState): ProjectUsageDateRange | null => {
+                if (!state.chartDataSince || !state.chartDataBefore) {
+                    return null
+                }
+
+                return new ProjectUsageDateRange(state.chartDataSince, state.chartDataBefore);
             },
         },
     };

@@ -19,6 +19,7 @@ type Reservoir struct {
 	Segments [maxReservoirSize]Segment
 	size     int8
 	index    int64
+	wSum     int64
 }
 
 // NewReservoir instantiates a Reservoir.
@@ -35,14 +36,22 @@ func NewReservoir(size int) *Reservoir {
 }
 
 // Sample makes sure that for every segment in metainfo from index i=size..n-1,
-// pick a random number r = rand(0..i), and if r < size, replace reservoir.Segments[r] with segment.
+// compute the relative weight based on segment size, and pick a random floating
+// point number r = rand(0..1), and if r < the relative weight of the segment,
+// select uniformly a random segment reservoir.Segments[rand(0..i)] to replace with
+// segment. See https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Chao
+// for the algorithm used.
 func (reservoir *Reservoir) Sample(r *rand.Rand, segment Segment) {
 	if reservoir.index < int64(reservoir.size) {
 		reservoir.Segments[reservoir.index] = segment
+		reservoir.wSum += int64(segment.EncryptedSize)
 	} else {
-		random := r.Int63n(reservoir.index + 1)
-		if random < int64(reservoir.size) {
-			reservoir.Segments[random] = segment
+		reservoir.wSum += int64(segment.EncryptedSize)
+		p := float64(segment.EncryptedSize) / float64(reservoir.wSum)
+		random := r.Float64()
+		if random < p {
+			index := r.Int31n(int32(reservoir.size))
+			reservoir.Segments[index] = segment
 		}
 	}
 	reservoir.index++
@@ -50,17 +59,19 @@ func (reservoir *Reservoir) Sample(r *rand.Rand, segment Segment) {
 
 // Segment is a segment to audit.
 type Segment struct {
-	StreamID  uuid.UUID
-	Position  metabase.SegmentPosition
-	ExpiresAt *time.Time
+	StreamID      uuid.UUID
+	Position      metabase.SegmentPosition
+	ExpiresAt     *time.Time
+	EncryptedSize int32 // size of the whole segment (not a piece)
 }
 
 // NewSegment creates a new segment to audit from a metainfo loop segment.
 func NewSegment(loopSegment *segmentloop.Segment) Segment {
 	return Segment{
-		StreamID:  loopSegment.StreamID,
-		Position:  loopSegment.Position,
-		ExpiresAt: loopSegment.ExpiresAt,
+		StreamID:      loopSegment.StreamID,
+		Position:      loopSegment.Position,
+		ExpiresAt:     loopSegment.ExpiresAt,
+		EncryptedSize: loopSegment.EncryptedSize,
 	}
 }
 

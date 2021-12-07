@@ -27,6 +27,8 @@ type DB interface {
 	CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error)
 	// GetBucket returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error)
+	// GetBucketPlacement returns with the placement constraint identifier.
+	GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storj.PlacementConstraint, err error)
 	// GetMinimalBucket returns existing bucket with minimal number of fields.
 	GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket Bucket, err error)
 	// HasBucket returns if a bucket exists.

@@ -11,6 +11,8 @@ type ProjectUsageLimits struct {
 	BandwidthLimit int64 `json:"bandwidthLimit"`
 	StorageUsed    int64 `json:"storageUsed"`
 	BandwidthUsed  int64 `json:"bandwidthUsed"`
+	ObjectCount    int64 `json:"objectCount"`
+	SegmentCount   int64 `json:"segmentCount"`
 }
 
 // UserProjectLimits holds a users storage and bandwidth limits for new projects.
