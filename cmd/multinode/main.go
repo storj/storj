@@ -242,7 +242,12 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		service := nodes.NewService(log, dialer, db.Nodes())
-		err = service.Add(ctx, node.NodeID, apiSecret[:], node.PublicAddress)
+		err = service.Add(ctx, nodes.Node{
+			ID:            node.NodeID,
+			APISecret:     apiSecret[:],
+			PublicAddress: node.PublicAddress,
+			Name:          node.Name,
+		})
 		if err != nil {
 			return err
 		}

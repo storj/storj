@@ -25,8 +25,7 @@ type DB interface {
 	// because paging doesn't necessarily mean pagination in computing.
 	ListPaged(ctx context.Context, cursor Cursor) (page Page, err error)
 	// Add creates new node in NodesDB.
-	// TODO: pass Node entity instead of set of a parameters.
-	Add(ctx context.Context, id storj.NodeID, apiSecret []byte, publicAddress string) error
+	Add(ctx context.Context, node Node) error
 	// Remove removed node from NodesDB.
 	Remove(ctx context.Context, id storj.NodeID) error
 	// UpdateName will update name of the specified node in database.
