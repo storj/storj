@@ -265,7 +265,7 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 
 // TrackLinkEvent sends an arbitrary event and link associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email string, link string) {
+func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email, link string) {
 
 	// do not track if the event name is an invalid client-side event
 	if !service.clientEvents[eventName] {
