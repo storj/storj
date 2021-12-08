@@ -111,9 +111,7 @@ export default class OldOverviewStep extends Vue {
      * Checks CLI flow status and redirects if needed.
      */
     public beforeMount(): void {
-        if (this.$store.state.appStateModule.isNewOnbCLIFlow) {
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path)
-        }
+        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path)
     }
 
     /**
