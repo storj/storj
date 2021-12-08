@@ -39,7 +39,7 @@ type HubSpotEvent struct {
 	Endpoint string
 }
 
-// HubspotEvents is a configuration struct for sending Events data to HubSpot.
+// HubSpotEvents is a configuration struct for sending Events data to HubSpot.
 type HubSpotEvents struct {
 	log           *zap.Logger
 	config        HubSpotConfig

@@ -38,13 +38,16 @@
 # analytics.enabled: false
 
 # hubspot api key
-# analytics.hubspot.api-key: ""
+# analytics.hub-spot.api-key: ""
 
 # the number of events that can be in the queue before dropping
-# analytics.hubspot.channel-size: 10000
+# analytics.hub-spot.channel-size: 1000
 
 # creates a new limiter with limit set to
-# analytics.hubspot.concurrent-sends: 25
+# analytics.hub-spot.concurrent-sends: 4
+
+# the default timeout for the hubspot http client
+# analytics.hub-spot.default-timeout: 10s
 
 # segment write key
 # analytics.segment-write-key: ""
