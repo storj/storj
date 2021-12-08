@@ -66,6 +66,10 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 
 // Run runs the service and use the context in new requests.
 func (service *Service) Run(ctx context.Context) error {
+	if !service.config.Enabled {
+		return nil
+	}
+
 	return service.hubspot.Run(ctx)
 }
 
