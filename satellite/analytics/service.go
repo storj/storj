@@ -147,7 +147,6 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	})
 
 	service.hubspot.EnqueueCreateUser(fields)
-
 }
 
 // TrackSignedIn sends an "Signed In" event to Segment.
