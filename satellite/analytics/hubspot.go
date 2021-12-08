@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -20,42 +21,51 @@ import (
 
 var mon = monkit.Package()
 
+const (
+	eventPrefix = "pe20293085"
+)
+
 // HubSpotConfig is a configuration struct for Concurrent Sending of Events.
 type HubSpotConfig struct {
-	APIKey          string `help:"hubspot api key" default:""`
-	ChannelSize     int    `help:"the number of events that can be in the queue before dropping" default:"10000"`
-	ConcurrentSends int    `help:"creates a new limiter with limit set to" default:"25"`
+	APIKey          string        `help:"hubspot api key" default:""`
+	ChannelSize     int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
+	ConcurrentSends int           `help:"creates a new limiter with limit set to" default:"4"`
+	DefaultTimeout  time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
 }
 
-// Event is a configuration struct for sending API request to HubSpot.
-type Event struct {
+// HubSpotEvent is a configuration struct for sending API request to HubSpot.
+type HubSpotEvent struct {
 	Data     map[string]interface{}
 	Endpoint string
 }
 
 // HubspotEvents is a configuration struct for sending Events data to HubSpot.
-type HubspotEvents struct {
+type HubSpotEvents struct {
 	log           *zap.Logger
 	config        HubSpotConfig
-	events        chan []Event
-	apiKey        string
+	events        chan []HubSpotEvent
+	escapedAPIKey string
 	satelliteName string
-	worker        *sync2.Limiter
+	worker        sync2.Limiter
+	httpClient    *http.Client
 }
 
 // NewHubSpotEvents for sending user events to HubSpot.
-func NewHubSpotEvents(config HubSpotConfig, satelliteName string) *HubspotEvents {
-	return &HubspotEvents{
+func NewHubSpotEvents(config HubSpotConfig, satelliteName string) *HubSpotEvents {
+	return &HubSpotEvents{
 		config:        config,
-		events:        make(chan []Event, config.ChannelSize),
-		apiKey:        url.QueryEscape(config.APIKey),
+		events:        make(chan []HubSpotEvent, config.ChannelSize),
+		escapedAPIKey: url.QueryEscape(config.APIKey),
 		satelliteName: satelliteName,
-		worker:        sync2.NewLimiter(config.ConcurrentSends),
+		worker:        *sync2.NewLimiter(config.ConcurrentSends),
+		httpClient: &http.Client{
+			Timeout: config.DefaultTimeout,
+		},
 	}
 }
 
 // Run for concurrent API requests.
-func (q *HubspotEvents) Run(ctx context.Context) error {
+func (q *HubSpotEvents) Run(ctx context.Context) error {
 	defer q.worker.Wait()
 	for {
 		if err := ctx.Err(); err != nil {
@@ -66,15 +76,17 @@ func (q *HubspotEvents) Run(ctx context.Context) error {
 			return ctx.Err()
 		case ev := <-q.events:
 			q.worker.Go(ctx, func() {
-				q.Handle(ctx, ev)
+				err := q.Handle(ctx, ev)
+				if err != nil {
+					q.log.Error("Sending hubspot event API request failed")
+				}
 			})
 		}
 	}
 }
 
 // EnqueueCreateUser for creating user in HubSpot.
-func (q *HubspotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
-
+func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 	fullName := fields.FullName
 	names := strings.SplitN(fullName, " ", 2)
 
@@ -88,8 +100,8 @@ func (q *HubspotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		firstName = fullName
 	}
 
-	createUser := Event{
-		Endpoint: "https://api.hubapi.com/crm/v3/objects/contacts?hapikey=" + q.apiKey,
+	createUser := HubSpotEvent{
+		Endpoint: "https://api.hubapi.com/crm/v3/objects/contacts?hapikey=" + q.escapedAPIKey,
 		Data: map[string]interface{}{
 			"email": fields.Email,
 			"properties": map[string]interface{}{
@@ -101,11 +113,11 @@ func (q *HubspotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		},
 	}
 
-	sendUserEvent := Event{
-		Endpoint: "https://api.hubapi.com/events/v3/send?hapikey=" + q.apiKey,
+	sendUserEvent := HubSpotEvent{
+		Endpoint: "https://api.hubapi.com/events/v3/send?hapikey=" + q.escapedAPIKey,
 		Data: map[string]interface{}{
 			"email":     fields.Email,
-			"eventName": "pe20293085_account_created_new",
+			"eventName": eventPrefix + "_" + "account_created_new",
 			"properties": map[string]interface{}{
 				"userid":             fields.ID.String(),
 				"email":              fields.Email,
@@ -120,16 +132,20 @@ func (q *HubspotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		},
 	}
 	select {
-	case q.events <- []Event{createUser, sendUserEvent}:
+	case q.events <- []HubSpotEvent{createUser, sendUserEvent}:
 	default:
+		q.log.Error("Create user in HubSpot failed")
 	}
 }
 
 // EnqueueEvent for sending user behavioral event to HubSpot.
-func (q *HubspotEvents) EnqueueEvent(email, eventName string, properties map[string]interface{}) {
+func (q *HubSpotEvents) EnqueueEvent(email, eventName string, properties map[string]interface{}) {
+	eventName = strings.ReplaceAll(eventName, " ", "_")
+	eventName = strings.ToLower(eventName)
+	eventName = eventPrefix + "_" + eventName
 
-	newEvent := Event{
-		Endpoint: "https://api.hubapi.com/events/v3/send?hapikey=" + q.apiKey,
+	newEvent := HubSpotEvent{
+		Endpoint: "https://api.hubapi.com/events/v3/send?hapikey=" + q.escapedAPIKey,
 		Data: map[string]interface{}{
 			"email":      email,
 			"eventName":  eventName,
@@ -137,34 +153,45 @@ func (q *HubspotEvents) EnqueueEvent(email, eventName string, properties map[str
 		},
 	}
 	select {
-	case q.events <- []Event{newEvent}:
+	case q.events <- []HubSpotEvent{newEvent}:
 	default:
+		q.log.Error("Sending user event in HubSpot failed")
 	}
 }
 
+// handleSingleEvent for handle the single HubSpot API request.
+func (q *HubSpotEvents) handleSingleEvent(ctx context.Context, ev HubSpotEvent) (err error) {
+	payloadBytes, err := json.Marshal(ev.Data)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ev.Endpoint, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, resp.Body.Close())
+	}()
+
+	return nil
+}
+
 // Handle for handle the HubSpot API requests.
-func (q *HubspotEvents) Handle(ctx context.Context, events []Event) {
-	var err error
+func (q *HubSpotEvents) Handle(ctx context.Context, events []HubSpotEvent) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for _, ev := range events {
-		payloadBytes, err := json.Marshal(ev.Data)
+		err := q.handleSingleEvent(ctx, ev)
 		if err != nil {
-			q.log.Error("Error in converting into bytes", zap.Error(err))
+			return errs.Wrap(err)
 		}
-
-		req, err := http.NewRequestWithContext(ctx, "POST", ev.Endpoint, bytes.NewReader(payloadBytes))
-		if err != nil {
-			q.log.Error("Error in returning a new request", zap.Error(err))
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			q.log.Error("Error making a request with specified context", zap.Error(err))
-		}
-
-		defer func() {
-			err = errs.Combine(err, resp.Body.Close())
-		}()
 	}
+	return nil
 }
