@@ -43,16 +43,18 @@ type ProjectLimitCache struct {
 	projectLimitDB      ProjectLimitDB
 	defaultMaxUsage     memory.Size
 	defaultMaxBandwidth memory.Size
+	defaultMaxSegments  int64
 
 	state *lrucache.ExpiringLRU
 }
 
 // NewProjectLimitCache creates a new project limit cache to store the project limits for each project ID.
-func NewProjectLimitCache(db ProjectLimitDB, defaultMaxUsage, defaultMaxBandwidth memory.Size, config ProjectLimitConfig) *ProjectLimitCache {
+func NewProjectLimitCache(db ProjectLimitDB, defaultMaxUsage, defaultMaxBandwidth memory.Size, defaultMaxSegments int64, config ProjectLimitConfig) *ProjectLimitCache {
 	return &ProjectLimitCache{
 		projectLimitDB:      db,
 		defaultMaxUsage:     defaultMaxUsage,
 		defaultMaxBandwidth: defaultMaxBandwidth,
+		defaultMaxSegments:  defaultMaxSegments,
 		state: lrucache.New(lrucache.Options{
 			Capacity:   config.CacheCapacity,
 			Expiration: config.CacheExpiration,
@@ -121,4 +123,19 @@ func (c *ProjectLimitCache) GetProjectBandwidthLimit(ctx context.Context, projec
 		return c.defaultMaxBandwidth, nil
 	}
 	return memory.Size(*projectLimits.Bandwidth), nil
+}
+
+// GetProjectSegmentLimit returns the segment limit for a project ID.
+func (c *ProjectLimitCache) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	projectLimits, err := c.Get(ctx, projectID)
+	if err != nil {
+		return 0, err
+	}
+
+	if projectLimits.Segments == nil {
+		return c.defaultMaxSegments, nil
+	}
+
+	return *projectLimits.Segments, nil
 }
