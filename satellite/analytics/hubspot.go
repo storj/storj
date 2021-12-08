@@ -78,7 +78,7 @@ func (q *HubSpotEvents) Run(ctx context.Context) error {
 			q.worker.Go(ctx, func() {
 				err := q.Handle(ctx, ev)
 				if err != nil {
-					q.log.Error("Sending hubspot event API request failed")
+					q.log.Error("Sending hubspot event", zap.Error(err))
 				}
 			})
 		}
