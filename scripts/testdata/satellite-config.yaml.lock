@@ -43,7 +43,7 @@
 # the number of events that can be in the queue before dropping
 # analytics.hub-spot.channel-size: 1000
 
-# creates a new limiter with limit set to
+# the number of concurrent api requests to hubspot
 # analytics.hub-spot.concurrent-sends: 4
 
 # the default timeout for the hubspot http client

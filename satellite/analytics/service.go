@@ -6,6 +6,7 @@ package analytics
 import (
 	"context"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	segment "gopkg.in/segmentio/analytics-go.v3"
 
@@ -23,6 +24,11 @@ const (
 	eventExternalLinkClicked       = "External Link Clicked"
 	eventPathSelected              = "Path Selected"
 	eventLinkShared                = "Link Shared"
+)
+
+var (
+	// Error is the default error class the analytics package.
+	Error = errs.Class("analytics service")
 )
 
 // Config is a configuration struct for analytics Service.

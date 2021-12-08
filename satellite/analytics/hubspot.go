@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
@@ -29,7 +28,7 @@ const (
 type HubSpotConfig struct {
 	APIKey          string        `help:"hubspot api key" default:""`
 	ChannelSize     int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
-	ConcurrentSends int           `help:"creates a new limiter with limit set to" default:"4"`
+	ConcurrentSends int           `help:"the number of concurrent api requests that can be made" default:"4"`
 	DefaultTimeout  time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
 }
 
@@ -164,22 +163,22 @@ func (q *HubSpotEvents) EnqueueEvent(email, eventName string, properties map[str
 func (q *HubSpotEvents) handleSingleEvent(ctx context.Context, ev HubSpotEvent) (err error) {
 	payloadBytes, err := json.Marshal(ev.Data)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.New("json marshal failed: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ev.Endpoint, bytes.NewReader(payloadBytes))
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.New("new request failed: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.New("send request failed: %w", err)
 	}
 
 	defer func() {
-		err = errs.Combine(err, resp.Body.Close())
+		err = resp.Body.Close()
 	}()
 
 	return nil
@@ -191,7 +190,7 @@ func (q *HubSpotEvents) Handle(ctx context.Context, events []HubSpotEvent) (err 
 	for _, ev := range events {
 		err := q.handleSingleEvent(ctx, ev)
 		if err != nil {
-			return errs.Wrap(err)
+			return Error.New("error handling hubspot event: %w", err)
 		}
 	}
 	return nil
