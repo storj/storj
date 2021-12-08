@@ -10141,9 +10141,10 @@ type BandwidthLimit_Row struct {
 	BandwidthLimit *int64
 }
 
-type BandwidthLimit_UsageLimit_Row struct {
+type BandwidthLimit_UsageLimit_SegmentLimit_Row struct {
 	BandwidthLimit *int64
 	UsageLimit     *int64
+	SegmentLimit   *int64
 }
 
 type CreatedAt_Row struct {
@@ -10231,6 +10232,10 @@ type ProjectLimit_Row struct {
 type ProjectStorageLimit_ProjectBandwidthLimit_Row struct {
 	ProjectStorageLimit   int64
 	ProjectBandwidthLimit int64
+}
+
+type SegmentLimit_Row struct {
+	SegmentLimit *int64
 }
 
 type UsageLimit_Row struct {
@@ -11696,6 +11701,28 @@ func (obj *pgxImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_Project_SegmentLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *SegmentLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.segment_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &SegmentLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.SegmentLimit)
+	if err != nil {
+		return (*SegmentLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *MaxBuckets_Row, err error) {
@@ -11718,12 +11745,12 @@ func (obj *pgxImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx context.Context,
+func (obj *pgxImpl) Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
-	row *BandwidthLimit_UsageLimit_Row, err error) {
+	row *BandwidthLimit_UsageLimit_SegmentLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.usage_limit FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.usage_limit, projects.segment_limit FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -11731,10 +11758,10 @@ func (obj *pgxImpl) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx cont
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &BandwidthLimit_UsageLimit_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit)
+	row = &BandwidthLimit_UsageLimit_SegmentLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit, &row.SegmentLimit)
 	if err != nil {
-		return (*BandwidthLimit_UsageLimit_Row)(nil), obj.makeErr(err)
+		return (*BandwidthLimit_UsageLimit_SegmentLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -17682,6 +17709,28 @@ func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Contex
 
 }
 
+func (obj *pgxcockroachImpl) Get_Project_SegmentLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *SegmentLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.segment_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &SegmentLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.SegmentLimit)
+	if err != nil {
+		return (*SegmentLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *MaxBuckets_Row, err error) {
@@ -17704,12 +17753,12 @@ func (obj *pgxcockroachImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
-	row *BandwidthLimit_UsageLimit_Row, err error) {
+	row *BandwidthLimit_UsageLimit_SegmentLimit_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.usage_limit FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.usage_limit, projects.segment_limit FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -17717,10 +17766,10 @@ func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &BandwidthLimit_UsageLimit_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit)
+	row = &BandwidthLimit_UsageLimit_SegmentLimit_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit, &row.SegmentLimit)
 	if err != nil {
-		return (*BandwidthLimit_UsageLimit_Row)(nil), obj.makeErr(err)
+		return (*BandwidthLimit_UsageLimit_SegmentLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -23082,14 +23131,14 @@ func (rx *Rx) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 	return tx.Get_Project_BandwidthLimit_By_Id(ctx, project_id)
 }
 
-func (rx *Rx) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx context.Context,
+func (rx *Rx) Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
-	row *BandwidthLimit_UsageLimit_Row, err error) {
+	row *BandwidthLimit_UsageLimit_SegmentLimit_Row, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx, project_id)
+	return tx.Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_By_Id(ctx, project_id)
 }
 
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
@@ -23110,6 +23159,16 @@ func (rx *Rx) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_Project_MaxBuckets_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Get_Project_SegmentLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *SegmentLimit_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Project_SegmentLimit_By_Id(ctx, project_id)
 }
 
 func (rx *Rx) Get_Project_UsageLimit_By_Id(ctx context.Context,
@@ -24107,9 +24166,9 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		row *BandwidthLimit_Row, err error)
 
-	Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx context.Context,
+	Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
-		row *BandwidthLimit_UsageLimit_Row, err error)
+		row *BandwidthLimit_UsageLimit_SegmentLimit_Row, err error)
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
@@ -24118,6 +24177,10 @@ type Methods interface {
 	Get_Project_MaxBuckets_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		row *MaxBuckets_Row, err error)
+
+	Get_Project_SegmentLimit_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		row *SegmentLimit_Row, err error)
 
 	Get_Project_UsageLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (

@@ -236,6 +236,20 @@ func (db *ProjectAccounting) UpdateProjectBandwidthLimit(ctx context.Context, pr
 	return err
 }
 
+// UpdateProjectSegmentLimit updates project segment limit.
+func (db *ProjectAccounting) UpdateProjectSegmentLimit(ctx context.Context, projectID uuid.UUID, limit int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+		dbx.Project_Update_Fields{
+			SegmentLimit: dbx.Project_SegmentLimit(limit),
+		},
+	)
+
+	return err
+}
+
 // GetProjectStorageLimit returns project storage usage limit.
 func (db *ProjectAccounting) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -300,7 +314,7 @@ func (db *ProjectAccounting) GetProjectObjectsSegments(ctx context.Context, proj
 		FROM
 			bucket_storage_tallies
 		WHERE
-			project_id = ? AND 
+			project_id = ? AND
 			interval_start = ?
 	`), projectID[:], latestDate)
 	if err = storageTalliesRows.Scan(&objectsSegments.SegmentCount, &objectsSegments.ObjectCount); err != nil {
@@ -308,6 +322,20 @@ func (db *ProjectAccounting) GetProjectObjectsSegments(ctx context.Context, proj
 	}
 
 	return objectsSegments, nil
+}
+
+// GetProjectSegmentLimit returns project segment limit.
+func (db *ProjectAccounting) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := db.db.Get_Project_SegmentLimit_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return row.SegmentLimit, nil
 }
 
 // GetProjectTotal retrieves project usage for a given period.
@@ -827,7 +855,7 @@ func timeTruncateDown(t time.Time) time.Time {
 func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ accounting.ProjectLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx,
+	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_By_Id(ctx,
 		dbx.Project_Id(projectID[:]),
 	)
 	if err != nil {
@@ -837,6 +865,7 @@ func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uui
 	return accounting.ProjectLimits{
 		Usage:     row.UsageLimit,
 		Bandwidth: row.BandwidthLimit,
+		Segments:  row.SegmentLimit,
 	}, nil
 }
 
