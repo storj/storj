@@ -51,8 +51,9 @@ type HubSpotEvents struct {
 }
 
 // NewHubSpotEvents for sending user events to HubSpot.
-func NewHubSpotEvents(config HubSpotConfig, satelliteName string) *HubSpotEvents {
+func NewHubSpotEvents(log *zap.Logger, config HubSpotConfig, satelliteName string) *HubSpotEvents {
 	return &HubSpotEvents{
+		log:           log,
 		config:        config,
 		events:        make(chan []HubSpotEvent, config.ChannelSize),
 		escapedAPIKey: url.QueryEscape(config.APIKey),
