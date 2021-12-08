@@ -158,11 +158,8 @@ export default class DashboardArea extends Vue {
         if (!projects.length) {
             try {
                 await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
-                if (this.isNewOnbCLiFlow) {
-                    await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-                } else {
-                    await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OldOverviewStep).path);
-                }
+
+                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
             } catch (error) {
@@ -314,13 +311,6 @@ export default class DashboardArea extends Vue {
      */
     private get isCreateProjectPage(): boolean {
         return this.$route.name === RouteConfig.CreateProject.name;
-    }
-
-    /**
-     * Returns onboarding CLI flow status from store.
-     */
-    private get isNewOnbCLiFlow(): boolean {
-        return this.$store.state.appStateModule.isNewOnbCLIFlow;
     }
 }
 </script>

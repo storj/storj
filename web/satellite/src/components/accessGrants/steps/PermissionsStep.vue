@@ -112,11 +112,6 @@ export default class PermissionsStep extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$route.params.key) {
-            if (this.isOnboardingTour) {
-                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
-                return;
-            }
-
             this.onBackClick();
 
             return;
@@ -142,9 +137,7 @@ export default class PermissionsStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
-        this.isOnboardingTour ?
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path) :
-            this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
     }
 
     /**
@@ -177,17 +170,6 @@ export default class PermissionsStep extends Vue {
 
         this.isLoading = false;
 
-        if (this.isOnboardingTour) {
-            await this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantCLI)).name,
-                params: {
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-            return;
-        }
-
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
             params: {
@@ -215,17 +197,6 @@ export default class PermissionsStep extends Vue {
         }
 
         this.isLoading = false;
-
-        if (this.isOnboardingTour) {
-            await this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
-                params: {
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-            return;
-        }
 
         if (this.accessGrantsAmount > 1) {
             await this.$router.push({

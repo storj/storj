@@ -129,16 +129,6 @@ export default class NameStep extends Vue {
 
         this.isLoading = false;
 
-        if (this.isOnboardingTour) {
-            await this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPermissions)).name,
-                params: {
-                    key: this.key,
-                },
-            });
-            return;
-        }
-
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {
