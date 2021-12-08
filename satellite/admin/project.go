@@ -130,7 +130,8 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		Rate struct {
 			RPS int `json:"rps"`
 		} `json:"rate"`
-		Buckets int `json:"maxBuckets"`
+		Buckets  int   `json:"maxBuckets"`
+		Segments int64 `json:"maxSegments"`
 	}
 	if project.StorageLimit != nil {
 		output.Usage.Amount = *project.StorageLimit
@@ -145,6 +146,9 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 	if project.RateLimit != nil {
 		output.Rate.RPS = *project.RateLimit
+	}
+	if project.SegmentLimit != nil {
+		output.Segments = *project.SegmentLimit
 	}
 
 	data, err := json.Marshal(output)
@@ -181,6 +185,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		Rate      *int         `schema:"rate"`
 		Burst     *int         `schema:"burst"`
 		Buckets   *int         `schema:"buckets"`
+		Segments  *int64       `schema:"segments"`
 	}
 
 	if err := r.ParseForm(); err != nil {
@@ -272,7 +277,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 
 	if arguments.Buckets != nil {
 		if *arguments.Buckets < 0 {
-			sendJSONError(w, "negative bucket coun",
+			sendJSONError(w, "negative bucket count",
 				fmt.Sprintf("t: %v", arguments.Buckets), http.StatusBadRequest)
 			return
 		}
@@ -280,6 +285,21 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		err = server.db.Console().Projects().UpdateBucketLimit(ctx, projectUUID, *arguments.Buckets)
 		if err != nil {
 			sendJSONError(w, "failed to update bucket limit",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if arguments.Segments != nil {
+		if *arguments.Segments < 0 {
+			sendJSONError(w, "negative segments count",
+				fmt.Sprintf("t: %v", arguments.Buckets), http.StatusBadRequest)
+			return
+		}
+
+		err = server.db.ProjectAccounting().UpdateProjectSegmentLimit(ctx, projectUUID, *arguments.Segments)
+		if err != nil {
+			sendJSONError(w, "failed to update segments limit",
 				err.Error(), http.StatusInternalServerError)
 			return
 		}
