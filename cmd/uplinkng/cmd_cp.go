@@ -48,7 +48,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.recursive = params.Flag("recursive", "Peform a recursive copy", false,
 		clingy.Short('r'),
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.parallelism = params.Flag("parallelism", "Controls how many uploads/downloads to perform in parallel", 1,
 		clingy.Short('p'),
@@ -60,11 +60,11 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 			return n, nil
 		}),
 	).(int)
-	c.dryrun = params.Flag("dryrun", "Print what operations would happen but don't execute them", false,
-		clingy.Transform(strconv.ParseBool),
+	c.dryrun = params.Flag("dry-run", "Print what operations would happen but don't execute them", false,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.progress = params.Flag("progress", "Show a progress bar when possible", true,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.byteRange = params.Flag("range", "Downloads the specified range bytes of an object. For more information about the HTTP Range header, see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35", "").(string)
 

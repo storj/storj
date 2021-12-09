@@ -49,7 +49,7 @@ func newExternal() *external {
 func (ex *external) Setup(f clingy.Flags) {
 	ex.interactive = f.Flag(
 		"interactive", "Controls if interactive input is allowed", true,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 		clingy.Advanced,
 	).(bool)
 

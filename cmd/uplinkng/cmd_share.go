@@ -54,13 +54,17 @@ func (c *cmdShare) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to share", "").(string)
 	c.exportTo = params.Flag("export-to", "Path to export the shared access to", "").(string)
 	c.baseURL = params.Flag("base-url", "The base url for link sharing", "https://link.us1.storjshare.io").(string)
-	c.register = params.Flag("register", "If true, creates and registers access grant", false, clingy.Transform(strconv.ParseBool)).(bool)
+	c.register = params.Flag("register", "If true, creates and registers access grant", false,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
 	c.url = params.Flag("url", "If true, returns a url for the shared path. implies --register and --public", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
 	c.dns = params.Flag("dns", "Specify your custom hostname. if set, returns dns settings for web hosting. implies --register and --public", "").(string)
 	c.authService = params.Flag("auth-service", "URL for shared auth service", "https://auth.us1.storjshare.io").(string)
 	c.public = params.Flag("public", "If true, the access will be public. --dns and --url override this", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
 
 	c.ap.SetupWithPrefixArg(params)
 }

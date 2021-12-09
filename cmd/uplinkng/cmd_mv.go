@@ -39,7 +39,7 @@ func (c *cmdMv) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.recursive = params.Flag("recursive", "Move all objects or files under the specified prefix or directory", false,
 		clingy.Short('r'),
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.parallelism = params.Flag("parallelism", "Controls how many objects will be moved in parallel", 1,
 		clingy.Short('p'),
@@ -52,10 +52,10 @@ func (c *cmdMv) Setup(params clingy.Parameters) {
 		}),
 	).(int)
 	c.dryrun = params.Flag("dryrun", "Print what operations would happen but don't execute them", false,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.progress = params.Flag("progress", "Show a progress bar when possible", true,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 
 	c.source = params.Arg("source", "Source to move", clingy.Transform(ulloc.Parse)).(ulloc.Location)
