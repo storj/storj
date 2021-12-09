@@ -69,7 +69,7 @@ func (tfs *testFilesystem) Pending() (files []File) {
 		for _, h := range mh {
 			files = append(files, File{
 				Loc:      loc.String(),
-				Contents: h.buf.String(),
+				Contents: string(h.buf),
 			})
 		}
 	}
@@ -109,12 +109,12 @@ func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (ulfs.Mu
 	return newMultiReadHandle(mf.contents), nil
 }
 
-func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulfs.WriteHandle, err error) {
+func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulfs.MultiWriteHandle, err error) {
 	tfs.mu.Lock()
 	defer tfs.mu.Unlock()
 
 	if loc.Std() {
-		return new(discardWriteHandle), nil
+		return ulfs.NewGenericMultiWriteHandle(new(discardWriteHandle)), nil
 	}
 
 	if bucket, _, ok := loc.RemoteParts(); ok {
@@ -135,7 +135,6 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 
 	tfs.created++
 	wh := &memWriteHandle{
-		buf: bytes.NewBuffer(nil),
 		loc: loc,
 		tfs: tfs,
 		cre: tfs.created,
@@ -145,7 +144,7 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 		tfs.pending[loc] = append(tfs.pending[loc], wh)
 	}
 
-	return wh, nil
+	return ulfs.NewGenericMultiWriteHandle(wh), nil
 }
 
 func (tfs *testFilesystem) Move(ctx clingy.Context, source, dest ulloc.Location) error {
@@ -291,15 +290,22 @@ func (tfs *testFilesystem) mkdir(ctx context.Context, dir string) error {
 //
 
 type memWriteHandle struct {
-	buf  *bytes.Buffer
+	buf  []byte
 	loc  ulloc.Location
 	tfs  *testFilesystem
 	cre  int64
 	done bool
 }
 
-func (b *memWriteHandle) Write(p []byte) (int, error) {
-	return b.buf.Write(p)
+func (b *memWriteHandle) WriteAt(p []byte, off int64) (int, error) {
+	if b.done {
+		return 0, errs.New("write to closed handle")
+	}
+	end := int64(len(p)) + off
+	if grow := end - int64(len(b.buf)); grow > 0 {
+		b.buf = append(b.buf, make([]byte, grow)...)
+	}
+	return copy(b.buf[off:], p), nil
 }
 
 func (b *memWriteHandle) Commit() error {
@@ -315,9 +321,10 @@ func (b *memWriteHandle) Commit() error {
 	}
 
 	b.tfs.files[b.loc] = memFileData{
-		contents: b.buf.String(),
+		contents: string(b.buf),
 		created:  b.cre,
 	}
+
 	return nil
 }
 
@@ -357,9 +364,9 @@ func (b *memWriteHandle) close() error {
 
 type discardWriteHandle struct{}
 
-func (discardWriteHandle) Write(p []byte) (int, error) { return len(p), nil }
-func (discardWriteHandle) Commit() error               { return nil }
-func (discardWriteHandle) Abort() error                { return nil }
+func (discardWriteHandle) WriteAt(p []byte, off int64) (int, error) { return len(p), nil }
+func (discardWriteHandle) Commit() error                            { return nil }
+func (discardWriteHandle) Abort() error                             { return nil }
 
 //
 // ulfs.ObjectIterator

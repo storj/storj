@@ -220,7 +220,13 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 		length = rh.Info().ContentLength
 	}
 
-	wh, err := fs.Create(ctx, dest)
+	mwh, err := fs.Create(ctx, dest)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = mwh.Abort(ctx) }()
+
+	wh, err := mwh.NextPart(ctx, -1)
 	if err != nil {
 		return err
 	}
@@ -239,7 +245,12 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 	if _, err := io.Copy(writer, rh); err != nil {
 		return errs.Combine(err, wh.Abort())
 	}
-	return errs.Wrap(wh.Commit())
+
+	if err := wh.Commit(); err != nil {
+		return errs.Combine(err, wh.Abort())
+	}
+
+	return errs.Wrap(mwh.Commit(ctx))
 }
 
 func copyVerb(source, dest ulloc.Location) string {

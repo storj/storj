@@ -128,3 +128,127 @@ func (o *stdReadHandle) Read(p []byte) (int, error) {
 
 	return n, err
 }
+
+//
+// write handles
+//
+
+// stdMultiWriteHandle implements MultiWriteHandle for stdouts.
+type stdMultiWriteHandle struct {
+	stdout io.Writer
+
+	mu   sync.Mutex
+	next *sync.Mutex
+	tail bool
+	done bool
+}
+
+func newStdMultiWriteHandle(stdout io.Writer) *stdMultiWriteHandle {
+	return &stdMultiWriteHandle{
+		stdout: stdout,
+		next:   new(sync.Mutex),
+	}
+}
+
+func (s *stdMultiWriteHandle) NextPart(ctx context.Context, length int64) (WriteHandle, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.done {
+		return nil, errs.New("already closed")
+	} else if s.tail {
+		return nil, errs.New("unable to make part after tail part")
+	}
+
+	next := new(sync.Mutex)
+	next.Lock()
+
+	w := &stdWriteHandle{
+		stdout: s.stdout,
+		mu:     s.next,
+		next:   next,
+		tail:   length < 0,
+		len:    length,
+	}
+
+	s.tail = w.tail
+	s.next = next
+
+	return w, nil
+}
+
+func (s *stdMultiWriteHandle) Commit(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.done = true
+	return nil
+}
+
+func (s *stdMultiWriteHandle) Abort(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.done = true
+	return nil
+}
+
+// stdWriteHandle implements WriteHandle for stdouts.
+type stdWriteHandle struct {
+	stdout io.Writer
+	mu     *sync.Mutex
+	next   *sync.Mutex
+	tail   bool
+	len    int64
+}
+
+func (s *stdWriteHandle) unlockNext() {
+	if s.next != nil {
+		s.next.Unlock()
+		s.next = nil
+	}
+}
+
+func (s *stdWriteHandle) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.tail {
+		if s.len <= 0 {
+			return 0, errs.New("write past maximum length")
+		} else if s.len < int64(len(p)) {
+			p = p[:s.len]
+		}
+	}
+
+	n, err := s.stdout.Write(p)
+
+	if !s.tail {
+		s.len -= int64(n)
+		if s.len == 0 {
+			s.unlockNext()
+		}
+	}
+
+	return n, err
+}
+
+func (s *stdWriteHandle) Commit() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.len = 0
+	s.unlockNext()
+
+	return nil
+}
+
+func (s *stdWriteHandle) Abort() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.len = 0
+	s.unlockNext()
+
+	return nil
+}
