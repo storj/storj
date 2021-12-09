@@ -134,7 +134,7 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 	select {
 	case q.events <- []HubSpotEvent{createUser, sendUserEvent}:
 	default:
-		q.log.Error("Create user in HubSpot failed")
+		q.log.Error("create user hubspot event failed, event channel is full")
 	}
 }
 
@@ -155,7 +155,7 @@ func (q *HubSpotEvents) EnqueueEvent(email, eventName string, properties map[str
 	select {
 	case q.events <- []HubSpotEvent{newEvent}:
 	default:
-		q.log.Error("Sending user event in HubSpot failed")
+		q.log.Error("sending hubspot event failed, event channel is full")
 	}
 }
 
@@ -177,11 +177,11 @@ func (q *HubSpotEvents) handleSingleEvent(ctx context.Context, ev HubSpotEvent) 
 		return Error.New("send request failed: %w", err)
 	}
 
-	defer func() {
-		err = resp.Body.Close()
-	}()
-
-	return nil
+	err = resp.Body.Close()
+	if err != nil {
+		err = Error.New("closing resp body failed: %w", err)
+	}
+	return err
 }
 
 // Handle for handle the HubSpot API requests.
@@ -190,7 +190,7 @@ func (q *HubSpotEvents) Handle(ctx context.Context, events []HubSpotEvent) (err 
 	for _, ev := range events {
 		err := q.handleSingleEvent(ctx, ev)
 		if err != nil {
-			return Error.New("error handling hubspot event: %w", err)
+			return Error.New("handle event: %w", err)
 		}
 	}
 	return nil
