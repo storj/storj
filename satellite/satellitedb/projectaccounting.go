@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgxutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -199,44 +201,100 @@ func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, proje
 	return allocated, settled, dead, err
 }
 
-// GetProjectDailyBandwidthByDateRange returns project daily settled bandwidth usage by specific date range.
-func (db *ProjectAccounting) GetProjectDailyBandwidthByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time) (_ []accounting.ProjectUsageByDay, err error) {
+// GetProjectDailyUsageByDateRange returns project daily allocated bandwidth and storage usage by specific date range.
+func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time, crdbInterval time.Duration) (_ *accounting.ProjectDailyUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usage := make([]accounting.ProjectUsageByDay, 0)
-	query := db.db.Rebind(`SELECT interval_day, COALESCE(egress_allocated, 0) FROM project_bandwidth_daily_rollups WHERE project_id = ? AND (interval_day BETWEEN ? AND ?)`)
-	rows, err := db.db.QueryContext(ctx, query, projectID[:], from, to)
-	if err != nil {
-		return nil, err
-	}
+	// use end of the day for 'to' caveat.
+	endOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, time.UTC)
 
-	for rows.Next() {
-		var day time.Time
-		var amount int64
+	allocatedBandwidth := make([]accounting.ProjectUsageByDay, 0)
+	storage := make([]accounting.ProjectUsageByDay, 0)
 
-		err = rows.Scan(&day, &amount)
-		if err != nil {
-			return nil, errs.Combine(err, rows.Close())
+	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
+		var batch pgx.Batch
+
+		batch.Queue(db.db.Rebind(`
+			SELECT interval_day, COALESCE(egress_allocated, 0)
+			FROM project_bandwidth_daily_rollups
+			WHERE project_id = $1 AND (interval_day BETWEEN $2 AND $3)
+		`), projectID, from, endOfDay)
+
+		storageQuery := db.db.Rebind(`
+			WITH project_usage AS (
+			SELECT
+				interval_start,
+				DATE_TRUNC('day',interval_start) AS interval_day,
+				project_id,
+				bucket_name,
+				total_bytes
+			FROM bucket_storage_tallies
+			WHERE project_id = $1 AND
+				interval_start >= $2 AND
+				interval_start <= $3
+			)
+			-- Sum all buckets usage in the same project.
+			SELECT
+				interval_day,
+				SUM(total_bytes) AS total_bytes
+			FROM
+				(SELECT 
+					DISTINCT ON (project_id, bucket_name, interval_day)
+					project_id,
+					bucket_name,
+					total_bytes,
+					interval_day,
+					interval_start
+				FROM project_usage
+				ORDER BY project_id, bucket_name, interval_day, interval_start DESC) pu
+			` + db.db.impl.AsOfSystemInterval(crdbInterval) + `
+			GROUP BY project_id, bucket_name, interval_day
+		`)
+		batch.Queue(storageQuery, projectID, from, endOfDay)
+
+		results := conn.SendBatch(ctx, &batch)
+		defer func() { err = errs.Combine(err, results.Close()) }()
+
+		handleResult := func(results pgx.BatchResults, data *[]accounting.ProjectUsageByDay) error {
+			rows, err := results.Query()
+			if err != nil {
+				return err
+			}
+
+			for rows.Next() {
+				var day time.Time
+				var amount int64
+
+				err = rows.Scan(&day, &amount)
+				if err != nil {
+					return err
+				}
+
+				*data = append(*data, accounting.ProjectUsageByDay{
+					Date:  day,
+					Value: amount,
+				})
+			}
+
+			defer func() { rows.Close() }()
+
+			return rows.Err()
 		}
 
-		usage = append(usage, accounting.ProjectUsageByDay{
-			Date:  day,
-			Value: amount,
-		})
+		var errlist errs.Group
+		errlist.Add(handleResult(results, &allocatedBandwidth))
+		errlist.Add(handleResult(results, &storage))
+
+		return errlist.Err()
+	})
+	if err != nil {
+		return nil, Error.New("unable to get project daily usage: %w", err)
 	}
 
-	err = errs.Combine(rows.Err(), rows.Close())
-
-	return usage, err
-}
-
-// GetProjectDailyStorageByDateRange returns project daily storage usage by specific date range.
-func (db *ProjectAccounting) GetProjectDailyStorageByDateRange(ctx context.Context, _ uuid.UUID, _, _ time.Time) (_ []accounting.ProjectUsageByDay, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	usage := make([]accounting.ProjectUsageByDay, 0)
-
-	return usage, err
+	return &accounting.ProjectDailyUsage{
+		StorageUsage:   storage,
+		BandwidthUsage: allocatedBandwidth,
+	}, nil
 }
 
 // DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time.

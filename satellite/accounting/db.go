@@ -208,10 +208,8 @@ type ProjectAccounting interface {
 	GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, int64, int64, error)
 	// DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time
 	DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) error
-	// GetProjectDailyBandwidthByDateRange returns daily settled bandwidth usage for the specified date range.
-	GetProjectDailyBandwidthByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time) ([]ProjectUsageByDay, error)
-	// GetProjectDailyStorageByDateRange returns daily storage usage for the specified date range.
-	GetProjectDailyStorageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time) ([]ProjectUsageByDay, error)
+	// GetProjectDailyUsageByDateRange returns daily allocated bandwidth and storage usage for the specified date range.
+	GetProjectDailyUsageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time, crdbInterval time.Duration) (*ProjectDailyUsage, error)
 
 	// UpdateProjectUsageLimit updates project usage limit.
 	UpdateProjectUsageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error

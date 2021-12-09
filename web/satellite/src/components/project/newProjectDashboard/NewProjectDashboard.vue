@@ -243,8 +243,9 @@ export default class NewProjectDashboard extends Vue {
      * Used container size recalculation for charts resizing.
      */
     public recalculateChartWidth(): void {
-        const fiftyPixels = 50;
-        this.chartWidth = this.$refs.dashboard.getBoundingClientRect().width / 2 - fiftyPixels;
+        // sixty pixels.
+        const additionalPaddingRight = 60;
+        this.chartWidth = this.$refs.dashboard.getBoundingClientRect().width / 2 - additionalPaddingRight;
     }
 
     /**
@@ -383,7 +384,7 @@ export default class NewProjectDashboard extends Vue {
     .project-dashboard {
         padding: 56px 55px 56px 40px;
         height: calc(100% - 112px);
-        max-width: calc(100vw - 280px - 80px);
+        max-width: calc(100vw - 280px - 95px);
         background-image: url('../../../../static/images/project/background.png');
         background-position: top right;
         background-size: 70%;
@@ -526,7 +527,7 @@ export default class NewProjectDashboard extends Vue {
     @media screen and (max-width: 1280px) {
 
         .project-dashboard {
-            max-width: calc(100vw - 86px - 80px);
+            max-width: calc(100vw - 86px - 95px);
         }
     }
 </style>

@@ -45,6 +45,7 @@
   "devDependencies": {
     "@babel/core": "7.14.8",
     "@babel/plugin-proposal-object-rest-spread": "7.11.0",
+    "@types/chart.js": "2.9.34",
     "@types/node": "13.11.1",
     "@types/pbkdf2": "3.1.0",
     "@types/qrcode": "1.4.1",

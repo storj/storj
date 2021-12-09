@@ -134,6 +134,7 @@ type Config struct {
 	OpenRegistrationEnabled bool          `help:"enable open registration" default:"false" testDefault:"true"`
 	DefaultProjectLimit     int           `help:"default project limits for users" default:"1" testDefault:"5"`
 	TokenExpirationTime     time.Duration `help:"expiration time for auth tokens, account recovery tokens, and activation tokens" default:"24h"`
+	AsOfSystemTimeDuration  time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
 	UsageLimits             UsageLimitsConfig
 	Recaptcha               RecaptchaConfig
 }
@@ -1676,20 +1677,12 @@ func (s *Service) GetDailyProjectUsage(ctx context.Context, projectID uuid.UUID,
 		return nil, Error.Wrap(err)
 	}
 
-	bandwidthUsage, err := s.projectAccounting.GetProjectDailyBandwidthByDateRange(ctx, projectID, from, to)
+	usage, err := s.projectAccounting.GetProjectDailyUsageByDateRange(ctx, projectID, from, to, s.config.AsOfSystemTimeDuration)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	storageUsage, err := s.projectAccounting.GetProjectDailyStorageByDateRange(ctx, projectID, from, to)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return &accounting.ProjectDailyUsage{
-		StorageUsage:   storageUsage,
-		BandwidthUsage: bandwidthUsage,
-	}, nil
+	return usage, nil
 }
 
 // GetProjectUsageLimits returns project limits and current usage.
