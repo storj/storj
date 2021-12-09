@@ -33,16 +33,10 @@ type RemoveOptions struct {
 
 func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
 
-// OpenOptions describes options for Filesystem.Open.
-type OpenOptions struct {
-	Offset int64
-	Length int64
-}
-
 // Filesystem represents either the local Filesystem or the data backed by a project.
 type Filesystem interface {
 	Close() error
-	Open(ctx clingy.Context, loc ulloc.Location, opts *OpenOptions) (ReadHandle, error)
+	Open(ctx clingy.Context, loc ulloc.Location) (MultiReadHandle, error)
 	Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, error)
 	Move(ctx clingy.Context, source, dest ulloc.Location) error
 	Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error
@@ -94,69 +88,27 @@ func uplinkUploadInfoToObjectInfo(bucket string, upl *uplink.UploadInfo) ObjectI
 // read handles
 //
 
-// ReadHandle is something that can be read from.
-type ReadHandle interface {
-	io.Reader
+// MultiReadHandle allows one to read different sections of something.
+// The offset parameter can be negative to signal that the offset should
+// start that many bytes back from the end. Any negative value for length
+// indicates to read up to the end.
+//
+// TODO: A negative offset requires a negative length, but there is no
+// reason why that must be so.
+type MultiReadHandle interface {
 	io.Closer
+	SetOffset(offset int64) error
+	NextPart(ctx context.Context, length int64) (ReadHandle, error)
+	Info(ctx context.Context) (*ObjectInfo, error)
+}
+
+// ReadHandle is something that can be read from distinct parts possibly
+// in parallel.
+type ReadHandle interface {
+	io.Closer
+	io.Reader
 	Info() ObjectInfo
 }
-
-// uplinkReadHandle implements readHandle for *uplink.Downloads.
-type uplinkReadHandle struct {
-	bucket string
-	dl     *uplink.Download
-}
-
-// newUplinkReadHandle constructs an *uplinkReadHandle from an *uplink.Download.
-func newUplinkReadHandle(bucket string, dl *uplink.Download) *uplinkReadHandle {
-	return &uplinkReadHandle{
-		bucket: bucket,
-		dl:     dl,
-	}
-}
-
-func (u *uplinkReadHandle) Read(p []byte) (int, error) { return u.dl.Read(p) }
-func (u *uplinkReadHandle) Close() error               { return u.dl.Close() }
-func (u *uplinkReadHandle) Info() ObjectInfo           { return uplinkObjectToObjectInfo(u.bucket, u.dl.Info()) }
-
-// osReadHandle implements readHandle for *os.Files.
-type osReadHandle struct {
-	raw  *os.File
-	info ObjectInfo
-}
-
-// newOsReadHandle constructs an *osReadHandle from an *os.File.
-func newOSReadHandle(fh *os.File) (*osReadHandle, error) {
-	fi, err := fh.Stat()
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	return &osReadHandle{
-		raw: fh,
-		info: ObjectInfo{
-			Loc:           ulloc.NewLocal(fh.Name()),
-			IsPrefix:      false,
-			Created:       fi.ModTime(), // TODO: os specific crtime
-			ContentLength: fi.Size(),
-		},
-	}, nil
-}
-
-func (o *osReadHandle) Read(p []byte) (int, error) { return o.raw.Read(p) }
-func (o *osReadHandle) Close() error               { return o.raw.Close() }
-func (o *osReadHandle) Info() ObjectInfo           { return o.info }
-
-// genericReadHandle implements readHandle for an io.Reader.
-type genericReadHandle struct{ r io.Reader }
-
-// newGenericReadHandle constructs a *genericReadHandle from any io.Reader.
-func newGenericReadHandle(r io.Reader) *genericReadHandle {
-	return &genericReadHandle{r: r}
-}
-
-func (g *genericReadHandle) Read(p []byte) (int, error) { return g.r.Read(p) }
-func (g *genericReadHandle) Close() error               { return nil }
-func (g *genericReadHandle) Info() ObjectInfo           { return ObjectInfo{ContentLength: -1} }
 
 //
 // write handles

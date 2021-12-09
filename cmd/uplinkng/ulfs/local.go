@@ -5,7 +5,6 @@ package ulfs
 
 import (
 	"context"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -26,18 +25,12 @@ func NewLocal() *Local {
 }
 
 // Open returns a read ReadHandle for the given local path.
-func (l *Local) Open(ctx context.Context, path string, opts *OpenOptions) (ReadHandle, error) {
+func (l *Local) Open(ctx context.Context, path string) (MultiReadHandle, error) {
 	fh, err := os.Open(path)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-
-	if opts != nil {
-		fr := io.NewSectionReader(fh, opts.Offset, opts.Length)
-		return newGenericReadHandle(fr), nil
-	}
-
-	return newOSReadHandle(fh)
+	return newOSMultiReadHandle(fh)
 }
 
 // Create makes any directories necessary to create a file at path and returns a WriteHandle.

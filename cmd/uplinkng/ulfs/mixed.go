@@ -31,14 +31,14 @@ func (m *Mixed) Close() error {
 	return m.remote.Close()
 }
 
-// Open returns a ReadHandle to either a local file, remote object, or stdin.
-func (m *Mixed) Open(ctx clingy.Context, loc ulloc.Location, opts *OpenOptions) (ReadHandle, error) {
+// Open returns a MultiReadHandle to either a local file, remote object, or stdin.
+func (m *Mixed) Open(ctx clingy.Context, loc ulloc.Location) (MultiReadHandle, error) {
 	if bucket, key, ok := loc.RemoteParts(); ok {
-		return m.remote.Open(ctx, bucket, key, opts)
+		return m.remote.Open(ctx, bucket, key)
 	} else if path, ok := loc.LocalParts(); ok {
-		return m.local.Open(ctx, path, opts)
+		return m.local.Open(ctx, path)
 	}
-	return newGenericReadHandle(ctx.Stdin()), nil
+	return newStdMultiReadHandle(ctx.Stdin()), nil
 }
 
 // Create returns a WriteHandle to either a local file, remote object, or stdout.
