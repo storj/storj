@@ -4,6 +4,9 @@
 package analytics
 
 import (
+	"context"
+
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	segment "gopkg.in/segmentio/analytics-go.v3"
 
@@ -23,10 +26,16 @@ const (
 	eventLinkShared                = "Link Shared"
 )
 
+var (
+	// Error is the default error class the analytics package.
+	Error = errs.Class("analytics service")
+)
+
 // Config is a configuration struct for analytics Service.
 type Config struct {
 	SegmentWriteKey string `help:"segment write key" default:""`
 	Enabled         bool   `help:"enable analytics reporting" default:"false"`
+	HubSpot         HubSpotConfig
 }
 
 // Service for sending analytics.
@@ -39,6 +48,7 @@ type Service struct {
 	clientEvents  map[string]bool
 
 	segment segment.Client
+	hubspot *HubSpotEvents
 }
 
 // NewService creates new service for creating sending analytics.
@@ -48,6 +58,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		config:        config,
 		satelliteName: satelliteName,
 		clientEvents:  make(map[string]bool),
+		hubspot:       NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
 	}
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
@@ -55,7 +66,16 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked, eventPathSelected, eventLinkShared} {
 		service.clientEvents[name] = true
 	}
+
 	return service
+}
+
+// Run runs the service and use the context in new requests.
+func (service *Service) Run(ctx context.Context) error {
+	if !service.config.Enabled {
+		return nil
+	}
+	return service.hubspot.Run(ctx)
 }
 
 // Close closes the Segment client.
@@ -63,7 +83,6 @@ func (service *Service) Close() error {
 	if !service.config.Enabled {
 		return nil
 	}
-
 	return service.segment.Close()
 }
 
@@ -91,10 +110,6 @@ type TrackCreateUserFields struct {
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
-	if !service.config.Enabled {
-		return
-	}
-
 	err := service.segment.Enqueue(message)
 	if err != nil {
 		service.log.Error("Error enqueueing message", zap.Error(err))
@@ -103,6 +118,10 @@ func (service *Service) enqueueMessage(message segment.Message) {
 
 // TrackCreateUser sends an "Account Created" event to Segment.
 func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
+	if !service.config.Enabled {
+		return
+	}
+
 	traits := segment.NewTraits()
 	traits.SetName(fields.FullName)
 	traits.SetEmail(fields.Email)
@@ -132,10 +151,16 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		Event:       eventAccountCreated,
 		Properties:  props,
 	})
+
+	service.hubspot.EnqueueCreateUser(fields)
 }
 
 // TrackSignedIn sends an "Signed In" event to Segment.
 func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
 	traits := segment.NewTraits()
 	traits.SetEmail(email)
 
@@ -152,10 +177,17 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 		Event:      eventSignedIn,
 		Properties: props,
 	})
+
+	service.hubspot.EnqueueEvent(email, eventSignedIn, map[string]interface{}{
+		"userid": userID.String(),
+	})
 }
 
 // TrackProjectCreated sends an "Project Created" event to Segment.
-func (service *Service) TrackProjectCreated(userID, projectID uuid.UUID, currentProjectCount int) {
+func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, projectID uuid.UUID, currentProjectCount int) {
+	if !service.config.Enabled {
+		return
+	}
 
 	props := segment.NewProperties()
 	props.Set("project_count", currentProjectCount)
@@ -166,19 +198,36 @@ func (service *Service) TrackProjectCreated(userID, projectID uuid.UUID, current
 		Event:      eventProjectCreated,
 		Properties: props,
 	})
+
+	service.hubspot.EnqueueEvent(email, eventProjectCreated, map[string]interface{}{
+		"userid":        userID.String(),
+		"project_count": currentProjectCount,
+		"project_id":    projectID.String(),
+	})
 }
 
 // TrackAccessGrantCreated sends an "Access Grant Created" event to Segment.
-func (service *Service) TrackAccessGrantCreated(userID uuid.UUID) {
+func (service *Service) TrackAccessGrantCreated(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
 
 	service.enqueueMessage(segment.Track{
 		UserId: userID.String(),
 		Event:  eventAccessGrantCreated,
 	})
+
+	service.hubspot.EnqueueEvent(email, eventAccessGrantCreated, map[string]interface{}{
+		"userid": userID.String(),
+	})
 }
 
 // TrackAccountVerified sends an "Account Verified" event to Segment.
 func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
 	traits := segment.NewTraits()
 	traits.SetEmail(email)
 
@@ -195,11 +244,19 @@ func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
 		Event:      eventAccountVerified,
 		Properties: props,
 	})
+
+	service.hubspot.EnqueueEvent(email, eventAccountVerified, map[string]interface{}{
+		"userid": userID.String(),
+	})
 }
 
 // TrackEvent sends an arbitrary event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackEvent(eventName string, userID uuid.UUID) {
+func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
 	// do not track if the event name is an invalid client-side event
 	if !service.clientEvents[eventName] {
 		service.log.Error("Invalid client-triggered event", zap.String("eventName", eventName))
@@ -209,11 +266,18 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID) {
 		UserId: userID.String(),
 		Event:  eventName,
 	})
+
+	service.hubspot.EnqueueEvent(email, eventName, map[string]interface{}{
+		"userid": userID.String(),
+	})
 }
 
 // TrackLinkEvent sends an arbitrary event and link associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, link string) {
+func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email, link string) {
+	if !service.config.Enabled {
+		return
+	}
 
 	// do not track if the event name is an invalid client-side event
 	if !service.clientEvents[eventName] {
@@ -228,5 +292,10 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, link 
 		UserId:     userID.String(),
 		Event:      eventName,
 		Properties: props,
+	})
+
+	service.hubspot.EnqueueEvent(email, eventName, map[string]interface{}{
+		"userid": userID.String(),
+		"link":   link,
 	})
 }
