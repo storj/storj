@@ -1136,7 +1136,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectCreated(auth.User.ID, projectID, currentProjectCount+1)
+	s.analytics.TrackProjectCreated(auth.User.ID, auth.User.Email, projectID, currentProjectCount+1)
 
 	return p, nil
 }
@@ -1403,7 +1403,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackAccessGrantCreated(auth.User.ID)
+	s.analytics.TrackAccessGrantCreated(auth.User.ID, auth.User.Email)
 
 	return info, key, nil
 }

@@ -37,6 +37,18 @@
 # enable analytics reporting
 # analytics.enabled: false
 
+# hubspot api key
+# analytics.hub-spot.api-key: ""
+
+# the number of events that can be in the queue before dropping
+# analytics.hub-spot.channel-size: 1000
+
+# the number of concurrent api requests that can be made
+# analytics.hub-spot.concurrent-sends: 4
+
+# the default timeout for the hubspot http client
+# analytics.hub-spot.default-timeout: 10s
+
 # segment write key
 # analytics.segment-write-key: ""
 

@@ -381,6 +381,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
 			Close: peer.Analytics.Service.Close,
 		})
 	}
