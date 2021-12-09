@@ -756,7 +756,7 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 
 func TestProjectUsage_BandwidthCache(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		project := planet.Uplinks[0].Projects[0]
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
@@ -778,6 +778,33 @@ func TestProjectUsage_BandwidthCache(t *testing.T) {
 		fromCache, err = projectUsage.GetProjectBandwidthUsage(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, badwidthUsed+increment, fromCache)
+	})
+}
+
+func TestProjectUsage_SegmentCache(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project := planet.Uplinks[0].Projects[0]
+		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
+
+		segmentsUsed := int64(42)
+
+		err := projectUsage.UpdateProjectSegmentUsage(ctx, project.ID, segmentsUsed)
+		require.NoError(t, err)
+
+		// verify cache key creation.
+		fromCache, err := projectUsage.GetProjectSegmentUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, segmentsUsed, fromCache)
+
+		// verify cache key increment.
+		increment := int64(10)
+		err = projectUsage.UpdateProjectSegmentUsage(ctx, project.ID, increment)
+		require.NoError(t, err)
+		fromCache, err = projectUsage.GetProjectSegmentUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, segmentsUsed+increment, fromCache)
 	})
 }
 
