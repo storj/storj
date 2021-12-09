@@ -71,6 +71,9 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 // TrimUserAgent returns userAgentBytes that consist of only the product portion of the user agent, and is bounded by
 // the maxUserAgentLength.
 func TrimUserAgent(userAgent []byte) ([]byte, error) {
+	if len(userAgent) == 0 {
+		return userAgent, nil
+	}
 	userAgentEntries, err := useragent.ParseEntries(userAgent)
 	if err != nil {
 		return userAgent, Error.New("error while parsing user agent: %w", err)

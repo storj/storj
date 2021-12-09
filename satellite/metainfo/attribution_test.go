@@ -30,6 +30,8 @@ func TestTrimUserAgent(t *testing.T) {
 		userAgent         []byte
 		strippedUserAgent []byte
 	}{
+		{userAgent: nil, strippedUserAgent: nil},
+		{userAgent: []byte(""), strippedUserAgent: []byte("")},
 		{userAgent: []byte("not-a-partner"), strippedUserAgent: []byte("not-a-partner")},
 		{userAgent: []byte("Zenko"), strippedUserAgent: []byte("Zenko")},
 		{userAgent: []byte("Zenko uplink/v1.0.0"), strippedUserAgent: []byte("Zenko")},
@@ -51,16 +53,6 @@ func TestTrimUserAgent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, tt.strippedUserAgent, userAgent)
 	}
-	for _, tt := range []struct {
-		userAgent         []byte
-		strippedUserAgent []byte
-	}{
-		{userAgent: nil, strippedUserAgent: nil},
-		{userAgent: []byte(""), strippedUserAgent: []byte("")},
-	} {
-		_, err := metainfo.TrimUserAgent(tt.userAgent)
-		require.Error(t, err)
-	}
 }
 
 func TestBucketAttribution(t *testing.T) {
@@ -75,6 +67,7 @@ func TestBucketAttribution(t *testing.T) {
 			expectedAttribution []byte
 		}{
 			{signupPartner: nil, userAgent: nil, expectedAttribution: nil},
+			{signupPartner: []byte(""), userAgent: []byte(""), expectedAttribution: []byte("")},
 			{signupPartner: []byte("Minio"), userAgent: nil, expectedAttribution: []byte("Minio")},
 			{signupPartner: []byte("Minio"), userAgent: []byte("Minio"), expectedAttribution: []byte("Minio")},
 			{signupPartner: []byte("Minio"), userAgent: []byte("Zenko"), expectedAttribution: []byte("Minio")},

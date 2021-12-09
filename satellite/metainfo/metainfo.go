@@ -2796,7 +2796,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "target bucket not found: %s", req.NewBucket)
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -2807,7 +2807,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		oldBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 		if err != nil {
 			if storj.ErrBucketNotFound.Has(err) {
-				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "source bucket not found: %s", req.Bucket)
+				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
