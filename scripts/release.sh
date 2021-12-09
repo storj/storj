@@ -9,9 +9,11 @@ echo $TIMESTAMP
 
 echo -n "Git commit: "
 if [[ "$(git diff --stat)" != '' ]] || [[ -n "$(git status -s)" ]]; then
+  echo "Changes detected, building a development version"
   COMMIT=$(git rev-parse HEAD)-dirty
   RELEASE=false
 else
+  echo "Building a release version"
   COMMIT=$(git rev-parse HEAD)
   RELEASE=true
 fi
