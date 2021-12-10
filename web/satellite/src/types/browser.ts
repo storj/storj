@@ -7,5 +7,6 @@
 export interface BrowserFile extends File {
   Key: string;
   LastModified: Date;
+  Size: number;
   type: string;
 }
