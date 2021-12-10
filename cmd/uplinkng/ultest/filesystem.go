@@ -6,6 +6,7 @@ package ultest
 import (
 	"bytes"
 	"context"
+	"io"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -80,12 +81,24 @@ func (tfs *testFilesystem) Close() error {
 	return nil
 }
 
-func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location, opts *ulfs.OpenOptions) (_ ulfs.ReadHandle, err error) {
+type nopClosingGenericReader struct{ io.ReaderAt }
+
+func (n nopClosingGenericReader) Close() error { return nil }
+
+func newMultiReadHandle(contents string) ulfs.MultiReadHandle {
+	return ulfs.NewGenericMultiReadHandle(nopClosingGenericReader{
+		ReaderAt: bytes.NewReader([]byte(contents)),
+	}, ulfs.ObjectInfo{
+		ContentLength: int64(len(contents)),
+	})
+}
+
+func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (ulfs.MultiReadHandle, error) {
 	tfs.mu.Lock()
 	defer tfs.mu.Unlock()
 
 	if loc.Std() {
-		return &byteReadHandle{Buffer: bytes.NewBufferString("-")}, nil
+		return newMultiReadHandle("-"), nil
 	}
 
 	mf, ok := tfs.files[loc]
@@ -93,11 +106,7 @@ func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location, opts *ul
 		return nil, errs.New("file does not exist %q", loc)
 	}
 
-	if opts != nil {
-		return &byteReadHandle{Buffer: bytes.NewBufferString(mf.contents[opts.Offset:(opts.Offset + opts.Length)])}, nil
-	}
-
-	return &byteReadHandle{Buffer: bytes.NewBufferString(mf.contents)}, nil
+	return newMultiReadHandle(mf.contents), nil
 }
 
 func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulfs.WriteHandle, err error) {
@@ -276,17 +285,6 @@ func (tfs *testFilesystem) mkdir(ctx context.Context, dir string) error {
 	tfs.locals[dir] = true
 	return nil
 }
-
-//
-// ulfs.ReadHandle
-//
-
-type byteReadHandle struct {
-	*bytes.Buffer
-}
-
-func (b *byteReadHandle) Close() error          { return nil }
-func (b *byteReadHandle) Info() ulfs.ObjectInfo { return ulfs.ObjectInfo{} }
 
 //
 // ulfs.WriteHandle

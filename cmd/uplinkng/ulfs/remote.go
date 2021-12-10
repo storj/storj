@@ -30,20 +30,9 @@ func (r *Remote) Close() error {
 	return r.project.Close()
 }
 
-// Open returns a ReadHandle for the object identified by a given bucket and key.
-func (r *Remote) Open(ctx context.Context, bucket, key string, opts *OpenOptions) (ReadHandle, error) {
-	var downloadOpts *uplink.DownloadOptions
-	if opts != nil {
-		downloadOpts = &uplink.DownloadOptions{
-			Offset: opts.Offset,
-			Length: opts.Length,
-		}
-	}
-	fh, err := r.project.DownloadObject(ctx, bucket, key, downloadOpts)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	return newUplinkReadHandle(bucket, fh), nil
+// Open returns a MultiReadHandle for the object identified by a given bucket and key.
+func (r *Remote) Open(ctx context.Context, bucket, key string) (MultiReadHandle, error) {
+	return newUplinkMultiReadHandle(r.project, bucket, key), nil
 }
 
 // Stat returns information about an object at the specified key.

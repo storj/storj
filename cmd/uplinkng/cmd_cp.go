@@ -179,8 +179,7 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 		return nil
 	}
 
-	var length int64
-	var openOpts *ulfs.OpenOptions
+	var offset, length int64 = 0, -1
 
 	if c.byteRange != "" {
 		// TODO: we might want to avoid this call if ranged download will be used frequently
@@ -199,21 +198,25 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 			return errs.New("retrieval of multiple byte ranges of data not supported: %d provided", len(byteRange))
 		}
 
-		length = byteRange[0].Length
-
-		openOpts = &ulfs.OpenOptions{
-			Offset: byteRange[0].Start,
-			Length: byteRange[0].Length,
-		}
+		offset, length = byteRange[0].Start, byteRange[0].Length
 	}
 
-	rh, err := fs.Open(ctx, source, openOpts)
+	mrh, err := fs.Open(ctx, source)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = rh.Close() }()
+	defer func() { _ = mrh.Close() }()
 
-	if length == 0 {
+	if err := mrh.SetOffset(offset); err != nil {
+		return err
+	}
+
+	rh, err := mrh.NextPart(ctx, length)
+	if err != nil {
+		return err
+	}
+
+	if length == -1 {
 		length = rh.Info().ContentLength
 	}
 

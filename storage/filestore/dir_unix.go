@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//go:build !windows
 // +build !windows
 
 package filestore
@@ -26,7 +27,7 @@ func diskInfoFromPath(path string) (info DiskInfo, err error) {
 	}
 
 	// the Bsize size depends on the OS and unconvert gives a false-positive
-	availableSpace := int64(stat.Bavail) * int64(stat.Bsize) //nolint
+	availableSpace := int64(stat.Bavail) * int64(stat.Bsize) //nolint: unconvert
 	filesystemID := fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
 	return DiskInfo{filesystemID, availableSpace}, nil

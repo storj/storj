@@ -26,7 +26,7 @@ func TestShare(t *testing.T) {
 
 		// TODO we need to find nicer way to compare results
 		accessIndex := strings.Index(result.Stdout, "Access    :")
-		result.Stdout = result.Stdout[:accessIndex]
+		result.Stdout = result.Stdout[:accessIndex] //nolint: gocritic
 
 		result.RequireStdout(t, `
 		Sharing access to satellite `+acc.SatelliteAddress()+`
@@ -52,7 +52,7 @@ func TestShare(t *testing.T) {
 
 		// TODO we need to find nicer way to compare results
 		accessIndex := strings.Index(result.Stdout, "Access    :")
-		result.Stdout = result.Stdout[:accessIndex]
+		result.Stdout = result.Stdout[:accessIndex] //nolint: gocritic
 
 		result.RequireStdout(t, `
 		Sharing access to satellite `+acc.SatelliteAddress()+`
@@ -78,7 +78,7 @@ func TestShare(t *testing.T) {
 
 		// TODO we need to find nicer way to compare results
 		accessIndex := strings.Index(result.Stdout, "Access    :")
-		result.Stdout = result.Stdout[:accessIndex]
+		result.Stdout = result.Stdout[:accessIndex] //nolint: gocritic
 
 		result.RequireStdout(t, `
 		Sharing access to satellite `+acc.SatelliteAddress()+`
@@ -104,7 +104,7 @@ func TestShare(t *testing.T) {
 
 		// TODO we need to find nicer way to compare results
 		accessIndex := strings.Index(result.Stdout, "Access    :")
-		result.Stdout = result.Stdout[:accessIndex]
+		result.Stdout = result.Stdout[:accessIndex] //nolint: gocritic
 
 		result.RequireStdout(t, `
 		Sharing access to satellite `+acc.SatelliteAddress()+`
@@ -137,7 +137,7 @@ func TestShare(t *testing.T) {
 
 		// TODO we need to find nicer way to compare results
 		accessIndex := strings.Index(result.Stdout, "Access    :")
-		result.Stdout = result.Stdout[:accessIndex]
+		result.Stdout = result.Stdout[:accessIndex] //nolint: gocritic
 
 		result.RequireStdout(t, `
 		Sharing access to satellite `+acc.SatelliteAddress()+`
@@ -164,7 +164,7 @@ func TestShare(t *testing.T) {
 
 		// TODO we need to find nicer way to compare results
 		accessIndex := strings.Index(result.Stdout, "Access    :")
-		result.Stdout = result.Stdout[:accessIndex]
+		result.Stdout = result.Stdout[:accessIndex] //nolint: gocritic
 
 		result.RequireStdout(t, `
 		Sharing access to satellite `+acc.SatelliteAddress()+`
@@ -190,7 +190,7 @@ func TestShare(t *testing.T) {
 
 		// TODO we need to find nicer way to compare results
 		accessIndex := strings.Index(result.Stdout, "Access    :")
-		result.Stdout = result.Stdout[:accessIndex]
+		result.Stdout = result.Stdout[:accessIndex] //nolint: gocritic
 
 		result.RequireStdout(t, `
 		Sharing access to satellite `+acc.SatelliteAddress()+`
