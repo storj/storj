@@ -28,8 +28,8 @@
 
 ## [Test Cases]
 >Determine test cases for said scenario ex. positive and negative testing
->Label each test cases with an ID for easy tracking f.e 1.1 Test Case X,
->1.2 Test Case Y, 1.3 Test Case Z etc.
+>Label each test cases with an ID for easy tracking f.e Test Case X 1.1,
+>Test Case Y 1.2, Test Case Z 1.3 etc.
 
 &nbsp;
 
@@ -45,6 +45,24 @@
 
 ## [Comments]
 > In this section users can input their own comments f.e improvements needed, actual outcomes for said tests etc and feature requests
+
+&nbsp;
+
+&nbsp;
+
+## [Test Plan Table]
+> In this section users should move input from the previous four sections and fix it into a table 
+
+```
+
+| Test Scenario       | Test Case     | Test Description   | Comments       |
+| :----------------   | :------------ | :---------------   | :----------    |
+| 1. Test Scenario 1  | Test Case 1.1 | TC1.1 Description  | TC1.1 Comment  |
+|                     | Test Case 1.2 | TC1.2 Descriotion  | TC1.2 Comment  |
+| 2. Test Scenario 2  | Test Case 2.1 | TC2.1 Description  | TC2.1 Comment  |
+|                     | Test Case 2.2 | TC2.2 Descriotion  | TC2.2 Comment  |
+
+```
 
 &nbsp;
 
