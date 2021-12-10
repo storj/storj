@@ -1,5 +1,3 @@
-<script lang="ts"> /* eslint-disable */ </script>
-
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -16,6 +14,7 @@
                     <div class="row mb-2 d-flex justify-content-end">
                         <div class="col-sm-12 col-md-4 col-lg-3 mb-3">
                             <button
+                                type="button"
                                 class="btn btn-sm btn-light btn-block"
                                 style="margin-right: 15px;"
                                 @click="toggleFolderCreationInput"
@@ -54,6 +53,7 @@
                                 @change="upload"
                             >
                             <button
+                                type="button"
                                 class="btn btn-sm btn-primary btn-block"
                                 @click="buttonFileUpload"
                             >
@@ -90,6 +90,7 @@
                                 @change="upload"
                             >
                             <button
+                                type="button"
                                 class="btn btn-sm btn-primary btn-block"
                                 @click="buttonFolderUpload"
                             >
@@ -169,6 +170,7 @@
                                     </td>
                                     <td>
                                         <button
+                                            type="button"
                                             class="btn btn-danger btn-sm"
                                             @click="cancelUpload(file.Key)"
                                         >
@@ -223,6 +225,7 @@
                                     </td>
                                     <td span="3">
                                         <button
+                                            type="button"
                                             :disabled="!createFolderEnabled"
                                             class="btn btn-primary btn-sm px-4"
                                             @click="createFolder"
@@ -231,6 +234,7 @@
                                         </button>
                                         <span class="mx-1" />
                                         <button
+                                            type="button"
                                             class="btn btn-light btn-sm px-4"
                                             @click="cancelFolderCreation"
                                         >
@@ -438,130 +442,189 @@
     </div>
 </template>
 
-<script>
+<script lang="ts">
+import { Component, Vue, Watch } from 'vue-property-decorator';
 import FileBrowserHeader from "./FileBrowserHeader.vue";
 import FileEntry from "./FileEntry.vue";
 import BreadCrumbs from "./BreadCrumbs.vue";
 import FileModal from "./FileModal.vue";
-import FileShareModal from "./FileShareModal";
+import FileShareModal from "./FileShareModal.vue";
+import { BrowserFile } from "@/types/browser.ts";
 
-// Computed property creators
-
-const fromFilesStore = (prop) =>
-    function () {
-        return this.$store.state.files[prop];
-    };
-
-export default {
-    data: () => ({
-        createFolderInput: "",
-        creatingFolderSpinner: false,
-        deleteConfirmation: false,
-        fetchingFilesSpinner: false
-    }),
-    computed: {
-        isInitialized() {
-            return this.$store.getters["files/isInitialized"];
-        },
-
-        path: fromFilesStore("path"),
-
-        filesUploading() {
-            return fromFilesStore("uploading").bind(this)();
-        },
-
-        filesUploadingLength() {
-            return this.filesUploading.length;
-        },
-
-        formattedFilesUploading() {
-            if (this.filesUploadingLength > 5) {
-                return this.filesUploading.slice(0, 5);
-            }
-
-            return this.filesUploading;
-        },
-
-        formattedFilesWaitingToBeUploaded() {
-            let file = "file";
-
-            if (this.filesUploadingLength > 1) {
-                file = "files";
-            }
-
-            return `${this.filesUploadingLength} ${file}`;
-        },
-
-        createFolderEnabled() {
-            const charsOtherThanSpaceExist =
-				this.createFolderInput.trim().length > 0;
-
-            const noForwardSlashes = this.createFolderInput.indexOf("/") === -1;
-
-            const nameIsNotOnlyPeriods =
-				[...this.createFolderInput.trim()].filter(
-				    (char) => char === "."
-				).length !== this.createFolderInput.trim().length;
-
-            const notDuplicate =
-				this.files.filter(
-				    (file) => file.Key === this.createFolderInput.trim()
-				).length === 0;
-
-            return (
-                charsOtherThanSpaceExist &&
-				noForwardSlashes &&
-				nameIsNotOnlyPeriods &&
-				notDuplicate
-            );
-        },
-
-        bucketName() {
-            return this.$store.state.files.bucket;
-        },
-
-        files() {
-            return this.$store.getters["files/sortedFiles"];
-        },
-
-        singleFiles() {
-            return this.files.filter((f) => f.type === "file");
-        },
-
-        folders() {
-            return this.files.filter((f) => f.type === "folder");
-        },
-
-        routePath() {
-            let pathMatch = this.$route.params.pathMatch;
-            pathMatch = Array.isArray(pathMatch)
-                ? pathMatch.join("/") + "/"
-                : pathMatch;
-            return pathMatch;
-        },
-
-        displayUpload() {
-            return this.fetchingFilesSpinner === false;
-        },
-
-        showCreateFolderInput() {
-            return this.$store.state.files.createFolderInputShow === true;
-        },
-
-        showFileModal() {
-            return this.$store.state.files.modalPath !== null;
-        },
-
-        showFileShareModal() {
-            return this.$store.state.files.fileShareModal;
-        }
+// @vue/component
+@Component({
+    components: {
+        FileEntry,
+        BreadCrumbs,
+        FileBrowserHeader,
+        FileModal,
+        FileShareModal
     },
-    watch: {
-        async routePath() {
-            await this.goToRoutePath();
+})
+export default class FileBrowser extends Vue {
+    public createFolderInput = "";
+    public creatingFolderSpinner = false;
+    public deleteConfirmation = false;
+    public fetchingFilesSpinner = false;
+
+    /**
+     * Check if the s3 client has been initialized in the store.
+     */
+    public get isInitialized(): boolean {
+        return this.$store.getters["files/isInitialized"];
+    }
+
+    /**
+     * Retrieve the current path from the store.
+     */
+    private get path(): string {
+        return this.$store.state.files.path;
+    }
+
+    /**
+     * Return files that are currently being uploaded from the store.
+     */
+    private get filesUploading(): BrowserFile[] {
+        return this.$store.state.files.uploading;
+    }
+
+    /**
+     * Return the length of the array of files currently being uploaded.
+     */
+    public get filesUploadingLength(): number {
+        return this.filesUploading.length;
+    }
+
+    /**
+     * Return up to five files currently being uploaded for display purposes.
+     */
+    public get formattedFilesUploading(): BrowserFile[] {
+        if (this.filesUploadingLength > 5) {
+            return this.filesUploading.slice(0, 5);
         }
-    },
-    async created() {
+
+        return this.filesUploading;
+    }
+
+    /**
+     * Return the text of how many files in total are being uploaded to be displayed to give users more context.
+     */
+    public get formattedFilesWaitingToBeUploaded(): string {
+        let file = "file";
+
+        if (this.filesUploadingLength > 1) {
+            file = "files";
+        }
+
+        return `${this.filesUploadingLength} ${file}`;
+    }
+
+    /**
+     * Return a boolean signifying whether the current folder name abides by our convention.
+     */
+    public get createFolderEnabled(): boolean {
+        const charsOtherThanSpaceExist =
+            this.createFolderInput.trim().length > 0;
+
+        const noForwardSlashes = this.createFolderInput.indexOf("/") === -1;
+
+        const nameIsNotOnlyPeriods =
+            [...this.createFolderInput.trim()].filter(
+                (char) => char === "."
+            ).length !== this.createFolderInput.trim().length;
+
+        const notDuplicate =
+            this.files.filter(
+                (file) => file.Key === this.createFolderInput.trim()
+            ).length === 0;
+
+        return (
+            charsOtherThanSpaceExist &&
+            noForwardSlashes &&
+            nameIsNotOnlyPeriods &&
+            notDuplicate
+        );
+    }
+
+    /**
+     * Retrieve the current bucket from the store.
+     */
+    private get bucketName(): string {
+        return this.$store.state.files.bucket;
+    }
+
+    /**
+     * Retrieve all of the files sorted from the store.
+     */
+    private get files(): BrowserFile[] {
+        return this.$store.getters["files/sortedFiles"];
+    }
+
+    /**
+     * Return an array of BrowserFile type that are files and not folders.
+     */
+    public get singleFiles(): BrowserFile[] {
+        return this.files.filter((f) => f.type === "file");
+    }
+
+    /**
+     * Return an array of BrowserFile type that are folders and not files.
+     */
+    public get folders(): BrowserFile[] {
+        return this.files.filter((f) => f.type === "folder");
+    }
+
+    /**
+     * Retrieve the pathMatch from the current route.
+     */
+    private get routePath(): string {
+        let pathMatch = this.$route.params.pathMatch;
+        pathMatch = Array.isArray(pathMatch)
+            ? pathMatch.join("/") + "/"
+            : pathMatch;
+        return pathMatch;
+    }
+
+    /**
+     * Return a boolean signifying whether the upload display is allowed to be shown.
+     */
+    public get displayUpload(): boolean {
+        return this.fetchingFilesSpinner === false;
+    }
+
+    /**
+     * Return a boolean signifying whether the create folder input can be shown.
+     */
+    public get showCreateFolderInput(): boolean {
+        return this.$store.state.files.createFolderInputShow === true;
+    }
+
+    /**
+     * Return a boolean signifying whether the file modal can be shown.
+     */
+    public get showFileModal(): boolean {
+        return this.$store.state.files.modalPath !== null;
+    }
+
+    /**
+     * Return a boolean signifying whether the file share modal can be shown.
+     */
+    public get showFileShareModal(): null | string {
+        return this.$store.state.files.fileShareModal;
+    }
+
+    /**
+     * Watch for changes in the path and call goToRoutePath, navigating away from the current page.
+     */
+    @Watch("routePath")
+    private async handleFoutePathChange() {
+        await this.goToRoutePath();
+    }
+
+    /**
+     * Set spinner state. If routePath is not present navigate away. If there's some error re-render the page with a call to list. All of this is done on the created lifecycle method.
+     */
+    public async created(): Promise<void> {
         // display the spinner while files are being fetched
         this.fetchingFilesSpinner = true;
 
@@ -577,123 +640,144 @@ export default {
 
         // remove the spinner after files have been fetched
         this.fetchingFilesSpinner = false;
-    },
-    methods: {
-        closeModalDropdown() {
-            if (this.$store.state.files.modalPath) {
-                this.$store.commit("files/closeModal");
-            }
-
-            if (this.$store.state.files.fileShareModal) {
-                this.$store.commit("files/closeFileShareModal");
-            }
-
-            if (this.$store.state.files.openedDropdown) {
-                this.$store.dispatch("files/closeDropdown");
-            }
-
-            if (this.$store.state.files.selectedFile) {
-                this.$store.dispatch("files/clearAllSelectedFiles");
-            }
-        },
-
-        toggleFolderCreationInput() {
-            this.$store.dispatch(
-                "files/updateCreateFolderInputShow",
-                !this.$store.state.files.createFolderInputShow
-            );
-        },
-
-        filename(file) {
-            return file.Key.length > 25
-                ? file.Key.slice(0, 25) + "..."
-                : file.Key;
-        },
-
-        async upload(e) {
-            await this.$store.dispatch("files/upload", e);
-            e.target.value = "";
-        },
-
-        cancelUpload(fileName) {
-            this.$store.dispatch("files/cancelUpload", fileName);
-        },
-
-        async list(path) {
-            await this.$store.dispatch("files/list", path, {
-                root: true
-            });
-        },
-
-        async go(path) {
-            await this.$store.dispatch("files/closeDropdown");
-            await this.list(this.path + path);
-        },
-
-        async back() {
-            this.$store.dispatch("files/updateCreateFolderInputShow", false);
-            await this.$store.dispatch("files/closeDropdown");
-        },
-
-        async goToRoutePath() {
-            if (typeof this.routePath === "string") {
-                await this.$store.dispatch("files/closeDropdown");
-                await this.list(this.routePath);
-            }
-        },
-
-        async buttonFileUpload() {
-            const fileInputElement = this.$refs.fileInput;
-            fileInputElement.click();
-        },
-
-        async buttonFolderUpload() {
-            const folderInputElement = this.$refs.folderInput;
-            folderInputElement.click();
-        },
-
-        async createFolder() {
-            // exit function if folder name violates our naming convention
-            if (!this.createFolderEnabled) return;
-
-            // add spinner
-            this.creatingFolderSpinner = true;
-
-            // create folder
-            await this.$store.dispatch(
-                "files/createFolder",
-                this.createFolderInput.trim()
-            );
-
-            // clear folder input
-            this.createFolderInput = "";
-
-            // remove the folder creation input
-            this.$store.dispatch("files/updateCreateFolderInputShow", false);
-
-            // remove the spinner
-            this.creatingFolderSpinner = false;
-        },
-
-        cancelFolderCreation() {
-            this.createFolderInput = "";
-            this.$store.dispatch("files/updateCreateFolderInputShow", false);
-        }
-    },
-
-    components: {
-        FileEntry,
-        BreadCrumbs,
-        FileBrowserHeader,
-        FileModal,
-        FileShareModal
     }
-};
+
+    /**
+     * Close modal, file share modal, dropdown, and remove all selected files from the store.
+     */
+    public closeModalDropdown(): void {
+        if (this.$store.state.files.modalPath) {
+            this.$store.commit("files/closeModal");
+        }
+
+        if (this.$store.state.files.fileShareModal) {
+            this.$store.commit("files/closeFileShareModal");
+        }
+
+        if (this.$store.state.files.openedDropdown) {
+            this.$store.dispatch("files/closeDropdown");
+        }
+
+        if (this.$store.state.files.selectedFile) {
+            this.$store.dispatch("files/clearAllSelectedFiles");
+        }
+    }
+
+    /**
+     * Toggle the folder creation input in the store.
+     */
+    public toggleFolderCreationInput(): void {
+        this.$store.dispatch(
+            "files/updateCreateFolderInputShow",
+            !this.$store.state.files.createFolderInputShow
+        );
+    }
+
+    /**
+     * Return the file name of the passed in file argument formatted.
+     */
+    public filename(file: BrowserFile): string {
+        return file.Key.length > 25
+            ? file.Key.slice(0, 25) + "..."
+            : file.Key;
+    }
+
+    /**
+     * Upload the current selected or dragged-and-dropped file.
+     */
+    public async upload(e: Event): Promise<void> {
+        await this.$store.dispatch("files/upload", e);
+        const target = e.target as HTMLInputElement;
+        target.value = "";
+    }
+
+    /**
+     * Cancel the upload of the current file that's passed in as an argument.
+     */
+    public cancelUpload(fileName: string): void {
+        this.$store.dispatch("files/cancelUpload", fileName);
+    }
+
+    /**
+     * Call the list method from the store, which will trigger a re-render and fetch all files under the current path passed in as an argument.
+     */
+    private async list(path: string): Promise<void> {
+        await this.$store.dispatch("files/list", path, {
+            root: true
+        });
+    }
+
+    /**
+     * Remove the folder creation input and close any opened dropdowns when a user chooses to navigate back to the previous folder.
+     */
+    public async back(): Promise<void> {
+        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+        await this.$store.dispatch("files/closeDropdown");
+    }
+
+    /**
+     * Navigate to the path under routePath.
+     */
+    private async goToRoutePath(): Promise<void> {
+        if (typeof this.routePath === "string") {
+            await this.$store.dispatch("files/closeDropdown");
+            await this.list(this.routePath);
+        }
+    }
+
+    /**
+     * Open the operating system's file system for file upload.
+     */
+    public async buttonFileUpload(): Promise<void> {
+        const fileInputElement = this.$refs.fileInput as HTMLInputElement;
+        fileInputElement.click();
+    }
+
+    /**
+     * Open the operating system's file system for folder upload.
+     */
+    public async buttonFolderUpload(): Promise<void> {
+        const folderInputElement = this.$refs.folderInput as HTMLInputElement;
+        folderInputElement.click();
+    }
+
+    /**
+     * Create a folder from the name inside of the folder creation input.
+     */
+    public async createFolder(): Promise<void> {
+        // exit function if folder name violates our naming convention
+        if (!this.createFolderEnabled) return;
+
+        // add spinner
+        this.creatingFolderSpinner = true;
+
+        // create folder
+        await this.$store.dispatch(
+            "files/createFolder",
+            this.createFolderInput.trim()
+        );
+
+        // clear folder input
+        this.createFolderInput = "";
+
+        // remove the folder creation input
+        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+
+        // remove the spinner
+        this.creatingFolderSpinner = false;
+    }
+
+    /**
+     * Cancel folder creation clearing out the input and hiding the folder creation input.
+     */
+    public cancelFolderCreation(): void {
+        this.createFolderInput = "";
+        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+    }
+}
 </script>
 
 <style scoped>
-/* stylelint-disable */
-
 @import './scoped-bootstrap.css';
 
 .white-background {
@@ -712,7 +796,7 @@ export default {
     -o-user-select: none;
 }
 
-f tbody {
+tbody {
     user-select: none;
 }
 
