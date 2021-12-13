@@ -1,227 +1,5 @@
-<script lang="ts"> /* eslint-disable */ </script>
-
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
-
-<style scoped>
-/* stylelint-disable */
-
-.modal-open {
-    display: block !important;
-}
-
-.modal-title {
-    word-break: break-word;
-    font-weight: bold;
-}
-
-.closex {
-    cursor: pointer;
-}
-
-#shareModal {
-    z-index: 1070;
-}
-
-#backdrop {
-    z-index: 1060 !important;
-}
-
-.btn-copy-link {
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
-    font-size: 14px;
-    padding: 0 16px;
-}
-
-/* Social Share Buttons Styles */
-
-.resp-sharing-button__link,
-.resp-sharing-button__icon {
-    display: inline-block;
-}
-
-.resp-sharing-button__link {
-    text-decoration: none;
-    color: #fff;
-    margin-right: 1em;
-    margin-bottom: 1em;
-}
-
-.resp-sharing-button {
-    border-radius: 5px;
-    transition: 25ms ease-out;
-    padding: 0.5em 0.75em;
-    font-size: 12px;
-}
-
-.resp-sharing-button__icon svg {
-    width: 1em;
-    height: 1em;
-    margin-right: 0.4em;
-    vertical-align: middle;
-}
-
-.resp-sharing-button--small svg {
-    margin: 0;
-    vertical-align: middle;
-}
-
-.resp-sharing-button__icon--solid,
-.resp-sharing-button__icon--solidcircle {
-    fill: #fff;
-    stroke: none;
-}
-
-.resp-sharing-button--twitter {
-    background-color: #55acee;
-}
-
-.resp-sharing-button--twitter:hover {
-    background-color: #2795e9;
-}
-
-.resp-sharing-button--facebook {
-    background-color: #3b5998;
-}
-
-.resp-sharing-button--facebook:hover {
-    background-color: #2d4373;
-}
-
-.resp-sharing-button--reddit {
-    background-color: #5f99cf;
-}
-
-.resp-sharing-button--reddit:hover {
-    background-color: #3a80c1;
-}
-
-.resp-sharing-button--linkedin {
-    background-color: #0077b5;
-}
-
-.resp-sharing-button--linkedin:hover {
-    background-color: #046293;
-}
-
-.resp-sharing-button--email {
-    background-color: #777;
-}
-
-.resp-sharing-button--email:hover {
-    background-color: #5e5e5e;
-}
-
-.resp-sharing-button--hackernews {
-    background-color: #f60;
-}
-
-.resp-sharing-button--hackernews:hover,
-.resp-sharing-button--hackernews:focus {
-    background-color: #fb6200;
-}
-
-.resp-sharing-button--facebook {
-    background-color: #3b5998;
-    border-color: #3b5998;
-}
-
-.resp-sharing-button--facebook:hover,
-.resp-sharing-button--facebook:active {
-    background-color: #2d4373;
-    border-color: #2d4373;
-}
-
-.resp-sharing-button--twitter {
-    background-color: #55acee;
-    border-color: #55acee;
-}
-
-.resp-sharing-button--twitter:hover,
-.resp-sharing-button--twitter:active {
-    background-color: #2795e9;
-    border-color: #2795e9;
-}
-
-.resp-sharing-button--email {
-    background-color: #777;
-    border-color: #777;
-}
-
-.resp-sharing-button--email:hover,
-.resp-sharing-button--email:active {
-    background-color: #5e5e5e;
-    border-color: #5e5e5e;
-}
-
-.resp-sharing-button--reddit {
-    background-color: #5f99cf;
-    border-color: #5f99cf;
-}
-
-.resp-sharing-button--reddit:hover,
-.resp-sharing-button--reddit:active {
-    background-color: #3a80c1;
-    border-color: #3a80c1;
-}
-
-.resp-sharing-button--hackernews {
-    background-color: #f60;
-    border-color: #f60;
-}
-
-.resp-sharing-button--hackernews:hover .resp-sharing-button--hackernews:active {
-    background-color: #fb6200;
-    border-color: #fb6200;
-}
-
-.resp-sharing-button--whatsapp {
-    background-color: #25d366;
-    border-color: #25d366;
-}
-
-.resp-sharing-button--whatsapp:hover,
-.resp-sharing-button--whatsapp:active {
-    background-color: #1da851;
-    border-color: #1da851;
-}
-
-.resp-sharing-button--whatsapp {
-    background-color: #25d366;
-}
-
-.resp-sharing-button--whatsapp:hover {
-    background-color: #1da851;
-}
-
-.resp-sharing-button--linkedin {
-    background-color: #0077b5;
-    border-color: #0077b5;
-}
-
-.resp-sharing-button--linkedin:hover,
-.resp-sharing-button--linkedin:active {
-    background-color: #046293;
-    border-color: #046293;
-}
-
-.resp-sharing-button--linkedin {
-    background-color: #0077b5;
-}
-
-.resp-sharing-button--linkedin:hover {
-    background-color: #046293;
-}
-
-.resp-sharing-button--telegram {
-    background-color: #54a9eb;
-}
-
-.resp-sharing-button--telegram:hover {
-    background-color: #4b97d1;
-}
-</style>
 
 <template>
     <div @click="stopClickPropagation">
@@ -585,90 +363,293 @@
     </div>
 </template>
 
-<script>
-export default {
-    name: "FileShareModal",
-    data: () => ({
-        objectLink: null,
-        copyText: "Copy Link"
-    }),
-    computed: {
-        filePath() {
-            return this.$store.state.files.fileShareModal;
-        },
-        redditLink() {
-            return (
-                "https://reddit.com/submit/?url=" +
-				this.objectLink +
-				"&amp;resubmit=true&amp;title=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage"
-            );
-        },
-        facebookLink() {
-            return (
-                "https://facebook.com/sharer/sharer.php?u=" + this.objectLink
-            );
-        },
-        twitterLink() {
-            return (
-                "https://twitter.com/intent/tweet/?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;url=" +
-				this.objectLink
-            );
-        },
-        ycombinatorLink() {
-            return (
-                "https://news.ycombinator.com/submitlink?u=" +
-				this.objectLink +
-				"&amp;t=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage"
-            );
-        },
-        linkedinLink() {
-            return (
-                "https://www.linkedin.com/shareArticle?mini=true&amp;url=" +
-				this.objectLink +
-				"&amp;title=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;summary=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;source=" +
-				this.objectLink
-            );
-        },
-        telegramLink() {
-            return (
-                "https://telegram.me/share/url?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;url=" +
-				this.objectLink
-            );
-        },
-        whatsappLink() {
-            return (
-                "whatsapp://send?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage%20" +
-				this.objectLink
-            );
-        },
-        emailLink() {
-            return (
-                "mailto:?subject=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;body=" +
-				this.objectLink
-            );
-        }
-    },
-    async created() {
-        this.objectLink = await this.$store.state.files.getSharedLink(
+<script lang="ts">
+import { Component, Vue } from "vue-property-decorator";
+
+// @vue/component
+@Component
+export default class FileShareModal extends Vue {
+    public objectLink = "";
+    public copyText = "Copy Link";
+
+    /**
+     * Retrieve the path to the current file that has the fileShareModal opened from the store.
+     */
+    private get filePath(): void {
+        return this.$store.state.files.fileShareModal;
+    }
+
+    /**
+     * Return the reddit link to share the current file on reddit.
+     */
+    public get redditLink(): string {
+        return (
+            "https://reddit.com/submit/?url=" +
+            this.objectLink +
+            "&amp;resubmit=true&amp;title=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage"
+        );
+    }
+
+    /**
+     * Return the facebook link to share the current file on facebook.
+     */
+    public get facebookLink(): string {
+        return (
+            "https://facebook.com/sharer/sharer.php?u=" + this.objectLink
+        );
+    }
+
+    /**
+     * Return the twitter link to share the current file on twitter.
+     */
+    public get twitterLink(): string {
+        return (
+            "https://twitter.com/intent/tweet/?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;url=" +
+            this.objectLink
+        );
+    }
+
+    /**
+     * Return the ycombinator link to share the current file on ycombinator.
+     */
+    public get ycombinatorLink(): string {
+        return (
+            "https://news.ycombinator.com/submitlink?u=" +
+            this.objectLink +
+            "&amp;t=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage"
+        );
+    }
+
+    /**
+     * Return the linkedin link to share the current file on linkedin.
+     */
+    public get linkedinLink(): string {
+        return (
+            "https://www.linkedin.com/shareArticle?mini=true&amp;url=" +
+            this.objectLink +
+            "&amp;title=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;summary=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;source=" +
+            this.objectLink
+        );
+    }
+
+    /**
+     * Return the telegram link to share the current file on telegram.
+     */
+    public get telegramLink(): string {
+        return (
+            "https://telegram.me/share/url?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;url=" +
+            this.objectLink
+        );
+    }
+
+    /**
+     * Return the whatsapp link to share the current file on whatsapp.
+     */
+    public get whatsappLink(): string {
+        return (
+            "whatsapp://send?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage%20" +
+            this.objectLink
+        );
+    }
+
+    /**
+     * Return the email link to share the current file through email.
+     */
+    public get emailLink(): string {
+        return (
+            "mailto:?subject=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;body=" +
+            this.objectLink
+        );
+    }
+
+    /**
+     * Set the objectLink by calling the store's fetchSharedLink function.
+     */
+    public async created(): Promise<void> {
+        this.objectLink = await this.$store.state.files.fetchSharedLink(
             this.filePath
         );
-    },
-    methods: {
-        async copy() {
-            await navigator.clipboard.writeText(this.objectLink);
-            this.copyText = "Copied!";
-            setTimeout(() => {
-                this.copyText = "Copy Link";
-            }, 2000);
-        },
-        close() {
-            this.$store.commit("files/closeFileShareModal");
-        },
-        stopClickPropagation(e) {
-            if (e.target.id !== "shareModal") {
-                e.stopPropagation();
-            }
+    }
+
+    /**
+     * Copy the selected link to the user's clipboard and update the copyText accordingly.
+     */
+    public async copy(): Promise<void> {
+        await navigator.clipboard.writeText(this.objectLink);
+        this.copyText = "Copied!";
+        setTimeout(() => {
+            this.copyText = "Copy Link";
+        }, 2000);
+    }
+
+    /**
+     * Close the FileShareModal.
+     */
+    public close(): void {
+        this.$store.commit("files/closeFileShareModal");
+    }
+
+    /**
+     * Stop the propagation of a click event only if the target is an element without shareModal as the id.
+     */
+    public stopClickPropagation(e: Event): void {
+        const target = e.target as HTMLElement;
+        if (target.id !== "shareModal") {
+            e.stopPropagation();
         }
     }
-};
+}
 </script>
+
+<style scoped>
+.modal-open {
+    display: block !important;
+}
+
+.modal-title {
+    word-break: break-word;
+    font-weight: bold;
+}
+
+.closex {
+    cursor: pointer;
+}
+
+#shareModal {
+    z-index: 1070;
+}
+
+#backdrop {
+    z-index: 1060 !important;
+}
+
+.btn-copy-link {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    font-size: 14px;
+    padding: 0 16px;
+}
+
+/* Social Share Buttons Styles */
+
+.resp-sharing-button__link,
+.resp-sharing-button__icon {
+    display: inline-block;
+}
+
+.resp-sharing-button__link {
+    text-decoration: none;
+    color: #fff;
+    margin-right: 1em;
+    margin-bottom: 1em;
+}
+
+.resp-sharing-button {
+    border-radius: 5px;
+    transition: 25ms ease-out;
+    padding: 0.5em 0.75em;
+    font-size: 12px;
+}
+
+.resp-sharing-button__icon svg {
+    width: 1em;
+    height: 1em;
+    margin-right: 0.4em;
+    vertical-align: middle;
+}
+
+.resp-sharing-button--small svg {
+    margin: 0;
+    vertical-align: middle;
+}
+
+.resp-sharing-button__icon--solid,
+.resp-sharing-button__icon--solidcircle {
+    fill: #fff;
+    stroke: none;
+}
+
+.resp-sharing-button--facebook {
+    background-color: #3b5998;
+    border-color: #3b5998;
+}
+
+.resp-sharing-button--facebook:hover,
+.resp-sharing-button--facebook:active {
+    background-color: #2d4373;
+    border-color: #2d4373;
+}
+
+.resp-sharing-button--twitter {
+    background-color: #55acee;
+    border-color: #55acee;
+}
+
+.resp-sharing-button--twitter:hover,
+.resp-sharing-button--twitter:active {
+    background-color: #2795e9;
+    border-color: #2795e9;
+}
+
+.resp-sharing-button--email {
+    background-color: #777;
+    border-color: #777;
+}
+
+.resp-sharing-button--email:hover,
+.resp-sharing-button--email:active {
+    background-color: #5e5e5e;
+    border-color: #5e5e5e;
+}
+
+.resp-sharing-button--reddit {
+    background-color: #5f99cf;
+    border-color: #5f99cf;
+}
+
+.resp-sharing-button--reddit:hover,
+.resp-sharing-button--reddit:active {
+    background-color: #3a80c1;
+    border-color: #3a80c1;
+}
+
+.resp-sharing-button--hackernews {
+    background-color: #f60;
+    border-color: #f60;
+}
+
+.resp-sharing-button--hackernews:hover .resp-sharing-button--hackernews:active .resp-sharing-button--hackernews:focus {
+    background-color: #fb6200;
+    border-color: #fb6200;
+}
+
+.resp-sharing-button--whatsapp {
+    background-color: #25d366;
+    border-color: #25d366;
+}
+
+.resp-sharing-button--whatsapp:hover,
+.resp-sharing-button--whatsapp:active {
+    background-color: #1da851;
+    border-color: #1da851;
+}
+
+.resp-sharing-button--linkedin {
+    background-color: #0077b5;
+    border-color: #0077b5;
+}
+
+.resp-sharing-button--linkedin:hover,
+.resp-sharing-button--linkedin:active {
+    background-color: #046293;
+    border-color: #046293;
+}
+
+.resp-sharing-button--telegram {
+    background-color: #54a9eb;
+}
+
+.resp-sharing-button--telegram:hover {
+    background-color: #4b97d1;
+}
+</style>

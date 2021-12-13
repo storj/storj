@@ -1,27 +1,5 @@
-<script lang="ts"> /* eslint-disable */ </script>
-
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
-
-<style scoped lang="css">
-/* stylelint-disable */
-
-.path {
-    font-size: 18px;
-    color: #232b34;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.path:hover {
-    color: #376fff;
-}
-
-.path-buckets {
-    font-size: 18px;
-    color: #232b34;
-}
-</style>
 
 <template>
     <div class="my-3">
@@ -71,35 +49,65 @@
     </div>
 </template>
 
-<script>
-export default {
-    name: "BreadCrumbs",
-    computed: {
-        bucketName() {
-            return this.$store.state.files.bucket;
-        },
+<script lang="ts">
+import { Component, Vue } from 'vue-property-decorator';
 
-        crumbs() {
-            let path = this.$store.state.files.path.split("/");
-            path =
-				path.length > 1
-				    ? [this.bucketName, ...path.slice(0, path.length - 1)]
-				    : [this.bucketName];
-            return path;
-        }
-    },
-    methods: {
-        link(idx) {
-            const crumbs = this.crumbs;
-            let path = "";
-            if (idx > 0) path = crumbs.slice(1, idx + 1).join("/") + "/";
-
-            return this.$store.state.files.browserRoot + path;
-        },
-        displayDivider(idx) {
-            const length = this.crumbs.length;
-            return (idx !== 0 || length > 1) && idx !== length - 1;
-        }
+// @vue/component
+@Component
+export default class BreadCrumbs extends Vue {
+    /**
+     * Retrieves the current bucket name from the store.
+     */
+    private get bucketName(): string {
+        return this.$store.state.files.bucket;
     }
-};
+
+    /**
+     * Retrieves the current path from the store and creates an array of folders for the bread crumbs that the user can click on.
+     */
+    public get crumbs(): string[] {
+        let path: string[] = this.$store.state.files.path.split("/");
+        path =
+            path.length > 1
+                ? [this.bucketName, ...path.slice(0, path.length - 1)]
+                : [this.bucketName];
+        return path;
+    }
+
+    /**
+     * Returns a link to the folder at the current breadcrumb index.
+     */
+    public link(idx: number): string {
+        const crumbs = this.crumbs;
+        let path = "";
+        if (idx > 0) path = crumbs.slice(1, idx + 1).join("/") + "/";
+        return this.$store.state.files.browserRoot + path;
+    }
+
+    /**
+     * Returns a boolean denoting if a divider needs to be displayed at current breadcrumb index.
+     */
+    public displayDivider(idx: number): boolean {
+        const length = this.crumbs.length;
+        return (idx !== 0 || length > 1) && idx !== length - 1;
+    }
+}
 </script>
+
+<style scoped lang="css">
+.path {
+    font-size: 18px;
+    color: #232b34;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.path:hover {
+    color: #376fff;
+}
+
+.path-buckets {
+    font-size: 18px;
+    color: #232b34;
+}
+</style>
