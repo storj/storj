@@ -86,6 +86,9 @@ func (u *uplinkMultiReadHandle) NextPart(ctx context.Context, length int64) (Rea
 		return nil, err
 	}
 
+	// TODO: this can cause tearing if the object is modified during
+	// the download. this should be fixed when we extend the api to
+	// allow requesting a specific version of the object.
 	dl, err := u.project.DownloadObject(ctx, u.bucket, u.key, opts)
 	if err != nil {
 		return nil, err
