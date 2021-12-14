@@ -6,11 +6,9 @@ package ulfs
 import (
 	"context"
 	"io"
-	"os"
 	"time"
 
 	"github.com/zeebo/clingy"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplinkng/ulloc"
 	"storj.io/uplink"
@@ -37,7 +35,7 @@ func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
 type Filesystem interface {
 	Close() error
 	Open(ctx clingy.Context, loc ulloc.Location) (MultiReadHandle, error)
-	Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, error)
+	Create(ctx clingy.Context, loc ulloc.Location) (MultiWriteHandle, error)
 	Move(ctx clingy.Context, source, dest ulloc.Location) error
 	Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error
 	List(ctx context.Context, prefix ulloc.Location, opts *ListOptions) (ObjectIterator, error)
@@ -114,74 +112,24 @@ type ReadHandle interface {
 // write handles
 //
 
+// MultiWriteHandle lets one create multiple sequential WriteHandles for
+// different sections of something.
+//
+// The returned WriteHandle will error if data is attempted to be written
+// past the provided length. A negative length implies an unknown amount
+// of data, and future calls to NextPart will error.
+type MultiWriteHandle interface {
+	NextPart(ctx context.Context, length int64) (WriteHandle, error)
+	Commit(ctx context.Context) error
+	Abort(ctx context.Context) error
+}
+
 // WriteHandle is anything that can be written to with commit/abort semantics.
 type WriteHandle interface {
 	io.Writer
 	Commit() error
 	Abort() error
 }
-
-// uplinkWriteHandle implements writeHandle for *uplink.Uploads.
-type uplinkWriteHandle uplink.Upload
-
-// newUplinkWriteHandle constructs an *uplinkWriteHandle from an *uplink.Upload.
-func newUplinkWriteHandle(dl *uplink.Upload) *uplinkWriteHandle {
-	return (*uplinkWriteHandle)(dl)
-}
-
-func (u *uplinkWriteHandle) raw() *uplink.Upload {
-	return (*uplink.Upload)(u)
-}
-
-func (u *uplinkWriteHandle) Write(p []byte) (int, error) { return u.raw().Write(p) }
-func (u *uplinkWriteHandle) Commit() error               { return u.raw().Commit() }
-func (u *uplinkWriteHandle) Abort() error                { return u.raw().Abort() }
-
-// osWriteHandle implements writeHandle for *os.Files.
-type osWriteHandle struct {
-	fh   *os.File
-	done bool
-}
-
-// newOSWriteHandle constructs an *osWriteHandle from an *os.File.
-func newOSWriteHandle(fh *os.File) *osWriteHandle {
-	return &osWriteHandle{fh: fh}
-}
-
-func (o *osWriteHandle) Write(p []byte) (int, error) { return o.fh.Write(p) }
-
-func (o *osWriteHandle) Commit() error {
-	if o.done {
-		return nil
-	}
-	o.done = true
-
-	return o.fh.Close()
-}
-
-func (o *osWriteHandle) Abort() error {
-	if o.done {
-		return nil
-	}
-	o.done = true
-
-	return errs.Combine(
-		o.fh.Close(),
-		os.Remove(o.fh.Name()),
-	)
-}
-
-// genericWriteHandle implements writeHandle for an io.Writer.
-type genericWriteHandle struct{ w io.Writer }
-
-// newGenericWriteHandle constructs a *genericWriteHandle from an io.Writer.
-func newGenericWriteHandle(w io.Writer) *genericWriteHandle {
-	return &genericWriteHandle{w: w}
-}
-
-func (g *genericWriteHandle) Write(p []byte) (int, error) { return g.w.Write(p) }
-func (g *genericWriteHandle) Commit() error               { return nil }
-func (g *genericWriteHandle) Abort() error                { return nil }
 
 //
 // object iteration
@@ -193,42 +141,3 @@ type ObjectIterator interface {
 	Err() error
 	Item() ObjectInfo
 }
-
-// filteredObjectIterator removes any iteration entries that do not begin with the filter.
-// all entries must begin with the trim string which is removed before checking for the
-// filter.
-type filteredObjectIterator struct {
-	trim   ulloc.Location
-	filter ulloc.Location
-	iter   ObjectIterator
-}
-
-func (f *filteredObjectIterator) Next() bool {
-	for {
-		if !f.iter.Next() {
-			return false
-		}
-		loc := f.iter.Item().Loc
-		if !loc.HasPrefix(f.trim) {
-			return false
-		}
-		if loc.HasPrefix(f.filter.AsDirectoryish()) || loc == f.filter {
-			return true
-		}
-	}
-}
-
-func (f *filteredObjectIterator) Err() error { return f.iter.Err() }
-
-func (f *filteredObjectIterator) Item() ObjectInfo {
-	item := f.iter.Item()
-	item.Loc = item.Loc.RemovePrefix(f.trim)
-	return item
-}
-
-// emptyObjectIterator is an objectIterator that has no objects.
-type emptyObjectIterator struct{}
-
-func (emptyObjectIterator) Next() bool       { return false }
-func (emptyObjectIterator) Err() error       { return nil }
-func (emptyObjectIterator) Item() ObjectInfo { return ObjectInfo{} }

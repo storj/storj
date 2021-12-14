@@ -45,13 +45,13 @@ func (r *Remote) Stat(ctx context.Context, bucket, key string) (*ObjectInfo, err
 	return &stat, nil
 }
 
-// Create returns a WriteHandle for the object identified by a given bucket and key.
-func (r *Remote) Create(ctx context.Context, bucket, key string) (WriteHandle, error) {
-	fh, err := r.project.UploadObject(ctx, bucket, key, nil)
+// Create returns a MultiWriteHandle for the object identified by a given bucket and key.
+func (r *Remote) Create(ctx context.Context, bucket, key string) (MultiWriteHandle, error) {
+	info, err := r.project.BeginUpload(ctx, bucket, key, nil)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
-	return newUplinkWriteHandle(fh), nil
+	return newUplinkMultiWriteHandle(r.project, bucket, info), nil
 }
 
 // Move moves object to provided key and bucket.

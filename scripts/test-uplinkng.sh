@@ -45,7 +45,7 @@ uplinkng cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/" --progress=f
 uplinkng cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false --access $STORJ_ACCESS
 
 uplinkng access save -f --name named-access --access $STORJ_ACCESS
-FILES=$(STORJ_ACCESS= uplinkng --access named-access ls "sj://$BUCKET" | tee $TMPDIR/list | wc -l)
+FILES=$(STORJ_ACCESS= uplinkng ls --access named-access "sj://$BUCKET" | tee $TMPDIR/list | wc -l)
 EXPECTED_FILES="5"
 if [ "$FILES" == $EXPECTED_FILES ]
 then
@@ -73,7 +73,7 @@ uplinkng cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=f
 uplinkng ls "sj://$BUCKET/small-upload-testfile" --access $STORJ_ACCESS | grep "small-upload-testfile"
 
 # test ranged download of object
-uplinkng cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR/file-from-cp-range" --progress=false --range bytes=0-5
+uplinkng cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR/file-from-cp-range" --progress=false --range bytes=0-5 --access $STORJ_ACCESS
 EXPECTED_FILE_SIZE="6"
 ACTUAL_FILE_SIZE=$(get_file_size "$DST_DIR/file-from-cp-range")
 if [ "$EXPECTED_FILE_SIZE" != "$ACTUAL_FILE_SIZE" ]
@@ -117,7 +117,7 @@ uplinkng rm "sj://$BUCKET/multisegment-upload-testfile" --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/diff-size-segments"           --access $STORJ_ACCESS
 
 uplinkng ls "sj://$BUCKET" --access $STORJ_ACCESS
-uplinkng ls -x true "sj://$BUCKET" --access $STORJ_ACCESS
+uplinkng ls -x "sj://$BUCKET" --access $STORJ_ACCESS
 
 uplinkng rb "sj://$BUCKET" --access $STORJ_ACCESS
 

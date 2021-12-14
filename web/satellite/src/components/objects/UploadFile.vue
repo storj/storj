@@ -72,8 +72,8 @@ export default class UploadFile extends Vue {
             secretKey: this.$store.state.objectsModule.gatewayCredentials.secretKey,
             bucket: this.bucket,
             browserRoot: RouteConfig.Buckets.with(RouteConfig.UploadFile).path,
-            getObjectMapUrl: async (path: string) => await this.generateObjectMapUrl(path),
-            getSharedLink: async (path: string) => await this.generateShareLinkUrl(path),
+            fetchObjectMapUrl: async (path: string) => await this.generateObjectMapUrl(path),
+            fetchSharedLink: async (path: string) => await this.generateShareLinkUrl(path),
         });
     }
 

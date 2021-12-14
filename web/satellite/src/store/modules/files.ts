@@ -30,8 +30,8 @@ export default {
         selectedFiles: [],
         shiftSelectedFiles: [],
         filesToBeDeleted: [],
-        getSharedLink: null,
-        getObjectMapUrl: null,
+        fetchSharedLink: null,
+        fetchObjectMapUrl: null,
         openedDropdown: null,
         headingSorted: "name",
         orderBy: "asc",
@@ -89,8 +89,8 @@ export default {
                 endpoint = "https://gateway.tardigradeshare.io",
                 browserRoot,
                 openModalOnFirstUpload = true,
-                getSharedLink = () => "javascript:null",
-                getObjectMapUrl = () =>
+                fetchSharedLink = () => "javascript:null",
+                fetchObjectMapUrl = () =>
                     new Promise((resolve) =>
                         setTimeout(
                             () =>
@@ -117,8 +117,8 @@ export default {
             state.bucket = bucket;
             state.browserRoot = browserRoot;
             state.openModalOnFirstUpload = openModalOnFirstUpload;
-            state.getSharedLink = getSharedLink;
-            state.getObjectMapUrl = getObjectMapUrl;
+            state.fetchSharedLink = fetchSharedLink;
+            state.fetchObjectMapUrl = fetchObjectMapUrl;
             state.path = "";
         },
 

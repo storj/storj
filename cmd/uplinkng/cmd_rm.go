@@ -38,7 +38,7 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.recursive = params.Flag("recursive", "Remove recursively", false,
 		clingy.Short('r'),
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.parallelism = params.Flag("parallelism", "Controls how many uploads/downloads to perform in parallel", 1,
 		clingy.Short('p'),
@@ -51,10 +51,10 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 		}),
 	).(int)
 	c.encrypted = params.Flag("encrypted", "Interprets keys base64 encoded without decrypting", false,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.pending = params.Flag("pending", "Remove pending object uploads instead", false,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 
 	c.location = params.Arg("location", "Location to remove (sj://BUCKET[/KEY])",

@@ -86,6 +86,9 @@ func (u *uplinkMultiReadHandle) NextPart(ctx context.Context, length int64) (Rea
 		return nil, err
 	}
 
+	// TODO: this can cause tearing if the object is modified during
+	// the download. this should be fixed when we extend the api to
+	// allow requesting a specific version of the object.
 	dl, err := u.project.DownloadObject(ctx, u.bucket, u.key, opts)
 	if err != nil {
 		return nil, err
@@ -147,3 +150,96 @@ type uplinkReadHandle struct {
 func (u *uplinkReadHandle) Read(p []byte) (int, error) { return u.dl.Read(p) }
 func (u *uplinkReadHandle) Close() error               { return u.dl.Close() }
 func (u *uplinkReadHandle) Info() ObjectInfo           { return *u.info }
+
+//
+// write handles
+//
+
+type uplinkMultiWriteHandle struct {
+	project *uplink.Project
+	bucket  string
+	info    uplink.UploadInfo
+
+	mu   sync.Mutex
+	tail bool
+	part uint32
+}
+
+func newUplinkMultiWriteHandle(project *uplink.Project, bucket string, info uplink.UploadInfo) *uplinkMultiWriteHandle {
+	return &uplinkMultiWriteHandle{
+		project: project,
+		bucket:  bucket,
+		info:    info,
+	}
+}
+
+func (u *uplinkMultiWriteHandle) NextPart(ctx context.Context, length int64) (WriteHandle, error) {
+	part, err := func() (uint32, error) {
+		u.mu.Lock()
+		defer u.mu.Unlock()
+
+		if u.tail {
+			return 0, errs.New("unable to make part after tail part")
+		}
+		u.tail = length < 0
+
+		u.part++
+		return u.part, nil
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	ul, err := u.project.UploadPart(ctx, u.bucket, u.info.Key, u.info.UploadID, part)
+	if err != nil {
+		return nil, err
+	}
+
+	return &uplinkWriteHandle{
+		ul:   ul,
+		tail: length < 0,
+		len:  length,
+	}, nil
+}
+
+func (u *uplinkMultiWriteHandle) Commit(ctx context.Context) error {
+	_, err := u.project.CommitUpload(ctx, u.bucket, u.info.Key, u.info.UploadID, nil)
+	return err
+}
+
+func (u *uplinkMultiWriteHandle) Abort(ctx context.Context) error {
+	return u.project.AbortUpload(ctx, u.bucket, u.info.Key, u.info.UploadID)
+}
+
+// uplinkWriteHandle implements writeHandle for *uplink.Uploads.
+type uplinkWriteHandle struct {
+	ul   *uplink.PartUpload
+	tail bool
+	len  int64
+}
+
+func (u *uplinkWriteHandle) Write(p []byte) (int, error) {
+	if !u.tail {
+		if u.len <= 0 {
+			return 0, errs.New("write past maximum length")
+		} else if u.len < int64(len(p)) {
+			p = p[:u.len]
+		}
+	}
+
+	n, err := u.ul.Write(p)
+
+	if !u.tail {
+		u.len -= int64(n)
+	}
+
+	return n, err
+}
+
+func (u *uplinkWriteHandle) Commit() error {
+	return u.ul.Commit()
+}
+
+func (u *uplinkWriteHandle) Abort() error {
+	return u.ul.Abort()
+}

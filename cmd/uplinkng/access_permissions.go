@@ -39,18 +39,18 @@ func (ap *accessPermissions) Setup(params clingy.Parameters) {
 	).([]uplink.SharePrefix)
 
 	ap.readonly = params.Flag("readonly", "Implies --disallow-writes and --disallow-deletes", true,
-		clingy.Transform(strconv.ParseBool)).(bool)
+		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 	ap.writeonly = params.Flag("writeonly", "Implies --disallow-reads and --disallow-lists", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
+		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 
 	ap.disallowDeletes = params.Flag("disallow-deletes", "Disallow deletes with the access", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
+		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 	ap.disallowLists = params.Flag("disallow-lists", "Disallow lists with the access", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
+		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 	ap.disallowReads = params.Flag("disallow-reads", "Disallow reasd with the access", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
+		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 	ap.disallowWrites = params.Flag("disallow-writes", "Disallow writes with the access", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
+		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 
 	now := time.Now()
 	transformHumanDate := clingy.Transform(func(date string) (time.Time, error) {
