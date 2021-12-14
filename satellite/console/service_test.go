@@ -149,6 +149,11 @@ func TestService(t *testing.T) {
 				require.NotNil(t, updatedProject.BandwidthLimit)
 				require.Equal(t, updateInfo.StorageLimit, *updatedProject.StorageLimit)
 				require.Equal(t, updateInfo.BandwidthLimit, *updatedProject.BandwidthLimit)
+
+				project, err := service.GetProject(authCtx1, up1Pro1.ID)
+				require.NoError(t, err)
+				require.Equal(t, updateInfo.StorageLimit, *project.StorageLimit)
+				require.Equal(t, updateInfo.BandwidthLimit, *project.BandwidthLimit)
 			})
 
 			t.Run("TestAddProjectMembers", func(t *testing.T) {
