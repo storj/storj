@@ -316,6 +316,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
 			config.Console.Config.UsageLimits.Storage.Free,
 			config.Console.Config.UsageLimits.Bandwidth.Free,
+			1000000, // TODO this will be correctly populated with up coming change
 			config.ProjectLimit,
 		)
 	}
@@ -380,6 +381,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
 			Close: peer.Analytics.Service.Close,
 		})
 	}

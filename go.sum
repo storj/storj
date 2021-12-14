@@ -533,8 +533,8 @@ github.com/zeebo/assert v0.0.0-20181109011804-10f827ce2ed6/go.mod h1:yssERNPivll
 github.com/zeebo/assert v1.1.0/go.mod h1:Pq9JiuJQpG8JLJdtkwrJESF0Foym2/D9XMU5ciN/wJ0=
 github.com/zeebo/assert v1.3.0 h1:g7C04CbJuIDKNPFHmsk4hwZDO5O+kntRxzaUoNXj+IQ=
 github.com/zeebo/assert v1.3.0/go.mod h1:Pq9JiuJQpG8JLJdtkwrJESF0Foym2/D9XMU5ciN/wJ0=
-github.com/zeebo/clingy v0.0.0-20210622223751-00a909f86ea9 h1:bBOSzs7lrWUkayGlmuAfHM4dpPpAzGfSS77lMOVR2qE=
-github.com/zeebo/clingy v0.0.0-20210622223751-00a909f86ea9/go.mod h1:8+xc/32PGdlAA4nzjz2Bgb3Rf/LAN8/KGrXxIfnlPmw=
+github.com/zeebo/clingy v0.0.0-20211209163509-9715de867439 h1:DuN9KPJE00D+IYD5NRYpotulqet33rHwe1djtPTc2IM=
+github.com/zeebo/clingy v0.0.0-20211209163509-9715de867439/go.mod h1:MHEhXvEfewflU7SSVKHI7nkdU+fpyxZ5XPPzj+5gYNw=
 github.com/zeebo/errs v1.1.1/go.mod h1:Yj8dHrUQwls1bF3dr/vcSIu+qf4mI7idnTcHfoACc6I=
 github.com/zeebo/errs v1.2.2 h1:5NFypMTuSdoySVTqlNs1dEoU21QVamMQJxW/Fii5O7g=
 github.com/zeebo/errs v1.2.2/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=

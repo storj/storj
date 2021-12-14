@@ -2623,17 +2623,16 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 			return nil, err
 		}
 
-		// TODO is this enough to handle old uplinks
-		if streamMeta.EncryptionBlockSize == 0 {
+		if entry.Encryption != (storj.EncryptionParameters{}) {
+			streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
 			streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
 		}
-		if streamMeta.EncryptionType == 0 {
-			streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
-		}
-		if streamMeta.NumberOfSegments == 0 {
+
+		if entry.SegmentCount != 0 {
 			streamMeta.NumberOfSegments = int64(entry.SegmentCount)
 		}
-		if streamMeta.LastSegmentMeta == nil {
+
+		if entry.EncryptedMetadataEncryptedKey != nil {
 			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
 				EncryptedKey: entry.EncryptedMetadataEncryptedKey,
 				KeyNonce:     entry.EncryptedMetadataNonce,

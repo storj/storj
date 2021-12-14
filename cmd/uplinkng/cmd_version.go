@@ -28,7 +28,8 @@ func (c *cmdVersion) Setup(params clingy.Parameters) {
 	c.verbose = params.Flag(
 		"verbose", "prints all dependency versions", false,
 		clingy.Short('v'),
-		clingy.Transform(strconv.ParseBool)).(bool)
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
 }
 
 func (c *cmdVersion) Execute(ctx clingy.Context) error {

@@ -139,7 +139,11 @@ func WithFile(location string, contents ...string) ExecuteOption {
 			tfs.ensureBucket(bucket)
 		}
 
-		wh, err := tfs.Create(ctx, loc)
+		mwh, err := tfs.Create(ctx, loc)
+		require.NoError(t, err)
+		defer func() { _ = mwh.Abort(ctx) }()
+
+		wh, err := mwh.NextPart(ctx, -1)
 		require.NoError(t, err)
 		defer func() { _ = wh.Abort() }()
 
@@ -153,6 +157,7 @@ func WithFile(location string, contents ...string) ExecuteOption {
 		}
 
 		require.NoError(t, wh.Commit())
+		require.NoError(t, mwh.Commit(ctx))
 	}}
 }
 

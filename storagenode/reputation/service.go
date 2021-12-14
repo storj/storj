@@ -81,6 +81,6 @@ func newSuspensionNotification(satelliteID storj.NodeID, senderID storj.NodeID, 
 		SenderID: senderID,
 		Type:     notifications.TypeSuspension,
 		Title:    "Your Node was suspended " + time.String(),
-		Message:  "This is a reminder that your StorageNode on " + satelliteID.String() + "Satellite is suspended",
+		Message:  "This is a reminder that your StorageNode on " + satelliteID.String() + " Satellite is suspended",
 	}
 }

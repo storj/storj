@@ -35,7 +35,7 @@ require (
 	github.com/stripe/stripe-go/v72 v72.51.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/assert v1.3.0
-	github.com/zeebo/clingy v0.0.0-20210622223751-00a909f86ea9
+	github.com/zeebo/clingy v0.0.0-20211209163509-9715de867439
 	github.com/zeebo/errs v1.2.2
 	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
 	go.etcd.io/bbolt v1.3.5

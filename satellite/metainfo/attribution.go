@@ -82,7 +82,7 @@ func TrimUserAgent(userAgent []byte) ([]byte, error) {
 	newEntries := userAgentEntries[:0]
 	for _, e := range userAgentEntries {
 		switch product := e.Product; product {
-		case "uplink", "common", "drpc", "":
+		case "uplink", "common", "drpc", "Gateway-ST", "":
 		default:
 			e.Comment = ""
 			newEntries = append(newEntries, e)

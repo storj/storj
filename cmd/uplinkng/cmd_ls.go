@@ -36,20 +36,20 @@ func (c *cmdLs) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.recursive = params.Flag("recursive", "List recursively", false,
 		clingy.Short('r'),
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.encrypted = params.Flag("encrypted", "Shows keys base64 encoded without decrypting", false,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.pending = params.Flag("pending", "List pending object uploads instead", false,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.expanded = params.Flag("expanded", "Use expanded output, showing object expiration times and whether there is custom metadata attached", false,
 		clingy.Short('x'),
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.utc = params.Flag("utc", "Show all timestamps in UTC instead of local time", false,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 
 	c.prefix = params.Arg("prefix", "Prefix to list (sj://BUCKET[/KEY])", clingy.Optional,

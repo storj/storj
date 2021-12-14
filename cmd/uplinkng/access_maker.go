@@ -39,7 +39,7 @@ func (am *accessMaker) Setup(params clingy.Parameters, ex ulext.External, saveKi
 
 	if saveKind != amSaveForced {
 		am.save = params.Flag("save", "Save the access", saveKind == amSaveDefaultTrue,
-			clingy.Transform(strconv.ParseBool),
+			clingy.Transform(strconv.ParseBool), clingy.Boolean,
 		).(bool)
 
 		am.name = params.Flag("name", "Name to save the access value under, if --save is true", "").(string)
@@ -49,11 +49,11 @@ func (am *accessMaker) Setup(params clingy.Parameters, ex ulext.External, saveKi
 
 	am.force = params.Flag("force", "Force overwrite an existing saved access", false,
 		clingy.Short('f'),
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 
 	am.use = params.Flag("use", "Switch the access to be the default", false,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 
 	if saveKind != amSaveForced {
