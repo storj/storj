@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -172,6 +173,97 @@ func TestProjectUsageBandwidth(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestProjectSegmentLimit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
+				config.Metainfo.MaxSegmentSize = 20 * memory.KiB
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		data := testrand.Bytes(160 * memory.KiB)
+
+		// set limit manually to 10 segments
+		accountingDB := planet.Satellites[0].DB.ProjectAccounting()
+		err := accountingDB.UpdateProjectSegmentLimit(ctx, planet.Uplinks[0].Projects[0].ID, 10)
+		require.NoError(t, err)
+
+		// successful upload
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", data)
+		require.NoError(t, err)
+		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
+
+		// upload fails due to segment limit
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Exceeded Segments Limit")
+	})
+}
+
+func TestProjectSegmentLimitInline(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		data := testrand.Bytes(1 * memory.KiB)
+
+		// set limit manually to 10 segments
+		accountingDB := planet.Satellites[0].DB.ProjectAccounting()
+		err := accountingDB.UpdateProjectSegmentLimit(ctx, planet.Uplinks[0].Projects[0].ID, 10)
+		require.NoError(t, err)
+
+		for i := 0; i < 10; i++ {
+			// successful upload
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/"+strconv.Itoa(i), data)
+			require.NoError(t, err)
+		}
+
+		// upload fails due to segment limit
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Exceeded Segments Limit")
+	})
+}
+
+func TestProjectSegmentLimitMultipartUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		data := testrand.Bytes(1 * memory.KiB)
+
+		// set limit manually to 10 segments
+		accountingDB := planet.Satellites[0].DB.ProjectAccounting()
+		err := accountingDB.UpdateProjectSegmentLimit(ctx, planet.Uplinks[0].Projects[0].ID, 4)
+		require.NoError(t, err)
+
+		for i := 0; i < 4; i++ {
+			// successful upload
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/"+strconv.Itoa(i), data)
+			require.NoError(t, err)
+		}
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		// multipart API upload should call BeginObject and return error on segment limit validation
+		_, err = project.BeginUpload(ctx, "testbucket", "test/path/4", &uplink.UploadOptions{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Exceeded Segments Limit")
+	})
 }
 
 func TestProjectBandwidthRollups(t *testing.T) {

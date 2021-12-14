@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metabase"
 )
 
 var mon = monkit.Package()
@@ -29,17 +30,19 @@ type Service struct {
 	projectAccountingDB ProjectAccounting
 	liveAccounting      Cache
 	projectLimitCache   *ProjectLimitCache
+	metabaseDB          metabase.DB
 	bandwidthCacheTTL   time.Duration
 	nowFn               func() time.Time
 	asOfSystemInterval  time.Duration
 }
 
 // NewService created new instance of project usage service.
-func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, limitCache *ProjectLimitCache, bandwidthCacheTTL, asOfSystemInterval time.Duration) *Service {
+func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, limitCache *ProjectLimitCache, metabaseDB metabase.DB, bandwidthCacheTTL, asOfSystemInterval time.Duration) *Service {
 	return &Service{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
 		projectLimitCache:   limitCache,
+		metabaseDB:          metabaseDB,
 		bandwidthCacheTTL:   bandwidthCacheTTL,
 		nowFn:               time.Now,
 		asOfSystemInterval:  asOfSystemInterval,
@@ -136,6 +139,53 @@ func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UU
 	return false, limit, nil
 }
 
+// ExceedsSegmentUsage returns true if the segment usage for a project is currently over that project's limit.
+func (usage *Service) ExceedsSegmentUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var group errgroup.Group
+	var segmentUsage int64
+
+	group.Go(func() error {
+		var err error
+		limit, err = usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
+		return err
+	})
+	group.Go(func() error {
+		var err error
+		segmentUsage, err = usage.GetProjectSegmentUsage(ctx, projectID)
+		if err != nil {
+			// Verify If the cache key was not found
+			if ErrKeyNotFound.Has(err) {
+				segmentGetTotal, err := usage.GetProjectSegments(ctx, projectID)
+				if err != nil {
+					return err
+				}
+
+				// Create cache key with database value.
+				err = usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, segmentUsage, usage.bandwidthCacheTTL)
+				if err != nil {
+					return err
+				}
+
+				segmentUsage = segmentGetTotal
+			}
+		}
+		return err
+	})
+
+	err = group.Wait()
+	if err != nil {
+		return false, 0, ErrProjectUsage.Wrap(err)
+	}
+
+	if segmentUsage >= limit {
+		return true, limit, nil
+	}
+
+	return false, limit, nil
+}
+
 // GetProjectStorageTotals returns total amount of storage used by project.
 //
 // It can return one of the following errors returned by
@@ -168,6 +218,16 @@ func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UU
 	defer mon.Task()(&ctx, projectID)(&err)
 
 	total, err := usage.projectAccountingDB.GetProjectBandwidth(ctx, projectID, year, month, day, usage.asOfSystemInterval)
+	return total, ErrProjectUsage.Wrap(err)
+}
+
+// GetProjectSegments returns project allocated segment usage.
+func (usage *Service) GetProjectSegments(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	total, err := usage.metabaseDB.GetProjectSegmentCount(ctx, metabase.GetProjectSegmentCount{
+		ProjectID: projectID,
+	})
 	return total, ErrProjectUsage.Wrap(err)
 }
 

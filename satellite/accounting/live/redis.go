@@ -175,8 +175,8 @@ func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ ma
 	for it.Next(ctx) {
 		key := it.Val()
 
-		// skip bandwidth keys
-		if strings.HasSuffix(key, "bandwidth") {
+		// skip bandwidth and segment keys
+		if strings.HasSuffix(key, "bandwidth") || strings.HasSuffix(key, "segment") {
 			continue
 		}
 

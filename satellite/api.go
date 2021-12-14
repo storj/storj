@@ -326,6 +326,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			peer.ProjectLimits.Cache,
+			*metabaseDB,
 			config.LiveAccounting.BandwidthCacheTTL,
 			config.LiveAccounting.AsOfSystemInterval,
 		)
