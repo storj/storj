@@ -45,6 +45,7 @@ func commands(cmds clingy.Commands, ex ulext.External) {
 		cmds.New("use", "Set default access to use", newCmdAccessUse(ex))
 		cmds.New("revoke", "Revoke an access", newCmdAccessRevoke(ex))
 		cmds.New("inspect", "Inspect allows you to explode a serialized access into its constituent parts", newCmdAccessInspect(ex))
+		cmds.New("register", "Register an access grant for use with a hosted S3 compatible gateway and linksharing", newCmdAccessRegister(ex))
 	})
 	cmds.New("share", "Shares restricted accesses to objects", newCmdShare(ex))
 	cmds.New("mb", "Create a new bucket", newCmdMb(ex))
