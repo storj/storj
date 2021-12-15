@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/calebcase/tmpfile v1.0.3
 	github.com/cheggaaa/pb/v3 v3.0.5
@@ -60,7 +61,6 @@ require (
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/apache/thrift v0.12.0 // indirect
-	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect

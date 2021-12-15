@@ -138,7 +138,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		revocations:          revocations,
 		defaultRS:            defaultRSScheme,
 		config:               config,
-		versionCollector:     newVersionCollector(),
+		versionCollector:     newVersionCollector(log),
 	}, nil
 }
 

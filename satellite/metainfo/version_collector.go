@@ -4,11 +4,13 @@
 package metainfo
 
 import (
+	"fmt"
 	"strings"
-	"sync"
 
+	"github.com/blang/semver"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/useragent"
 )
@@ -16,53 +18,66 @@ import (
 const uplinkProduct = "uplink"
 
 type versionOccurrence struct {
+	Product string
 	Version string
 	Method  string
 }
 
 type versionCollector struct {
-	mu       sync.Mutex
-	versions map[versionOccurrence]*monkit.Meter
+	log *zap.Logger
 }
 
-func newVersionCollector() *versionCollector {
+func newVersionCollector(log *zap.Logger) *versionCollector {
 	return &versionCollector{
-		versions: make(map[versionOccurrence]*monkit.Meter),
+		log: log,
 	}
 }
 
 func (vc *versionCollector) collect(useragentRaw []byte, method string) error {
-	var meter *monkit.Meter
+	if len(useragentRaw) == 0 {
+		return nil
+	}
 
-	version := "unknown"
-	if len(useragentRaw) != 0 {
-		entries, err := useragent.ParseEntries(useragentRaw)
-		if err != nil {
-			return errs.New("invalid user agent %q: %v", string(useragentRaw), err)
-		}
+	entries, err := useragent.ParseEntries(useragentRaw)
+	if err != nil {
+		return errs.New("invalid user agent %q: %v", string(useragentRaw), err)
+	}
 
-		for _, entry := range entries {
-			if strings.EqualFold(entry.Product, uplinkProduct) {
-				version = entry.Version
-				break
+	for _, entry := range entries {
+		if strings.EqualFold(entry.Product, uplinkProduct) {
+			vo := versionOccurrence{
+				Product: entry.Product,
+				Version: entry.Version,
+				Method:  method,
 			}
+
+			vc.sendUplinkMetric(vo)
+		} else {
+			// for other user agents monitor only product
+			product := entry.Product
+			if product == "" {
+				product = "unknown"
+			}
+			mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", product)).Mark(1)
 		}
 	}
 
-	vo := versionOccurrence{
-		Version: version,
-		Method:  method,
-	}
-
-	vc.mu.Lock()
-	meter, ok := vc.versions[vo]
-	if !ok {
-		meter = monkit.NewMeter(monkit.NewSeriesKey("uplink_versions").WithTag("version", version).WithTag("method", method))
-		mon.Chain(meter)
-		vc.versions[vo] = meter
-	}
-	vc.mu.Unlock()
-
-	meter.Mark(1)
 	return nil
+}
+
+func (vc *versionCollector) sendUplinkMetric(vo versionOccurrence) {
+	if vo.Version == "" {
+		vo.Version = "unknown"
+	} else {
+		// use only major and minor to avoid using too many resources and
+		// minimize risk of abusing by sending lots of different versions
+		semVer, err := semver.ParseTolerant(vo.Version)
+		if err != nil {
+			vc.log.Warn("invalid uplink library user agent version", zap.String("version", vo.Version), zap.Error(err))
+			return
+		}
+		vo.Version = fmt.Sprintf("v%d.%d", semVer.Major, semVer.Minor)
+	}
+
+	mon.Meter("uplink_versions", monkit.NewSeriesTag("version", vo.Version), monkit.NewSeriesTag("method", vo.Method)).Mark(1)
 }
