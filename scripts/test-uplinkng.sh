@@ -16,7 +16,8 @@ trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 BUCKET=bucket-123
 SRC_DIR=$TMPDIR/source
 DST_DIR=$TMPDIR/dst
-UPLINK_DIR=$TMPDIR/uplink
+
+export UPLINK_CONFIG_DIR=$TMPDIR/uplink
 
 mkdir -p "$SRC_DIR" "$DST_DIR"
 
@@ -28,26 +29,26 @@ random_bytes_file "13MiB"   "$SRC_DIR/diff-size-segments"             # create 1
 
 random_bytes_file "100KiB"  "$SRC_DIR/put-file"                       # create 100KiB file of random bytes (remote)
 
-export STORJ_ACCESS=$GATEWAY_0_ACCESS
-
 # workaround for issues with automatic accepting monitoring question
 # with first run we need to accept question y/n about monitoring
-mkdir -p ~/.config/storj/uplink/
-touch ~/.config/storj/uplink/config.ini
+mkdir -p "$UPLINK_CONFIG_DIR"
+touch "$UPLINK_CONFIG_DIR/config.ini"
 
-uplinkng access save -f --name test-access --access $STORJ_ACCESS 
+uplinkng access save -f --name test-access --access "$GATEWAY_0_ACCESS"
+uplinkng access use test-access
 
-uplinkng mb "sj://$BUCKET/" --access $STORJ_ACCESS
+uplinkng mb "sj://$BUCKET/"
 
-uplinkng cp "$SRC_DIR/small-upload-testfile"        "sj://$BUCKET/" --progress=false --access $STORJ_ACCESS
-uplinkng cp "$SRC_DIR/big-upload-testfile"          "sj://$BUCKET/" --progress=false --access $STORJ_ACCESS
-uplinkng cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/" --progress=false --access $STORJ_ACCESS
-uplinkng cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false --access $STORJ_ACCESS
+uplinkng cp "$SRC_DIR/small-upload-testfile"        "sj://$BUCKET/" --progress=false
+uplinkng cp "$SRC_DIR/big-upload-testfile"          "sj://$BUCKET/" --progress=false
+uplinkng cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/" --progress=false
+uplinkng cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false
 
-uplinkng access save -f --name named-access --access $STORJ_ACCESS
-FILES=$(STORJ_ACCESS= uplinkng ls --access named-access "sj://$BUCKET" | tee $TMPDIR/list | wc -l)
+# check named access
+uplinkng access save -f --name named-access --access "$GATEWAY_0_ACCESS"
+FILES=$(uplinkng ls "sj://$BUCKET" --access named-access | tee "$TMPDIR/list" | wc -l)
 EXPECTED_FILES="5"
-if [ "$FILES" == $EXPECTED_FILES ]
+if [ "$FILES" == "$EXPECTED_FILES" ]
 then
     echo "listing returns $FILES files"
 else
@@ -63,17 +64,17 @@ then
     exit 1
 fi
 
-uplinkng ls "sj://$BUCKET/non-existing-prefix" --access $STORJ_ACCESS
+uplinkng ls "sj://$BUCKET/non-existing-prefix"
 
-uplinkng cp  "sj://$BUCKET/small-upload-testfile"        "$DST_DIR" --progress=false  --access $STORJ_ACCESS
-uplinkng cp  "sj://$BUCKET/big-upload-testfile"          "$DST_DIR" --progress=false  --access $STORJ_ACCESS
-uplinkng cp  "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR" --progress=false  --access $STORJ_ACCESS
-uplinkng cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=false  --access $STORJ_ACCESS
+uplinkng cp  "sj://$BUCKET/small-upload-testfile"        "$DST_DIR" --progress=false
+uplinkng cp  "sj://$BUCKET/big-upload-testfile"          "$DST_DIR" --progress=false
+uplinkng cp  "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR" --progress=false
+uplinkng cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=false
 
-uplinkng ls "sj://$BUCKET/small-upload-testfile" --access $STORJ_ACCESS | grep "small-upload-testfile"
+uplinkng ls "sj://$BUCKET/small-upload-testfile" | grep "small-upload-testfile"
 
 # test ranged download of object
-uplinkng cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR/file-from-cp-range" --progress=false --range bytes=0-5 --access $STORJ_ACCESS
+uplinkng cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR/file-from-cp-range" --progress=false --range bytes=0-5
 EXPECTED_FILE_SIZE="6"
 ACTUAL_FILE_SIZE=$(get_file_size "$DST_DIR/file-from-cp-range")
 if [ "$EXPECTED_FILE_SIZE" != "$ACTUAL_FILE_SIZE" ]
@@ -82,44 +83,34 @@ then
     exit 1
 fi
 
-# test ranged download with multiple byte range
-set +e
-EXPECTED_ERROR="retrieval of multiple byte ranges of data not supported: 2 provided"
-ERROR=$(uplinkng cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR/file-from-cp-range" --range bytes=0-5,6-10)
-if [ $ERROR != $EXPECTED_ERROR ]
-then
-    echo EXPECTED_ERROR
-    exit 1
-fi
-set -e
-
 # test server-side move operation
-uplinkng mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-upload-testfile" --access $STORJ_ACCESS
-uplinkng ls "sj://$BUCKET/moved-big-upload-testfile" --access $STORJ_ACCESS | grep "moved-big-upload-testfile"
-uplinkng mv "sj://$BUCKET/moved-big-upload-testfile" "sj://$BUCKET/big-upload-testfile" --access $STORJ_ACCESS
+uplinkng mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-upload-testfile"
+uplinkng ls "sj://$BUCKET/moved-big-upload-testfile" | grep "moved-big-upload-testfile"
+uplinkng mv "sj://$BUCKET/moved-big-upload-testfile" "sj://$BUCKET/big-upload-testfile"
+
 # move prefix
-uplinkng mv "sj://$BUCKET/" "sj://$BUCKET/my-prefix/" --recursive --access $STORJ_ACCESS
-FILES=$(uplinkng ls "sj://$BUCKET/my-prefix/" --access $STORJ_ACCESS | tee $TMPDIR/list | wc -l)
+uplinkng mv "sj://$BUCKET/" "sj://$BUCKET/my-prefix/" --recursive
+FILES=$(uplinkng ls "sj://$BUCKET/my-prefix/" | tee "$TMPDIR/list" | wc -l)
 EXPECTED_FILES="5" # 4 objects + one line more for headers
-if [ "$FILES" == $EXPECTED_FILES ]
+if [ "$FILES" == "$EXPECTED_FILES" ]
 then
     echo "listing after move returns $FILES files"
 else
     echo "listing after move returns $FILES files but want $EXPECTED_FILES"
-    cat $TMPDIR/list
+    cat "$TMPDIR/list"
     exit 1
 fi
-uplinkng mv "sj://$BUCKET/my-prefix/" "sj://$BUCKET/" --recursive --access $STORJ_ACCESS
+uplinkng mv "sj://$BUCKET/my-prefix/" "sj://$BUCKET/" --recursive
 
-uplinkng rm "sj://$BUCKET/small-upload-testfile"        --access $STORJ_ACCESS
-uplinkng rm "sj://$BUCKET/big-upload-testfile"          --access $STORJ_ACCESS
-uplinkng rm "sj://$BUCKET/multisegment-upload-testfile" --access $STORJ_ACCESS
-uplinkng rm "sj://$BUCKET/diff-size-segments"           --access $STORJ_ACCESS
+uplinkng rm "sj://$BUCKET/small-upload-testfile"
+uplinkng rm "sj://$BUCKET/big-upload-testfile"
+uplinkng rm "sj://$BUCKET/multisegment-upload-testfile"
+uplinkng rm "sj://$BUCKET/diff-size-segments"
 
-uplinkng ls "sj://$BUCKET" --access $STORJ_ACCESS
-uplinkng ls -x "sj://$BUCKET" --access $STORJ_ACCESS
+uplinkng ls "sj://$BUCKET"
+uplinkng ls -x "sj://$BUCKET"
 
-uplinkng rb "sj://$BUCKET" --access $STORJ_ACCESS
+uplinkng rb "sj://$BUCKET"
 
 compare_files "$SRC_DIR/small-upload-testfile"        "$DST_DIR/small-upload-testfile"
 compare_files "$SRC_DIR/big-upload-testfile"          "$DST_DIR/big-upload-testfile"
@@ -127,15 +118,15 @@ compare_files "$SRC_DIR/multisegment-upload-testfile" "$DST_DIR/multisegment-upl
 compare_files "$SRC_DIR/diff-size-segments"           "$DST_DIR/diff-size-segments"
 
 # test deleting non empty bucket with --force flag
-uplinkng mb "sj://$BUCKET/" --access $STORJ_ACCESS
+uplinkng mb "sj://$BUCKET/"
 
 for i in $(seq -w 1 16); do
-  uplinkng cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/small-file-$i" --progress=false --access $STORJ_ACCESS
+  uplinkng cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/small-file-$i" --progress=false
 done
 
-uplinkng rb "sj://$BUCKET" --force --access $STORJ_ACCESS
+uplinkng rb "sj://$BUCKET" --force
 
-if [ "$(uplinkng ls --access $STORJ_ACCESS | wc -l)" != "0" ]; then
+if [ "$(uplinkng ls | wc -l)" != "0" ]; then
   echo "an integration test did not clean up after itself entirely"
   exit 1
 fi
