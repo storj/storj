@@ -2646,6 +2646,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 
 		item.EncryptedMetadata = metadataBytes
 		item.EncryptedMetadataNonce = nonce
+		item.EncryptedMetadataEncryptedKey = entry.EncryptedMetadataEncryptedKey
 	}
 
 	// Add Stream ID to list items if listing is for pending objects.
