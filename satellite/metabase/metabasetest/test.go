@@ -214,23 +214,6 @@ func (step GetObjectLatestVersion) Check(ctx *testcontext.Context, t testing.TB,
 	require.Zero(t, diff)
 }
 
-// GetSegmentByLocation is for testing metabase.GetSegmentByLocation.
-type GetSegmentByLocation struct {
-	Opts     metabase.GetSegmentByLocation
-	Result   metabase.Segment
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step GetSegmentByLocation) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.GetSegmentByLocation(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
-	require.Zero(t, diff)
-}
-
 // GetSegmentByPosition is for testing metabase.GetSegmentByPosition.
 type GetSegmentByPosition struct {
 	Opts     metabase.GetSegmentByPosition

@@ -106,6 +106,9 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	if project.BandwidthLimit != nil {
 		createFields.BandwidthLimit = dbx.Project_BandwidthLimit(project.BandwidthLimit.Int64())
 	}
+	if project.SegmentLimit != nil {
+		createFields.SegmentLimit = dbx.Project_SegmentLimit(*project.SegmentLimit)
+	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
 
@@ -148,6 +151,9 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 	}
 	if project.BandwidthLimit != nil {
 		updateFields.BandwidthLimit = dbx.Project_BandwidthLimit(project.BandwidthLimit.Int64())
+	}
+	if project.SegmentLimit != nil {
+		updateFields.SegmentLimit = dbx.Project_SegmentLimit(*project.SegmentLimit)
 	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
@@ -354,6 +360,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		CreatedAt:      project.CreatedAt,
 		StorageLimit:   (*memory.Size)(project.UsageLimit),
 		BandwidthLimit: (*memory.Size)(project.BandwidthLimit),
+		SegmentLimit:   project.SegmentLimit,
 	}, nil
 }
 

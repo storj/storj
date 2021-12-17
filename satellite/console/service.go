@@ -6,8 +6,6 @@ package console
 import (
 	"context"
 	"crypto/subtle"
-	"database/sql"
-	"errors"
 	"fmt"
 	"net/mail"
 	"sort"
@@ -38,10 +36,6 @@ const (
 	// maxLimit specifies the limit for all paged queries.
 	maxLimit = 50
 
-	// TokenExpirationTime specifies the expiration time for
-	// auth tokens, account recovery tokens, and activation tokens.
-	TokenExpirationTime = 24 * time.Hour
-
 	// TestPasswordCost is the hashing complexity to use for testing.
 	TestPasswordCost = bcrypt.MinCost
 )
@@ -50,14 +44,16 @@ const (
 const (
 	unauthorizedErrMsg                   = "You are not authorized to perform this action"
 	emailUsedErrMsg                      = "This email is already in use, try another"
+	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
-	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
+	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
 	apiKeyWithNameDoesntExistErrMsg      = "An API Key with this name doesn't exist in this project."
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
+	activationTokenExpiredErrMsg = "This activation token has expired, please request another one"
 
 	usedRegTokenErrMsg = "This registration token has already been used"
 	projLimitErrMsg    = "Sorry, project creation is limited for your account. Please contact support!"
@@ -79,8 +75,14 @@ var (
 	// ErrUsage is error type of project usage.
 	ErrUsage = errs.Class("project usage")
 
+	// ErrLoginCredentials occurs when provided invalid login credentials.
+	ErrLoginCredentials = errs.Class("login credentials")
+
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
+
+	// ErrEmailNotFound occurs when no users have the specified email.
+	ErrEmailNotFound = errs.Class("email not found")
 
 	// ErrNoAPIKey is error type that occurs when there is no api key found.
 	ErrNoAPIKey = errs.Class("no api key found")
@@ -128,9 +130,10 @@ func init() {
 
 // Config keeps track of core console service configuration parameters.
 type Config struct {
-	PasswordCost            int  `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
-	OpenRegistrationEnabled bool `help:"enable open registration" default:"false" testDefault:"true"`
-	DefaultProjectLimit     int  `help:"default project limits for users" default:"1" testDefault:"5"`
+	PasswordCost            int           `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
+	OpenRegistrationEnabled bool          `help:"enable open registration" default:"false" testDefault:"true"`
+	DefaultProjectLimit     int           `help:"default project limits for users" default:"1" testDefault:"5"`
+	TokenExpirationTime     time.Duration `help:"expiration time for auth tokens, account recovery tokens, and activation tokens" default:"24h"`
 	UsageLimits             UsageLimitsConfig
 	Recaptcha               RecaptchaConfig
 }
@@ -268,7 +271,9 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		// put this user into the paid tier and convert projects to upgraded limits.
 		err = paymentService.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true,
 			paymentService.service.config.UsageLimits.Bandwidth.Paid,
-			paymentService.service.config.UsageLimits.Storage.Paid)
+			paymentService.service.config.UsageLimits.Storage.Paid,
+			paymentService.service.config.UsageLimits.Segment.Paid,
+		)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -285,6 +290,9 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 			if project.BandwidthLimit == nil || *project.BandwidthLimit < paymentService.service.config.UsageLimits.Bandwidth.Paid {
 				project.BandwidthLimit = new(memory.Size)
 				*project.BandwidthLimit = paymentService.service.config.UsageLimits.Bandwidth.Paid
+			}
+			if project.SegmentLimit == nil || *project.SegmentLimit < paymentService.service.config.UsageLimits.Segment.Paid {
+				*project.SegmentLimit = paymentService.service.config.UsageLimits.Segment.Paid
 			}
 			err = paymentService.service.store.Projects().Update(ctx, &project)
 			if err != nil {
@@ -590,12 +598,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, ErrRegToken.Wrap(err)
 	}
 
-	u, err = s.store.Users().GetByEmail(ctx, user.Email)
-	if err == nil {
-		return nil, ErrEmailUsed.New(emailUsedErrMsg)
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, user.Email)
+	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+	if verified != nil || len(unverified) != 0 {
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.config.PasswordCost)
@@ -637,6 +645,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		// TODO: move the project limits into the registration token.
 		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
 		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
+		newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
 
 		u, err = tx.Users().Insert(ctx,
 			newUser,
@@ -678,7 +687,7 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 	claims := &consoleauth.Claims{
 		ID:         id,
 		Email:      email,
-		Expiration: time.Now().Add(time.Hour * 24),
+		Expiration: time.Now().Add(s.config.TokenExpirationTime),
 	}
 
 	return s.createToken(ctx, claims)
@@ -720,6 +729,10 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return "", err
 	}
 
+	if time.Now().After(claims.Expiration) {
+		return "", ErrTokenExpiration.New(activationTokenExpiredErrMsg)
+	}
+
 	_, err = s.store.Users().GetByEmail(ctx, claims.Email)
 	if err == nil {
 		return "", ErrEmailUsed.New(emailUsedErrMsg)
@@ -728,12 +741,6 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	user, err := s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
 		return "", Error.Wrap(err)
-	}
-
-	now := time.Now()
-
-	if now.After(user.CreatedAt.Add(TokenExpirationTime)) {
-		return "", ErrTokenExpiration.Wrap(err)
 	}
 
 	user.Status = Active
@@ -748,7 +755,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	// now that the account is activated, create a token to be stored in a cookie to log the user in.
 	claims = &consoleauth.Claims{
 		ID:         user.ID,
-		Expiration: time.Now().Add(TokenExpirationTime),
+		Expiration: time.Now().Add(s.config.TokenExpirationTime),
 	}
 
 	token, err = s.createToken(ctx, claims)
@@ -784,7 +791,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return Error.Wrap(err)
 	}
 
-	if t.Sub(token.CreatedAt) > TokenExpirationTime {
+	if t.Sub(token.CreatedAt) > s.config.TokenExpirationTime {
 		return ErrRecoveryToken.Wrap(ErrTokenExpiration.New(passwordRecoveryTokenIsExpiredErrMsg))
 	}
 
@@ -824,14 +831,14 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 func (s *Service) Token(ctx context.Context, request AuthUser) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.store.Users().GetByEmail(ctx, request.Email)
-	if err != nil {
-		return "", ErrUnauthorized.New(credentialsErrMsg)
+	user, _, err := s.store.Users().GetByEmailWithUnverified(ctx, request.Email)
+	if user == nil {
+		return "", ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
-		return "", ErrUnauthorized.New(credentialsErrMsg)
+		return "", ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
 	if user.MFAEnabled {
@@ -850,7 +857,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 				}
 			}
 			if !found {
-				return "", ErrUnauthorized.New(mfaRecoveryInvalidErrMsg)
+				return "", ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
 			}
 
 			user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
@@ -862,19 +869,19 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 		} else if request.MFAPasscode != "" {
 			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, time.Now())
 			if err != nil {
-				return "", ErrUnauthorized.Wrap(err)
+				return "", ErrMFAPasscode.Wrap(err)
 			}
 			if !valid {
-				return "", ErrUnauthorized.New(mfaPasscodeInvalidErrMsg)
+				return "", ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 			}
 		} else {
-			return "", ErrMFALogin.Wrap(ErrMFAMissing.New(mfaRequiredErrMsg))
+			return "", ErrMFAMissing.New(mfaRequiredErrMsg)
 		}
 	}
 
 	claims := consoleauth.Claims{
 		ID:         user.ID,
-		Expiration: time.Now().Add(TokenExpirationTime),
+		Expiration: time.Now().Add(s.config.TokenExpirationTime),
 	}
 
 	token, err = s.createToken(ctx, &claims)
@@ -911,16 +918,20 @@ func (s *Service) GetUserID(ctx context.Context) (id uuid.UUID, err error) {
 	return auth.User.ID, nil
 }
 
-// GetUserByEmail returns User by email.
-func (s *Service) GetUserByEmail(ctx context.Context, email string) (u *User, err error) {
+// GetUserByEmailWithUnverified returns Users by email.
+func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result, err := s.store.Users().GetByEmail(ctx, email)
+	verified, unverified, err = s.store.Users().GetByEmailWithUnverified(ctx, email)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return verified, unverified, err
 	}
 
-	return result, nil
+	if verified == nil && len(unverified) == 0 {
+		err = ErrEmailNotFound.New(emailNotFoundErrMsg)
+	}
+
+	return verified, unverified, err
 }
 
 // UpdateAccount updates User.
@@ -964,8 +975,11 @@ func (s *Service) ChangeEmail(ctx context.Context, newEmail string) (err error) 
 		return ErrValidation.Wrap(err)
 	}
 
-	_, err = s.store.Users().GetByEmail(ctx, newEmail)
-	if err == nil {
+	verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, newEmail)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if verified != nil || len(unverified) != 0 {
 		return ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
@@ -1116,6 +1130,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				UserAgent:      auth.User.UserAgent,
 				StorageLimit:   &newProjectLimits.StorageLimit,
 				BandwidthLimit: &newProjectLimits.BandwidthLimit,
+				SegmentLimit:   &newProjectLimits.SegmentLimit,
 			},
 		)
 		if err != nil {
@@ -1136,7 +1151,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectCreated(auth.User.ID, projectID, currentProjectCount+1)
+	s.analytics.TrackProjectCreated(auth.User.ID, auth.User.Email, projectID, currentProjectCount+1)
 
 	return p, nil
 }
@@ -1196,7 +1211,10 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		if project.StorageLimit != nil && *project.StorageLimit == 0 {
 			return nil, Error.New("current storage limit for project is set to 0 (updating disabled)")
 		}
-		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 {
+		if project.SegmentLimit != nil && *project.SegmentLimit == 0 {
+			return nil, Error.New("current segment limit for project is set to 0 (updating disabled)")
+		}
+		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 || projectInfo.SegmentLimit <= 0 {
 			return nil, Error.New("project limits must be greater than 0")
 		}
 
@@ -1206,6 +1224,10 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 
 		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid {
 			return nil, Error.New("specified bandwidth limit exceeds allowed maximum for current tier")
+		}
+
+		if projectInfo.SegmentLimit > s.config.UsageLimits.Segment.Paid {
+			return nil, Error.New("specified segment limit exceeds allowed maximum for current tier")
 		}
 
 		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
@@ -1228,6 +1250,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		*project.StorageLimit = projectInfo.StorageLimit
 		project.BandwidthLimit = new(memory.Size)
 		*project.BandwidthLimit = projectInfo.BandwidthLimit
+		*project.SegmentLimit = projectInfo.SegmentLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
@@ -1403,7 +1426,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackAccessGrantCreated(auth.User.ID)
+	s.analytics.TrackAccessGrantCreated(auth.User.ID, auth.User.Email)
 
 	return info, key, nil
 }
@@ -1643,11 +1666,17 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	prUsageLimits, err := s.getProjectUsageLimits(ctx, projectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	prObjectsSegments, err := s.projectAccounting.GetProjectObjectsSegments(ctx, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1657,6 +1686,8 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		BandwidthLimit: prUsageLimits.BandwidthLimit,
 		StorageUsed:    prUsageLimits.StorageUsed,
 		BandwidthUsed:  prUsageLimits.BandwidthUsed,
+		ObjectCount:    prObjectsSegments.ObjectCount,
+		SegmentCount:   prObjectsSegments.SegmentCount,
 	}, nil
 }
 
@@ -1818,6 +1849,7 @@ func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_
 	return &UserProjectLimits{
 		StorageLimit:   result.ProjectStorageLimit,
 		BandwidthLimit: result.ProjectBandwidthLimit,
+		SegmentLimit:   result.ProjectSegmentLimit,
 	}, nil
 }
 

@@ -16,32 +16,25 @@
             </ul>
         </div>
         <hr class="duration-picker__break">
-        <div class="duration-picker__date-picker__wrapper">
-            <DatePicker
-                range
-                open
-                :append-to-body="false"
-                :inline="true"
-                popup-class="duration-picker__date-picker__popup"
-                @change="onCustomRangePick"
-            />
+        <div class="duration-picker__wrapper">
+            <VDateRangePicker :on-date-pick="onCustomRangePick" is-open="true" />
         </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import DatePicker from 'vue2-datepicker';
-import 'vue2-datepicker/index.css';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import { DurationPermission } from '@/types/accessGrants';
 
+import VDateRangePicker from "@/components/common/VDateRangePicker.vue";
+
 // @vue/component
 @Component({
     components: {
-        DatePicker,
+        VDateRangePicker,
     },
 })
 export default class DurationPicker extends Vue {
@@ -150,9 +143,9 @@ export default class DurationPicker extends Vue {
 <style scoped lang="scss">
     .duration-picker {
         background: #fff;
-        width: 530px;
-        height: 400px;
+        width: 600px;
         border: 1px solid #384b65;
+        border-radius: 6px;
         margin: 0 auto;
         -webkit-box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
         -moz-box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
@@ -193,45 +186,11 @@ export default class DurationPicker extends Vue {
 
         &__break {
             width: 84%;
-            margin: 0 auto;
+            margin: 10px auto;
         }
 
-        &__date-picker {
-
-            &__wrapper {
-                position: relative;
-                margin: 0;
-            }
+        &__wrapper {
+            width: 100%;
         }
-    }
-</style>
-
-<style lang="scss">
-    .duration-picker {
-
-        &__date-picker {
-
-            &__popup {
-                position: absolute;
-                top: 0;
-                left: 25px;
-                width: 480px;
-                height: 210px;
-            }
-        }
-    }
-
-    .mx-calendar {
-        height: 210px;
-    }
-
-    .mx-table-date td,
-    .mx-table-date th {
-        height: 12px;
-        font-size: 10px;
-    }
-
-    .mx-table {
-        height: 70%;
     }
 </style>

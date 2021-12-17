@@ -1,111 +1,5 @@
-<script lang="ts"> /* eslint-disable */ </script>
-
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
-
-<style scoped>
-/* stylelint-disable */
-
-.modal-header {
-    border-bottom-color: #eee;
-    background-color: #fafafa;
-}
-
-.file-preview-wrapper {
-
-    /* Testing background for file preview */
-
-    /* background: #000; */
-    background: #f9fafc;
-    height: 100%;
-    min-height: 75vh;
-    border-right: 1px solid #eee;
-}
-
-.btn-demo {
-    margin: 15px;
-    padding: 10px 15px;
-    border-radius: 0;
-    font-size: 16px;
-    background-color: #fff;
-}
-
-.btn-demo:focus {
-    outline: 0;
-}
-
-.closex {
-    cursor: pointer;
-}
-
-.modal-open {
-    display: block !important;
-}
-
-.file-path {
-    display: inline-block;
-    font-weight: bold;
-    max-width: 100%;
-    position: relative;
-    font-size: 18px;
-}
-
-.preview {
-    width: 100%;
-}
-
-.preview-placeholder {
-    background: #f9fafc;
-    width: 100%;
-    height: 100%;
-}
-
-.object-map {
-    width: 100%;
-}
-
-.storage-nodes {
-    padding: 5px;
-    background: rgba(0, 0, 0, 0.8);
-    font-weight: normal;
-    color: white;
-    font-size: 0.8rem;
-}
-
-.size {
-    font-size: 0.9rem;
-    font-weight: normal;
-}
-
-.btn {
-    line-height: 2.4;
-}
-
-.btn-primary {
-    background: #376fff;
-    border-color: #376fff;
-}
-
-.btn-light {
-    background: #e6e9ef;
-    border-color: #e6e9ef;
-}
-
-.share-btn {
-    font-weight: bold;
-}
-
-.text-lighter {
-    color: #768394;
-}
-
-.btn-copy-link {
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
-    font-size: 14px;
-    padding: 0 16px;
-}
-</style>
 
 <template>
     <div class="container demo" @click="stopClickPropagation">
@@ -351,6 +245,7 @@
 											mb-3
 											mt-4
 										"
+                                        type="button"
                                         download
                                         @click="download"
                                     >
@@ -407,6 +302,7 @@
                                     <button
                                         v-else
                                         class="btn btn-light btn-block"
+                                        type="button"
                                         @click="getSharedLink"
                                     >
                                         <span class="share-btn">
@@ -470,122 +366,301 @@
     </div>
 </template>
 
-<script>
-import FileShareModal from "./FileShareModal";
-import prettyBytes from "pretty-bytes";
+<script lang="ts">
+import { Component, Vue, Watch } from 'vue-property-decorator';
+import type { BrowserFile } from '@/types/browser.ts';
+import prettyBytes from 'pretty-bytes';
 
-export default {
-    name: "FileModal",
-    components: {
-        FileShareModal
-    },
-    data: () => ({
-        objectMapIsLoading: false,
-        objectMapUrl: null,
-        objectLink: null,
-        copyText: "Copy Link"
-    }),
-    computed: {
-        file() {
-            return this.$store.state.files.files.find(
-                (file) => file.Key === this.filePath.split("/").slice(-1)[0]
-            );
-        },
-        filePath() {
-            return this.$store.state.files.modalPath;
-        },
-        size() {
-            return prettyBytes(
-                this.$store.state.files.files.find(
-                    (file) => file.Key === this.file.Key
-                ).Size
-            );
-        },
-        uploadDate() {
-            return this.file.LastModified.toLocaleString().split(",")[0];
-        },
-        extension() {
-            return this.filePath.split(".").pop();
-        },
-        preSignedUrl() {
-            return this.$store.getters["files/preSignedUrl"](this.filePath);
-        },
-        previewIsImage() {
-            return ["bmp", "svg", "jpg", "jpeg", "png", "ico", "gif"].includes(
+// @vue/component
+@Component
+export default class FileModal extends Vue {
+    public objectMapIsLoading = false;
+    public objectMapUrl = '';
+    public objectLink = '';
+    public copyText = 'Copy Link';
+
+    /**
+     * Retrieve the file object that the modal is set to from the store.
+     */
+    private get file(): BrowserFile {
+        return this.$store.state.files.files.find(
+            (file) => file.Key === this.filePath.split("/").slice(-1)[0]
+        );
+    }
+
+    /**
+     * Retrieve the filepath of the modal from the store.
+     */
+    public get filePath(): string {
+        return this.$store.state.files.modalPath;
+    }
+
+    /**
+     * Format the file size to be displayed.
+     */
+    public get size(): string {
+        return prettyBytes(
+            this.$store.state.files.files.find(
+                (file) => file.Key === this.file.Key
+            ).Size
+        );
+    }
+
+    /**
+     * Format the upload date of the current file.
+     */
+    public get uploadDate(): string {
+        return this.file.LastModified.toLocaleString().split(",")[0];
+    }
+
+    /**
+     * Get the extension of the current file.
+     */
+    private get extension(): string | undefined {
+        return this.filePath.split('.').pop();
+    }
+
+    /**
+     * Retrieve the presigned url from the store.
+     */
+    public get preSignedUrl(): string {
+        return this.$store.getters['files/preSignedUrl'](this.filePath);
+    }
+
+    /**
+     * Check to see if the current file is an image file.
+     */
+    public get previewIsImage(): boolean {
+        if (typeof this.extension === 'string') {
+            return ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'].includes(
                 this.extension
             );
-        },
-        previewIsVideo() {
-            return ["m4v", "mp4", "webm", "mov", "mkv"].includes(
+        }
+
+        return false;
+    }
+
+    /**
+     * Check to see if the current file is a video file.
+     */
+    public get previewIsVideo(): boolean {
+        if (typeof this.extension === 'string') {
+            return ['m4v', 'mp4', 'webm', 'mov', 'mkv'].includes(
                 this.extension
             );
-        },
-        previewIsAudio() {
-            return ["mp3", "wav", "ogg"].includes(this.extension);
-        },
-        placeHolderDisplayable() {
-            return [
-                this.previewIsImage,
-                this.previewIsVideo,
-                this.previewIsAudio
-            ].every((value) => !!value === false);
-        },
-        objectMapUrlExists() {
-            return this.objectMapUrl !== null;
         }
-    },
-    watch: {
-        filePath() {
-            this.getObjectMapUrl();
+
+        return false;
+    }
+
+    /**
+     * Check to see if the current file is an audio file.
+     */
+    public get previewIsAudio(): boolean {
+        if (typeof this.extension === 'string') {
+            return ['mp3', 'wav', 'ogg'].includes(this.extension);
         }
-    },
-    created() {
-        this.getObjectMapUrl();
-    },
-    methods: {
-        async getObjectMapUrl() {
-            this.objectMapIsLoading = true;
-            const objectMapUrl = await this.$store.state.files.getObjectMapUrl(
-                this.filePath
-            );
 
-            await new Promise((resolve) => {
-                const preload = new Image();
-                preload.onload = resolve;
-                preload.src = objectMapUrl;
-            });
+        return false;
+    }
 
-            this.objectMapUrl = objectMapUrl;
-            this.objectMapIsLoading = false;
-        },
+    /**
+     * Check to see if the current file is neither an image file, video file, or audio file.
+     */
+    public get placeHolderDisplayable(): boolean {
+        return [
+            this.previewIsImage,
+            this.previewIsVideo,
+            this.previewIsAudio
+        ].every((value) => !!value === false);
+    }
 
-        download() {
-            this.$store.dispatch("files/download", this.file);
-        },
+    /**
+     * Check to see if the object map exists.
+     */
+    private get objectMapUrlExists(): boolean {
+        return this.objectMapUrl !== null;
+    }
 
-        closeModal() {
-            this.$store.commit("files/closeModal");
-        },
+    /**
+     * Watch for changes on the filepath and call `fetchObjectMapUrl` the moment it updates.
+     */
+    @Watch("filePath")
+    private handleFilePathChange() {
+        this.fetchObjectMapUrl();
+    }
 
-        async copy() {
-            await navigator.clipboard.writeText(this.objectLink);
-            this.copyText = "Copied!";
-            setTimeout(() => {
-                this.copyText = "Copy Link";
-            }, 2000);
-        },
+    /**
+     * Call `fetchObjectMapUrl` on the created lifecycle method.
+     */
+    public created(): void {
+        this.fetchObjectMapUrl();
+    }
 
-        async getSharedLink() {
-            this.objectLink = await this.$store.state.files.getSharedLink(
-                this.filePath
-            );
-        },
+    /**
+     * Get the object map url for the file being displayed.
+     */
+    private async fetchObjectMapUrl(): Promise<void> {
+        this.objectMapIsLoading = true;
+        const objectMapUrl: string = await this.$store.state.files.fetchObjectMapUrl(
+            this.filePath
+        );
 
-        stopClickPropagation(e) {
-            if (e.target.id !== "detail-modal") {
-                e.stopPropagation();
-            }
+        await new Promise((resolve) => {
+            const preload = new Image();
+            preload.onload = resolve;
+            preload.src = objectMapUrl;
+        });
+
+        this.objectMapUrl = objectMapUrl;
+        this.objectMapIsLoading = false;
+    }
+
+    /**
+     * Download the current opened file.
+     */
+    public download(): void {
+        this.$store.dispatch('files/download', this.file);
+    }
+
+    /**
+     * Close the current opened file.
+     */
+    public closeModal(): void {
+        this.$store.commit('files/closeModal');
+    }
+
+    /**
+     * Copy the current opened file.
+     */
+    public async copy(): Promise<void> {
+        await navigator.clipboard.writeText(this.objectLink);
+        this.copyText = 'Copied!';
+        setTimeout(() => {
+            this.copyText = 'Copy Link';
+        }, 2000);
+    }
+
+    /**
+     * Get the share link of the current opened file.
+     */
+    public async getSharedLink(): Promise<void> {
+        this.objectLink = await this.$store.state.files.getSharedLink(
+            this.filePath
+        );
+    }
+
+    /**
+     * Stop the propagation of a click event only if the target is an element without detail-modal as the id.
+     */
+    public stopClickPropagation(e: Event): void {
+        const target = e.target as HTMLElement;
+        if (target.id !== "detail-modal") {
+            e.stopPropagation();
         }
     }
-};
+}
 </script>
+
+<style scoped>
+
+.modal-header {
+    border-bottom-color: #eee;
+    background-color: #fafafa;
+}
+
+.file-preview-wrapper {
+
+    /* Testing background for file preview */
+
+    /* background: #000; */
+    background: #f9fafc;
+    height: 100%;
+    min-height: 75vh;
+    border-right: 1px solid #eee;
+}
+
+.btn-demo {
+    margin: 15px;
+    padding: 10px 15px;
+    border-radius: 0;
+    font-size: 16px;
+    background-color: #fff;
+}
+
+.btn-demo:focus {
+    outline: 0;
+}
+
+.closex {
+    cursor: pointer;
+}
+
+.modal-open {
+    display: block !important;
+}
+
+.file-path {
+    display: inline-block;
+    font-weight: bold;
+    max-width: 100%;
+    position: relative;
+    font-size: 18px;
+}
+
+.preview {
+    width: 100%;
+}
+
+.preview-placeholder {
+    background: #f9fafc;
+    width: 100%;
+    height: 100%;
+}
+
+.object-map {
+    width: 100%;
+}
+
+.storage-nodes {
+    padding: 5px;
+    background: rgba(0, 0, 0, 0.8);
+    font-weight: normal;
+    color: white;
+    font-size: 0.8rem;
+}
+
+.size {
+    font-size: 0.9rem;
+    font-weight: normal;
+}
+
+.btn {
+    line-height: 2.4;
+}
+
+.btn-primary {
+    background: #376fff;
+    border-color: #376fff;
+}
+
+.btn-light {
+    background: #e6e9ef;
+    border-color: #e6e9ef;
+}
+
+.share-btn {
+    font-weight: bold;
+}
+
+.text-lighter {
+    color: #768394;
+}
+
+.btn-copy-link {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    font-size: 14px;
+    padding: 0 16px;
+}
+</style>

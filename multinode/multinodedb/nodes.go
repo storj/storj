@@ -102,15 +102,15 @@ func (n *nodesdb) Get(ctx context.Context, id storj.NodeID) (_ nodes.Node, err e
 }
 
 // Add creates new node in NodesDB.
-func (n *nodesdb) Add(ctx context.Context, id storj.NodeID, apiSecret []byte, publicAddress string) (err error) {
+func (n *nodesdb) Add(ctx context.Context, node nodes.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = n.methods.Create_Node(
 		ctx,
-		dbx.Node_Id(id.Bytes()),
-		dbx.Node_Name(""),
-		dbx.Node_PublicAddress(publicAddress),
-		dbx.Node_ApiSecret(apiSecret),
+		dbx.Node_Id(node.ID.Bytes()),
+		dbx.Node_Name(node.Name),
+		dbx.Node_PublicAddress(node.PublicAddress),
+		dbx.Node_ApiSecret(node.APISecret),
 	)
 
 	return ErrNodesDB.Wrap(err)

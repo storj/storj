@@ -7,32 +7,41 @@
             <LogoIcon class="logo" @click="onLogoClick" />
         </div>
         <div class="login-area__content-area">
-            <div class="login-area__content-area">
-                <div v-if="isActivatedBannerShown" class="login-area__content-area__activation-banner" :class="{'error': isActivatedError}">
-                    <p class="login-area__content-area__activation-banner__message">
-                        <template v-if="!isActivatedError"><b>Success!</b> Account verified.</template>
-                        <template v-else><b>Oops!</b> This account has already been verified.</template>
-                    </p>
-                </div>
-                <div class="login-area__content-area__container">
-                    <div class="login-area__content-area__container__title-area">
-                        <h1 class="login-area__content-area__container__title-area__title" aria-roledescription="sign-in-title">Sign In</h1>
+            <div v-if="isActivatedBannerShown" class="login-area__content-area__activation-banner" :class="{'error': isActivatedError}">
+                <p class="login-area__content-area__activation-banner__message">
+                    <template v-if="!isActivatedError"><b>Success!</b> Account verified.</template>
+                    <template v-else><b>Oops!</b> This account has already been verified.</template>
+                </p>
+            </div>
+            <div class="login-area__content-area__container">
+                <div class="login-area__content-area__container__title-area">
+                    <h1 class="login-area__content-area__container__title-area__title" aria-roledescription="sign-in-title">Sign In</h1>
 
-                        <div class="login-area__expand" @click.stop="toggleDropdown">
-                            <span class="login-area__expand__value">{{ satelliteName }}</span>
-                            <BottomArrowIcon />
-                            <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="login-area__expand__dropdown">
-                                <div class="login-area__expand__dropdown__item" @click.stop="closeDropdown">
-                                    <SelectedCheckIcon />
-                                    <span class="login-area__expand__dropdown__item__name">{{ satelliteName }}</span>
-                                </div>
-                                <a v-for="sat in partneredSatellites" :key="sat.id" class="login-area__expand__dropdown__item" :href="sat.address + '/login'">
-                                    {{ sat.name }}
-                                </a>
+                    <div class="login-area__expand" @click.stop="toggleDropdown">
+                        <span class="login-area__expand__value">{{ satelliteName }}</span>
+                        <BottomArrowIcon />
+                        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="login-area__expand__dropdown">
+                            <div class="login-area__expand__dropdown__item" @click.stop="closeDropdown">
+                                <SelectedCheckIcon />
+                                <span class="login-area__expand__dropdown__item__name">{{ satelliteName }}</span>
                             </div>
+                            <a v-for="sat in partneredSatellites" :key="sat.id" class="login-area__expand__dropdown__item" :href="sat.address + '/login'">
+                                {{ sat.name }}
+                            </a>
                         </div>
                     </div>
-                    <div v-if="!isMFARequired" class="login-area__input-wrapper">
+                </div>
+                <template v-if="!isMFARequired">
+                    <div v-if="isBadLoginMessageShown" class="info-box error">
+                        <div class="info-box__header">
+                            <WarningIcon />
+                            <h2 class="info-box__header__label">Invalid Credentials</h2>
+                        </div>
+                        <p class="info-box__message">
+                            Your login credentials are incorrect. If you didn’t receive an activation email, click <router-link :to="activatePath" class="link">here</router-link>.
+                        </p>
+                    </div>
+                    <div class="login-area__input-wrapper">
                         <HeaderlessInput
                             label="Email Address"
                             placeholder="example@email.com"
@@ -41,7 +50,7 @@
                             @setData="setEmail"
                         />
                     </div>
-                    <div v-if="!isMFARequired" class="login-area__input-wrapper">
+                    <div class="login-area__input-wrapper">
                         <HeaderlessInput
                             label="Password"
                             placeholder="Password"
@@ -51,38 +60,40 @@
                             @setData="setPassword"
                         />
                     </div>
-                    <div v-if="isMFARequired" class="login-area__content-area__container__mfa">
-                        <div class="login-area__content-area__container__mfa__info">
-                            <div class="login-area__content-area__container__mfa__info__title-area">
-                                <WarningIcon />
-                                <h2 class="login-area__content-area__container__mfa__info__title-area__txt">
-                                    Two-Factor Authentication Required
-                                </h2>
-                            </div>
-                            <p class="login-area__content-area__container__mfa__info__msg">
-                                You'll need the six-digit code from your authenticator app to continue.
-                            </p>
+                </template>
+                <template v-else>
+                    <div class="info-box">
+                        <div class="info-box__header">
+                            <GreyWarningIcon />
+                            <h2 class="info-box__header__label">
+                                Two-Factor Authentication Required
+                            </h2>
                         </div>
-                        <ConfirmMFAInput ref="mfaInput" :on-input="onConfirmInput" :is-error="isMFAError" :is-recovery="isRecoveryCodeState" />
-                        <span v-if="!isRecoveryCodeState" class="login-area__content-area__container__mfa__recovery" @click="setRecoveryCodeState">
-                            Or use recovery code
-                        </span>
+                        <p class="info-box__message">
+                            You'll need the six-digit code from your authenticator app to continue.
+                        </p>
                     </div>
-                    <p class="login-area__content-area__container__button" :class="{ 'disabled-button': isLoading }" @click.prevent="onLogin">Sign In</p>
-                    <span v-if="isMFARequired" class="login-area__content-area__container__cancel" :class="{ disabled: isLoading }" @click.prevent="onMFACancelClick">
-                        Cancel
+                    <div class="login-area__input-wrapper">
+                        <ConfirmMFAInput ref="mfaInput" :on-input="onConfirmInput" :is-error="isMFAError" :is-recovery="isRecoveryCodeState" />
+                    </div>
+                    <span v-if="!isRecoveryCodeState" class="login-area__content-area__container__recovery" @click="setRecoveryCodeState">
+                        Or use recovery code
                     </span>
-                </div>
-                <p class="login-area__content-area__reset-msg">
-                    Forgot your sign in details?
-                    <router-link :to="forgotPasswordPath" class="login-area__content-area__reset-msg__link">
-                        Reset Password
-                    </router-link>
-                </p>
-                <router-link :to="registerPath" class="login-area__content-area__register-link">
-                    Need to create an account?
-                </router-link>
+                </template>
+                <p class="login-area__content-area__container__button" :class="{ 'disabled-button': isLoading }" @click.prevent="onLogin">Sign In</p>
+                <span v-if="isMFARequired" class="login-area__content-area__container__cancel" :class="{ disabled: isLoading }" @click.prevent="onMFACancelClick">
+                    Cancel
+                </span>
             </div>
+            <p class="login-area__content-area__footer-item">
+                Forgot your sign in details?
+                <router-link :to="forgotPasswordPath" class="link">
+                    Reset Password
+                </router-link>
+            </p>
+            <router-link :to="registerPath" class="login-area__content-area__footer-item link">
+                Need to create an account?
+            </router-link>
         </div>
     </div>
 </template>
@@ -93,7 +104,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-import WarningIcon from '@/../static/images/common/greyWarning.svg';
+import WarningIcon from '@/../static/images/accessGrants/warning.svg';
+import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/logo.svg';
@@ -105,6 +117,7 @@ import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { Validator } from '@/utils/validation';
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 
 interface ClearInput {
     clearInput(): void;
@@ -118,6 +131,7 @@ interface ClearInput {
         SelectedCheckIcon,
         LogoIcon,
         WarningIcon,
+        GreyWarningIcon,
         ConfirmMFAInput,
     },
 })
@@ -138,11 +152,13 @@ export default class Login extends Vue {
     public isMFARequired = false;
     public isMFAError = false;
     public isRecoveryCodeState = false;
+    public isBadLoginMessageShown = false;
 
     // Tardigrade logic
     public isDropdownShown = false;
 
     public readonly registerPath: string = RouteConfig.Register.path;
+    public readonly activatePath: string = RouteConfig.Activate.path;
 
     public $refs!: {
         mfaInput: ConfirmMFAInput & ClearInput;
@@ -276,17 +292,24 @@ export default class Login extends Vue {
 
             if (this.isMFARequired) {
                 this.isMFAError = true;
-            } else {
-                await this.$notify.error(error.message);
+                this.isLoading = false;
+                return;
             }
 
-            this.isLoading = false;
+            if (error instanceof ErrorUnauthorized) {
+                this.isBadLoginMessageShown = true;
+                this.isLoading = false;
+                return;
+            }
 
+            await this.$notify.error(error.message);
+            this.isLoading = false;
             return;
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
+
         await this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
@@ -327,7 +350,7 @@ export default class Login extends Vue {
 
         &__logo-wrapper {
             text-align: center;
-            margin-top: 70px;
+            margin: 70px 0;
         }
 
         &__divider {
@@ -339,6 +362,7 @@ export default class Login extends Vue {
 
         &__input-wrapper {
             margin-top: 20px;
+            width: 100%;
         }
 
         &__expand {
@@ -393,32 +417,15 @@ export default class Login extends Vue {
             }
         }
 
-        &__link {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 191px;
-            height: 44px;
-            border: 2px solid #376fff;
-            border-radius: 6px;
-            color: #376fff;
-            background-color: #fff;
-            cursor: pointer;
-
-            &:hover {
-                background-color: #376fff;
-                color: #fff;
-            }
-        }
-
         &__content-area {
             background-color: #f5f6fa;
-            padding: 35px 20px 0 20px;
+            padding: 0 20px;
+            margin-bottom: 50px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: calc(100% - 55px);
             border-radius: 20px;
+            box-sizing: border-box;
 
             &__activation-banner {
                 padding: 20px;
@@ -447,8 +454,10 @@ export default class Login extends Vue {
                 flex-direction: column;
                 padding: 60px 80px;
                 background-color: #fff;
-                min-width: 450px;
+                width: 610px;
                 border-radius: 20px;
+                box-sizing: border-box;
+                margin-bottom: 20px;
 
                 &__title-area {
                     display: flex;
@@ -460,7 +469,7 @@ export default class Login extends Vue {
                         line-height: 49px;
                         letter-spacing: -0.100741px;
                         color: #252525;
-                        font-family: 'font_regular', sans-serif;
+                        font-family: 'font_bold', sans-serif;
                         font-weight: 800;
                     }
 
@@ -500,96 +509,20 @@ export default class Login extends Vue {
                     cursor: pointer;
                 }
 
-                &__mfa {
-                    margin-top: 25px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-
-                    &__info {
-                        background: #f7f8fb;
-                        border-radius: 6px;
-                        padding: 20px;
-                        margin-bottom: 20px;
-
-                        &__title-area {
-                            display: flex;
-                            align-items: center;
-
-                            &__txt {
-                                font-family: 'font_Bold', sans-serif;
-                                font-size: 16px;
-                                line-height: 19px;
-                                color: #1b2533;
-                                margin-left: 15px;
-                            }
-                        }
-
-                        &__msg {
-                            font-size: 16px;
-                            line-height: 19px;
-                            color: #1b2533;
-                            margin-top: 10px;
-                            max-width: 410px;
-                        }
-                    }
-
-                    &__recovery {
-                        font-size: 16px;
-                        line-height: 19px;
-                        color: #0068dc;
-                        cursor: pointer;
-                        margin-top: 20px;
-                        text-align: center;
-                    }
+                &__recovery {
+                    font-size: 16px;
+                    line-height: 19px;
+                    color: #0068dc;
+                    cursor: pointer;
+                    margin-top: 20px;
+                    text-align: center;
+                    width: 100%;
                 }
             }
 
-            &__reset-msg {
-                font-size: 14px;
-                line-height: 18px;
-                margin-top: 50px;
-                text-align: center;
-
-                &__link {
-                    font-family: 'font_medium', sans-serif;
-                    text-decoration: none;
-                    font-size: 14px;
-                    line-height: 18px;
-                    color: #376fff;
-                }
-            }
-
-            &__register-link {
-                font-family: 'font_medium', sans-serif;
-                font-size: 14px;
-                line-height: 18px;
-                color: #376fff;
+            &__footer-item {
                 margin-top: 30px;
-                padding-bottom: 30px;
-            }
-
-            &__footer {
-                display: flex;
-                justify-content: center;
-                align-items: flex-start;
-                margin-top: 140px;
-                width: 100%;
-
-                &__copyright {
-                    font-size: 12px;
-                    line-height: 18px;
-                    color: #384b65;
-                    padding-bottom: 20px;
-                }
-
-                &__link {
-                    font-size: 12px;
-                    line-height: 18px;
-                    margin-left: 30px;
-                    color: #376fff;
-                    text-decoration: none;
-                }
+                font-size: 14px;
             }
         }
     }
@@ -609,21 +542,52 @@ export default class Login extends Vue {
         border-color: #dadde5;
     }
 
+    .link {
+        color: #376fff;
+        font-family: 'font_medium', sans-serif;
+    }
+
+    .info-box {
+        background-color: #f7f8fb;
+        border-radius: 6px;
+        padding: 20px;
+        margin-top: 25px;
+        width: 100%;
+        box-sizing: border-box;
+
+        &.error {
+            background-color: #fff9f7;
+            border: 1px solid #f84b00;
+        }
+
+        &__header {
+            display: flex;
+            align-items: center;
+
+            &__label {
+                font-family: 'font_bold', sans-serif;
+                font-size: 16px;
+                color: #1b2533;
+                margin-left: 15px;
+            }
+        }
+
+        &__message {
+            font-size: 16px;
+            color: #1b2533;
+            margin-top: 10px;
+        }
+    }
+
     @media screen and (max-width: 750px) {
 
         .login-area {
 
-            &__header {
-                padding: 10px 20px;
-                width: calc(100% - 40px);
-            }
-
             &__content-area {
-                width: 90%;
-                margin: 0 auto;
 
                 &__container {
-                    min-width: 80%;
+                    width: 100%;
+                    padding: 60px;
                 }
             }
 
@@ -641,30 +605,15 @@ export default class Login extends Vue {
         .login-area {
 
             &__logo-wrapper {
-                margin-top: 40px;
+                margin: 40px;
             }
 
             &__content-area {
-                padding: 30px 20px 0 20px;
+                padding: 0;
 
                 &__container {
-                    padding: 20px 25px;
-                    min-width: 90%;
-                }
-            }
-        }
-    }
-
-    @media screen and (max-width: 375px) {
-
-        .login-area {
-
-            &__content-area {
-                padding: 0 20px 100px 20px;
-
-                &__container {
+                    padding: 0 20px 20px 20px;
                     background: transparent;
-                    min-width: 100%;
                 }
             }
         }

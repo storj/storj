@@ -236,6 +236,20 @@ func (db *ProjectAccounting) UpdateProjectBandwidthLimit(ctx context.Context, pr
 	return err
 }
 
+// UpdateProjectSegmentLimit updates project segment limit.
+func (db *ProjectAccounting) UpdateProjectSegmentLimit(ctx context.Context, projectID uuid.UUID, limit int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+		dbx.Project_Update_Fields{
+			SegmentLimit: dbx.Project_SegmentLimit(limit),
+		},
+	)
+
+	return err
+}
+
 // GetProjectStorageLimit returns project storage usage limit.
 func (db *ProjectAccounting) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -262,6 +276,66 @@ func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, proje
 	}
 
 	return row.BandwidthLimit, nil
+}
+
+// GetProjectObjectsSegments retrieves project objects and segments.
+func (db *ProjectAccounting) GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (objectsSegments *accounting.ProjectObjectsSegments, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	objectsSegments = new(accounting.ProjectObjectsSegments)
+
+	// check if rows exist.
+	var count int64
+	countRow := db.db.QueryRowContext(ctx, db.db.Rebind(`SELECT COUNT(*) FROM bucket_storage_tallies WHERE project_id = ?`), projectID[:])
+	if err = countRow.Scan(&count); err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return objectsSegments, nil
+	}
+
+	var latestDate time.Time
+	latestDateRow := db.db.QueryRowContext(ctx, db.db.Rebind(`SELECT MAX(interval_start) FROM bucket_storage_tallies WHERE project_id = ?`), projectID[:])
+	if err = latestDateRow.Scan(&latestDate); err != nil {
+		return nil, err
+	}
+
+	// check if latest bucket tallies are more than 3 days old.
+	inThreeDays := latestDate.Add(24 * time.Hour * 3)
+	if inThreeDays.Before(time.Now()) {
+		return objectsSegments, nil
+	}
+
+	// calculate total segments and objects count.
+	storageTalliesRows := db.db.QueryRowContext(ctx, db.db.Rebind(`
+		SELECT
+			SUM(total_segments_count),
+			SUM(object_count)
+		FROM
+			bucket_storage_tallies
+		WHERE
+			project_id = ? AND
+			interval_start = ?
+	`), projectID[:], latestDate)
+	if err = storageTalliesRows.Scan(&objectsSegments.SegmentCount, &objectsSegments.ObjectCount); err != nil {
+		return nil, err
+	}
+
+	return objectsSegments, nil
+}
+
+// GetProjectSegmentLimit returns project segment limit.
+func (db *ProjectAccounting) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := db.db.Get_Project_SegmentLimit_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return row.SegmentLimit, nil
 }
 
 // GetProjectTotal retrieves project usage for a given period.
@@ -781,7 +855,7 @@ func timeTruncateDown(t time.Time) time.Time {
 func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ accounting.ProjectLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx,
+	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_By_Id(ctx,
 		dbx.Project_Id(projectID[:]),
 	)
 	if err != nil {
@@ -791,6 +865,7 @@ func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uui
 	return accounting.ProjectLimits{
 		Usage:     row.UsageLimit,
 		Bandwidth: row.BandwidthLimit,
+		Segments:  row.SegmentLimit,
 	}, nil
 }
 

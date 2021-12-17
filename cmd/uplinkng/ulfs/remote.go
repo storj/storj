@@ -30,20 +30,9 @@ func (r *Remote) Close() error {
 	return r.project.Close()
 }
 
-// Open returns a ReadHandle for the object identified by a given bucket and key.
-func (r *Remote) Open(ctx context.Context, bucket, key string, opts *OpenOptions) (ReadHandle, error) {
-	var downloadOpts *uplink.DownloadOptions
-	if opts != nil {
-		downloadOpts = &uplink.DownloadOptions{
-			Offset: opts.Offset,
-			Length: opts.Length,
-		}
-	}
-	fh, err := r.project.DownloadObject(ctx, bucket, key, downloadOpts)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	return newUplinkReadHandle(bucket, fh), nil
+// Open returns a MultiReadHandle for the object identified by a given bucket and key.
+func (r *Remote) Open(ctx context.Context, bucket, key string) (MultiReadHandle, error) {
+	return newUplinkMultiReadHandle(r.project, bucket, key), nil
 }
 
 // Stat returns information about an object at the specified key.
@@ -56,13 +45,13 @@ func (r *Remote) Stat(ctx context.Context, bucket, key string) (*ObjectInfo, err
 	return &stat, nil
 }
 
-// Create returns a WriteHandle for the object identified by a given bucket and key.
-func (r *Remote) Create(ctx context.Context, bucket, key string) (WriteHandle, error) {
-	fh, err := r.project.UploadObject(ctx, bucket, key, nil)
+// Create returns a MultiWriteHandle for the object identified by a given bucket and key.
+func (r *Remote) Create(ctx context.Context, bucket, key string) (MultiWriteHandle, error) {
+	info, err := r.project.BeginUpload(ctx, bucket, key, nil)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
-	return newUplinkWriteHandle(fh), nil
+	return newUplinkMultiWriteHandle(r.project, bucket, info), nil
 }
 
 // Move moves object to provided key and bucket.

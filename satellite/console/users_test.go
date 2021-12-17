@@ -128,6 +128,7 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		password := "password"
 		projectBandwidthLimit := memory.Size(50000000000)
 		storageStorageLimit := memory.Size(50000000000)
+		segmentLimit := int64(100)
 		newUser := &console.User{
 			ID:           testrand.UUID(),
 			FullName:     fullName,
@@ -144,7 +145,7 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, shortName, createdUser.ShortName)
 		require.False(t, createdUser.PaidTier)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit)
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit)
 		require.NoError(t, err)
 
 		retrievedUser, err := db.Console().Users().Get(ctx, createdUser.ID)
@@ -154,7 +155,7 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, shortName, retrievedUser.ShortName)
 		require.True(t, retrievedUser.PaidTier)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit)
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit, segmentLimit)
 		require.NoError(t, err)
 
 		retrievedUser, err = db.Console().Users().Get(ctx, createdUser.ID)

@@ -32,6 +32,7 @@ import OldOverviewStep from '@/components/onboardingTour/steps/oldFlow/OldOvervi
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
+import NewProjectDashboard from "@/components/project/newProjectDashboard/NewProjectDashboard.vue";
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import CLIInstall from "@/components/onboardingTour/steps/cliFlow/CLIInstall.vue";
@@ -50,7 +51,9 @@ import AGPermissions from "@/components/onboardingTour/steps/cliFlow/AGPermissio
 import store from '@/store';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { NavigationLink } from '@/types/navigation';
+import { MetaUtils } from "@/utils/meta";
 
+const ActivateAccount = () => import('@/views/ActivateAccount.vue');
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
@@ -68,10 +71,12 @@ export abstract class RouteConfig {
     public static Login = new NavigationLink('/login', 'Login');
     public static Register = new NavigationLink('/signup', 'Register');
     public static RegisterSuccess = new NavigationLink('/signup-success', 'RegisterSuccess');
+    public static Activate = new NavigationLink('/activate', 'Activate');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
+    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', 'Dashboard ');
     public static Users = new NavigationLink('/project-members', 'Users');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
@@ -130,10 +135,16 @@ export abstract class RouteConfig {
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
 }
 
+const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard') === 'true';
+if (isNewProjectDashboard) {
+    RouteConfig.ProjectDashboard = RouteConfig.NewProjectDashboard
+}
+
 export const notProjectRelatedRoutes = [
     RouteConfig.Login.name,
     RouteConfig.Register.name,
     RouteConfig.RegisterSuccess.name,
+    RouteConfig.Activate.name,
     RouteConfig.ForgotPassword.name,
     RouteConfig.ResetPassword.name,
     RouteConfig.Billing.name,
@@ -160,6 +171,11 @@ export const router = new Router({
             path: RouteConfig.RegisterSuccess.path,
             name: RouteConfig.RegisterSuccess.name,
             component: RegistrationSuccess,
+        },
+        {
+            path: RouteConfig.Activate.path,
+            name: RouteConfig.Activate.name,
+            component: ActivateAccount,
         },
         {
             path: RouteConfig.ForgotPassword.path,
@@ -221,6 +237,11 @@ export const router = new Router({
                             component: CreditsHistory,
                         },
                     ],
+                },
+                {
+                    path: RouteConfig.NewProjectDashboard.path,
+                    name: RouteConfig.NewProjectDashboard.name,
+                    component: NewProjectDashboard,
                 },
                 {
                     path: RouteConfig.ProjectDashboard.path,

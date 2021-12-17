@@ -320,8 +320,8 @@ export default class BucketsView extends Vue {
     /**
      * Makes delete bucket popup visible.
      */
-    public showDeleteBucketPopup(name: string): void {
-        this.deleteBucketName = name;
+    public showDeleteBucketPopup(): void {
+        this.deleteBucketName = '';
         this.isDeletePopupVisible = true;
     }
 
@@ -329,6 +329,7 @@ export default class BucketsView extends Vue {
      * Hides delete bucket popup.
      */
     public hideDeleteBucketPopup(): void {
+        this.errorMessage = '';
         this.isDeletePopupVisible = false;
     }
 
@@ -344,6 +345,7 @@ export default class BucketsView extends Vue {
      * Makes create bucket popup visible.
      */
     public showCreateBucketPopup(): void {
+        this.createBucketName = '';
         this.isCreatePopupVisible = true;
     }
 
@@ -351,6 +353,7 @@ export default class BucketsView extends Vue {
      * Hides create bucket popup.
      */
     public hideCreateBucketPopup(): void {
+        this.errorMessage = '';
         this.isCreatePopupVisible = false;
     }
 

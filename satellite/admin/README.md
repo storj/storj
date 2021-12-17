@@ -31,10 +31,10 @@ Requires setting `Authorization` header for requests.
                 * [POST /api/projects/{project-id}/limit?rate={value}](#post-apiprojectsproject-idlimitratevalue)
                 * [POST /api/projects/{project-id}/limit?buckets={value}](#post-apiprojectsproject-idlimitbucketsvalue)
         * [Bucket Management](#bucket-management)
+            * [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
             * [Geofencing](#geofencing)
                 * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue)
                 * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence](#delete-apiprojectsproject-idbucketsbucket-namegeofence)
-                * [GET /api/projects/{project-id}/buckets/{bucket-name}/geofence](#get-apiprojectsproject-idbucketsbucket-namegeofence)
         * [APIKey Management](#apikey-management)
             * [DELETE /api/apikeys/{apikey}](#delete-apiapikeysapikey)
 
@@ -288,6 +288,10 @@ Updates bucket limit for a project.
 
 This set of APIs provide administrative functionality over bucket functionality.
 
+#### GET /api/projects/{project-id}/buckets/{bucket-name}
+
+Returns all the information of the specified bucket.
+
 #### Geofencing
 
 Manage geofencing capabilities for a given bucket.
@@ -309,10 +313,6 @@ values for the `region` parameter are:
 ##### DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence
 
 Removes the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work.
-
-##### GET /api/projects/{project-id}/buckets/{bucket-name}/geofence
-
-Pulls the current geofence configuration for the specified bucket.
 
 ### APIKey Management
 

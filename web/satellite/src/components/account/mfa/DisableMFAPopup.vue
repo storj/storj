@@ -6,7 +6,7 @@
         <div class="disable-mfa__container">
             <h1 class="disable-mfa__container__title">Two-Factor Authentication</h1>
             <p class="disable-mfa__container__subtitle">
-                Scan this QR code in your favorite TOTP app to get started.
+                Enter code from your favorite TOTP app to disable 2FA.
             </p>
             <div class="disable-mfa__container__confirm">
                 <h2 class="disable-mfa__container__confirm__title">Confirm Authentication Code</h2>

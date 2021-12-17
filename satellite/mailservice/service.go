@@ -55,7 +55,7 @@ type Message interface {
 // architecture: Service
 type Service struct {
 	log    *zap.Logger
-	sender Sender
+	Sender Sender
 
 	html *htmltemplate.Template
 	// TODO(yar): prepare plain text version
@@ -67,7 +67,7 @@ type Service struct {
 // New creates new service.
 func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) {
 	var err error
-	service := &Service{log: log, sender: sender}
+	service := &Service{log: log, Sender: sender}
 
 	// TODO(yar): prepare plain text version
 	// service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
@@ -92,7 +92,7 @@ func (service *Service) Close() error {
 // Send is generalized method for sending custom email message.
 func (service *Service) Send(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.sender.SendEmail(ctx, msg)
+	return service.Sender.SendEmail(ctx, msg)
 }
 
 // SendRenderedAsync renders content from htmltemplate and texttemplate templates then sends it asynchronously.
@@ -140,7 +140,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	}
 
 	m := &post.Message{
-		From:      service.sender.FromAddress(),
+		From:      service.Sender.FromAddress(),
 		To:        to,
 		Subject:   msg.Subject(),
 		PlainText: textBuffer.String(),
@@ -152,5 +152,5 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 		},
 	}
 
-	return service.sender.SendEmail(ctx, m)
+	return service.Sender.SendEmail(ctx, m)
 }

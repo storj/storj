@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/private/version"
+	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/storagenode"
@@ -92,9 +94,38 @@ var (
 		RunE:  cmdIssue,
 	}
 
-	runCfg       StorageNodeFlags
-	setupCfg     StorageNodeFlags
-	diagCfg      storagenode.Config
+	nodeInfoCmd = &cobra.Command{
+		Use:   "info",
+		Short: "Print storage node info",
+		Long: `Print storage node info.
+
+--json should be specified to print output in JSON format.
+It is expected that the JSON output will mostly be piped to 'multinode add -'.
+
+WARNING: The output includes the api secret of the storagenode.
+`,
+		RunE: cmdInfo,
+		Example: `
+#=> print node info
+$ storagenode info --config-dir '<path/to/config-dir>' --identity-dir '<path/to/identity-dir>'
+
+#=> print output in JSON format
+$ storagenode info --json --config-dir '<path/to/config-dir>' --identity-dir '<path/to/identity-dir>'
+
+#=> add node to multinode dashboard
+$ storagenode info --json --config-dir '<path/to/config-dir>' --identity-dir '<path/to/identity-dir>' | multinode add -
+`,
+		Args: cobra.ExactArgs(0),
+	}
+
+	runCfg      StorageNodeFlags
+	setupCfg    StorageNodeFlags
+	diagCfg     storagenode.Config
+	nodeInfoCfg struct {
+		storagenode.Config
+
+		JSON bool `default:"false" help:"print node info in JSON format"`
+	}
 	dashboardCfg struct {
 		Address string `default:"127.0.0.1:7778" help:"address for dashboard service"`
 	}
@@ -126,6 +157,7 @@ func init() {
 	rootCmd.AddCommand(gracefulExitInitCmd)
 	rootCmd.AddCommand(gracefulExitStatusCmd)
 	rootCmd.AddCommand(issueAPITokenCmd)
+	rootCmd.AddCommand(nodeInfoCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
@@ -134,6 +166,7 @@ func init() {
 	process.Bind(gracefulExitInitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(issueAPITokenCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(nodeInfoCmd, &nodeInfoCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -322,6 +355,59 @@ func cmdIssue(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println(apiKey.Secret.String())
 
 	return
+}
+
+func cmdInfo(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	// TODO(clement): add support for getting info for all available storagenodes
+
+	identity, err := nodeInfoCfg.Identity.Load()
+	if err != nil {
+		zap.L().Fatal("Failed to load identity.", zap.Error(err))
+	} else {
+		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", identity.ID))
+	}
+
+	db, err := storagenodedb.OpenExisting(ctx, zap.L().Named("db"), nodeInfoCfg.DatabaseConfig())
+	if err != nil {
+		return errs.New("error starting master database on storage node: %v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	service := apikeys.NewService(db.APIKeys())
+
+	apiKey, err := service.Issue(ctx)
+	if err != nil {
+		return errs.New("error while trying to issue new api key: %v", err)
+	}
+
+	if nodeInfoCfg.JSON {
+
+		node := nodes.Node{
+			ID:            identity.ID,
+			APISecret:     apiKey.Secret[:],
+			PublicAddress: nodeInfoCfg.Server.Address,
+		}
+
+		data, err := json.Marshal(node)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(data))
+		return nil
+	}
+
+	fmt.Printf(`
+ID: %s
+API Secret: %s
+Public Address: %s
+`, identity.ID, apiKey.Secret, nodeInfoCfg.Server.Address)
+
+	return nil
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {

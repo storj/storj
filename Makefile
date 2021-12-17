@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.17.1
+GO_VERSION ?= 1.17.5
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -178,8 +178,8 @@ multinode-console:
 
 .PHONY: satellite-admin-ui
 satellite-admin-ui:
-	# build web assets
-	rm -rf satellite/admin/ui/public/build
+	# remove the file that keep the assets directory for not breaking in development due to the `go:embed` directive
+	rm -rf satellite/admin/ui/assets/.gitignore
 	# install npm dependencies for being embedded by Go embed.
 	docker run --rm -i \
 		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
@@ -187,7 +187,7 @@ satellite-admin-ui:
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
 		node:16.11.1 \
-	  /bin/bash -c "npm ci && npm run build"
+	  /bin/bash -c "npm ci && npm run build && cp build/* assets"
 
 .PHONY: satellite-wasm
 satellite-wasm:

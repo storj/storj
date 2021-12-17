@@ -291,6 +291,7 @@ model user (
     field project_limit            int       ( updatable, default 0 )
     field project_bandwidth_limit  int64     ( updatable, default 0 )
     field project_storage_limit    int64     ( updatable, default 0 )
+    field project_segment_limit    int64     ( updatable, default 0 )
     field paid_tier                bool      ( updatable, default false )
 
     field position           text      ( updatable, nullable )
@@ -331,7 +332,7 @@ read one (
 )
 
 read one (
-    select user.project_storage_limit user.project_bandwidth_limit
+    select user.project_storage_limit user.project_bandwidth_limit user.project_segment_limit
     where user.id = ?
 )
 
@@ -344,6 +345,7 @@ model project (
     field description     text      ( updatable )
     field usage_limit     int64     ( nullable, updatable )
     field bandwidth_limit int64     ( nullable, updatable )
+    field segment_limit   int64     ( nullable, updatable, default 1000000)
     field rate_limit      int       ( nullable, updatable )
     field burst_limit     int       ( nullable, updatable )
     field max_buckets     int       ( nullable, updatable )
@@ -371,11 +373,15 @@ read one (
     where  project.id = ?
 )
 read one (
+    select project.segment_limit
+    where  project.id = ?
+)
+read one (
     select project.max_buckets
     where project.id = ?
 )
 read one (
-    select project.bandwidth_limit project.usage_limit
+    select project.bandwidth_limit project.usage_limit project.segment_limit
     where  project.id = ?
 )
 

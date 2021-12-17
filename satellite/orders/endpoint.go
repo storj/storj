@@ -315,7 +315,13 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 			continue
 		}
 
-		if bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero() {
+		satelliteAction := orderLimit.Action == pb.PieceAction_GET_AUDIT ||
+			orderLimit.Action == pb.PieceAction_GET_REPAIR ||
+			orderLimit.Action == pb.PieceAction_PUT_REPAIR
+
+		// log error only for orders created by users, for satellite actions order limits are created
+		// without bucket name and project ID because segments loop doesn't have access to it
+		if !satelliteAction && (bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero()) {
 			log.Info("decrypt order: bucketName or projectID not set",
 				zap.String("bucketName", bucketInfo.BucketName),
 				zap.String("projectID", bucketInfo.ProjectID.String()),

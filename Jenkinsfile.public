@@ -120,7 +120,7 @@ pipeline {
                         dir('satellite/admin/ui') {
                             sh 'npm ci --prefer-offline --no-audit'
                             sh 'npm run build'
-                            sh 'rm -rf public/build' // Remove the build directory for avoiding linting those files.
+                            sh 'rm -rf build .svelte-kit' // Remove these directories for avoiding linting their files.
                         }
                     }
                 }
@@ -153,6 +153,11 @@ pipeline {
                             sh 'staticcheck ./...'
                             sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
                             sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
+                        }
+
+                        dir("satellite/admin/ui") {
+                            sh 'npm run check'
+                            sh 'npm run lint'
                         }
                      }
                 }
@@ -352,7 +357,6 @@ pipeline {
                 stage('satellite/admin/ui') {
                     steps {
                         dir("satellite/admin/ui") {
-                            sh 'npm run validate'
                             sh script: 'npm audit', returnStatus: true
                         }
                     }

@@ -26,7 +26,7 @@ import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
-//go:embed ui/public
+//go:embed ui/assets/*
 var ui embed.FS
 
 // Config defines configuration for debug server.
@@ -101,15 +101,15 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	api.HandleFunc("/projects/{project}/apikeys", server.listAPIKeys).Methods("GET")
 	api.HandleFunc("/projects/{project}/apikeys", server.addAPIKey).Methods("POST")
 	api.HandleFunc("/projects/{project}/apikeys/{name}", server.deleteAPIKeyByName).Methods("DELETE")
+	api.HandleFunc("/projects/{project}/buckets/{bucket}", server.getBucketInfo).Methods("GET")
 	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.createGeofenceForBucket).Methods("POST")
 	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.deleteGeofenceForBucket).Methods("DELETE")
-	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.checkGeofenceForBucket).Methods("GET")
 	api.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
 
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.
 	if config.StaticDir == "" {
-		uiAssets, err := fs.Sub(ui, "ui/public")
+		uiAssets, err := fs.Sub(ui, "ui/assets")
 		if err != nil {
 			log.Error("invalid embbeded static assets directory, the Admin UI is not enabled")
 		} else {

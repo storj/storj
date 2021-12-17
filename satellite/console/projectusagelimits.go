@@ -11,10 +11,13 @@ type ProjectUsageLimits struct {
 	BandwidthLimit int64 `json:"bandwidthLimit"`
 	StorageUsed    int64 `json:"storageUsed"`
 	BandwidthUsed  int64 `json:"bandwidthUsed"`
+	ObjectCount    int64 `json:"objectCount"`
+	SegmentCount   int64 `json:"segmentCount"`
 }
 
-// UserProjectLimits holds a users storage and bandwidth limits for new projects.
+// UserProjectLimits holds a users storage, bandwidth, and segment limits for new projects.
 type UserProjectLimits struct {
 	BandwidthLimit memory.Size `json:"bandwidthLimit"`
 	StorageLimit   memory.Size `json:"storageUsed"`
+	SegmentLimit   int64       `json:"segmentLimit"`
 }
