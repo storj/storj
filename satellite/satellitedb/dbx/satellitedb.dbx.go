@@ -492,6 +492,29 @@ CREATE TABLE oauth_clients (
 	app_logo_url text NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE oauth_codes (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope text NOT NULL,
+	redirect_url text NOT NULL,
+	challenge text NOT NULL,
+	challenge_method text NOT NULL,
+	code text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	claimed_at timestamp with time zone,
+	PRIMARY KEY ( code )
+);
+CREATE TABLE oauth_tokens (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope text NOT NULL,
+	kind integer NOT NULL,
+	token bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( token )
+);
 CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
@@ -808,6 +831,10 @@ CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualifi
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
+CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
+CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
+CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
+CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
@@ -1087,6 +1114,29 @@ CREATE TABLE oauth_clients (
 	app_logo_url text NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE oauth_codes (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope text NOT NULL,
+	redirect_url text NOT NULL,
+	challenge text NOT NULL,
+	challenge_method text NOT NULL,
+	code text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	claimed_at timestamp with time zone,
+	PRIMARY KEY ( code )
+);
+CREATE TABLE oauth_tokens (
+	client_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	scope text NOT NULL,
+	kind integer NOT NULL,
+	token bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( token )
+);
 CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
@@ -1403,6 +1453,10 @@ CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualifi
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
+CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
+CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
+CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
+CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
@@ -4565,6 +4619,380 @@ func (f OauthClient_AppLogoUrl_Field) value() interface{} {
 }
 
 func (OauthClient_AppLogoUrl_Field) _Column() string { return "app_logo_url" }
+
+type OauthCode struct {
+	ClientId        []byte
+	UserId          []byte
+	Scope           string
+	RedirectUrl     string
+	Challenge       string
+	ChallengeMethod string
+	Code            string
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	ClaimedAt       *time.Time
+}
+
+func (OauthCode) _Table() string { return "oauth_codes" }
+
+type OauthCode_Create_Fields struct {
+	ClaimedAt OauthCode_ClaimedAt_Field
+}
+
+type OauthCode_Update_Fields struct {
+	ClaimedAt OauthCode_ClaimedAt_Field
+}
+
+type OauthCode_ClientId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func OauthCode_ClientId(v []byte) OauthCode_ClientId_Field {
+	return OauthCode_ClientId_Field{_set: true, _value: v}
+}
+
+func (f OauthCode_ClientId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_ClientId_Field) _Column() string { return "client_id" }
+
+type OauthCode_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func OauthCode_UserId(v []byte) OauthCode_UserId_Field {
+	return OauthCode_UserId_Field{_set: true, _value: v}
+}
+
+func (f OauthCode_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_UserId_Field) _Column() string { return "user_id" }
+
+type OauthCode_Scope_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OauthCode_Scope(v string) OauthCode_Scope_Field {
+	return OauthCode_Scope_Field{_set: true, _value: v}
+}
+
+func (f OauthCode_Scope_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_Scope_Field) _Column() string { return "scope" }
+
+type OauthCode_RedirectUrl_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OauthCode_RedirectUrl(v string) OauthCode_RedirectUrl_Field {
+	return OauthCode_RedirectUrl_Field{_set: true, _value: v}
+}
+
+func (f OauthCode_RedirectUrl_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_RedirectUrl_Field) _Column() string { return "redirect_url" }
+
+type OauthCode_Challenge_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OauthCode_Challenge(v string) OauthCode_Challenge_Field {
+	return OauthCode_Challenge_Field{_set: true, _value: v}
+}
+
+func (f OauthCode_Challenge_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_Challenge_Field) _Column() string { return "challenge" }
+
+type OauthCode_ChallengeMethod_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OauthCode_ChallengeMethod(v string) OauthCode_ChallengeMethod_Field {
+	return OauthCode_ChallengeMethod_Field{_set: true, _value: v}
+}
+
+func (f OauthCode_ChallengeMethod_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_ChallengeMethod_Field) _Column() string { return "challenge_method" }
+
+type OauthCode_Code_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OauthCode_Code(v string) OauthCode_Code_Field {
+	return OauthCode_Code_Field{_set: true, _value: v}
+}
+
+func (f OauthCode_Code_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_Code_Field) _Column() string { return "code" }
+
+type OauthCode_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func OauthCode_CreatedAt(v time.Time) OauthCode_CreatedAt_Field {
+	return OauthCode_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f OauthCode_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_CreatedAt_Field) _Column() string { return "created_at" }
+
+type OauthCode_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func OauthCode_ExpiresAt(v time.Time) OauthCode_ExpiresAt_Field {
+	return OauthCode_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f OauthCode_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type OauthCode_ClaimedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func OauthCode_ClaimedAt(v time.Time) OauthCode_ClaimedAt_Field {
+	return OauthCode_ClaimedAt_Field{_set: true, _value: &v}
+}
+
+func OauthCode_ClaimedAt_Raw(v *time.Time) OauthCode_ClaimedAt_Field {
+	if v == nil {
+		return OauthCode_ClaimedAt_Null()
+	}
+	return OauthCode_ClaimedAt(*v)
+}
+
+func OauthCode_ClaimedAt_Null() OauthCode_ClaimedAt_Field {
+	return OauthCode_ClaimedAt_Field{_set: true, _null: true}
+}
+
+func (f OauthCode_ClaimedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f OauthCode_ClaimedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthCode_ClaimedAt_Field) _Column() string { return "claimed_at" }
+
+type OauthToken struct {
+	ClientId  []byte
+	UserId    []byte
+	Scope     string
+	Kind      int
+	Token     []byte
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+func (OauthToken) _Table() string { return "oauth_tokens" }
+
+type OauthToken_Update_Fields struct {
+}
+
+type OauthToken_ClientId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func OauthToken_ClientId(v []byte) OauthToken_ClientId_Field {
+	return OauthToken_ClientId_Field{_set: true, _value: v}
+}
+
+func (f OauthToken_ClientId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthToken_ClientId_Field) _Column() string { return "client_id" }
+
+type OauthToken_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func OauthToken_UserId(v []byte) OauthToken_UserId_Field {
+	return OauthToken_UserId_Field{_set: true, _value: v}
+}
+
+func (f OauthToken_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthToken_UserId_Field) _Column() string { return "user_id" }
+
+type OauthToken_Scope_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func OauthToken_Scope(v string) OauthToken_Scope_Field {
+	return OauthToken_Scope_Field{_set: true, _value: v}
+}
+
+func (f OauthToken_Scope_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthToken_Scope_Field) _Column() string { return "scope" }
+
+type OauthToken_Kind_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func OauthToken_Kind(v int) OauthToken_Kind_Field {
+	return OauthToken_Kind_Field{_set: true, _value: v}
+}
+
+func (f OauthToken_Kind_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthToken_Kind_Field) _Column() string { return "kind" }
+
+type OauthToken_Token_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func OauthToken_Token(v []byte) OauthToken_Token_Field {
+	return OauthToken_Token_Field{_set: true, _value: v}
+}
+
+func (f OauthToken_Token_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthToken_Token_Field) _Column() string { return "token" }
+
+type OauthToken_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func OauthToken_CreatedAt(v time.Time) OauthToken_CreatedAt_Field {
+	return OauthToken_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f OauthToken_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthToken_CreatedAt_Field) _Column() string { return "created_at" }
+
+type OauthToken_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func OauthToken_ExpiresAt(v time.Time) OauthToken_ExpiresAt_Field {
+	return OauthToken_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f OauthToken_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (OauthToken_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type Offer struct {
 	Id                        int
@@ -11463,6 +11891,82 @@ func (obj *pgxImpl) Create_OauthClient(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_OauthCode(ctx context.Context,
+	oauth_code_client_id OauthCode_ClientId_Field,
+	oauth_code_user_id OauthCode_UserId_Field,
+	oauth_code_scope OauthCode_Scope_Field,
+	oauth_code_redirect_url OauthCode_RedirectUrl_Field,
+	oauth_code_challenge OauthCode_Challenge_Field,
+	oauth_code_challenge_method OauthCode_ChallengeMethod_Field,
+	oauth_code_code OauthCode_Code_Field,
+	oauth_code_created_at OauthCode_CreatedAt_Field,
+	oauth_code_expires_at OauthCode_ExpiresAt_Field,
+	optional OauthCode_Create_Fields) (
+	oauth_code *OauthCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__client_id_val := oauth_code_client_id.value()
+	__user_id_val := oauth_code_user_id.value()
+	__scope_val := oauth_code_scope.value()
+	__redirect_url_val := oauth_code_redirect_url.value()
+	__challenge_val := oauth_code_challenge.value()
+	__challenge_method_val := oauth_code_challenge_method.value()
+	__code_val := oauth_code_code.value()
+	__created_at_val := oauth_code_created_at.value()
+	__expires_at_val := oauth_code_expires_at.value()
+	__claimed_at_val := optional.ClaimedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at")
+
+	var __values []interface{}
+	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __redirect_url_val, __challenge_val, __challenge_method_val, __code_val, __created_at_val, __expires_at_val, __claimed_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_code = &OauthCode{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_code.ClientId, &oauth_code.UserId, &oauth_code.Scope, &oauth_code.RedirectUrl, &oauth_code.Challenge, &oauth_code.ChallengeMethod, &oauth_code.Code, &oauth_code.CreatedAt, &oauth_code.ExpiresAt, &oauth_code.ClaimedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth_code, nil
+
+}
+
+func (obj *pgxImpl) Create_OauthToken(ctx context.Context,
+	oauth_token_client_id OauthToken_ClientId_Field,
+	oauth_token_user_id OauthToken_UserId_Field,
+	oauth_token_scope OauthToken_Scope_Field,
+	oauth_token_kind OauthToken_Kind_Field,
+	oauth_token_token OauthToken_Token_Field,
+	oauth_token_created_at OauthToken_CreatedAt_Field,
+	oauth_token_expires_at OauthToken_ExpiresAt_Field) (
+	oauth_token *OauthToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__client_id_val := oauth_token_client_id.value()
+	__user_id_val := oauth_token_user_id.value()
+	__scope_val := oauth_token_scope.value()
+	__kind_val := oauth_token_kind.value()
+	__token_val := oauth_token_token.value()
+	__created_at_val := oauth_token_created_at.value()
+	__expires_at_val := oauth_token_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at")
+
+	var __values []interface{}
+	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_token = &OauthToken{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_token.ClientId, &oauth_token.UserId, &oauth_token.Scope, &oauth_token.Kind, &oauth_token.Token, &oauth_token.CreatedAt, &oauth_token.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth_token, nil
+
+}
+
 func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -14120,6 +14624,51 @@ func (obj *pgxImpl) Get_OauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_OauthCode_By_Code(ctx context.Context,
+	oauth_code_code OauthCode_Code_Field) (
+	oauth_code *OauthCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_code_code.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_code = &OauthCode{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_code.ClientId, &oauth_code.UserId, &oauth_code.Scope, &oauth_code.RedirectUrl, &oauth_code.Challenge, &oauth_code.ChallengeMethod, &oauth_code.Code, &oauth_code.CreatedAt, &oauth_code.ExpiresAt, &oauth_code.ClaimedAt)
+	if err != nil {
+		return (*OauthCode)(nil), obj.makeErr(err)
+	}
+	return oauth_code, nil
+
+}
+
+func (obj *pgxImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
+	oauth_token_kind OauthToken_Kind_Field,
+	oauth_token_token OauthToken_Token_Field) (
+	oauth_token *OauthToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at FROM oauth_tokens WHERE oauth_tokens.kind = ? AND oauth_tokens.token = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_token_kind.value(), oauth_token_token.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_token = &OauthToken{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_token.ClientId, &oauth_token.UserId, &oauth_token.Scope, &oauth_token.Kind, &oauth_token.Token, &oauth_token.CreatedAt, &oauth_token.ExpiresAt)
+	if err != nil {
+		return (*OauthToken)(nil), obj.makeErr(err)
+	}
+	return oauth_token, nil
+
+}
+
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -15819,6 +16368,43 @@ func (obj *pgxImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *pgxImpl) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
+	oauth_code_code OauthCode_Code_Field,
+	update OauthCode_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_codes SET "), __sets, __sqlbundle_Literal(" WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ClaimedAt._set {
+		__values = append(__values, update.ClaimedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("claimed_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, oauth_code_code.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -16477,6 +17063,26 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM offers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_codes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17629,6 +18235,82 @@ func (obj *pgxcockroachImpl) Create_OauthClient(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return oauth_client, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_OauthCode(ctx context.Context,
+	oauth_code_client_id OauthCode_ClientId_Field,
+	oauth_code_user_id OauthCode_UserId_Field,
+	oauth_code_scope OauthCode_Scope_Field,
+	oauth_code_redirect_url OauthCode_RedirectUrl_Field,
+	oauth_code_challenge OauthCode_Challenge_Field,
+	oauth_code_challenge_method OauthCode_ChallengeMethod_Field,
+	oauth_code_code OauthCode_Code_Field,
+	oauth_code_created_at OauthCode_CreatedAt_Field,
+	oauth_code_expires_at OauthCode_ExpiresAt_Field,
+	optional OauthCode_Create_Fields) (
+	oauth_code *OauthCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__client_id_val := oauth_code_client_id.value()
+	__user_id_val := oauth_code_user_id.value()
+	__scope_val := oauth_code_scope.value()
+	__redirect_url_val := oauth_code_redirect_url.value()
+	__challenge_val := oauth_code_challenge.value()
+	__challenge_method_val := oauth_code_challenge_method.value()
+	__code_val := oauth_code_code.value()
+	__created_at_val := oauth_code_created_at.value()
+	__expires_at_val := oauth_code_expires_at.value()
+	__claimed_at_val := optional.ClaimedAt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at")
+
+	var __values []interface{}
+	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __redirect_url_val, __challenge_val, __challenge_method_val, __code_val, __created_at_val, __expires_at_val, __claimed_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_code = &OauthCode{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_code.ClientId, &oauth_code.UserId, &oauth_code.Scope, &oauth_code.RedirectUrl, &oauth_code.Challenge, &oauth_code.ChallengeMethod, &oauth_code.Code, &oauth_code.CreatedAt, &oauth_code.ExpiresAt, &oauth_code.ClaimedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth_code, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_OauthToken(ctx context.Context,
+	oauth_token_client_id OauthToken_ClientId_Field,
+	oauth_token_user_id OauthToken_UserId_Field,
+	oauth_token_scope OauthToken_Scope_Field,
+	oauth_token_kind OauthToken_Kind_Field,
+	oauth_token_token OauthToken_Token_Field,
+	oauth_token_created_at OauthToken_CreatedAt_Field,
+	oauth_token_expires_at OauthToken_ExpiresAt_Field) (
+	oauth_token *OauthToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__client_id_val := oauth_token_client_id.value()
+	__user_id_val := oauth_token_user_id.value()
+	__scope_val := oauth_token_scope.value()
+	__kind_val := oauth_token_kind.value()
+	__token_val := oauth_token_token.value()
+	__created_at_val := oauth_token_created_at.value()
+	__expires_at_val := oauth_token_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at")
+
+	var __values []interface{}
+	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_token = &OauthToken{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_token.ClientId, &oauth_token.UserId, &oauth_token.Scope, &oauth_token.Kind, &oauth_token.Token, &oauth_token.CreatedAt, &oauth_token.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return oauth_token, nil
 
 }
 
@@ -20289,6 +20971,51 @@ func (obj *pgxcockroachImpl) Get_OauthClient_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Get_OauthCode_By_Code(ctx context.Context,
+	oauth_code_code OauthCode_Code_Field) (
+	oauth_code *OauthCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_code_code.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_code = &OauthCode{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_code.ClientId, &oauth_code.UserId, &oauth_code.Scope, &oauth_code.RedirectUrl, &oauth_code.Challenge, &oauth_code.ChallengeMethod, &oauth_code.Code, &oauth_code.CreatedAt, &oauth_code.ExpiresAt, &oauth_code.ClaimedAt)
+	if err != nil {
+		return (*OauthCode)(nil), obj.makeErr(err)
+	}
+	return oauth_code, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
+	oauth_token_kind OauthToken_Kind_Field,
+	oauth_token_token OauthToken_Token_Field) (
+	oauth_token *OauthToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at FROM oauth_tokens WHERE oauth_tokens.kind = ? AND oauth_tokens.token = ?")
+
+	var __values []interface{}
+	__values = append(__values, oauth_token_kind.value(), oauth_token_token.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	oauth_token = &OauthToken{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_token.ClientId, &oauth_token.UserId, &oauth_token.Scope, &oauth_token.Kind, &oauth_token.Token, &oauth_token.CreatedAt, &oauth_token.ExpiresAt)
+	if err != nil {
+		return (*OauthToken)(nil), obj.makeErr(err)
+	}
+	return oauth_token, nil
+
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -21988,6 +22715,43 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthClient_By_Id(ctx context.Contex
 	return nil
 }
 
+func (obj *pgxcockroachImpl) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
+	oauth_code_code OauthCode_Code_Field,
+	update OauthCode_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_codes SET "), __sets, __sqlbundle_Literal(" WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ClaimedAt._set {
+		__values = append(__values, update.ClaimedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("claimed_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, oauth_code_code.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -22655,6 +23419,26 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_codes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM oauth_clients;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -23226,6 +24010,43 @@ func (rx *Rx) Create_OauthClient(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_OauthCode(ctx context.Context,
+	oauth_code_client_id OauthCode_ClientId_Field,
+	oauth_code_user_id OauthCode_UserId_Field,
+	oauth_code_scope OauthCode_Scope_Field,
+	oauth_code_redirect_url OauthCode_RedirectUrl_Field,
+	oauth_code_challenge OauthCode_Challenge_Field,
+	oauth_code_challenge_method OauthCode_ChallengeMethod_Field,
+	oauth_code_code OauthCode_Code_Field,
+	oauth_code_created_at OauthCode_CreatedAt_Field,
+	oauth_code_expires_at OauthCode_ExpiresAt_Field,
+	optional OauthCode_Create_Fields) (
+	oauth_code *OauthCode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_OauthCode(ctx, oauth_code_client_id, oauth_code_user_id, oauth_code_scope, oauth_code_redirect_url, oauth_code_challenge, oauth_code_challenge_method, oauth_code_code, oauth_code_created_at, oauth_code_expires_at, optional)
+
+}
+
+func (rx *Rx) Create_OauthToken(ctx context.Context,
+	oauth_token_client_id OauthToken_ClientId_Field,
+	oauth_token_user_id OauthToken_UserId_Field,
+	oauth_token_scope OauthToken_Scope_Field,
+	oauth_token_kind OauthToken_Kind_Field,
+	oauth_token_token OauthToken_Token_Field,
+	oauth_token_created_at OauthToken_CreatedAt_Field,
+	oauth_token_expires_at OauthToken_ExpiresAt_Field) (
+	oauth_token *OauthToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_OauthToken(ctx, oauth_token_client_id, oauth_token_user_id, oauth_token_scope, oauth_token_kind, oauth_token_token, oauth_token_created_at, oauth_token_expires_at)
+
+}
+
 func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -23673,6 +24494,27 @@ func (rx *Rx) Get_OauthClient_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_OauthClient_By_Id(ctx, oauth_client_id)
+}
+
+func (rx *Rx) Get_OauthCode_By_Code(ctx context.Context,
+	oauth_code_code OauthCode_Code_Field) (
+	oauth_code *OauthCode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_OauthCode_By_Code(ctx, oauth_code_code)
+}
+
+func (rx *Rx) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
+	oauth_token_kind OauthToken_Kind_Field,
+	oauth_token_token OauthToken_Token_Field) (
+	oauth_token *OauthToken, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_OauthToken_By_Kind_And_Token(ctx, oauth_token_kind, oauth_token_token)
 }
 
 func (rx *Rx) Get_PeerIdentity_By_NodeId(ctx context.Context,
@@ -24227,6 +25069,17 @@ func (rx *Rx) UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 	return tx.UpdateNoReturn_OauthClient_By_Id(ctx, oauth_client_id, update)
 }
 
+func (rx *Rx) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
+	oauth_code_code OauthCode_Code_Field,
+	update OauthCode_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx, oauth_code_code, update)
+}
+
 func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	update PeerIdentity_Update_Fields) (
@@ -24555,6 +25408,29 @@ type Methods interface {
 		oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
 		oauth_client *OauthClient, err error)
 
+	Create_OauthCode(ctx context.Context,
+		oauth_code_client_id OauthCode_ClientId_Field,
+		oauth_code_user_id OauthCode_UserId_Field,
+		oauth_code_scope OauthCode_Scope_Field,
+		oauth_code_redirect_url OauthCode_RedirectUrl_Field,
+		oauth_code_challenge OauthCode_Challenge_Field,
+		oauth_code_challenge_method OauthCode_ChallengeMethod_Field,
+		oauth_code_code OauthCode_Code_Field,
+		oauth_code_created_at OauthCode_CreatedAt_Field,
+		oauth_code_expires_at OauthCode_ExpiresAt_Field,
+		optional OauthCode_Create_Fields) (
+		oauth_code *OauthCode, err error)
+
+	Create_OauthToken(ctx context.Context,
+		oauth_token_client_id OauthToken_ClientId_Field,
+		oauth_token_user_id OauthToken_UserId_Field,
+		oauth_token_scope OauthToken_Scope_Field,
+		oauth_token_kind OauthToken_Kind_Field,
+		oauth_token_token OauthToken_Token_Field,
+		oauth_token_created_at OauthToken_CreatedAt_Field,
+		oauth_token_expires_at OauthToken_ExpiresAt_Field) (
+		oauth_token *OauthToken, err error)
+
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
 		project_name Project_Name_Field,
@@ -24755,6 +25631,15 @@ type Methods interface {
 	Get_OauthClient_By_Id(ctx context.Context,
 		oauth_client_id OauthClient_Id_Field) (
 		oauth_client *OauthClient, err error)
+
+	Get_OauthCode_By_Code(ctx context.Context,
+		oauth_code_code OauthCode_Code_Field) (
+		oauth_code *OauthCode, err error)
+
+	Get_OauthToken_By_Kind_And_Token(ctx context.Context,
+		oauth_token_kind OauthToken_Kind_Field,
+		oauth_token_token OauthToken_Token_Field) (
+		oauth_token *OauthToken, err error)
 
 	Get_PeerIdentity_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
@@ -25010,6 +25895,11 @@ type Methods interface {
 	UpdateNoReturn_OauthClient_By_Id(ctx context.Context,
 		oauth_client_id OauthClient_Id_Field,
 		update OauthClient_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
+		oauth_code_code OauthCode_Code_Field,
+		update OauthCode_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,

@@ -1760,6 +1760,40 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add oauth_codes and oauth_tokens table",
+				Version:     186,
+				Action: migrate.SQL{
+					`CREATE TABLE oauth_codes (
+						client_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						scope text NOT NULL,
+						redirect_url text NOT NULL,
+						challenge text NOT NULL,
+						challenge_method text NOT NULL,
+						code text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						claimed_at timestamp with time zone,
+						PRIMARY KEY ( code )
+					);`,
+					`CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;`,
+					`CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;`,
+					`CREATE TABLE oauth_tokens (
+						client_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						scope text NOT NULL,
+						kind integer NOT NULL,
+						token bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( token )
+					)`,
+					`CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;`,
+					`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;`,
+				},
+			},
 
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
