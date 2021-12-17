@@ -42,4 +42,28 @@ export class ChartUtils {
 
         return chartData;
     }
+
+    /**
+     * Used to display correct number of days on chart's labels.
+     */
+    public static daysDisplayedOnChart(from: Date, to: Date): string[] {
+        const since = new Date(from);
+        // Create an array of future displayed data points.
+        const arr = Array<string>();
+
+        // If there is only one day chosen in date picker then we fill array with only one data point label.
+        if (since.getTime() === to.getTime()) {
+            arr.push(`${since.getMonth() + 1}/${since.getDate()}`);
+
+            return arr;
+        }
+
+        // Fill the data points array with correct data points labels.
+        while (since <= to) {
+            arr.push(`${since.getMonth() + 1}/${since.getDate()}`);
+            since.setDate(since.getDate() + 1)
+        }
+
+        return arr;
+    }
 }

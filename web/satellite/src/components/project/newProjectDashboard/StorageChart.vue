@@ -3,7 +3,7 @@
 
 <template>
     <VChart
-        :id="`${name}-chart`"
+        id="storage-chart"
         :key="chartKey"
         :chart-data="chartData"
         :width="width"
@@ -18,40 +18,17 @@ import { Component, Prop } from 'vue-property-decorator';
 import BaseChart from '@/components/common/BaseChart.vue';
 import VChart from '@/components/common/VChart.vue';
 
-import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/types/chart';
+import { ChartData, Tooltip, TooltipParams, TooltipModel, ChartTooltipData } from '@/types/chart';
 import { DataStamp } from "@/types/projects";
-import { Size } from "@/utils/bytesSize";
-
-/**
- * Stores data for chart's tooltip
- */
-class ChartTooltip {
-    public date: string;
-    public value: string;
-
-    public constructor(storage: DataStamp) {
-        const size = new Size(storage.value, 1)
-
-        this.date = storage.intervalStart.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
-        this.value = `${size.formattedBytes} ${size.label}`;
-    }
-}
+import { ChartUtils } from "@/utils/chart";
 
 // @vue/component
 @Component({
     components: { VChart }
 })
-export default class DashboardChart extends BaseChart {
+export default class StorageChart extends BaseChart {
     @Prop({default: () => []})
     public readonly data: DataStamp[];
-    @Prop({default: 'chart'})
-    public readonly name: string;
-    @Prop({default: ''})
-    public readonly backgroundColor: string;
-    @Prop({default: ''})
-    public readonly borderColor: string;
-    @Prop({default: ''})
-    public readonly pointBorderColor: string;
     @Prop({default: new Date()})
     public readonly since: Date;
     @Prop({default: new Date()})
@@ -62,13 +39,13 @@ export default class DashboardChart extends BaseChart {
      */
     public get chartData(): ChartData {
         const data: number[] = this.data.map(el => el.value)
-        const xAxisDateLabels: string[] = this.daysDisplayedOnChart();
+        const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(this.since, this.before);
 
         return new ChartData(
             xAxisDateLabels,
-            this.backgroundColor,
-            this.borderColor,
-            this.pointBorderColor,
+            "#E6EDF7",
+            "#D7E8FF",
+            "#003DC1",
             data,
         );
     }
@@ -77,34 +54,10 @@ export default class DashboardChart extends BaseChart {
      * Used as constructor of custom tooltip.
      */
     public tooltip(tooltipModel: TooltipModel): void {
-        const tooltipParams = new TooltipParams(tooltipModel, `${this.name}-chart`, `${this.name}-tooltip`,
+        const tooltipParams = new TooltipParams(tooltipModel, 'storage-chart', 'storage-tooltip',
             this.tooltipMarkUp(tooltipModel), 76, 81);
 
         Tooltip.custom(tooltipParams);
-    }
-
-    /**
-     * Used to display correct number of data points on chart.
-     */
-    public daysDisplayedOnChart(): string[] {
-        const since = new Date(this.since);
-        // Create an array of future displayed data points.
-        const arr = Array<string>();
-
-        // If there is only one day chosen in date picker then we fill array with only one data point label.
-        if (since.getTime() === this.before.getTime()) {
-            arr.push(`${since.getMonth() + 1}/${since.getDate()}`);
-
-            return arr;
-        }
-
-        // Fill the data points array with correct data points labels.
-        while (since <= this.before) {
-            arr.push(`${since.getMonth() + 1}/${since.getDate()}`);
-            since.setDate(since.getDate() + 1)
-        }
-
-        return arr;
     }
 
     /**
@@ -116,11 +69,11 @@ export default class DashboardChart extends BaseChart {
         }
 
         const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new ChartTooltip(this.data[dataIndex]);
+        const dataPoint = new ChartTooltipData(this.data[dataIndex]);
 
-        return `<div class='tooltip' style="background: ${this.pointBorderColor}">
+        return `<div class='tooltip'>
                     <p class='tooltip__value'>${dataPoint.date}<b class='tooltip__value__bold'> / ${dataPoint.value}</b></p>
-                    <div class='tooltip__arrow' style="background: ${this.pointBorderColor}" />
+                    <div class='tooltip__arrow' />
                 </div>`;
     }
 }
@@ -138,6 +91,7 @@ export default class DashboardChart extends BaseChart {
         display: flex;
         flex-direction: column;
         align-items: center;
+        background-color: #003dc1;
 
         &__value {
             font-size: 14px;
@@ -157,6 +111,7 @@ export default class DashboardChart extends BaseChart {
             border-radius: 8px 0 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
             margin-bottom: -4px;
+            background-color: #003dc1;
         }
     }
 </style>

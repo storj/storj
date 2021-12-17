@@ -17,7 +17,7 @@
         </div>
         <hr class="duration-picker__break">
         <div class="duration-picker__wrapper">
-            <VDateRangePicker :on-date-pick="onCustomRangePick" is-open="true" />
+            <VDateRangePicker :on-date-pick="onCustomRangePick" :is-open="true" />
         </div>
     </div>
 </template>

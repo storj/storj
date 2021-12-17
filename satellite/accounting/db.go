@@ -93,8 +93,9 @@ type ProjectLimits struct {
 
 // ProjectDailyUsage holds project daily usage.
 type ProjectDailyUsage struct {
-	StorageUsage   []ProjectUsageByDay `json:"storageUsage"`
-	BandwidthUsage []ProjectUsageByDay `json:"bandwidthUsage"`
+	StorageUsage            []ProjectUsageByDay `json:"storageUsage"`
+	AllocatedBandwidthUsage []ProjectUsageByDay `json:"allocatedBandwidthUsage"`
+	SettledBandwidthUsage   []ProjectUsageByDay `json:"settledBandwidthUsage"`
 }
 
 // ProjectUsageByDay holds project daily usage.
@@ -208,7 +209,7 @@ type ProjectAccounting interface {
 	GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, int64, int64, error)
 	// DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time
 	DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) error
-	// GetProjectDailyUsageByDateRange returns daily allocated bandwidth and storage usage for the specified date range.
+	// GetProjectDailyUsageByDateRange returns daily allocated, settled bandwidth and storage usage for the specified date range.
 	GetProjectDailyUsageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time, crdbInterval time.Duration) (*ProjectDailyUsage, error)
 
 	// UpdateProjectUsageLimit updates project usage limit.

@@ -51,7 +51,8 @@ func Test_DailyUsage(t *testing.T) {
 
 			usage0, err := satelliteSys.DB.ProjectAccounting().GetProjectDailyUsageByDateRange(ctx, projectID, now, inFiveMinutes, 0)
 			require.NoError(t, err)
-			require.Zero(t, len(usage0.BandwidthUsage))
+			require.Zero(t, len(usage0.AllocatedBandwidthUsage))
+			require.Zero(t, len(usage0.SettledBandwidthUsage))
 			require.Zero(t, len(usage0.StorageUsage))
 
 			firstSegment := testrand.Bytes(5 * memory.KiB)
@@ -75,7 +76,8 @@ func Test_DailyUsage(t *testing.T) {
 			usage1, err := satelliteSys.DB.ProjectAccounting().GetProjectDailyUsageByDateRange(ctx, projectID, now, inFiveMinutes, 0)
 			require.NoError(t, err)
 			require.GreaterOrEqual(t, usage1.StorageUsage[0].Value, 15*memory.KiB)
-			require.GreaterOrEqual(t, usage1.BandwidthUsage[0].Value, 5*memory.KiB)
+			require.GreaterOrEqual(t, usage1.AllocatedBandwidthUsage[0].Value, 5*memory.KiB)
+			require.GreaterOrEqual(t, usage1.SettledBandwidthUsage[0].Value, 5*memory.KiB)
 		},
 	)
 }

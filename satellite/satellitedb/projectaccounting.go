@@ -201,7 +201,7 @@ func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, proje
 	return allocated, settled, dead, err
 }
 
-// GetProjectDailyUsageByDateRange returns project daily allocated bandwidth and storage usage by specific date range.
+// GetProjectDailyUsageByDateRange returns project daily allocated, settled bandwidth and storage usage by specific date range.
 func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time, crdbInterval time.Duration) (_ *accounting.ProjectDailyUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -209,13 +209,14 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 	endOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, time.UTC)
 
 	allocatedBandwidth := make([]accounting.ProjectUsageByDay, 0)
+	settledBandwidth := make([]accounting.ProjectUsageByDay, 0)
 	storage := make([]accounting.ProjectUsageByDay, 0)
 
 	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
 		var batch pgx.Batch
 
 		batch.Queue(db.db.Rebind(`
-			SELECT interval_day, COALESCE(egress_allocated, 0)
+			SELECT interval_day, egress_allocated, egress_settled
 			FROM project_bandwidth_daily_rollups
 			WHERE project_id = $1 AND (interval_day BETWEEN $2 AND $3)
 		`), projectID, from, endOfDay)
@@ -255,45 +256,74 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 		results := conn.SendBatch(ctx, &batch)
 		defer func() { err = errs.Combine(err, results.Close()) }()
 
-		handleResult := func(results pgx.BatchResults, data *[]accounting.ProjectUsageByDay) error {
-			rows, err := results.Query()
+		bandwidthRows, err := results.Query()
+		if err != nil {
+			return err
+		}
+
+		for bandwidthRows.Next() {
+			var day time.Time
+			var allocated int64
+			var settled int64
+
+			err = bandwidthRows.Scan(&day, &allocated, &settled)
 			if err != nil {
 				return err
 			}
 
-			for rows.Next() {
-				var day time.Time
-				var amount int64
+			allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
+				Date:  day.UTC(),
+				Value: allocated,
+			})
 
-				err = rows.Scan(&day, &amount)
-				if err != nil {
-					return err
-				}
-
-				*data = append(*data, accounting.ProjectUsageByDay{
-					Date:  day,
-					Value: amount,
-				})
-			}
-
-			defer func() { rows.Close() }()
-
-			return rows.Err()
+			settledBandwidth = append(settledBandwidth, accounting.ProjectUsageByDay{
+				Date:  day.UTC(),
+				Value: settled,
+			})
 		}
 
-		var errlist errs.Group
-		errlist.Add(handleResult(results, &allocatedBandwidth))
-		errlist.Add(handleResult(results, &storage))
+		defer func() { bandwidthRows.Close() }()
+		err = bandwidthRows.Err()
+		if err != nil {
+			return err
+		}
 
-		return errlist.Err()
+		storageRows, err := results.Query()
+		if err != nil {
+			return err
+		}
+
+		for storageRows.Next() {
+			var day time.Time
+			var amount int64
+
+			err = storageRows.Scan(&day, &amount)
+			if err != nil {
+				return err
+			}
+
+			storage = append(storage, accounting.ProjectUsageByDay{
+				Date:  day.UTC(),
+				Value: amount,
+			})
+		}
+
+		defer func() { storageRows.Close() }()
+		err = storageRows.Err()
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 	if err != nil {
 		return nil, Error.New("unable to get project daily usage: %w", err)
 	}
 
 	return &accounting.ProjectDailyUsage{
-		StorageUsage:   storage,
-		BandwidthUsage: allocatedBandwidth,
+		StorageUsage:            storage,
+		AllocatedBandwidthUsage: allocatedBandwidth,
+		SettledBandwidthUsage:   settledBandwidth,
 	}, nil
 }
 

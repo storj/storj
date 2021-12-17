@@ -58,7 +58,8 @@ export class ProjectsState {
     public totalLimits: ProjectLimits = new ProjectLimits();
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
-    public bandwidthChartData: DataStamp[] = [];
+    public allocatedBandwidthChartData: DataStamp[] = [];
+    public settledBandwidthChartData: DataStamp[] = [];
     public storageChartData: DataStamp[] = [];
     public chartDataSince: Date = new Date();
     public chartDataBefore: Date = new Date();
@@ -181,7 +182,8 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 state.currentLimits = new ProjectLimits();
                 state.totalLimits = new ProjectLimits();
                 state.storageChartData = [];
-                state.bandwidthChartData = [];
+                state.allocatedBandwidthChartData = [];
+                state.settledBandwidthChartData = [];
                 state.chartDataSince = new Date();
                 state.chartDataBefore = new Date();
             },
@@ -193,7 +195,8 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 state.page = page;
             },
             [SET_DAILY_DATA](state: ProjectsState, payload: ProjectsStorageBandwidthDaily) {
-                state.bandwidthChartData = payload.bandwidth;
+                state.allocatedBandwidthChartData = payload.allocatedBandwidth;
+                state.settledBandwidthChartData = payload.settledBandwidth;
                 state.storageChartData = payload.storage;
             },
             [SET_CHARTS_DATE_RANGE](state: ProjectsState, payload: ProjectUsageDateRange) {
