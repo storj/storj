@@ -46,7 +46,6 @@ func (msg *Message) Bytes() (data []byte, err error) {
 	var body bytes.Buffer
 
 	// write headers
-	fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
 	fmt.Fprintf(&body, "Subject: %v\r\n", mime.QEncoding.Encode("utf-8", msg.Subject))
 	fmt.Fprintf(&body, "From: %s\r\n", &msg.From)
 	for _, to := range msg.To {
@@ -62,6 +61,7 @@ func (msg *Message) Bytes() (data []byte, err error) {
 	if msg.ID != "" {
 		fmt.Fprintf(&body, "Message-ID: <%v>\r\n", mime.QEncoding.Encode("utf-8", msg.ID))
 	}
+	fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
 
 	switch {
 	// multipart upload
