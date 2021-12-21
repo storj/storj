@@ -18,6 +18,28 @@
                 <p v-else class="title-area__info-container__info-item__content offline-status">Offline</p>
             </div>
             <div class="title-area-divider" />
+
+            <VInfo
+                v-if="info.quicEnabled"
+                :text="'QUIC is configured to use UDP port ' + info.configuredPort"
+            >
+                <div class="title-area__info-container__info-item">
+                    <p class="title-area__info-container__info-item__title">QUIC</p>
+                    <p class="title-area__info-container__info-item__content online-status">OK</p>
+                </div>
+            </VInfo>
+            <VInfo
+                v-if="!info.quicEnabled"
+                :text="'QUIC is misconfigured. You must forward port ' + info.configuredPort + ' for both TCP and UDP to enable QUIC.'"
+                bold-text="See https://docs.storj.io/node/dependencies/port-forwarding on how to do this."
+            >
+                <div class="title-area__info-container__info-item">
+                    <p class="title-area__info-container__info-item__title">QUIC</p>
+                    <p class="title-area__info-container__info-item__content offline-status">Misconfigured</p>
+                </div>
+            </VInfo>
+
+            <div class="title-area-divider" />
             <div class="title-area__info-container__info-item">
                 <p class="title-area__info-container__info-item__title">UPTIME</p>
                 <p class="title-area__info-container__info-item__content">{{ uptime }}</p>
@@ -77,14 +99,18 @@ class NodeInfo {
     public allowedVersion: string;
     public wallet: string;
     public isLastVersion: boolean;
+    public quicEnabled: boolean
+    public configuredPort: string
 
-    public constructor(id: string, status: string, version: string, allowedVersion: string, wallet: string, isLastVersion: boolean) {
+    public constructor(id: string, status: string, version: string, allowedVersion: string, wallet: string, isLastVersion: boolean, quicEnabled: boolean, port: string) {
         this.id = id;
         this.status = status;
         this.version = this.toVersionString(version);
         this.allowedVersion = this.toVersionString(allowedVersion);
         this.wallet = wallet;
         this.isLastVersion = isLastVersion;
+        this.quicEnabled = quicEnabled
+        this.configuredPort = port
     }
 
     private toVersionString(version: string): string {
@@ -116,7 +142,7 @@ export default class SNOContentTitle extends Vue {
         const nodeInfo = this.$store.state.node.info;
 
         return new NodeInfo(nodeInfo.id, nodeInfo.status, nodeInfo.version, nodeInfo.allowedVersion, nodeInfo.wallet,
-            nodeInfo.isLastVersion);
+            nodeInfo.isLastVersion, nodeInfo.quicEnabled, nodeInfo.configuredPort);
     }
 
     public get online(): boolean {
