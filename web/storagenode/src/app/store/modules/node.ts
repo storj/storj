@@ -61,6 +61,8 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                     nodeInfo.wallet,
                     nodeInfo.walletFeatures,
                     nodeInfo.isUpToDate,
+                    nodeInfo.quicEnabled,
+                    nodeInfo.configuredPort
                 );
 
                 state.utilization = new Utilization(
