@@ -208,6 +208,7 @@ func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.U
 
 func (s *Service) getAuthAndAuditLog(ctx context.Context, operation string, extra ...zap.Field) (Authorization, error) {
 	auth, err := GetAuth(ctx)
+    fmt.Println("aITH:", auth)
 	if err != nil {
 		sourceIP, forwardedForIP := getRequestingIP(ctx)
 		s.auditLogger.Info("console activity unauthorized",
@@ -955,6 +956,21 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		Email:        auth.User.Email,
 		PasswordHash: nil,
 		Status:       auth.User.Status,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// UpdateAccount updates User.
+func (s *Service) UpdateEmailVerificationReminder(ctx context.Context) (err error) {
+    fmt.Println("HIT UPDATE", time.Now())
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.Users().Update(ctx, &User{
+        LastVerificationReminder: time.Now(),
 	})
 	if err != nil {
 		return Error.Wrap(err)

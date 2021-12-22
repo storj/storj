@@ -6,6 +6,7 @@ package consoleapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -122,6 +123,7 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 // Register creates new user, sends activation e-mail.
 // If a user with the given e-mail address already exists, a password reset e-mail is sent instead.
 func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("HIT::")
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -208,6 +210,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		userID = verified.ID
 		return
 	}
+	fmt.Println("CREATE USER::")
 
 	var user *console.User
 	if len(unverified) > 0 {
@@ -304,6 +307,10 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			UserName:       userName,
 		},
 	)
+	fmt.Println("CREATE USER", user)
+	if err = a.service.UpdateEmailVerificationReminder(ctx); err != nil {
+		a.serveJSONError(w, err)
+	}
 }
 
 // loadSession looks for a cookie for the session id.

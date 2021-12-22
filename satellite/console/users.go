@@ -157,4 +157,6 @@ type User struct {
 	MFARecoveryCodes []string `json:"mfaRecoveryCodes"`
 
 	SignupPromoCode string `json:"signupPromoCode"`
+
+	LastVerificationReminder time.Time `json:"lastVerificationReminder"`
 }
