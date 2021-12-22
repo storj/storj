@@ -6,6 +6,7 @@
         <div
             class="range-selection__toggle-container"
             :class="{ active: isOpen }"
+            aria-roledescription="datepicker-toggle"
             @click.stop="toggle"
         >
             <DatepickerIcon class="range-selection__toggle-container__icon" />

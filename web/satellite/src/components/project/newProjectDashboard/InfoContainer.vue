@@ -7,7 +7,7 @@
         <VLoader v-if="isDataFetching" height="40px" width="40px" />
         <template v-else>
             <p class="info-container__subtitle">{{ subtitle }}</p>
-            <p class="info-container__value">{{ value }}</p>
+            <p class="info-container__value" aria-roledescription="info-value">{{ value }}</p>
             <slot name="side-value" />
         </template>
     </div>

@@ -42,7 +42,7 @@ func navigateToBilling(t *testing.T, ctx *testcontext.Context, planet *testplane
 	waitVueTick(page)
 
 	// skip onboarding process
-	page.MustElement("[href=\"/project-dashboard\"]").MustClick()
+	page.MustElement("[href=\"/new-project-dashboard\"]").MustClick()
 	dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
 	require.Contains(t, dashboardTitle, "Dashboard")
 
