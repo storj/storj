@@ -259,7 +259,9 @@ A successful response body:
   },
   "rate": {
     "rps": 0
-  }
+  },
+  "maxBuckets": 1000,
+  "maxSegments": 1000000000
 }
 ```
 
@@ -282,7 +284,15 @@ Updates rate limit for a project.
 
 ##### POST /api/projects/{project-id}/limit?buckets={value}
 
-Updates bucket limit for a project.
+Updates number of buckets limit for a project.
+
+##### POST /api/projects/{project-id}/limit?burst={value}
+
+Updates burst limit for a project.
+
+##### POST /api/projects/{project-id}/limit?segments={value}
+
+Updates number of segments limit for a project.
 
 ### Bucket Management
 

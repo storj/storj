@@ -198,6 +198,7 @@ export class Admin {
 					bandwidth: number,
 					rate: number,
 					buckets: number,
+					burst: number,
 					segments: number
 				): Promise<null> => {
 					const query = this.urlQueryFromObject({
@@ -205,6 +206,7 @@ export class Admin {
 						bandwidth,
 						rate,
 						buckets,
+						burst,
 						segments
 					});
 
