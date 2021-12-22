@@ -569,26 +569,15 @@ func testFailedDataRepair(t *testing.T, inMemoryRepair bool) {
 			nodesReputationAfter[piece.StorageNode] = *info
 		}
 
-		// repair should update audit status
-		for _, piece := range availablePieces[1 : len(availablePieces)-1] {
+		// repair shouldn't update audit status
+		for _, piece := range availablePieces {
 			successfulNodeReputation := nodesReputation[piece.StorageNode]
 			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
-			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
-			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
-			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
-			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+			require.Equal(t, successfulNodeReputation.TotalAuditCount, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount, successfulNodeReputationAfter.AuditSuccessCount)
+			require.Equal(t, successfulNodeReputation.AuditReputationAlpha, successfulNodeReputationAfter.AuditReputationAlpha)
+			require.Equal(t, successfulNodeReputation.AuditReputationBeta, successfulNodeReputationAfter.AuditReputationBeta)
 		}
-
-		offlineNodeReputation := nodesReputation[offlinePiece.StorageNode]
-		offlineNodeReputationAfter := nodesReputationAfter[offlinePiece.StorageNode]
-		require.Equal(t, offlineNodeReputation.TotalAuditCount+1, offlineNodeReputationAfter.TotalAuditCount)
-		require.Equal(t, int32(0), offlineNodeReputationAfter.AuditHistory.Windows[0].OnlineCount)
-
-		badNodeReputation := nodesReputation[unknownPiece.StorageNode]
-		badNodeReputationAfter := nodesReputationAfter[unknownPiece.StorageNode]
-		require.Equal(t, badNodeReputation.TotalAuditCount+1, badNodeReputationAfter.TotalAuditCount)
-		require.True(t, badNodeReputation.UnknownAuditReputationBeta < badNodeReputationAfter.UnknownAuditReputationBeta)
-		require.True(t, badNodeReputation.UnknownAuditReputationAlpha >= badNodeReputationAfter.UnknownAuditReputationAlpha)
 
 		// repair should fail, so segment should contain all the original nodes
 		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
@@ -1077,21 +1066,15 @@ func testMissingPieceDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 			nodesReputationAfter[piece.StorageNode] = *info
 		}
 
-		// repair should update audit status
+		// repair shouldn't update audit status
 		for _, piece := range successful {
 			successfulNodeReputation := nodesReputation[piece.StorageNode]
 			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
-			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
-			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
-			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
-			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+			require.Equal(t, successfulNodeReputation.TotalAuditCount, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount, successfulNodeReputationAfter.AuditSuccessCount)
+			require.Equal(t, successfulNodeReputation.AuditReputationAlpha, successfulNodeReputationAfter.AuditReputationAlpha)
+			require.Equal(t, successfulNodeReputation.AuditReputationBeta, successfulNodeReputationAfter.AuditReputationBeta)
 		}
-
-		missingPieceNodeReputation := nodesReputation[missingPiece.StorageNode]
-		missingPieceNodeReputationAfter := nodesReputationAfter[missingPiece.StorageNode]
-		require.Equal(t, missingPieceNodeReputation.TotalAuditCount+1, missingPieceNodeReputationAfter.TotalAuditCount)
-		require.True(t, missingPieceNodeReputation.AuditReputationBeta < missingPieceNodeReputationAfter.AuditReputationBeta)
-		require.True(t, missingPieceNodeReputation.AuditReputationAlpha >= missingPieceNodeReputationAfter.AuditReputationAlpha)
 
 		// repair should fail, so segment should contain all the original nodes
 		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
@@ -1325,21 +1308,15 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 			nodesReputationAfter[piece.StorageNode] = *info
 		}
 
-		// repair should update audit status
+		// repair shouldn't update audit status
 		for _, piece := range successful {
 			successfulNodeReputation := nodesReputation[piece.StorageNode]
 			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
-			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
-			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
-			require.True(t, successfulNodeReputation.AuditReputationAlpha < successfulNodeReputationAfter.AuditReputationAlpha)
-			require.True(t, successfulNodeReputation.AuditReputationBeta >= successfulNodeReputationAfter.AuditReputationBeta)
+			require.Equal(t, successfulNodeReputation.TotalAuditCount, successfulNodeReputationAfter.TotalAuditCount)
+			require.Equal(t, successfulNodeReputation.AuditSuccessCount, successfulNodeReputationAfter.AuditSuccessCount)
+			require.Equal(t, successfulNodeReputation.AuditReputationAlpha, successfulNodeReputationAfter.AuditReputationAlpha)
+			require.Equal(t, successfulNodeReputation.AuditReputationBeta, successfulNodeReputationAfter.AuditReputationBeta)
 		}
-
-		corruptedNodeReputation := nodesReputation[corruptedPiece.StorageNode]
-		corruptedNodeReputationAfter := nodesReputationAfter[corruptedPiece.StorageNode]
-		require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, corruptedNodeReputationAfter.TotalAuditCount)
-		require.True(t, corruptedNodeReputation.AuditReputationBeta < corruptedNodeReputationAfter.AuditReputationBeta)
-		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= corruptedNodeReputationAfter.AuditReputationAlpha)
 
 		// repair should fail, so segment should contain all the original nodes
 		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
@@ -1349,13 +1326,13 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 	})
 }
 
-// TestRemoveExpiredSegmentFromQueue
+// TestRepairExpiredSegment
 // - Upload tests data to 7 nodes
 // - Kill nodes so that repair threshold > online nodes > minimum threshold
 // - Call checker to add segment to the repair queue
 // - Modify segment to be expired
 // - Run the repairer
-// - Verify segment is still in the repair queue. We don't want the data repairer to have any special treatment for expired segment.
+// - Verify segment is no longer in the repair queue.
 func TestRepairExpiredSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -1431,7 +1408,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		// Verify that the segment is still in the queue
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 1, count)
+		require.Equal(t, 0, count)
 	})
 }
 

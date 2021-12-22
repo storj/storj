@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
@@ -135,6 +136,10 @@ type Core struct {
 	Metrics struct {
 		Chore *metrics.Chore
 	}
+
+	Buckets struct {
+		Service *buckets.Service
+	}
 }
 
 // New creates a new satellite.
@@ -149,6 +154,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
+	}
+
+	{ // setup buckets service
+		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
 	}
 
 	{ // setup debug
@@ -230,7 +239,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Orders.DB = rollupsWriteCache
 		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
 		peer.Services.Add(lifecycle.Item{
-			Name:  "overlay",
+			Name:  "orders:chore",
 			Run:   peer.Orders.Chore.Run,
 			Close: peer.Orders.Chore.Close,
 		})
@@ -240,7 +249,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			peer.DB.Buckets(),
+			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {
@@ -455,12 +464,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.SegmentPrice,
+			pc.BonusRate)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

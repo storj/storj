@@ -214,23 +214,6 @@ func (step GetObjectLatestVersion) Check(ctx *testcontext.Context, t testing.TB,
 	require.Zero(t, diff)
 }
 
-// GetSegmentByLocation is for testing metabase.GetSegmentByLocation.
-type GetSegmentByLocation struct {
-	Opts     metabase.GetSegmentByLocation
-	Result   metabase.Segment
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step GetSegmentByLocation) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.GetSegmentByLocation(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
-	require.Zero(t, diff)
-}
-
 // GetSegmentByPosition is for testing metabase.GetSegmentByPosition.
 type GetSegmentByPosition struct {
 	Opts     metabase.GetSegmentByPosition
@@ -663,34 +646,6 @@ func (step ListNodeAliases) Check(ctx *testcontext.Context, t testing.TB, db *me
 	return result
 }
 
-// DeletePart is for testing metabase.DeletePart.
-type DeletePart struct {
-	Opts     metabase.DeletePart
-	Result   []metabase.DeletedSegmentInfo
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step DeletePart) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result := []metabase.DeletedSegmentInfo{}
-	step.Opts.DeletePieces = func(ctx context.Context, segment metabase.DeletedSegmentInfo) error {
-		result = append(result, segment)
-		return nil
-	}
-
-	err := db.DeletePart(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	if len(result) == 0 {
-		result = nil
-	}
-	sortDeletedSegments(step.Result)
-	sortDeletedSegments(result)
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
-	require.Zero(t, diff)
-}
-
 // GetTableStats is for testing metabase.GetTableStats.
 type GetTableStats struct {
 	Opts     metabase.GetTableStats
@@ -738,4 +693,19 @@ type FinishMoveObject struct {
 func (step FinishMoveObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.FinishMoveObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
+// GetProjectSegmentCount is for testing metabase.GetProjectSegmentCount.
+type GetProjectSegmentCount struct {
+	Opts     metabase.GetProjectSegmentCount
+	Result   int64
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetProjectSegmentCount) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetProjectSegmentCount(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+	require.Equal(t, step.Result, result)
 }

@@ -5,6 +5,7 @@ package consoleapi_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -58,7 +60,7 @@ func TestAuth_Register(t *testing.T) {
 					ShortName      string `json:"shortName"`
 					Email          string `json:"email"`
 					Partner        string `json:"partner"`
-					PartnerID      string `json:"partnerId"`
+					UserAgent      []byte `json:"userAgent"`
 					Password       string `json:"password"`
 					SecretInput    string `json:"secret"`
 					ReferrerUserID string `json:"referrerUserId"`
@@ -103,14 +105,7 @@ func TestAuth_Register(t *testing.T) {
 
 				user, err := planet.Satellites[0].API.Console.Service.GetUser(ctx, userID)
 				require.NoError(t, err)
-
-				if test.ValidPartner {
-					info, err := planet.Satellites[0].API.Marketing.PartnersService.ByName(ctx, test.Partner)
-					require.NoError(t, err)
-					require.Equal(t, info.UUID, user.PartnerID)
-				} else {
-					require.Equal(t, uuid.UUID{}, user.PartnerID)
-				}
+				require.Equal(t, []byte(test.Partner), user.UserAgent)
 			}()
 		}
 	})
@@ -460,7 +455,7 @@ func TestMFAEndpoints(t *testing.T) {
 			Password:        user.FullName,
 			MFARecoveryCode: "BADCODE",
 		})
-		require.True(t, console.ErrUnauthorized.Has(err))
+		require.True(t, console.ErrMFARecoveryCode.Has(err))
 		require.Empty(t, newToken)
 
 		for _, code := range codes {
@@ -477,7 +472,7 @@ func TestMFAEndpoints(t *testing.T) {
 
 			// Expect error when providing expired recovery code.
 			newToken, err = sat.API.Console.Service.Token(ctx, opts)
-			require.True(t, console.ErrUnauthorized.Has(err))
+			require.True(t, console.ErrMFARecoveryCode.Has(err))
 			require.Empty(t, newToken)
 		}
 
@@ -569,5 +564,130 @@ func TestResetPasswordEndpoint(t *testing.T) {
 		require.Equal(t, http.StatusUnauthorized, tryReset("badToken", newPass))
 		require.Equal(t, http.StatusBadRequest, tryReset(tokenStr, "bad"))
 		require.Equal(t, http.StatusOK, tryReset(tokenStr, newPass))
+	})
+}
+
+type EmailVerifier struct {
+	Data    consoleapi.ContextChannel
+	Context context.Context
+}
+
+func (v *EmailVerifier) SendEmail(ctx context.Context, msg *post.Message) error {
+	body := ""
+	for _, part := range msg.Parts {
+		body += part.Content
+	}
+	return v.Data.Send(v.Context, body)
+}
+
+func (v *EmailVerifier) FromAddress() post.Address {
+	return post.Address{}
+}
+
+func TestRegistrationEmail(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		jsonBody, err := json.Marshal(map[string]interface{}{
+			"fullName":  "Test User",
+			"shortName": "Test",
+			"email":     "test@mail.test",
+			"password":  "123a123",
+		})
+		require.NoError(t, err)
+
+		register := func() string {
+			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, result.StatusCode)
+
+			var userID string
+			require.NoError(t, json.NewDecoder(result.Body).Decode(&userID))
+			require.NoError(t, result.Body.Close())
+
+			return userID
+		}
+
+		sender := &EmailVerifier{Context: ctx}
+		sat.API.Mail.Service.Sender = sender
+
+		// Registration attempts using new e-mail address should send activation e-mail.
+		userID := register()
+		body, err := sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "/activation")
+
+		// Registration attempts using existing but unverified e-mail address should send activation e-mail.
+		newUserID := register()
+		require.Equal(t, userID, newUserID)
+		body, err = sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "/activation")
+
+		// Registration attempts using existing and verified e-mail address should send password reset e-mail.
+		userUUID, err := uuid.FromString(userID)
+		require.NoError(t, err)
+		user, err := sat.DB.Console().Users().Get(ctx, userUUID)
+		require.NoError(t, err)
+
+		user.Status = console.Active
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user))
+
+		newUserID = register()
+		require.Equal(t, userID, newUserID)
+		body, err = sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "/password-recovery")
+	})
+}
+
+func TestResendActivationEmail(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersRepo := sat.DB.Console().Users()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		resendEmail := func() {
+			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(user.Email))
+			require.NoError(t, err)
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, result.Body.Close())
+			require.Equal(t, http.StatusOK, result.StatusCode)
+		}
+
+		sender := &EmailVerifier{Context: ctx}
+		sat.API.Mail.Service.Sender = sender
+
+		// Expect password reset e-mail to be sent when using verified e-mail address.
+		resendEmail()
+		body, err := sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "/password-recovery")
+
+		// Expect activation e-mail to be sent when using unverified e-mail address.
+		user.Status = console.Inactive
+		require.NoError(t, usersRepo.Update(ctx, user))
+
+		resendEmail()
+		body, err = sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, "/activation")
 	})
 }

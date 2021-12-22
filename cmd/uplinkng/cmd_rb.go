@@ -30,7 +30,7 @@ func newCmdRb(ex ulext.External) *cmdRb {
 func (c *cmdRb) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.force = params.Flag("force", "Deletes any objects in bucket first", false,
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 
 	c.loc = params.Arg("name", "Bucket name (sj://BUCKET)",

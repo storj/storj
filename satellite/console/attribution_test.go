@@ -12,19 +12,21 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestUsers(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		buckets := sat.API.Buckets.Service
+		db := sat.DB
 		consoleDB := db.Console()
 
 		// create user
 		userPassHash := testrand.Bytes(8)
 
-		// create an user with partnerID
+		// create a user with partnerID
 		_, err := consoleDB.Users().Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
 			FullName:     "John Doe",
@@ -75,7 +77,7 @@ func TestUsers(t *testing.T) {
 		require.NoError(t, err)
 
 		// create a bucket with no partnerID
-		_, err = db.Buckets().CreateBucket(ctx, storj.Bucket{
+		_, err = buckets.CreateBucket(ctx, storj.Bucket{
 			ID:                  testrand.UUID(),
 			Name:                "testbucket",
 			ProjectID:           proj.ID,
@@ -86,7 +88,7 @@ func TestUsers(t *testing.T) {
 		require.NoError(t, err)
 
 		// update a bucket with partnerID
-		bucket, err := db.Buckets().UpdateBucket(ctx, storj.Bucket{
+		bucket, err := buckets.UpdateBucket(ctx, storj.Bucket{
 			ID:                  testrand.UUID(),
 			Name:                "testbucket",
 			ProjectID:           proj.ID,
@@ -98,7 +100,7 @@ func TestUsers(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, proj.ID, bucket.PartnerID)
 
-		bucket, err = db.Buckets().GetBucket(ctx, []byte("testbucket"), proj.ID)
+		bucket, err = buckets.GetBucket(ctx, []byte("testbucket"), proj.ID)
 		require.NoError(t, err)
 		require.Equal(t, proj.ID, bucket.PartnerID)
 	})

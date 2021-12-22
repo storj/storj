@@ -27,7 +27,7 @@ func newCmdAccessList(ex ulext.External) *cmdAccessList {
 func (c *cmdAccessList) Setup(params clingy.Parameters) {
 	c.verbose = params.Flag("verbose", "Verbose output of accesses", false,
 		clingy.Short('v'),
-		clingy.Transform(strconv.ParseBool),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 }
 

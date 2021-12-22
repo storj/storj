@@ -10,6 +10,7 @@
             :aria-label="navItem.name"
             class="navigation-area__item-container"
             :to="navItem.path"
+            @click.native="trackClickEvent(navItem.name)"
         >
             <div class="navigation-area__item-container__link">
                 <component :is="navItem.icon" class="navigation-area__item-container__link__icon" />
@@ -31,15 +32,17 @@ import EditProjectDropdown from '@/components/navigation/EditProjectDropdown.vue
 
 import AccessGrantsIcon from '@/../static/images/navigation/apiKeys.svg';
 import DashboardIcon from '@/../static/images/navigation/dashboard.svg';
-import ObjectsIcon from '@/../static/images/navigation/objects.svg';
+import BucketsIcon from '@/../static/images/navigation/objects.svg';
 import ProjectSelection from '@/components/header/projectsDropdown/ProjectSelection.vue';
 import ResourcesSelection from '@/components/header/resourcesDropdown/ResourcesSelection.vue';
 import SettingsSelection from '@/components/header/settingsDropdown/SettingsSelection.vue';
 import TeamIcon from '@/../static/images/navigation/team.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from '@/utils/meta';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -48,7 +51,7 @@ import { MetaUtils } from '@/utils/meta';
         AccessGrantsIcon,
         TeamIcon,
         EditProjectDropdown,
-        ObjectsIcon,
+        BucketsIcon,
         ProjectSelection,
         ResourcesSelection,
         SettingsSelection
@@ -56,6 +59,9 @@ import { MetaUtils } from '@/utils/meta';
 })
 export default class NavigationArea extends Vue {
     public navigation: NavigationLink[] = [];
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
 
     /**
      * Lifecycle hook before initial render.
@@ -75,7 +81,7 @@ export default class NavigationArea extends Vue {
 
         this.navigation = [
             RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-            RouteConfig.Objects.withIcon(ObjectsIcon),
+            RouteConfig.Buckets.withIcon(BucketsIcon),
             RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
             RouteConfig.Users.withIcon(TeamIcon),
         ];
@@ -86,6 +92,13 @@ export default class NavigationArea extends Vue {
      */
     public get isNavigationHidden(): boolean {
         return this.isOnboardingTour || this.isCreateProjectPage;
+    }
+
+    /**
+     * Sends new path click event to segment.
+     */
+    public trackClickEvent(name: string): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, name);
     }
 
     /**

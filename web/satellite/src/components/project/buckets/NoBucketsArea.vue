@@ -5,14 +5,12 @@
     <div class="no-buckets-area">
         <img class="no-buckets-area__image" src="@/../static/images/buckets/bucket.png" alt="bucket image">
         <h2 class="no-buckets-area__message">Create your first bucket to get started.</h2>
-        <a
-            class="no-buckets-area__first-button"
-            href="https://docs.storj.io/api-reference/uplink-cli"
-            target="_blank"
-            rel="noopener noreferrer"
-        >
-            Get Started
-        </a>
+        <VButton
+            label="Get Started"
+            width="156px"
+            height="47px"
+            :on-press="navigateToWelcomeScreen"
+        />
         <a
             class="no-buckets-area__second-button"
             href="https://docs.storj.io/"
@@ -27,9 +25,24 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from "@/router";
+
+import VButton from "@/components/common/VButton.vue";
+
 // @vue/component
-@Component
-export default class NoBucketArea extends Vue {}
+@Component({
+    components: {
+        VButton,
+    }
+})
+export default class NoBucketArea extends Vue {
+    /**
+     * Navigates user to welcome screen.
+     */
+    public navigateToWelcomeScreen(): void {
+        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+    }
+}
 </script>
 
 <style scoped lang="scss">
@@ -60,24 +73,6 @@ export default class NoBucketArea extends Vue {}
             margin: 15px 0 30px 0;
         }
 
-        &__first-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 158px;
-            height: 49px;
-            font-size: 15px;
-            line-height: 22px;
-            border-radius: 6px;
-            background-color: #2683ff;
-            color: #fff;
-            margin-bottom: 7px;
-
-            &:hover {
-                background-color: #0059d0;
-            }
-        }
-
         &__second-button {
             display: flex;
             align-items: center;
@@ -90,6 +85,7 @@ export default class NoBucketArea extends Vue {}
             background-color: #fff;
             color: #2683ff;
             border: 1px solid #2683ff;
+            margin-top: 7px;
 
             &:hover {
                 background-color: #2683ff;

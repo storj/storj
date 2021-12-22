@@ -3,7 +3,7 @@
 
 <template>
     <div class="name-step" :class="{ 'border-radius': isOnboardingTour }">
-        <h1 class="name-step__title">Name Your Access Grant</h1>
+        <h1 class="name-step__title" aria-roledescription="name-ag-title">Name Your Access Grant</h1>
         <p class="name-step__sub-title">Enter a name for your new Access grant to get started.</p>
         <HeaderedInput
             label="Access Grant Name"

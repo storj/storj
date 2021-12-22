@@ -183,7 +183,14 @@ func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uu
 	return usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
 }
 
+// GetProjectSegmentLimit returns current project segment limit.
+func (usage *Service) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	return usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
+}
+
 // UpdateProjectLimits sets new value for project's bandwidth and storage limit.
+// TODO remove because it's not used.
 func (usage *Service) UpdateProjectLimits(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
@@ -206,6 +213,23 @@ func (usage *Service) GetProjectBandwidthUsage(ctx context.Context, projectID uu
 // by ErrProjectUsage.
 func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
 	return usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, increment, usage.bandwidthCacheTTL, usage.nowFn())
+}
+
+// GetProjectSegmentUsage get the current segment usage from cache.
+//
+// It can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Cache.GetProjectSegmentUsage.
+func (usage *Service) GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
+	return usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
+}
+
+// UpdateProjectSegmentUsage increments the segment cache key for a specific project.
+//
+// It can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Cache.UpdatProjectSegmentUsage.
+func (usage *Service) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
+	// TODO rename bandwidthCacheTTL to cacheTTL
+	return usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment, usage.bandwidthCacheTTL)
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given

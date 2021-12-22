@@ -120,7 +120,6 @@ func (reputations *reputations) SetNodeStatus(ctx context.Context, id storj.Node
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.Reputation_Update_Fields{
-		Contained:             dbx.Reputation_Contained(status.Contained),
 		Disqualified:          dbx.Reputation_Disqualified_Raw(status.Disqualified),
 		UnknownAuditSuspended: dbx.Reputation_UnknownAuditSuspended_Raw(status.UnknownAuditSuspended),
 		OfflineSuspended:      dbx.Reputation_OfflineSuspended_Raw(status.OfflineSuspended),
@@ -153,7 +152,6 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 		AuditSuccessCount:           res.AuditSuccessCount,
 		TotalAuditCount:             res.TotalAuditCount,
 		VettedAt:                    res.VettedAt,
-		Contained:                   res.Contained,
 		Disqualified:                res.Disqualified,
 		Suspended:                   res.Suspended,
 		UnknownAuditSuspended:       res.UnknownAuditSuspended,
@@ -319,9 +317,6 @@ func (reputations *reputations) populateCreateFields(dbNode *dbx.Reputation, upd
 	if update.AuditSuccessCount.set {
 		createFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(update.AuditSuccessCount.value)
 	}
-	if update.Contained.set {
-		createFields.Contained = dbx.Reputation_Contained(update.Contained.value)
-	}
 	if updateReq.AuditOutcome == reputation.AuditSuccess {
 		createFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
 	}
@@ -382,9 +377,6 @@ func (reputations *reputations) populateUpdateFields(dbNode *dbx.Reputation, upd
 	}
 	if update.AuditSuccessCount.set {
 		updateFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(update.AuditSuccessCount.value)
-	}
-	if update.Contained.set {
-		updateFields.Contained = dbx.Reputation_Contained(update.Contained.value)
 	}
 	if updateReq.AuditOutcome == reputation.AuditSuccess {
 		updateFields.AuditSuccessCount = dbx.Reputation_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
@@ -641,7 +633,6 @@ type updateNodeStats struct {
 
 func getNodeStatus(dbNode *dbx.Reputation) overlay.ReputationStatus {
 	return overlay.ReputationStatus{
-		Contained:             dbNode.Contained,
 		VettedAt:              dbNode.VettedAt,
 		Disqualified:          dbNode.Disqualified,
 		UnknownAuditSuspended: dbNode.UnknownAuditSuspended,

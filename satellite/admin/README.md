@@ -15,10 +15,6 @@ Requires setting `Authorization` header for requests.
             * [PUT /api/users/{user-email}](#put-apiusersuser-email)
             * [GET /api/users/{user-email}](#get-apiusersuser-email)
             * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
-        * [Coupon Management](#coupon-management)
-            * [POST /api/coupons](#post-apicoupons)
-            * [GET /api/coupons/{coupon-id}](#get-apicouponscoupon-id)
-            * [DELETE /api/coupons/{coupon-id}](#delete-apicouponscoupon-id)
         * [Project Management](#project-management)
             * [POST /api/projects](#post-apiprojects)
             * [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
@@ -34,6 +30,11 @@ Requires setting `Authorization` header for requests.
                 * [POST /api/projects/{project-id}/limit?bandwidth={value}](#post-apiprojectsproject-idlimitbandwidthvalue)
                 * [POST /api/projects/{project-id}/limit?rate={value}](#post-apiprojectsproject-idlimitratevalue)
                 * [POST /api/projects/{project-id}/limit?buckets={value}](#post-apiprojectsproject-idlimitbucketsvalue)
+        * [Bucket Management](#bucket-management)
+            * [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
+            * [Geofencing](#geofencing)
+                * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue)
+                * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence](#delete-apiprojectsproject-idbucketsbucket-namegeofence)
         * [APIKey Management](#apikey-management)
             * [DELETE /api/apikeys/{apikey}](#delete-apiapikeysapikey)
 
@@ -132,18 +133,6 @@ A successful response body:
             "description": "Project to store data.",
             "ownerId": "12345678-1234-1234-1234-123456789abc"
         }
-    ],
-    "coupons": [
-        {
-            "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",
-            "userId":      "12345678-1234-1234-1234-123456789abc",
-            "duration":    2,
-            "amount":      3000,
-            "description": "promotional coupon (valid for 2 billing cycles)",
-            "type":        0,
-            "status":      0,
-            "created":     "2020-05-19T00:34:13.265761+02:00"
-        }
     ]
 }
 ```
@@ -151,58 +140,6 @@ A successful response body:
 #### DELETE /api/users/{user-email}
 
 Deletes the user.
-
-### Coupon Management
-
-The coupons have an amount and duration.
-Amount is expressed in cents of USD dollars (e.g. 500 is $5)
-Duration is expressed in billing periods, a billing period is a natural month.
-
-#### POST /api/coupons
-
-Adds a coupon for specific user.
-
-An example of a required request body:
-
-```json
-{
-    "userId":      "12345678-1234-1234-1234-123456789abc",
-    "duration":    2,
-    "amount":      3000,
-    "description": "promotional coupon (valid for 2 billing cycles)"
-}
-```
-
-A successful response body:
-
-```json
-{
-    "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
-}
-```
-
-#### GET /api/coupons/{coupon-id}
-
-Gets a coupon with the specified id.
-
-A successful response body:
-
-```json
-{
-    "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",
-    "userId":      "12345678-1234-1234-1234-123456789abc",
-    "duration":    2,
-    "amount":      3000,
-    "description": "promotional coupon (valid for 2 billing cycles)",
-    "type":        0,
-    "status":      0,
-    "created":     "2020-05-19T00:34:13.265761+02:00"
-}
-```
-
-#### DELETE /api/coupons/{coupon-id}
-
-Deletes the specified coupon.
 
 ### Project Management
 
@@ -346,6 +283,36 @@ Updates rate limit for a project.
 ##### POST /api/projects/{project-id}/limit?buckets={value}
 
 Updates bucket limit for a project.
+
+### Bucket Management
+
+This set of APIs provide administrative functionality over bucket functionality.
+
+#### GET /api/projects/{project-id}/buckets/{bucket-name}
+
+Returns all the information of the specified bucket.
+
+#### Geofencing
+
+Manage geofencing capabilities for a given bucket.
+
+##### POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}
+
+Enables the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work. Valid
+values for the `region` parameter are:
+
+- `EU` - restrict placement to data nodes that reside in the [European Union][]
+- `EEA` - restrict placement to data nodes that reside in the [European Economic Area][]
+- `US` - restricts placement to data nodes in the United States
+- `DE` - restricts placement to data nodes in Germany
+
+[European Union]: https://github.com/storj/common/blob/main/storj/location/region.go#L14
+
+[European Economic Area]: https://github.com/storj/common/blob/main/storj/location/region.go#L7
+
+##### DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence
+
+Removes the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work.
 
 ### APIKey Management
 

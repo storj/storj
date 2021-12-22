@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -161,6 +162,10 @@ type API struct {
 	Analytics struct {
 		Service *analytics.Service
 	}
+
+	Buckets struct {
+		Service *buckets.Service
+	}
 }
 
 // NewAPI creates a new satellite API process.
@@ -176,6 +181,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
+	}
+
+	{ // setup buckets service
+		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
 	}
 
 	{ // setup debug
@@ -307,6 +316,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
 			config.Console.Config.UsageLimits.Storage.Free,
 			config.Console.Config.UsageLimits.Bandwidth.Free,
+			config.Console.Config.UsageLimits.Segment.Free,
 			config.ProjectLimit,
 		)
 	}
@@ -337,7 +347,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			peer.DB.Buckets(),
+			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {
@@ -371,6 +381,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
 			Close: peer.Analytics.Service.Close,
 		})
 	}
@@ -395,7 +406,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
-			peer.DB.Buckets(),
+			peer.Buckets.Service,
 			peer.Metainfo.Metabase,
 			peer.Metainfo.PieceDeletion,
 			peer.Orders.Service,
@@ -530,12 +541,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.SegmentPrice,
+			pc.BonusRate)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -571,12 +578,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console(),
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
-			peer.DB.Buckets(),
+			peer.Buckets.Service,
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			peer.Analytics.Service,
 			consoleConfig.Config,
-			config.Payments.MinCoinPayment,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -585,7 +591,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		pricing := paymentsconfig.PricingValues{
 			StorageTBPrice: config.Payments.StorageTBPrice,
 			EgressTBPrice:  config.Payments.EgressTBPrice,
-			ObjectPrice:    config.Payments.ObjectPrice,
+			SegmentPrice:   config.Payments.SegmentPrice,
 		}
 
 		peer.Console.Endpoint = consoleweb.NewServer(

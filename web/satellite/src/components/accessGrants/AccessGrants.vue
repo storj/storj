@@ -4,7 +4,7 @@
 <template>
     <div class="access-grants">
         <div class="access-grants__title-area">
-            <h2 class="access-grants__title-area__title">Access Grants</h2>
+            <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Grants</h2>
             <div v-if="accessGrantsList.length" class="access-grants__title-area__right">
                 <VButton
                     v-if="selectedAccessGrantsAmount"
@@ -238,6 +238,7 @@ export default class AccessGrants extends Vue {
 <style scoped lang="scss">
     .access-grants {
         position: relative;
+        height: calc(100% - 95px);
         padding: 40px 30px 55px 30px;
         font-family: 'font_regular', sans-serif;
 

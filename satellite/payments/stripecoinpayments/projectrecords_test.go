@@ -36,10 +36,9 @@ func TestProjectRecords(t *testing.T) {
 						ProjectID: prjID,
 						Storage:   1,
 						Egress:    2,
-						Objects:   3,
+						Segments:  3,
 					},
 				},
-				[]stripecoinpayments.CouponUsage{},
 				start, end,
 			)
 			require.NoError(t, err)
@@ -88,12 +87,12 @@ func TestProjectRecordsList(t *testing.T) {
 					ProjectID: projID,
 					Storage:   float64(i) + 1,
 					Egress:    int64(i) + 2,
-					Objects:   float64(i) + 3,
+					Segments:  float64(i) + 3,
 				},
 			)
 		}
 
-		err := projectRecordsDB.Create(ctx, createProjectRecords, []stripecoinpayments.CouponUsage{}, start, end)
+		err := projectRecordsDB.Create(ctx, createProjectRecords, start, end)
 		require.NoError(t, err)
 
 		page, err := projectRecordsDB.ListUnapplied(ctx, 0, limit, start, end)
@@ -123,7 +122,7 @@ func TestProjectRecordsList(t *testing.T) {
 				assert.Equal(t, createRecord.ProjectID, record.ProjectID)
 				assert.Equal(t, createRecord.Storage, record.Storage)
 				assert.Equal(t, createRecord.Egress, record.Egress)
-				assert.Equal(t, createRecord.Objects, record.Objects)
+				assert.Equal(t, createRecord.Segments, record.Segments)
 				assert.True(t, start.Equal(record.PeriodStart))
 				assert.True(t, end.Equal(record.PeriodEnd))
 			}

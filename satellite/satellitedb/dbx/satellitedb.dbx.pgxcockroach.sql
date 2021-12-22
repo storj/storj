@@ -101,7 +101,6 @@ CREATE TABLE graceful_exit_progress (
 	pieces_transferred bigint NOT NULL DEFAULT 0,
 	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
-	uses_segment_transfer_queue boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_segment_transfer_queue (
@@ -125,6 +124,7 @@ CREATE TABLE nodes (
 	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
 	last_ip_port text,
+	country_code text,
 	protocol integer NOT NULL DEFAULT 0,
 	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
@@ -144,8 +144,8 @@ CREATE TABLE nodes (
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
 	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
-	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
+	disqualification_reason integer,
 	suspended timestamp with time zone,
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
@@ -191,10 +191,12 @@ CREATE TABLE projects (
 	description text NOT NULL,
 	usage_limit bigint,
 	bandwidth_limit bigint,
+	segment_limit bigint DEFAULT 1000000,
 	rate_limit integer,
 	burst_limit integer,
 	max_buckets integer,
 	partner_id bytea,
+	user_agent bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
@@ -237,7 +239,6 @@ CREATE TABLE reputations (
 	vetted_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
 	unknown_audit_suspended timestamp with time zone,
@@ -354,7 +355,8 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 	project_id bytea NOT NULL,
 	storage double precision NOT NULL,
 	egress bigint NOT NULL,
-	objects bigint NOT NULL,
+	objects bigint,
+	segments bigint,
 	period_start timestamp with time zone NOT NULL,
 	period_end timestamp with time zone NOT NULL,
 	state integer NOT NULL,
@@ -377,8 +379,12 @@ CREATE TABLE users (
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
 	partner_id bytea,
+	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
+	project_bandwidth_limit bigint NOT NULL DEFAULT 0,
+	project_storage_limit bigint NOT NULL DEFAULT 0,
+	project_segment_limit bigint NOT NULL DEFAULT 0,
 	paid_tier boolean NOT NULL DEFAULT false,
 	position text,
 	company_name text,
@@ -390,12 +396,14 @@ CREATE TABLE users (
 	mfa_enabled boolean NOT NULL DEFAULT false,
 	mfa_secret_key text,
 	mfa_recovery_codes text,
+	signup_promo_code text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	partner_id bytea NOT NULL,
+	user_agent bytea,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
@@ -406,6 +414,7 @@ CREATE TABLE api_keys (
 	name text NOT NULL,
 	secret bytea NOT NULL,
 	partner_id bytea,
+	user_agent bytea,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
@@ -416,6 +425,7 @@ CREATE TABLE bucket_metainfos (
 	project_id bytea NOT NULL REFERENCES projects( id ),
 	name bytea NOT NULL,
 	partner_id bytea,
+	user_agent bytea,
 	path_cipher integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	default_segment_size integer NOT NULL,
@@ -427,6 +437,7 @@ CREATE TABLE bucket_metainfos (
 	default_redundancy_repair_shares integer NOT NULL,
 	default_redundancy_optimal_shares integer NOT NULL,
 	default_redundancy_total_shares integer NOT NULL,
+	placement integer,
 	PRIMARY KEY ( id ),
 	UNIQUE ( project_id, name )
 );

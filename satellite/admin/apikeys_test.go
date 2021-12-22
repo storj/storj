@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-func TestAddApiKey(t *testing.T) {
+func TestApiKeyAdd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -75,7 +75,7 @@ func TestAddApiKey(t *testing.T) {
 	})
 }
 
-func TestDeleteApiKey(t *testing.T) {
+func TestApiKeyDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -94,26 +94,22 @@ func TestDeleteApiKey(t *testing.T) {
 		require.Len(t, keys.APIKeys, 1)
 
 		apikey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize()
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/apikeys/%s", apikey), nil)
-		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
-		response, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, response.StatusCode)
-		require.Equal(t, "", response.Header.Get("Content-Type"))
-		responseBody, err := ioutil.ReadAll(response.Body)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-		require.Len(t, responseBody, 0)
+		link := fmt.Sprintf("http://"+address.String()+"/api/apikeys/%s", apikey)
+		body := assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Len(t, body, 0)
 
 		keys, err = planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 0)
+
+		// Delete a deleted key returns Not Found.
+		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Contains(t, string(body), "does not exist")
 	})
 }
 
-func TestDeleteApiKeyByName(t *testing.T) {
+func TestApiKeyDelete_ByName(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -131,26 +127,21 @@ func TestDeleteApiKeyByName(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 1)
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/apikeys/%s", projectID.String(), keys.APIKeys[0].Name), nil)
-		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
-
-		response, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, response.StatusCode)
-		require.Equal(t, "", response.Header.Get("Content-Type"))
-		responseBody, err := ioutil.ReadAll(response.Body)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-		require.Len(t, responseBody, 0)
+		link := fmt.Sprintf("http://"+address.String()+"/api/projects/%s/apikeys/%s", projectID.String(), keys.APIKeys[0].Name)
+		body := assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Len(t, body, 0)
 
 		keys, err = planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 0)
+
+		// Delete a deleted key returns Not Found.
+		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Contains(t, string(body), "does not exist")
 	})
 }
 
-func TestListAPIKeys(t *testing.T) {
+func TestApiKeysList(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,

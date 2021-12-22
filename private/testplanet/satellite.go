@@ -232,7 +232,7 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 		return nil, err
 	}
 
-	err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
+	_, err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		return nil, err
 	}
@@ -390,21 +390,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	planet.databases = append(planet.databases, db)
 
-	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB)
-	if err != nil {
-		return nil, err
-	}
-
-	if planet.config.Reconfigure.SatelliteMetabaseDB != nil {
-		var newMetabaseDB *metabase.DB
-		newMetabaseDB, err = planet.config.Reconfigure.SatelliteMetabaseDB(log.Named("metabase"), index, metabaseDB)
-		if err != nil {
-			return nil, errs.Combine(err, metabaseDB.Close())
-		}
-		metabaseDB = newMetabaseDB
-	}
-	planet.databases = append(planet.databases, metabaseDB)
-
 	redis, err := testredis.Mini(ctx)
 	if err != nil {
 		return nil, err
@@ -440,7 +425,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Tally.ReadRollupBatchSize = 0
 	config.Rollup.DeleteTallies = false
 	config.Payments.BonusRate = 0
-	config.Payments.MinCoinPayment = 0
 	config.Payments.NodeEgressBandwidthPrice = 0
 	config.Payments.NodeRepairBandwidthPrice = 0
 	config.Payments.NodeAuditBandwidthPrice = 0
@@ -491,6 +475,24 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		planet.config.Reconfigure.Satellite(log, index, &config)
 	}
 
+	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB, metabase.Config{
+		MinPartSize:      config.Metainfo.MinPartSize,
+		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if planet.config.Reconfigure.SatelliteMetabaseDB != nil {
+		var newMetabaseDB *metabase.DB
+		newMetabaseDB, err = planet.config.Reconfigure.SatelliteMetabaseDB(log.Named("metabase"), index, metabaseDB)
+		if err != nil {
+			return nil, errs.Combine(err, metabaseDB.Close())
+		}
+		metabaseDB = newMetabaseDB
+	}
+	planet.databases = append(planet.databases, metabaseDB)
+
 	versionInfo := planet.NewVersionInfo()
 
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
@@ -529,7 +531,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
-	adminPeer, err := planet.newAdmin(ctx, index, identity, db, config, versionInfo)
+	adminPeer, err := planet.newAdmin(ctx, index, identity, db, metabaseDB, config, versionInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -647,13 +649,13 @@ func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.
 	return satellite.NewAPI(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
-func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Admin, err error) {
+func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Admin, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	prefix := "satellite-admin" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
-	return satellite.NewAdmin(log, identity, db, versionInfo, &config, nil)
+	return satellite.NewAdmin(log, identity, db, metabaseDB, versionInfo, &config, nil)
 }
 
 func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Repairer, err error) {

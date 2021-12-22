@@ -12,6 +12,8 @@ import (
 	privateAccess "storj.io/uplink/private/access"
 )
 
+const uplinkCLIUserAgent = "uplink-cli"
+
 func (ex *external) OpenFilesystem(ctx context.Context, accessName string, options ...ulext.Option) (ulfs.Filesystem, error) {
 	project, err := ex.OpenProject(ctx, accessName, options...)
 	if err != nil {
@@ -34,5 +36,9 @@ func (ex *external) OpenProject(ctx context.Context, accessName string, options 
 		}
 	}
 
-	return uplink.OpenProject(ctx, access)
+	config := uplink.Config{
+		UserAgent: uplinkCLIUserAgent,
+	}
+
+	return config.OpenProject(ctx, access)
 }

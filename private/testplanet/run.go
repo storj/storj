@@ -4,20 +4,13 @@
 package testplanet
 
 import (
-	"bytes"
 	"context"
-	"os"
-	"path/filepath"
 	"runtime/pprof"
-	"strings"
 	"testing"
-
-	"github.com/spacemonkeygo/monkit/v3/collect"
-	"github.com/spacemonkeygo/monkit/v3/present"
-	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
 	"storj.io/private/dbutil/pgtest"
+	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/uplink"
 )
@@ -49,102 +42,26 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			log := newLogger(t)
 
-			startPlanetAndTest := func(parent context.Context) {
+			testmonkit.Run(context.Background(), t, func(parent context.Context) {
+				defer pprof.SetGoroutineLabels(parent)
+				parent = pprof.WithLabels(parent, pprof.Labels("test", t.Name()))
+
 				ctx := testcontext.NewWithContext(parent, t)
 				defer ctx.Cleanup()
 
-				pprof.Do(ctx, pprof.Labels("planet", planetConfig.Name), func(namedctx context.Context) {
-					planet, err := NewCustom(namedctx, log, planetConfig, satelliteDB)
-					if err != nil {
-						t.Fatalf("%+v", err)
-					}
-					defer ctx.Check(planet.Shutdown)
-
-					planet.Start(namedctx)
-
-					provisionUplinks(namedctx, t, planet)
-
-					test(t, ctx, planet)
-				})
-			}
-
-			monkitConfig := os.Getenv("STORJ_TEST_MONKIT")
-			if monkitConfig == "" {
-				startPlanetAndTest(context.Background())
-			} else {
-				flags := parseMonkitFlags(monkitConfig)
-				outDir := flags["dir"]
-				if outDir != "" {
-					if !filepath.IsAbs(outDir) {
-						t.Fatalf("testplanet-monkit: dir must be an absolute path, but was %q", outDir)
-					}
-				}
-				outType := flags["type"]
-
-				rootctx := context.Background()
-
-				done := mon.Task()(&rootctx)
-				spans := collect.CollectSpans(rootctx, startPlanetAndTest)
-				done(nil)
-
-				outPath := filepath.Join(outDir, sanitizeFileName(planetConfig.Name))
-				var data bytes.Buffer
-
-				switch outType {
-				default: // also svg
-					if outType != "svg" {
-						t.Logf("testplanet-monkit: unknown output type %q defaulting to svg", outType)
-					}
-					outPath += ".test.svg"
-					err := present.SpansToSVG(&data, spans)
-					if err != nil {
-						t.Error(err)
-					}
-
-				case "json":
-					outPath += ".test.json"
-					err := present.SpansToJSON(&data, spans)
-					if err != nil {
-						t.Error(err)
-					}
-				}
-
-				err := os.WriteFile(outPath, data.Bytes(), 0644)
+				planet, err := NewCustom(ctx, log, planetConfig, satelliteDB)
 				if err != nil {
-					log.Error("failed to write svg", zap.String("path", outPath), zap.Error(err))
+					t.Fatalf("%+v", err)
 				}
-			}
+				defer ctx.Check(planet.Shutdown)
+
+				planet.Start(ctx)
+				provisionUplinks(ctx, t, planet)
+
+				test(t, ctx, planet)
+			})
 		})
 	}
-}
-
-func parseMonkitFlags(s string) map[string]string {
-	r := make(map[string]string)
-	for _, tag := range strings.Split(s, ",") {
-		tokens := strings.SplitN(tag, "=", 2)
-		if len(tokens) <= 1 {
-			r["type"] = strings.TrimSpace(tag)
-			continue
-		}
-		key, value := strings.TrimSpace(tokens[0]), strings.TrimSpace(tokens[1])
-		r[key] = value
-	}
-	return r
-}
-
-func sanitizeFileName(s string) string {
-	var b strings.Builder
-	for _, x := range s {
-		switch {
-		case 'a' <= x && x <= 'z':
-			b.WriteRune(x)
-		case 'A' <= x && x <= 'Z':
-			b.WriteRune(x)
-		case '0' <= x && x <= '9':
-			b.WriteRune(x)
-		}
-	}
-	return b.String()
 }
 
 func provisionUplinks(ctx context.Context, t *testing.T, planet *Planet) {

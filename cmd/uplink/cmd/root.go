@@ -31,7 +31,11 @@ import (
 	"storj.io/uplink/private/transport"
 )
 
-const advancedFlagName = "advanced"
+const (
+	advancedFlagName = "advanced"
+
+	uplinkCLIUserAgent = "uplink-cli"
+)
 
 // UplinkFlags configuration flags.
 type UplinkFlags struct {
@@ -92,7 +96,10 @@ func (cliCfg *UplinkFlags) getProject(ctx context.Context, encryptionBypass bool
 	}
 
 	uplinkCfg := uplink.Config{}
-	uplinkCfg.UserAgent = cliCfg.Client.UserAgent
+	uplinkCfg.UserAgent = uplinkCLIUserAgent
+	if cliCfg.Client.UserAgent != "" {
+		uplinkCfg.UserAgent = cliCfg.Client.UserAgent + " " + uplinkCfg.UserAgent
+	}
 	uplinkCfg.DialTimeout = cliCfg.Client.DialTimeout
 	if cliCfg.Client.EnableQUIC {
 		transport.SetConnector(&uplinkCfg, rpc.NewHybridConnector())

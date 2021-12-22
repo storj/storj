@@ -29,7 +29,7 @@ var headers = []string{
 }
 
 // GenerateAttributionCSV creates a report with.
-func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid.UUID, start time.Time, end time.Time, output io.Writer) error {
+func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid.UUID, userAgent []byte, start time.Time, end time.Time, output io.Writer) error {
 	log := zap.L().Named("db")
 	db, err := satellitedb.Open(ctx, log, database, satellitedb.Options{ApplicationName: "satellite-attribution"})
 	if err != nil {
@@ -42,7 +42,7 @@ func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid
 		}
 	}()
 
-	rows, err := db.Attribution().QueryAttribution(ctx, partnerID, start, end)
+	rows, err := db.Attribution().QueryAttribution(ctx, partnerID, userAgent, start, end)
 	if err != nil {
 		return errs.Wrap(err)
 	}

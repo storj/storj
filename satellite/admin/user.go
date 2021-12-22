@@ -16,7 +16,6 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments"
 )
 
 func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
@@ -78,11 +77,14 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newuser, err := server.db.Console().Users().Insert(ctx, &console.User{
-		ID:           userID,
-		FullName:     user.FullName,
-		ShortName:    user.ShortName,
-		Email:        user.Email,
-		PasswordHash: hash,
+		ID:                    userID,
+		FullName:              user.FullName,
+		ShortName:             user.ShortName,
+		Email:                 user.Email,
+		PasswordHash:          hash,
+		ProjectLimit:          server.config.ConsoleConfig.DefaultProjectLimit,
+		ProjectStorageLimit:   server.config.ConsoleConfig.UsageLimits.Storage.Free.Int64(),
+		ProjectBandwidthLimit: server.config.ConsoleConfig.UsageLimits.Bandwidth.Free.Int64(),
 	})
 	if err != nil {
 		sendJSONError(w, "failed to insert user",
@@ -130,7 +132,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 
 	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
 	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q not found", userEmail),
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
 		return
 	}
@@ -144,13 +146,6 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	projects, err := server.db.Console().Projects().GetByUserID(ctx, user.ID)
 	if err != nil {
 		sendJSONError(w, "failed to get user projects",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	coupons, err := server.db.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
-	if err != nil {
-		sendJSONError(w, "failed to get user coupons",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -169,9 +164,8 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var output struct {
-		User     User                 `json:"user"`
-		Projects []Project            `json:"projects"`
-		Coupons  []payments.CouponOld `json:"coupons"`
+		User     User      `json:"user"`
+		Projects []Project `json:"projects"`
 	}
 
 	output.User = User{
@@ -188,7 +182,6 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 			OwnerID:     p.OwnerID,
 		})
 	}
-	output.Coupons = coupons
 
 	data, err := json.Marshal(output)
 	if err != nil {
@@ -213,7 +206,7 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
 	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q not found", userEmail),
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
 		return
 	}
@@ -278,7 +271,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
 	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q not found", userEmail),
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
 		return
 	}

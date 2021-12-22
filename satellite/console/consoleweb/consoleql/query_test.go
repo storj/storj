@@ -15,8 +15,8 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testredis"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/analytics"
@@ -27,11 +27,12 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestGraphqlQuery(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
 		log := zaptest.NewLogger(t)
 
 		partnersService := rewards.NewPartnersService(
@@ -48,7 +49,7 @@ func TestGraphqlQuery(t *testing.T) {
 		cache, err := live.OpenCache(ctx, log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
-		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
+		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
 
 		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, 5*time.Minute, -10*time.Second)
 
@@ -56,7 +57,7 @@ func TestGraphqlQuery(t *testing.T) {
 		pc := paymentsconfig.Config{
 			StorageTBPrice: "10",
 			EgressTBPrice:  "45",
-			ObjectPrice:    "0.0000022",
+			SegmentPrice:   "0.0000022",
 		}
 
 		paymentsService, err := stripecoinpayments.NewService(
@@ -72,12 +73,8 @@ func TestGraphqlQuery(t *testing.T) {
 			db.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.SegmentPrice,
+			pc.BonusRate)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
@@ -86,12 +83,15 @@ func TestGraphqlQuery(t *testing.T) {
 			db.Console(),
 			db.ProjectAccounting(),
 			projectUsage,
-			db.Buckets(),
+			sat.API.Buckets.Service,
 			partnersService,
 			paymentsService.Accounts(),
 			analyticsService,
-			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
-			5000,
+			console.Config{
+				PasswordCost:        console.TestPasswordCost,
+				DefaultProjectLimit: 5,
+				TokenExpirationTime: 24 * time.Hour,
+			},
 		)
 		require.NoError(t, err)
 
@@ -139,7 +139,7 @@ func TestGraphqlQuery(t *testing.T) {
 				"mtest@mail.test",
 			)
 			require.NoError(t, err)
-			err = service.ActivateAccount(ctx, activationToken)
+			_, err = service.ActivateAccount(ctx, activationToken)
 			require.NoError(t, err)
 			rootUser.Email = "mtest@mail.test"
 		})
@@ -214,7 +214,7 @@ func TestGraphqlQuery(t *testing.T) {
 				"muu1@mail.test",
 			)
 			require.NoError(t, err)
-			err = service.ActivateAccount(ctx, activationToken1)
+			_, err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 			user1.Email = "muu1@mail.test"
 		})
@@ -237,7 +237,7 @@ func TestGraphqlQuery(t *testing.T) {
 				"muu2@mail.test",
 			)
 			require.NoError(t, err)
-			err = service.ActivateAccount(ctx, activationToken2)
+			_, err = service.ActivateAccount(ctx, activationToken2)
 			require.NoError(t, err)
 			user2.Email = "muu2@mail.test"
 		})

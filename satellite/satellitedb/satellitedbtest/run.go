@@ -138,7 +138,7 @@ func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.
 }
 
 // CreateMetabaseDB creates a new satellite metabase for testing.
-func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db *metabase.DB, err error) {
+func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database, config metabase.Config) (db *metabase.DB, err error) {
 	if dbInfo.URL == "" {
 		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
@@ -153,13 +153,13 @@ func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, categor
 		return nil, err
 	}
 
-	return CreateMetabaseDBOnTopOf(ctx, log, tempDB)
+	return CreateMetabaseDBOnTopOf(ctx, log, tempDB, config)
 }
 
 // CreateMetabaseDBOnTopOf creates a new metabase on top of an already existing
 // temporary database.
-func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (*metabase.DB, error) {
-	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr)
+func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, config metabase.Config) (*metabase.DB, error) {
+	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr, config)
 	if err != nil {
 		return nil, err
 	}

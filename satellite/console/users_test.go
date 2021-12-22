@@ -5,12 +5,14 @@ package console_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
@@ -124,6 +126,9 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		fullName := "first name last name"
 		shortName := "short name"
 		password := "password"
+		projectBandwidthLimit := memory.Size(50000000000)
+		storageStorageLimit := memory.Size(50000000000)
+		segmentLimit := int64(100)
 		newUser := &console.User{
 			ID:           testrand.UUID(),
 			FullName:     fullName,
@@ -140,7 +145,7 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, shortName, createdUser.ShortName)
 		require.False(t, createdUser.PaidTier)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true)
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit)
 		require.NoError(t, err)
 
 		retrievedUser, err := db.Console().Users().Get(ctx, createdUser.ID)
@@ -150,7 +155,7 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, shortName, retrievedUser.ShortName)
 		require.True(t, retrievedUser.PaidTier)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false)
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit, segmentLimit)
 		require.NoError(t, err)
 
 		retrievedUser, err = db.Console().Users().Get(ctx, createdUser.ID)
@@ -182,6 +187,8 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
+		assert.Empty(t, user.SignupPromoCode)
+
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByEmail.WorkingOn)
 			assert.Equal(t, position, userByEmail.Position)
@@ -202,6 +209,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
+		assert.Empty(t, user.SignupPromoCode)
 
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByID.WorkingOn)
@@ -227,6 +235,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, userByID.Position, userByEmail.Position)
 		assert.Equal(t, userByID.CompanyName, userByEmail.CompanyName)
 		assert.Equal(t, userByID.EmployeeCount, userByEmail.EmployeeCount)
+		assert.Equal(t, userByID.SignupPromoCode, userByEmail.SignupPromoCode)
 	})
 
 	t.Run("Update user success", func(t *testing.T) {
@@ -274,5 +283,49 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 
 		_, err = repository.Get(ctx, oldUser.ID)
 		assert.Error(t, err)
+	})
+}
+
+func TestGetUserByEmail(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+		email := "test@mail.test"
+
+		inactiveUser := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Inactive User",
+			Email:        email,
+			PasswordHash: []byte("123a123"),
+		}
+
+		_, err := usersRepo.Insert(ctx, &inactiveUser)
+		require.NoError(t, err)
+
+		_, err = usersRepo.GetByEmail(ctx, email)
+		require.ErrorIs(t, sql.ErrNoRows, err)
+
+		verified, unverified, err := usersRepo.GetByEmailWithUnverified(ctx, email)
+		require.NoError(t, err)
+		require.Nil(t, verified)
+		require.Equal(t, inactiveUser.ID, unverified[0].ID)
+
+		activeUser := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Active User",
+			Email:        email,
+			Status:       console.Active,
+			PasswordHash: []byte("123a123"),
+		}
+
+		_, err = usersRepo.Insert(ctx, &activeUser)
+		require.NoError(t, err)
+
+		// Required to set the active status.
+		err = usersRepo.Update(ctx, &activeUser)
+		require.NoError(t, err)
+
+		dbUser, err := usersRepo.GetByEmail(ctx, email)
+		require.NoError(t, err)
+		require.Equal(t, activeUser.ID, dbUser.ID)
 	})
 }

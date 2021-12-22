@@ -94,14 +94,15 @@ type IteratePendingObjectsByKey struct {
 
 // IterateObjectsWithStatus contains arguments necessary for listing objects in a bucket.
 type IterateObjectsWithStatus struct {
-	ProjectID       uuid.UUID
-	BucketName      string
-	Recursive       bool
-	BatchSize       int
-	Prefix          ObjectKey
-	Cursor          IterateCursor
-	Status          ObjectStatus
-	IncludeMetadata bool
+	ProjectID             uuid.UUID
+	BucketName            string
+	Recursive             bool
+	BatchSize             int
+	Prefix                ObjectKey
+	Cursor                IterateCursor
+	Status                ObjectStatus
+	IncludeCustomMetadata bool
+	IncludeSystemMetadata bool
 }
 
 // IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.

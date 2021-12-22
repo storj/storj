@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Incache.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package uploadselection
@@ -47,9 +47,9 @@ type Stats struct {
 type Selector interface {
 	// Count returns the number of maximum number of nodes that it can return.
 	Count() int
-	// Select selects up-to n nodes and excluding the IDs.
-	// When excludedNets is non-nil it will ensure that selected network is unique.
-	Select(n int, excludedIDs []storj.NodeID, excludeNets map[string]struct{}) []*Node
+	// Select selects up-to n nodes which are included by the criteria.
+	// empty criteria includes all the nodes
+	Select(n int, criteria Criteria) []*Node
 }
 
 // NewState returns a state based on the input.
@@ -87,6 +87,7 @@ type Request struct {
 	NewFraction float64
 	Distinct    bool
 	ExcludedIDs []storj.NodeID
+	Placement   storj.PlacementConstraint
 }
 
 // Select selects requestedCount nodes where there will be newFraction nodes.
@@ -100,16 +101,23 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*Node, err
 	newCount := int(float64(totalCount) * request.NewFraction)
 
 	var selected []*Node
-	var excludedNets map[string]struct{}
 
 	var reputableNodes Selector
 	var newNodes Selector
 
+	var criteria Criteria
+
+	if request.ExcludedIDs != nil {
+		criteria.ExcludeNodeIDs = request.ExcludedIDs
+	}
+
+	criteria.Placement = request.Placement
+
 	if request.Distinct {
-		excludedNets = map[string]struct{}{}
+		criteria.AutoExcludeSubnets = make(map[string]struct{})
 		for _, id := range request.ExcludedIDs {
 			if net, ok := state.netByID[id]; ok {
-				excludedNets[net] = struct{}{}
+				criteria.AutoExcludeSubnets[net] = struct{}{}
 			}
 		}
 		reputableNodes = state.distinct.Reputable
@@ -122,12 +130,12 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*Node, err
 	// Get a random selection of new nodes out of the cache first so that if there aren't
 	// enough new nodes on the network, we can fall back to using reputable nodes instead.
 	selected = append(selected,
-		newNodes.Select(newCount, request.ExcludedIDs, excludedNets)...)
+		newNodes.Select(newCount, criteria)...)
 
 	// Get all the remaining reputable nodes.
 	reputableCount := totalCount - len(selected)
 	selected = append(selected,
-		reputableNodes.Select(reputableCount, request.ExcludedIDs, excludedNets)...)
+		reputableNodes.Select(reputableCount, criteria)...)
 
 	if len(selected) < totalCount {
 		return selected, ErrNotEnoughNodes.New("requested from cache %d, found %d", totalCount, len(selected))

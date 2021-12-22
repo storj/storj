@@ -33,7 +33,7 @@ type DB interface {
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
-	UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, settledAmount, deadAmount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 	UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
@@ -90,6 +90,7 @@ type BucketBandwidthRollup struct {
 	Inline     int64
 	Allocated  int64
 	Settled    int64
+	Dead       int64
 }
 
 // SortBucketBandwidthRollups sorts the rollups.
@@ -232,8 +233,14 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	log := endpoint.log.Named(peer.ID.String())
 	log.Debug("SettlementWithWindow")
 
+	type bandwidthAmount struct {
+		Settled   int64
+		Allocated int64
+		Dead      int64
+	}
+
 	storagenodeSettled := map[int32]int64{}
-	bucketSettled := map[bucketIDAction]int64{}
+	bucketSettled := map[bucketIDAction]bandwidthAmount{}
 	seenSerials := map[storj.SerialNumber]struct{}{}
 
 	var window int64
@@ -308,8 +315,14 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 			continue
 		}
 
-		if bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero() {
-			log.Info("decrypt order: bucketName or projectID not set",
+		satelliteAction := orderLimit.Action == pb.PieceAction_GET_AUDIT ||
+			orderLimit.Action == pb.PieceAction_GET_REPAIR ||
+			orderLimit.Action == pb.PieceAction_PUT_REPAIR
+
+		// log error only for orders created by users, for satellite actions order limits are created
+		// without bucket name and project ID because segments loop doesn't have access to it
+		if !satelliteAction && (bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero()) {
+			log.Debug("decrypt order: bucketName or projectID not set",
 				zap.String("bucketName", bucketInfo.BucketName),
 				zap.String("projectID", bucketInfo.ProjectID.String()),
 			)
@@ -317,11 +330,16 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 			continue
 		}
 
-		bucketSettled[bucketIDAction{
+		currentBucketIDAction := bucketIDAction{
 			bucketname: bucketInfo.BucketName,
 			projectID:  bucketInfo.ProjectID,
 			action:     orderLimit.Action,
-		}] += order.Amount
+		}
+		bucketSettled[currentBucketIDAction] = bandwidthAmount{
+			Settled:   bucketSettled[currentBucketIDAction].Settled + order.Amount,
+			Allocated: bucketSettled[currentBucketIDAction].Allocated + orderLimit.Limit,
+			Dead:      bucketSettled[currentBucketIDAction].Dead + orderLimit.Limit - order.Amount,
+		}
 	}
 
 	if len(storagenodeSettled) == 0 {
@@ -346,9 +364,9 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	)
 
 	if status == pb.SettlementWithWindowResponse_ACCEPTED && !alreadyProcessed {
-		for bucketIDAction, amount := range bucketSettled {
+		for bucketIDAction, bwAmount := range bucketSettled {
 			err = endpoint.DB.UpdateBucketBandwidthSettle(ctx,
-				bucketIDAction.projectID, []byte(bucketIDAction.bucketname), bucketIDAction.action, amount, time.Unix(0, window),
+				bucketIDAction.projectID, []byte(bucketIDAction.bucketname), bucketIDAction.action, bwAmount.Settled, bwAmount.Dead, time.Unix(0, window),
 			)
 			if err != nil {
 				log.Info("err updating bucket bandwidth settle", zap.Error(err))
@@ -402,6 +420,11 @@ func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *p
 	if window != date.TruncateToHourInNano(orderLimit.OrderCreation) {
 		log.Debug("invalid settlement: window mismatch")
 		mon.Event("order_not_valid_window_mismatch")
+		return false
+	}
+	if orderLimit.Limit < order.Amount {
+		log.Debug("invalid settlement: amounts mismatch")
+		mon.Event("order_not_valid_amounts_mismatch")
 		return false
 	}
 	return true

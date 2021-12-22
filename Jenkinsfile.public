@@ -51,11 +51,13 @@ pipeline {
                 stage('go') {
                     steps {
                         sh 'go build -v ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
                     }
                 }
                 stage('go -race') {
                     steps {
                         sh 'go build -v -race ./...'
+                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
 
                         // install storj-sim
                         sh 'go install -race -v storj.io/storj/cmd/satellite '+
@@ -71,7 +73,7 @@ pipeline {
                 stage('go -race gateway') {
                     steps {
                         // install gateway for storj-sim
-                        sh 'go install -race -v storj.io/gateway@main'
+                        sh 'go install -race -v storj.io/gateway@latest'
                     }
                 }
 
@@ -92,6 +94,7 @@ pipeline {
                     steps {
                         dir('web/satellite') {
                             sh 'npm ci --prefer-offline --no-audit'
+                            sh './scripts/build-wasm.sh'
                             sh 'npm run build'
                         }
                     }
@@ -109,6 +112,15 @@ pipeline {
                         dir('web/multinode') {
                             sh 'npm ci --prefer-offline --no-audit'
                             sh 'npm run build'
+                        }
+                    }
+                }
+                stage('satellite/admin/ui') {
+                    steps {
+                        dir('satellite/admin/ui') {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                            sh 'rm -rf build .svelte-kit' // Remove these directories for avoiding linting their files.
                         }
                     }
                 }
@@ -142,21 +154,28 @@ pipeline {
                             sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
                             sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
                         }
+
+                        dir("satellite/admin/ui") {
+                            sh 'npm run check'
+                            sh 'npm run lint'
+                        }
+
+                        sh './scripts/check-package-lock.sh'
                      }
                 }
                 stage('Cross Compile') {
                     steps {
                         // verify most of the commands, we cannot check everything since some of them
                         // have a C dependency and we don't have cross-compilation in storj/ci image
-                        sh 'GOOS=linux   GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
-                        sh 'GOOS=linux   GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
-                        sh 'GOOS=linux   GOARCH=arm   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
-                        sh 'GOOS=linux   GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
-                        sh 'GOOS=windows GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
-                        sh 'GOOS=windows GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
-                        sh 'GOOS=windows GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
-                        sh 'GOOS=darwin  GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
-                        sh 'GOOS=darwin  GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng'
+                        sh 'GOOS=linux   GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=arm   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=windows GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=windows GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=windows GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=darwin  GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=darwin  GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
                     }
                 }
                 stage('Tests') {
@@ -187,8 +206,8 @@ pipeline {
 
                     post {
                         always {
-                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
                             archiveArtifacts artifacts: '.build/tests.json'
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
                             junit '.build/tests.xml'
 
                             script {
@@ -209,11 +228,10 @@ pipeline {
 
                 stage('Check Benchmark') {
                     environment {
-                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/benchcockroach?sslmode=disable'
+                        STORJ_TEST_COCKROACH = 'omit'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
                     }
                     steps {
-                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database benchcockroach;\''
                         sh 'psql -U postgres -c \'create database benchstorj;\''
                         sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
                     }
@@ -336,6 +354,48 @@ pipeline {
                             sh 'npm run test'
                         }
                     }
+                }
+
+                stage('satellite/admin/ui') {
+                    steps {
+                        dir("satellite/admin/ui") {
+                            sh script: 'npm audit', returnStatus: true
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('UI') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch pattern: "release-.*", comparator: "REGEXP"
+                    changeset "testsuite/ui/**"
+                    changeset "web/**"
+                    changeset "satellite/console/**"
+                    changeset "storagenode/console/**"
+                    changeset "multinode/console/**"
+                }
+            }
+            environment {
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
+                STORJ_TEST_BROWSER  = '/usr/bin/chromium'
+                STORJ_TEST_SATELLITE_WEB = "${pwd()}/web/satellite"
+                STORJ_TEST_EDGE_HOST = '127.0.0.10'
+            }
+            steps {
+                sh 'psql -U postgres -c \'create database testui;\''
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'cd testsuite && go test -parallel 1 -p 1 -short -vet=off -timeout 5m -json -race ./... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: '.build/ui-tests.json'
+                    sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
+                    junit '.build/ui-tests.xml'
                 }
             }
         }

@@ -1,8 +1,62 @@
 # admin peer http listening address
 # admin.address: ""
 
+# default project limits for users
+# admin.console-config.default-project-limit: 1
+
+# enable open registration
+# admin.console-config.open-registration-enabled: false
+
+# password hashing cost (0=automatic)
+# admin.console-config.password-cost: 0
+
+# whether or not reCAPTCHA is enabled for user registration
+# admin.console-config.recaptcha.enabled: false
+
+# reCAPTCHA secret key
+# admin.console-config.recaptcha.secret-key: ""
+
+# reCAPTCHA site key
+# admin.console-config.recaptcha.site-key: ""
+
+# expiration time for auth tokens, account recovery tokens, and activation tokens
+# admin.console-config.token-expiration-time: 24h0m0s
+
+# the default free-tier bandwidth usage limit
+# admin.console-config.usage-limits.bandwidth.free: 150.00 GB
+
+# the default paid-tier bandwidth usage limit
+# admin.console-config.usage-limits.bandwidth.paid: 100.00 TB
+
+# the default free-tier segment usage limit
+# admin.console-config.usage-limits.segment.free: 140000
+
+# the default paid-tier segment usage limit
+# admin.console-config.usage-limits.segment.paid: 1000000
+
+# the default free-tier storage usage limit
+# admin.console-config.usage-limits.storage.free: 150.00 GB
+
+# the default paid-tier storage usage limit
+# admin.console-config.usage-limits.storage.paid: 25.00 TB
+
+# an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
+# admin.static-dir: ""
+
 # enable analytics reporting
 # analytics.enabled: false
+
+# hubspot api key
+# analytics.hub-spot.api-key: ""
+
+# the number of events that can be in the queue before dropping
+# analytics.hub-spot.channel-size: 1000
+
+# the number of concurrent api requests that can be made
+# analytics.hub-spot.concurrent-sends: 4
+
+# the default timeout for the hubspot http client
+# analytics.hub-spot.default-timeout: 10s
 
 # segment write key
 # analytics.segment-write-key: ""
@@ -98,7 +152,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.csp-enabled: true
 
 # default project limits for users
-# console.default-project-limit: 3
+# console.default-project-limit: 1
 
 # url link to documentation
 # console.documentation-url: https://docs.storj.io/
@@ -127,8 +181,20 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for linksharing requests
 # console.linksharing-url: https://link.us1.storjshare.io
 
+# indicates if new browser should be used
+# console.new-browser: true
+
+# indicates if new navigation structure should be rendered
+# console.new-navigation: true
+
+# indicates if new objects flow should be used
+# console.new-objects-flow: true
+
 # indicates if new onboarding flow should be rendered
-# console.new-onboarding: false
+# console.new-onboarding: true
+
+# indicates if new project dashboard should be used
+# console.new-project-dashboard: false
 
 # enable open registration
 # console.open-registration-enabled: false
@@ -178,17 +244,29 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
+# expiration time for auth tokens, account recovery tokens, and activation tokens
+# console.token-expiration-time: 24h0m0s
+
 # the default free-tier bandwidth usage limit
-# console.usage-limits.bandwidth.free: 50.00 GB
+# console.usage-limits.bandwidth.free: 150.00 GB
 
 # the default paid-tier bandwidth usage limit
 # console.usage-limits.bandwidth.paid: 100.00 TB
 
+# the default free-tier segment usage limit
+# console.usage-limits.segment.free: 140000
+
+# the default paid-tier segment usage limit
+# console.usage-limits.segment.paid: 1000000
+
 # the default free-tier storage usage limit
-# console.usage-limits.storage.free: 50.00 GB
+# console.usage-limits.storage.free: 150.00 GB
 
 # the default paid-tier storage usage limit
 # console.usage-limits.storage.paid: 25.00 TB
+
+# whether to load templates on each request
+# console.watch: false
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
@@ -382,8 +460,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum segment metadata size
 # metainfo.max-metadata-size: 2.0 KiB
 
+# maximum number of parts object can contain
+# metainfo.max-number-of-parts: 10000
+
 # maximum segment size
 # metainfo.max-segment-size: 64.0 MiB
+
+# minimum allowed part size (last part has no minimum size limit)
+# metainfo.min-part-size: 5.0 MiB
 
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
@@ -392,10 +476,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.overlay: true
 
 # timeout for dialing nodes (0 means satellite default)
-# metainfo.piece-deletion.dial-timeout: 0s
+# metainfo.piece-deletion.dial-timeout: 3s
 
 # threshold for retrying a failed node
-# metainfo.piece-deletion.fail-threshold: 5m0s
+# metainfo.piece-deletion.fail-threshold: 10m0s
 
 # maximum number of concurrent requests to storage nodes
 # metainfo.piece-deletion.max-concurrency: 100
@@ -410,7 +494,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.piece-deletion.max-pieces-per-request: 1000
 
 # timeout for a single delete request
-# metainfo.piece-deletion.request-timeout: 1m0s
+# metainfo.piece-deletion.request-timeout: 15s
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
@@ -478,6 +562,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many concurrent orders to process at once. zero is unlimited
 # orders.orders-semaphore-size: 2
 
+# the location of the maxmind database containing geoip country information
+# overlay.geo-ip.db: ""
+
+# a mock list of countries the satellite will attribute to nodes (useful for testing)
+# overlay.geo-ip.mock-countries: '[]'
+
 # the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
 # overlay.node-check-in-wait-period: 2h0m0s
 
@@ -514,20 +604,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
 
-# duration a new coupon is valid in months/billing cycles. An empty string means the coupon never expires
-# payments.coupon-duration: "1"
-
-# project limit to which increase to after applying the coupon, 0 B means not changing it from the default
-# payments.coupon-project-limit: 0 B
-
-# coupon value in cents
-# payments.coupon-value: 165
-
 # price user should pay for each TB of egress
 # payments.egress-tb-price: "7"
-
-# minimum value of coin payments in cents before coupon is applied
-# payments.min-coin-payment: 1000
 
 # price node receive for storing TB of audit in cents
 # payments.node-audit-bandwidth-price: 1000
@@ -541,11 +619,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price node receive for storing TB of repair in cents
 # payments.node-repair-bandwidth-price: 1000
 
-# price user should pay for each object stored in network per month
-# payments.object-price: "0"
-
 # payments provider to use
 # payments.provider: ""
+
+# price user should pay for each segment stored in network per month
+# payments.segment-price: "0"
 
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"
@@ -758,7 +836,7 @@ server.private-address: 127.0.0.1:7778
 # version.server-address: https://version.storj.io
 
 # set if zombie object cleanup is enabled or not
-# zombie-deletion.enabled: false
+# zombie-deletion.enabled: true
 
 # after what time object will be deleted if there where no new upload activity
 # zombie-deletion.inactive-for: 24h0m0s

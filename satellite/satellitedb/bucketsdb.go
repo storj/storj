@@ -11,6 +11,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -23,12 +24,14 @@ type bucketsDB struct {
 func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	partnerID := dbx.BucketMetainfo_Create_Fields{}
-	if !bucket.PartnerID.IsZero() {
-		partnerID = dbx.BucketMetainfo_Create_Fields{
+	optionalFields := dbx.BucketMetainfo_Create_Fields{}
+	if !bucket.PartnerID.IsZero() || bucket.UserAgent != nil {
+		optionalFields = dbx.BucketMetainfo_Create_Fields{
 			PartnerId: dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:]),
+			UserAgent: dbx.BucketMetainfo_UserAgent(bucket.UserAgent),
 		}
 	}
+	optionalFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
 	row, err := db.db.Create_BucketMetainfo(ctx,
 		dbx.BucketMetainfo_Id(bucket.ID[:]),
@@ -44,7 +47,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 		dbx.BucketMetainfo_DefaultRedundancyRepairShares(int(bucket.DefaultRedundancyScheme.RepairShares)),
 		dbx.BucketMetainfo_DefaultRedundancyOptimalShares(int(bucket.DefaultRedundancyScheme.OptimalShares)),
 		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancyScheme.TotalShares)),
-		partnerID,
+		optionalFields,
 	)
 	if err != nil {
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
@@ -71,6 +74,46 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
+}
+
+// GetBucketPlacement returns with the placement constraint identifier.
+func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storj.PlacementConstraint, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxPlacement, err := db.db.Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return storj.EveryCountry, storj.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return storj.EveryCountry, storj.ErrBucket.Wrap(err)
+	}
+	placement = storj.EveryCountry
+	if dbxPlacement.Placement != nil {
+		placement = storj.PlacementConstraint(*dbxPlacement.Placement)
+	}
+
+	return placement, nil
+}
+
+// GetMinimalBucket returns existing bucket with minimal number of fields.
+func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	row, err := db.db.Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return buckets.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return buckets.Bucket{}, storj.ErrBucket.Wrap(err)
+	}
+	return buckets.Bucket{
+		Name:      bucketName,
+		CreatedAt: row.CreatedAt,
+	}, nil
 }
 
 // HasBucket returns if a bucket exists.
@@ -109,12 +152,16 @@ func (db *bucketsDB) GetBucketID(ctx context.Context, bucket metabase.BucketLoca
 func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if bucket.PartnerID.IsZero() {
-		return storj.Bucket{}, Error.New("partnerId is zero")
+	var updateFields dbx.BucketMetainfo_Update_Fields
+	if !bucket.PartnerID.IsZero() {
+		updateFields.PartnerId = dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:])
 	}
 
-	var updateFields dbx.BucketMetainfo_Update_Fields
-	updateFields.PartnerId = dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:])
+	if bucket.UserAgent != nil {
+		updateFields.UserAgent = dbx.BucketMetainfo_UserAgent(bucket.UserAgent)
+	}
+
+	updateFields.Placement = dbx.BucketMetainfo_Placement(int(bucket.Placement))
 
 	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]), dbx.BucketMetainfo_Name([]byte(bucket.Name)), updateFields)
 	if err != nil {
@@ -256,12 +303,20 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 		},
 	}
 
+	if dbxBucket.Placement != nil {
+		bucket.Placement = storj.PlacementConstraint(*dbxBucket.Placement)
+	}
+
 	if dbxBucket.PartnerId != nil {
 		partnerID, err := uuid.FromBytes(dbxBucket.PartnerId)
 		if err != nil {
 			return bucket, storj.ErrBucket.Wrap(err)
 		}
 		bucket.PartnerID = partnerID
+	}
+
+	if dbxBucket.UserAgent != nil {
+		bucket.UserAgent = dbxBucket.UserAgent
 	}
 
 	return bucket, nil

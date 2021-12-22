@@ -1,12 +1,10 @@
-// Copyright (C) 2020 Storj Labs, Incache.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package uploadselection
 
 import (
 	mathrand "math/rand" // Using mathrand here because crypto-graphic randomness is not required and simplifies code.
-
-	"storj.io/common/storj"
 )
 
 // SelectByID implements selection from nodes with every node having equal probability.
@@ -18,7 +16,7 @@ var _ Selector = (SelectByID)(nil)
 func (nodes SelectByID) Count() int { return len(nodes) }
 
 // Select selects upto n nodes.
-func (nodes SelectByID) Select(n int, excludedIDs []storj.NodeID, excludedNets map[string]struct{}) []*Node {
+func (nodes SelectByID) Select(n int, criteria Criteria) []*Node {
 	if n <= 0 {
 		return nil
 	}
@@ -27,14 +25,8 @@ func (nodes SelectByID) Select(n int, excludedIDs []storj.NodeID, excludedNets m
 	for _, idx := range mathrand.Perm(len(nodes)) {
 		node := nodes[idx]
 
-		if ContainsID(excludedIDs, node.ID) {
+		if !criteria.MatchInclude(node) {
 			continue
-		}
-		if excludedNets != nil {
-			if _, excluded := excludedNets[node.LastNet]; excluded {
-				continue
-			}
-			excludedNets[node.LastNet] = struct{}{}
 		}
 
 		selected = append(selected, node.Clone())
@@ -79,7 +71,7 @@ func SelectBySubnetFromNodes(nodes []*Node) SelectBySubnet {
 func (subnets SelectBySubnet) Count() int { return len(subnets) }
 
 // Select selects upto n nodes.
-func (subnets SelectBySubnet) Select(n int, excludedIDs []storj.NodeID, excludedNets map[string]struct{}) []*Node {
+func (subnets SelectBySubnet) Select(n int, criteria Criteria) []*Node {
 	if n <= 0 {
 		return nil
 	}
@@ -89,14 +81,8 @@ func (subnets SelectBySubnet) Select(n int, excludedIDs []storj.NodeID, excluded
 		subnet := subnets[idx]
 		node := subnet.Nodes[mathrand.Intn(len(subnet.Nodes))]
 
-		if ContainsID(excludedIDs, node.ID) {
+		if !criteria.MatchInclude(node) {
 			continue
-		}
-		if excludedNets != nil {
-			if _, excluded := excludedNets[node.LastNet]; excluded {
-				continue
-			}
-			excludedNets[node.LastNet] = struct{}{}
 		}
 
 		selected = append(selected, node.Clone())
@@ -106,14 +92,4 @@ func (subnets SelectBySubnet) Select(n int, excludedIDs []storj.NodeID, excluded
 	}
 
 	return selected
-}
-
-// ContainsID returns whether ids contains id.
-func ContainsID(ids []storj.NodeID, id storj.NodeID) bool {
-	for _, k := range ids {
-		if k == id {
-			return true
-		}
-	}
-	return false
 }

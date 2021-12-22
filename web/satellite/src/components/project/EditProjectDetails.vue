@@ -64,7 +64,7 @@
                     />
                 </div>
                 <div v-if="isPaidTier" class="project-details__wrapper__container__limits">
-                    <p class="project-details__wrapper__container__limits__label">Storage Limit</p>
+                    <p class="project-details__wrapper__container__label">Storage Limit</p>
                     <div v-if="!isStorageLimitEditing" class="project-details__wrapper__container__limits__storagelimit-area">
                         <p class="project-details__wrapper__container__limits__storagelimit-area__storagelimit">{{ storageLimitFormatted }}</p>
                         <VButton
@@ -75,24 +75,60 @@
                             is-white="true"
                         />
                     </div>
-                    <div v-if="isStorageLimitEditing" class="project-details__wrapper__container__limits__storagelimit-editing">
-                        <input
-                            v-model="storageLimitValue"
-                            class="project-details__wrapper__container__limits__storagelimit-editing__input"
-                            placeholder="Enter a storage limit for your project"
-                            @input="onStorageLimitInput"
-                            @change="onStorageLimitInput"
-                        >
-                        <span class="project-details__wrapper__container__limits__storagelimit-editing__limit">{{ nameValue.length }}/{{ nameLength }}</span>
-                        <VButton
-                            class="project-details__wrapper__container__limits__storagelimit-editing__save-button"
-                            label="Save"
-                            width="66px"
-                            height="30px"
-                            :on-press="onSaveStorageLimitButtonClick"
-                        />
+                    <div v-if="isStorageLimitEditing" class="project-details__wrapper__container__limits__storagelimit-editing__section">
+                        <div class="project-details__wrapper__container__limits__storagelimit-editing__slider__wrapper">
+                            <input
+                                v-model="storageLimitValue"
+                                class="project-details__wrapper__container__limits__storagelimit-editing__slider__input"
+                                min="0"
+                                :max="paidStorageLimit"
+                                type="range"
+                                @input="onStorageLimitInput"
+                                @change="onStorageLimitInput"
+                            >
+                            <div class="project-details__wrapper__container__limits__storagelimit-editing__slider__label-wrapper">
+                                <p class="project-details__wrapper__container__limits__storagelimit-editing__slider__label">0 {{ storageMeasurementFormatted }}</p>
+                                <p class="project-details__wrapper__container__limits__storagelimit-editing__slider__label">{{ paidStorageLimit }}</p>
+                            </div>
+                        </div>
+                        <div class="project-details__wrapper__container__limits__storagelimit-editing__units-wrapper">
+                            <p
+                                class="project-details__wrapper__container__limits__storagelimit-editing__unit"
+                                :class="{'active-unit': isActiveStorageUnit(false)}"
+                                @click="() => toggleStorageMeasurement(false)"
+                            >
+                                GB
+                            </p>
+                            <p
+                                class="project-details__wrapper__container__limits__storagelimit-editing__unit"
+                                :class="{'active-unit': isActiveStorageUnit(true)}"
+                                @click="() => toggleStorageMeasurement(true)"
+                            >
+                                TB
+                            </p>
+                        </div>
+                        <div class="project-details__wrapper__container__limits__storagelimit-editing">
+                            <input
+                                v-model="storageLimitValue"
+                                class="project-details__wrapper__container__limits__storagelimit-editing__input"
+                                placeholder="Enter a storage limit for your project"
+                                type="number"
+                                :maxlength="storageCharLimit"
+                                :max="paidStorageLimit"
+                                min="0"
+                                @input="onStorageLimitInput"
+                                @change="onStorageLimitInput"
+                            >
+                            <VButton
+                                class="project-details__wrapper__container__limits__storagelimit-editing__save-button"
+                                label="Save"
+                                width="66px"
+                                height="30px"
+                                :on-press="onSaveStorageLimitButtonClick"
+                            />
+                        </div>
                     </div>
-                    <p class="project-details__wrapper__container__limits__label">Bandwidth Limit</p>
+                    <p class="project-details__wrapper__container__label">Bandwidth Limit</p>
                     <div v-if="!isBandwidthLimitEditing" class="project-details__wrapper__container__limits__bandwidthlimit-area">
                         <p class="project-details__wrapper__container__limits__bandwidthlimit-area__bandwidthlimit">{{ bandwidthLimitFormatted }}</p>
                         <VButton
@@ -103,22 +139,58 @@
                             is-white="true"
                         />
                     </div>
-                    <div v-if="isBandwidthLimitEditing" class="project-details__wrapper__container__limits__bandwidthlimit-editing">
-                        <input
-                            v-model="bandwidthLimitValue"
-                            class="project-details__wrapper__container__limits__bandwidthlimit-editing__input"
-                            placeholder="Enter a bandwidth limit for your project"
-                            @input="onBandwidthLimitInput"
-                            @change="onBandwidthLimitInput"
-                        >
-                        <span class="project-details__wrapper__container__limits__bandwidthlimit-editing__limit">{{ nameValue.length }}/{{ nameLength }}</span>
-                        <VButton
-                            class="project-details__wrapper__container__limits__bandwidthlimit-editing__save-button"
-                            label="Save"
-                            width="66px"
-                            height="30px"
-                            :on-press="onSaveBandwidthLimitButtonClick"
-                        />
+                    <div v-if="isBandwidthLimitEditing" class="project-details__wrapper__container__limits__bandwidthlimit-editing__section">
+                        <div class="project-details__wrapper__container__limits__bandwidthlimit-editing__slider__wrapper">
+                            <input
+                                v-model="bandwidthLimitValue"
+                                class="project-details__wrapper__container__limits__bandwidthlimit-editing__slider__input"
+                                min="0"
+                                :max="paidBandwidthLimit"
+                                type="range"
+                                @input="onBandwidthLimitInput"
+                                @change="onBandwidthLimitInput"
+                            >
+                            <div class="project-details__wrapper__container__limits__bandwidthlimit-editing__slider__label-wrapper">
+                                <p class="project-details__wrapper__container__limits__bandwidthlimit-editing__slider__label">0 {{ bandwidthMeasurementFormatted }}</p>
+                                <p class="project-details__wrapper__container__limits__bandwidthlimit-editing__slider__label">{{ paidBandwidthLimit }}</p>
+                            </div>
+                        </div>
+                        <div class="project-details__wrapper__container__limits__bandwidthlimit-editing__units-wrapper">
+                            <p
+                                class="project-details__wrapper__container__limits__bandwidthlimit-editing__unit"
+                                :class="{'active-unit': isActiveBandwidthUnit(false)}"
+                                @click="() => toggleBandwidthMeasurement(false)"
+                            >
+                                GB
+                            </p>
+                            <p
+                                class="project-details__wrapper__container__limits__bandwidthlimit-editing__unit"
+                                :class="{'active-unit': isActiveBandwidthUnit(true)}"
+                                @click="() => toggleBandwidthMeasurement(true)"
+                            >
+                                TB
+                            </p>
+                        </div>
+                        <div class="project-details__wrapper__container__limits__bandwidthlimit-editing">
+                            <input
+                                v-model="bandwidthLimitValue"
+                                class="project-details__wrapper__container__limits__bandwidthlimit-editing__input"
+                                placeholder="Enter a bandwidth limit for your project"
+                                :max="paidBandwidthLimit"
+                                min="0"
+                                :maxlength="bandwidthCharLimit"
+                                type="number"
+                                @input="onBandwidthLimitInput"
+                                @change="onBandwidthLimitInput"
+                            >
+                            <VButton
+                                class="project-details__wrapper__container__limits__bandwidthlimit-editing__save-button"
+                                label="Save"
+                                width="66px"
+                                height="30px"
+                                :on-press="onSaveBandwidthLimitButtonClick"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -127,8 +199,8 @@
 </template>
 
 <script lang="ts">
-import { Dimensions, Size } from '@/utils/bytesSize';
-import { Component, Vue } from 'vue-property-decorator';
+import { Dimensions, Memory, Size } from '@/utils/bytesSize';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -140,13 +212,22 @@ import {
     ProjectFields, ProjectLimits
 } from '@/types/projects';
 
+import { MetaUtils } from '@/utils/meta';
+
+
 // @vue/component
 @Component({
     components: {
         VButton,
-    },
+    }
 })
 export default class EditProjectDetails extends Vue {
+
+    @Prop({ default: Dimensions.TB })
+    public activeStorageMeasurement: string;
+    @Prop({ default: Dimensions.TB })
+    public activeBandwidthMeasurement: string;
+
     public isNameEditing = false;
     public isDescriptionEditing = false;
     public isStorageLimitEditing = false;
@@ -154,10 +235,11 @@ export default class EditProjectDetails extends Vue {
     public isPaidTier = false;
     public nameValue = '';
     public descriptionValue = '';
-    public storageLimitValue = 0;
-    public bandwidthLimitValue = 0;
     public nameLength: number = MAX_NAME_LENGTH;
     public descriptionLength: number = MAX_DESCRIPTION_LENGTH;
+    public storageLimitValue = 0;
+    public bandwidthLimitValue = 0;
+
 
     /**
      * Returns selected project from store.
@@ -175,8 +257,7 @@ export default class EditProjectDetails extends Vue {
             return;
         }
 
-        if (this.$store.state.usersModule.user.paidTier)
-        {
+        if (this.$store.state.usersModule.user.paidTier) {
             this.isPaidTier = true;
         }
 
@@ -232,31 +313,181 @@ export default class EditProjectDetails extends Vue {
     /**
      * Returns formatted limit amount.
      */
+    public get bandwidthLimitFormatted(): string {
+        return this.formattedValue(new Size(this.currentLimits.bandwidthLimit, 2));
+    }
+
+
     public get storageLimitFormatted(): string {
         return this.formattedValue(new Size(this.currentLimits.storageLimit, 2));
     }
 
     /**
-     * Triggers on storage limit input.
+     * Returns formatted limit amount.
+     */
+    public get bandwidthLimitMeasurement(): string {
+        return new Size(this.currentLimits.bandwidthLimit, 2).formattedBytes;
+    }
+
+
+    public get storageLimitMeasurement(): string {
+        return new Size(this.currentLimits.storageLimit, 2).formattedBytes;
+    }
+
+    /**
+     * Returns current input character limit.
+     */
+    public get bandwidthCharLimit(): number {
+
+        if(this.activeBandwidthMeasurement == Dimensions.GB) {
+            return 5
+        } else {
+            return 2
+        }
+    }
+
+    public get storageCharLimit(): number {
+
+        if(this.activeStorageMeasurement == Dimensions.GB) {
+            return 5
+        } else {
+            return 2
+        }
+    }
+
+    /**
+     * Returns the current measurement that is being input.
+     */
+    public get storageMeasurementFormatted(): string {
+        if(this.isStorageLimitEditing) {
+            return this.activeStorageMeasurement;
+        } else {
+            return new Size(this.currentLimits.storageLimit, 2).label;
+        }
+    }
+
+    public get bandwidthMeasurementFormatted(): string {
+        if(this.isBandwidthLimitEditing) {
+            return this.activeBandwidthMeasurement;
+        } else {
+            return new Size(this.currentLimits.bandwidthLimit, 2).label;
+        }
+    }
+
+    /**
+     * Gets current default limit for paid accounts.
+     */
+    public get paidBandwidthLimit(): number {
+        if(this.activeBandwidthMeasurement == Dimensions.GB) {
+            return this.toGB(this.getLimitValue(MetaUtils.getMetaContent('default-paid-bandwidth-limit')));
+        } else {
+            return this.getLimitValue(MetaUtils.getMetaContent('default-paid-bandwidth-limit'));
+        }
+    }
+
+    public get paidStorageLimit(): number {
+        if(this.activeStorageMeasurement == Dimensions.GB) {
+            return this.toGB(this.getLimitValue(MetaUtils.getMetaContent('default-paid-storage-limit')));
+        } else {
+            return this.getLimitValue(MetaUtils.getMetaContent('default-paid-storage-limit'));
+        }
+    }
+
+    /**
+     * Convert value from GB to TB
+     */
+    public toTB(limitValue: number): number {
+        return limitValue / 1000
+    }
+
+    /**
+     * Convert value from TB to GB
+     */
+    public toGB(limitValue: number): number {
+        return limitValue * 1000
+    }
+
+    /**
+     * Get limit numeric value separated from included measurement
+     */
+    public getLimitValue(limit: string): number {
+        return parseInt(limit.split(" ")[0])
+    }
+
+    /**
+     * Check if measurement unit is currently active.
+     */
+    public isActiveStorageUnit(isTB: boolean): boolean {
+        if(isTB) {
+            return this.activeStorageMeasurement == Dimensions.TB
+        } else {
+            return this.activeStorageMeasurement == Dimensions.GB;
+        }
+    }
+
+    public isActiveBandwidthUnit(isTB: boolean): boolean {
+        if(isTB) {
+            return this.activeBandwidthMeasurement == Dimensions.TB
+        } else {
+            return this.activeBandwidthMeasurement == Dimensions.GB;
+        }
+    }
+
+    /**
+     * Toggles the current active unit, and makes input value measurement conversion.
+     */
+    public toggleStorageMeasurement(isTB: boolean): void {
+
+        if(isTB) {
+            this.activeStorageMeasurement = Dimensions.TB;
+            this.storageLimitValue = this.toTB(this.storageLimitValue);
+        } else {
+            this.activeStorageMeasurement = Dimensions.GB;
+            this.storageLimitValue = this.toGB(this.storageLimitValue);
+        }
+    }
+
+    public toggleBandwidthMeasurement(isTB: boolean): void {
+
+        if(isTB) {
+            this.activeBandwidthMeasurement = Dimensions.TB;
+            this.bandwidthLimitValue = this.toTB(this.bandwidthLimitValue);
+        } else {
+            this.activeBandwidthMeasurement = Dimensions.GB;
+            this.bandwidthLimitValue = this.toGB(this.bandwidthLimitValue);
+        }
+    }
+
+    /**
+     * Triggers on limit input.
+        Limits the input value based on default max limit and character limit.
      */
     public onStorageLimitInput(event: Event): void {
         const target = event.target as HTMLInputElement;
-        this.storageLimitValue = parseInt(target.value);
+        const paidStorageCharLimit = this.paidStorageLimit.toString().length;
+
+        if (target.value.length > paidStorageCharLimit) {
+            const formattedLimit = target.value.slice(0, paidStorageCharLimit);
+            this.storageLimitValue = parseInt(formattedLimit);
+        } else if(parseInt(target.value) > this.paidStorageLimit) {
+            this.storageLimitValue = this.paidStorageLimit;
+        } else {
+            this.storageLimitValue = parseInt(target.value);
+        }
     }
 
-    /**
-     * Returns formatted limit amount.
-     */
-    public get bandwidthLimitFormatted(): string {
-        return this.formattedValue(new Size(this.currentLimits.bandwidthLimit, 2));
-    }
-
-    /**
-     * Triggers on bandwidth limit input.
-     */
     public onBandwidthLimitInput(event: Event): void {
         const target = event.target as HTMLInputElement;
-        this.bandwidthLimitValue = parseInt(target.value);
+        const paidBandwidthCharLimit = this.paidBandwidthLimit.toString().length;
+
+        if (target.value.length > paidBandwidthCharLimit) {
+            const formattedLimit = target.value.slice(0, paidBandwidthCharLimit);
+            this.bandwidthLimitValue = parseInt(formattedLimit);
+        } else if(parseInt(target.value) > this.paidBandwidthLimit) {
+            this.bandwidthLimitValue = this.paidBandwidthLimit;
+        } else {
+            this.bandwidthLimitValue = parseInt(target.value);
+        }
     }
 
     /**
@@ -268,7 +499,7 @@ export default class EditProjectDetails extends Vue {
         case Dimensions.KB:
             return '0';
         default:
-            return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
+            return `${value.formattedBytes.replace(/\\.0+$/, '')} ${value.label}`;
         }
     }
 
@@ -313,7 +544,15 @@ export default class EditProjectDetails extends Vue {
      */
     public async onSaveStorageLimitButtonClick(): Promise<void> {
         try {
-            const updatedProject = new ProjectLimits(0, 0, this.storageLimitValue);
+            let storageLimitValue = this.storageLimitValue;
+
+            if(this.activeStorageMeasurement == Dimensions.GB) {
+                storageLimitValue = storageLimitValue * Number(Memory.GB);
+            } else if(this.activeStorageMeasurement == Dimensions.TB) {
+                storageLimitValue = storageLimitValue * Number(Memory.TB);
+            }
+
+            const updatedProject = new ProjectLimits(0, 0, storageLimitValue);
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_STORAGE_LIMIT, updatedProject);
         } catch (error) {
             await this.$notify.error(`Unable to update project storage limit. ${error.message}`);
@@ -330,7 +569,15 @@ export default class EditProjectDetails extends Vue {
      */
     public async onSaveBandwidthLimitButtonClick(): Promise<void> {
         try {
-            const updatedProject = new ProjectLimits(this.bandwidthLimitValue);
+            let bandwidthLimitValue = this.bandwidthLimitValue;
+
+            if(this.activeBandwidthMeasurement == Dimensions.GB) {
+                bandwidthLimitValue = bandwidthLimitValue * Number(Memory.GB);
+            } else if(this.activeBandwidthMeasurement == Dimensions.TB) {
+                bandwidthLimitValue = bandwidthLimitValue * Number(Memory.TB);
+            }
+
+            const updatedProject = new ProjectLimits(bandwidthLimitValue);
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_BANDWIDTH_LIMIT, updatedProject);
         } catch (error) {
             await this.$notify.error(`Unable to update project bandwidth limit. ${error.message}`);
@@ -362,9 +609,20 @@ export default class EditProjectDetails extends Vue {
      * Toggles project storage limit editing state.
      */
     public toggleStorageLimitEditing(): void {
+
+        const storageLimitUnit = new Size(this.currentLimits.storageLimit, 2).label;
+
         if (this.$store.state.usersModule.user.paidTier) {
             this.isStorageLimitEditing = !this.isStorageLimitEditing;
-            this.storageLimitValue = this.currentLimits.storageLimit;
+
+            if(this.activeStorageMeasurement == Dimensions.TB && storageLimitUnit !== Dimensions.TB) {
+                this.storageLimitValue = this.toTB(parseInt(this.storageLimitMeasurement));
+            } else if(this.activeStorageMeasurement == Dimensions.GB && storageLimitUnit !== Dimensions.GB) {
+                this.storageLimitValue = parseInt(this.storageLimitMeasurement);
+            } else {
+                this.storageLimitValue = parseInt(this.storageLimitMeasurement);
+            }
+            this.activeStorageMeasurement = this.storageMeasurementFormatted;
         }
     }
 
@@ -372,9 +630,19 @@ export default class EditProjectDetails extends Vue {
      * Toggles project bandwidth limit editing state.
      */
     public toggleBandwidthLimitEditing(): void {
+        const bandwidthLimitUnit = new Size(this.currentLimits.bandwidthLimit, 2).label;
+
         if (this.$store.state.usersModule.user.paidTier) {
             this.isBandwidthLimitEditing = !this.isBandwidthLimitEditing;
-            this.bandwidthLimitValue = this.currentLimits.bandwidthLimit;
+
+            if(this.activeBandwidthMeasurement == Dimensions.TB && bandwidthLimitUnit !== Dimensions.TB) {
+                this.bandwidthLimitValue = this.toTB(parseInt(this.bandwidthLimitMeasurement));
+            } else if(this.activeBandwidthMeasurement == Dimensions.GB && bandwidthLimitUnit !== Dimensions.GB) {
+                this.bandwidthLimitValue = parseInt(this.bandwidthLimitMeasurement);
+            } else {
+                this.bandwidthLimitValue = parseInt(this.bandwidthLimitMeasurement);
+            }
+            this.activeBandwidthMeasurement = this.bandwidthMeasurementFormatted;
         }
     }
 
@@ -511,8 +779,109 @@ export default class EditProjectDetails extends Vue {
 
                 &__name-editing,
                 &__description-editing,
-                &___limits_storagelimit-editing {
+                &__limits__storagelimit-editing {
                     margin-bottom: 35px;
+                }
+
+                &__limits__storagelimit-editing,
+                &__limits__bandwidthlimit-editing {
+                    width: 180px;
+
+                    &__section {
+                        display: flex;
+                        align-items: baseline;
+                        position: relative;
+                    }
+
+                    &__input {
+                        width: 100px;
+                    }
+
+                    &__slider {
+
+                        &__wrapper {
+                            width: 100%;
+                        }
+
+                        &__label-wrapper {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-top: 15px;
+                            width: 95%;
+                        }
+
+                        &__label {
+                            font-family: 'font_regular', sans-serif;
+                            color: #768394;
+                            font-size: 16px;
+                        }
+
+                        &__input {
+                            width: 95%;
+                            -webkit-appearance: none;
+                            height: 8px;
+                            background: #f5f6fa;
+                            outline: none;
+                            -webkit-transition: 0.2s;
+                            transition: opacity 0.2s;
+                            border: none;
+                            border-radius: 6px;
+
+                            &:hover {
+                                opacity: 0.9;
+                            }
+                        }
+
+                        &__input::-webkit-slider-thumb {
+                            -webkit-appearance: none;
+                            appearance: none;
+                            width: 30px;
+                            height: 30px;
+                            background: #2582ff;
+                            cursor: pointer;
+                            border-radius: 50%;
+                        }
+
+                        &__input::-moz-range-thumb {
+                            width: 30px;
+                            height: 30px;
+                            background: #2582ff;
+                            cursor: pointer;
+                            border-radius: 50%;
+                        }
+                    }
+
+                    &__units-wrapper {
+                        display: flex;
+                        position: absolute;
+                        right: 0;
+                        bottom: 92px;
+                    }
+
+                    &__unit {
+                        font-family: 'font_medium', sans-serif;
+                        color: #afb7c1;
+                        font-size: 16px;
+                        margin-left: 10px;
+                        padding: 5px 6px;
+                        cursor: pointer;
+                    }
+
+                    &__unit.active-unit {
+                        color: #2582ff;
+                        background: #f5f6fa;
+                        border-radius: 6px;
+                    }
+                }
+
+                &__limits__bandwidthlimit-editing {
+
+                    &__units-wrapper {
+                        display: flex;
+                        position: absolute;
+                        right: 0;
+                        bottom: 74px;
+                    }
                 }
             }
         }

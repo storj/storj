@@ -6,9 +6,11 @@ package ultest
 import (
 	"bytes"
 	"context"
+	"io"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zeebo/clingy"
@@ -29,6 +31,8 @@ type testFilesystem struct {
 	pending map[ulloc.Location][]*memWriteHandle
 	locals  map[string]bool // true means path is a directory
 	buckets map[string]struct{}
+
+	mu sync.Mutex
 }
 
 func newTestFilesystem() *testFilesystem {
@@ -60,25 +64,57 @@ func (tfs *testFilesystem) Files() (files []File) {
 	return files
 }
 
+func (tfs *testFilesystem) Pending() (files []File) {
+	for loc, mh := range tfs.pending {
+		for _, h := range mh {
+			files = append(files, File{
+				Loc:      loc.String(),
+				Contents: string(h.buf),
+			})
+		}
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].less(files[j]) })
+	return files
+}
+
 func (tfs *testFilesystem) Close() error {
 	return nil
 }
 
-func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (_ ulfs.ReadHandle, err error) {
+type nopClosingGenericReader struct{ io.ReaderAt }
+
+func (n nopClosingGenericReader) Close() error { return nil }
+
+func newMultiReadHandle(contents string) ulfs.MultiReadHandle {
+	return ulfs.NewGenericMultiReadHandle(nopClosingGenericReader{
+		ReaderAt: bytes.NewReader([]byte(contents)),
+	}, ulfs.ObjectInfo{
+		ContentLength: int64(len(contents)),
+	})
+}
+
+func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (ulfs.MultiReadHandle, error) {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
 	if loc.Std() {
-		return &byteReadHandle{Buffer: bytes.NewBufferString("-")}, nil
+		return newMultiReadHandle("-"), nil
 	}
 
 	mf, ok := tfs.files[loc]
 	if !ok {
-		return nil, errs.New("file does not exist")
+		return nil, errs.New("file does not exist %q", loc)
 	}
-	return &byteReadHandle{Buffer: bytes.NewBufferString(mf.contents)}, nil
+
+	return newMultiReadHandle(mf.contents), nil
 }
 
-func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulfs.WriteHandle, err error) {
+func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulfs.MultiWriteHandle, err error) {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
 	if loc.Std() {
-		return new(discardWriteHandle), nil
+		return ulfs.NewGenericMultiWriteHandle(new(discardWriteHandle)), nil
 	}
 
 	if bucket, _, ok := loc.RemoteParts(); ok {
@@ -88,7 +124,7 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 	}
 
 	if path, ok := loc.LocalParts(); ok {
-		if loc.Directoryish() || tfs.IsLocalDir(ctx, loc) {
+		if loc.Directoryish() || tfs.isLocalDir(ctx, loc) {
 			return nil, errs.New("unable to open file for writing: %q", loc)
 		}
 		dir := ulloc.CleanPath(filepath.Dir(path))
@@ -99,23 +135,52 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 
 	tfs.created++
 	wh := &memWriteHandle{
-		buf: bytes.NewBuffer(nil),
 		loc: loc,
 		tfs: tfs,
 		cre: tfs.created,
 	}
 
-	tfs.pending[loc] = append(tfs.pending[loc], wh)
+	if loc.Remote() {
+		tfs.pending[loc] = append(tfs.pending[loc], wh)
+	}
 
-	return wh, nil
+	return ulfs.NewGenericMultiWriteHandle(wh), nil
 }
 
-func (tfs *testFilesystem) Remove(ctx context.Context, loc ulloc.Location) error {
-	delete(tfs.files, loc)
+func (tfs *testFilesystem) Move(ctx clingy.Context, source, dest ulloc.Location) error {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
+	mf, ok := tfs.files[source]
+	if !ok {
+		return errs.New("file does not exist %q", source)
+	}
+	delete(tfs.files, source)
+	tfs.files[dest] = mf
 	return nil
 }
 
-func (tfs *testFilesystem) ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ulfs.ObjectIterator, error) {
+func (tfs *testFilesystem) Remove(ctx context.Context, loc ulloc.Location, opts *ulfs.RemoveOptions) error {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
+	if opts == nil || !opts.Pending {
+		delete(tfs.files, loc)
+	} else {
+		// TODO: Remove needs an API that understands that multiple pending files may exist
+		delete(tfs.pending, loc)
+	}
+	return nil
+}
+
+func (tfs *testFilesystem) List(ctx context.Context, prefix ulloc.Location, opts *ulfs.ListOptions) (ulfs.ObjectIterator, error) {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
+	if opts != nil && opts.Pending {
+		return tfs.listPending(ctx, prefix, opts)
+	}
+
 	prefixDir := prefix.AsDirectoryish()
 
 	var infos []ulfs.ObjectInfo
@@ -130,19 +195,23 @@ func (tfs *testFilesystem) ListObjects(ctx context.Context, prefix ulloc.Locatio
 
 	sort.Sort(objectInfos(infos))
 
-	if !recursive {
+	if opts == nil || !opts.Recursive {
 		infos = collapseObjectInfos(prefix, infos)
 	}
 
 	return &objectInfoIterator{infos: infos}, nil
 }
 
-func (tfs *testFilesystem) ListUploads(ctx context.Context, prefix ulloc.Location, recursive bool) (ulfs.ObjectIterator, error) {
+func (tfs *testFilesystem) listPending(ctx context.Context, prefix ulloc.Location, opts *ulfs.ListOptions) (ulfs.ObjectIterator, error) {
+	if prefix.Local() {
+		return &objectInfoIterator{}, nil
+	}
+
 	prefixDir := prefix.AsDirectoryish()
 
 	var infos []ulfs.ObjectInfo
 	for loc, whs := range tfs.pending {
-		if loc.Remote() && loc.HasPrefix(prefixDir) || loc == prefix {
+		if loc.HasPrefix(prefixDir) || loc == prefix {
 			for _, wh := range whs {
 				infos = append(infos, ulfs.ObjectInfo{
 					Loc:     loc,
@@ -154,7 +223,7 @@ func (tfs *testFilesystem) ListUploads(ctx context.Context, prefix ulloc.Locatio
 
 	sort.Sort(objectInfos(infos))
 
-	if !recursive {
+	if opts == nil || !opts.Recursive {
 		infos = collapseObjectInfos(prefix, infos)
 	}
 
@@ -162,8 +231,32 @@ func (tfs *testFilesystem) ListUploads(ctx context.Context, prefix ulloc.Locatio
 }
 
 func (tfs *testFilesystem) IsLocalDir(ctx context.Context, loc ulloc.Location) (local bool) {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
+	return tfs.isLocalDir(ctx, loc)
+}
+
+func (tfs *testFilesystem) isLocalDir(ctx context.Context, loc ulloc.Location) (local bool) {
 	path, ok := loc.LocalParts()
 	return ok && (ulloc.CleanPath(path) == "." || tfs.locals[path])
+}
+
+func (tfs *testFilesystem) Stat(ctx context.Context, loc ulloc.Location) (*ulfs.ObjectInfo, error) {
+	if loc.Std() {
+		return nil, errs.New("unable to stat loc %q", loc.Loc())
+	}
+
+	mf, ok := tfs.files[loc]
+	if !ok {
+		return nil, errs.New("file does not exist: %q", loc.Loc())
+	}
+
+	return &ulfs.ObjectInfo{
+		Loc:           loc,
+		Created:       time.Unix(mf.created, 0),
+		ContentLength: int64(len(mf.contents)),
+	}, nil
 }
 
 func (tfs *testFilesystem) mkdirAll(ctx context.Context, dir string) error {
@@ -193,33 +286,32 @@ func (tfs *testFilesystem) mkdir(ctx context.Context, dir string) error {
 }
 
 //
-// ulfs.ReadHandle
-//
-
-type byteReadHandle struct {
-	*bytes.Buffer
-}
-
-func (b *byteReadHandle) Close() error          { return nil }
-func (b *byteReadHandle) Info() ulfs.ObjectInfo { return ulfs.ObjectInfo{} }
-
-//
 // ulfs.WriteHandle
 //
 
 type memWriteHandle struct {
-	buf  *bytes.Buffer
+	buf  []byte
 	loc  ulloc.Location
 	tfs  *testFilesystem
 	cre  int64
 	done bool
 }
 
-func (b *memWriteHandle) Write(p []byte) (int, error) {
-	return b.buf.Write(p)
+func (b *memWriteHandle) WriteAt(p []byte, off int64) (int, error) {
+	if b.done {
+		return 0, errs.New("write to closed handle")
+	}
+	end := int64(len(p)) + off
+	if grow := end - int64(len(b.buf)); grow > 0 {
+		b.buf = append(b.buf, make([]byte, grow)...)
+	}
+	return copy(b.buf[off:], p), nil
 }
 
 func (b *memWriteHandle) Commit() error {
+	b.tfs.mu.Lock()
+	defer b.tfs.mu.Unlock()
+
 	if err := b.close(); err != nil {
 		return err
 	}
@@ -229,13 +321,17 @@ func (b *memWriteHandle) Commit() error {
 	}
 
 	b.tfs.files[b.loc] = memFileData{
-		contents: b.buf.String(),
+		contents: string(b.buf),
 		created:  b.cre,
 	}
+
 	return nil
 }
 
 func (b *memWriteHandle) Abort() error {
+	b.tfs.mu.Lock()
+	defer b.tfs.mu.Unlock()
+
 	if err := b.close(); err != nil {
 		return err
 	}
@@ -268,9 +364,9 @@ func (b *memWriteHandle) close() error {
 
 type discardWriteHandle struct{}
 
-func (discardWriteHandle) Write(p []byte) (int, error) { return len(p), nil }
-func (discardWriteHandle) Commit() error               { return nil }
-func (discardWriteHandle) Abort() error                { return nil }
+func (discardWriteHandle) WriteAt(p []byte, off int64) (int, error) { return len(p), nil }
+func (discardWriteHandle) Commit() error                            { return nil }
+func (discardWriteHandle) Abort() error                             { return nil }
 
 //
 // ulfs.ObjectIterator

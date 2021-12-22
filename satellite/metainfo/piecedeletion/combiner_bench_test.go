@@ -48,7 +48,7 @@ func (handler *SleepyHandler) Handle(ctx context.Context, node storj.NodeURL, qu
 }
 
 func BenchmarkCombiner(b *testing.B) {
-	const (
+	var (
 		// currently nodes are picked uniformly, however total piece distribution is not
 		// hence we use a lower number to simulate frequent nodes
 		nodeCount    = 500
@@ -58,17 +58,18 @@ func BenchmarkCombiner(b *testing.B) {
 		// we cannot use realistic values here due to sleep granularity
 		minWait = 1 * time.Millisecond
 		maxWait = 20 * time.Millisecond
+		// add few variations to test
+		activeLimits = []int{8, 32, 64, -1}
+		queueSizes   = []int{1, 8, 64, 128, -1}
 	)
 
-	var activeLimits []int
-	var queueSizes []int
-
 	if testing.Short() {
+		// use values to make tests run faster
+		nodeCount = 5
+		requestCount = 5
+		callsPerRequest = 5
 		activeLimits = []int{8, 64, -1}
 		queueSizes = []int{8, 128, -1}
-	} else {
-		activeLimits = []int{8, 32, 64, -1}
-		queueSizes = []int{1, 8, 64, 128, -1}
 	}
 
 	nodes := []storj.NodeURL{}

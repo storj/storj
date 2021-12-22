@@ -4,7 +4,9 @@
 package admin
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 
@@ -43,10 +45,6 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		PartnerID uuid.UUID `json:"partnerId"`
 		Name      string    `json:"name"`
-	}
-
-	var output struct {
-		APIKey string `json:"apikey"`
 	}
 
 	err = json.Unmarshal(body, &input)
@@ -97,6 +95,10 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var output struct {
+		APIKey string `json:"apikey"`
+	}
+
 	output.APIKey = key.Serialize()
 	data, err := json.Marshal(output)
 	if err != nil {
@@ -127,6 +129,11 @@ func (server *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info, err := server.db.Console().APIKeys().GetByHead(ctx, apikey.Head())
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "API key does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		sendJSONError(w, "could not get apikey id",
 			err.Error(), http.StatusInternalServerError)
@@ -167,6 +174,11 @@ func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request)
 	}
 
 	info, err := server.db.Console().APIKeys().GetByNameAndProjectID(ctx, apikeyName, projectUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "API key with specified name does not exist",
+			"", http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		sendJSONError(w, "could not get apikey id",
 			err.Error(), http.StatusInternalServerError)

@@ -30,78 +30,100 @@ func (r *Remote) Close() error {
 	return r.project.Close()
 }
 
-// Open returns a ReadHandle for the object identified by a given bucket and key.
-func (r *Remote) Open(ctx context.Context, bucket, key string) (ReadHandle, error) {
-	fh, err := r.project.DownloadObject(ctx, bucket, key, nil)
+// Open returns a MultiReadHandle for the object identified by a given bucket and key.
+func (r *Remote) Open(ctx context.Context, bucket, key string) (MultiReadHandle, error) {
+	return newUplinkMultiReadHandle(r.project, bucket, key), nil
+}
+
+// Stat returns information about an object at the specified key.
+func (r *Remote) Stat(ctx context.Context, bucket, key string) (*ObjectInfo, error) {
+	fstat, err := r.project.StatObject(ctx, bucket, key)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	return newUplinkReadHandle(bucket, fh), nil
+	stat := uplinkObjectToObjectInfo(bucket, fstat)
+	return &stat, nil
 }
 
-// Create returns a WriteHandle for the object identified by a given bucket and key.
-func (r *Remote) Create(ctx context.Context, bucket, key string) (WriteHandle, error) {
-	fh, err := r.project.UploadObject(ctx, bucket, key, nil)
+// Create returns a MultiWriteHandle for the object identified by a given bucket and key.
+func (r *Remote) Create(ctx context.Context, bucket, key string) (MultiWriteHandle, error) {
+	info, err := r.project.BeginUpload(ctx, bucket, key, nil)
 	if err != nil {
 		return nil, err
 	}
-	return newUplinkWriteHandle(fh), nil
+	return newUplinkMultiWriteHandle(r.project, bucket, info), nil
+}
+
+// Move moves object to provided key and bucket.
+func (r *Remote) Move(ctx context.Context, oldbucket, oldkey, newbucket, newkey string) error {
+	return errs.Wrap(r.project.MoveObject(ctx, oldbucket, oldkey, newbucket, newkey, nil))
 }
 
 // Remove deletes the object at the provided key and bucket.
-func (r *Remote) Remove(ctx context.Context, bucket, key string) error {
-	_, err := r.project.DeleteObject(ctx, bucket, key)
-	if err != nil {
-		return err
+func (r *Remote) Remove(ctx context.Context, bucket, key string, opts *RemoveOptions) error {
+	if !opts.isPending() {
+		_, err := r.project.DeleteObject(ctx, bucket, key)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		return nil
+	}
+
+	// TODO: we may need a dedicated endpoint for deleting pending object streams
+	list := r.project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{Prefix: key})
+
+	// TODO: modify when we can have several pending objects for the same object key
+	if list.Next() {
+		err := r.project.AbortUpload(ctx, bucket, key, list.Item().UploadID)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+	if err := list.Err(); err != nil {
+		return errs.Wrap(err)
 	}
 	return nil
 }
 
-// ListObjects lists all of the objects in some bucket that begin with the given prefix.
-func (r *Remote) ListObjects(ctx context.Context, bucket, prefix string, recursive bool) ObjectIterator {
+// List lists all of the objects in some bucket that begin with the given prefix.
+func (r *Remote) List(ctx context.Context, bucket, prefix string, opts *ListOptions) ObjectIterator {
 	parentPrefix := ""
 	if idx := strings.LastIndexByte(prefix, '/'); idx >= 0 {
 		parentPrefix = prefix[:idx+1]
 	}
 
 	trim := ulloc.NewRemote(bucket, "")
-	if !recursive {
+	if !opts.isRecursive() {
 		trim = ulloc.NewRemote(bucket, parentPrefix)
+	}
+
+	var iter ObjectIterator
+	if opts.isPending() {
+		iter = newUplinkUploadIterator(
+			bucket,
+			r.project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
+				Prefix:    parentPrefix,
+				Recursive: opts.Recursive,
+				System:    true,
+				Custom:    opts.Expanded,
+			}),
+		)
+	} else {
+		iter = newUplinkObjectIterator(
+			bucket,
+			r.project.ListObjects(ctx, bucket, &uplink.ListObjectsOptions{
+				Prefix:    parentPrefix,
+				Recursive: opts.Recursive,
+				System:    true,
+				Custom:    opts.Expanded,
+			}),
+		)
 	}
 
 	return &filteredObjectIterator{
 		trim:   trim,
 		filter: ulloc.NewRemote(bucket, prefix),
-		iter: newUplinkObjectIterator(bucket, r.project.ListObjects(ctx, bucket,
-			&uplink.ListObjectsOptions{
-				Prefix:    parentPrefix,
-				Recursive: recursive,
-				System:    true,
-			})),
-	}
-}
-
-// ListUploads lists all of the pending uploads in some bucket that begin with the given prefix.
-func (r *Remote) ListUploads(ctx context.Context, bucket, prefix string, recursive bool) ObjectIterator {
-	parentPrefix := ""
-	if idx := strings.LastIndexByte(prefix, '/'); idx >= 0 {
-		parentPrefix = prefix[:idx+1]
-	}
-
-	trim := ulloc.NewRemote(bucket, "")
-	if !recursive {
-		trim = ulloc.NewRemote(bucket, parentPrefix)
-	}
-
-	return &filteredObjectIterator{
-		trim:   trim,
-		filter: ulloc.NewRemote(bucket, prefix),
-		iter: newUplinkUploadIterator(bucket, r.project.ListUploads(ctx, bucket,
-			&uplink.ListUploadsOptions{
-				Prefix:    parentPrefix,
-				Recursive: recursive,
-				System:    true,
-			})),
+		iter:   iter,
 	}
 }
 

@@ -17,6 +17,6 @@ type ProjectCharge struct {
 	StorageGbHrs int64 `json:"storagePrice"`
 	// Egress shows how many cents we should pay for Egress.
 	Egress int64 `json:"egressPrice"`
-	// ObjectCount shows how many cents we should pay for objects count.
-	ObjectCount int64 `json:"objectPrice"`
+	// SegmentCount shows how many cents we should pay for objects count.
+	SegmentCount int64 `json:"segmentPrice"`
 }

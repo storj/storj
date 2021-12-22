@@ -9,10 +9,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"text/tabwriter"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -205,13 +207,6 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdCreateCustomerInvoiceItems,
 	}
-	createCustomerInvoiceCouponsCmd = &cobra.Command{
-		Use:   "create-invoice-coupons [period]",
-		Short: "Adds coupons to stripe invoices",
-		Long:  "Creates stripe invoice line items for not consumed coupons.",
-		Args:  cobra.ExactArgs(1),
-		RunE:  cmdCreateCustomerInvoiceCoupons,
-	}
 	createCustomerInvoicesCmd = &cobra.Command{
 		Use:   "create-invoices [period]",
 		Short: "Creates stripe invoices from pending invoice items",
@@ -248,6 +243,13 @@ var (
 		Long: "Tell storage nodes to undo garbage collection. " +
 			"If node ids aren't provided, *all* nodes are used.",
 		RunE: cmdRestoreTrash,
+	}
+	registerLostSegments = &cobra.Command{
+		Use:   "register-lost-segments [number_of_segments_lost]",
+		Short: "Register permanently lost segments for our statistics",
+		Long:  "Send metric information through monkit indicating the (permanent) loss of some number of segments. Temporarily unavailable segments are reported automatically by the repair checker and do not need to be reported here.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdRegisterLostSegments,
 	}
 
 	runCfg   Satellite
@@ -312,6 +314,7 @@ func init() {
 	rootCmd.AddCommand(billingCmd)
 	rootCmd.AddCommand(consistencyCmd)
 	rootCmd.AddCommand(restoreTrashCmd)
+	rootCmd.AddCommand(registerLostSegments)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -322,7 +325,6 @@ func init() {
 	billingCmd.AddCommand(applyFreeTierCouponsCmd)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerInvoiceItemsCmd)
-	billingCmd.AddCommand(createCustomerInvoiceCouponsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
@@ -334,6 +336,7 @@ func init() {
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(restoreTrashCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(registerLostSegments, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -346,7 +349,6 @@ func init() {
 	process.Bind(applyFreeTierCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(createCustomerInvoiceCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -383,7 +385,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
+		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
+		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
+	})
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
 	}
@@ -467,7 +472,10 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
+		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
+		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
+	})
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
 	}
@@ -655,6 +663,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return errs.Combine(errs.New("Invalid Partner ID format. %s", args[0]), err)
 	}
+	userAgent := []byte(args[0])
 
 	start, end, err := reports.ParseRange(args[1], args[2])
 	if err != nil {
@@ -663,7 +672,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if partnerAttribtionCfg.Output == "" {
-		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, start, end, os.Stdout)
+		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, userAgent, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -682,7 +691,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, start, end, file)
+	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, userAgent, start, end, file)
 }
 
 func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {
@@ -708,19 +717,6 @@ func cmdCreateCustomerInvoiceItems(cmd *cobra.Command, args []string) (err error
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyProjectRecords(ctx, period)
-	})
-}
-
-func cmdCreateCustomerInvoiceCoupons(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-
-	period, err := parseBillingPeriod(args[0])
-	if err != nil {
-		return errs.New("invalid period specified: %v", err)
-	}
-
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
-		return payments.InvoiceApplyCoupons(ctx, period)
 	})
 }
 
@@ -868,6 +864,32 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	limiter.Wait()
 
 	log.Sugar().Infof("restore trash complete. %d successes, %d failures", *successes, *failures)
+	return nil
+}
+
+func cmdRegisterLostSegments(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	numLostSegments, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatal("invalid numeric argument", zap.String("argument", args[0]))
+	}
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
+		log.Fatal("Failed to initialize telemetry batcher", zap.Error(err))
+	}
+
+	scope := monkit.Default.ScopeNamed("segment-durability")
+	scope.Meter("lost-segments").Mark(numLostSegments)
+
+	if err := process.Report(ctx); err != nil {
+		log.Fatal("could not send telemetry", zap.Error(err))
+	}
+	// we can't actually tell whether metrics is really enabled at this point;
+	// process.InitMetrics...() can return a nil error while disabling metrics
+	// entirely. make sure that's clear to the user.
+	log.Info("lost segment event(s) sent (if metrics are actually enabled)", zap.Int("lost-segments", numLostSegments))
+
 	return nil
 }
 

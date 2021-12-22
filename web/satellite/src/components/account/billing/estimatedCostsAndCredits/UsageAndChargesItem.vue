@@ -24,7 +24,7 @@
                 <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
                     <p>Storage (${{ storagePrice }} per Gigabyte-Month)</p>
                     <p>Egress (${{ egressPrice }} per GB)</p>
-                    <p>Objects (${{ objectPrice }} per Object-Month)</p>
+                    <p>Segments (${{ segmentPrice }} per Segment-Month)</p>
                 </div>
                 <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
                     <p>{{ period }}</p>
@@ -34,12 +34,12 @@
                 <div class="usage-charges-item-container__detailed-info-container__content-area__usage-container">
                     <p>{{ storageFormatted }} Gigabyte-month</p>
                     <p>{{ egressAmountAndDimension }}</p>
-                    <p>{{ objectCountFormatted }} Object-month</p>
+                    <p>{{ segmentCountFormatted }} Segment-month</p>
                 </div>
                 <div class="usage-charges-item-container__detailed-info-container__content-area__cost-container">
                     <p class="price">{{ item.storagePrice | centsToDollars }}</p>
                     <p class="price">{{ item.egressPrice | centsToDollars }}</p>
-                    <p class="price">{{ item.objectPrice | centsToDollars }}</p>
+                    <p class="price">{{ item.segmentPrice | centsToDollars }}</p>
                 </div>
             </div>
         </div>
@@ -119,10 +119,10 @@ export default class UsageAndChargesItem extends Vue {
     }
 
     /**
-     * Returns formatted object count in object x month dimension.
+     * Returns formatted segment count in segment x month dimension.
      */
-    public get objectCountFormatted(): string {
-        return (this.item.objectCount / this.HOURS_IN_MONTH).toFixed(2);
+    public get segmentCountFormatted(): string {
+        return (this.item.segmentCount / this.HOURS_IN_MONTH).toFixed(2);
     }
 
     /**
@@ -140,10 +140,10 @@ export default class UsageAndChargesItem extends Vue {
     }
 
     /**
-     * Returns object price.
+     * Returns segment price.
      */
-    public get objectPrice(): string {
-        return MetaUtils.getMetaContent('object-price');
+    public get segmentPrice(): string {
+        return MetaUtils.getMetaContent('segment-price');
     }
 
     /**

@@ -19,42 +19,40 @@ import (
 
 func TestIterateObjects(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		t.Run("ProjectID missing", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.IterateObjects{
-				Opts: metabase.IterateObjects{
-					ProjectID:  uuid.UUID{},
-					BucketName: "sj://mybucket",
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "ProjectID missing",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-		t.Run("BucketName missing", func(t *testing.T) {
+		t.Run("invalid arguments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.IterateObjects{
-				Opts: metabase.IterateObjects{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "",
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "BucketName missing",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-		t.Run("Limit is negative", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.IterateObjects{
-				Opts: metabase.IterateObjects{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "mybucket",
-					BatchSize:  -1,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "BatchSize is negative",
-			}.Check(ctx, t, db)
+			t.Run("ProjectID missing", func(t *testing.T) {
+				metabasetest.IterateObjects{
+					Opts: metabase.IterateObjects{
+						ProjectID:  uuid.UUID{},
+						BucketName: "sj://mybucket",
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "ProjectID missing",
+				}.Check(ctx, t, db)
+			})
+			t.Run("BucketName missing", func(t *testing.T) {
+				metabasetest.IterateObjects{
+					Opts: metabase.IterateObjects{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "",
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "BucketName missing",
+				}.Check(ctx, t, db)
+			})
+			t.Run("Limit is negative", func(t *testing.T) {
+				metabasetest.IterateObjects{
+					Opts: metabase.IterateObjects{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "mybucket",
+						BatchSize:  -1,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "BatchSize is negative",
+				}.Check(ctx, t, db)
+			})
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
@@ -394,12 +392,12 @@ func TestIterateObjects(t *testing.T) {
 
 			queries := []metabase.ObjectKey{""}
 			for a := 0; a <= 0xFF; a++ {
-				if 5 < a && a < 250 {
+				if 4 < a && a < 251 {
 					continue
 				}
 				queries = append(queries, metabase.ObjectKey([]byte{byte(a)}))
 				for b := 0; b <= 0xFF; b++ {
-					if 5 < b && b < 250 {
+					if 4 < b && b < 251 {
 						continue
 					}
 					queries = append(queries, metabase.ObjectKey([]byte{byte(a), byte(b)}))
@@ -467,10 +465,8 @@ func TestIterateObjects(t *testing.T) {
 
 func TestIterateObjectsWithStatus(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		t.Run("BucketName missing", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+		t.Run("invalid arguments", func(t *testing.T) {
 			t.Run("ProjectID missing", func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 				metabasetest.IterateObjectsWithStatus{
 					Opts: metabase.IterateObjectsWithStatus{
 						ProjectID:  uuid.UUID{},
@@ -481,48 +477,44 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "ProjectID missing",
 				}.Check(ctx, t, db)
-				metabasetest.Verify{}.Check(ctx, t, db)
 			})
-			metabasetest.IterateObjectsWithStatus{
-				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "",
-					Recursive:  true,
-					Status:     metabase.Committed,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "BucketName missing",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-		t.Run("Limit is negative", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.IterateObjectsWithStatus{
-				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "mybucket",
-					BatchSize:  -1,
-					Recursive:  true,
-					Status:     metabase.Committed,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "BatchSize is negative",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-		t.Run("Status is invalid", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.IterateObjectsWithStatus{
-				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:  uuid.UUID{1},
-					BucketName: "test",
-					Recursive:  true,
-					Status:     255,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Status 255 is not supported",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
+			t.Run("BucketName missing", func(t *testing.T) {
+				metabasetest.IterateObjectsWithStatus{
+					Opts: metabase.IterateObjectsWithStatus{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "",
+						Recursive:  true,
+						Status:     metabase.Committed,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "BucketName missing",
+				}.Check(ctx, t, db)
+			})
+			t.Run("Limit is negative", func(t *testing.T) {
+				metabasetest.IterateObjectsWithStatus{
+					Opts: metabase.IterateObjectsWithStatus{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "mybucket",
+						BatchSize:  -1,
+						Recursive:  true,
+						Status:     metabase.Committed,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "BatchSize is negative",
+				}.Check(ctx, t, db)
+			})
+			t.Run("Status is invalid", func(t *testing.T) {
+				metabasetest.IterateObjectsWithStatus{
+					Opts: metabase.IterateObjectsWithStatus{
+						ProjectID:  uuid.UUID{1},
+						BucketName: "test",
+						Recursive:  true,
+						Status:     255,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "Status 255 is not supported",
+				}.Check(ctx, t, db)
+			})
 		})
 
 		t.Run("empty bucket", func(t *testing.T) {
@@ -584,11 +576,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:                     committed.ObjectKey,
@@ -605,11 +598,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Recursive:       true,
-					Status:          metabase.Pending,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Pending,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:  pending.ObjectKey,
@@ -633,12 +627,13 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			}
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       uuid.UUID{1},
-					BucketName:      "mybucket",
-					Recursive:       true,
-					BatchSize:       limit,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             uuid.UUID{1},
+					BucketName:            "mybucket",
+					Recursive:             true,
+					BatchSize:             limit,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -656,12 +651,13 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			}
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       uuid.UUID{1},
-					BucketName:      "mybucket",
-					Recursive:       true,
-					BatchSize:       limit,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             uuid.UUID{1},
+					BucketName:            "mybucket",
+					Recursive:             true,
+					BatchSize:             limit,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -683,11 +679,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       uuid.UUID{1},
-					BucketName:      "bucket-a",
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             uuid.UUID{1},
+					BucketName:            "bucket-a",
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -711,11 +708,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       uuid.UUID{1},
-					BucketName:      "mybucket",
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             uuid.UUID{1},
+					BucketName:            "mybucket",
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -743,11 +741,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -764,11 +763,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: 10},
 				},
@@ -786,11 +786,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
@@ -808,11 +809,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
 				},
@@ -825,11 +827,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -843,11 +846,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
@@ -860,11 +864,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Recursive:       true,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -891,10 +896,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -907,10 +913,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: 10},
 				},
@@ -924,10 +931,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
@@ -941,10 +949,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
 				},
@@ -957,10 +966,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -974,10 +984,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
@@ -990,10 +1001,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -1003,10 +1015,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "c/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -1020,10 +1033,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
-					ProjectID:       projectID,
-					BucketName:      bucketName,
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 
 					Prefix: "c//",
 				},
@@ -1039,12 +1053,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			queries := []metabase.ObjectKey{""}
 			for a := 0; a <= 0xFF; a++ {
-				if 5 < a && a < 250 {
+				if 4 < a && a < 251 {
 					continue
 				}
 				queries = append(queries, metabase.ObjectKey([]byte{byte(a)}))
 				for b := 0; b <= 0xFF; b++ {
-					if 5 < b && b < 250 {
+					if 4 < b && b < 251 {
 						continue
 					}
 					queries = append(queries, metabase.ObjectKey([]byte{byte(a), byte(b)}))
@@ -1063,9 +1077,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 							Key:     cursor,
 							Version: -1,
 						},
-						Prefix:          prefix,
-						Status:          metabase.Committed,
-						IncludeMetadata: true,
+						Prefix:                prefix,
+						Status:                metabase.Committed,
+						IncludeCustomMetadata: true,
+						IncludeSystemMetadata: true,
 					}, collector.Add)
 					require.NoError(t, err)
 
@@ -1076,10 +1091,11 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 							Key:     cursor,
 							Version: -1,
 						},
-						Prefix:          prefix,
-						Recursive:       true,
-						Status:          metabase.Committed,
-						IncludeMetadata: true,
+						Prefix:                prefix,
+						Recursive:             true,
+						Status:                metabase.Committed,
+						IncludeCustomMetadata: true,
+						IncludeSystemMetadata: true,
 					}, collector.Add)
 					require.NoError(t, err)
 				}
@@ -1099,9 +1115,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Key:     metabase.ObjectKey([]byte{}),
 					Version: -1,
 				},
-				Prefix:          metabase.ObjectKey([]byte{1}),
-				Status:          metabase.Committed,
-				IncludeMetadata: true,
+				Prefix:                metabase.ObjectKey([]byte{1}),
+				Status:                metabase.Committed,
+				IncludeCustomMetadata: true,
+				IncludeSystemMetadata: true,
 			}, collector.Add)
 			require.NoError(t, err)
 		})
@@ -1118,12 +1135,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			var collector metabasetest.IterateCollector
 			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:       projectID,
-				BucketName:      bucketName,
-				Prefix:          metabase.ObjectKey("a/"),
-				BatchSize:       1,
-				Status:          metabase.Committed,
-				IncludeMetadata: true,
+				ProjectID:             projectID,
+				BucketName:            bucketName,
+				Prefix:                metabase.ObjectKey("a/"),
+				BatchSize:             1,
+				Status:                metabase.Committed,
+				IncludeCustomMetadata: true,
 			}, collector.Add)
 			require.NoError(t, err)
 		})
@@ -1144,11 +1161,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			var collector metabasetest.IterateCollector
 			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:       obj1.ProjectID,
-				BucketName:      obj1.BucketName,
-				Recursive:       true,
-				Status:          metabase.Committed,
-				IncludeMetadata: true,
+				ProjectID:             obj1.ProjectID,
+				BucketName:            obj1.BucketName,
+				Recursive:             true,
+				Status:                metabase.Committed,
+				IncludeCustomMetadata: true,
+				IncludeSystemMetadata: true,
 			}, collector.Add)
 
 			require.NoError(t, err)
@@ -1160,7 +1178,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			}
 		})
 
-		t.Run("exclude metadata", func(t *testing.T) {
+		t.Run("exclude custom metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj1 := metabasetest.RandObjectStream()
@@ -1176,11 +1194,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			var collector metabasetest.IterateCollector
 			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:       obj1.ProjectID,
-				BucketName:      obj1.BucketName,
-				Recursive:       true,
-				Status:          metabase.Committed,
-				IncludeMetadata: false,
+				ProjectID:             obj1.ProjectID,
+				BucketName:            obj1.BucketName,
+				Recursive:             true,
+				Status:                metabase.Committed,
+				IncludeCustomMetadata: false,
+				IncludeSystemMetadata: true,
 			}, collector.Add)
 
 			require.NoError(t, err)
@@ -1189,6 +1208,53 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.Nil(t, entry.EncryptedMetadataNonce)
 				require.Nil(t, entry.EncryptedMetadata)
 				require.Nil(t, entry.EncryptedMetadataEncryptedKey)
+			}
+		})
+
+		t.Run("exclude system metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.RandObjectStream()
+			metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj1,
+					Encryption:                    metabasetest.DefaultEncryption,
+					EncryptedMetadata:             []byte{3},
+					EncryptedMetadataEncryptedKey: []byte{4},
+					EncryptedMetadataNonce:        []byte{5},
+				},
+			}.Run(ctx, t, db, obj1, 4)
+
+			var collector metabasetest.IterateCollector
+			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+				ProjectID:             obj1.ProjectID,
+				BucketName:            obj1.BucketName,
+				Recursive:             true,
+				Status:                metabase.Committed,
+				IncludeCustomMetadata: true,
+				IncludeSystemMetadata: false,
+			}, collector.Add)
+
+			require.NoError(t, err)
+
+			for _, entry := range collector {
+				// fields that should always be set
+				require.NotEmpty(t, entry.ObjectKey)
+				require.NotEmpty(t, entry.StreamID)
+				require.NotZero(t, entry.Version)
+				require.False(t, entry.Encryption.IsZero())
+
+				require.True(t, entry.CreatedAt.IsZero())
+				require.Nil(t, entry.ExpiresAt)
+				require.Zero(t, entry.Status)
+				require.Zero(t, entry.SegmentCount)
+				require.Zero(t, entry.TotalPlainSize)
+				require.Zero(t, entry.TotalEncryptedSize)
+				require.Zero(t, entry.FixedSegmentSize)
+
+				require.NotNil(t, entry.EncryptedMetadataNonce)
+				require.NotNil(t, entry.EncryptedMetadata)
+				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
 			}
 		})
 	})
@@ -1217,8 +1283,9 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08/"),
 						Version: 1,
 					},
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
@@ -1236,7 +1303,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08"),
 						Version: 1,
 					},
-					Status: metabase.Committed,
+					Status:                metabase.Committed,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry(metabase.ObjectKey("08/"), metabase.Committed),
@@ -1255,7 +1323,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("08/a/x"),
 						Version: 1,
 					},
-					Status: metabase.Committed,
+					Status:                metabase.Committed,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
@@ -1283,7 +1352,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08"),
 						Version: 1,
 					},
-					Status: metabase.Committed,
+					Status:                metabase.Committed,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry(metabase.ObjectKey("08/"), metabase.Committed),
@@ -1302,7 +1372,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/"),
 						Version: 1,
 					},
-					Status: metabase.Committed,
+					Status:                metabase.Committed,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
@@ -1320,7 +1391,8 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/a/x"),
 						Version: 1,
 					},
-					Status: metabase.Committed,
+					Status:                metabase.Committed,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry(metabase.ObjectKey("09/"), metabase.Committed),
@@ -1365,8 +1437,9 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08"),
 						Version: 1,
 					},
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry(metabase.ObjectKey("08/"), metabase.Committed),
@@ -1387,8 +1460,9 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/"),
 						Version: 1,
 					},
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
@@ -1407,8 +1481,9 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 						Key:     metabase.ObjectKey("2017/05/08/a/x"),
 						Version: 1,
 					},
-					Status:          metabase.Committed,
-					IncludeMetadata: true,
+					Status:                metabase.Committed,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
 					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),

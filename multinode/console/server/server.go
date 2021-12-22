@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"html/template"
 	"io/ioutil"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/storj/multinode/bandwidth"
 	"storj.io/storj/multinode/console/controllers"
 	"storj.io/storj/multinode/nodes"
@@ -180,7 +182,11 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return Error.Wrap(server.http.Serve(server.listener))
+		err := Error.Wrap(server.http.Serve(server.listener))
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
 	})
 
 	return Error.Wrap(group.Wait())

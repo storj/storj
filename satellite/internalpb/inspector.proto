@@ -5,7 +5,6 @@ syntax = "proto3";
 option go_package = "storj.io/storj/satellite/internalpb";
 
 import "gogo.proto";
-import "node.proto";
 import "pointerdb.proto";
 
 package satellite.inspector;

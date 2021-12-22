@@ -53,18 +53,25 @@ type Projects interface {
 type UsageLimitsConfig struct {
 	Storage   StorageLimitConfig
 	Bandwidth BandwidthLimitConfig
+	Segment   SegmentLimitConfig
 }
 
 // StorageLimitConfig is a configuration struct for default storage per-project usage limits.
 type StorageLimitConfig struct {
-	Free memory.Size `help:"the default free-tier storage usage limit" default:"50.00GB" testDefault:"25.00 GB"`
+	Free memory.Size `help:"the default free-tier storage usage limit" default:"150.00GB" testDefault:"25.00 GB"`
 	Paid memory.Size `help:"the default paid-tier storage usage limit" default:"25.00TB" testDefault:"25.00 GB"`
 }
 
 // BandwidthLimitConfig is a configuration struct for default bandwidth per-project usage limits.
 type BandwidthLimitConfig struct {
-	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"50.00GB" testDefault:"25.00 GB"`
+	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"150.00GB" testDefault:"25.00 GB"`
 	Paid memory.Size `help:"the default paid-tier bandwidth usage limit" default:"100.00TB" testDefault:"25.00 GB"`
+}
+
+// SegmentLimitConfig is a configuration struct for default segments per-project usage limits.
+type SegmentLimitConfig struct {
+	Free int64 `help:"the default free-tier segment usage limit" default:"140000"`
+	Paid int64 `help:"the default paid-tier segment usage limit" default:"1000000"`
 }
 
 // Project is a database object that describes Project entity.
@@ -74,6 +81,7 @@ type Project struct {
 	Name           string       `json:"name"`
 	Description    string       `json:"description"`
 	PartnerID      uuid.UUID    `json:"partnerId"`
+	UserAgent      []byte       `json:"userAgent"`
 	OwnerID        uuid.UUID    `json:"ownerId"`
 	RateLimit      *int         `json:"rateLimit"`
 	BurstLimit     *int         `json:"burstLimit"`
@@ -82,6 +90,7 @@ type Project struct {
 	MemberCount    int          `json:"memberCount"`
 	StorageLimit   *memory.Size `json:"storageLimit"`
 	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
+	SegmentLimit   *int64       `json:"segmentLimit"`
 }
 
 // ProjectInfo holds data needed to create/update Project.
@@ -90,6 +99,7 @@ type ProjectInfo struct {
 	Description    string      `json:"description"`
 	StorageLimit   memory.Size `json:"project specific storage limit"`
 	BandwidthLimit memory.Size `json:"project specific bandwidth limit"`
+	SegmentLimit   int64       `json:"project specific segment limit"`
 	CreatedAt      time.Time   `json:"createdAt"`
 }
 

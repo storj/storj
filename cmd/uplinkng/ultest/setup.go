@@ -93,11 +93,12 @@ func (st State) Run(t *testing.T, args ...string) Result {
 	}
 
 	return Result{
-		Stdout: stdout.String(),
-		Stderr: stderr.String(),
-		Ok:     ok,
-		Err:    err,
-		Files:  tfs.Files(),
+		Stdout:  stdout.String(),
+		Stderr:  stderr.String(),
+		Ok:      ok,
+		Err:     err,
+		Files:   tfs.Files(),
+		Pending: tfs.Pending(),
 	}
 }
 
@@ -138,7 +139,11 @@ func WithFile(location string, contents ...string) ExecuteOption {
 			tfs.ensureBucket(bucket)
 		}
 
-		wh, err := tfs.Create(ctx, loc)
+		mwh, err := tfs.Create(ctx, loc)
+		require.NoError(t, err)
+		defer func() { _ = mwh.Abort(ctx) }()
+
+		wh, err := mwh.NextPart(ctx, -1)
 		require.NoError(t, err)
 		defer func() { _ = wh.Abort() }()
 
@@ -152,6 +157,7 @@ func WithFile(location string, contents ...string) ExecuteOption {
 		}
 
 		require.NoError(t, wh.Commit())
+		require.NoError(t, mwh.Commit(ctx))
 	}}
 }
 
@@ -164,6 +170,8 @@ func WithPendingFile(location string) ExecuteOption {
 
 		if bucket, _, ok := loc.RemoteParts(); ok {
 			tfs.ensureBucket(bucket)
+		} else {
+			t.Fatalf("Invalid pending local file: %s", loc)
 		}
 
 		_, err = tfs.Create(ctx, loc)

@@ -379,14 +379,12 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			expectedSegment.Pieces = expectedPieces
 			expectedSegment.RepairedAt = &repairedAt
 
-			segment, err = db.GetSegmentByLocation(ctx, metabase.GetSegmentByLocation{
-				SegmentLocation: metabase.SegmentLocation{
-					ProjectID:  object.ProjectID,
-					BucketName: object.BucketName,
-					ObjectKey:  object.ObjectKey,
-					Position:   metabase.SegmentPosition{Index: 0},
-				},
-			})
+			segments, err := db.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 1)
+
+			segment = segments[0]
+
 			require.NoError(t, err)
 			diff := cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
 			require.Zero(t, diff)

@@ -171,7 +171,7 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 					SELECT
 						CASE WHEN interval_day < ?
 							THEN egress_settled
-							ELSE egress_allocated
+							ELSE egress_allocated-egress_dead
 						END AS amount
 					FROM project_bandwidth_daily_rollups
 					WHERE project_id = ? AND interval_day >= ? AND interval_day < ?
@@ -185,18 +185,18 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 }
 
 // GetProjectDailyBandwidth returns project bandwidth (allocated and settled) for the specified day.
-func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (allocated int64, settled int64, err error) {
+func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (allocated int64, settled, dead int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	interval := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 
-	query := `SELECT egress_allocated, egress_settled FROM project_bandwidth_daily_rollups WHERE project_id = ? AND interval_day = ?;`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&allocated, &settled)
+	query := `SELECT egress_allocated, egress_settled, egress_dead FROM project_bandwidth_daily_rollups WHERE project_id = ? AND interval_day = ?;`
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&allocated, &settled, &dead)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, 0, nil
+		return 0, 0, 0, nil
 	}
 
-	return allocated, settled, err
+	return allocated, settled, dead, err
 }
 
 // DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time.
@@ -236,6 +236,20 @@ func (db *ProjectAccounting) UpdateProjectBandwidthLimit(ctx context.Context, pr
 	return err
 }
 
+// UpdateProjectSegmentLimit updates project segment limit.
+func (db *ProjectAccounting) UpdateProjectSegmentLimit(ctx context.Context, projectID uuid.UUID, limit int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+		dbx.Project_Update_Fields{
+			SegmentLimit: dbx.Project_SegmentLimit(limit),
+		},
+	)
+
+	return err
+}
+
 // GetProjectStorageLimit returns project storage usage limit.
 func (db *ProjectAccounting) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -264,6 +278,66 @@ func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, proje
 	return row.BandwidthLimit, nil
 }
 
+// GetProjectObjectsSegments retrieves project objects and segments.
+func (db *ProjectAccounting) GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (objectsSegments *accounting.ProjectObjectsSegments, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	objectsSegments = new(accounting.ProjectObjectsSegments)
+
+	// check if rows exist.
+	var count int64
+	countRow := db.db.QueryRowContext(ctx, db.db.Rebind(`SELECT COUNT(*) FROM bucket_storage_tallies WHERE project_id = ?`), projectID[:])
+	if err = countRow.Scan(&count); err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return objectsSegments, nil
+	}
+
+	var latestDate time.Time
+	latestDateRow := db.db.QueryRowContext(ctx, db.db.Rebind(`SELECT MAX(interval_start) FROM bucket_storage_tallies WHERE project_id = ?`), projectID[:])
+	if err = latestDateRow.Scan(&latestDate); err != nil {
+		return nil, err
+	}
+
+	// check if latest bucket tallies are more than 3 days old.
+	inThreeDays := latestDate.Add(24 * time.Hour * 3)
+	if inThreeDays.Before(time.Now()) {
+		return objectsSegments, nil
+	}
+
+	// calculate total segments and objects count.
+	storageTalliesRows := db.db.QueryRowContext(ctx, db.db.Rebind(`
+		SELECT
+			SUM(total_segments_count),
+			SUM(object_count)
+		FROM
+			bucket_storage_tallies
+		WHERE
+			project_id = ? AND
+			interval_start = ?
+	`), projectID[:], latestDate)
+	if err = storageTalliesRows.Scan(&objectsSegments.SegmentCount, &objectsSegments.ObjectCount); err != nil {
+		return nil, err
+	}
+
+	return objectsSegments, nil
+}
+
+// GetProjectSegmentLimit returns project segment limit.
+func (db *ProjectAccounting) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := db.db.Get_Project_SegmentLimit_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return row.SegmentLimit, nil
+}
+
 // GetProjectTotal retrieves project usage for a given period.
 func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -279,6 +353,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			bucket_storage_tallies.total_bytes,
 			bucket_storage_tallies.inline,
 			bucket_storage_tallies.remote,
+			bucket_storage_tallies.total_segments_count,
 			bucket_storage_tallies.object_count
 		FROM
 			bucket_storage_tallies
@@ -304,7 +379,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			tally := accounting.BucketStorageTally{}
 
 			var inline, remote int64
-			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.TotalBytes, &inline, &remote, &tally.ObjectCount)
+			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.TotalBytes, &inline, &remote, &tally.TotalSegmentCount, &tally.ObjectCount)
 			if err != nil {
 				return nil, errs.Combine(err, storageTalliesRows.Close())
 			}
@@ -331,12 +406,13 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 	usage = new(accounting.ProjectUsage)
 	usage.Egress = memory.Size(totalEgress).Int64()
-	// sum up storage and objects
+	// sum up storage, objects, and segments
 	for _, tallies := range bucketsTallies {
 		for i := len(tallies) - 1; i > 0; i-- {
 			current := (tallies)[i]
 			hours := (tallies)[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
 			usage.Storage += memory.Size(current.Bytes()).Float64() * hours
+			usage.SegmentCount += float64(current.TotalSegmentCount) * hours
 			usage.ObjectCount += float64(current.ObjectCount) * hours
 		}
 	}
@@ -614,7 +690,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ? AND action = ?`)
 
-	storageQuery := db.db.Rebind(`SELECT total_bytes, inline, remote, object_count
+	storageQuery := db.db.Rebind(`SELECT total_bytes, inline, remote, object_count, total_segments_count
 		FROM bucket_storage_tallies
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
 		ORDER BY interval_start DESC
@@ -646,7 +722,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 
 		var tally accounting.BucketStorageTally
 		var inline, remote int64
-		err = storageRow.Scan(&tally.TotalBytes, &inline, &remote, &tally.ObjectCount)
+		err = storageRow.Scan(&tally.TotalBytes, &inline, &remote, &tally.ObjectCount, &tally.TotalSegmentCount)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				return nil, err
@@ -659,6 +735,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 
 		// fill storage and object count
 		bucketUsage.Storage = memory.Size(tally.Bytes()).GB()
+		bucketUsage.SegmentCount = tally.TotalSegmentCount
 		bucketUsage.ObjectCount = tally.ObjectCount
 
 		bucketUsages = append(bucketUsages, bucketUsage)
@@ -778,7 +855,7 @@ func timeTruncateDown(t time.Time) time.Time {
 func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ accounting.ProjectLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx,
+	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_By_Id(ctx,
 		dbx.Project_Id(projectID[:]),
 	)
 	if err != nil {
@@ -788,6 +865,7 @@ func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uui
 	return accounting.ProjectLimits{
 		Usage:     row.UsageLimit,
 		Bandwidth: row.BandwidthLimit,
+		Segments:  row.SegmentLimit,
 	}, nil
 }
 

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,7 +18,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -30,8 +28,6 @@ import (
 var (
 	// Error defines stripecoinpayments service error.
 	Error = errs.Class("stripecoinpayments service")
-	// ErrNoCouponUsages indicates that there are no coupon usages.
-	ErrNoCouponUsages = errs.Class("stripecoinpayments no coupon usages")
 
 	mon = monkit.Package()
 )
@@ -66,16 +62,11 @@ type Service struct {
 
 	StorageMBMonthPriceCents decimal.Decimal
 	EgressMBPriceCents       decimal.Decimal
-	ObjectMonthPriceCents    decimal.Decimal
+	SegmentMonthPriceCents   decimal.Decimal
 	// BonusRate amount of percents
 	BonusRate int64
 	// Coupon Values
 	StripeFreeTierCouponID string
-	CouponValue            int64
-	CouponDuration         *int64
-	CouponProjectLimit     memory.Size
-	// Minimum CoinPayment to create a coupon
-	MinCoinPayment int64
 
 	// Stripe Extended Features
 	AutoAdvance bool
@@ -89,7 +80,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue int64, couponDuration *int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, segmentPrice string, bonusRate int64) (*Service, error) {
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -106,7 +97,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 	if err != nil {
 		return nil, err
 	}
-	objectMonthDollars, err := decimal.NewFromString(objectPrice)
+	segmentMonthDollars, err := decimal.NewFromString(segmentPrice)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +105,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 	// change the precision from TB dollars to MB cents
 	storageMBMonthPriceCents := storageTBMonthDollars.Shift(-6).Shift(2)
 	egressMBPriceCents := egressTBDollars.Shift(-6).Shift(2)
-	objectMonthPriceCents := objectMonthDollars.Shift(2)
+	segmentMonthPriceCents := segmentMonthDollars.Shift(2)
 
 	return &Service{
 		log:                      log,
@@ -125,13 +116,9 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		coinPayments:             coinPaymentsClient,
 		StorageMBMonthPriceCents: storageMBMonthPriceCents,
 		EgressMBPriceCents:       egressMBPriceCents,
-		ObjectMonthPriceCents:    objectMonthPriceCents,
+		SegmentMonthPriceCents:   segmentMonthPriceCents,
 		BonusRate:                bonusRate,
 		StripeFreeTierCouponID:   config.StripeFreeTierCouponID,
-		CouponValue:              couponValue,
-		CouponDuration:           couponDuration,
-		CouponProjectLimit:       couponProjectLimit,
-		MinCoinPayment:           minCoinPayment,
 		AutoAdvance:              config.AutoAdvance,
 		listingLimit:             config.ListingLimit,
 		nowFn:                    time.Now,
@@ -392,9 +379,7 @@ func (service *Service) GetRate(ctx context.Context, curr1, curr2 *monetary.Curr
 	return info1.RateBTC.Div(info2.RateBTC), nil
 }
 
-// PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if
-// none exists. Before creating invoice records, it ensures that all eligible users have a
-// free tier coupon.
+// PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if none exist.
 func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -408,19 +393,18 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		return Error.New("allowed for past periods only")
 	}
 
-	var numberOfCustomers, numberOfRecords, numberOfCouponsUsages int
+	var numberOfCustomers, numberOfRecords int
 	customersPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	numberOfCustomers += len(customersPage.Customers)
 
-	records, usages, err := service.processCustomers(ctx, customersPage.Customers, start, end)
+	records, err := service.processCustomers(ctx, customersPage.Customers, start, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	numberOfRecords += records
-	numberOfCouponsUsages += usages
 
 	for customersPage.Next {
 		if err = ctx.Err(); err != nil {
@@ -432,101 +416,44 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 			return Error.Wrap(err)
 		}
 
-		records, usages, err := service.processCustomers(ctx, customersPage.Customers, start, end)
+		records, err := service.processCustomers(ctx, customersPage.Customers, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 		numberOfRecords += records
-		numberOfCouponsUsages += usages
 	}
 
-	service.log.Info("Number of processed entries.", zap.Int("Customers", numberOfCustomers), zap.Int("Projects", numberOfRecords), zap.Int("Coupons Usages", numberOfCouponsUsages))
+	service.log.Info("Number of processed entries.", zap.Int("Customers", numberOfCustomers), zap.Int("Projects", numberOfRecords))
 	return nil
 }
 
-func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) (int, int, error) {
+func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) (int, error) {
 	var allRecords []CreateProjectRecord
-	var usages []CouponUsage
 	for _, customer := range customers {
 		projects, err := service.projectsDB.GetOwn(ctx, customer.UserID)
 		if err != nil {
-			return 0, 0, err
+			return 0, err
 		}
 
-		leftToCharge, records, err := service.createProjectRecords(ctx, customer.ID, projects, start, end)
+		records, err := service.createProjectRecords(ctx, customer.ID, projects, start, end)
 		if err != nil {
-			return 0, 0, err
+			return 0, err
 		}
 
 		allRecords = append(allRecords, records...)
-
-		coupons, err := service.db.Coupons().ListByUserIDAndStatus(ctx, customer.UserID, payments.CouponActive)
-		if err != nil {
-			return 0, 0, err
-		}
-
-		// Apply any promotional credits (a.k.a. coupons) on the remainder.
-		for _, coupon := range coupons {
-			if coupon.Status == payments.CouponExpired {
-				// this coupon has already been marked as expired.
-				continue
-			}
-
-			expirationDate := coupon.ExpirationDate()
-			if expirationDate != nil &&
-				end.After(*expirationDate) {
-
-				// this coupon is identified as expired for first time, mark it in the database
-				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
-					return 0, 0, err
-				}
-				continue
-			}
-
-			alreadyChargedAmount, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
-			if err != nil {
-				return 0, 0, err
-			}
-			remaining := coupon.Amount - alreadyChargedAmount
-
-			amountToChargeFromCoupon := leftToCharge
-			if amountToChargeFromCoupon >= remaining {
-				amountToChargeFromCoupon = remaining
-			}
-
-			if amountToChargeFromCoupon > 0 {
-				usages = append(usages, CouponUsage{
-					Period:   start,
-					Amount:   amountToChargeFromCoupon,
-					Status:   CouponUsageStatusUnapplied,
-					CouponID: coupon.ID,
-				})
-
-				leftToCharge -= amountToChargeFromCoupon
-			}
-
-			if amountToChargeFromCoupon < remaining && expirationDate != nil && end.Equal(*expirationDate) {
-				// the coupon was not fully spent, but this is the last month
-				// it is valid for, so mark it as expired in database
-				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
-					return 0, 0, err
-				}
-			}
-		}
 	}
 
-	return len(allRecords), len(usages), service.db.ProjectRecords().Create(ctx, allRecords, usages, start, end)
+	return len(allRecords), service.db.ProjectRecords().Create(ctx, allRecords, start, end)
 }
 
 // createProjectRecords creates invoice project record if none exists.
-func (service *Service) createProjectRecords(ctx context.Context, customerID string, projects []console.Project, start, end time.Time) (_ int64, _ []CreateProjectRecord, err error) {
+func (service *Service) createProjectRecords(ctx context.Context, customerID string, projects []console.Project, start, end time.Time) (_ []CreateProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var records []CreateProjectRecord
-	sumLeftToCharge := int64(0)
 	for _, project := range projects {
 		if err = ctx.Err(); err != nil {
-			return 0, nil, err
+			return nil, err
 		}
 
 		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
@@ -535,12 +462,12 @@ func (service *Service) createProjectRecords(ctx context.Context, customerID str
 				continue
 			}
 
-			return 0, nil, err
+			return nil, err
 		}
 
 		usage, err := service.usageDB.GetProjectTotal(ctx, project.ID, start, end)
 		if err != nil {
-			return 0, nil, err
+			return nil, err
 		}
 
 		// TODO: account for usage data.
@@ -549,27 +476,12 @@ func (service *Service) createProjectRecords(ctx context.Context, customerID str
 				ProjectID: project.ID,
 				Storage:   usage.Storage,
 				Egress:    usage.Egress,
-				Objects:   usage.ObjectCount,
+				Segments:  usage.SegmentCount,
 			},
 		)
-
-		leftToCharge := service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount).TotalInt64()
-		if leftToCharge == 0 {
-			continue
-		}
-
-		// If there is a Stripe coupon applied for the project owner, apply its
-		// discount first before applying other credits of this user. This
-		// avoids the issue with negative totals in invoices.
-		leftToCharge, err = service.discountedProjectUsagePrice(ctx, customerID, leftToCharge)
-		if err != nil {
-			return 0, nil, err
-		}
-
-		sumLeftToCharge += leftToCharge
 	}
 
-	return sumLeftToCharge, records, nil
+	return records, nil
 }
 
 // InvoiceApplyProjectRecords iterates through unapplied invoice project records and creates invoice line items
@@ -679,7 +591,7 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 // InvoiceItemsFromProjectRecord calculates Stripe invoice item from project record.
 func (service *Service) InvoiceItemsFromProjectRecord(projName string, record ProjectRecord) (result []*stripe.InvoiceItemParams) {
 	projectItem := &stripe.InvoiceItemParams{}
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Storage (MB-Month)", projName))
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Segment Storage (MB-Month)", projName))
 	projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(record.Storage).IntPart())
 	storagePrice, _ := service.StorageMBMonthPriceCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
@@ -693,11 +605,12 @@ func (service *Service) InvoiceItemsFromProjectRecord(projName string, record Pr
 	result = append(result, projectItem)
 
 	projectItem = &stripe.InvoiceItemParams{}
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee (Object-Month)", projName))
-	projectItem.Quantity = stripe.Int64(objectMonthDecimal(record.Objects).IntPart())
-	objectPrice, _ := service.ObjectMonthPriceCents.Float64()
-	projectItem.UnitAmountDecimal = stripe.Float64(objectPrice)
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Segment Fee (Segment-Month)", projName))
+	projectItem.Quantity = stripe.Int64(segmentMonthDecimal(record.Segments).IntPart())
+	segmentPrice, _ := service.SegmentMonthPriceCents.Float64()
+	projectItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
 	result = append(result, projectItem)
+	service.log.Info("invoice items", zap.Any("result", result))
 
 	return result
 }
@@ -753,122 +666,6 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 	service.log.Info("Finished", zap.Int("number of coupons applied", appliedCoupons))
 
 	return nil
-}
-
-// InvoiceApplyCoupons iterates through unapplied project coupons and creates invoice line items
-// for stripe customer.
-func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	now := service.nowFn().UTC()
-	utc := period.UTC()
-
-	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-
-	if end.After(now) {
-		return Error.New("allowed for past periods only")
-	}
-
-	couponsUsages := 0
-	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, service.listingLimit, start)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if err = service.applyCoupons(ctx, usagePage.Usages); err != nil {
-		return Error.Wrap(err)
-	}
-
-	couponsUsages += len(usagePage.Usages)
-
-	for usagePage.Next {
-		if err = ctx.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		// we are always starting from offset 0 because applyCoupons is changing coupon usage state to applied
-		usagePage, err = service.db.Coupons().ListUnapplied(ctx, 0, service.listingLimit, start)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		if err = service.applyCoupons(ctx, usagePage.Usages); err != nil {
-			return Error.Wrap(err)
-		}
-
-		couponsUsages += len(usagePage.Usages)
-	}
-
-	service.log.Info("Number of processed coupons usages.", zap.Int("Coupons Usages", couponsUsages))
-
-	return nil
-}
-
-// applyCoupons applies concrete coupon usage as invoice line item.
-func (service *Service) applyCoupons(ctx context.Context, usages []CouponUsage) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for _, usage := range usages {
-		if err = ctx.Err(); err != nil {
-			return err
-		}
-
-		coupon, err := service.db.Coupons().Get(ctx, usage.CouponID)
-		if err != nil {
-			return err
-		}
-
-		customerID, err := service.db.Customers().GetCustomerID(ctx, coupon.UserID)
-		if err != nil {
-			if errors.Is(err, ErrNoCustomer) {
-				service.log.Warn("Stripe customer does not exist for coupon owner.", zap.Stringer("User ID", coupon.UserID), zap.Stringer("Coupon ID", coupon.ID))
-				continue
-			}
-
-			return err
-		}
-
-		if err = service.createInvoiceCouponItems(ctx, coupon, usage, customerID); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// createInvoiceCouponItems consumes invoice project record and creates invoice line items for stripe customer.
-func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon payments.CouponOld, usage CouponUsage, customerID string) (err error) {
-	defer mon.Task()(&ctx, customerID, coupon)(&err)
-
-	err = service.db.Coupons().ApplyUsage(ctx, usage.CouponID, usage.Period)
-	if err != nil {
-		return err
-	}
-
-	totalUsage, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
-	if err != nil {
-		return err
-	}
-	if totalUsage == coupon.Amount {
-		_, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponUsed)
-		if err != nil {
-			return err
-		}
-	}
-
-	projectItem := &stripe.InvoiceItemParams{
-		Amount:      stripe.Int64(-usage.Amount),
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Customer:    stripe.String(customerID),
-		Description: stripe.String(coupon.Description),
-	}
-
-	projectItem.AddMetadata("couponID", coupon.ID.String())
-
-	_, err = service.stripeClient.InvoiceItems().New(projectItem)
-
-	return err
 }
 
 // CreateInvoices lists through all customers and creates invoices.
@@ -989,70 +786,28 @@ func (service *Service) finalizeInvoice(ctx context.Context, invoiceID string) (
 
 // projectUsagePrice represents pricing for project usage.
 type projectUsagePrice struct {
-	Storage decimal.Decimal
-	Egress  decimal.Decimal
-	Objects decimal.Decimal
+	Storage  decimal.Decimal
+	Egress   decimal.Decimal
+	Segments decimal.Decimal
 }
 
 // Total returns project usage price total.
 func (price projectUsagePrice) Total() decimal.Decimal {
-	return price.Storage.Add(price.Egress).Add(price.Objects)
+	return price.Storage.Add(price.Egress).Add(price.Segments)
 }
 
 // Total returns project usage price total.
 func (price projectUsagePrice) TotalInt64() int64 {
-	return price.Storage.Add(price.Egress).Add(price.Objects).IntPart()
+	return price.Storage.Add(price.Egress).Add(price.Segments).IntPart()
 }
 
 // calculateProjectUsagePrice calculate project usage price.
-func (service *Service) calculateProjectUsagePrice(egress int64, storage, objects float64) projectUsagePrice {
+func (service *Service) calculateProjectUsagePrice(egress int64, storage, segments float64) projectUsagePrice {
 	return projectUsagePrice{
-		Storage: service.StorageMBMonthPriceCents.Mul(storageMBMonthDecimal(storage)).Round(0),
-		Egress:  service.EgressMBPriceCents.Mul(egressMBDecimal(egress)).Round(0),
-		Objects: service.ObjectMonthPriceCents.Mul(objectMonthDecimal(objects)).Round(0),
+		Storage:  service.StorageMBMonthPriceCents.Mul(storageMBMonthDecimal(storage)).Round(0),
+		Egress:   service.EgressMBPriceCents.Mul(egressMBDecimal(egress)).Round(0),
+		Segments: service.SegmentMonthPriceCents.Mul(segmentMonthDecimal(segments)).Round(0),
 	}
-}
-
-// discountedProjectUsagePrice reduces the project usage price with the discount applied for the Stripe customer.
-// The promotional coupons and bonus credits are not applied yet.
-func (service *Service) discountedProjectUsagePrice(ctx context.Context, customerID string, projectUsagePrice int64) (int64, error) {
-	customer, err := service.stripeClient.Customers().Get(customerID, nil)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	if customer.Discount == nil {
-		return projectUsagePrice, nil
-	}
-
-	coupon := customer.Discount.Coupon
-
-	if coupon == nil {
-		return projectUsagePrice, nil
-	}
-
-	if !coupon.Valid {
-		return projectUsagePrice, nil
-	}
-
-	if coupon.AmountOff > 0 {
-		service.log.Info("Applying Stripe discount.", zap.String("Customer ID", customerID), zap.Int64("AmountOff", coupon.AmountOff))
-
-		discounted := projectUsagePrice - coupon.AmountOff
-		if discounted < 0 {
-			return 0, nil
-		}
-		return discounted, nil
-	}
-
-	if coupon.PercentOff > 0 {
-		service.log.Info("Applying Stripe discount.", zap.String("Customer ID", customerID), zap.Float64("PercentOff", coupon.PercentOff))
-
-		discount := int64(math.Round(float64(projectUsagePrice) * coupon.PercentOff / 100))
-		return projectUsagePrice - discount, nil
-	}
-
-	return projectUsagePrice, nil
 }
 
 // SetNow allows tests to have the Service act as if the current time is whatever
@@ -1073,8 +828,8 @@ func egressMBDecimal(egress int64) decimal.Decimal {
 	return decimal.NewFromInt(egress).Shift(-6).Round(0)
 }
 
-// objectMonthDecimal converts objects usage from Object-Hours to Object-Months.
+// segmentMonthDecimal converts segments usage from Segment-Hours to Segment-Months.
 // The result is rounded to the nearest whole number, but returned as Decimal for convenience.
-func objectMonthDecimal(objects float64) decimal.Decimal {
-	return decimal.NewFromFloat(objects).Div(decimal.NewFromInt(hoursPerMonth)).Round(0)
+func segmentMonthDecimal(segments float64) decimal.Decimal {
+	return decimal.NewFromFloat(segments).Div(decimal.NewFromInt(hoursPerMonth)).Round(0)
 }

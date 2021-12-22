@@ -48,13 +48,13 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodes DB) *Service {
 }
 
 // Add adds new node to the system.
-func (service *Service) Add(ctx context.Context, id storj.NodeID, apiSecret []byte, publicAddress string) (err error) {
+func (service *Service) Add(ctx context.Context, node Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// trying to connect to node to check its availability.
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
-		ID:      id,
-		Address: publicAddress,
+		ID:      node.ID,
+		Address: node.PublicAddress,
 	})
 	if err != nil {
 		return ErrNodeNotReachable.Wrap(err)
@@ -65,7 +65,7 @@ func (service *Service) Add(ctx context.Context, id storj.NodeID, apiSecret []by
 
 	nodeClient := multinodepb.NewDRPCNodeClient(conn)
 	header := &multinodepb.RequestHeader{
-		ApiKey: apiSecret,
+		ApiKey: node.APISecret,
 	}
 
 	// making test request to check node api key.
@@ -77,7 +77,7 @@ func (service *Service) Add(ctx context.Context, id storj.NodeID, apiSecret []by
 		return Error.Wrap(err)
 	}
 
-	return Error.Wrap(service.nodes.Add(ctx, id, apiSecret, publicAddress))
+	return Error.Wrap(service.nodes.Add(ctx, node))
 }
 
 // List returns list of all nodes.

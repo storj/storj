@@ -24,7 +24,6 @@ import BucketsView from '@/components/objects/BucketsView.vue';
 import EncryptData from '@/components/objects/EncryptData.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
 import UploadFile from '@/components/objects/UploadFile.vue';
-import WarningView from '@/components/objects/WarningView.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import OnbCLIStep from '@/components/onboardingTour/steps/CLIStep.vue';
 import CreateAccessGrantStep from "@/components/onboardingTour/steps/oldFlow/CreateAccessGrantStep.vue";
@@ -33,6 +32,7 @@ import OldOverviewStep from '@/components/onboardingTour/steps/oldFlow/OldOvervi
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
+import NewProjectDashboard from "@/components/project/newProjectDashboard/NewProjectDashboard.vue";
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import CLIInstall from "@/components/onboardingTour/steps/cliFlow/CLIInstall.vue";
@@ -43,12 +43,17 @@ import UploadObject from "@/components/onboardingTour/steps/cliFlow/UploadObject
 import ListObject from "@/components/onboardingTour/steps/cliFlow/ListObject.vue";
 import DownloadObject from "@/components/onboardingTour/steps/cliFlow/DownloadObject.vue";
 import ShareObject from "@/components/onboardingTour/steps/cliFlow/ShareObject.vue";
+import RegistrationSuccess from "@/components/common/RegistrationSuccess.vue";
 import SuccessScreen from "@/components/onboardingTour/steps/cliFlow/SuccessScreen.vue";
+import AGName from "@/components/onboardingTour/steps/cliFlow/AGName.vue";
+import AGPermissions from "@/components/onboardingTour/steps/cliFlow/AGPermissions.vue";
 
 import store from '@/store';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { NavigationLink } from '@/types/navigation';
+import { MetaUtils } from "@/utils/meta";
 
+const ActivateAccount = () => import('@/views/ActivateAccount.vue');
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
@@ -65,17 +70,20 @@ export abstract class RouteConfig {
     public static Root = new NavigationLink('/', 'Root');
     public static Login = new NavigationLink('/login', 'Login');
     public static Register = new NavigationLink('/signup', 'Register');
+    public static RegisterSuccess = new NavigationLink('/signup-success', 'RegisterSuccess');
+    public static Activate = new NavigationLink('/activate', 'Activate');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
+    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', 'Dashboard ');
     public static Users = new NavigationLink('/project-members', 'Users');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
     public static AccessGrants = new NavigationLink('/access-grants', 'Access');
     public static ProjectsList = new NavigationLink('/projects', 'Projects');
-    public static Objects = new NavigationLink('/objects', 'Objects');
+    public static Buckets = new NavigationLink('/buckets', 'Buckets');
 
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -98,6 +106,8 @@ export abstract class RouteConfig {
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
     public static OnbCLIStep = new NavigationLink('cli', 'Onboarding CLI');
+    public static AGName = new NavigationLink('ag-name', 'Onboarding AG Name');
+    public static AGPermissions = new NavigationLink('ag-permissions', 'Onboarding AG Permissions');
     public static APIKey = new NavigationLink('api-key', 'Onboarding API Key');
     public static CLIInstall = new NavigationLink('cli-install', 'Onboarding CLI Install');
     public static CLISetup = new NavigationLink('cli-setup', 'Onboarding CLI Setup');
@@ -119,16 +129,22 @@ export abstract class RouteConfig {
     public static AccessGrantGateway = new NavigationLink('gateway', 'Onboarding Access Grant Gateway');
 
     // objects child paths.
-    public static Warning = new NavigationLink('warning', 'Objects Warning');
     public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
-    public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
+    public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
+}
+
+const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard') === 'true';
+if (isNewProjectDashboard) {
+    RouteConfig.ProjectDashboard = RouteConfig.NewProjectDashboard
 }
 
 export const notProjectRelatedRoutes = [
     RouteConfig.Login.name,
     RouteConfig.Register.name,
+    RouteConfig.RegisterSuccess.name,
+    RouteConfig.Activate.name,
     RouteConfig.ForgotPassword.name,
     RouteConfig.ResetPassword.name,
     RouteConfig.Billing.name,
@@ -150,6 +166,16 @@ export const router = new Router({
             path: RouteConfig.Register.path,
             name: RouteConfig.Register.name,
             component: RegisterArea,
+        },
+        {
+            path: RouteConfig.RegisterSuccess.path,
+            name: RouteConfig.RegisterSuccess.name,
+            component: RegistrationSuccess,
+        },
+        {
+            path: RouteConfig.Activate.path,
+            name: RouteConfig.Activate.name,
+            component: ActivateAccount,
         },
         {
             path: RouteConfig.ForgotPassword.path,
@@ -211,6 +237,11 @@ export const router = new Router({
                             component: CreditsHistory,
                         },
                     ],
+                },
+                {
+                    path: RouteConfig.NewProjectDashboard.path,
+                    name: RouteConfig.NewProjectDashboard.name,
+                    component: NewProjectDashboard,
                 },
                 {
                     path: RouteConfig.ProjectDashboard.path,
@@ -284,6 +315,16 @@ export const router = new Router({
                             name: RouteConfig.OnbCLIStep.name,
                             component: OnbCLIStep,
                             children: [
+                                {
+                                    path: RouteConfig.AGName.path,
+                                    name: RouteConfig.AGName.name,
+                                    component: AGName,
+                                },
+                                {
+                                    path: RouteConfig.AGPermissions.path,
+                                    name: RouteConfig.AGPermissions.name,
+                                    component: AGPermissions,
+                                },
                                 {
                                     path: RouteConfig.APIKey.path,
                                     name: RouteConfig.APIKey.name,
@@ -404,15 +445,10 @@ export const router = new Router({
                     component: ProjectsList,
                 },
                 {
-                    path: RouteConfig.Objects.path,
-                    name: RouteConfig.Objects.name,
+                    path: RouteConfig.Buckets.path,
+                    name: RouteConfig.Buckets.name,
                     component: ObjectsArea,
                     children: [
-                        {
-                            path: RouteConfig.Warning.path,
-                            name: RouteConfig.Warning.name,
-                            component: WarningView,
-                        },
                         {
                             path: RouteConfig.EncryptData.path,
                             name: RouteConfig.EncryptData.name,
@@ -448,9 +484,8 @@ export const router = new Router({
     ],
 });
 
-router.beforeEach(async (to, from, next) => {
-    if (((from.name === RouteConfig.UploadFile.name) || (from.name === RouteConfig.UploadFileChildren.name))
-        && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+router.beforeEach(async (to, _, next) => {
+    if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
         if (areUploadsInProgress) return;
     }
@@ -491,8 +526,14 @@ router.beforeEach(async (to, from, next) => {
         return;
     }
 
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
-        next(RouteConfig.Objects.with(RouteConfig.Warning).path);
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Buckets)) {
+        if (store.state.appStateModule.isNewObjectsFlow) {
+            next(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+
+            return;
+        }
+
+        next(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
 
         return;
     }

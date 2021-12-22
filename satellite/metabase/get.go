@@ -169,65 +169,6 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 	return object, nil
 }
 
-// GetSegmentByLocation contains arguments necessary for fetching a segment on specific segment location.
-type GetSegmentByLocation struct {
-	SegmentLocation
-}
-
-// GetSegmentByLocation returns information about segment on the specified location.
-func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocation) (segment Segment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Segment{}, err
-	}
-
-	var aliasPieces AliasPieces
-	err = db.db.QueryRowContext(ctx, `
-			SELECT
-				stream_id,
-				created_at, expires_at, repaired_at,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size,
-				encrypted_etag,
-				redundancy,
-				inline_data, remote_alias_pieces
-			FROM segments
-			WHERE
-				stream_id IN (SELECT stream_id FROM objects WHERE
-					project_id  = $1 AND
-					bucket_name = $2 AND
-					object_key  = $3
-					ORDER BY version DESC
-					LIMIT 1
-				) AND
-				position = $4
-		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Position.Encode()).
-		Scan(
-			&segment.StreamID,
-			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
-			&segment.EncryptedETag,
-			redundancyScheme{&segment.Redundancy},
-			&segment.InlineData, &aliasPieces,
-		)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Segment{}, storj.ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
-		}
-		return Segment{}, Error.New("unable to query segment: %w", err)
-	}
-
-	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-	if err != nil {
-		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
-	}
-	segment.Position = opts.Position
-
-	return segment, nil
-}
-
 // GetSegmentByPosition contains arguments necessary for fetching a segment on specific position.
 type GetSegmentByPosition struct {
 	StreamID uuid.UUID
@@ -258,7 +199,8 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			encrypted_size, plain_offset, plain_size,
 			encrypted_etag,
 			redundancy,
-			inline_data, remote_alias_pieces
+			inline_data, remote_alias_pieces,
+			placement
 		FROM segments
 		WHERE
 			stream_id = $1 AND
@@ -271,6 +213,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -312,7 +255,8 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			encrypted_size, plain_offset, plain_size,
 			encrypted_etag,
 			redundancy,
-			inline_data, remote_alias_pieces
+			inline_data, remote_alias_pieces,
+			placement
 		FROM segments
 		WHERE
 			stream_id IN (SELECT stream_id FROM objects WHERE
@@ -334,6 +278,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -476,11 +421,12 @@ func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID
 
 	err = db.IterateObjectsAllVersionsWithStatus(ctx,
 		IterateObjectsWithStatus{
-			ProjectID:       projectID,
-			BucketName:      bucketName,
-			Recursive:       true,
-			Status:          status,
-			IncludeMetadata: true,
+			ProjectID:             projectID,
+			BucketName:            bucketName,
+			Recursive:             true,
+			Status:                status,
+			IncludeCustomMetadata: true,
+			IncludeSystemMetadata: true,
 		}, func(ctx context.Context, it ObjectsIterator) error {
 			entry := ObjectEntry{}
 			for it.Next(ctx, &entry) {

@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Incache.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package uploadselection_test

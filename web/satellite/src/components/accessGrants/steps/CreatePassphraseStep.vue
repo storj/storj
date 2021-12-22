@@ -84,7 +84,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import * as bip39 from "bip39";
+import { generateMnemonic } from "bip39";
 
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
@@ -144,7 +144,7 @@ export default class CreatePassphraseStep extends Vue {
 
         this.setWorker();
 
-        this.passphrase = bip39.generateMnemonic();
+        this.passphrase = generateMnemonic();
 
         this.isLoading = false;
     }
@@ -241,7 +241,7 @@ export default class CreatePassphraseStep extends Vue {
     public onChooseGenerate(): void {
         if (this.passphrase && this.isGenerateState) return;
 
-        this.passphrase = bip39.generateMnemonic();
+        this.passphrase = generateMnemonic();
 
         this.isEnterState = false;
         this.isGenerateState = true;

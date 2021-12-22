@@ -145,3 +145,7 @@ require_error_exit_code(){
         echo "Copy file without permission: PASSED"    # Expect unsuccessful exit code
     fi
 }
+
+get_file_size() {
+        [ -f "$1" ] && ls -dnL -- "$1" | awk '{print $5;exit}' || { echo 0; return 1; }
+}

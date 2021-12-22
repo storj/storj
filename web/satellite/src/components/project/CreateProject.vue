@@ -2,10 +2,16 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="create-project-area">
-        <div class="create-project-area__container">
-            <img src="@/../static/images/project/createProject.png" alt="create project image">
-            <h2 class="create-project-area__container__title">Create a Project</h2>
+    <div class="create-project">
+        <div class="create-project__container">
+            <div class="create-project__container__image-container">
+                <img
+                    class="create-project__container__image-container__img"
+                    src="@/../static/images/project/createProject.png"
+                    alt="create project"
+                >
+            </div>
+            <h2 class="create-project__container__title" aria-roledescription="title">Create a Project</h2>
             <HeaderedInput
                 label="Project Name"
                 additional-label="Up To 20 Characters"
@@ -29,8 +35,9 @@
                 :max-symbols="100"
                 @setData="setProjectDescription"
             />
-            <div class="create-project-area__container__button-container">
+            <div class="create-project__container__button-container">
                 <VButton
+                    class="create-project__container__button-container__cancel"
                     label="Cancel"
                     width="210px"
                     height="48px"
@@ -45,12 +52,8 @@
                     :is-disabled="!projectName"
                 />
             </div>
-            <div v-if="isLoading" class="create-project-area__container__blur">
-                <img
-                    class="create-project-area__container__blur__loading-image"
-                    src="@/../static/images/account/billing/loading.gif"
-                    alt="loading gif"
-                >
+            <div v-if="isLoading" class="create-project__container__blur">
+                <VLoader class="create-project__container__blur__loader" width="50px" height="50px" />
             </div>
         </div>
     </div>
@@ -61,6 +64,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
+import VLoader from "@/components/common/VLoader.vue";
 
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -72,6 +76,7 @@ import { LocalData } from '@/utils/localData';
     components: {
         HeaderedInput,
         VButton,
+        VLoader,
     },
 })
 export default class NewProjectPopup extends Vue {
@@ -162,29 +167,37 @@ export default class NewProjectPopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .create-project-area {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: calc(100% - 40px);
-        padding: 100px 20px 70px 20px;
+    .create-project {
+        width: 100%;
+        height: calc(100% - 140px);
+        padding: 70px 0;
         font-family: 'font_regular', sans-serif;
 
         &__container {
-            width: 440px;
+            margin: 0 auto;
+            max-width: 440px;
+            padding: 70px 50px 55px 50px;
             background-color: #fff;
             border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 70px 50px 55px 50px;
             position: relative;
+
+            &__image-container {
+                width: 100%;
+                display: flex;
+                justify-content: center;
+            }
+
+            &__img {
+                max-width: 190px;
+                max-height: 130px;
+            }
 
             &__title {
                 font-size: 28px;
                 line-height: 34px;
                 color: #384b65;
                 font-family: 'font_bold', sans-serif;
+                text-align: center;
                 margin: 15px 0 30px 0;
             }
 
@@ -194,6 +207,10 @@ export default class NewProjectPopup extends Vue {
                 align-items: center;
                 justify-content: space-between;
                 margin-top: 30px;
+
+                &__cancel {
+                    margin-right: 20px;
+                }
             }
 
             &__blur {
@@ -206,7 +223,7 @@ export default class NewProjectPopup extends Vue {
                 border-radius: 8px;
                 z-index: 100;
 
-                &__loading-image {
+                &__loader {
                     width: 25px;
                     height: 25px;
                     position: absolute;

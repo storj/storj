@@ -45,7 +45,7 @@ uplinkng cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/" --progress=f
 uplinkng cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false --access $STORJ_ACCESS
 
 uplinkng access save -f --name named-access --access $STORJ_ACCESS
-FILES=$(STORJ_ACCESS= uplinkng --access named-access ls "sj://$BUCKET" | tee $TMPDIR/list | wc -l)
+FILES=$(STORJ_ACCESS= uplinkng ls --access named-access "sj://$BUCKET" | tee $TMPDIR/list | wc -l)
 EXPECTED_FILES="5"
 if [ "$FILES" == $EXPECTED_FILES ]
 then
@@ -72,12 +72,52 @@ uplinkng cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=f
 
 uplinkng ls "sj://$BUCKET/small-upload-testfile" --access $STORJ_ACCESS | grep "small-upload-testfile"
 
+# test ranged download of object
+uplinkng cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR/file-from-cp-range" --progress=false --range bytes=0-5 --access $STORJ_ACCESS
+EXPECTED_FILE_SIZE="6"
+ACTUAL_FILE_SIZE=$(get_file_size "$DST_DIR/file-from-cp-range")
+if [ "$EXPECTED_FILE_SIZE" != "$ACTUAL_FILE_SIZE" ]
+then
+    echo "expected downloaded file size to be equal to $EXPECTED_FILE_SIZE, got $ACTUAL_FILE_SIZE"
+    exit 1
+fi
+
+# test ranged download with multiple byte range
+set +e
+EXPECTED_ERROR="retrieval of multiple byte ranges of data not supported: 2 provided"
+ERROR=$(uplinkng cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR/file-from-cp-range" --range bytes=0-5,6-10)
+if [ $ERROR != $EXPECTED_ERROR ]
+then
+    echo EXPECTED_ERROR
+    exit 1
+fi
+set -e
+
+# test server-side move operation
+uplinkng mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-upload-testfile" --access $STORJ_ACCESS
+uplinkng ls "sj://$BUCKET/moved-big-upload-testfile" --access $STORJ_ACCESS | grep "moved-big-upload-testfile"
+uplinkng mv "sj://$BUCKET/moved-big-upload-testfile" "sj://$BUCKET/big-upload-testfile" --access $STORJ_ACCESS
+# move prefix
+uplinkng mv "sj://$BUCKET/" "sj://$BUCKET/my-prefix/" --recursive --access $STORJ_ACCESS
+FILES=$(uplinkng ls "sj://$BUCKET/my-prefix/" --access $STORJ_ACCESS | tee $TMPDIR/list | wc -l)
+EXPECTED_FILES="5" # 4 objects + one line more for headers
+if [ "$FILES" == $EXPECTED_FILES ]
+then
+    echo "listing after move returns $FILES files"
+else
+    echo "listing after move returns $FILES files but want $EXPECTED_FILES"
+    cat $TMPDIR/list
+    exit 1
+fi
+uplinkng mv "sj://$BUCKET/my-prefix/" "sj://$BUCKET/" --recursive --access $STORJ_ACCESS
+
 uplinkng rm "sj://$BUCKET/small-upload-testfile"        --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/big-upload-testfile"          --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/multisegment-upload-testfile" --access $STORJ_ACCESS
 uplinkng rm "sj://$BUCKET/diff-size-segments"           --access $STORJ_ACCESS
 
 uplinkng ls "sj://$BUCKET" --access $STORJ_ACCESS
+uplinkng ls -x "sj://$BUCKET" --access $STORJ_ACCESS
 
 uplinkng rb "sj://$BUCKET" --access $STORJ_ACCESS
 

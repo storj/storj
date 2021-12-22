@@ -26,7 +26,7 @@ func TestNodesDB(t *testing.T) {
 		apiSecret := []byte("secret")
 		publicAddress := "228.13.38.1:8081"
 
-		err := nodesRepository.Add(ctx, nodeID, apiSecret, publicAddress)
+		err := nodesRepository.Add(ctx, nodes.Node{ID: nodeID, APISecret: apiSecret, PublicAddress: publicAddress})
 		assert.NoError(t, err)
 
 		node, err := nodesRepository.Get(ctx, nodeID)
@@ -72,7 +72,7 @@ func TestNodesDB(t *testing.T) {
 					Name:          fmt.Sprintf("%d", i),
 				}
 				nodeList = append(nodeList, node)
-				err := nodesRepository.Add(ctx, node.ID, node.APISecret, node.PublicAddress)
+				err := nodesRepository.Add(ctx, node)
 				require.NoError(t, err)
 			}
 			page, err := nodesRepository.ListPaged(ctx, nodes.Cursor{

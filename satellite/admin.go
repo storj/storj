@@ -20,6 +20,8 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
@@ -29,9 +31,10 @@ import (
 // architecture: Peer
 type Admin struct {
 	// core dependencies
-	Log      *zap.Logger
-	Identity *identity.FullIdentity
-	DB       DB
+	Log        *zap.Logger
+	Identity   *identity.FullIdentity
+	DB         DB
+	MetabaseDB *metabase.DB
 
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
@@ -56,18 +59,27 @@ type Admin struct {
 		Listener net.Listener
 		Server   *admin.Server
 	}
+
+	Buckets struct {
+		Service *buckets.Service
+	}
 }
 
 // NewAdmin creates a new satellite admin peer.
-func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
+func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metabase.DB,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Admin, error) {
 	peer := &Admin{
-		Log:      log,
-		Identity: full,
-		DB:       db,
+		Log:        log,
+		Identity:   full,
+		DB:         db,
+		MetabaseDB: metabaseDB,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
+	}
+
+	{
+		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
 	}
 
 	{ // setup debug
@@ -132,12 +144,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,
 			pc.EgressTBPrice,
-			pc.ObjectPrice,
-			pc.BonusRate,
-			pc.CouponValue,
-			pc.CouponDuration.IntPointer(),
-			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.SegmentPrice,
+			pc.BonusRate)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -156,7 +164,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Payments.Accounts, adminConfig)
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.Payments.Accounts, adminConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,

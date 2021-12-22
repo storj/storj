@@ -7,6 +7,7 @@ model value_attribution (
 	field project_id	blob
 	field bucket_name	blob
 	field partner_id	blob
+	field user_agent	blob       ( nullable )
 	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )
 
@@ -118,6 +119,7 @@ model node (
 	// last_net is the /24 subnet of the IP
 	field last_net        text  ( updatable )
 	field last_ip_port    text  ( updatable, nullable )
+	field country_code    text  ( updatable, nullable )
 	field protocol        int   ( updatable, default 0 )
 	field type            int   ( updatable, default 0 )
 	field email           text  ( updatable )
@@ -141,9 +143,9 @@ model node (
 	field last_contact_success timestamp ( updatable, default "epoch" )
 	field last_contact_failure timestamp ( updatable, default "epoch" )
 
-	field contained bool ( updatable, default false )
     // node is disqualified when it fails too many audits or is offline for too long
-	field disqualified timestamp ( updatable, nullable )
+	field disqualified            timestamp ( updatable, nullable )
+	field disqualification_reason int       ( updatable, nullable )
     // node is placed under inspection when it has too many unknown-error audits
 	field suspended timestamp ( updatable, nullable )
 	// renamed column from suspended
@@ -205,7 +207,6 @@ model reputation (
 	field created_at           timestamp ( autoinsert, default current_timestamp )
 	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
 
-	field contained bool ( updatable, default false )
     // node is disqualified when it fails too many audits or is offline for too long
 	field disqualified timestamp ( updatable, nullable )
     // node is placed under inspection when it has too many unknown-error audits
@@ -283,11 +284,15 @@ model user (
     field short_name         text      ( updatable, nullable )
     field password_hash      blob      ( updatable )
 
-    field status             int       ( updatable, autoinsert )
-    field partner_id         blob      ( nullable )
-    field created_at         timestamp ( autoinsert )
-    field project_limit      int       ( updatable, default 0 )
-    field paid_tier          bool      ( updatable, default false )
+    field status                   int       ( updatable, autoinsert )
+    field partner_id               blob      ( nullable )
+    field user_agent               blob      ( nullable )
+    field created_at               timestamp ( autoinsert )
+    field project_limit            int       ( updatable, default 0 )
+    field project_bandwidth_limit  int64     ( updatable, default 0 )
+    field project_storage_limit    int64     ( updatable, default 0 )
+    field project_segment_limit    int64     ( updatable, default 0 )
+    field paid_tier                bool      ( updatable, default false )
 
     field position           text      ( updatable, nullable )
     field company_name       text      ( updatable, nullable )
@@ -300,12 +305,18 @@ model user (
     field mfa_enabled        bool      ( updatable, default false )
     field mfa_secret_key     text      ( updatable, nullable )
     field mfa_recovery_codes text      ( updatable, nullable )
+
+    field signup_promo_code  text      ( updatable, nullable )
 )
 
 create user ( )
 update user ( where user.id = ? )
 delete user ( where user.id = ? )
 
+read all (
+    select user
+    where user.normalized_email = ?
+)
 read one (
     select user
     where user.normalized_email = ?
@@ -320,6 +331,11 @@ read one (
     where user.id = ?
 )
 
+read one (
+    select user.project_storage_limit user.project_bandwidth_limit user.project_segment_limit
+    where user.id = ?
+)
+
 model project (
     key id
 
@@ -329,10 +345,12 @@ model project (
     field description     text      ( updatable )
     field usage_limit     int64     ( nullable, updatable )
     field bandwidth_limit int64     ( nullable, updatable )
+    field segment_limit   int64     ( nullable, updatable, default 1000000)
     field rate_limit      int       ( nullable, updatable )
     field burst_limit     int       ( nullable, updatable )
     field max_buckets     int       ( nullable, updatable )
     field partner_id      blob      ( nullable )
+    field user_agent      blob      ( nullable )
     field owner_id        blob
 
     field created_at      timestamp ( autoinsert )
@@ -355,11 +373,15 @@ read one (
     where  project.id = ?
 )
 read one (
+    select project.segment_limit
+    where  project.id = ?
+)
+read one (
     select project.max_buckets
     where project.id = ?
 )
 read one (
-    select project.bandwidth_limit project.usage_limit
+    select project.bandwidth_limit project.usage_limit project.segment_limit
     where  project.id = ?
 )
 
@@ -420,6 +442,7 @@ model api_key (
     field  name        text       (updatable)
     field  secret      blob
     field  partner_id  blob       (nullable)
+    field  user_agent  blob       (nullable)
     field  created_at  timestamp  (autoinsert)
 )
 
@@ -899,6 +922,7 @@ model bucket_metainfo (
 	field project_id     project.id restrict
 	field name           blob
 	field partner_id     blob   (nullable, updatable)
+	field user_agent     blob   (nullable, updatable)
 
 	field path_cipher    int
 
@@ -915,6 +939,8 @@ model bucket_metainfo (
 	field default_redundancy_repair_shares   int (updatable)
 	field default_redundancy_optimal_shares  int (updatable)
 	field default_redundancy_total_shares    int (updatable)
+
+	field placement int (nullable, updatable)
 )
 
 create bucket_metainfo ()
@@ -930,7 +956,19 @@ read one (
 )
 
 read one (
+	select bucket_metainfo.created_at
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read one (
 	select bucket_metainfo.id
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read one (
+    select bucket_metainfo.placement
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
 )
@@ -976,7 +1014,6 @@ model graceful_exit_progress (
 	field pieces_transferred          int64     ( autoinsert, updatable, default 0 )
 	field pieces_failed               int64     ( autoinsert, updatable, default 0 )
 	field updated_at                  timestamp ( autoinsert, autoupdate )
-	field uses_segment_transfer_queue bool      ( updatable, default false )
 )
 
 read one (
@@ -1105,7 +1142,8 @@ model stripecoinpayments_invoice_project_record (
     field project_id   blob
     field storage      float64
     field egress       int64
-    field objects      int64
+    field objects      int64 ( nullable )
+    field segments     int64 ( nullable )
     field period_start timestamp
     field period_end   timestamp
     field state        int       ( updatable )

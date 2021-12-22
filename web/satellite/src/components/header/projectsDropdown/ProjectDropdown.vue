@@ -79,9 +79,9 @@ export default class ProjectDropdown extends Vue {
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         this.closeDropdown();
 
-        if (this.isObjectsView) {
+        if (this.isBucketsView) {
             await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-            await this.$router.push({name: RouteConfig.Objects.name}).catch(() => {return; });
+            await this.$router.push({name: RouteConfig.Buckets.name}).catch(() => {return; });
         }
 
         try {
@@ -130,8 +130,8 @@ export default class ProjectDropdown extends Vue {
     /**
      * Indicates if current route is objects view.
      */
-    private get isObjectsView(): boolean {
-        return this.$route.path.includes(RouteConfig.Objects.path);
+    private get isBucketsView(): boolean {
+        return this.$route.path.includes(RouteConfig.Buckets.path);
     }
 }
 </script>

@@ -27,8 +27,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
@@ -561,7 +563,8 @@ func TestListGetObjects(t *testing.T) {
 
 		expectedBucketName := "testbucket"
 		items, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte(expectedBucketName),
+			Bucket:                []byte(expectedBucketName),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Equal(t, len(files), len(items))
@@ -619,15 +622,22 @@ func TestBucketExistenceCheck(t *testing.T) {
 func TestBeginCommit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.GeoIP.MockCountries = []string{"DE"}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		bucketsDB := planet.Satellites[0].DB.Buckets()
+		buckets := planet.Satellites[0].API.Buckets.Service
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
+			Placement: storj.EU,
 		}
-		_, err := bucketsDB.CreateBucket(ctx, bucket)
+
+		_, err := buckets.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -653,6 +663,11 @@ func TestBeginCommit(t *testing.T) {
 		}
 		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
+
+		streamID := internalpb.StreamID{}
+		err = pb.Unmarshal(beginObjectResponse.StreamID.Bytes(), &streamID)
+		require.NoError(t, err)
+		require.Equal(t, int32(storj.EU), streamID.Placement)
 
 		response, err := metainfoClient.BeginSegment(ctx, metaclient.BeginSegmentParams{
 			StreamID: beginObjectResponse.StreamID,
@@ -708,13 +723,16 @@ func TestBeginCommit(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResponse.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.NoError(t, err)
 
 		objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte(bucket.Name),
+			Bucket:                []byte(bucket.Name),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
@@ -741,7 +759,7 @@ func TestInlineSegment(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		bucketsDB := planet.Satellites[0].DB.Buckets()
+		buckets := planet.Satellites[0].API.Buckets.Service
 
 		// TODO maybe split into separate cases
 		// Test:
@@ -758,7 +776,7 @@ func TestInlineSegment(t *testing.T) {
 			Name:      "inline-segments-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := bucketsDB.CreateBucket(ctx, bucket)
+		_, err := buckets.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -809,13 +827,16 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResp.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResp.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.NoError(t, err)
 
 		objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte(bucket.Name),
+			Bucket:                []byte(bucket.Name),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
@@ -887,6 +908,41 @@ func TestInlineSegment(t *testing.T) {
 	})
 }
 
+func TestUploadWithPlacement(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.GeoIP.MockCountries = []string{"DE"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		bucketName := "initial-bucket"
+		objectName := "file1"
+
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		fmt.Println(apiKey)
+		buckets := planet.Satellites[0].API.Buckets.Service
+
+		bucket := storj.Bucket{
+			Name:      bucketName,
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
+			Placement: storj.EU,
+		}
+		_, err := buckets.CreateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		// this should be bigger than the max inline segment
+		content := make([]byte, 5000)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.Name, objectName, content)
+		require.NoError(t, err)
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(segments))
+		require.Equal(t, storj.EU, segments[0].Placement)
+	})
+}
 func TestRemoteSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -1077,9 +1133,7 @@ func TestBatch(t *testing.T) {
 			numOfBuckets := 5
 			for i := 0; i < numOfBuckets; i++ {
 				requests = append(requests, &metaclient.CreateBucketParams{
-					Name:                []byte("test-bucket-" + strconv.Itoa(i)),
-					PathCipher:          storj.EncAESGCM,
-					DefaultSegmentsSize: memory.MiB.Int64(),
+					Name: []byte("test-bucket-" + strconv.Itoa(i)),
 				})
 			}
 			requests = append(requests, &metaclient.ListBucketsParams{
@@ -1141,7 +1195,9 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metaclient.CommitObjectParams{
-				EncryptedMetadata: metadata,
+				EncryptedMetadata:             metadata,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -1216,8 +1272,10 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metaclient.CommitObjectParams{
-				StreamID:          beginObjectResp.StreamID,
-				EncryptedMetadata: metadata,
+				StreamID:                      beginObjectResp.StreamID,
+				EncryptedMetadata:             metadata,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -1551,13 +1609,13 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		bucketsDB := planet.Satellites[0].DB.Buckets()
+		buckets := planet.Satellites[0].API.Buckets.Service
 
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err := bucketsDB.CreateBucket(ctx, bucket)
+		_, err := buckets.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -1640,8 +1698,10 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResponse.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.Error(t, err)
 		assertInvalidArgument(t, err, true)
@@ -1653,8 +1713,10 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:          beginObjectResponse.StreamID,
-			EncryptedMetadata: metadata,
+			StreamID:                      beginObjectResponse.StreamID,
+			EncryptedMetadata:             metadata,
+			EncryptedMetadataNonce:        testrand.Nonce(),
+			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 		})
 		require.NoError(t, err)
 	})
@@ -1980,9 +2042,10 @@ func TestStableUploadID(t *testing.T) {
 
 		// List the root of the bucket recursively
 		listResp, _, err := client.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:    []byte("testbucket"),
-			Status:    int32(metabase.Pending),
-			Recursive: true,
+			Bucket:                []byte("testbucket"),
+			Status:                int32(metabase.Pending),
+			Recursive:             true,
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp, 1)
@@ -1991,9 +2054,10 @@ func TestStableUploadID(t *testing.T) {
 
 		// List with prefix non-recursively
 		listResp2, _, err := client.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:          []byte("testbucket"),
-			Status:          int32(metabase.Pending),
-			EncryptedPrefix: []byte("a/b/"),
+			Bucket:                []byte("testbucket"),
+			Status:                int32(metabase.Pending),
+			EncryptedPrefix:       []byte("a/b/"),
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp2, 1)
@@ -2002,10 +2066,11 @@ func TestStableUploadID(t *testing.T) {
 
 		// List with prefix recursively
 		listResp3, _, err := client.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket:          []byte("testbucket"),
-			Status:          int32(metabase.Pending),
-			EncryptedPrefix: []byte("a/b/"),
-			Recursive:       true,
+			Bucket:                []byte("testbucket"),
+			Status:                int32(metabase.Pending),
+			EncryptedPrefix:       []byte("a/b/"),
+			Recursive:             true,
+			IncludeSystemMetadata: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp3, 1)
@@ -2090,4 +2155,84 @@ func TestDeleteNonExistentObject(t *testing.T) {
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 	})
+}
+
+func TestMoveObject_Geofencing(t *testing.T) {
+	testplanet.Run(t,
+		testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			satellite := planet.Satellites[0]
+			buckets := satellite.API.Buckets.Service
+			uplink := planet.Uplinks[0]
+			projectID := uplink.Projects[0].ID
+
+			// create buckets with different placement
+			createGeofencedBucket(t, ctx, buckets, projectID, "global1", storj.EveryCountry)
+			createGeofencedBucket(t, ctx, buckets, projectID, "global2", storj.EveryCountry)
+			createGeofencedBucket(t, ctx, buckets, projectID, "us1", storj.US)
+			createGeofencedBucket(t, ctx, buckets, projectID, "us2", storj.US)
+			createGeofencedBucket(t, ctx, buckets, projectID, "eu1", storj.EU)
+
+			// upload an object to one of the global buckets
+			err := uplink.Upload(ctx, satellite, "global1", "testobject", []byte{})
+			require.NoError(t, err)
+
+			project, err := uplink.GetProject(ctx, satellite)
+			require.NoError(t, err)
+
+			// move the object to a new key within the same bucket
+			err = project.MoveObject(ctx, "global1", "testobject", "global1", "movedobject", nil)
+			require.NoError(t, err)
+
+			// move the object to the other global bucket
+			err = project.MoveObject(ctx, "global1", "movedobject", "global2", "movedobject", nil)
+			require.NoError(t, err)
+
+			// move the object to a geofenced bucket - should fail
+			err = project.MoveObject(ctx, "global2", "movedobject", "us1", "movedobject", nil)
+			require.Error(t, err)
+
+			// upload an object to one of the US-geofenced buckets
+			err = uplink.Upload(ctx, satellite, "us1", "testobject", []byte{})
+			require.NoError(t, err)
+
+			// move the object to a new key within the same bucket
+			err = project.MoveObject(ctx, "us1", "testobject", "us1", "movedobject", nil)
+			require.NoError(t, err)
+
+			// move the object to the other US-geofenced bucket
+			err = project.MoveObject(ctx, "us1", "movedobject", "us2", "movedobject", nil)
+			require.NoError(t, err)
+
+			// move the object to the EU-geofenced bucket - should fail
+			err = project.MoveObject(ctx, "us2", "movedobject", "eu1", "movedobject", nil)
+			require.Error(t, err)
+
+			// move the object to a non-geofenced bucket - should fail
+			err = project.MoveObject(ctx, "us2", "movedobject", "global1", "movedobject", nil)
+			require.Error(t, err)
+		},
+	)
+}
+
+func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, buckets *buckets.Service, projectID uuid.UUID, bucketName string, placement storj.PlacementConstraint) {
+	// generate the bucket id
+	bucketID, err := uuid.New()
+	require.NoError(t, err)
+
+	// create the bucket
+	_, err = buckets.CreateBucket(ctx, storj.Bucket{
+		ID:        bucketID,
+		Name:      bucketName,
+		ProjectID: projectID,
+		Placement: placement,
+	})
+	require.NoError(t, err)
+
+	// check that the bucket placement is correct
+	bucket, err := buckets.GetBucket(ctx, []byte(bucketName), projectID)
+	require.NoError(t, err)
+	require.Equal(t, placement, bucket.Placement)
 }

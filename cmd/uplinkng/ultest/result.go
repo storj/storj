@@ -15,11 +15,12 @@ import (
 
 // Result captures all the output of running a command for inspection.
 type Result struct {
-	Stdout string
-	Stderr string
-	Ok     bool
-	Err    error
-	Files  []File
+	Stdout  string
+	Stderr  string
+	Ok      bool
+	Err     error
+	Files   []File
+	Pending []File
 }
 
 // RequireSuccess fails if the Result did not observe a successful execution.
@@ -60,6 +61,13 @@ func (r Result) RequireFiles(t *testing.T, files ...File) Result {
 	return r
 }
 
+// RequirePending requires that the set of files provided are all of the files that
+// existed as pending at the end of the execution.
+func (r Result) RequirePending(t *testing.T, files ...File) Result {
+	require.Equal(t, canonicalizePendingFiles(files), r.Pending)
+	return r
+}
+
 // RequireLocalFiles requires that the set of files provided are all of the
 // local files that existed at the end of the execution. It assumes any passed
 // in files with no contents contain the filename as the contents instead.
@@ -95,6 +103,12 @@ func canonicalizeFiles(files []File) (out []File) {
 		}
 	}
 
+	return out
+}
+
+func canonicalizePendingFiles(files []File) (out []File) {
+	out = append(out, files...)
+	sort.Slice(out, func(i, j int) bool { return out[i].less(out[j]) })
 	return out
 }
 

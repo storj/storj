@@ -150,7 +150,7 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 			amount := (memory.MB * 500).Int64()
 			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, pb.PieceAction_GET, amount, time.Now())
 			require.NoError(t, err)
-			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, time.Now())
+			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, 0, time.Now())
 			require.NoError(t, err)
 
 			// test: confirm there is one item in the cache now
@@ -185,7 +185,7 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 			amount2 := (memory.MB * 10).Int64()
 			err = ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, time.Now())
 			require.NoError(t, err)
-			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, time.Now())
+			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, 0, time.Now())
 			require.NoError(t, err)
 			size = cache.CurrentSize()
 			require.Equal(t, 3, size)

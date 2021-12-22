@@ -32,7 +32,7 @@ func (mdb *mockDB) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (a
 func TestProjectLimitCacheCallCount(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		mdb := mockDB{}
-		projectLimitCache := accounting.NewProjectLimitCache(&mdb, 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
+		projectLimitCache := accounting.NewProjectLimitCache(&mdb, 0, 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
 
 		testProject, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
 		require.NoError(t, err)
@@ -62,7 +62,8 @@ func TestProjectLimitCache(t *testing.T) {
 		projectLimitCache := saPeer.ProjectLimits.Cache
 		defaultUsageLimit := saPeer.Config.Console.UsageLimits.Storage.Free.Int64()
 		defaultBandwidthLimit := saPeer.Config.Console.UsageLimits.Bandwidth.Free.Int64()
-		dbDefaultLimits := accounting.ProjectLimits{Usage: &defaultUsageLimit, Bandwidth: &defaultBandwidthLimit}
+		defaultSegmentLimit := int64(1000000)
+		dbDefaultLimits := accounting.ProjectLimits{Usage: &defaultUsageLimit, Bandwidth: &defaultBandwidthLimit, Segments: &defaultSegmentLimit}
 
 		testProject, err := saPeer.DB.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
 		require.NoError(t, err)
@@ -71,6 +72,7 @@ func TestProjectLimitCache(t *testing.T) {
 			errorLimit             = 0
 			expectedUsageLimit     = 1
 			expectedBandwidthLimit = 2
+			expectedSegmentLimit   = 3
 		)
 
 		t.Run("project ID doesn't exist", func(t *testing.T) {
@@ -83,6 +85,7 @@ func TestProjectLimitCache(t *testing.T) {
 			assert.Error(t, err)
 			assert.Equal(t, accounting.ProjectLimits{}, actualLimitsFromDB)
 
+			// storage
 			actualStorageLimitFromCache, err := projectLimitCache.GetProjectStorageLimit(ctx, projectID)
 			assert.Error(t, err)
 			assert.Equal(t, memory.Size(errorLimit), actualStorageLimitFromCache)
@@ -90,12 +93,32 @@ func TestProjectLimitCache(t *testing.T) {
 			actualStorageLimitFromSvc, err := projectUsageSvc.GetProjectStorageLimit(ctx, projectID)
 			assert.Error(t, err)
 			assert.Equal(t, memory.Size(errorLimit), actualStorageLimitFromSvc)
+
+			// bandwidth
+			actualBandwidthLimitFromCache, err := projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
+			assert.Error(t, err)
+			assert.Equal(t, memory.Size(errorLimit), actualBandwidthLimitFromCache)
+
+			actualBandwidthLimitFromSvc, err := projectUsageSvc.GetProjectBandwidthLimit(ctx, projectID)
+			assert.Error(t, err)
+			assert.Equal(t, memory.Size(errorLimit), actualBandwidthLimitFromSvc)
+
+			// segments
+			actualSegmentLimitFromCache, err := projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
+			assert.Error(t, err)
+			assert.EqualValues(t, errorLimit, actualSegmentLimitFromCache)
+
+			actualSegmentLimitFromSvc, err := projectUsageSvc.GetProjectSegmentLimit(ctx, projectID)
+			assert.Error(t, err)
+			assert.EqualValues(t, errorLimit, actualSegmentLimitFromSvc)
 		})
 
 		t.Run("default limits", func(t *testing.T) {
 			actualLimitsFromDB, err := accountingDB.GetProjectLimits(ctx, testProject.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, accounting.ProjectLimits{}, actualLimitsFromDB)
+			assert.Equal(t, accounting.ProjectLimits{
+				Segments: &defaultSegmentLimit,
+			}, actualLimitsFromDB)
 
 			actualLimitsFromCache, err := projectLimitCache.GetProjectLimits(ctx, testProject.ID)
 			assert.NoError(t, err)
@@ -131,6 +154,8 @@ func TestProjectLimitCache(t *testing.T) {
 			require.NoError(t, err)
 			err = accountingDB.UpdateProjectBandwidthLimit(ctx, testProject.ID, expectedBandwidthLimit)
 			require.NoError(t, err)
+			err = accountingDB.UpdateProjectSegmentLimit(ctx, testProject.ID, expectedSegmentLimit)
+			require.NoError(t, err)
 
 			actualStorageLimitFromDB, err := accountingDB.GetProjectStorageLimit(ctx, testProject.ID)
 			assert.NoError(t, err)
@@ -140,8 +165,10 @@ func TestProjectLimitCache(t *testing.T) {
 			assert.NoError(t, err)
 			usageLimits := int64(expectedUsageLimit)
 			bwLimits := int64(expectedBandwidthLimit)
-			assert.Equal(t, accounting.ProjectLimits{Usage: &usageLimits, Bandwidth: &bwLimits}, actualLimitsFromDB)
+			segmentsLimits := int64(expectedSegmentLimit)
+			assert.Equal(t, accounting.ProjectLimits{Usage: &usageLimits, Bandwidth: &bwLimits, Segments: &segmentsLimits}, actualLimitsFromDB)
 
+			// storage
 			actualStorageLimitFromCache, err := projectLimitCache.GetProjectStorageLimit(ctx, testProject.ID)
 			assert.NoError(t, err)
 			require.Equal(t, memory.Size(expectedUsageLimit), actualStorageLimitFromCache)
@@ -150,6 +177,7 @@ func TestProjectLimitCache(t *testing.T) {
 			assert.NoError(t, err)
 			require.Equal(t, memory.Size(expectedUsageLimit), actualStorageLimitFromSvc)
 
+			// bandwidth
 			actualBandwidthLimitFromDB, err := accountingDB.GetProjectBandwidthLimit(ctx, testProject.ID)
 			require.NoError(t, err)
 			require.Equal(t, int64(expectedBandwidthLimit), *actualBandwidthLimitFromDB)
@@ -161,6 +189,19 @@ func TestProjectLimitCache(t *testing.T) {
 			actualBandwidthLimitFromSvc, err := projectUsageSvc.GetProjectBandwidthLimit(ctx, testProject.ID)
 			assert.NoError(t, err)
 			require.Equal(t, memory.Size(expectedBandwidthLimit), actualBandwidthLimitFromSvc)
+
+			// segments
+			actualSegmentLimitFromDB, err := accountingDB.GetProjectSegmentLimit(ctx, testProject.ID)
+			require.NoError(t, err)
+			require.EqualValues(t, expectedSegmentLimit, *actualSegmentLimitFromDB)
+
+			actualSegmentLimitFromCache, err := projectLimitCache.GetProjectSegmentLimit(ctx, testProject.ID)
+			assert.NoError(t, err)
+			require.EqualValues(t, expectedSegmentLimit, actualSegmentLimitFromCache)
+
+			actualSegmentLimitFromSvc, err := projectUsageSvc.GetProjectSegmentLimit(ctx, testProject.ID)
+			assert.NoError(t, err)
+			require.EqualValues(t, expectedSegmentLimit, actualSegmentLimitFromSvc)
 		})
 	})
 }

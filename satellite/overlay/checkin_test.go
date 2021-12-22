@@ -9,11 +9,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
+	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -23,6 +26,11 @@ import (
 func TestCheckIn(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.GeoIP.MockCountries = []string{"US"}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		wait := sat.Config.Overlay.NodeCheckInWaitPeriod
@@ -63,6 +71,8 @@ func TestCheckIn(t *testing.T) {
 
 			require.Equal(t, expectedLastFailure.Truncate(time.Second).UTC(),
 				oldInfo.Reputation.LastContactFailure.Truncate(time.Second).UTC(), testName)
+
+			require.Equal(t, location.UnitedStates, oldInfo.CountryCode)
 		}
 
 		infoCheck("First check-in", now, now, lastFail)

@@ -29,9 +29,25 @@ func TestBasic(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		address := sat.Admin.Admin.Listener.Addr()
+		baseURL := "http://" + address.String()
+
+		t.Run("UI", func(t *testing.T) {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/.gitignore", nil)
+			require.NoError(t, err)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+
+			require.Equal(t, http.StatusOK, response.StatusCode)
+
+			content, err := ioutil.ReadAll(response.Body)
+			require.NoError(t, response.Body.Close())
+			require.NotEmpty(t, content)
+			require.NoError(t, err)
+		})
 
 		t.Run("NoAccess", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+address.String(), nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/projects/some-id", nil)
 			require.NoError(t, err)
 
 			response, err := http.DefaultClient.Do(req)
@@ -47,7 +63,7 @@ func TestBasic(t *testing.T) {
 		})
 
 		t.Run("WrongAccess", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+address.String(), nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/users/alice@storj.test", nil)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", "wrong-key")
 
@@ -64,7 +80,7 @@ func TestBasic(t *testing.T) {
 		})
 
 		t.Run("WithAccess", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+address.String(), nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api", nil)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 

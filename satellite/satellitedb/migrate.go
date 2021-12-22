@@ -1643,6 +1643,99 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE graceful_exit_transfer_queue`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_agent bytes to the value_attributions, users, projects, api_keys and bucket_metainfos tables",
+				Version:     174,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE users ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE projects ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE api_keys ADD COLUMN user_agent bytea;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN user_agent bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop column uses_segment_transfer_queue from graceful_exit_progress",
+				Version:     175,
+				Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_progress DROP COLUMN uses_segment_transfer_queue;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add signup_promo_code column on users",
+				Version:     176,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN signup_promo_code text;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column segments to invoice_project_records table and drop NOT NULL constraint for objects column",
+				Version:     177,
+				Action: migrate.SQL{
+					`ALTER TABLE stripecoinpayments_invoice_project_records ADD COLUMN segments bigint;`,
+					`ALTER TABLE stripecoinpayments_invoice_project_records ALTER COLUMN objects DROP NOT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add placement to bucket_metainfos and country_code to nodes (geofencing) ",
+				Version:     178,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN country_code text;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN placement integer;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add disqualification_reason to nodes",
+				Version:     179,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN disqualification_reason integer`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add project_bandwidth_limit and project_storage_limit to the user table",
+				Version:     180,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN project_bandwidth_limit bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE users ADD COLUMN project_storage_limit bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add project_bandwidth_limit and project_storage_limit to the user table",
+				Version:     181,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE users SET project_bandwidth_limit = 50000000000, project_storage_limit = 50000000000 
+                                         WHERE (project_bandwidth_limit = 0 AND project_storage_limit = 0 AND paid_tier = false);`,
+					`UPDATE users SET project_bandwidth_limit = 100000000000000, project_storage_limit = 25000000000000 
+                                         WHERE (project_bandwidth_limit = 0 AND project_storage_limit = 0 AND paid_tier = true);`,
+					`UPDATE users SET project_limit = 3 WHERE project_limit = 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add segment_limit to the projects table",
+				Version:     182,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN segment_limit bigint DEFAULT 1000000`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add project_segment_limit to the users table",
+				Version:     183,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN project_segment_limit bigint NOT NULL DEFAULT 0`,
+				},
+			},
+
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

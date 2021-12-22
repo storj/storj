@@ -23,7 +23,6 @@
             </div>
             <div class="register-area__input-area">
                 <div
-                    v-if="!isRegistrationSuccessful"
                     class="register-area__input-area__container"
                     :class="{ 'professional-container': isProfessional }"
                 >
@@ -50,7 +49,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="register-area__input-area__toggle__conatainer">
+                    <div class="register-area__input-area__toggle__container">
                         <ul class="register-area__input-area__toggle__wrapper">
                             <li
                                 class="register-area__input-area__toggle__personal"
@@ -203,8 +202,6 @@
                     </div>
                     <p class="register-area__input-area__container__button" @click.prevent="onCreateClick">Sign Up</p>
                 </div>
-
-                <RegistrationSuccess v-if="isRegistrationSuccessful" />
             </div>
         </div>
         <div class="register-area__input-area__login-container">
@@ -220,7 +217,6 @@ import VueRecaptcha from 'vue-recaptcha';
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
-import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 import SelectInput from '@/components/common/SelectInput.vue';
 
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
@@ -234,8 +230,6 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { User } from '@/types/users';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 
@@ -243,7 +237,6 @@ import { Validator } from '@/utils/validation';
 @Component({
     components: {
         HeaderlessInput,
-        RegistrationSuccess,
         BottomArrowIcon,
         ErrorIcon,
         SelectedCheckIcon,
@@ -307,16 +300,6 @@ export default class RegisterArea extends Vue {
     }
 
     /**
-     * Lifecycle hook on component destroy.
-     * Sets view to default state.
-     */
-    public beforeDestroy(): void {
-        if (this.isRegistrationSuccessful) {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
-        }
-    }
-
-    /**
      * Lifecycle hook after initial render.
      * Sets up variables from route params.
      */
@@ -328,13 +311,6 @@ export default class RegisterArea extends Vue {
         if (this.$route.query.partner) {
             this.user.partner = this.$route.query.partner.toString();
         }
-    }
-
-    /**
-     * Indicates if registration successful area shown.
-     */
-    public get isRegistrationSuccessful(): boolean {
-        return this.$store.state.appStateModule.appState.isSuccessfulRegistrationShown;
     }
 
     /**
@@ -453,6 +429,13 @@ export default class RegisterArea extends Vue {
     }
 
     /**
+     * Returns the email of the created user.
+     */
+    public get email(): string {
+        return this.user.email;
+    }
+
+    /**
      * Sets user's company name field from value string.
      */
     public setCompanyName(value: string): void {
@@ -560,6 +543,13 @@ export default class RegisterArea extends Vue {
     }
 
     /**
+     * Detect if user uses Brave browser
+     */
+    public async detectBraveBrowser(): Promise<boolean> {
+        return (navigator['brave'] && await navigator['brave'].isBrave() || false)
+    }
+
+    /**
      * Creates user and toggles successful registration area visibility.
      */
     private async createUser(): Promise<void> {
@@ -577,10 +567,9 @@ export default class RegisterArea extends Vue {
         this.user.haveSalesContact = this.haveSalesContact;
 
         try {
-            this.userId = await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
-            LocalData.setUserId(this.userId);
-
-            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
+            await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
+            const successPath = RouteConfig.RegisterSuccess.path + "?email=" + this.user.email;
+            await this.detectBraveBrowser() ? await this.$router.push(successPath) : location.replace(successPath);
         } catch (error) {
             if (this.$refs.recaptcha) {
                 this.$refs.recaptcha.reset();

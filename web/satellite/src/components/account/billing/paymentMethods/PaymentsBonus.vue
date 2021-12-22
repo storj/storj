@@ -83,7 +83,6 @@ export default class PaymentsBonus extends Vue {
     }
 
     .banner-logo-svg {
-        min-height: 64px;
         min-width: 54px;
     }
 

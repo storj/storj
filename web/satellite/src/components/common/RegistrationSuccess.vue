@@ -2,66 +2,85 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="register-success-area">
-        <div class="register-success-area__form-container">
-            <MailIcon />
-            <h2 class="register-success-area__form-container__title" aria-roledescription="title">You're almost there!</h2>
-            <p class="register-success-area__form-container__sub-title">
-                Check your email to confirm your account and get started.
-            </p>
-            <p class="register-success-area__form-container__text">
-                Didn't receive a verification email?
-                <b class="register-success-area__form-container__verification-cooldown__bold-text">
-                    {{ timeToEnableResendEmailButton }}
-                </b>
-            </p>
-            <div class="register-success-area__form-container__button-container">
-                <VButton
-                    label="Resend Email"
-                    width="450px"
-                    height="50px"
-                    :on-press="onResendEmailButtonClick"
-                    :is-disabled="isResendEmailButtonDisabled"
-                />
-            </div>
-            <p class="register-success-area__form-container__contact">
-                or
-                <a
-                    class="register-success-area__form-container__contact__link"
-                    href="https://support.storj.io/hc/en-us"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    Contact our support team
-                </a>
-            </p>
+    <div class="register-success-container">
+        <div class="register-success-container__logo-wrapper">
+            <LogoIcon class="logo" @click="onLogoClick" />
         </div>
+        <div class="register-success-area">
+            <div class="register-success-area__form-container">
+                <MailIcon />
+                <h2 class="register-success-area__form-container__title" aria-roledescription="title">You're almost there!</h2>
+                <div v-if="showManualActivationMsg" class="register-success-area__form-container__sub-title">
+                    If an account with the email address
+                    <p class="register-success-area__form-container__sub-title__email">{{ userEmail }}</p>
+                    exists, a verification email has been sent.
+                </div>
+                <p class="register-success-area__form-container__sub-title">
+                    Check your inbox to activate your account and get started.
+                </p>
+                <p class="register-success-area__form-container__text">
+                    Didn't receive a verification email?
+                    <b class="register-success-area__form-container__verification-cooldown__bold-text">
+                        {{ timeToEnableResendEmailButton }}
+                    </b>
+                </p>
+                <div class="register-success-area__form-container__button-container">
+                    <VButton
+                        label="Resend Email"
+                        width="450px"
+                        height="50px"
+                        :on-press="onResendEmailButtonClick"
+                        :is-disabled="secondsToWait != 0"
+                    />
+                </div>
+                <p class="register-success-area__form-container__contact">
+                    or
+                    <a
+                        class="register-success-area__form-container__contact__link"
+                        href="https://supportdcs.storj.io/hc/en-us/requests/new"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Contact our support team
+                    </a>
+                </p>
+            </div>
+        </div>
+        <router-link :to="loginPath" class="register-success-area__login-link">Go to Login page</router-link>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
+import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
 
 import { AuthHttpApi } from '@/api/auth';
-import { LocalData } from '@/utils/localData';
+import { RouteConfig } from "@/router";
 
 // @vue/component
 @Component({
     components: {
         VButton,
+        LogoIcon,
         MailIcon,
     },
 })
 export default class RegistrationSuccess extends Vue {
-    private isResendEmailButtonDisabled = true;
-    private timeToEnableResendEmailButton = '00:30';
+    @Prop({default: ''})
+    private readonly email: string;
+    @Prop({default: true})
+    private readonly showManualActivationMsg: boolean;
+
+    private secondsToWait = 30;
     private intervalID: ReturnType<typeof setInterval>;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    public readonly loginPath: string = RouteConfig.Login.path;
 
     /**
      * Lifecycle hook after initial render.
@@ -82,6 +101,20 @@ export default class RegistrationSuccess extends Vue {
     }
 
     /**
+     * Gets email (either passed in as prop or via query param).
+     */
+    public get userEmail(): string {
+        return this.email || this.$route.query.email.toString();
+    }
+
+    /**
+     * Reloads page.
+     */
+    public onLogoClick(): void {
+        location.replace(RouteConfig.Register.path);
+    }
+
+    /**
      * Checks if page is inside iframe.
      */
     public get isInsideIframe(): boolean {
@@ -89,24 +122,25 @@ export default class RegistrationSuccess extends Vue {
     }
 
     /**
+     * Returns the time left until the Resend Email button is enabled in mm:ss form.
+     */
+    public get timeToEnableResendEmailButton(): string {
+        return `${Math.floor(this.secondsToWait / 60).toString().padStart(2, '0')}:${(this.secondsToWait % 60).toString().padStart(2, '0')}`;
+    }
+
+    /**
      * Resend email if interval timer is expired.
      */
     public async onResendEmailButtonClick(): Promise<void> {
-        if (this.isResendEmailButtonDisabled) {
-            return;
-        }
-
-        this.isResendEmailButtonDisabled = true;
-
-        const userId = LocalData.getUserId();
-        if (!userId) {
+        const email = this.userEmail;
+        if (this.secondsToWait != 0 || !email) {
             return;
         }
 
         try {
-            await this.auth.resendEmail(userId);
+            await this.auth.resendEmail(email);
         } catch (error) {
-            await this.$notify.error('Could not send email.');
+            await this.$notify.error(error.message);
         }
 
         this.startResendEmailCountdown();
@@ -116,17 +150,11 @@ export default class RegistrationSuccess extends Vue {
      * Resets timer blocking email resend button spamming.
      */
     private startResendEmailCountdown(): void {
-        let countdown = 30;
+        this.secondsToWait = 30;
 
         this.intervalID = setInterval(() => {
-            countdown--;
-
-            const secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
-            this.timeToEnableResendEmailButton = `00:${secondsLeft}`;
-
-            if (countdown <= 0) {
+            if (--this.secondsToWait <= 0) {
                 clearInterval(this.intervalID);
-                this.isResendEmailButtonDisabled = false;
             }
         }, 1000);
     }
@@ -134,19 +162,40 @@ export default class RegistrationSuccess extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .register-success-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: 'font_regular', sans-serif;
+        background-color: #f5f6fa;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow-y: scroll;
+
+        &__logo-wrapper {
+            text-align: center;
+            margin-top: 60px;
+        }
+    }
+
     .register-success-area {
         display: flex;
         align-items: center;
         justify-content: center;
         font-family: 'font_regular', sans-serif;
+        background-color: #fff;
+        border-radius: 20px;
+        width: 75%;
+        height: 50vh;
+        margin-top: 50px;
+        padding: 70px 90px 30px 90px;
+        max-width: 1200px;
 
         &__form-container {
-            padding: 100px;
-            max-width: 395px;
             text-align: center;
-            border-radius: 20px;
-            background-color: #fff;
-            box-shadow: 0 0 19px 9px #ddd;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -165,6 +214,12 @@ export default class RegistrationSuccess extends Vue {
                 color: #252525;
                 margin: 0;
                 max-width: 350px;
+                text-align: center;
+                margin-bottom: 27px;
+
+                &__email {
+                    font-family: 'font_bold', sans-serif;
+                }
             }
 
             &__text {
@@ -172,7 +227,6 @@ export default class RegistrationSuccess extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: #252525;
-                margin: 27px 0 0 0;
             }
 
             &__verification-cooldown {
@@ -207,11 +261,21 @@ export default class RegistrationSuccess extends Vue {
                 }
             }
         }
+
+        &__login-link {
+            font-family: 'font_bold', sans-serif;
+            text-decoration: none;
+            font-size: 14px;
+            color: #376fff;
+            margin-top: 50px;
+            padding-bottom: 50px;
+        }
     }
 
     @media screen and (max-width: 650px) {
 
         .register-success-area {
+            height: auto;
 
             &__form-container {
                 padding: 50px;
@@ -226,6 +290,7 @@ export default class RegistrationSuccess extends Vue {
     @media screen and (max-width: 500px) {
 
         .register-success-area {
+            height: auto;
 
             &__form-container {
                 padding: 50px 20px;

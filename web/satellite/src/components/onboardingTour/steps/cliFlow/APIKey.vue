@@ -29,7 +29,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import { RouteConfig } from "@/router";
 import { MetaUtils } from "@/utils/meta";
 
-import {ACCESS_GRANTS_ACTIONS, ACCESS_GRANTS_MUTATIONS} from "@/store/modules/accessGrants";
+import {ACCESS_GRANTS_ACTIONS} from "@/store/modules/accessGrants";
+import {APP_STATE_MUTATIONS} from "@/store/mutationConstants";
 import {AccessGrant} from "@/types/accessGrants";
 import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
 import ValueWithCopy from "@/components/onboardingTour/steps/common/ValueWithCopy.vue";
@@ -86,7 +87,7 @@ export default class APIKey extends Vue {
         try {
             this.restrictedKey = await this.generateRestrictedKey();
 
-            await this.$store.commit(ACCESS_GRANTS_MUTATIONS.SET_ONBOARDING_CLI_API_KEY, this.restrictedKey);
+            await this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY, this.restrictedKey);
         } catch (error) {
             await this.$notify.error(error.message)
         }
@@ -125,6 +126,12 @@ export default class APIKey extends Vue {
      * Navigates to previous screen.
      */
     public async onBackClick(): Promise<void> {
+        if (this.backRoute) {
+            await this.$router.push(this.backRoute).catch(() => {return; });
+
+            return;
+        }
+
         await this.$router.push(RouteConfig.OnboardingTour.path).catch(() => {return; })
     }
 
@@ -139,7 +146,14 @@ export default class APIKey extends Vue {
      * Returns API key from store.
      */
     public get storedAPIKey(): string {
-        return this.$store.state.accessGrantsModule.onboardingCLIApiKey;
+        return this.$store.state.appStateModule.appState.onbApiKey;
+    }
+
+    /**
+     * Returns back route from store.
+     */
+    private get backRoute(): string {
+        return this.$store.state.appStateModule.appState.onbAPIKeyStepBackRoute;
     }
 }
 </script>

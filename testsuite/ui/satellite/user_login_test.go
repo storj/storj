@@ -5,7 +5,6 @@ package satellite_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
@@ -21,12 +20,12 @@ func TestLoginToAccount(t *testing.T) {
 		loginPageURL := planet.Satellites[0].ConsoleURL() + "/login"
 		user := planet.Uplinks[0].User[planet.Satellites[0].ID()]
 
-		page := browser.Timeout(10 * time.Second).MustPage(loginPageURL)
-		page.MustSetViewport(1350, 600, 1, false)
+		page := openPage(browser, loginPageURL)
 
 		page.MustElement("[aria-roledescription=email] input").MustInput(user.Email)
 		page.MustElement("[aria-roledescription=password] input").MustInput(user.Password)
 		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
 
 		dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, dashboardTitle, "Dashboard")
