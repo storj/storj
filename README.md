@@ -3,7 +3,6 @@
 [![Go Report Card](https://goreportcard.com/badge/storj.io/storj)](https://goreportcard.com/report/storj.io/storj)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/storj)
 [![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.dev.storj.io/job/storj/job/main/cobertura)
-![Alpha](https://img.shields.io/badge/version-alpha-green.svg)
 
 <img src="https://github.com/storj/storj/raw/main/resources/logo.png" width="100">
 
@@ -51,10 +50,7 @@ Check out these three tutorials:
 
 # License
 
-The network under construction (this repo) is currently licensed with the
-[AGPLv3](https://www.gnu.org/licenses/agpl-3.0.en.html) license. Once the network
-reaches beta phase, we will be licensing all client-side code via the
-[Apache v2](https://www.apache.org/licenses/LICENSE-2.0) license.
+This repository is currently licensed with the [AGPLv3](https://www.gnu.org/licenses/agpl-3.0.en.html) license.
 
 For code released under the AGPLv3, we request that contributors sign our
 [Contributor License Agreement (CLA)](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform) so that we can relicense the
