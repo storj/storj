@@ -373,7 +373,7 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 
 .PHONY: draft-release
 draft-release:
-	scripts/draft-release.sh ${BRANCHNAME} "release/${TAG}"
+	scripts/draft-release.sh ${BRANCH_NAME} "release/${TAG}"
 
 ##@ Clean
 
