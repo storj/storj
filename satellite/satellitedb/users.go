@@ -219,6 +219,7 @@ func toUpdateUser(user *console.User) (*dbx.User_Update_Fields, error) {
 	}
 	update.MfaRecoveryCodes = dbx.User_MfaRecoveryCodes(string(recoveryBytes))
 	update.MfaSecretKey = dbx.User_MfaSecretKey(user.MFASecretKey)
+	update.LastVerificationReminder = dbx.User_LastVerificationReminder(user.LastVerificationReminder)
 
 	// extra password check to update only calculated hash from service
 	if len(user.PasswordHash) != 0 {
@@ -306,6 +307,10 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 
 	if user.SignupPromoCode != nil {
 		result.SignupPromoCode = *user.SignupPromoCode
+	}
+
+	if user.LastVerificationReminder != nil {
+		result.LastVerificationReminder = *user.LastVerificationReminder
 	}
 
 	return &result, nil
