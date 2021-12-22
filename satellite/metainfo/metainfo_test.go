@@ -187,7 +187,7 @@ func TestRevokeMacaroon(t *testing.T) {
 		err = client.MakeInlineSegment(ctx, metaclient.MakeInlineSegmentParams{StreamID: encodedStreamID})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-		_, _, err = client.DownloadSegment(ctx, metaclient.DownloadSegmentParams{StreamID: encodedStreamID})
+		_, err = client.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{StreamID: encodedStreamID})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 		_, err = client.ListSegments(ctx, metaclient.ListSegmentsParams{StreamID: encodedStreamID})
@@ -281,7 +281,7 @@ func TestInvalidAPIKey(t *testing.T) {
 				err = client.MakeInlineSegment(ctx, metaclient.MakeInlineSegmentParams{StreamID: streamID})
 				assertInvalidArgument(t, err, false)
 
-				_, _, err = client.DownloadSegment(ctx, metaclient.DownloadSegmentParams{StreamID: streamID})
+				_, err = client.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{StreamID: streamID})
 				assertInvalidArgument(t, err, false)
 
 				_, err = client.ListSegments(ctx, metaclient.ListSegmentsParams{StreamID: streamID})
@@ -880,15 +880,15 @@ func TestInlineSegment(t *testing.T) {
 			existingSegments := []int32{0, 1, 2, 3, 4, 5, -1}
 
 			for i, index := range existingSegments {
-				info, limits, err := metainfoClient.DownloadSegment(ctx, metaclient.DownloadSegmentParams{
+				response, err := metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 					StreamID: object.StreamID,
 					Position: storj.SegmentPosition{
 						Index: index,
 					},
 				})
 				require.NoError(t, err)
-				require.Nil(t, limits)
-				require.Equal(t, segmentsData[i], info.EncryptedInlineData)
+				require.Nil(t, response.Limits)
+				require.Equal(t, segmentsData[i], response.Info.EncryptedInlineData)
 			}
 		}
 
@@ -974,14 +974,14 @@ func TestRemoteSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			_, limits, err := metainfoClient.DownloadSegment(ctx, metaclient.DownloadSegmentParams{
+			response, err := metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 				StreamID: object.StreamID,
 				Position: storj.SegmentPosition{
 					Index: -1,
 				},
 			})
 			require.NoError(t, err)
-			require.NotEmpty(t, limits)
+			require.NotEmpty(t, response.Limits)
 		}
 
 		{
@@ -1922,7 +1922,7 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 			EncryptedPath: []byte(objects[0].ObjectKey),
 		})
 		require.NoError(t, err)
-		_, _, err = metainfoClient.DownloadSegment(ctx, metaclient.DownloadSegmentParams{
+		_, err = metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 			StreamID: object.StreamID,
 			Position: storj.SegmentPosition{
 				Index: -1,
@@ -1940,7 +1940,7 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 			EncryptedPath: []byte(objects[0].ObjectKey),
 		})
 		require.NoError(t, err)
-		_, _, err = metainfoClient.DownloadSegment(ctx, metaclient.DownloadSegmentParams{
+		_, err = metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 			StreamID: object.StreamID,
 			Position: storj.SegmentPosition{
 				Index: -1,
@@ -1959,7 +1959,7 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 			EncryptedPath: []byte(objects[0].ObjectKey),
 		})
 		require.NoError(t, err)
-		_, _, err = metainfoClient.DownloadSegment(ctx, metaclient.DownloadSegmentParams{
+		_, err = metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 			StreamID: object.StreamID,
 			Position: storj.SegmentPosition{
 				Index: -1,
