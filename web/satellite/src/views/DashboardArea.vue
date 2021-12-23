@@ -150,8 +150,6 @@ export default class DashboardArea extends Vue {
         try {
             projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         } catch (error) {
-            await this.$notify.error(error.message);
-
             return;
         }
 

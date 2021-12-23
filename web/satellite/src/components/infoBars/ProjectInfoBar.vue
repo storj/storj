@@ -55,7 +55,7 @@ export default class ProjectInfoBar extends Vue {
 
             this.isDataFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            return;
         }
     }
 

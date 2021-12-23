@@ -34,16 +34,27 @@ const authLink = setContext((_, {headers}) => {
 /**
  * Handling unauthorized error.
  */
-const errorLink = onError(({ networkError }) => {
+const errorLink = onError(({ graphQLErrors, networkError }) => {
+    if (graphQLErrors?.length) {
+        Vue.prototype.$notify.error(graphQLErrors.join('\n'));
+    }
+
+    if (networkError) {
+        const nError = (networkError as ServerError);
+        if (nError.statusCode === 401) {
+            new AuthHttpApi().logout();
+            Vue.prototype.$notify.error('Session token expired');
+            setTimeout(() => {
+                window.location.href = window.location.origin + '/login';
+            }, 3000);
+        } else {
+            nError.result && Vue.prototype.$notify.error(nError.result.error);
+        }
+    }
+
     if (!(networkError && (networkError as ServerError).statusCode === 401)) {
         return;
     }
-
-    new AuthHttpApi().logout();
-    Vue.prototype.$notify.error('Session token expired');
-    setTimeout(() => {
-        window.location.href = window.location.origin + '/login';
-    }, 3000);
 });
 
 /**

@@ -52,6 +52,12 @@ export default class EstimatedCostsAndCredits extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+        } catch (error) {
+            this.isDataFetching = false;
+            return;
+        }
+
+        try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
 
             this.isDataFetching = false;

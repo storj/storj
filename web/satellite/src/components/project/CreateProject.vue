@@ -142,7 +142,6 @@ export default class NewProjectPopup extends Vue {
             this.createdProjectId = createdProject.id;
         } catch (error) {
             this.isLoading = false;
-            await this.$notify.error(error.message);
 
             return;
         }

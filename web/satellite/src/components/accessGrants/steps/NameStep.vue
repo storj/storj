@@ -99,7 +99,6 @@ export default class NameStep extends Vue {
             try {
                 await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
             } catch (error) {
-                await this.$notify.error(error.message);
                 this.isLoading = false;
 
                 return;

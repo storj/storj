@@ -264,7 +264,7 @@ export default class EditProjectDetails extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
-            await this.$notify.error(error.message);
+            return;
         }
     }
 
@@ -513,8 +513,6 @@ export default class EditProjectDetails extends Vue {
 
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_NAME, updatedProject);
         } catch (error) {
-            await this.$notify.error(`Unable to update project name. ${error.message}`);
-
             return;
         }
 
@@ -530,8 +528,6 @@ export default class EditProjectDetails extends Vue {
             const updatedProject = new ProjectFields('', this.descriptionValue);
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_DESCRIPTION, updatedProject);
         } catch (error) {
-            await this.$notify.error(`Unable to update project description. ${error.message}`);
-
             return;
         }
 
@@ -555,8 +551,6 @@ export default class EditProjectDetails extends Vue {
             const updatedProject = new ProjectLimits(0, 0, storageLimitValue);
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_STORAGE_LIMIT, updatedProject);
         } catch (error) {
-            await this.$notify.error(`Unable to update project storage limit. ${error.message}`);
-
             return;
         }
 
@@ -580,8 +574,6 @@ export default class EditProjectDetails extends Vue {
             const updatedProject = new ProjectLimits(bandwidthLimitValue);
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_BANDWIDTH_LIMIT, updatedProject);
         } catch (error) {
-            await this.$notify.error(`Unable to update project bandwidth limit. ${error.message}`);
-
             return;
         }
 
