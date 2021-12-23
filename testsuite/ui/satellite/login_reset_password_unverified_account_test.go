@@ -4,12 +4,14 @@
 package satellite
 
 import (
+	"testing"
+
 	"github.com/go-rod/rod"
 	"github.com/stretchr/testify/require"
+
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/testsuite/ui/uitest"
-	"testing"
 )
 
 func TestForgotPasswordOnLoginPageUsingUnverifiedAccount(t *testing.T) {
