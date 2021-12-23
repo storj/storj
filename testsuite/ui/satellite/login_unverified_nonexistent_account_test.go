@@ -28,7 +28,7 @@ func TestLoginUnverifiedNonexistentAccount(t *testing.T) {
 		page.MustElement("div.login-area__input-wrapper:nth-child(3)").MustClick().MustInput(password)
 		page.Keyboard.MustPress(input.Enter)
 
-		//check for error message for unverified/nonexistent
+		// check for error message for unverified/nonexistent
 		invalidEmailPasswordMessage := page.MustElement(".notification-wrap__text-area__message").MustText()
 		require.Contains(t, invalidEmailPasswordMessage, "Your email or password was incorrect, please try again")
 
