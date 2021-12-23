@@ -4,13 +4,15 @@
 package satellite
 
 import (
+	"testing"
+	
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
+	
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/testsuite/ui/uitest"
-	"testing"
 )
 
 func TestLoginUnverifiedNonexistentAccount(t *testing.T) {
