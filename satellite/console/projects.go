@@ -99,7 +99,6 @@ type ProjectInfo struct {
 	Description    string      `json:"description"`
 	StorageLimit   memory.Size `json:"project specific storage limit"`
 	BandwidthLimit memory.Size `json:"project specific bandwidth limit"`
-	SegmentLimit   int64       `json:"project specific segment limit"`
 	CreatedAt      time.Time   `json:"createdAt"`
 }
 

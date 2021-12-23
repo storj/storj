@@ -1211,10 +1211,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		if project.StorageLimit != nil && *project.StorageLimit == 0 {
 			return nil, Error.New("current storage limit for project is set to 0 (updating disabled)")
 		}
-		if project.SegmentLimit != nil && *project.SegmentLimit == 0 {
-			return nil, Error.New("current segment limit for project is set to 0 (updating disabled)")
-		}
-		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 || projectInfo.SegmentLimit <= 0 {
+		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 {
 			return nil, Error.New("project limits must be greater than 0")
 		}
 
@@ -1224,10 +1221,6 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 
 		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid {
 			return nil, Error.New("specified bandwidth limit exceeds allowed maximum for current tier")
-		}
-
-		if projectInfo.SegmentLimit > s.config.UsageLimits.Segment.Paid {
-			return nil, Error.New("specified segment limit exceeds allowed maximum for current tier")
 		}
 
 		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
@@ -1250,7 +1243,6 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		*project.StorageLimit = projectInfo.StorageLimit
 		project.BandwidthLimit = new(memory.Size)
 		*project.BandwidthLimit = projectInfo.BandwidthLimit
-		*project.SegmentLimit = projectInfo.SegmentLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
