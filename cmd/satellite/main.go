@@ -879,8 +879,8 @@ func cmdRegisterLostSegments(cmd *cobra.Command, args []string) error {
 		log.Fatal("Failed to initialize telemetry batcher", zap.Error(err))
 	}
 
-	scope := monkit.Default.ScopeNamed("segment-durability")
-	scope.Meter("lost-segments").Mark(numLostSegments)
+	scope := monkit.Default.ScopeNamed("segment_durability")
+	scope.Meter("lost_segments").Mark(numLostSegments)
 
 	if err := process.Report(ctx); err != nil {
 		log.Fatal("could not send telemetry", zap.Error(err))
