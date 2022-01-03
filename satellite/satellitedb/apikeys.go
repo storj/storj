@@ -70,7 +70,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	}
 
 	repoundQuery := keys.db.Rebind(`
-		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.created_at
+		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.user_agent, ak.created_at
 		FROM api_keys ak
 		WHERE ak.project_id = ?
 		AND lower(ak.name) LIKE ?
@@ -95,7 +95,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		ak := console.APIKeyInfo{}
 		var partnerID uuid.NullUUID
 
-		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &partnerID, &ak.CreatedAt)
+		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &partnerID, &ak.UserAgent, &ak.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
