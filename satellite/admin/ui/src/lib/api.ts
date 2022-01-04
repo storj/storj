@@ -189,20 +189,23 @@ export class Admin {
 					['Storage (in bytes)', new InputText('number', false)],
 					['Bandwidth (in bytes)', new InputText('number', false)],
 					['Rate (requests per second)', new InputText('number', false)],
-					['Buckets (maximum number)', new InputText('number', false)]
+					['Buckets (maximum number)', new InputText('number', false)],
+					['Segments (maximum number)', new InputText('number', false)]
 				],
 				func: async (
 					projectId: string,
 					usage: number,
 					bandwidth: number,
 					rate: number,
-					buckets: number
+					buckets: number,
+					segments: number
 				): Promise<null> => {
 					const query = this.urlQueryFromObject({
 						usage,
 						bandwidth,
 						rate,
-						buckets
+						buckets,
+						segments
 					});
 
 					if (query === '') {
