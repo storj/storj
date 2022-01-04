@@ -40,7 +40,7 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
-	c.parallelism = params.Flag("parallelism", "Controls how many uploads/downloads to perform in parallel", 1,
+	c.parallelism = params.Flag("parallelism", "Controls how many removes to perform in parallel", 1,
 		clingy.Short('p'),
 		clingy.Transform(strconv.Atoi),
 		clingy.Transform(func(n int) (int, error) {

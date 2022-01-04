@@ -55,7 +55,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		clingy.Transform(strconv.Atoi),
 		clingy.Transform(func(n int) (int, error) {
 			if n <= 0 {
-				return 0, errs.New("parallelism must be at least 1")
+				return 0, errs.New("transfers must be at least 1")
 			}
 			return n, nil
 		}),
@@ -73,7 +73,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		clingy.Transform(strconv.Atoi),
 		clingy.Transform(func(n int) (int, error) {
 			if n <= 0 {
-				return 0, errs.New("file parallelism must be at least 1")
+				return 0, errs.New("parallelism must be at least 1")
 			}
 			return n, nil
 		}),
