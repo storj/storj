@@ -429,13 +429,10 @@ export default class BucketsView extends Vue {
 
             return false;
         case !Validator.bucketName(name):
-            this.errorMessage = 'Name must include only lowercase latin characters';
+            this.errorMessage = 'Name must contain only lowercase latin characters, numbers, a hyphen or a period';
 
             return false;
-        case !Validator.oneWordString(name):
-            this.errorMessage = 'Name must be 1-word string';
 
-            return false;
         default:
             return true;
         }
