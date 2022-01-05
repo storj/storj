@@ -30,7 +30,7 @@ func openPage(browser *rod.Browser, url string) *rod.Page {
 func signUpWithUser(t *testing.T, planet *uitest.EdgePlanet, page *rod.Page) {
 	signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
 	fullName := "John Doe"
-	emailAddress := "test@email.com"
+	emailAddress := "test@email.test"
 	password := "qazwsx123"
 
 	// navigate to signup page
@@ -49,7 +49,7 @@ func signUpWithUser(t *testing.T, planet *uitest.EdgePlanet, page *rod.Page) {
 
 func loginWithUser(t *testing.T, planet *uitest.EdgePlanet, page *rod.Page) {
 	loginPageURL := planet.Satellites[0].ConsoleURL() + "/login"
-	emailAddress := "test@email.com"
+	emailAddress := "test@email.test"
 	password := "qazwsx123"
 
 	// navigate to login page

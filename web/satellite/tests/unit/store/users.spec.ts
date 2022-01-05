@@ -22,7 +22,7 @@ describe('mutations', () => {
         createLocalVue().use(Vuex);
     });
     it('Set user', () => {
-        const user = new User('1', 'fullName', 'shortName', 'example@email.com');
+        const user = new User('1', 'fullName', 'shortName', 'user@example.com');
 
         store.commit(USER_MUTATIONS.SET_USER, user);
 
@@ -93,7 +93,7 @@ describe('actions', () => {
     });
 
     it('success get user', async () => {
-        const user = new User('2', 'newFullName', 'newShortName', 'example2@email.com');
+        const user = new User('2', 'newFullName', 'newShortName', 'user2@example.com');
 
         jest.spyOn(authApi, 'get').mockReturnValue(
             Promise.resolve(user),

@@ -456,7 +456,7 @@ func TestKnownReliable(t *testing.T) {
 func TestUpdateCheckIn(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // setup
 		nodeID := storj.NodeID{1, 2, 3}
-		expectedEmail := "test@email.com"
+		expectedEmail := "test@email.test"
 		expectedAddress := "1.2.4.4:8080"
 		info := overlay.NodeCheckInInfo{
 			NodeID: nodeID,
@@ -742,7 +742,7 @@ func getNodeInfo(nodeID storj.NodeID) overlay.NodeCheckInInfo {
 			Address: "1.2.3.4",
 		},
 		Operator: &pb.NodeOperator{
-			Email:  "test@email.com",
+			Email:  "test@email.test",
 			Wallet: "0x123",
 		},
 		Version: &pb.NodeVersion{

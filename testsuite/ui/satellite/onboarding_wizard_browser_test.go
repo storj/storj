@@ -18,7 +18,7 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 	uitest.Edge(t, func(t *testing.T, ctx *testcontext.Context, planet *uitest.EdgePlanet, browser *rod.Browser) {
 		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
 		fullName := "John Doe"
-		emailAddress := "test@email.com"
+		emailAddress := "test@email.test"
 		password := "qazwsx123"
 
 		page := openPage(browser, signupPageURL)

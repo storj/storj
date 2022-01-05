@@ -44,7 +44,7 @@
                     <div class="login-area__input-wrapper">
                         <HeaderlessInput
                             label="Email Address"
-                            placeholder="example@email.com"
+                            placeholder="user@example.com"
                             :error="emailError"
                             role-description="email"
                             @setData="setEmail"

@@ -13,7 +13,7 @@
                 <div class="activate-area__content-area__container__input-wrapper">
                     <HeaderlessInput
                         label="Email Address"
-                        placeholder="example@email.com"
+                        placeholder="user@example.com"
                         :error="emailError"
                         height="46px"
                         width="100%"

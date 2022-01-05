@@ -19,7 +19,7 @@ func TestNavigation(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
 		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
 		fullName := "John Doe"
-		emailAddress := "test@email.com"
+		emailAddress := "test@email.test"
 		password := "qazwsx123"
 
 		page := openPage(browser, signupPageURL)
