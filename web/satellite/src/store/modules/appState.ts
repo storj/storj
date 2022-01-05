@@ -49,7 +49,6 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
-        public isNewOnbCLIFlow = false,
         public isNewNavStructure = false,
         public isNewObjectsFlow = false,
     ){}
@@ -157,9 +156,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS](state: State, isNewProjectDashboard: boolean): void {
             state.isNewProjectDashboard = isNewProjectDashboard;
         },
-        [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS](state: State, isNewOnbCLIFlow: boolean): void {
-            state.isNewOnbCLIFlow = isNewOnbCLIFlow;
-        },
         [APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE](state: State, backRoute: string): void {
             state.appState.onbAGStepBackRoute = backRoute;
         },
@@ -171,9 +167,6 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY](state: State, apiKey: string): void {
             state.appState.onbCleanApiKey = apiKey;
-        },
-        [APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS](state: State, isNewOnbCLIFlow: boolean): void {
-            state.isNewOnbCLIFlow = isNewOnbCLIFlow;
         },
         [APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS](state: State, isNewNavStructure: boolean): void {
             state.isNewNavStructure = isNewNavStructure;
@@ -341,9 +334,6 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({commit}: AppContext, isNewProjectDashboard: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard);
-        },
-        [APP_STATE_ACTIONS.SET_ONB_CLI_FLOW_STATUS]: function ({commit}: AppContext, isNewOnbCLIFlow: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_ONB_CLI_FLOW_STATUS, isNewOnbCLIFlow);
         },
         [APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS]: function ({commit}: AppContext, isNewNavStructure: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure);

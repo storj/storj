@@ -386,7 +386,7 @@ export default class FileShareModal extends Vue {
         return (
             "https://reddit.com/submit/?url=" +
             this.objectLink +
-            "&amp;resubmit=true&amp;title=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage"
+            "&resubmit=true&title=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage"
         );
     }
 
@@ -404,7 +404,7 @@ export default class FileShareModal extends Vue {
      */
     public get twitterLink(): string {
         return (
-            "https://twitter.com/intent/tweet/?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;url=" +
+            "https://twitter.com/intent/tweet/?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&url=" +
             this.objectLink
         );
     }
@@ -416,7 +416,7 @@ export default class FileShareModal extends Vue {
         return (
             "https://news.ycombinator.com/submitlink?u=" +
             this.objectLink +
-            "&amp;t=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage"
+            "&t=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage"
         );
     }
 
@@ -425,9 +425,9 @@ export default class FileShareModal extends Vue {
      */
     public get linkedinLink(): string {
         return (
-            "https://www.linkedin.com/shareArticle?mini=true&amp;url=" +
+            "https://www.linkedin.com/shareArticle?mini=true&url=" +
             this.objectLink +
-            "&amp;title=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;summary=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;source=" +
+            "&title=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&summary=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&source=" +
             this.objectLink
         );
     }
@@ -437,7 +437,7 @@ export default class FileShareModal extends Vue {
      */
     public get telegramLink(): string {
         return (
-            "https://telegram.me/share/url?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;url=" +
+            "https://telegram.me/share/url?text=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&url=" +
             this.objectLink
         );
     }
@@ -457,7 +457,7 @@ export default class FileShareModal extends Vue {
      */
     public get emailLink(): string {
         return (
-            "mailto:?subject=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&amp;body=" +
+            "mailto:?subject=Shared%20using%20Storj%20Decentralized%20Cloud%20Storage&body=" +
             this.objectLink
         );
     }

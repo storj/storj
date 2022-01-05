@@ -28,6 +28,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from "@/router";
 import { MetaUtils } from "@/utils/meta";
+import { AnalyticsEvent } from "@/utils/constants/analyticsEventNames";
+import { AnalyticsHttpApi } from "@/api/analytics";
 
 import {ACCESS_GRANTS_ACTIONS} from "@/store/modules/accessGrants";
 import {APP_STATE_MUTATIONS} from "@/store/mutationConstants";
@@ -49,6 +51,8 @@ import Icon from '@/../static/images/onboardingTour/apiKeyStep.svg';
 })
 export default class APIKey extends Vue {
     private worker: Worker;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
     public isLoading = true;
@@ -86,6 +90,8 @@ export default class APIKey extends Vue {
     public async generateAPIKey(): Promise<void> {
         try {
             this.restrictedKey = await this.generateRestrictedKey();
+
+            this.analytics.eventTriggered(AnalyticsEvent.API_KEY_GENERATED);
 
             await this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY, this.restrictedKey);
         } catch (error) {

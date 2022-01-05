@@ -449,7 +449,10 @@ import FileEntry from "./FileEntry.vue";
 import BreadCrumbs from "./BreadCrumbs.vue";
 import FileModal from "./FileModal.vue";
 import FileShareModal from "./FileShareModal.vue";
+
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from "@/types/browser.ts";
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -466,6 +469,8 @@ export default class FileBrowser extends Vue {
     public creatingFolderSpinner = false;
     public deleteConfirmation = false;
     public fetchingFilesSpinner = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Check if the s3 client has been initialized in the store.
@@ -687,6 +692,7 @@ export default class FileBrowser extends Vue {
      */
     public async upload(e: Event): Promise<void> {
         await this.$store.dispatch("files/upload", e);
+        this.analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
         const target = e.target as HTMLInputElement;
         target.value = "";
     }

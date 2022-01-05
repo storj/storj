@@ -80,11 +80,6 @@ export default class ResultStep extends Vue {
      */
     public mounted(): void {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
-            if (this.isOnboardingTour) {
-                this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
-                return;
-            }
-
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -125,17 +120,6 @@ export default class ResultStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
-        if (this.isOnboardingTour) {
-            this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
-                params: {
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-            return;
-        }
-
         if (this.accessGrantsAmount > 1) {
             this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
@@ -170,18 +154,6 @@ export default class ResultStep extends Vue {
      * Proceed to gateway step.
      */
     public navigateToGatewayStep(): void {
-        if (this.isOnboardingTour) {
-            this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantGateway)).name,
-                params: {
-                    access: this.access,
-                    key: this.key,
-                    restrictedKey: this.restrictedKey,
-                },
-            });
-            return;
-        }
-
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.GatewayStep)).name,
             params: {
