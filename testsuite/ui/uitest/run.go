@@ -35,7 +35,6 @@ func configureSatellite(log *zap.Logger, index int, config *satellite.Config) {
 		config.Console.StaticDir = dir
 	}
 	config.Console.NewNavigation = true
-	config.Console.NewBrowser = true
 	config.Console.NewObjectsFlow = true
 	config.Console.CouponCodeBillingUIEnabled = true
 }

@@ -93,7 +93,6 @@ type Config struct {
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
-	NewBrowser                      bool    `help:"indicates if new browser should be used" default:"true"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
@@ -380,7 +379,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
 		NewNavigation                   bool
-		NewBrowser                      bool
 		NewObjectsFlow                  bool
 	}
 
@@ -411,7 +409,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
 	data.NewProjectDashboard = server.config.NewProjectDashboard
 	data.NewNavigation = server.config.NewNavigation
-	data.NewBrowser = server.config.NewBrowser
 	data.NewObjectsFlow = server.config.NewObjectsFlow
 
 	templates, err := server.loadTemplates()
