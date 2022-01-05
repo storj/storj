@@ -612,6 +612,25 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Console.Endpoint.Run,
 			Close: peer.Console.Endpoint.Close,
 		})
+
+        peer.Console.Chore = console.NewChore(
+			peer.Log.Named("console:chore"),
+			peer.Console.Service,
+			peer.Mail.Service,
+			consoleConfig,
+		)
+        // add stuff to console services
+        // how do I want to send email?
+        // a.mailService.SendRenderedAsync( in sat/console/consoleweb/consoleapi/auth.go
+        // will be chore.mailService.SendRedneredAsync
+        // what does console service returns need to do, how to get that from database
+        // satellite/mailservice/simulate/linkclicker.go for testing (send email key part)
+        // SendEmail, comment out content (the loop in particular)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "console:chore",
+			Run:   peer.Console.Chore.Run,
+			Close: peer.Console.Chore.Close,
+		})
 	}
 
 	{ // setup node stats endpoint
