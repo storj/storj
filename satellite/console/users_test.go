@@ -338,3 +338,58 @@ func TestGetUserByEmail(t *testing.T) {
 		require.Equal(t, activeUser.ID, dbUser.ID)
 	})
 }
+
+func TestGetUnverifiedNeedingReminder(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+
+		previousDay := time.Now().Add(-24 * 365 * time.Hour)
+		twoDaysAgo := time.Now().Add(-48 * 365 * time.Hour)
+		fiveDaysAgo := time.Now().Add(-120 * 365 * time.Hour)
+
+		userNeedingReminder := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "unverified user one",
+			Email:        "userone@mail.test",
+			CreatedAt:    twoDaysAgo,
+			PasswordHash: []byte("123a123"),
+		}
+
+		createdUserNeedingReminder, err := db.Console().Users().Insert(ctx, &userNeedingReminder)
+		assert.NoError(t, err)
+
+		createdUserNeedingReminder.LastVerificationReminder = twoDaysAgo
+
+		err = db.Console().Users().Update(ctx, createdUserNeedingReminder)
+		assert.NoError(t, err)
+
+		usersNeedingReminder, err := usersRepo.GetUnverifiedNeedingReminder(ctx, previousDay, fiveDaysAgo)
+		assert.NoError(t, err)
+
+		require.Len(t, usersNeedingReminder, 1)
+		require.Equal(t, userNeedingReminder.ID, usersNeedingReminder[0].ID)
+
+		currentTime := time.Now()
+
+		userNotNeedingReminder := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "unverified user one",
+			Email:        "userone@mail.test",
+			CreatedAt:    currentTime,
+			PasswordHash: []byte("123a123"),
+		}
+
+		createdUserNotNeedingReminder, err := db.Console().Users().Insert(ctx, &userNotNeedingReminder)
+		assert.NoError(t, err)
+
+		createdUserNotNeedingReminder.LastVerificationReminder = currentTime
+
+		err = db.Console().Users().Update(ctx, createdUserNotNeedingReminder)
+		assert.NoError(t, err)
+
+		users, err := usersRepo.GetUnverifiedNeedingReminder(ctx, previousDay, fiveDaysAgo)
+		assert.NoError(t, err)
+
+		require.Len(t, users, 0)
+	})
+}

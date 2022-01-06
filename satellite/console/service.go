@@ -935,6 +935,21 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 	return verified, unverified, err
 }
 
+// GetUser returns User by id.
+func (s *Service) GetUnverifiedNeedingReminder(ctx context.Context) (_ []*User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	previousDay := time.Now().Add(-24 * 365 * time.Hour)
+	fiveDaysAgo := time.Now().Add(-120 * 365 * time.Hour)
+
+	users, err := s.store.Users().GetUnverifiedNeedingReminder(ctx, previousDay, fiveDaysAgo)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return users, nil
+}
+
 // UpdateAccount updates User.
 func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName string) (err error) {
 	defer mon.Task()(&ctx)(&err)

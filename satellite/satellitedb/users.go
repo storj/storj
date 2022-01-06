@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -73,6 +74,35 @@ func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.Us
 	}
 
 	return userFromDBX(ctx, user)
+}
+
+// GetUser returns User by id.
+func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, upperBound time.Time, lowerBound time.Time) (usersNeedingReminder []*console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxLowerBoundLastReminder := dbx.User_LastVerificationReminder(lowerBound)
+	dbxUpperBoundCreatedAt := dbx.User_CreatedAt(upperBound)
+	dbxLowerBoundCreatedAt := dbx.User_CreatedAt(lowerBound)
+
+	dbxUsers, err := users.db.All_User_By_Status_Equal_Number_And_CreatedAt_Less_And_CreatedAt_Greater_And_LastVerificationReminder_Less(ctx, dbxUpperBoundCreatedAt, dbxLowerBoundCreatedAt, dbxLowerBoundLastReminder)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var errors errs.Group
+
+	for _, userDbx := range dbxUsers {
+		u, err := userFromDBX(ctx, userDbx)
+
+		usersNeedingReminder = append(usersNeedingReminder, u)
+		if err != nil {
+			errors.Add(err)
+			continue
+		}
+	}
+
+	return usersNeedingReminder, nil
 }
 
 // Insert is a method for inserting user into the database.

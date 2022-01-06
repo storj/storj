@@ -139,6 +139,7 @@ type API struct {
 		Listener net.Listener
 		Service  *console.Service
 		Endpoint *consoleweb.Server
+		Chore    *consoleweb.Chore
 	}
 
 	Marketing struct {
@@ -321,16 +322,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 	}
 
-	{ // setup accounting project usage
-		peer.Accounting.ProjectUsage = accounting.NewService(
-			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Cache,
-			peer.ProjectLimits.Cache,
-			*metabaseDB,
-			config.LiveAccounting.BandwidthCacheTTL,
-			config.LiveAccounting.AsOfSystemInterval,
-		)
-	}
+	// { // setup accounting project usage
+	// 	peer.Accounting.ProjectUsage = accounting.NewService(
+	// 		peer.DB.ProjectAccounting(),
+	// 		peer.LiveAccounting.Cache,
+	// 		peer.ProjectLimits.Cache,
+	// 		config.LiveAccounting.BandwidthCacheTTL,
+	// 		config.LiveAccounting.AsOfSystemInterval,
+	// 	)
+	// }
 
 	{ // setup orders
 		peer.Orders.DB = rollupsWriteCache
@@ -608,10 +608,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.URL(),
 		)
 
-		peer.Servers.Add(lifecycle.Item{
-			Name:  "console:endpoint",
-			Run:   peer.Console.Endpoint.Run,
-			Close: peer.Console.Endpoint.Close,
+		peer.Console.Chore = consoleweb.NewChore(
+			peer.Log.Named("console:chore"),
+			peer.Console.Service,
+			peer.Mail.Service,
+			consoleConfig,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "consoleweb:chore",
+			Run:   peer.Console.Chore.Run,
+			Close: peer.Console.Chore.Close,
 		})
 	}
 
