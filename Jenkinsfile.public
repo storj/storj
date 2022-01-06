@@ -167,15 +167,15 @@ pipeline {
                     steps {
                         // verify most of the commands, we cannot check everything since some of them
                         // have a C dependency and we don't have cross-compilation in storj/ci image
-                        sh 'GOOS=linux   GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=linux   GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=linux   GOARCH=arm   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=linux   GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=windows GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=windows GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=windows GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=darwin  GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=darwin  GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=arm   go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=windows GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=windows GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=windows GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=darwin  GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=darwin  GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
                     }
                 }
                 stage('Tests') {

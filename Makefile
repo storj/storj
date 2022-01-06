@@ -319,12 +319,9 @@ versioncontrol_%:
 .PHONY: multinode_%
 multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: uplinkng_%
-uplinkng_%:
-	$(MAKE) binary-check COMPONENT=uplinkng GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode uplinkng
+COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
