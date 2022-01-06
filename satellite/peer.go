@@ -5,12 +5,18 @@ package satellite
 
 import (
 	"context"
+	"net"
+	"net/mail"
+	"net/smtp"
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
+	"go.uber.org/zap"
 
 	"storj.io/common/identity"
 	"storj.io/private/debug"
+	"storj.io/storj/private/post"
+	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -28,11 +34,13 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -146,9 +154,10 @@ type Config struct {
 
 	Payments paymentsconfig.Config
 
-	RESTKeys    restkeys.Config
-	Console     consoleweb.Config
-	ConsoleAuth consoleauth.Config
+	RESTKeys       restkeys.Config
+	Console        consoleweb.Config
+	ConsoleAuth    consoleauth.Config
+	EmailReminders emailreminders.Config
 
 	Version version_checker.Config
 
@@ -161,4 +170,67 @@ type Config struct {
 	ProjectLimit accounting.ProjectLimitConfig
 
 	Analytics analytics.Config
+}
+
+func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, error) {
+	// TODO(yar): test multiple satellites using same OAUTH credentials
+	mailConfig := config.Mail
+
+	// validate from mail address
+	from, err := mail.ParseAddress(mailConfig.From)
+	if err != nil {
+		return nil, err
+	}
+
+	// validate smtp server address
+	host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	var sender mailservice.Sender
+	switch mailConfig.AuthType {
+	case "oauth2":
+		creds := oauth2.Credentials{
+			ClientID:     mailConfig.ClientID,
+			ClientSecret: mailConfig.ClientSecret,
+			TokenURI:     mailConfig.TokenURI,
+		}
+		token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
+		if err != nil {
+			return nil, err
+		}
+
+		sender = &post.SMTPSender{
+			From: *from,
+			Auth: &oauth2.Auth{
+				UserEmail: from.Address,
+				Storage:   oauth2.NewTokenStore(creds, *token),
+			},
+			ServerAddress: mailConfig.SMTPServerAddress,
+		}
+	case "plain":
+		sender = &post.SMTPSender{
+			From:          *from,
+			Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
+			ServerAddress: mailConfig.SMTPServerAddress,
+		}
+	case "login":
+		sender = &post.SMTPSender{
+			From: *from,
+			Auth: post.LoginAuth{
+				Username: mailConfig.Login,
+				Password: mailConfig.Password,
+			},
+			ServerAddress: mailConfig.SMTPServerAddress,
+		}
+	default:
+		sender = simulate.NewDefaultLinkClicker(log.Named("mail:linkclicker"))
+	}
+
+	return mailservice.New(
+		log.Named("mail:service"),
+		sender,
+		mailConfig.TemplatePath,
+	)
 }
