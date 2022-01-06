@@ -36,8 +36,8 @@ type DB interface {
 	UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, settledAmount, deadAmount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 	UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
-	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
-	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BucketBandwidthRollup) error
+	// UpdateBandwidthBatch updates bucket and project bandwidth rollups in the database
+	UpdateBandwidthBatch(ctx context.Context, rollups []BucketBandwidthRollup) error
 
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
@@ -84,13 +84,14 @@ var (
 
 // BucketBandwidthRollup contains all the info needed for a bucket bandwidth rollup.
 type BucketBandwidthRollup struct {
-	ProjectID  uuid.UUID
-	BucketName string
-	Action     pb.PieceAction
-	Inline     int64
-	Allocated  int64
-	Settled    int64
-	Dead       int64
+	ProjectID     uuid.UUID
+	BucketName    string
+	Action        pb.PieceAction
+	IntervalStart time.Time
+	Inline        int64
+	Allocated     int64
+	Settled       int64
+	Dead          int64
 }
 
 // SortBucketBandwidthRollups sorts the rollups.

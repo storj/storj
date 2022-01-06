@@ -433,7 +433,7 @@ export default class FileModal extends Vue {
     public get previewIsImage(): boolean {
         if (typeof this.extension === 'string') {
             return ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'].includes(
-                this.extension
+                this.extension.toLowerCase()
             );
         }
 
@@ -446,7 +446,7 @@ export default class FileModal extends Vue {
     public get previewIsVideo(): boolean {
         if (typeof this.extension === 'string') {
             return ['m4v', 'mp4', 'webm', 'mov', 'mkv'].includes(
-                this.extension
+                this.extension.toLowerCase()
             );
         }
 
@@ -458,7 +458,7 @@ export default class FileModal extends Vue {
      */
     public get previewIsAudio(): boolean {
         if (typeof this.extension === 'string') {
-            return ['mp3', 'wav', 'ogg'].includes(this.extension);
+            return ['mp3', 'wav', 'ogg'].includes(this.extension.toLowerCase());
         }
 
         return false;

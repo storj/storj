@@ -1712,9 +1712,9 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     181,
 				SeparateTx:  true,
 				Action: migrate.SQL{
-					`UPDATE users SET project_bandwidth_limit = 50000000000, project_storage_limit = 50000000000 
+					`UPDATE users SET project_bandwidth_limit = 50000000000, project_storage_limit = 50000000000
                                          WHERE (project_bandwidth_limit = 0 AND project_storage_limit = 0 AND paid_tier = false);`,
-					`UPDATE users SET project_bandwidth_limit = 100000000000000, project_storage_limit = 25000000000000 
+					`UPDATE users SET project_bandwidth_limit = 100000000000000, project_storage_limit = 25000000000000
                                          WHERE (project_bandwidth_limit = 0 AND project_storage_limit = 0 AND paid_tier = true);`,
 					`UPDATE users SET project_limit = 3 WHERE project_limit = 0;`,
 				},
@@ -1733,6 +1733,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     183,
 				Action: migrate.SQL{
 					`ALTER TABLE users ADD COLUMN project_segment_limit bigint NOT NULL DEFAULT 0`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add last_verification_reminder to the users table",
+				Version:     184,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN last_verification_reminder timestamp with time zone`,
 				},
 			},
 

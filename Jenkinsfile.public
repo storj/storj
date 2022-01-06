@@ -159,6 +159,8 @@ pipeline {
                             sh 'npm run check'
                             sh 'npm run lint'
                         }
+
+                        sh './scripts/check-package-lock.sh'
                      }
                 }
                 stage('Cross Compile') {
@@ -363,7 +365,7 @@ pipeline {
                 }
             }
         }
-
+/*
         stage('UI') {
             when {
                 anyOf {
@@ -397,7 +399,7 @@ pipeline {
                 }
             }
         }
-
+*/
         stage('Post') {
             parallel {
                 stage('Lint') {

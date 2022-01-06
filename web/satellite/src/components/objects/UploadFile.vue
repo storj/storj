@@ -4,7 +4,7 @@
 <template>
     <div>
         <p class="back" @click="goToBuckets">&lt;- Back to Buckets</p>
-        <div :class="{ 'file-browser': !newBrowser }">
+        <div class="file-browser">
             <FileBrowser />
         </div>
         <UploadCancelPopup v-if="isCancelUploadPopupVisible" />
@@ -12,11 +12,10 @@
 </template>
 
 <script lang="ts">
-import * as browser from 'browser';
 import { Component, Vue } from 'vue-property-decorator';
 
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
-import InternalFileBrowser from '@/components/browser/FileBrowser.vue';
+import FileBrowser from '@/components/browser/FileBrowser.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -24,8 +23,6 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
-const newBrowser = MetaUtils.getMetaContent('new-browser') === "true";
-const FileBrowser = newBrowser ? InternalFileBrowser : browser.FileBrowser;
 
 // @vue/component
 @Component({
@@ -38,7 +35,6 @@ export default class UploadFile extends Vue {
     private linksharingURL = '';
     private worker: Worker;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-    private readonly newBrowser: boolean = newBrowser;
 
     /**
      * Lifecycle hook after initial render.
@@ -220,8 +216,6 @@ export default class UploadFile extends Vue {
 </script>
 
 <style scoped>
-    @import '../../../node_modules/browser/dist/browser.css';
-
     .back {
         font-family: 'font_medium', sans-serif;
         color: #000;

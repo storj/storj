@@ -35,7 +35,7 @@ require (
 	github.com/stripe/stripe-go/v72 v72.51.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/assert v1.3.0
-	github.com/zeebo/clingy v0.0.0-20211209163509-9715de867439
+	github.com/zeebo/clingy v0.0.0-20211216163256-6aa562dbf46b
 	github.com/zeebo/errs v1.2.2
 	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
 	go.etcd.io/bbolt v1.3.5
@@ -51,7 +51,7 @@ require (
 	storj.io/common v0.0.0-20211217122906-6be0b96ce7e0
 	storj.io/drpc v0.0.26
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
-	storj.io/private v0.0.0-20211029202355-a7eae71c382a
+	storj.io/private v0.0.0-20211209191323-6595d4aa0cfe
 	storj.io/uplink v1.7.1-0.20211031201307-b30e004c1ccb
 )
 

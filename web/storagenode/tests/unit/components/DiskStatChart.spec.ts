@@ -58,6 +58,8 @@ describe('DiskStatChart', (): void => {
                     '0.1.1',
                     '0.2.2',
                     false,
+                    true,
+                    '13000',
                 ),
             ),
         );

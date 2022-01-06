@@ -26,17 +26,8 @@ export class Validator {
      * Checks string to satisfy bucket name rules.
      */
     public static bucketName(value: string): boolean {
-        const rgx = /^[a-z0-9.-]+$/;
+        const rgx = /^[a-z0-9][a-z0-9.-]+[a-z0-9]$/;
 
         return rgx.test(value);
-    }
-
-    /**
-     * Checks string to consist of 1 word.
-     */
-    public static oneWordString(value: string): boolean {
-        const trimmed = value.trim();
-
-        return trimmed.indexOf(' ') === -1;
     }
 }

@@ -34,9 +34,7 @@ func configureSatellite(log *zap.Logger, index int, config *satellite.Config) {
 	if dir := os.Getenv("STORJ_TEST_SATELLITE_WEB"); dir != "" {
 		config.Console.StaticDir = dir
 	}
-	config.Console.NewOnboarding = true
 	config.Console.NewNavigation = true
-	config.Console.NewBrowser = true
 	config.Console.NewObjectsFlow = true
 	config.Console.CouponCodeBillingUIEnabled = true
 }

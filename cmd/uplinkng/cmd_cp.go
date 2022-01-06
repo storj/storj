@@ -26,15 +26,15 @@ import (
 type cmdCp struct {
 	ex ulext.External
 
-	access      string
-	recursive   bool
-	parallelism int
-	dryrun      bool
-	progress    bool
-	byteRange   string
+	access    string
+	recursive bool
+	transfers int
+	dryrun    bool
+	progress  bool
+	byteRange string
 
-	fileParallelism int
-	fileChunkSize   memory.Size
+	parallelism          int
+	parallelismChunkSize memory.Size
 
 	source ulloc.Location
 	dest   ulloc.Location
@@ -50,8 +50,8 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
-	c.parallelism = params.Flag("parallelism", "Controls how many uploads/downloads to perform in parallel", 1,
-		clingy.Short('p'),
+	c.transfers = params.Flag("transfers", "Controls how many uploads/downloads to perform in parallel", 1,
+		clingy.Short('t'),
 		clingy.Transform(strconv.Atoi),
 		clingy.Transform(func(n int) (int, error) {
 			if n <= 0 {
@@ -68,7 +68,8 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	).(bool)
 	c.byteRange = params.Flag("range", "Downloads the specified range bytes of an object. For more information about the HTTP Range header, see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35", "").(string)
 
-	c.fileParallelism = params.Flag("file-parallelism", "Controls how many parallel chunks to download from a file", 8,
+	c.parallelism = params.Flag("parallelism", "Controls how many parallel chunks to upload/download from a file", 4,
+		clingy.Short('p'),
 		clingy.Transform(strconv.Atoi),
 		clingy.Transform(func(n int) (int, error) {
 			if n <= 0 {
@@ -77,7 +78,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 			return n, nil
 		}),
 	).(int)
-	c.fileChunkSize = params.Flag("file-chunk-size", "Controls the size of the chunks for file parallelism", 64*memory.MB,
+	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Controls the size of the chunks for parallelism", 64*memory.MB,
 		clingy.Transform(memory.ParseString),
 		clingy.Transform(func(n int64) (memory.Size, error) {
 			if memory.Size(n) < 1*memory.MB {
@@ -92,9 +93,6 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdCp) Execute(ctx clingy.Context) error {
-	if c.parallelism > 1 && c.byteRange != "" {
-		return errs.New("parallelism and range flags are mutually exclusive")
-	}
 	fs, err := c.ex.OpenFilesystem(ctx, c.access)
 	if err != nil {
 		return err
@@ -152,7 +150,7 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 	}
 
 	var (
-		limiter = sync2.NewLimiter(c.parallelism)
+		limiter = sync2.NewLimiter(c.transfers)
 		es      errs.Group
 		mu      sync.Mutex
 	)
@@ -233,7 +231,7 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 	return errs.Wrap(parallelCopy(
 		ctx,
 		mwh, mrh,
-		c.fileParallelism, c.fileChunkSize.Int64(),
+		c.parallelism, c.parallelismChunkSize.Int64(),
 		offset, length,
 		bar,
 	))

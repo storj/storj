@@ -15,11 +15,71 @@ import (
 	"storj.io/storj/testsuite/ui/uitest"
 )
 
-func TestOnboardingWizardCLIFlow(t *testing.T) {
+func TestOnboarding_WizardBrowser(t *testing.T) {
+	uitest.Edge(t, func(t *testing.T, ctx *testcontext.Context, planet *uitest.EdgePlanet, browser *rod.Browser) {
+		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
+		fullName := "John Doe"
+		emailAddress := "test@email.test"
+		password := "qazwsx123"
+
+		page := openPage(browser, signupPageURL)
+
+		// first time User signup
+		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
+		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
+		page.MustElement(".checkmark").MustClick()
+		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
+		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
+
+		// first time user log in
+		page.MustElement("[href=\"/login\"]").MustClick()
+		waitVueTick(page)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
+		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
+
+		// testing onboarding workflow browser
+		wait := page.MustWaitRequestIdle()
+		page.MustElementX("(//span[text()=\"Continue in web\"])").MustClick()
+		wait()
+
+		// Buckets Page
+		bucketsTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, bucketsTitle, "Buckets")
+		page.Race().ElementR("p", "demo-bucket").MustHandle(func(el *rod.Element) {
+			el.MustClick()
+			waitVueTick(page)
+		}).MustDo()
+
+		// Passphrase screen
+		encryptionTitle := page.MustElement("[aria-roledescription=objects-title]").MustText()
+		require.Contains(t, encryptionTitle, "The object browser uses server side encryption.")
+		customPassphrase := page.MustElement("[aria-roledescription=enter-passphrase-label]")
+		customPassphraseLabel := customPassphrase.MustText()
+		require.Contains(t, customPassphraseLabel, "Enter your own passphrase")
+		customPassphrase.MustClick()
+		waitVueTick(page)
+		page.MustElement("[aria-roledescription=passphrase] input").MustInput("password123")
+		page.MustElement(".checkmark").MustClick()
+		waitVueTick(page)
+		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
+		waitVueTick(page)
+
+		// Verify that browser component has loaded and that the dropzone is present
+		page.MustElementR("p", "Drop Files Here to Upload")
+	})
+}
+
+func TestOnboarding_WizardCLIFlow(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
 		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
 		fullName := "John Doe"
-		emailAddress := "test@email.com"
+		emailAddress := "test@email.test"
 		password := "qazwsx123"
 
 		page := openPage(browser, signupPageURL)
@@ -267,5 +327,49 @@ func TestOnboardingWizardCLIFlow(t *testing.T) {
 		// Dashboard screen
 		dashboardTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, dashboardTitle1, "My First Project Dashboard")
+	})
+}
+
+func TestOnboarding_WelcomeScreenEncryption(t *testing.T) {
+	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
+		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
+		fullName := "John Doe"
+		emailAddress := "test@email.test"
+		password := "qazwsx123"
+
+		page := openPage(browser, signupPageURL)
+
+		// First time User signup
+		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
+		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
+		page.MustElement(".checkmark").MustClick()
+		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
+
+		confirmAccountEmailMessage := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
+
+		// Login as first time User
+		page.MustElement("[href=\"/login\"]").MustClick()
+		page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
+		page.MustElement("[aria-roledescription=password] input").MustInput(password)
+		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
+
+		// Welcome screen encryption test
+		welcomeTitle := page.MustElement("[aria-roledescription=title]").MustText()
+		require.Contains(t, welcomeTitle, "Welcome")
+		serverSideEncTitle := page.MustElement("[aria-roledescription=server-side-encryption-title]").MustText()
+		require.Contains(t, serverSideEncTitle, "SERVER-SIDE ENCRYPTED")
+		endToEndEncTitle := page.MustElement("[aria-roledescription=end-to-end-encryption-title]").MustText()
+		require.Contains(t, endToEndEncTitle, "END-TO-END ENCRYPTED")
+		serverSideEncLink, err := page.MustElement("[aria-roledescription=server-side-encryption-link]").Attribute("href")
+		require.NoError(t, err)
+		require.Equal(t, "https://docs.storj.io/concepts/encryption-key/design-decision-server-side-encryption", *serverSideEncLink)
+		endToEndEncLink, err := page.MustElement("[aria-roledescription=end-to-end-encryption-link]").Attribute("href")
+		require.NoError(t, err)
+		require.Equal(t, "https://docs.storj.io/concepts/encryption-key/design-decision-end-to-end-encryption", *endToEndEncLink)
 	})
 }

@@ -105,10 +105,13 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		Data: map[string]interface{}{
 			"email": fields.Email,
 			"properties": map[string]interface{}{
-				"email":          fields.Email,
-				"firstname":      firstName,
-				"lastname":       lastName,
-				"lifecyclestage": "customer",
+				"email":           fields.Email,
+				"firstname":       firstName,
+				"lastname":        lastName,
+				"lifecyclestage":  "customer",
+				"origin_header":   fields.OriginHeader,
+				"signup_referrer": fields.Referrer,
+				"account_created": true,
 			},
 		},
 	}

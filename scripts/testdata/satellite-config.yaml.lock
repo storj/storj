@@ -181,17 +181,11 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for linksharing requests
 # console.linksharing-url: https://link.us1.storjshare.io
 
-# indicates if new browser should be used
-# console.new-browser: true
-
 # indicates if new navigation structure should be rendered
 # console.new-navigation: true
 
 # indicates if new objects flow should be used
 # console.new-objects-flow: true
-
-# indicates if new onboarding flow should be rendered
-# console.new-onboarding: true
 
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: false

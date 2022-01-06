@@ -28,6 +28,8 @@ func TestApiKeysRepository(t *testing.T) {
 		assert.NotNil(t, project)
 		assert.NoError(t, err)
 
+		userAgent := []byte("testUserAgent")
+
 		t.Run("Creation success", func(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				key, err := macaroon.NewAPIKey([]byte("testSecret"))
@@ -37,6 +39,7 @@ func TestApiKeysRepository(t *testing.T) {
 					Name:      fmt.Sprintf("key %d", i),
 					ProjectID: project.ID,
 					Secret:    []byte("testSecret"),
+					UserAgent: userAgent,
 				}
 
 				createdKey, err := apikeys.Create(ctx, key.Head(), keyInfo)
@@ -87,6 +90,7 @@ func TestApiKeysRepository(t *testing.T) {
 			key, err := apikeys.Get(ctx, page.APIKeys[0].ID)
 			assert.NotNil(t, key)
 			assert.Equal(t, page.APIKeys[0].ID, key.ID)
+			assert.Equal(t, page.APIKeys[0].UserAgent, userAgent)
 			assert.NoError(t, err)
 		})
 

@@ -128,7 +128,7 @@ func (c *cmdShare) Execute(ctx clingy.Context) error {
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Println("Public Access: ", isPublic)
+		_, err = fmt.Fprintln(ctx, "Public Access: ", isPublic)
 		if err != nil {
 			return err
 		}
@@ -156,7 +156,7 @@ func (c *cmdShare) Execute(ctx clingy.Context) error {
 		if err := ioutil.WriteFile(exportTo, []byte(newAccessData+"\n"), 0600); err != nil {
 			return err
 		}
-		fmt.Println("Exported to:", exportTo)
+		fmt.Fprintln(ctx, "Exported to:", exportTo)
 	}
 
 	return nil

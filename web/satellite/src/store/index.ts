@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { files } from 'browser';
 import Vue from 'vue';
 import Vuex from 'vuex';
 
@@ -23,10 +22,7 @@ import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/m
 import { makeUsersModule } from '@/store/modules/users';
 import { User } from '@/types/users';
 
-import { MetaUtils } from '@/utils/meta';
-import internalFiles from '@/store/modules/files';
-import * as externalBrowser from 'browser';
-const files = MetaUtils.getMetaContent('new-browser') === "true" ? internalFiles : externalBrowser.files;
+import files from '@/store/modules/files';
 
 Vue.use(Vuex);
 

@@ -397,6 +397,7 @@ CREATE TABLE users (
 	mfa_secret_key text,
 	mfa_recovery_codes text,
 	signup_promo_code text,
+	last_verification_reminder timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (

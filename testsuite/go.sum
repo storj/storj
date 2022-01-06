@@ -956,7 +956,7 @@ github.com/zeebo/assert v0.0.0-20181109011804-10f827ce2ed6/go.mod h1:yssERNPivll
 github.com/zeebo/assert v1.1.0/go.mod h1:Pq9JiuJQpG8JLJdtkwrJESF0Foym2/D9XMU5ciN/wJ0=
 github.com/zeebo/assert v1.3.0 h1:g7C04CbJuIDKNPFHmsk4hwZDO5O+kntRxzaUoNXj+IQ=
 github.com/zeebo/assert v1.3.0/go.mod h1:Pq9JiuJQpG8JLJdtkwrJESF0Foym2/D9XMU5ciN/wJ0=
-github.com/zeebo/clingy v0.0.0-20211209163509-9715de867439/go.mod h1:MHEhXvEfewflU7SSVKHI7nkdU+fpyxZ5XPPzj+5gYNw=
+github.com/zeebo/clingy v0.0.0-20211216163256-6aa562dbf46b/go.mod h1:MHEhXvEfewflU7SSVKHI7nkdU+fpyxZ5XPPzj+5gYNw=
 github.com/zeebo/errs v1.1.1/go.mod h1:Yj8dHrUQwls1bF3dr/vcSIu+qf4mI7idnTcHfoACc6I=
 github.com/zeebo/errs v1.2.2 h1:5NFypMTuSdoySVTqlNs1dEoU21QVamMQJxW/Fii5O7g=
 github.com/zeebo/errs v1.2.2/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
@@ -1417,8 +1417,8 @@ storj.io/monkit-jaeger v0.0.0-20210225162224-66fb37637bf6/go.mod h1:gj4vuCeyCRjR
 storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7 h1:zi0w9zoBfvuqysSAqxJT1Ton2YB5IhyMM3/3CISjlrQ=
 storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7/go.mod h1:gj4vuCeyCRjRmH8LIrgoyU9Dc9uR6H+/GcDUXmTbf80=
 storj.io/private v0.0.0-20210810102517-434aeab3f17d/go.mod h1:wvudoWSyOyB2daZNaMykjjqsSUad/ttFlUwgelg9+qg=
-storj.io/private v0.0.0-20211029202355-a7eae71c382a h1:cWPChMGma5Cw5rdGuKrlc+XFxjisRVAXfa5Ny9/nxzw=
-storj.io/private v0.0.0-20211029202355-a7eae71c382a/go.mod h1:BoSaGSvsC8C6Gy0FyjrHfsElJA623hLsNIyexs6vGno=
+storj.io/private v0.0.0-20211209191323-6595d4aa0cfe h1:gPf2s3d247JWd/Iqzw7g8mvpdlqdBpVTsBhe6oPMkKU=
+storj.io/private v0.0.0-20211209191323-6595d4aa0cfe/go.mod h1:BoSaGSvsC8C6Gy0FyjrHfsElJA623hLsNIyexs6vGno=
 storj.io/uplink v1.6.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
 storj.io/uplink v1.7.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
 storj.io/uplink v1.7.1-0.20211031201307-b30e004c1ccb h1:+WaWPmWvm12StirZ/b2xgbL9lnB7UmRhvC8fckNN1ZI=

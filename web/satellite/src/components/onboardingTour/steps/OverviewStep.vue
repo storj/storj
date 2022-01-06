@@ -63,16 +63,6 @@ export default class OverviewStep extends Vue {
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
-     * Mounted hook before initial render.
-     * Checks CLI flow status and redirects if needed.
-     */
-    public beforeMount(): void {
-        if (!this.$store.state.appStateModule.isNewOnbCLIFlow) {
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OldOverviewStep).path)
-        }
-    }
-
-    /**
      * Holds button click logic.
      * Redirects to next step (creating access grant).
      */

@@ -107,6 +107,8 @@ type TrackCreateUserFields struct {
 	CompanyName      string
 	JobTitle         string
 	HaveSalesContact bool
+	OriginHeader     string
+	Referrer         string
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -137,6 +139,9 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	props.Set("name", fields.FullName)
 	props.Set("satellite_selected", service.satelliteName)
 	props.Set("account_type", fields.Type)
+	props.Set("origin_header", fields.OriginHeader)
+	props.Set("signup_referrer", fields.Referrer)
+	props.Set("account_created", true)
 
 	if fields.Type == Professional {
 		props.Set("company_size", fields.EmployeeCount)

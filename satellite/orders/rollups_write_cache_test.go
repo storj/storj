@@ -148,9 +148,10 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 			projectID := testrand.UUID()
 			bucketName := []byte("testbucketname")
 			amount := (memory.MB * 500).Int64()
-			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, pb.PieceAction_GET, amount, time.Now())
+			intervalStart := time.Now()
+			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, pb.PieceAction_GET, amount, intervalStart)
 			require.NoError(t, err)
-			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, 0, time.Now())
+			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, 0, intervalStart)
 			require.NoError(t, err)
 
 			// test: confirm there is one item in the cache now
@@ -158,14 +159,16 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 			require.Equal(t, 2, size)
 			projectMap := cache.CurrentData()
 			expectedKeyAllocated := orders.CacheKey{
-				ProjectID:  projectID,
-				BucketName: string(bucketName),
-				Action:     pb.PieceAction_GET,
+				ProjectID:     projectID,
+				BucketName:    string(bucketName),
+				Action:        pb.PieceAction_GET,
+				IntervalStart: time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, intervalStart.Location()).Unix(),
 			}
 			expectedKeySettled := orders.CacheKey{
-				ProjectID:  projectID,
-				BucketName: string(bucketName),
-				Action:     pb.PieceAction_PUT,
+				ProjectID:     projectID,
+				BucketName:    string(bucketName),
+				Action:        pb.PieceAction_PUT,
+				IntervalStart: time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, intervalStart.Location()).Unix(),
 			}
 			expectedCacheDataAllocated := orders.CacheData{
 				Inline:    0,
@@ -177,15 +180,15 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 				Allocated: 0,
 				Settled:   amount,
 			}
-			require.Equal(t, projectMap[expectedKeyAllocated], expectedCacheDataAllocated)
-			require.Equal(t, projectMap[expectedKeySettled], expectedCacheDataSettled)
+			require.Equal(t, expectedCacheDataAllocated, projectMap[expectedKeyAllocated])
+			require.Equal(t, expectedCacheDataSettled, projectMap[expectedKeySettled])
 
 			// setup: add another item to the cache but with a different projectID
 			projectID2 := testrand.UUID()
 			amount2 := (memory.MB * 10).Int64()
-			err = ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, time.Now())
+			err = ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, intervalStart)
 			require.NoError(t, err)
-			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, 0, time.Now())
+			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, 0, intervalStart)
 			require.NoError(t, err)
 			size = cache.CurrentSize()
 			require.Equal(t, 3, size)
@@ -193,9 +196,10 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 
 			// test: confirm there are 3 items in the cache now with different projectIDs
 			expectedKey := orders.CacheKey{
-				ProjectID:  projectID2,
-				BucketName: string(bucketName),
-				Action:     pb.PieceAction_GET,
+				ProjectID:     projectID2,
+				BucketName:    string(bucketName),
+				Action:        pb.PieceAction_GET,
+				IntervalStart: time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, intervalStart.Location()).Unix(),
 			}
 			expectedData := orders.CacheData{
 				Inline:    0,
