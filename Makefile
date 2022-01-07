@@ -179,8 +179,6 @@ multinode-console:
 
 .PHONY: satellite-admin-ui
 satellite-admin-ui:
-	# remove the file that keep the assets directory for not breaking in development due to the `go:embed` directive
-	rm -rf satellite/admin/ui/assets/.gitignore
 	# install npm dependencies for being embedded by Go embed.
 	docker run --rm -i \
 		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
