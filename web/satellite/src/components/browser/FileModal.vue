@@ -545,7 +545,7 @@ export default class FileModal extends Vue {
      * Get the share link of the current opened file.
      */
     public async getSharedLink(): Promise<void> {
-        this.objectLink = await this.$store.state.files.getSharedLink(
+        this.objectLink = await this.$store.state.files.fetchSharedLink(
             this.filePath
         );
     }
