@@ -118,9 +118,6 @@ func (p *Server) DRPC() *drpcmux.Mux { return p.public.mux }
 // PrivateDRPC returns the server's dRPC mux for registration purposes.
 func (p *Server) PrivateDRPC() *drpcmux.Mux { return p.private.mux }
 
-// IsQUICEnabled checks if QUIC is enabled.
-func (p *Server) IsQUICEnabled() bool { return !p.public.disableQUIC && p.public.quicListener != nil }
-
 // Close shuts down the server.
 func (p *Server) Close() error {
 	p.mu.Lock()
