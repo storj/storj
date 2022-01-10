@@ -52,7 +52,7 @@ require (
 	storj.io/drpc v0.0.26
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20211209191323-6595d4aa0cfe
-	storj.io/uplink v1.7.1-0.20211031201307-b30e004c1ccb
+	storj.io/uplink v1.7.2-0.20220110164813-03e4f59f7af2
 )
 
 require (
