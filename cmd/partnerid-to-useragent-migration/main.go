@@ -123,10 +123,10 @@ func Migrate(ctx context.Context, log *zap.Logger, config Config) (err error) {
 	if err != nil {
 		return errs.New("error migrating users: %w", err)
 	}
-	// err = MigrateProjects(ctx, log, conn, &p, offset)
-	// if err != nil {
-	// 	return errs.New("error migrating projects: %w", err)
-	// }
+	err = MigrateProjects(ctx, log, conn, &p, offset)
+	if err != nil {
+		return errs.New("error migrating projects: %w", err)
+	}
 	// err = MigrateAPIKeys(ctx, log, conn, &p, offset)
 	// if err != nil {
 	// 	return errs.New("error migrating api_keys: %w", err)
@@ -139,5 +139,5 @@ func Migrate(ctx context.Context, log *zap.Logger, config Config) (err error) {
 	// if err != nil {
 	// 	return errs.New("error migrating value_attributions: %w", err)
 	// }
-	return err
+	return nil
 }

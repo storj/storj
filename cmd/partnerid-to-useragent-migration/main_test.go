@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/tempdb"
 	migrator "storj.io/storj/cmd/partnerid-to-useragent-migration"
@@ -194,6 +195,174 @@ func TestMigrateUsers(t *testing.T) {
 		n = 0
 	}
 	test(t, 7, prepare, migrator.MigrateUsers, check, &p)
+}
+
+// Test no entries in table doesn't error.
+func TestMigrateProjectsSelectNoRows(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {}
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {}
+	test(t, 7, prepare, migrator.MigrateProjects, check, &p)
+}
+
+// Test no rows to update returns no error.
+func TestMigrateProjectsUpdateNoRows(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {
+		// insert an entry with no partner ID
+		_, err = db.Console().Projects().Insert(ctx, &console.Project{
+			ID:          testrand.UUID(),
+			Name:        "test",
+			Description: "test",
+			OwnerID:     testrand.UUID(),
+		})
+		require.NoError(t, err)
+	}
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {}
+	test(t, 7, prepare, migrator.MigrateProjects, check, &p)
+}
+
+// Test select offset beyond final row.
+// With only one row, selecting with an offset of 1 will return 0 rows.
+// Test that this is accounted for and updates the row correctly.
+func TestMigrateProjectsSelectOffsetBeyondRowCount(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+	var projID uuid.UUID
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {
+		prj, err := db.Console().Projects().Insert(ctx, &console.Project{
+			Name:        "test",
+			Description: "test",
+			PartnerID:   p.UUIDs[0],
+			OwnerID:     testrand.UUID(),
+		})
+		require.NoError(t, err)
+		projID = prj.ID
+	}
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {
+		proj, err := db.Console().Projects().Get(ctx, projID)
+		require.NoError(t, err)
+		require.Equal(t, p.Names[0], proj.UserAgent)
+	}
+	test(t, 7, prepare, migrator.MigrateProjects, check, &p)
+}
+
+func TestMigrateProjects(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+
+	var n int
+
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {
+		// insert an entry with no partner ID
+		_, err = db.Console().Projects().Insert(ctx, &console.Project{
+			Name:        "test",
+			Description: "test",
+			OwnerID:     testrand.UUID(),
+		})
+		require.NoError(t, err)
+		n++
+
+		// insert an entry with a partner ID which does not exist in the partnersDB
+		_, err = db.Console().Projects().Insert(ctx, &console.Project{
+			Name:        "test",
+			Description: "test",
+			PartnerID:   testrand.UUID(),
+			OwnerID:     testrand.UUID(),
+		})
+		require.NoError(t, err)
+		n++
+
+		for _, p := range partnerInfo {
+			id := testrand.UUID()
+
+			// The partner Kafka has no UUID and its ID is too short to convert to a UUID.
+			// The Console.Projects API expects a UUID for inserting and getting.
+			// Even if we insert its ID, OSPP005, directly into the DB, attempting to
+			// retrieve the entry from the DB would result in an error when it tries to
+			// convert the PartnerID bytes to a UUID.
+			if p.UUID.IsZero() {
+				continue
+			}
+			_, err = db.Console().Projects().Insert(ctx, &console.Project{
+				Name:        "test",
+				Description: "test",
+				PartnerID:   p.UUID,
+				OwnerID:     id,
+			})
+			require.NoError(t, err)
+			n++
+		}
+	}
+
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {
+		projects, err := db.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+
+		require.Len(t, projects, n)
+		for _, prj := range projects {
+			if prj.PartnerID.IsZero() {
+				require.Nil(t, prj.UserAgent)
+				continue
+			}
+			var expectedUA []byte
+			for _, p := range partnerInfo {
+				if prj.PartnerID == p.UUID {
+					expectedUA = []byte(p.Name)
+					break
+				}
+			}
+			if expectedUA == nil {
+				expectedUA = prj.PartnerID.Bytes()
+			}
+			require.Equal(t, expectedUA, prj.UserAgent)
+		}
+		// reset n for the subsequent CRDB test
+		n = 0
+	}
+	test(t, 7, prepare, migrator.MigrateProjects, check, &p)
 }
 
 func test(t *testing.T, offset int, prepare func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB),
