@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -590,33 +589,33 @@ func TestGetProjectInfo(t *testing.T) {
 //	})
 //}
 
-func TestBucketExistenceCheck(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
-
-		// test object methods for bucket existence check
-		_, err = metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
-			Bucket:        []byte("non-existing-bucket"),
-			EncryptedPath: []byte("encrypted-path"),
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
-		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
-
-		_, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
-			Bucket: []byte("non-existing-bucket"),
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
-		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
-	})
-}
+// func TestBucketExistenceCheck(t *testing.T) {
+//	testplanet.Run(t, testplanet.Config{
+//		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+//	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+//		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+//
+//		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+//		require.NoError(t, err)
+//		defer ctx.Check(metainfoClient.Close)
+//
+//		// test object methods for bucket existence check
+//		_, err = metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
+//			Bucket:        []byte("non-existing-bucket"),
+//			EncryptedPath: []byte("encrypted-path"),
+//		})
+//		require.Error(t, err)
+//		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+//		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+//
+//		_, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
+//			Bucket: []byte("non-existing-bucket"),
+//		})
+//		require.Error(t, err)
+//		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+//		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+//	})
+//}
 
 // func TestBeginCommit(t *testing.T) {
 //	testplanet.Run(t, testplanet.Config{
@@ -1718,44 +1717,44 @@ func TestInlineSegmentThreshold(t *testing.T) {
 //}
 
 // TestBeginObjectEncryptedObjectKeyLength ensures that BeginObject returns an error when the encrypted key provided by the user is too large.
-func TestBeginObjectEncryptedObjectKeyLength(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.MaxObjectKeyLength(1024),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "initial-bucket")
-		require.NoError(t, err)
-
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
-
-		params := metaclient.BeginObjectParams{
-			Bucket: []byte("initial-bucket"),
-			EncryptionParameters: storj.EncryptionParameters{
-				BlockSize:   256,
-				CipherSuite: storj.EncNull,
-			},
-		}
-
-		params.EncryptedPath = testrand.Bytes(500)
-		_, err = metainfoClient.BeginObject(ctx, params)
-		require.NoError(t, err)
-
-		params.EncryptedPath = testrand.Bytes(1024)
-		_, err = metainfoClient.BeginObject(ctx, params)
-		require.NoError(t, err)
-
-		params.EncryptedPath = testrand.Bytes(2048)
-		_, err = metainfoClient.BeginObject(ctx, params)
-		require.Error(t, err)
-		require.True(t, rpcstatus.Code(err) == rpcstatus.InvalidArgument)
-	})
-}
+// func TestBeginObjectEncryptedObjectKeyLength(t *testing.T) {
+//	testplanet.Run(t, testplanet.Config{
+//		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+//		Reconfigure: testplanet.Reconfigure{
+//			Satellite: testplanet.MaxObjectKeyLength(1024),
+//		},
+//	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+//		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+//
+//		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "initial-bucket")
+//		require.NoError(t, err)
+//
+//		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+//		require.NoError(t, err)
+//		defer ctx.Check(metainfoClient.Close)
+//
+//		params := metaclient.BeginObjectParams{
+//			Bucket: []byte("initial-bucket"),
+//			EncryptionParameters: storj.EncryptionParameters{
+//				BlockSize:   256,
+//				CipherSuite: storj.EncNull,
+//			},
+//		}
+//
+//		params.EncryptedPath = testrand.Bytes(500)
+//		_, err = metainfoClient.BeginObject(ctx, params)
+//		require.NoError(t, err)
+//
+//		params.EncryptedPath = testrand.Bytes(1024)
+//		_, err = metainfoClient.BeginObject(ctx, params)
+//		require.NoError(t, err)
+//
+//		params.EncryptedPath = testrand.Bytes(2048)
+//		_, err = metainfoClient.BeginObject(ctx, params)
+//		require.Error(t, err)
+//		require.True(t, rpcstatus.Code(err) == rpcstatus.InvalidArgument)
+//	})
+//}
 
 func TestDeleteRightsOnUpload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
