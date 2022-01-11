@@ -11,16 +11,23 @@ import (
 )
 
 func main() {
-	api := apigen.New("v1", "")
+	a := &apigen.API{
+		Version:     "v1",
+		Description: "",
+		PackageName: "consoleapi",
+	}
 
 	{
-		g := api.Group("Projects", "projects")
+		g := a.Group("ProjectManagement", "projects")
 
 		g.Get("/", &apigen.Endpoint{
-			Name:        "List Projects",
-			Description: "Lists all projects user has",
-			MethodName:  "ListUserProjects",
+			Name:        "Get Projects",
+			Description: "Gets all projects user has",
+			MethodName:  "GetUserProjects",
 			Response:    []console.Project{},
 		})
+
 	}
+
+	a.MustWrite("satellite/console/consoleweb/consoleapi/")
 }
