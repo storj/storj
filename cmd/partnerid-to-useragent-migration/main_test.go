@@ -23,6 +23,7 @@ import (
 	"storj.io/private/dbutil/tempdb"
 	migrator "storj.io/storj/cmd/partnerid-to-useragent-migration"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -293,6 +294,7 @@ func TestMigrateProjectsSelectOffsetBeyondRowCount(t *testing.T) {
 	test(t, 7, prepare, migrator.MigrateProjects, check, &p)
 }
 
+// Test user_agent field is updated correctly.
 func TestMigrateProjects(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -482,6 +484,7 @@ func TestMigrateAPIKeysSelectOffsetBeyondRowCount(t *testing.T) {
 	test(t, 7, prepare, migrator.MigrateAPIKeys, check, &p)
 }
 
+// Test user_agent field is updated correctly.
 func TestMigrateAPIKeys(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -683,6 +686,7 @@ func TestMigrateBucketMetainfosSelectOffsetBeyondRowCount(t *testing.T) {
 	test(t, 7, prepare, migrator.MigrateBucketMetainfos, check, &p)
 }
 
+// Test user_agent field is updated correctly.
 func TestMigrateBucketMetainfos(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -779,6 +783,200 @@ func TestMigrateBucketMetainfos(t *testing.T) {
 		n = 0
 	}
 	test(t, 7, prepare, migrator.MigrateBucketMetainfos, check, &p)
+}
+
+// Test no entries in table doesn't error.
+func TestMigrateValueAttributionsSelectNoRows(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {}
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {}
+	test(t, 7, prepare, migrator.MigrateValueAttributions, check, &p)
+}
+
+// Test no rows to update returns no error.
+func TestMigrateValueAttributionsUpdateNoRows(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+
+	// For value_attributions, partner_id is not nullable. The attributions API will insert a uuid
+	// full of zeros if one is not specified. Thus, to test that a row is not updated, we can't do so
+	// by leaving partner_id empty. We must do so by setting both partner_id and user_agent, since the migration
+	// updates where partner_id is not null and user_agent is null.
+	partnerID := testrand.UUID()
+	ua := []byte("test")
+	projID := testrand.UUID()
+	bName := []byte("test")
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {
+
+		// insert an entry with user_agent column set
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  projID,
+			PartnerID:  partnerID,
+			BucketName: bName,
+			UserAgent:  ua,
+		})
+		require.NoError(t, err)
+	}
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {
+		att, err := db.Attribution().Get(ctx, projID, bName)
+		require.NoError(t, err)
+		require.Equal(t, partnerID, att.PartnerID)
+		require.Equal(t, ua, att.UserAgent)
+	}
+	test(t, 7, prepare, migrator.MigrateValueAttributions, check, &p)
+}
+
+// Test select offset beyond final row.
+// With only one row, selecting with an offset of 1 will return 0 rows.
+// Test that this is accounted for and updates the row correctly.
+func TestMigrateValueAttributionsSelectOffsetBeyondRowCount(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+	projID := testrand.UUID()
+	bucket := []byte("test")
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  projID,
+			PartnerID:  p.UUIDs[0],
+			BucketName: bucket,
+		})
+		require.NoError(t, err)
+	}
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {
+		att, err := db.Attribution().Get(ctx, projID, bucket)
+		require.NoError(t, err)
+		require.Equal(t, p.Names[0], att.UserAgent)
+	}
+	test(t, 7, prepare, migrator.MigrateValueAttributions, check, &p)
+}
+
+// Test user_agent field is updated correctly.
+func TestMigrateValueAttributions(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+
+	type info struct {
+		bucket  []byte
+		project uuid.UUID
+	}
+
+	var infos []info
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {
+		// The partner_id field of value_attributions is not nullable.
+		// However, if no partner ID is passed to the Insert method it does not return an error.
+		// It will insert the empty UUID byte array into partner_id.
+		// This is the same as the empty UUID byte array of the Kafka partner in the partnerDB, as the Kafka entry UUID
+		// field is not populated.
+		// Thus, if I insert an entry with no partner_id for the test, the migration will find that the partner_id matches
+		// Kafka's UUID and insert 'Kafka' into the user_agent column.
+		// This is not good.
+		// However this may not be a practical issue, as there seem to be checks before Insert is called to make
+		// sure either UserAgent or PartnerID are populated. In the migration, if user_agent is not null, the
+		// row will not be updated.
+
+		for i, p := range partnerInfo {
+
+			// The partner Kafka has no UUID and its ID is too short to convert to a UUID.
+			// The Attribution API expects a UUID for inserting and getting.
+			// Even if we insert its ID, OSPP005, directly into the DB, attempting to
+			// retrieve the entry from the DB would result in an error when it tries to
+			// convert the PartnerID bytes to a UUID.
+			if p.UUID.IsZero() {
+				continue
+			}
+
+			projID := testrand.UUID()
+
+			bucket := []byte(fmt.Sprint(i))
+
+			in := info{bucket, projID}
+			infos = append(infos, in)
+
+			_, err = db.Attribution().Insert(ctx, &attribution.Info{
+				ProjectID:  in.project,
+				BucketName: in.bucket,
+				PartnerID:  p.UUID,
+			})
+			require.NoError(t, err)
+		}
+
+		// insert an entry with a partner ID which does not exist in the partnersDB
+		id := testrand.UUID()
+		b := []byte("test0")
+		infos = append(infos, info{b, id})
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  id,
+			PartnerID:  id,
+			BucketName: b,
+		})
+		require.NoError(t, err)
+	}
+
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {
+		for _, in := range infos {
+			att, err := db.Attribution().Get(ctx, in.project, in.bucket)
+			require.NoError(t, err)
+			if att.PartnerID.IsZero() {
+				require.Nil(t, att.UserAgent)
+				continue
+			}
+			var expectedUA []byte
+			for _, p := range partnerInfo {
+				if att.PartnerID == p.UUID {
+					expectedUA = []byte(p.Name)
+					break
+				}
+			}
+			if expectedUA == nil {
+				expectedUA = att.PartnerID.Bytes()
+			}
+			require.Equal(t, expectedUA, att.UserAgent)
+		}
+		// clear infos for the subsequent CRDB test
+		infos = []info{}
+	}
+	test(t, 7, prepare, migrator.MigrateValueAttributions, check, &p)
 }
 
 func test(t *testing.T, offset int, prepare func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB),

@@ -135,9 +135,9 @@ func Migrate(ctx context.Context, log *zap.Logger, config Config) (err error) {
 	if err != nil {
 		return errs.New("error migrating bucket_metainfos: %w", err)
 	}
-	// err = MigrateValueAttributions(ctx, log, conn, &p, offset)
-	// if err != nil {
-	// 	return errs.New("error migrating value_attributions: %w", err)
-	// }
+	err = MigrateValueAttributions(ctx, log, conn, &p, offset)
+	if err != nil {
+		return errs.New("error migrating value_attributions: %w", err)
+	}
 	return nil
 }
