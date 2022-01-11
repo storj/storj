@@ -1,11 +1,13 @@
 
-# Fuzzing Automation Testplan
+# Secure The Repo!!
 
 &nbsp;
 
 # **Storj QA**
 
 Test Engineers
+- Igor Gaidaenko
+- Antonio Franco
 
 &nbsp;
 
