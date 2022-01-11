@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/macaroon"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -557,6 +559,201 @@ func TestMigrateAPIKeys(t *testing.T) {
 		n = 0
 	}
 	test(t, 7, prepare, migrator.MigrateAPIKeys, check, &p)
+}
+
+// Test no entries in table doesn't error.
+func TestMigrateBucketMetainfosSelectNoRows(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {}
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {}
+	test(t, 7, prepare, migrator.MigrateBucketMetainfos, check, &p)
+}
+
+// Test no rows to update returns no error.
+func TestMigrateBucketMetainfosUpdateNoRows(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {
+		proj, err := db.Console().Projects().Insert(ctx, &console.Project{
+			Name:        "test",
+			Description: "test",
+			OwnerID:     testrand.UUID(),
+		})
+		require.NoError(t, err)
+
+		// insert an entry with no partner ID
+		_, err = db.Buckets().CreateBucket(ctx, storj.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "test1",
+			ProjectID: proj.ID,
+		})
+		require.NoError(t, err)
+	}
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {}
+	test(t, 7, prepare, migrator.MigrateBucketMetainfos, check, &p)
+}
+
+// Test select offset beyond final row.
+// With only one row, selecting with an offset of 1 will return 0 rows.
+// Test that this is accounted for and updates the row correctly.
+func TestMigrateBucketMetainfosSelectOffsetBeyondRowCount(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+	var projID uuid.UUID
+	bucket := []byte("test")
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {
+		prj, err := db.Console().Projects().Insert(ctx, &console.Project{
+			Name:        "test",
+			Description: "test",
+			OwnerID:     testrand.UUID(),
+		})
+		require.NoError(t, err)
+		projID = prj.ID
+
+		_, err = db.Buckets().CreateBucket(ctx, storj.Bucket{
+			ID:        testrand.UUID(),
+			Name:      string(bucket),
+			ProjectID: projID,
+			PartnerID: p.UUIDs[0],
+		})
+		require.NoError(t, err)
+	}
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {
+		b, err := db.Buckets().GetBucket(ctx, bucket, projID)
+		require.NoError(t, err)
+		require.Equal(t, p.Names[0], b.UserAgent)
+	}
+	test(t, 7, prepare, migrator.MigrateBucketMetainfos, check, &p)
+}
+
+func TestMigrateBucketMetainfos(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	partnerDB := rewards.DefaultPartnersDB
+	partnerInfo, err := partnerDB.All(ctx)
+	require.NoError(t, err)
+
+	var p migrator.Partners
+	for _, info := range partnerInfo {
+		p.UUIDs = append(p.UUIDs, info.UUID)
+		p.Names = append(p.Names, []byte(info.Name))
+	}
+
+	var n int
+
+	var projID uuid.UUID
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB) {
+		proj, err := db.Console().Projects().Insert(ctx, &console.Project{
+			Name:        "test",
+			Description: "test",
+			OwnerID:     testrand.UUID(),
+		})
+		require.NoError(t, err)
+
+		projID = proj.ID
+
+		// insert an entry with no partner ID
+		_, err = db.Buckets().CreateBucket(ctx, storj.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "test0",
+			ProjectID: projID,
+		})
+		require.NoError(t, err)
+		n++
+
+		// insert an entry with a partner ID which does not exist in the partnersDB
+		_, err = db.Buckets().CreateBucket(ctx, storj.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "test1",
+			ProjectID: projID,
+			PartnerID: testrand.UUID(),
+		})
+		require.NoError(t, err)
+		n++
+
+		for i, p := range partnerInfo {
+			id, err := uuid.New()
+			require.NoError(t, err)
+
+			// The partner Kafka has no UUID and its ID is too short to convert to a UUID.
+			// The Buckets API expects a UUID for inserting and getting.
+			// Even if we insert its ID, OSPP005, directly into the DB, attempting to
+			// retrieve the entry from the DB would result in an error when it tries to
+			// convert the PartnerID bytes to a UUID.
+			if p.UUID.IsZero() {
+				continue
+			}
+
+			_, err = db.Buckets().CreateBucket(ctx, storj.Bucket{
+				ID:        id,
+				Name:      fmt.Sprint(i),
+				ProjectID: projID,
+				PartnerID: p.UUID,
+			})
+			require.NoError(t, err)
+			n++
+		}
+	}
+
+	check := func(t *testing.T, ctx context.Context, db satellite.DB) {
+		list, err := db.Buckets().ListBuckets(ctx, projID, storj.BucketListOptions{Direction: storj.Forward}, macaroon.AllowedBuckets{All: true})
+		require.NoError(t, err)
+
+		require.Len(t, list.Items, n)
+		for _, b := range list.Items {
+			if b.PartnerID.IsZero() {
+				require.Nil(t, b.UserAgent)
+				continue
+			}
+			var expectedUA []byte
+			for _, p := range partnerInfo {
+				if b.PartnerID == p.UUID {
+					expectedUA = []byte(p.Name)
+					break
+				}
+			}
+			if expectedUA == nil {
+				expectedUA = b.PartnerID.Bytes()
+			}
+			require.Equal(t, expectedUA, b.UserAgent)
+		}
+		// reset n for the subsequent CRDB test
+		n = 0
+	}
+	test(t, 7, prepare, migrator.MigrateBucketMetainfos, check, &p)
 }
 
 func test(t *testing.T, offset int, prepare func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB),
