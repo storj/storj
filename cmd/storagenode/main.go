@@ -389,7 +389,7 @@ func cmdInfo(cmd *cobra.Command, args []string) (err error) {
 		node := nodes.Node{
 			ID:            identity.ID,
 			APISecret:     apiKey.Secret[:],
-			PublicAddress: nodeInfoCfg.Server.Address,
+			PublicAddress: nodeInfoCfg.Contact.ExternalAddress,
 		}
 
 		data, err := json.Marshal(node)
@@ -405,7 +405,7 @@ func cmdInfo(cmd *cobra.Command, args []string) (err error) {
 ID: %s
 API Secret: %s
 Public Address: %s
-`, identity.ID, apiKey.Secret, nodeInfoCfg.Server.Address)
+`, identity.ID, apiKey.Secret, nodeInfoCfg.Contact.ExternalAddress)
 
 	return nil
 }
