@@ -19,6 +19,8 @@ type DB interface {
 	ProjectMembers() ProjectMembers
 	// APIKeys is a getter for APIKeys repository.
 	APIKeys() APIKeys
+	// OAuthClients returns an API for the OAuthClients repository.
+	OAuthClients() OAuthClients
 	// RegistrationTokens is a getter for RegistrationTokens repository.
 	RegistrationTokens() RegistrationTokens
 	// ResetPasswordTokens is a getter for ResetPasswordTokens repository.
