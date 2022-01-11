@@ -452,3 +452,140 @@ func MigrateBucketMetainfos(ctx context.Context, log *zap.Logger, conn *pgx.Conn
 	log.Info("bucket_metainfos migration complete", zap.Int("total rows updated", total))
 	return nil
 }
+
+// MigrateValueAttributions updates the user_agent column to corresponding Partners.Names or partner_id if applicable.
+func MigrateValueAttributions(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, offset int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	startProjectID := []byte{}
+	startBucket := []byte{}
+	nextProjectID := []byte{}
+	nextBucket := []byte{}
+	var total int
+	more := true
+
+	// select the next ID after startID and offset the result. We will update relevant rows from the range of startID to nextID.
+	_, err = conn.Prepare(ctx, "select-for-update", `
+		SELECT project_id, bucket_name
+		FROM value_attributions
+		WHERE project_id > $1
+			OR (
+				project_id = $1 AND bucket_name > $2
+			)
+		ORDER BY project_id, bucket_name
+		OFFSET $3
+	`)
+	if err != nil {
+		return errs.New("could not prepare select query")
+	}
+
+	// update range from startID to nextID. Return count of updated rows to log progress.
+	_, err = conn.Prepare(ctx, "update-limited", `
+		WITH partners AS (
+			SELECT unnest($1::bytea[]) as id,
+				unnest($2::bytea[]) as name
+		),
+		updated as (
+			UPDATE value_attributions
+			SET user_agent = (
+				CASE
+					WHEN partner_id IN (SELECT id FROM partners)
+						THEN (SELECT name FROM partners WHERE partner_id = partners.id)
+					ELSE partner_id
+				END
+			)
+			FROM partners
+			WHERE partner_id IS NOT NULL
+				AND user_agent IS NULL
+				AND (
+					value_attributions.project_id > $3
+					OR (
+						value_attributions.project_id = $3 AND value_attributions.bucket_name > $5
+					)
+				)
+				AND (
+					value_attributions.project_id < $4
+					OR (
+						value_attributions.project_id = $4 AND value_attributions.bucket_name <= $6
+					)
+				)
+			RETURNING 1
+		)
+		SELECT count(*)
+		FROM updated;
+	`)
+	if err != nil {
+		return errs.New("could not prepare update statement")
+	}
+
+	for {
+		row := conn.QueryRow(ctx, "select-for-update", startProjectID, startBucket, offset)
+		err = row.Scan(&nextProjectID, &nextBucket)
+		if err != nil {
+			if errs.Is(err, pgx.ErrNoRows) {
+				more = false
+			} else {
+				return errs.New("unable to select row for update from value_attributions: %w", err)
+			}
+		}
+		var updated int
+		for {
+			var row pgx.Row
+			if more {
+				row = conn.QueryRow(ctx, "update-limited", pgutil.UUIDArray(p.UUIDs), pgutil.ByteaArray(p.Names), startProjectID, nextProjectID, startBucket, nextBucket)
+			} else {
+				// if !more then the select statement reached the end of the table. Update to the end of the table.
+				row = conn.QueryRow(ctx, `
+					WITH partners AS (
+						SELECT unnest($1::bytea[]) as id,
+							unnest($2::bytea[]) as name
+					),
+					updated as (
+						UPDATE value_attributions
+						SET user_agent = (
+							CASE
+								WHEN partner_id IN (SELECT id FROM partners)
+									THEN (SELECT name FROM partners WHERE partner_id = partners.id)
+								ELSE partner_id
+							END
+						)
+						FROM partners
+						WHERE partner_id IS NOT NULL
+							AND user_agent IS NULL
+							AND (
+								value_attributions.project_id > $3
+								OR (
+									value_attributions.project_id = $3 AND value_attributions.bucket_name > $4
+								)
+							)
+						RETURNING 1
+					)
+					SELECT count(*)
+					FROM updated;
+				`, pgutil.UUIDArray(p.UUIDs), pgutil.ByteaArray(p.Names), startProjectID, startBucket,
+				)
+			}
+			err := row.Scan(&updated)
+			if err != nil {
+				if cockroachutil.NeedsRetry(err) {
+					continue
+				} else if errs.Is(err, pgx.ErrNoRows) {
+					break
+				}
+				return errs.New("updating value_attributions %w", err)
+			}
+			break
+		}
+
+		total += updated
+		if !more {
+			log.Info("batch update complete", zap.Int("rows updated", updated))
+			break
+		}
+		log.Info("batch update complete", zap.Int("rows updated", updated), zap.Binary("last project id", nextProjectID), zap.String("last bucket name", string(nextBucket)))
+		startProjectID = nextProjectID
+		startBucket = nextBucket
+	}
+	log.Info("value_attributions migration complete", zap.Int("total rows updated", total))
+	return nil
+}
