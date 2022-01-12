@@ -655,7 +655,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.BlobsCache,
 			config.Operator.WalletFeatures,
 			port,
-			peer.Server.IsQUICEnabled(),
+			false,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -680,11 +680,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Payout.Service,
 			peer.Console.Listener,
 		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "console:endpoint",
-			Run:   peer.Console.Endpoint.Run,
-			Close: peer.Console.Endpoint.Close,
-		})
+		// NOTE: Console service is added to peer services during peer run to allow for QUIC checkins
 	}
 
 	{ // setup storage inspector
@@ -836,6 +832,32 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	return peer, nil
 }
 
+// addConsoleService completes the SNO dashboard setup and adds the console service
+// to the peer services.
+func (peer *Peer) addConsoleService(ctx context.Context) {
+	// perform QUIC checks
+	quicEnabled := peer.Server.IsQUICEnabled()
+	if quicEnabled {
+		if err := peer.Contact.Service.RequestPingMeQUIC(ctx); err != nil {
+			peer.Log.Warn("failed QUIC check", zap.Error(err))
+			quicEnabled = false
+		} else {
+			peer.Log.Debug("QUIC check success")
+		}
+	} else {
+		peer.Log.Warn("UDP Port not configured for QUIC")
+	}
+
+	peer.Console.Service.SetQUICEnabled(quicEnabled)
+
+	// add console service to peer services
+	peer.Services.Add(lifecycle.Item{
+		Name:  "console:endpoint",
+		Run:   peer.Console.Endpoint.Run,
+		Close: peer.Console.Endpoint.Close,
+	})
+}
+
 // Run runs storage node until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -854,6 +876,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 
 	peer.Servers.Run(ctx, group)
+	// complete SNO dashboard setup and add console service to peer services
+	peer.addConsoleService(ctx)
+	// run peer services
 	peer.Services.Run(ctx, group)
 
 	return group.Wait()
