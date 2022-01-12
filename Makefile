@@ -2,6 +2,7 @@ GO_VERSION ?= 1.17.5
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
+NODE_VERSION ?= 16.11.1
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 ifeq (${BRANCH_NAME},main)
@@ -151,7 +152,7 @@ storagenode-console:
 		-w /go/src/storj.io/storj/web/storagenode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:16.11.1 \
+		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
 	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
@@ -169,7 +170,7 @@ multinode-console:
 		-w /go/src/storj.io/storj/web/multinode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:16.11.1 \
+		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
 	go-bindata -prefix web/multinode/ -fs -o multinode/console/consoleassets/bindata.resource.go -pkg consoleassets web/multinode/dist/... web/multinode/static/...
@@ -185,7 +186,7 @@ satellite-admin-ui:
 		-w /go/src/storj.io/storj/satellite/admin/ui \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:16.11.1 \
+		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build && cp -r build/* assets"
 
 .PHONY: satellite-wasm
