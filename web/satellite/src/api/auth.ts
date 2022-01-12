@@ -51,8 +51,8 @@ export class AuthHttpApi implements UsersApi {
         const body = {
             email,
             password,
-            mfaPasscode: mfaPasscode ? mfaPasscode : null,
-            mfaRecoveryCode: mfaRecoveryCode ? mfaRecoveryCode : null,
+            mfaPasscode: mfaPasscode || null,
+            mfaRecoveryCode: mfaRecoveryCode || null,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));
@@ -374,24 +374,40 @@ export class AuthHttpApi implements UsersApi {
     /**
      * Used to reset user's password.
      *
+     * @param token - user's password reset token
+     * @param password - user's new password
+     * @param mfaPasscode - MFA passcode
+     * @param mfaRecoveryCode - MFA recovery code
      * @throws Error
      */
-    public async resetPassword(token: string, password: string): Promise<void> {
+    public async resetPassword(token: string, password: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<void> {
         const path = `${this.ROOT_PATH}/reset-password`;
 
         const body = {
             token: token,
             password: password,
+            mfaPasscode: mfaPasscode || null,
+            mfaRecoveryCode: mfaRecoveryCode || null,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));
+        const text = await response.text();
+        let errMsg = 'Cannot reset password';
 
+        if (text) {
+            const result = JSON.parse(text);
+            if (result.code == "mfa_required") {
+                throw new ErrorMFARequired();
+            }
+            if (result.error) {
+                errMsg = result.error;
+            }
+        }
+        
         if (response.ok) {
             return;
         }
 
-        const result = await response.json();
-        const errMsg = result.error || 'Cannot reset password';
         switch (response.status) {
         case 400:
             throw new ErrorBadRequest(errMsg);

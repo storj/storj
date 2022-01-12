@@ -775,7 +775,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 }
 
 // ResetPassword - is a method for resetting user password.
-func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string, t time.Time) (err error) {
+func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string, passcode string, recoveryCode string, t time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
@@ -790,6 +790,31 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	user, err := s.store.Users().Get(ctx, *token.OwnerID)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	if user.MFAEnabled {
+		if recoveryCode != "" {
+			found := false
+			for _, code := range user.MFARecoveryCodes {
+				if code == recoveryCode {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return ErrUnauthorized.Wrap(ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg))
+			}
+		} else if passcode != "" {
+			valid, err := ValidateMFAPasscode(passcode, user.MFASecretKey, t)
+			if err != nil {
+				return ErrValidation.Wrap(ErrMFAPasscode.Wrap(err))
+			}
+			if !valid {
+				return ErrValidation.Wrap(ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg))
+			}
+		} else {
+			return ErrMFAMissing.New(mfaRequiredErrMsg)
+		}
 	}
 
 	if err := ValidatePassword(password); err != nil {

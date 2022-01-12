@@ -688,8 +688,10 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var resetPassword struct {
-		RecoveryToken string `json:"token"`
-		NewPassword   string `json:"password"`
+		RecoveryToken   string `json:"token"`
+		NewPassword     string `json:"password"`
+		MFAPasscode     string `json:"mfaPasscode"`
+		MFARecoveryCode string `json:"mfaRecoveryCode"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&resetPassword)
@@ -697,7 +699,24 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 	}
 
-	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, time.Now())
+	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, resetPassword.MFAPasscode, resetPassword.MFARecoveryCode, time.Now())
+
+	if console.ErrMFAMissing.Has(err) || console.ErrMFAPasscode.Has(err) || console.ErrMFARecoveryCode.Has(err) {
+		w.WriteHeader(a.getStatusCode(err))
+		w.Header().Set("Content-Type", "application/json")
+
+		err = json.NewEncoder(w).Encode(map[string]string{
+			"error": a.getUserErrorMessage(err),
+			"code":  "mfa_required",
+		})
+
+		if err != nil {
+			a.log.Error("failed to write json response", zap.Error(ErrUtils.Wrap(err)))
+		}
+
+		return
+	}
+
 	if err != nil {
 		a.serveJSONError(w, err)
 	}
