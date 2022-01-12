@@ -476,3 +476,8 @@ func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeI
 
 	return nil
 }
+
+// SetQUICEnabled sets QUIC status for the SNO dashboard.
+func (s *Service) SetQUICEnabled(enabled bool) {
+	s.quicEnabled = enabled
+}

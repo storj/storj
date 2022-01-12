@@ -160,3 +160,15 @@ func TestLocalAndUpdateSelf(t *testing.T) {
 		_ = group.Wait()
 	})
 }
+
+func TestServiceRequestPingMeQUIC(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		err := node.Contact.Service.RequestPingMeQUIC(ctx)
+		require.NoError(t, err)
+	})
+}
