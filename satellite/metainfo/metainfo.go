@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -619,24 +618,14 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
-		if exceeded, limit, err := endpoint.projectUsage.ExceedsSegmentUsage(ctx, keyInfo.ProjectID); err != nil {
-			if errs2.IsCanceled(err) {
-				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-			}
+	objectKeyLength := len(req.EncryptedPath)
+	if objectKeyLength > endpoint.config.MaxEncryptedObjectKeyLength {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength))
+	}
 
-			endpoint.log.Error(
-				"Retrieving project segment total failed; segment limit won't be enforced",
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-				zap.Error(err),
-			)
-		} else if exceeded {
-			endpoint.log.Warn("Segment limit exceeded",
-				zap.String("Limit", strconv.Itoa(int(limit))),
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-			)
-			return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
-		}
+	err = endpoint.checkUploadLimits(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, err
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
@@ -647,11 +636,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	objectKeyLength := len(req.EncryptedPath)
-	if objectKeyLength > endpoint.config.MaxEncryptedObjectKeyLength {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength))
 	}
 
 	if canDelete {
@@ -1693,33 +1677,13 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, err
 	}
 
-	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
-		if exceeded, limit, err := endpoint.projectUsage.ExceedsSegmentUsage(ctx, keyInfo.ProjectID); err != nil {
-			if errs2.IsCanceled(err) {
-				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-			}
-
-			endpoint.log.Error(
-				"Retrieving project segment total failed; segment limit won't be enforced",
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-				zap.Error(err),
-			)
-		} else if exceeded {
-			endpoint.log.Warn("Segment limit exceeded",
-				zap.String("Limit", strconv.Itoa(int(limit))),
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-			)
-			return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
-		}
-	}
-
 	// no need to validate streamID fields because it was validated during BeginObject
 
 	if req.Position.Index < 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
-	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
+	if err := endpoint.checkUploadLimits(ctx, keyInfo.ProjectID); err != nil {
 		return nil, err
 	}
 
@@ -1962,38 +1926,13 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
 	}
 
-	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, segmentSize); err != nil {
-		// log it and continue. it's most likely our own fault that we couldn't
-		// track it, and the only thing that will be affected is our per-project
-		// storage limits.
-		endpoint.log.Error("Could not track new project's storage usage",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
-	}
-
 	err = endpoint.metabase.CommitSegment(ctx, mbCommitSegment)
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
-		// Update the current segment cache value incrementing by 1 as we commit single segment.
-		err = endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, keyInfo.ProjectID, 1)
-		if err != nil {
-			if errs2.IsCanceled(err) {
-				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-			}
-
-			// log it and continue. it's most likely our own fault that we couldn't
-			// track it, and the only thing that will be affected is our per-project
-			// segment limits.
-			endpoint.log.Error(
-				"Could not track the new project's segment usage when committing segment",
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-				zap.Error(err),
-			)
-		}
+	if err := endpoint.updateUploadLimits(ctx, keyInfo.ProjectID, segmentSize); err != nil {
+		return nil, err
 	}
 
 	return &pb.SegmentCommitResponse{
@@ -2034,44 +1973,14 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize)
 	}
 
-	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
-		return nil, err
-	}
-
-	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
-		if exceeded, limit, err := endpoint.projectUsage.ExceedsSegmentUsage(ctx, keyInfo.ProjectID); err != nil {
-			if errs2.IsCanceled(err) {
-				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-			}
-
-			endpoint.log.Error(
-				"Retrieving project segment total failed; segment limit won't be enforced",
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-				zap.Error(err),
-			)
-		} else if exceeded {
-			endpoint.log.Warn("Segment limit exceeded",
-				zap.String("Limit", strconv.Itoa(int(limit))),
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-			)
-			return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
-		}
-	}
-
-	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
-		// log it and continue. it's most likely our own fault that we couldn't
-		// track it, and the only thing that will be affected is our per-project
-		// bandwidth and storage limits.
-		endpoint.log.Error("Could not track new project's storage usage",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
-	}
-
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	if err := endpoint.checkUploadLimits(ctx, keyInfo.ProjectID); err != nil {
+		return nil, err
 	}
 
 	var expiresAt *time.Time
@@ -2112,27 +2021,12 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	if err := endpoint.updateUploadLimits(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
+		return nil, err
+	}
+
 	endpoint.log.Info("Inline Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "inline"))
 	mon.Meter("req_put_inline").Mark(1)
-
-	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
-		// Update the current segment cache value incrementing by 1 as we commit single segment.
-		err = endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, keyInfo.ProjectID, 1)
-		if err != nil {
-			if errs2.IsCanceled(err) {
-				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-			}
-
-			// log it and continue. it's most likely our own fault that we couldn't
-			// track it, and the only thing that will be affected is our per-project
-			// segment limits.
-			endpoint.log.Error(
-				"Could not track the new project's segment usage when committing segment",
-				zap.Stringer("Project ID", keyInfo.ProjectID),
-				zap.Error(err),
-			)
-		}
-	}
 
 	return &pb.SegmentMakeInlineResponse{}, nil
 }

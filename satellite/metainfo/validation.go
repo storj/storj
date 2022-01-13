@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"storj.io/common/encryption"
+	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -323,6 +325,67 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 
 		pieceNums[piece.Number] = struct{}{}
 		nodeIds[piece.StorageNode] = struct{}{}
+	}
+
+	return nil
+}
+
+func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.UUID) error {
+	if err := endpoint.checkExceedsStorageUsage(ctx, projectID); err != nil {
+		return err
+	}
+
+	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
+		if exceeded, limit, err := endpoint.projectUsage.ExceedsSegmentUsage(ctx, projectID); err != nil {
+			if errs2.IsCanceled(err) {
+				return rpcstatus.Wrap(rpcstatus.Canceled, err)
+			}
+
+			endpoint.log.Error(
+				"Retrieving project segment total failed; segment limit won't be enforced",
+				zap.Stringer("Project ID", projectID),
+				zap.Error(err),
+			)
+		} else if exceeded {
+			endpoint.log.Warn("Segment limit exceeded",
+				zap.String("Limit", strconv.Itoa(int(limit))),
+				zap.Stringer("Project ID", projectID),
+			)
+			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
+		}
+	}
+
+	return nil
+}
+
+func (endpoint *Endpoint) updateUploadLimits(ctx context.Context, projectID uuid.UUID, segmentSize int64) error {
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, projectID, segmentSize); err != nil {
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// bandwidth and storage limits.
+		endpoint.log.Error("Could not track new project's storage usage",
+			zap.Stringer("Project ID", projectID),
+			zap.Error(err),
+		)
+	}
+
+	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
+		// Update the current segment cache value incrementing by 1 as we commit single segment.
+		err := endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, projectID, 1)
+		if err != nil {
+			if errs2.IsCanceled(err) {
+				return rpcstatus.Wrap(rpcstatus.Canceled, err)
+			}
+
+			// log it and continue. it's most likely our own fault that we couldn't
+			// track it, and the only thing that will be affected is our per-project
+			// segment limits.
+			endpoint.log.Error(
+				"Could not track the new project's segment usage when committing segment",
+				zap.Stringer("Project ID", projectID),
+				zap.Error(err),
+			)
+		}
 	}
 
 	return nil
