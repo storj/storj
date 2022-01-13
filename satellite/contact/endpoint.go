@@ -80,13 +80,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}
 	pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
 	if err != nil {
-		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
-		if errPingBackDial.Has(err) {
-			err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeID, req.Address, err)
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
-		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		return nil, endpoint.checkPingRPCErr(err, nodeurl)
 	}
 
 	// check wallet features
@@ -144,4 +138,61 @@ func (endpoint *Endpoint) GetTime(ctx context.Context, req *pb.GetTimeRequest) (
 	return &pb.GetTimeResponse{
 		Timestamp: currentTimestamp,
 	}, nil
+}
+
+// PingMe is called by storage node to request a pingBack from the satellite to confirm they can
+// successfully connect to the node.
+func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ *pb.PingMeResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peerID, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		endpoint.log.Info("failed to get node ID from context", zap.String("node address", req.Address), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
+	}
+	nodeID := peerID.ID
+
+	nodeURL := storj.NodeURL{
+		ID:      nodeID,
+		Address: req.Address,
+	}
+
+	if endpoint.service.timeout > 0 {
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, endpoint.service.timeout)
+		defer cancel()
+	}
+
+	switch req.Transport {
+
+	case pb.NodeTransport_QUIC_GRPC:
+		err = endpoint.service.pingNodeQUIC(ctx, nodeURL)
+		if err != nil {
+			return nil, endpoint.checkPingRPCErr(err, nodeURL)
+		}
+		return &pb.PingMeResponse{}, nil
+
+	case pb.NodeTransport_TCP_TLS_GRPC:
+		client, err := dialNodeURL(ctx, endpoint.service.dialer, nodeURL)
+		if err != nil {
+			return nil, endpoint.checkPingRPCErr(err, nodeURL)
+		}
+		_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
+		if err != nil {
+			return nil, endpoint.checkPingRPCErr(err, nodeURL)
+		}
+		return &pb.PingMeResponse{}, nil
+	}
+
+	return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, errCheckInNetwork.New("invalid transport: %s", req.Transport).Error())
+}
+
+func (endpoint *Endpoint) checkPingRPCErr(err error, nodeURL storj.NodeURL) error {
+	endpoint.log.Info("failed to ping back address", zap.String("node address", nodeURL.Address), zap.Stringer("Node ID", nodeURL.ID), zap.Error(err))
+	if errPingBackDial.Has(err) {
+		err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeURL.ID, nodeURL.Address, err)
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	}
+	err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeURL.ID, nodeURL.Address, err)
+	return rpcstatus.Error(rpcstatus.NotFound, err.Error())
 }
