@@ -17,6 +17,10 @@ import (
 
 const uplinkProduct = "uplink"
 
+var knownUserAgents = []string{
+	"rclone", "gateway-st", "gateway-mt", "linksharing", "uplink-cli",
+}
+
 type versionOccurrence struct {
 	Product string
 	Version string
@@ -52,13 +56,12 @@ func (vc *versionCollector) collect(useragentRaw []byte, method string) error {
 			}
 
 			vc.sendUplinkMetric(vo)
+		} else if knownUserAgent(entry.Product) {
+			// for known user agents monitor only product
+			mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", strings.ToLower(entry.Product))).Mark(1)
 		} else {
-			// for other user agents monitor only product
-			product := entry.Product
-			if product == "" {
-				product = "unknown"
-			}
-			mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", product)).Mark(1)
+			// lets keep also general value for other user agents
+			mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", "other")).Mark(1)
 		}
 	}
 
@@ -69,15 +72,31 @@ func (vc *versionCollector) sendUplinkMetric(vo versionOccurrence) {
 	if vo.Version == "" {
 		vo.Version = "unknown"
 	} else {
-		// use only major and minor to avoid using too many resources and
+		// use only minor to avoid using too many resources and
 		// minimize risk of abusing by sending lots of different versions
 		semVer, err := semver.ParseTolerant(vo.Version)
 		if err != nil {
 			vc.log.Warn("invalid uplink library user agent version", zap.String("version", vo.Version), zap.Error(err))
 			return
 		}
-		vo.Version = fmt.Sprintf("v%d.%d", semVer.Major, semVer.Minor)
+
+		// keep number of possible versions very limited
+		if semVer.Major != 1 || semVer.Minor > 30 {
+			vc.log.Warn("invalid uplink library user agent version", zap.String("version", vo.Version), zap.Error(err))
+			return
+		}
+
+		vo.Version = fmt.Sprintf("v%d.%d", 1, semVer.Minor)
 	}
 
 	mon.Meter("uplink_versions", monkit.NewSeriesTag("version", vo.Version), monkit.NewSeriesTag("method", vo.Method)).Mark(1)
+}
+
+func knownUserAgent(userAgent string) bool {
+	for _, knownUserAgent := range knownUserAgents {
+		if strings.EqualFold(userAgent, knownUserAgent) {
+			return true
+		}
+	}
+	return false
 }
