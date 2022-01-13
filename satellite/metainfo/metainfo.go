@@ -1977,21 +1977,23 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	// Update the current segment cache value incrementing by 1 as we commit single segment.
-	err = endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, keyInfo.ProjectID, 1)
-	if err != nil {
-		if errs2.IsCanceled(err) {
-			return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
+	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
+		// Update the current segment cache value incrementing by 1 as we commit single segment.
+		err = endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, keyInfo.ProjectID, 1)
+		if err != nil {
+			if errs2.IsCanceled(err) {
+				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
+			}
 
-		// log it and continue. it's most likely our own fault that we couldn't
-		// track it, and the only thing that will be affected is our per-project
-		// segment limits.
-		endpoint.log.Error(
-			"Could not track the new project's segment usage when committing segment",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
+			// log it and continue. it's most likely our own fault that we couldn't
+			// track it, and the only thing that will be affected is our per-project
+			// segment limits.
+			endpoint.log.Error(
+				"Could not track the new project's segment usage when committing segment",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Error(err),
+			)
+		}
 	}
 
 	return &pb.SegmentCommitResponse{
@@ -2113,21 +2115,23 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	endpoint.log.Info("Inline Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "inline"))
 	mon.Meter("req_put_inline").Mark(1)
 
-	// Update the current segment cache value incrementing by 1 as we commit single segment.
-	err = endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, keyInfo.ProjectID, 1)
-	if err != nil {
-		if errs2.IsCanceled(err) {
-			return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
+	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
+		// Update the current segment cache value incrementing by 1 as we commit single segment.
+		err = endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, keyInfo.ProjectID, 1)
+		if err != nil {
+			if errs2.IsCanceled(err) {
+				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
+			}
 
-		// log it and continue. it's most likely our own fault that we couldn't
-		// track it, and the only thing that will be affected is our per-project
-		// segment limits.
-		endpoint.log.Error(
-			"Could not track the new project's segment usage when committing segment",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
+			// log it and continue. it's most likely our own fault that we couldn't
+			// track it, and the only thing that will be affected is our per-project
+			// segment limits.
+			endpoint.log.Error(
+				"Could not track the new project's segment usage when committing segment",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Error(err),
+			)
+		}
 	}
 
 	return &pb.SegmentMakeInlineResponse{}, nil
