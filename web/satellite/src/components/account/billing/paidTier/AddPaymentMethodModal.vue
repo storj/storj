@@ -238,7 +238,13 @@ export default class AddPaymentMethodModal extends Vue {
 
         this.isLoading = true;
 
-        await this.$refs.stripeCardInput.onSubmit();
+        try {
+            await this.$refs.stripeCardInput.onSubmit();
+        } catch (error) {
+            await this.$notify.error(error.message)
+        }
+
+        this.isLoading = false;
     }
 
     /**
