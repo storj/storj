@@ -8,11 +8,7 @@ These tools analyze source code to look for flaws unintentionally implemented wh
 
 #### Dependency Scanning
 
-Dependency scanning is one of the most important aspects of SCA tests and is most commonly implemented during the linting process of the CI Pipeline. Since we are importing and implementing many third party libraries, we need to make sure that we aren’t a catalyst to carry through known security issues that those outside libraries invoke. To be proactive about these issues, we will leverage the tools listed below in the CI/CD pipeline to verify and maintain all of the external resources we use.
-
-1. Goda
-2. Spaghetti
-3. Goop (go get github.com/nitrous-io/goop)
+Dependency scanning is one of the most important aspects of SCA tests and is most commonly implemented during the linting process of the CI Pipeline. Since we are importing and implementing many third party libraries, we need to make sure that we aren’t a catalyst to carry through known security issues that those outside libraries invoke. To be proactive about these issues, we will leverage Gochk in the CI/CD pipeline to verify and maintain all of the external resources we use.
 
 #### Container Scanning
 
