@@ -109,81 +109,76 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 	return false, limit, nil
 }
 
-// ExceedsStorageUsage returns true if the storage usage for a project is currently over that project's limit.
-func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var group errgroup.Group
-	var totalUsed int64
-
-	group.Go(func() error {
-		var err error
-		limit, err = usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
-		return err
-	})
-	group.Go(func() error {
-		var err error
-		totalUsed, err = usage.GetProjectStorageTotals(ctx, projectID)
-		return err
-	})
-
-	err = group.Wait()
-	if err != nil {
-		return false, 0, ErrProjectUsage.Wrap(err)
-	}
-
-	if totalUsed >= limit.Int64() {
-		return true, limit, nil
-	}
-
-	return false, limit, nil
+// UploadLimit contains upload limit characteristics.
+type UploadLimit struct {
+	ExceedsStorage  bool
+	StorageLimit    memory.Size
+	ExceedsSegments bool
+	SegmentsLimit   int64
 }
 
-// ExceedsSegmentUsage returns true if the segment usage for a project is currently over that project's limit.
-func (usage *Service) ExceedsSegmentUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit int64, err error) {
+// ExceedsUploadLimits returns combined checks for storage and segment limits.
+func (usage *Service) ExceedsUploadLimits(ctx context.Context, projectID uuid.UUID, checkSegmentsLimit bool) (limit UploadLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
-	var segmentUsage int64
+	var segmentUsage, storageUsage int64
+
+	if checkSegmentsLimit {
+		group.Go(func() error {
+			var err error
+			limit.SegmentsLimit, err = usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
+			return err
+		})
+		group.Go(func() error {
+			var err error
+			segmentUsage, err = usage.GetProjectSegmentUsage(ctx, projectID)
+			if err != nil {
+				// Verify If the cache key was not found
+				if ErrKeyNotFound.Has(err) {
+					segmentGetTotal, err := usage.GetProjectSegments(ctx, projectID)
+					if err != nil {
+						return err
+					}
+
+					// Create cache key with database value.
+					err = usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, segmentUsage, usage.bandwidthCacheTTL)
+					if err != nil {
+						return err
+					}
+
+					segmentUsage = segmentGetTotal
+				}
+			}
+			return err
+		})
+	}
 
 	group.Go(func() error {
 		var err error
-		limit, err = usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
+		limit.StorageLimit, err = usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
 		return err
 	})
 	group.Go(func() error {
 		var err error
-		segmentUsage, err = usage.GetProjectSegmentUsage(ctx, projectID)
-		if err != nil {
-			// Verify If the cache key was not found
-			if ErrKeyNotFound.Has(err) {
-				segmentGetTotal, err := usage.GetProjectSegments(ctx, projectID)
-				if err != nil {
-					return err
-				}
-
-				// Create cache key with database value.
-				err = usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, segmentUsage, usage.bandwidthCacheTTL)
-				if err != nil {
-					return err
-				}
-
-				segmentUsage = segmentGetTotal
-			}
-		}
+		storageUsage, err = usage.GetProjectStorageTotals(ctx, projectID)
 		return err
 	})
 
 	err = group.Wait()
 	if err != nil {
-		return false, 0, ErrProjectUsage.Wrap(err)
+		return UploadLimit{}, ErrProjectUsage.Wrap(err)
 	}
 
-	if segmentUsage >= limit {
-		return true, limit, nil
+	if segmentUsage >= limit.SegmentsLimit {
+		limit.ExceedsSegments = true
 	}
 
-	return false, limit, nil
+	if storageUsage >= limit.StorageLimit.Int64() {
+		limit.ExceedsStorage = true
+	}
+
+	return limit, nil
 }
 
 // GetProjectStorageTotals returns total amount of storage used by project.

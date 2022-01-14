@@ -1905,7 +1905,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
+	if err := endpoint.checkUploadLimits(ctx, keyInfo.ProjectID); err != nil {
 		return nil, err
 	}
 
@@ -2707,31 +2707,6 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	}
 
 	return &pb.RevokeAPIKeyResponse{}, nil
-}
-
-func (endpoint *Endpoint) checkExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, projectID)
-	if err != nil {
-		if errs2.IsCanceled(err) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
-
-		endpoint.log.Error(
-			"Retrieving project storage totals failed; storage usage limit won't be enforced",
-			zap.Stringer("Project ID", projectID),
-			zap.Error(err),
-		)
-	} else if exceeded {
-		endpoint.log.Warn("Monthly storage limit exceeded",
-			zap.Stringer("Limit", limit),
-			zap.Stringer("Project ID", projectID),
-		)
-		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
-	}
-
-	return nil
 }
 
 // Server side move.
