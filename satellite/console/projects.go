@@ -70,7 +70,7 @@ type BandwidthLimitConfig struct {
 
 // SegmentLimitConfig is a configuration struct for default segments per-project usage limits.
 type SegmentLimitConfig struct {
-	Free int64 `help:"the default free-tier segment usage limit" default:"140000"`
+	Free int64 `help:"the default free-tier segment usage limit" default:"150000"`
 	Paid int64 `help:"the default paid-tier segment usage limit" default:"1000000"`
 }
 

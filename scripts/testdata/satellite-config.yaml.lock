@@ -29,7 +29,7 @@
 # admin.console-config.usage-limits.bandwidth.paid: 100.00 TB
 
 # the default free-tier segment usage limit
-# admin.console-config.usage-limits.segment.free: 140000
+# admin.console-config.usage-limits.segment.free: 150000
 
 # the default paid-tier segment usage limit
 # admin.console-config.usage-limits.segment.paid: 1000000
@@ -248,7 +248,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.usage-limits.bandwidth.paid: 100.00 TB
 
 # the default free-tier segment usage limit
-# console.usage-limits.segment.free: 140000
+# console.usage-limits.segment.free: 150000
 
 # the default paid-tier segment usage limit
 # console.usage-limits.segment.paid: 1000000
