@@ -691,3 +691,52 @@ func TestResendActivationEmail(t *testing.T) {
 		require.Contains(t, body, "/activation")
 	})
 }
+
+func TestAuth_Register_NameSpecialChars(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		inputName := "The website has been changed to https://evil.com/login.html - Enter Login_Details,"
+		filteredName := "The website has been changed to httpsevilcomloginhtml - Enter Login_Details"
+
+		registerData := struct {
+			FullName  string `json:"fullName"`
+			ShortName string `json:"shortName"`
+			Email     string `json:"email"`
+			Password  string `json:"password"`
+		}{
+			FullName:  inputName,
+			ShortName: inputName,
+			Email:     "user@mail.test",
+			Password:  "abc123",
+		}
+
+		jsonBody, err := json.Marshal(registerData)
+		require.NoError(t, err)
+
+		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		result, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, result.StatusCode)
+
+		defer func() {
+			err = result.Body.Close()
+			require.NoError(t, err)
+		}()
+
+		body, err := ioutil.ReadAll(result.Body)
+		require.NoError(t, err)
+
+		var userID uuid.UUID
+		err = json.Unmarshal(body, &userID)
+		require.NoError(t, err)
+
+		user, err := planet.Satellites[0].API.Console.Service.GetUser(ctx, userID)
+		require.NoError(t, err)
+		require.Equal(t, filteredName, user.FullName)
+		require.Equal(t, filteredName, user.ShortName)
+	})
+}
