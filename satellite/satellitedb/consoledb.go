@@ -58,11 +58,6 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 	return db.apikeys
 }
 
-// OAuthClients returns an API for the OAuthClients repository.
-func (db *ConsoleDB) OAuthClients() console.OAuthClients {
-	return &oauthClients{methods: db.methods, db: db.db}
-}
-
 // RegistrationTokens is a getter for RegistrationTokens repository.
 func (db *ConsoleDB) RegistrationTokens() console.RegistrationTokens {
 	return &registrationTokens{db.methods}

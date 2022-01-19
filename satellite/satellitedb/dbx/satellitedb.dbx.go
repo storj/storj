@@ -14650,12 +14650,12 @@ func (obj *pgxImpl) Get_OauthClient_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_OauthCode_By_Code(ctx context.Context,
+func (obj *pgxImpl) Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
 	oauth_code_code OauthCode_Code_Field) (
 	oauth_code *OauthCode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")
 
 	var __values []interface{}
 	__values = append(__values, oauth_code_code.value())
@@ -21019,12 +21019,12 @@ func (obj *pgxcockroachImpl) Get_OauthClient_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_OauthCode_By_Code(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
 	oauth_code_code OauthCode_Code_Field) (
 	oauth_code *OauthCode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at FROM oauth_codes WHERE oauth_codes.code = ? AND oauth_codes.claimed_at is NULL")
 
 	var __values []interface{}
 	__values = append(__values, oauth_code_code.value())
@@ -24544,14 +24544,14 @@ func (rx *Rx) Get_OauthClient_By_Id(ctx context.Context,
 	return tx.Get_OauthClient_By_Id(ctx, oauth_client_id)
 }
 
-func (rx *Rx) Get_OauthCode_By_Code(ctx context.Context,
+func (rx *Rx) Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
 	oauth_code_code OauthCode_Code_Field) (
 	oauth_code *OauthCode, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_OauthCode_By_Code(ctx, oauth_code_code)
+	return tx.Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx, oauth_code_code)
 }
 
 func (rx *Rx) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
@@ -25690,7 +25690,7 @@ type Methods interface {
 		oauth_client_id OauthClient_Id_Field) (
 		oauth_client *OauthClient, err error)
 
-	Get_OauthCode_By_Code(ctx context.Context,
+	Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
 		oauth_code_code OauthCode_Code_Field) (
 		oauth_code *OauthCode, err error)
 

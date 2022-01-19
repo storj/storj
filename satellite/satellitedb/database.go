@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -234,6 +235,12 @@ func (dbc *satelliteDBCollection) Console() console.DB {
 	})
 
 	return db.consoleDB
+}
+
+// OIDC returns the database for storing OAuth and OIDC information.
+func (dbc *satelliteDBCollection) OIDC() oidc.DB {
+	db := dbc.getByName("oidc")
+	return oidc.NewDB(db.DB)
 }
 
 // Orders returns database for storing orders.

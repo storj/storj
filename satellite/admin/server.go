@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
@@ -45,6 +46,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// Console returns database for satellite console
 	Console() console.DB
+	// OIDC returns the database for OIDC and OAuth information.
+	OIDC() oidc.DB
 	// StripeCoinPayments returns database for satellite stripe coin payments
 	StripeCoinPayments() stripecoinpayments.DB
 }

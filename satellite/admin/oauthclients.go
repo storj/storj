@@ -10,11 +10,11 @@ import (
 	"github.com/gorilla/mux"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/oidc"
 )
 
 func (server *Server) createOAuthClient(w http.ResponseWriter, r *http.Request) {
-	oauthClient := console.OAuthClient{}
+	oauthClient := oidc.OAuthClient{}
 	err := json.NewDecoder(r.Body).Decode(&oauthClient)
 	if err != nil {
 		sendJSONError(w, "invalid json", err.Error(), http.StatusBadRequest)
@@ -31,7 +31,7 @@ func (server *Server) createOAuthClient(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = server.db.Console().OAuthClients().Create(r.Context(), oauthClient)
+	err = server.db.OIDC().OAuthClients().Create(r.Context(), oauthClient)
 	if err != nil {
 		sendJSONError(w, "failed to create client", err.Error(), http.StatusInternalServerError)
 		return
@@ -47,7 +47,7 @@ func (server *Server) updateOAuthClient(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	oauthClient := console.OAuthClient{}
+	oauthClient := oidc.OAuthClient{}
 	err = json.NewDecoder(r.Body).Decode(&oauthClient)
 	if err != nil {
 		sendJSONError(w, "invalid json", err.Error(), http.StatusBadRequest)
@@ -56,7 +56,7 @@ func (server *Server) updateOAuthClient(w http.ResponseWriter, r *http.Request) 
 
 	oauthClient.ID = id
 
-	err = server.db.Console().OAuthClients().Update(r.Context(), oauthClient)
+	err = server.db.OIDC().OAuthClients().Update(r.Context(), oauthClient)
 	if err != nil {
 		sendJSONError(w, "failed to update client", err.Error(), http.StatusInternalServerError)
 		return
@@ -72,7 +72,7 @@ func (server *Server) deleteOAuthClient(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = server.db.Console().OAuthClients().Delete(r.Context(), id)
+	err = server.db.OIDC().OAuthClients().Delete(r.Context(), id)
 	if err != nil {
 		sendJSONError(w, "failed to delete client", err.Error(), http.StatusInternalServerError)
 		return
