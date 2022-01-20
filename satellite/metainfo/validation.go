@@ -331,33 +331,27 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 }
 
 func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.UUID) error {
-	validateSegments := endpoint.config.ProjectLimits.ValidateSegmentLimit
+	if err := endpoint.checkExceedsStorageUsage(ctx, projectID); err != nil {
+		return err
+	}
 
-	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, projectID, validateSegments); err != nil {
-		if errs2.IsCanceled(err) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
-		}
+	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
+		if exceeded, limit, err := endpoint.projectUsage.ExceedsSegmentUsage(ctx, projectID); err != nil {
+			if errs2.IsCanceled(err) {
+				return rpcstatus.Wrap(rpcstatus.Canceled, err)
+			}
 
-		endpoint.log.Error(
-			"Retrieving project upload limit failed; limit won't be enforced",
-			zap.Stringer("Project ID", projectID),
-			zap.Error(err),
-		)
-	} else {
-		if validateSegments && limit.ExceedsSegments {
+			endpoint.log.Error(
+				"Retrieving project segment total failed; segment limit won't be enforced",
+				zap.Stringer("Project ID", projectID),
+				zap.Error(err),
+			)
+		} else if exceeded {
 			endpoint.log.Warn("Segment limit exceeded",
-				zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
+				zap.String("Limit", strconv.Itoa(int(limit))),
 				zap.Stringer("Project ID", projectID),
 			)
 			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
-		}
-
-		if limit.ExceedsStorage {
-			endpoint.log.Warn("Storage limit exceeded",
-				zap.String("Limit", strconv.Itoa(limit.StorageLimit.Int())),
-				zap.Stringer("Project ID", projectID),
-			)
-			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Storage Limit")
 		}
 	}
 

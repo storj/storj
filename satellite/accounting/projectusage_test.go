@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -94,7 +93,7 @@ func TestProjectUsageStorage(t *testing.T) {
 		// upload fails due to storage limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
 		require.Error(t, err)
-		if !strings.Contains(err.Error(), "Exceeded Storage Limit") {
+		if !errors.Is(err, uplink.ErrBandwidthLimitExceeded) {
 			t.Fatal("Expected resource exhausted error. Got", err.Error())
 		}
 
@@ -476,10 +475,10 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit.Int64())
 		require.NoError(t, err)
 
-		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, false)
+		actualExceeded, limit, err := projectUsage.ExceedsStorageUsage(ctx, project.ID)
 		require.NoError(t, err)
-		require.True(t, limit.ExceedsStorage)
-		require.Equal(t, expectedLimit.Int64(), limit.StorageLimit.Int64())
+		require.True(t, actualExceeded)
+		require.Equal(t, expectedLimit.Int64(), limit.Int64())
 
 		// Setup: create some bytes for the uplink to upload
 		expectedData := testrand.Bytes(50 * memory.KiB)
@@ -806,7 +805,7 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		// we used limit so we should get error
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "3", data)
 		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "Exceeded Storage Limit"))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 
 		// delete object to free some storage space
 		err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "bucket", "2")
@@ -822,7 +821,7 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		// should fail because we once again used space up to limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "2", data)
 		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "Exceeded Storage Limit"))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 	})
 }
 
@@ -871,6 +870,7 @@ func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
 			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedExceeds, actualExceeded, tt.description)
+
 		}
 	})
 
@@ -899,7 +899,7 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		// verify that storage limit is all used
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path2", data)
 		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "Exceeded Storage Limit"))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.NoError(t, err)
@@ -915,9 +915,7 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		// verify that bandwidth limit is all used
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.Error(t, err)
-		if !errors.Is(err, uplink.ErrBandwidthLimitExceeded) {
-			t.Fatal("Expected resource exhausted error. Got", err.Error())
-		}
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 
 		now := time.Now()
 		planet.Satellites[0].API.Accounting.ProjectUsage.SetNow(func() time.Time {
@@ -927,7 +925,7 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		// verify that storage limit is all used even at the new billing cycle
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path3", data)
 		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "Exceeded Storage Limit"))
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
 
 		// verify that new billing cycle reset bandwidth limit
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
