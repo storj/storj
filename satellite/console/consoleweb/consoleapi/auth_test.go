@@ -89,12 +89,11 @@ func TestAuth_Register(t *testing.T) {
 				req.Header.Set("Content-Type", "application/json")
 				result, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, result.StatusCode)
-
 				defer func() {
 					err = result.Body.Close()
 					require.NoError(t, err)
 				}()
+				require.Equal(t, http.StatusOK, result.StatusCode)
 
 				body, err := ioutil.ReadAll(result.Body)
 				require.NoError(t, err)
@@ -180,6 +179,10 @@ func TestAuth_Register_CORS(t *testing.T) {
 		req.Method = http.MethodPost
 		resp, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		defer func() {
+			err = resp.Body.Close()
+			require.NoError(t, err)
+		}()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		require.Equal(t, "https://www.storj.io", resp.Header.Get("Access-Control-Allow-Origin"))
 		require.Equal(t, "POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
@@ -192,11 +195,6 @@ func TestAuth_Register_CORS(t *testing.T) {
 			"X-CSRF-Token",
 			"Authorization",
 		})
-
-		defer func() {
-			err = resp.Body.Close()
-			require.NoError(t, err)
-		}()
 
 		body, err := ioutil.ReadAll(resp.Body)
 		require.NoError(t, err)
@@ -696,8 +694,8 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		inputName := "The website has been changed to https://evil.com/login.html - Enter Login_Details,"
-		filteredName := "The website has been changed to httpsevilcomloginhtml - Enter Login_Details"
+		inputName := "The website has been changed to https://evil.com/login.html - Enter Login Details,"
+		filteredName := "The website has been changed to https---evil-com-login-html - Enter Login Details,"
 
 		registerData := struct {
 			FullName  string `json:"fullName"`
@@ -720,12 +718,11 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		result, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, result.StatusCode)
-
 		defer func() {
 			err = result.Body.Close()
 			require.NoError(t, err)
 		}()
+		require.Equal(t, http.StatusOK, result.StatusCode)
 
 		body, err := ioutil.ReadAll(result.Body)
 		require.NoError(t, err)
