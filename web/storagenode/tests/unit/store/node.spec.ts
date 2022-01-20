@@ -53,8 +53,6 @@ describe('mutations', () => {
             '0.1.1',
             '0.2.2',
             false,
-            true,
-            '13000',
         );
 
         store.commit(NODE_MUTATIONS.POPULATE_STORE, dashboardInfo);
@@ -193,8 +191,6 @@ describe('actions', () => {
                     '0.1.1',
                     '0.2.2',
                     false,
-                    true,
-                    '13000',
                 ),
             ),
         );
@@ -339,8 +335,6 @@ describe('getters', () => {
             '0.1.1',
             '0.2.2',
             false,
-            true,
-            '13000',
         );
 
         store.commit(NODE_MUTATIONS.POPULATE_STORE, dashboardInfo);
