@@ -120,10 +120,10 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-// removeSpecialCharacters removes any non alphanumeric or space/dash/underscore characters from a string.
-func removeSpecialCharacters(s string) string {
-	re := regexp.MustCompile(`[^a-zA-Z0-9 \-\_]`)
-	return re.ReplaceAllString(s, "")
+// replaceURLCharacters replaces slash, colon, and dot characters in a string with a hyphen.
+func replaceURLCharacters(s string) string {
+	re := regexp.MustCompile(`[\/:\.]`)
+	return re.ReplaceAllString(s, "-")
 }
 
 // Register creates new user, sends activation e-mail.
@@ -182,8 +182,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// remove special characters from submitted name so that malicious link cannot be injected into verification or password reset emails.
-	registerData.FullName = removeSpecialCharacters(registerData.FullName)
-	registerData.ShortName = removeSpecialCharacters(registerData.ShortName)
+	registerData.FullName = replaceURLCharacters(registerData.FullName)
+	registerData.ShortName = replaceURLCharacters(registerData.ShortName)
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
