@@ -61,17 +61,13 @@ type Service struct {
 	walletFeatures operator.WalletFeatures
 	startedAt      time.Time
 	versionInfo    version.Info
-
-	quicEnabled    bool
-	configuredPort string
 }
 
 // NewService returns new instance of Service.
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
 	allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
 	reputationDB reputation.DB, storageUsageDB storageusage.DB, pricingDB pricing.DB, satelliteDB satellites.DB,
-	pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayouts.Service, usageCache *pieces.BlobsUsageCache,
-	walletFeatures operator.WalletFeatures, port string, quicEnabled bool) (*Service, error) {
+	pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayouts.Service, usageCache *pieces.BlobsUsageCache, walletFeatures operator.WalletFeatures) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -123,8 +119,6 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		startedAt:          time.Now(),
 		versionInfo:        versionInfo,
 		walletFeatures:     walletFeatures,
-		quicEnabled:        quicEnabled,
-		configuredPort:     port,
 	}, nil
 }
 
@@ -155,9 +149,6 @@ type Dashboard struct {
 	UpToDate       bool           `json:"upToDate"`
 
 	StartedAt time.Time `json:"startedAt"`
-
-	ConfiguredPort string `json:"configuredPort"`
-	QUICEnabled    bool   `json:"quicEnabled"`
 }
 
 // GetDashboardData returns stale dashboard data.
@@ -173,9 +164,6 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 
 	data.LastPinged = s.pingStats.WhenLastPinged()
 	data.AllowedVersion, data.UpToDate = s.version.IsAllowed(ctx)
-
-	data.QUICEnabled = s.quicEnabled
-	data.ConfiguredPort = s.configuredPort
 
 	stats, err := s.reputationDB.All(ctx)
 	if err != nil {
