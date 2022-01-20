@@ -27,7 +27,6 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
@@ -138,10 +137,10 @@ var (
 		RunE:  cmdNodeUsage,
 	}
 	partnerAttributionCmd = &cobra.Command{
-		Use:   "partner-attribution [partner ID] [start] [end]",
+		Use:   "partner-attribution [start] [end]",
 		Short: "Generate a partner attribution report for a given period to use for payments",
 		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
-		Args:  cobra.MinimumNArgs(3),
+		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdValueAttribution,
 	}
 	reportsGracefulExitCmd = &cobra.Command{
@@ -667,12 +666,6 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L().Named("satellite-cli")
 
-	partnerID, err := uuid.FromString(args[0])
-	if err != nil {
-		return errs.Combine(errs.New("Invalid Partner ID format. %s", args[0]), err)
-	}
-	userAgent := []byte(args[0])
-
 	start, end, err := reports.ParseRange(args[1], args[2])
 	if err != nil {
 		return err
@@ -680,7 +673,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if partnerAttribtionCfg.Output == "" {
-		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, userAgent, start, end, os.Stdout)
+		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -699,7 +692,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, userAgent, start, end, file)
+	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, file)
 }
 
 func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {

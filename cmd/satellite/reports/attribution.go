@@ -22,6 +22,7 @@ import (
 )
 
 var headers = []string{
+	"userAgent",
 	"projectID",
 	"bucketName",
 	"byte-hours:Total",
@@ -29,7 +30,7 @@ var headers = []string{
 }
 
 // GenerateAttributionCSV creates a report with.
-func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid.UUID, userAgent []byte, start time.Time, end time.Time, output io.Writer) error {
+func GenerateAttributionCSV(ctx context.Context, database string, start time.Time, end time.Time, output io.Writer) error {
 	log := zap.L().Named("db")
 	db, err := satellitedb.Open(ctx, log, database, satellitedb.Options{ApplicationName: "satellite-attribution"})
 	if err != nil {
@@ -42,7 +43,7 @@ func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid
 		}
 	}()
 
-	rows, err := db.Attribution().QueryAttribution(ctx, partnerID, userAgent, start, end)
+	rows, err := db.Attribution().QueryAllAttribution(ctx, start, end)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -83,6 +84,7 @@ func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {
 	totalGBPerHour := memory.Size(p.TotalBytesPerHour).GB()
 	egressGBData := memory.Size(p.EgressData).GB()
 	record := []string{
+		string(p.UserAgent),
 		projectID.String(),
 		string(p.BucketName),
 		strconv.FormatFloat(totalGBPerHour, 'f', 4, 64),
