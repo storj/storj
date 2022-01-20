@@ -242,6 +242,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	} else if exists {
 		// When the bucket exists, try to set the attribution.
 		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName()); err != nil {
+			// ensureAttribution returns correct rpc error
 			return nil, err
 		}
 		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
@@ -250,7 +251,8 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	// check if project has exceeded its allocated bucket limit
 	maxBuckets, err := endpoint.projects.GetMaxBuckets(ctx, keyInfo.ProjectID)
 	if err != nil {
-		return nil, err
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if maxBuckets == nil {
 		defaultMaxBuckets := endpoint.config.ProjectLimits.MaxBuckets
@@ -258,7 +260,8 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 	bucketCount, err := endpoint.buckets.CountBuckets(ctx, keyInfo.ProjectID)
 	if err != nil {
-		return nil, err
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if bucketCount >= *maxBuckets {
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, fmt.Sprintf("number of allocated buckets (%d) exceeded", endpoint.config.ProjectLimits.MaxBuckets))
@@ -277,6 +280,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 
 	// Once we have created the bucket, we can try setting the attribution.
 	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName()); err != nil {
+		// ensureAttribution returns correct rpc error
 		return nil, err
 	}
 
