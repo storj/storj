@@ -635,7 +635,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup storage node operator dashboard
-		_, port, _ := net.SplitHostPort(peer.Addr())
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Bandwidth(),
@@ -654,8 +653,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Estimation.Service,
 			peer.Storage2.BlobsCache,
 			config.Operator.WalletFeatures,
-			port,
-			peer.Server.IsQUICEnabled(),
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
