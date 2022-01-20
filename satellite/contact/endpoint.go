@@ -177,6 +177,9 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 		if err != nil {
 			return nil, endpoint.checkPingRPCErr(err, nodeURL)
 		}
+
+		defer func() { err = errs.Combine(err, client.Close()) }()
+
 		_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
 		if err != nil {
 			return nil, endpoint.checkPingRPCErr(err, nodeURL)
@@ -184,7 +187,7 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 		return &pb.PingMeResponse{}, nil
 	}
 
-	return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, errCheckInNetwork.New("invalid transport: %s", req.Transport).Error())
+	return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "invalid transport: %v", req.Transport)
 }
 
 func (endpoint *Endpoint) checkPingRPCErr(err error, nodeURL storj.NodeURL) error {
