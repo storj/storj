@@ -506,7 +506,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.rate-limiter.enabled: true
 
 # request rate per project per second.
-# metainfo.rate-limiter.rate: 1000
+# metainfo.rate-limiter.rate: 100
 
 # redundancy scheme configuration in the format k/m/o/n-sharesize
 # metainfo.rs: 29/35/80/110-256 B
