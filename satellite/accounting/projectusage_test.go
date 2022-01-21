@@ -261,6 +261,39 @@ func TestProjectSegmentLimitWithoutCache(t *testing.T) {
 	})
 }
 
+func TestProjectBandwidthLimitWithoutCache(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UsageLimits.Bandwidth.Free = 15 * memory.KiB
+				config.Console.UsageLimits.Bandwidth.Paid = 15 * memory.KiB
+				// this effectively disable live accounting cache
+				config.LiveAccounting.BandwidthCacheTTL = -1
+				config.LiveAccounting.AsOfSystemInterval = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedData := testrand.Bytes(5 * memory.KiB)
+
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", expectedData)
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path/1")
+			require.NoError(t, err)
+			require.Equal(t, data, expectedData)
+		}
+
+		// flush allocated bandwidth to DB as we will use DB directly without cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path/1")
+		require.Error(t, err)
+		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
+	})
+}
+
 func TestProjectSegmentLimitMultipartUpload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
