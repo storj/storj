@@ -220,6 +220,8 @@ func (usage *Service) GetProjectSegments(ctx context.Context, projectID uuid.UUI
 
 	total, err := usage.metabaseDB.GetProjectSegmentCount(ctx, metabase.GetProjectSegmentCount{
 		ProjectID: projectID,
+
+		AsOfSystemInterval: usage.asOfSystemInterval,
 	})
 	return total, ErrProjectUsage.Wrap(err)
 }

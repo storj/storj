@@ -243,6 +243,7 @@ func TestProjectSegmentLimitWithoutCache(t *testing.T) {
 				config.Console.UsageLimits.Segment.Paid = 5
 				// this effectively disable live accounting cache
 				config.LiveAccounting.BandwidthCacheTTL = -1
+				config.LiveAccounting.AsOfSystemInterval = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
