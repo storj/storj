@@ -47,7 +47,7 @@ describe('NotificationItem', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.find('.notification-wrap__text-area__message').text()).toMatch(testMessage);
+        expect(wrapper.find('.notification-wrap__content-area__message').text()).toMatch(testMessage);
     });
 
     it('renders correctly with error props', () => {
@@ -64,7 +64,7 @@ describe('NotificationItem', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.find('.notification-wrap__text-area__message').text()).toMatch(testMessage);
+        expect(wrapper.find('.notification-wrap__content-area__message').text()).toMatch(testMessage);
     });
 
     it('renders correctly with notification props', () => {
@@ -81,7 +81,7 @@ describe('NotificationItem', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.find('.notification-wrap__text-area__message').text()).toMatch(testMessage);
+        expect(wrapper.find('.notification-wrap__content-area__message').text()).toMatch(testMessage);
     });
 
     it('renders correctly with warning props', () => {
@@ -98,7 +98,27 @@ describe('NotificationItem', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.find('.notification-wrap__text-area__message').text()).toMatch(testMessage);
+        expect(wrapper.find('.notification-wrap__content-area__message').text()).toMatch(testMessage);
+    });
+
+    it('renders correctly with support link', async (): Promise<void> => {
+        const testMessage = 'testMessage support rest of message';
+
+        const wrapper = mount(NotificationItem, {
+            propsData: {
+                notification: new DelayedNotification(
+                    jest.fn(),
+                    NOTIFICATION_TYPES.NOTIFICATION,
+                    testMessage,
+                ),
+            },
+        });
+
+        await wrapper.setData({ requestUrl: 'https://requestUrl.com' })
+
+        expect(wrapper).toMatchSnapshot();
+        expect(wrapper.find('.notification-wrap__content-area__message').text()).toMatch(testMessage);
+        expect(wrapper.find('.notification-wrap__content-area__link').text()).toBeTruthy();
     });
 
     it('trigger pause correctly', () => {
