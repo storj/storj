@@ -93,7 +93,7 @@ func (rs *RSConfig) Set(s string) error {
 // RateLimiterConfig is a configuration struct for endpoint rate limiting.
 type RateLimiterConfig struct {
 	Enabled         bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
-	Rate            float64       `help:"request rate per project per second." releaseDefault:"1000" devDefault:"100" testDefault:"1000"`
+	Rate            float64       `help:"request rate per project per second." releaseDefault:"100" devDefault:"100" testDefault:"1000"`
 	CacheCapacity   int           `help:"number of projects to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
 	CacheExpiration time.Duration `help:"how long to cache the projects limiter." releaseDefault:"10m" devDefault:"10s"`
 }
