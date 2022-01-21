@@ -196,7 +196,6 @@ func TestProjectSegmentLimit(t *testing.T) {
 		// successful upload
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", data)
 		require.NoError(t, err)
-		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
 
 		// upload fails due to segment limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
@@ -229,6 +228,34 @@ func TestProjectSegmentLimitInline(t *testing.T) {
 
 		// upload fails due to segment limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Exceeded Segments Limit")
+	})
+}
+
+func TestProjectSegmentLimitWithoutCache(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
+				config.Console.UsageLimits.Segment.Free = 5
+				config.Console.UsageLimits.Segment.Paid = 5
+				// this effectively disable live accounting cache
+				config.LiveAccounting.BandwidthCacheTTL = -1
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		data := testrand.Bytes(1 * memory.KiB)
+
+		for i := 0; i < 5; i++ {
+			// successful upload
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/"+strconv.Itoa(i), data)
+			require.NoError(t, err)
+		}
+
+		// upload fails due to segment limit
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/5", data)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Exceeded Segments Limit")
 	})
