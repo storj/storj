@@ -56,28 +56,30 @@ func TestAuth_Register(t *testing.T) {
 		} {
 			func() {
 				registerData := struct {
-					FullName       string `json:"fullName"`
-					ShortName      string `json:"shortName"`
-					Email          string `json:"email"`
-					Partner        string `json:"partner"`
-					UserAgent      []byte `json:"userAgent"`
-					Password       string `json:"password"`
-					SecretInput    string `json:"secret"`
-					ReferrerUserID string `json:"referrerUserId"`
-					IsProfessional bool   `json:"isProfessional"`
-					Position       string `json:"Position"`
-					CompanyName    string `json:"CompanyName"`
-					EmployeeCount  string `json:"EmployeeCount"`
+					FullName        string `json:"fullName"`
+					ShortName       string `json:"shortName"`
+					Email           string `json:"email"`
+					Partner         string `json:"partner"`
+					UserAgent       string `json:"userAgent"`
+					Password        string `json:"password"`
+					SecretInput     string `json:"secret"`
+					ReferrerUserID  string `json:"referrerUserId"`
+					IsProfessional  bool   `json:"isProfessional"`
+					Position        string `json:"Position"`
+					CompanyName     string `json:"CompanyName"`
+					EmployeeCount   string `json:"EmployeeCount"`
+					SignupPromoCode string `json:"signupPromoCode"`
 				}{
-					FullName:       "testuser" + strconv.Itoa(i),
-					ShortName:      "test",
-					Email:          "user@test" + strconv.Itoa(i),
-					Partner:        test.Partner,
-					Password:       "abc123",
-					IsProfessional: true,
-					Position:       "testposition",
-					CompanyName:    "companytestname",
-					EmployeeCount:  "0",
+					FullName:        "testuser" + strconv.Itoa(i),
+					ShortName:       "test",
+					Email:           "user@test" + strconv.Itoa(i),
+					Partner:         test.Partner,
+					Password:        "abc123",
+					IsProfessional:  true,
+					Position:        "testposition",
+					CompanyName:     "companytestname",
+					EmployeeCount:   "0",
+					SignupPromoCode: "STORJ50",
 				}
 
 				jsonBody, err := json.Marshal(registerData)
@@ -89,12 +91,11 @@ func TestAuth_Register(t *testing.T) {
 				req.Header.Set("Content-Type", "application/json")
 				result, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, result.StatusCode)
-
 				defer func() {
 					err = result.Body.Close()
 					require.NoError(t, err)
 				}()
+				require.Equal(t, http.StatusOK, result.StatusCode)
 
 				body, err := ioutil.ReadAll(result.Body)
 				require.NoError(t, err)
@@ -180,6 +181,10 @@ func TestAuth_Register_CORS(t *testing.T) {
 		req.Method = http.MethodPost
 		resp, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		defer func() {
+			err = resp.Body.Close()
+			require.NoError(t, err)
+		}()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		require.Equal(t, "https://www.storj.io", resp.Header.Get("Access-Control-Allow-Origin"))
 		require.Equal(t, "POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
@@ -192,11 +197,6 @@ func TestAuth_Register_CORS(t *testing.T) {
 			"X-CSRF-Token",
 			"Authorization",
 		})
-
-		defer func() {
-			err = resp.Body.Close()
-			require.NoError(t, err)
-		}()
 
 		body, err := ioutil.ReadAll(resp.Body)
 		require.NoError(t, err)
@@ -696,8 +696,8 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		inputName := "The website has been changed to https://evil.com/login.html - Enter Login_Details,"
-		filteredName := "The website has been changed to httpsevilcomloginhtml - Enter Login_Details"
+		inputName := "The website has been changed to https://evil.com/login.html - Enter Login Details,"
+		filteredName := "The website has been changed to https---evil-com-login-html - Enter Login Details,"
 
 		registerData := struct {
 			FullName  string `json:"fullName"`
@@ -720,12 +720,11 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		result, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, result.StatusCode)
-
 		defer func() {
 			err = result.Body.Close()
 			require.NoError(t, err)
 		}()
+		require.Equal(t, http.StatusOK, result.StatusCode)
 
 		body, err := ioutil.ReadAll(result.Body)
 		require.NoError(t, err)

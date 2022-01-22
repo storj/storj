@@ -284,16 +284,6 @@ func migrateTest(t *testing.T, connStr string) {
 		finalSchema = currentSchema
 	}
 
-	// TODO(cam): remove this check with the migration step to drop the columns
-	nodes, ok := finalSchema.FindTable("nodes")
-	if ok {
-		nodes.RemoveColumn("contained")
-	}
-	reps, ok := finalSchema.FindTable("reputations")
-	if ok {
-		reps.RemoveColumn("contained")
-	}
-
 	// verify that we also match the dbx version
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }

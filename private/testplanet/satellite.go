@@ -241,7 +241,7 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 	if err != nil {
 		return nil, err
 	}
-	err = system.API.Console.Service.Payments().SetupAccount(authCtx)
+	_, err = system.API.Console.Service.Payments().SetupAccount(authCtx)
 	if err != nil {
 		return nil, err
 	}

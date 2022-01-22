@@ -49,6 +49,7 @@ var (
 				AmountOff: 500,
 				Currency:  stripe.CurrencyUSD,
 				Name:      "Test Promo Code 1",
+				ID:        "c1",
 			},
 		},
 		"promo2": {
@@ -56,12 +57,17 @@ var (
 			Coupon: &stripe.Coupon{
 				PercentOff: 50,
 				Name:       "Test Promo Code 2",
+				ID:         "c2",
 			},
 		},
 	}
 	promoIDs = map[string]*stripe.PromotionCode{
 		"p1": testPromoCodes["promo1"],
 		"p2": testPromoCodes["promo2"],
+	}
+	couponIDs = map[string]*stripe.Coupon{
+		"c1": testPromoCodes["promo1"].Coupon,
+		"c2": testPromoCodes["promo2"].Coupon,
 	}
 )
 
@@ -235,6 +241,14 @@ func (m *mockCustomers) New(params *stripe.CustomerParams) (*stripe.Customer, er
 	}
 
 	customer := newMockCustomer(uuid.String(), *params.Email)
+
+	if params.PromotionCode != nil && promoIDs[*params.PromotionCode] != nil {
+		customer.Discount = &stripe.Discount{Coupon: promoIDs[*params.PromotionCode].Coupon}
+	}
+
+	if params.Coupon != nil {
+		customer.Discount = &stripe.Discount{Coupon: couponIDs[*params.Coupon]}
+	}
 
 	mocks.Lock()
 	defer mocks.Unlock()

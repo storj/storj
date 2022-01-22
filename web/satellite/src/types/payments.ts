@@ -10,7 +10,7 @@ export interface PaymentsApi {
      *
      * @throws Error
      */
-    setupAccount(): Promise<void>;
+    setupAccount(): Promise<string>;
 
     /**
      * Get account balance
@@ -80,7 +80,7 @@ export interface PaymentsApi {
 
     /**
      * getCoupon returns the coupon applied to the user.
-     * 
+     *
      * @throws Error
      */
     getCoupon(): Promise<Coupon | null>;

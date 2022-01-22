@@ -210,8 +210,10 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
 
                 return balance;
             },
-            [SETUP_ACCOUNT]: async function(): Promise<void> {
-                await api.setupAccount();
+            [SETUP_ACCOUNT]: async function(): Promise<string> {
+                const couponType = await api.setupAccount();
+
+                return couponType;
             },
             [GET_CREDIT_CARDS]: async function({commit}: PaymentsContext): Promise<CreditCard[]> {
                 const creditCards = await api.listCreditCards();

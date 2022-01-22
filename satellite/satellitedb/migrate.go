@@ -1794,6 +1794,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop contained from nodes and reputations",
+				Version:     187,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN contained;`,
+					`ALTER TABLE reputations DROP COLUMN contained;`,
+				},
+			},
 
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
