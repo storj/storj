@@ -17,7 +17,7 @@
                     <div class="cli-install__windows">
                         <h2 class="cli-install__macos__sub-title">
                             1. Download the
-                            <a href="https://github.com/storj/storj/releases/latest/download/uplink_windows_amd64.zip">
+                            <a href="https://github.com/storj/storj/releases/latest/download/uplinkng_windows_amd64.zip">
                                 Windows Uplink Binary
                             </a>
                             zip file
@@ -42,21 +42,18 @@
                         <h2 class="cli-install__linux__sub-title">Curl Download</h2>
                         <div class="cli-install__linux__commands">
                             <p class="cli-install__linux__commands__item">
-                                curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip -o uplink_linux_amd64.zip
+                                curl -L https://github.com/storj/storj/releases/latest/download/uplinkng_linux_amd64.zip -o uplinkng_linux_amd64.zip
                             </p>
                             <p class="cli-install__linux__commands__item">
-                                unzip -o uplink_linux_amd64.zip
+                                unzip -o uplinkng_linux_amd64.zip
                             </p>
                             <p class="cli-install__linux__commands__item">
-                                chmod 755 uplink
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                sudo mv uplink /usr/local/bin/uplink
+                                sudo install uplinkng /usr/local/bin/uplink
                             </p>
                         </div>
                         <a
                             class="cli-install__linux__link"
-                            href="https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip"
+                            href="https://github.com/storj/storj/releases/latest/download/uplinkng_linux_amd64.zip"
                         >
                             Linux AMD64 Uplink Binary
                         </a>
@@ -64,21 +61,18 @@
                         <h2 class="cli-install__linux__sub-title">Curl Download</h2>
                         <div class="cli-install__linux__commands">
                             <p class="cli-install__linux__commands__item">
-                                curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip -o uplink_linux_arm.zip
+                                curl -L https://github.com/storj/storj/releases/latest/download/uplinkng_linux_arm.zip -o uplinkng_linux_arm.zip
                             </p>
                             <p class="cli-install__linux__commands__item">
-                                unzip -o uplink_linux_arm.zip
+                                unzip -o uplinkng_linux_arm.zip
                             </p>
                             <p class="cli-install__linux__commands__item">
-                                chmod 755 uplink
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                sudo mv uplink /usr/local/bin/uplink
+                                sudo install uplinkng /usr/local/bin/uplink
                             </p>
                         </div>
                         <a
                             class="cli-install__linux__link"
-                            href="https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip"
+                            href="https://github.com/storj/storj/releases/latest/download/uplinkng_linux_arm.zip"
                         >
                             Linux ARM Uplink Binary
                         </a>
@@ -89,21 +83,18 @@
                         <h2 class="cli-install__macos__sub-title">Curl Download</h2>
                         <div class="cli-install__macos__commands">
                             <p class="cli-install__macos__commands__item">
-                                curl -L https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip -o uplink_darwin_amd64.zip
+                                curl -L https://github.com/storj/storj/releases/latest/download/uplinkng_darwin_amd64.zip -o uplinkng_darwin_amd64.zip
                             </p>
                             <p class="cli-install__macos__commands__item">
-                                unzip -o uplink_darwin_amd64.zip
+                                unzip -o uplinkng_darwin_amd64.zip
                             </p>
                             <p class="cli-install__macos__commands__item">
-                                chmod 755 uplink
-                            </p>
-                            <p class="cli-install__macos__commands__item">
-                                sudo mv uplink /usr/local/bin/uplink
+                                sudo install uplinkng /usr/local/bin/uplink
                             </p>
                         </div>
                         <a
                             class="cli-install__macos__link"
-                            href="https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip"
+                            href="https://github.com/storj/storj/releases/latest/download/uplinkng_darwin_amd64.zip"
                         >
                             macOS Uplink Binary
                         </a>

@@ -22,7 +22,7 @@
                     Uplink CLI
                 </a>
                 and run
-                <b class="cli__msg__bold">uplink setup.</b>
+                <b class="cli__msg__bold">uplink setup</b>.
             </p>
             <OSContainer>
                 <template #windows>
