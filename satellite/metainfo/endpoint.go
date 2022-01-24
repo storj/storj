@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metainfo/pointerverification"
@@ -185,4 +186,100 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	}
 
 	return &pb.RevokeAPIKeyResponse{}, nil
+}
+
+func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *internalpb.StreamID) (streamID storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	signedStreamID, err := SignStreamID(ctx, endpoint.satellite, satStreamID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	encodedStreamID, err := pb.Marshal(signedStreamID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	streamID, err = storj.StreamIDFromBytes(encodedStreamID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+	return streamID, nil
+}
+
+func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *internalpb.SegmentID) (segmentID storj.SegmentID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	signedSegmentID, err := SignSegmentID(ctx, endpoint.satellite, satSegmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	encodedSegmentID, err := pb.Marshal(signedSegmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	segmentID, err = storj.SegmentIDFromBytes(encodedSegmentID)
+	if err != nil {
+		return nil, err
+	}
+	return segmentID, nil
+}
+
+func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storj.StreamID) (_ *internalpb.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	satStreamID := &internalpb.StreamID{}
+	err = pb.Unmarshal(streamID, satStreamID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = VerifyStreamID(ctx, endpoint.satellite, satStreamID)
+	if err != nil {
+		return nil, err
+	}
+
+	return satStreamID, nil
+}
+
+func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storj.SegmentID) (_ *internalpb.SegmentID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	satSegmentID := &internalpb.SegmentID{}
+	err = pb.Unmarshal(segmentID, satSegmentID)
+	if err != nil {
+		return nil, err
+	}
+	if satSegmentID.StreamId == nil {
+		return nil, errs.New("stream ID missing")
+	}
+
+	err = VerifySegmentID(ctx, endpoint.satellite, satSegmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	if satSegmentID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
+		return nil, errs.New("segment ID expired")
+	}
+
+	return satSegmentID, nil
+}
+
+// convertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
+func (endpoint *Endpoint) convertMetabaseErr(err error) error {
+	switch {
+	case storj.ErrObjectNotFound.Has(err):
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	case metabase.ErrSegmentNotFound.Has(err):
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	case metabase.ErrInvalidRequest.Has(err):
+		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	default:
+		endpoint.log.Error("internal", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
 }
