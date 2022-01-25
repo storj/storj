@@ -37,18 +37,19 @@ func main() {
 
 func commands(cmds clingy.Commands, ex ulext.External) {
 	cmds.Group("access", "Access related commands", func() {
-		cmds.New("save", "Save an existing access", newCmdAccessSave(ex))
-		cmds.New("create", "Create an access from a setup token", newCmdAccessCreate(ex))
-		cmds.New("delete", "Delete an access from local store", newCmdAccessDelete(ex))
-		cmds.New("restrict", "Restrict an access", newCmdAccessRestrict(ex))
+		cmds.New("create", "Create an access from the satellite UI", newCmdAccessCreate(ex))
+		cmds.New("export", "Export an access to a file", newCmdAccessExport(ex))
+		cmds.New("import", "Import an existing access", newCmdAccessImport(ex))
+		cmds.New("inspect", "Inspect shows verbose details about an access", newCmdAccessInspect(ex))
 		cmds.New("list", "List saved accesses", newCmdAccessList(ex))
-		cmds.New("use", "Set default access to use", newCmdAccessUse(ex))
-		cmds.New("revoke", "Revoke an access", newCmdAccessRevoke(ex))
-		cmds.New("inspect", "Inspect allows you to explode a serialized access into its constituent parts", newCmdAccessInspect(ex))
 		cmds.New("register", "Register an access grant for use with a hosted S3 compatible gateway and linksharing", newCmdAccessRegister(ex))
+		cmds.New("remove", "Removes an access from local store", newCmdAccessRemove(ex))
+		cmds.New("restrict", "Restrict an access", newCmdAccessRestrict(ex))
+		cmds.New("revoke", "Revoke an access", newCmdAccessRevoke(ex))
+		cmds.New("setup", "Wizard for setting up uplink from satellite UI", newCmdAccessSetup(ex))
+		cmds.New("use", "Set default access to use", newCmdAccessUse(ex))
 	})
-	cmds.New("setup", "An alias for access create", newCmdAccessCreate(ex))
-	cmds.New("share", "Shares restricted accesses to objects", newCmdShare(ex))
+	cmds.New("setup", "Wizard for setting up uplink from satellite UI", newCmdAccessSetup(ex))
 	cmds.New("mb", "Create a new bucket", newCmdMb(ex))
 	cmds.New("rb", "Remove a bucket bucket", newCmdRb(ex))
 	cmds.New("cp", "Copies files or objects into or out of storj", newCmdCp(ex))
@@ -58,5 +59,6 @@ func commands(cmds clingy.Commands, ex ulext.External) {
 	cmds.Group("meta", "Object metadata related commands", func() {
 		cmds.New("get", "Get an object's metadata", newCmdMetaGet(ex))
 	})
+	cmds.New("share", "Shares restricted accesses to objects", newCmdShare(ex))
 	cmds.New("version", "Prints version information", newCmdVersion())
 }

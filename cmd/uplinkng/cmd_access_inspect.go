@@ -22,8 +22,8 @@ var _ clingy.Command = (*cmdAccessInspect)(nil)
 
 // cmdAccessInspect is an access inspect command itself.
 type cmdAccessInspect struct {
-	ex                ulext.External
-	accessNameOrValue string
+	ex     ulext.External
+	access *string
 }
 
 // newCmdAccessInspect is a constructor for cmdAccessInspect.
@@ -33,25 +33,19 @@ func newCmdAccessInspect(ex ulext.External) clingy.Command {
 
 // Setup is called to define and parse arguments.
 func (c *cmdAccessInspect) Setup(params clingy.Parameters) {
-	accessNameOrValue := params.Arg("access", "Inspect access by its name or value.", clingy.Optional).(*string)
-	if accessNameOrValue == nil {
-		c.accessNameOrValue = ""
-		return
-	}
-
-	c.accessNameOrValue = *accessNameOrValue
+	c.access = params.Arg("access", "Inspect access by its name or value.", clingy.Optional).(*string)
 }
 
 // Execute runs the command.
 func (c *cmdAccessInspect) Execute(ctx clingy.Context) error {
-	accessExists, accessName := c.accessExists()
-	if !accessExists {
-		return errs.New("unknown access: %q", c.accessNameOrValue)
+	toOpen := ""
+	if c.access != nil {
+		toOpen = *c.access
 	}
 
-	access, err := c.ex.OpenAccess(accessName)
+	access, err := c.ex.OpenAccess(toOpen)
 	if err != nil {
-		return errs.New("could not open access: %q, %+v", accessName, err)
+		return err
 	}
 
 	serializedAccess, err := access.Serialize()
@@ -105,33 +99,6 @@ func (c *cmdAccessInspect) Execute(ctx clingy.Context) error {
 	fmt.Fprintln(ctx, string(bs))
 
 	return nil
-}
-
-// accessExists checks if exists access with provided name or value.
-func (c *cmdAccessInspect) accessExists() (bool, string) {
-	defaultAccessName, accesses, err := c.ex.GetAccessInfo(true)
-	if err != nil {
-		return false, ""
-	}
-
-	// show default access if parameter is absent.
-	if c.accessNameOrValue == "" {
-		c.accessNameOrValue = defaultAccessName
-	}
-
-	// trying to find access by name.
-	if _, ok := accesses[c.accessNameOrValue]; ok {
-		return true, c.accessNameOrValue
-	}
-
-	// trying to find access by value.
-	for accessName, accessValue := range accesses {
-		if accessValue == c.accessNameOrValue {
-			return true, accessName
-		}
-	}
-
-	return false, ""
 }
 
 // parseAccessRaw decodes Scope from base58 string, that contains SatelliteAddress, ApiKey, and EncryptionAccess.

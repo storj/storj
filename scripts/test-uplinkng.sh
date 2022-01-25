@@ -34,7 +34,7 @@ random_bytes_file "100KiB"  "$SRC_DIR/put-file"                       # create 1
 mkdir -p "$UPLINK_CONFIG_DIR"
 touch "$UPLINK_CONFIG_DIR/config.ini"
 
-uplinkng access save -f --name test-access --access "$GATEWAY_0_ACCESS"
+uplinkng access import -f test-access "$GATEWAY_0_ACCESS"
 uplinkng access use test-access
 
 uplinkng mb "sj://$BUCKET/"
@@ -45,7 +45,7 @@ uplinkng cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/" --progress=f
 uplinkng cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false
 
 # check named access
-uplinkng access save -f --name named-access --access "$GATEWAY_0_ACCESS"
+uplinkng access import -f named-access "$GATEWAY_0_ACCESS"
 FILES=$(uplinkng ls "sj://$BUCKET" --access named-access | tee "$TMPDIR/list" | wc -l)
 EXPECTED_FILES="5"
 if [ "$FILES" == "$EXPECTED_FILES" ]

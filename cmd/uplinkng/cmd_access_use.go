@@ -38,7 +38,7 @@ func (c *cmdAccessUse) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(ctx, "Switched default access to access %q\n", c.access)
+	fmt.Fprintf(ctx, "Switched default access to %q\n", c.access)
 
 	return nil
 }

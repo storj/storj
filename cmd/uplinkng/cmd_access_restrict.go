@@ -4,7 +4,10 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplinkng/ulext"
 )
@@ -13,7 +16,9 @@ type cmdAccessRestrict struct {
 	ex ulext.External
 	am accessMaker
 
-	access string
+	access   string
+	importAs string
+	exportTo string
 }
 
 func newCmdAccessRestrict(ex ulext.External) *cmdAccessRestrict {
@@ -22,9 +27,13 @@ func newCmdAccessRestrict(ex ulext.External) *cmdAccessRestrict {
 
 func (c *cmdAccessRestrict) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to restrict", "").(string)
+	c.importAs = params.Flag("import-as", "Import the access as this name", "").(string)
+	c.exportTo = params.Flag("export-to", "Export the access to this file path", "").(string)
 
 	params.Break()
-	c.am.Setup(params, c.ex, amSaveDefaultFalse)
+	c.am.Setup(params, c.ex)
+	params.Break()
+	c.am.perms.Setup(params, true)
 }
 
 func (c *cmdAccessRestrict) Execute(ctx clingy.Context) error {
@@ -33,5 +42,20 @@ func (c *cmdAccessRestrict) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	return c.am.Execute(ctx, access)
+	access, err = c.am.Execute(ctx, c.importAs, access)
+	if err != nil {
+		return err
+	}
+
+	if c.exportTo != "" {
+		return c.ex.ExportAccess(ctx, access, c.exportTo)
+	}
+
+	serialized, err := access.Serialize()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	fmt.Fprintln(ctx, serialized)
+	return nil
 }

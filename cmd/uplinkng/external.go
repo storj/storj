@@ -4,7 +4,10 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -120,8 +123,20 @@ func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string
 		return "", errs.New("required user input in non-interactive setting")
 	}
 	fmt.Fprint(ctx.Stdout(), prompt, " ")
-	_, err = fmt.Fscanln(ctx.Stdin(), &input)
-	return input, err
+	var buf []byte
+	var tmp [1]byte
+	for {
+		_, err := ctx.Stdin().Read(tmp[:])
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return "", errs.Wrap(err)
+		} else if tmp[0] == '\n' {
+			break
+		}
+		buf = append(buf, tmp[0])
+	}
+	return string(bytes.TrimSpace(buf)), nil
 }
 
 // PromptInput gets a line of secret input from the user twice to ensure that

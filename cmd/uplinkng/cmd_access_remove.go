@@ -12,21 +12,21 @@ import (
 	"storj.io/storj/cmd/uplinkng/ulext"
 )
 
-type cmdAccessDelete struct {
+type cmdAccessRemove struct {
 	ex ulext.External
 
 	access string
 }
 
-func newCmdAccessDelete(ex ulext.External) *cmdAccessDelete {
-	return &cmdAccessDelete{ex: ex}
+func newCmdAccessRemove(ex ulext.External) *cmdAccessRemove {
+	return &cmdAccessRemove{ex: ex}
 }
 
-func (c *cmdAccessDelete) Setup(params clingy.Parameters) {
+func (c *cmdAccessRemove) Setup(params clingy.Parameters) {
 	c.access = params.Arg("name", "Access name to delete").(string)
 }
 
-func (c *cmdAccessDelete) Execute(ctx clingy.Context) error {
+func (c *cmdAccessRemove) Execute(ctx clingy.Context) error {
 	defaultName, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err

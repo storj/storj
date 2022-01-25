@@ -19,8 +19,8 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/fpath"
 	"storj.io/storj/cmd/uplinkng/ulext"
+	"storj.io/storj/cmd/uplinkng/ulloc"
 	"storj.io/uplink"
 )
 
@@ -40,18 +40,14 @@ type cmdShare struct {
 	public      bool
 }
 
-// sharePrefixExtension is a temporary struct type. We might want to add hasTrailingSlash bool to `uplink.SharePrefix` directly.
-type sharePrefixExtension struct {
-	uplinkSharePrefix uplink.SharePrefix
-	hasTrailingSlash  bool
-}
-
 func newCmdShare(ex ulext.External) *cmdShare {
 	return &cmdShare{ex: ex}
 }
 
 func (c *cmdShare) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to share", "").(string)
+	params.Break()
+
 	c.exportTo = params.Flag("export-to", "Path to export the shared access to", "").(string)
 	c.baseURL = params.Flag("base-url", "The base url for link sharing", "https://link.us1.storjshare.io").(string)
 	c.register = params.Flag("register", "If true, creates and registers access grant", false,
@@ -65,11 +61,16 @@ func (c *cmdShare) Setup(params clingy.Parameters) {
 	c.public = params.Flag("public", "If true, the access will be public. --dns and --url override this", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
+	params.Break()
 
-	c.ap.SetupWithPrefixArg(params)
+	c.ap.Setup(params, false)
 }
 
 func (c *cmdShare) Execute(ctx clingy.Context) error {
+	if len(c.ap.prefixes) == 0 {
+		return errs.New("You must specify at least one prefix to share. Use the access restrict command to restrict with no prefixes.")
+	}
+
 	access, err := c.ex.OpenAccess(c.access)
 	if err != nil {
 		return err
@@ -97,14 +98,6 @@ func (c *cmdShare) Execute(ctx clingy.Context) error {
 	newAccessData, err := access.Serialize()
 	if err != nil {
 		return err
-	}
-
-	var sharePrefixes []sharePrefixExtension
-	for _, prefix := range c.ap.prefixes {
-		sharePrefixes = append(sharePrefixes, sharePrefixExtension{
-			uplinkSharePrefix: prefix,
-			hasTrailingSlash:  strings.HasSuffix(prefix.Prefix, "/"),
-		})
 	}
 
 	fmt.Fprintf(ctx, "Sharing access to satellite %s\n", access.SatelliteAddress())
@@ -135,12 +128,12 @@ func (c *cmdShare) Execute(ctx clingy.Context) error {
 
 		if len(c.ap.prefixes) == 1 && !c.ap.AllowUpload() && !c.ap.disallowDeletes {
 			if c.url {
-				if err = createURL(ctx, accessKey, c.ap.prefixes[0].Prefix, c.baseURL, sharePrefixes); err != nil {
+				if err = createURL(ctx, accessKey, c.ap.prefixes[0], c.baseURL, c.ap.prefixes); err != nil {
 					return err
 				}
 			}
 			if c.dns != "" {
-				if err = createDNS(ctx, accessKey, c.ap.prefixes[0].Prefix, c.baseURL, c.dns); err != nil {
+				if err = createDNS(ctx, accessKey, c.ap.prefixes[0], c.baseURL, c.dns); err != nil {
 					return err
 				}
 			}
@@ -251,42 +244,26 @@ func RegisterAccess(ctx context.Context, access *uplink.Access, authService stri
 }
 
 // Creates linksharing url for allowed path prefixes.
-func createURL(ctx clingy.Context, newAccessData, prefix, baseURL string, sharePrefixes []sharePrefixExtension) (err error) {
-	p, err := fpath.New(prefix)
-	if err != nil {
-		return err
-	}
+func createURL(ctx clingy.Context, newAccessData string, prefix uplink.SharePrefix, baseURL string, sharePrefixes []uplink.SharePrefix) (err error) {
+	loc := ulloc.NewRemote(prefix.Bucket, prefix.Prefix)
+	bucket, key, _ := loc.RemoteParts()
+
 	fmt.Fprintf(ctx, "=========== BROWSER URL ==================================================================\n")
 	fmt.Fprintf(ctx, "REMINDER  : Object key must end in '/' when trying to share recursively\n")
+	fmt.Fprintf(ctx, "URL       : %s/s/%s/%s/%s\n", baseURL, url.PathEscape(newAccessData), bucket, key)
 
-	path := p.Path()
-	// If we're not sharing the entire bucket (the path is empty)
-	// and the requested share prefix has a trailing slash, then
-	// make sure to append a trailing slash to the URL.
-	if path != "" && sharePrefixes[0].hasTrailingSlash {
-		path += "/"
-	}
-	fmt.Fprintf(ctx, "URL       : %s/s/%s/%s/%s\n", baseURL, url.PathEscape(newAccessData), p.Bucket(), path)
 	return nil
 }
 
 // Creates dns record info for allowed path prefixes.
-func createDNS(ctx clingy.Context, accessKey, pathPrefix, baseURL, dns string) (err error) {
-	p, err := fpath.New(pathPrefix)
-	if err != nil {
-		return err
-	}
+func createDNS(ctx clingy.Context, accessKey string, prefix uplink.SharePrefix, baseURL, dns string) (err error) {
 	CNAME, err := url.Parse(baseURL)
 	if err != nil {
 		return err
 	}
 
-	var printStorjRoot string
-	if p.Path() == "" {
-		printStorjRoot = fmt.Sprintf("txt-%s\tIN\tTXT  \tstorj-root:%s", dns, p.Bucket())
-	} else {
-		printStorjRoot = fmt.Sprintf("txt-%s\tIN\tTXT  \tstorj-root:%s/%s", dns, p.Bucket(), p.Path())
-	}
+	rootString := ulloc.NewRemote(prefix.Bucket, prefix.Prefix).String()[5:]
+	printStorjRoot := fmt.Sprintf("txt-%s\tIN\tTXT  \tstorj-root:%s", dns, rootString)
 
 	fmt.Fprintf(ctx, "=========== DNS INFO =====================================================================\n")
 	fmt.Fprintf(ctx, "Remember to update the $ORIGIN with your domain name. You may also change the $TTL.\n")

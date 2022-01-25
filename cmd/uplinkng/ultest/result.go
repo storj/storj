@@ -46,6 +46,19 @@ func (r Result) RequireStdout(t *testing.T, stdout string) Result {
 	return r
 }
 
+// RequireStdoutGlob requires that the execution wrote to stdout the provided string
+// where the * and ? characters are interpreted like shell glob patterns, except
+// they do not match newlines.
+// Blank lines are ignored and all lines are space trimmed for the comparison.
+func (r Result) RequireStdoutGlob(t *testing.T, stdoutPattern string) Result {
+	pattern := trimNewlineSpaces(stdoutPattern)
+	expected := trimNewlineSpaces(r.Stdout)
+	if !globMatch(pattern, expected) {
+		require.Equal(t, pattern, expected)
+	}
+	return r
+}
+
 // RequireStderr requires that the execution wrote to stderr the provided string.
 // Blank lines are ignored and all lines are space trimmed for the comparison.
 func (r Result) RequireStderr(t *testing.T, stderr string) Result {
@@ -146,6 +159,55 @@ func trimNewlineSpaces(s string) string {
 		}
 	}
 	return strings.Join(lines[:j], "\n")
+}
+
+// globMatch matches each line in pattern with the lines in against.
+func globMatch(pattern, against string) bool {
+	plines, alines := strings.Split(pattern, "\n"), strings.Split(against, "\n")
+	if len(plines) != len(alines) {
+		return false
+	}
+	for i, pline := range plines {
+		if !globMatchLine(pline, alines[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func globMatchLine(pattern, line string) bool {
+	px, lx := 0, 0
+	npx, nlx := 0, 0
+	for px < len(pattern) || lx < len(line) {
+		if px < len(pattern) {
+			switch c := pattern[px]; c {
+			default:
+				if lx < len(line) && line[lx] == c {
+					lx++
+					px++
+					continue
+				}
+			case '?':
+				if lx < len(line) {
+					lx++
+					px++
+					continue
+				}
+			case '*':
+				npx = px
+				nlx = lx + 1
+				px++
+				continue
+			}
+		}
+		if 0 < nlx && nlx <= len(line) {
+			px = npx
+			lx = nlx
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // File represents a file existing either locally or remotely.

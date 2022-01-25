@@ -4,11 +4,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"os"
-	"strings"
+	"path/filepath"
 
+	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
 	"storj.io/uplink"
@@ -43,7 +47,23 @@ func (ex *external) loadAccesses() error {
 	return nil
 }
 
+func parseAccessOrPossiblyFile(serializedOrFile string) (*uplink.Access, error) {
+	if access, err := uplink.ParseAccess(serializedOrFile); err == nil {
+		return access, nil
+	}
+
+	serialized, err := ioutil.ReadFile(serializedOrFile)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	return uplink.ParseAccess(string(bytes.TrimSpace(serialized)))
+}
+
 func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err error) {
+	if access, err := parseAccessOrPossiblyFile(accessName); err == nil {
+		return access, nil
+	}
+
 	accessDefault, accesses, err := ex.GetAccessInfo(true)
 	if err != nil {
 		return nil, err
@@ -53,17 +73,14 @@ func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err er
 	}
 
 	if data, ok := accesses[accessDefault]; ok {
-		access, err = uplink.ParseAccess(data)
-	} else {
-		access, err = uplink.ParseAccess(accessDefault)
-		// TODO: if this errors then it's probably a name so don't report an error
-		// that says "it failed to parse"
-	}
-	if err != nil {
-		return nil, err
+		return uplink.ParseAccess(data)
 	}
 
-	return access, nil
+	// the default was likely a name, so return a potentially nicer message.
+	if len(accessDefault) < 20 {
+		return nil, errs.New("Cannot find access named %q in saved accesses", accessDefault)
+	}
+	return nil, errs.New("Unable to get access grant")
 }
 
 func (ex *external) GetAccessInfo(required bool) (string, map[string]string, error) {
@@ -123,16 +140,42 @@ func (ex *external) SaveAccessInfo(defaultName string, accesses map[string]strin
 	return nil
 }
 
-func (ex *external) RequestAccess(ctx context.Context, token, passphrase string) (*uplink.Access, error) {
-	idx := strings.IndexByte(token, '/')
-	if idx == -1 {
-		return nil, errs.New("invalid setup token. should be 'satelliteAddress/apiKey'")
-	}
-	satelliteAddr, apiKey := token[:idx], token[idx+1:]
-
+func (ex *external) RequestAccess(ctx context.Context, satelliteAddr, apiKey, passphrase string) (*uplink.Access, error) {
 	access, err := uplink.RequestAccessWithPassphrase(ctx, satelliteAddr, apiKey, passphrase)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	return access, nil
+}
+
+func (ex *external) ExportAccess(ctx clingy.Context, access *uplink.Access, filename string) error {
+	serialized, err := access.Serialize()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// convert to an absolute path, mostly for output purposes.
+	filename, err = filepath.Abs(filename)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// note: we don't use ioutil.WriteFile because we want to pass
+	// the O_EXCL flag to ensure we don't overwrite existing files.
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	if _, err := f.WriteString(serialized + "\n"); err != nil {
+		return errs.Wrap(err)
+	}
+
+	if err := f.Close(); err != nil {
+		return errs.Wrap(err)
+	}
+
+	fmt.Fprintln(ctx, "Exported access to:", filename)
+	return nil
 }
