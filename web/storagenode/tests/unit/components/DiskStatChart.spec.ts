@@ -4,7 +4,7 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { newNodeModule, NODE_ACTIONS } from '@/app/store/modules/node';
+import { newNodeModule, NODE_ACTIONS, QUIC_STATUS } from '@/app/store/modules/node';
 import { Size } from '@/private/memory/size';
 import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { StorageNodeService } from '@/storagenode/sno/service';
@@ -58,8 +58,9 @@ describe('DiskStatChart', (): void => {
                     '0.1.1',
                     '0.2.2',
                     false,
-                    true,
+                    QUIC_STATUS.StatusOk,
                     '13000',
+                    new Date(2022, 11, 8),
                 ),
             ),
         );

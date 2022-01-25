@@ -17,8 +17,9 @@ export class Node {
         public wallet: string = '',
         public walletFeatures: string[] = [],
         public isLastVersion: boolean = false,
-        public quicEnabled: boolean = false,
+        public quicStatus: string = '',
         public configuredPort: string = '',
+        public lastQuicPingedAt: Date = new Date(),
     ) {}
 }
 
@@ -75,8 +76,9 @@ export class Dashboard {
         public version: string,
         public allowedVersion: string,
         public isUpToDate: boolean,
-        public quicEnabled: boolean,
+        public quicStatus: string,
         public configuredPort: string,
+        public lastQuicPingedAt: Date,
     ) { }
 }
 

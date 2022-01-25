@@ -30,6 +30,12 @@ export const NODE_ACTIONS = {
 export const StatusOnline = 'Online';
 export const StatusOffline = 'Offline';
 
+export const QUIC_STATUS = {
+    StatusOk: 'OK',
+    StatusMisconfigured: 'Misconfigured',
+    StatusRefreshing: 'Refreshing',
+};
+
 const {
     POPULATE_STORE,
     SELECT_SATELLITE,
@@ -61,8 +67,9 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                     nodeInfo.wallet,
                     nodeInfo.walletFeatures,
                     nodeInfo.isUpToDate,
-                    nodeInfo.quicEnabled,
+                    nodeInfo.quicStatus,
                     nodeInfo.configuredPort,
+                    nodeInfo.lastQuicPingedAt,
                 );
 
                 state.utilization = new Utilization(

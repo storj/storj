@@ -19,6 +19,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/storagenode/contact"
 )
 
 func TestStoragenodeContactEndpoint(t *testing.T) {
@@ -168,7 +169,8 @@ func TestServiceRequestPingMeQUIC(t *testing.T) {
 		node := planet.StorageNodes[0]
 		node.Contact.Chore.Pause(ctx)
 
-		err := node.Contact.Service.RequestPingMeQUIC(ctx)
+		quicStats, err := node.Contact.Service.RequestPingMeQUIC(ctx)
 		require.NoError(t, err)
+		require.Equal(t, contact.NetworkStatusOk, quicStats.Status())
 	})
 }

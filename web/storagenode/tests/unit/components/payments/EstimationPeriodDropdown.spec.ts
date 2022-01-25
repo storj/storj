@@ -6,7 +6,7 @@ import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { appStateModule } from '@/app/store/modules/appState';
-import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
+import { newNodeModule, NODE_MUTATIONS, QUIC_STATUS } from '@/app/store/modules/node';
 import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import {
@@ -73,8 +73,9 @@ describe('EstimationPeriodDropdown', (): void => {
             '0.1.1',
             '0.2.2',
             false,
-            true,
+            QUIC_STATUS.StatusOk,
             '13000',
+            new Date(),
         );
 
         store.commit(NODE_MUTATIONS.POPULATE_STORE, dashboardInfo);
