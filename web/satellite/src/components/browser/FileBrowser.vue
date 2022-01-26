@@ -443,6 +443,7 @@ import FileShareModal from "./FileShareModal.vue";
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from "@/types/browser.ts";
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { RouteConfig } from "@/router";
 
 // @vue/component
 @Component({
@@ -581,17 +582,31 @@ export default class FileBrowser extends Vue {
     }
 
     /**
+     * Returns bucket name from store.
+     */
+    private get bucket(): string {
+        return this.$store.state.objectsModule.fileComponentBucketName;
+    }
+
+    /**
+     * Returns objects flow status from store.
+     */
+    private get isNewObjectsFlow(): string {
+        return this.$store.state.appStateModule.isNewObjectsFlow;
+    }
+
+    /**
      * Return a boolean signifying whether the upload display is allowed to be shown.
      */
     public get displayUpload(): boolean {
-        return this.fetchingFilesSpinner === false;
+        return !this.fetchingFilesSpinner;
     }
 
     /**
      * Return a boolean signifying whether the create folder input can be shown.
      */
     public get showCreateFolderInput(): boolean {
-        return this.$store.state.files.createFolderInputShow === true;
+        return this.$store.state.files.createFolderInputShow;
     }
 
     /**
@@ -620,6 +635,16 @@ export default class FileBrowser extends Vue {
      * Set spinner state. If routePath is not present navigate away. If there's some error re-render the page with a call to list. All of this is done on the created lifecycle method.
      */
     public async created(): Promise<void> {
+        if (!this.bucket) {
+            if (this.isNewObjectsFlow) {
+                await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+            } else {
+                await this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+            }
+
+            return;
+        }
+
         // display the spinner while files are being fetched
         this.fetchingFilesSpinner = true;
 

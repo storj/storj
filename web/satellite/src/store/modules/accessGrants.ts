@@ -9,7 +9,7 @@ import {
     AccessGrantsOrderBy,
     AccessGrantsPage,
     DurationPermission,
-    GatewayCredentials,
+    EdgeCredentials,
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 
@@ -82,7 +82,7 @@ export class AccessGrantsState {
     public isUpload = true;
     public isList = true;
     public isDelete = true;
-    public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
+    public gatewayCredentials: EdgeCredentials = new EdgeCredentials();
     public accessGrantsWebWorker: Worker | null = null;
     public isAccessGrantsWebWorkerReady = false;
 }
@@ -125,7 +125,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                     return accessGrant;
                 });
             },
-            [SET_GATEWAY_CREDENTIALS](state: AccessGrantsState, credentials: GatewayCredentials) {
+            [SET_GATEWAY_CREDENTIALS](state: AccessGrantsState, credentials: EdgeCredentials) {
                 state.gatewayCredentials = credentials;
             },
             [SET_PAGE_NUMBER](state: AccessGrantsState, pageNumber: number) {
@@ -204,7 +204,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 state.selectedBucketNames = [];
                 state.permissionNotBefore = null;
                 state.permissionNotAfter = null;
-                state.gatewayCredentials = new GatewayCredentials();
+                state.gatewayCredentials = new EdgeCredentials();
             },
         },
         actions: {
@@ -248,8 +248,8 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             deleteAccessGrantsByNameAndProjectID: async function({rootGetters}: AccessGrantsContext, name: string): Promise<void> {
                 await api.deleteByNameAndProjectID(name, rootGetters.selectedProject.id);
             },
-            getGatewayCredentials: async function({commit}: AccessGrantsContext, payload): Promise<GatewayCredentials> {
-                const credentials: GatewayCredentials = await api.getGatewayCredentials(payload.accessGrant, payload.optionalURL, payload.isPublic);
+            getGatewayCredentials: async function({commit}: AccessGrantsContext, payload): Promise<EdgeCredentials> {
+                const credentials: EdgeCredentials = await api.getGatewayCredentials(payload.accessGrant, payload.optionalURL, payload.isPublic);
 
                 commit(SET_GATEWAY_CREDENTIALS, credentials);
 

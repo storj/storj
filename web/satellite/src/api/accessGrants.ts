@@ -8,7 +8,7 @@ import {
     AccessGrantCursor,
     AccessGrantsApi,
     AccessGrantsPage,
-    GatewayCredentials,
+    EdgeCredentials,
 } from '@/types/accessGrants';
 import { HttpClient } from '@/utils/httpClient';
 import { MetaUtils } from '@/utils/meta';
@@ -160,7 +160,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @param isPublic - optional status
      * @throws Error
      */
-    public async getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<GatewayCredentials> {
+    public async getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials> {
         const requestURL: string = optionalURL || MetaUtils.getMetaContent('gateway-credentials-request-url');
         if (!requestURL) throw new Error('Cannot get gateway credentials: request URL is not provided');
 
@@ -176,7 +176,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
 
         const result = await response.json();
 
-        return new GatewayCredentials(
+        return new EdgeCredentials(
             result.id,
             new Date(result.created_at),
             result.access_key_id,

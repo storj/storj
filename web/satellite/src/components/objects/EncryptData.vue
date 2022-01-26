@@ -64,7 +64,7 @@ import pbkdf2 from 'pbkdf2';
 import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from "@/utils/localData";
-import { GatewayCredentials } from "@/types/accessGrants";
+import { EdgeCredentials } from "@/types/accessGrants";
 import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
 import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 import { MetaUtils } from "@/utils/meta";
@@ -211,7 +211,7 @@ export default class EncryptData extends Vue {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
+        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
     }
 

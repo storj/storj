@@ -44,10 +44,10 @@ export interface AccessGrantsApi {
     /**
      * Get gateway credentials using access grant
      *
-     * @returns GatewayCredentials
+     * @returns EdgeCredentials
      * @throws Error
      */
-    getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<GatewayCredentials>;
+    getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials>;
 }
 
 /**
@@ -121,9 +121,9 @@ export class DurationPermission {
 }
 
 /**
- * GatewayCredentials class holds info for gateway credentials generated from access grant.
+ * EdgeCredentials class holds info for edge credentials generated from access grant.
  */
-export class GatewayCredentials {
+export class EdgeCredentials {
     constructor(
         public id: string = '',
         public createdAt: Date = new Date(),

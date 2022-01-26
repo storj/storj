@@ -4,7 +4,7 @@
 import S3, { Bucket } from 'aws-sdk/clients/s3';
 
 import { StoreModule } from '@/store';
-import { GatewayCredentials } from '@/types/accessGrants';
+import { EdgeCredentials } from '@/types/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 export const OBJECTS_ACTIONS = {
@@ -47,7 +47,7 @@ const {
 
 export class ObjectsState {
     public apiKey = '';
-    public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
+    public gatewayCredentials: EdgeCredentials = new EdgeCredentials();
     public s3Client: S3 = new S3({
         s3ForcePathStyle: true,
         signatureVersion: "v4",
@@ -80,7 +80,7 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
             [SET_API_KEY](state: ObjectsState, apiKey: string) {
                 state.apiKey = apiKey;
             },
-            [SET_GATEWAY_CREDENTIALS](state: ObjectsState, credentials: GatewayCredentials) {
+            [SET_GATEWAY_CREDENTIALS](state: ObjectsState, credentials: EdgeCredentials) {
                 state.gatewayCredentials = credentials;
             },
             [SET_S3_CLIENT](state: ObjectsState) {
@@ -110,7 +110,7 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
             [CLEAR](state: ObjectsState) {
                 state.apiKey = '';
                 state.passphrase = '';
-                state.gatewayCredentials = new GatewayCredentials();
+                state.gatewayCredentials = new EdgeCredentials();
                 state.s3Client = new S3({
                     s3ForcePathStyle: true,
                     signatureVersion: "v4",
@@ -124,7 +124,7 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
             setApiKey: function({commit}: ObjectsContext, apiKey: string): void {
                 commit(SET_API_KEY, apiKey);
             },
-            setGatewayCredentials: function({commit}: ObjectsContext, credentials: GatewayCredentials): void {
+            setGatewayCredentials: function({commit}: ObjectsContext, credentials: EdgeCredentials): void {
                 commit(SET_GATEWAY_CREDENTIALS, credentials);
             },
             setS3Client: function({commit}: ObjectsContext): void {
