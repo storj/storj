@@ -494,8 +494,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version:  -1,
-				ErrClass: &metabase.ErrConflict,
-				ErrText:  "object already exists",
+				ErrClass: &metabase.ErrObjectAlreadyExists,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -545,8 +544,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version:  -1,
-				ErrClass: &metabase.ErrConflict,
-				ErrText:  "object already exists",
+				ErrClass: &metabase.ErrObjectAlreadyExists,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{

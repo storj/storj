@@ -190,6 +190,28 @@ func TestFinishMoveObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
+		t.Run("object already exists", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			moveObjStream := metabasetest.RandObjectStream()
+			metabasetest.CreateObject(ctx, t, db, moveObjStream, 0)
+
+			conflictObjStream := metabasetest.RandObjectStream()
+			conflictObjStream.ProjectID = moveObjStream.ProjectID
+			metabasetest.CreateObject(ctx, t, db, conflictObjStream, 0)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					NewBucket:                    conflictObjStream.BucketName,
+					ObjectStream:                 moveObjStream,
+					NewEncryptedObjectKey:        []byte(conflictObjStream.ObjectKey),
+					NewEncryptedMetadataKeyNonce: testrand.Nonce().Bytes(),
+					NewEncryptedMetadataKey:      testrand.Bytes(265),
+				},
+				ErrClass: &metabase.ErrObjectAlreadyExists,
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("object does not exist", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 

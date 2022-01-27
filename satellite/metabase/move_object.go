@@ -8,9 +8,12 @@ import (
 	"database/sql"
 	"errors"
 
+	pgxerrcode "github.com/jackc/pgerrcode"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/txutil"
 	"storj.io/private/tagsql"
 )
@@ -167,7 +170,9 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		var segmentsCount int
 		row := db.db.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
 		if err = row.Scan(&segmentsCount); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
+			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
+				return Error.Wrap(ErrObjectAlreadyExists.New(""))
+			} else if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.New("object not found")
 			}
 			return Error.New("unable to update object: %w", err)
