@@ -40,7 +40,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				planetConfig.Name = t.Name()
 			}
 
-			log := newLogger(t)
+			log := NewLogger(t)
 
 			testmonkit.Run(context.Background(), t, func(parent context.Context) {
 				defer pprof.SetGoroutineLabels(parent)

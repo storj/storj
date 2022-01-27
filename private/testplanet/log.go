@@ -17,7 +17,8 @@ import (
 
 var useAbsTime = os.Getenv("STORJ_TESTPLANET_ABSTIME")
 
-func newLogger(t *testing.T) *zap.Logger {
+// NewLogger creates a zaptest logger with nice defaults for tests.
+func NewLogger(t *testing.T) *zap.Logger {
 	if useAbsTime != "" {
 		return zaptest.NewLogger(t)
 	}
