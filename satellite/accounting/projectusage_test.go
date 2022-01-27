@@ -94,9 +94,8 @@ func TestProjectUsageStorage(t *testing.T) {
 		// upload fails due to storage limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
 		require.Error(t, err)
-		if !strings.Contains(err.Error(), "Exceeded Storage Limit") {
-			t.Fatal("Expected resource exhausted error. Got", err.Error())
-		}
+		// TODO error should be compared to uplink API error when exposed
+		require.Contains(t, strings.ToLower(err.Error()), "storage limit", err.Error())
 
 		checkcancel()
 		if err := group.Wait(); err != nil {
@@ -200,7 +199,8 @@ func TestProjectSegmentLimit(t *testing.T) {
 		// upload fails due to segment limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Exceeded Segments Limit")
+		// TODO should compare to uplink API error when exposed
+		require.Contains(t, strings.ToLower(err.Error()), "segments limit")
 	})
 }
 
@@ -229,7 +229,8 @@ func TestProjectSegmentLimitInline(t *testing.T) {
 		// upload fails due to segment limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Exceeded Segments Limit")
+		// TODO should compare to uplink API error when exposed
+		require.Contains(t, strings.ToLower(err.Error()), "segments limit")
 	})
 }
 
@@ -258,7 +259,8 @@ func TestProjectSegmentLimitWithoutCache(t *testing.T) {
 		// upload fails due to segment limit
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/5", data)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Exceeded Segments Limit")
+		// TODO should compare to uplink API error when exposed
+		require.Contains(t, strings.ToLower(err.Error()), "segments limit")
 	})
 }
 
@@ -324,7 +326,8 @@ func TestProjectSegmentLimitMultipartUpload(t *testing.T) {
 		// multipart API upload should call BeginObject and return error on segment limit validation
 		_, err = project.BeginUpload(ctx, "testbucket", "test/path/4", &uplink.UploadOptions{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Exceeded Segments Limit")
+		// TODO should compare to uplink API error when exposed
+		require.Contains(t, strings.ToLower(err.Error()), "segments limit")
 	})
 }
 
@@ -867,7 +870,8 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		// we used limit so we should get error
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "3", data)
 		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "Exceeded Storage Limit"))
+		// TODO should compare to uplink API error when exposed
+		require.Contains(t, strings.ToLower(err.Error()), "storage limit")
 
 		// delete object to free some storage space
 		err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "bucket", "2")
@@ -883,7 +887,8 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		// should fail because we once again used space up to limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "2", data)
 		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "Exceeded Storage Limit"))
+		// TODO should compare to uplink API error when exposed
+		require.Contains(t, strings.ToLower(err.Error()), "storage limit")
 	})
 }
 
@@ -960,7 +965,8 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		// verify that storage limit is all used
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path2", data)
 		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "Exceeded Storage Limit"))
+		// TODO should compare to uplink API error when exposed
+		require.Contains(t, strings.ToLower(err.Error()), "storage limit")
 
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.NoError(t, err)
@@ -988,7 +994,8 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		// verify that storage limit is all used even at the new billing cycle
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path3", data)
 		require.Error(t, err)
-		require.True(t, strings.Contains(err.Error(), "Exceeded Storage Limit"))
+		// TODO should compare to uplink API error when exposed
+		require.Contains(t, strings.ToLower(err.Error()), "storage limit")
 
 		// verify that new billing cycle reset bandwidth limit
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
