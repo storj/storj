@@ -98,9 +98,9 @@ func (c *cmdAccessSetup) Execute(ctx clingy.Context) (err error) {
 		return nil
 	}
 
-	accessKey, secretKey, endpoint, err := RegisterAccess(ctx, access, c.authService, false, defaultAccessRegisterTimeout)
+	credentials, err := RegisterAccess(ctx, access, c.authService, false, "")
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	return errs.Wrap(DisplayGatewayCredentials(ctx, accessKey, secretKey, endpoint, "", ""))
+	return errs.Wrap(DisplayGatewayCredentials(ctx, *credentials, "", ""))
 }
