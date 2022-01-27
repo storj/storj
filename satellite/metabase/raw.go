@@ -97,6 +97,7 @@ func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
 	_, err = db.db.ExecContext(ctx, `
 		DELETE FROM objects;
 		DELETE FROM segments;
+		DELETE FROM segment_copies;
 		DELETE FROM node_aliases;
 		SELECT setval('node_alias_seq', 1, false);
 	`)
@@ -178,7 +179,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 			plain_offset, plain_size,
 			encrypted_etag,
 			redundancy,
-			inline_data, remote_alias_pieces, 
+			inline_data, remote_alias_pieces,
 			placement
 		FROM segments
 		ORDER BY stream_id ASC, position ASC
