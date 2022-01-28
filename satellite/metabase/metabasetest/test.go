@@ -393,29 +393,6 @@ func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db
 	require.Zero(t, diff)
 }
 
-// DeleteObjectLatestVersion is for testing metabase.DeleteObjectLatestVersion.
-type DeleteObjectLatestVersion struct {
-	Opts     metabase.DeleteObjectLatestVersion
-	Result   metabase.DeleteObjectResult
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step DeleteObjectLatestVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.DeleteObjectLatestVersion(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	sortObjects(result.Objects)
-	sortObjects(step.Result.Objects)
-
-	sortDeletedSegments(result.Segments)
-	sortDeletedSegments(step.Result.Segments)
-
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
-	require.Zero(t, diff)
-}
-
 // DeleteObjectAnyStatusAllVersions is for testing metabase.DeleteObjectAnyStatusAllVersions.
 type DeleteObjectAnyStatusAllVersions struct {
 	Opts     metabase.DeleteObjectAnyStatusAllVersions

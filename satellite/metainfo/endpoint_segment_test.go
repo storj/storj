@@ -340,8 +340,9 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, objects, 1)
-			_, err = planet.Satellites[0].Metabase.DB.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+			_, err = planet.Satellites[0].Metabase.DB.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 				ObjectLocation: objects[0].Location(),
+				Version:        metabase.DefaultVersion,
 			})
 			require.NoError(t, err)
 		}
@@ -361,8 +362,9 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, objects, 1)
-			_, err = planet.Satellites[0].Metabase.DB.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+			_, err = planet.Satellites[0].Metabase.DB.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 				ObjectLocation: objects[0].Location(),
+				Version:        metabase.DefaultVersion,
 			})
 			require.NoError(t, err)
 		}
