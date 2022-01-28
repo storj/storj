@@ -24,7 +24,7 @@ func MigrateUsers(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partn
 	more := true
 
 	// select the next ID after startID and offset the result. We will update relevant rows from the range of startID to nextID.
-	_, err = conn.Prepare(ctx, "select-for-update", "SELECT id FROM users WHERE id > $1 ORDER BY id OFFSET $2")
+	_, err = conn.Prepare(ctx, "select-for-update", "SELECT id FROM users WHERE id > $1 ORDER BY id OFFSET $2 LIMIT 1")
 	if err != nil {
 		return errs.New("could not prepare select query")
 	}
