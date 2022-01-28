@@ -102,12 +102,13 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			return nil, err
 		}
 	} else {
-		_, err = endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+		_, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 			},
+			Version: metabase.DefaultVersion,
 		})
 		if err == nil {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
@@ -144,7 +145,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 			StreamID:   streamID,
-			Version:    metabase.Version(1),
+			Version:    metabase.DefaultVersion,
 		},
 		ExpiresAt:  expiresAt,
 		Encryption: encryptionParameters,
@@ -231,7 +232,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			BucketName: string(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
-			Version:    metabase.Version(1),
+			Version:    metabase.DefaultVersion,
 		},
 		Encryption: encryption,
 	}
@@ -284,12 +285,13 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	mbObject, err := endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+	mbObject, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 		},
+		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -384,12 +386,13 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 
 	// get the object information
 
-	object, err := endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+	object, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
+		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -744,7 +747,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			Prefix:     prefix,
 			Cursor: metabase.IterateCursor{
 				Key:     metabase.ObjectKey(cursor),
-				Version: 1, // TODO: set to a the version from the protobuf request when it supports this
+				Version: metabase.DefaultVersion, // TODO: set to a the version from the protobuf request when it supports this
 			},
 			Recursive:             req.Recursive,
 			BatchSize:             limit + 1,
@@ -996,12 +999,13 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	}
 
 	// TODO we may need custom metabase request to avoid two DB calls
-	object, err := endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+	object, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 		},
+		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
