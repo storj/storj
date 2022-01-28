@@ -1803,6 +1803,17 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE reputations DROP COLUMN contained;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "migrate users/projects to correct segment limit",
+				Version:     188,
+				Action: migrate.SQL{
+					`UPDATE users SET
+						project_segment_limit = CASE WHEN paid_tier = true THEN 1000000 ELSE 150000 END;`,
+					`UPDATE projects SET segment_limit = 150000
+						WHERE owner_id NOT IN (SELECT id FROM users WHERE paid_tier = true);`,
+				},
+			},
 
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
