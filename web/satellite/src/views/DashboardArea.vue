@@ -82,6 +82,8 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from "@/types/users";
+import { AuthHttpApi } from "@/api/auth";
+import { MetaUtils } from "@/utils/meta";
 
 const {
     SETUP_ACCOUNT,
@@ -104,6 +106,10 @@ const {
     },
 })
 export default class DashboardArea extends Vue {
+    // List of DOM events that resets inactivity timer.
+    private readonly resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
+    private inactivityTimerId: ReturnType<typeof setTimeout>;
     // Minimum number of recovery codes before the recovery code warning bar is shown.
     public recoveryCodeWarningThreshold = 4;
 
@@ -114,6 +120,7 @@ export default class DashboardArea extends Vue {
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
+        this.setupInactivityTimers();
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
@@ -317,6 +324,54 @@ export default class DashboardArea extends Vue {
      */
     private get isCreateProjectPage(): boolean {
         return this.$route.name === RouteConfig.CreateProject.name;
+    }
+
+    /**
+     * Sets up timer id with given delay.
+     */
+    private startInactivityTimer(): void {
+        const inactivityTimerDelayInSeconds = MetaUtils.getMetaContent('inactivity-timer-delay');
+
+        this.inactivityTimerId = setTimeout(this.handleInactive, parseInt(inactivityTimerDelayInSeconds) * 1000);
+    }
+
+    /**
+     * Performs logout and cleans event listeners.
+     */
+    private async handleInactive(): Promise<void> {
+        try {
+            await this.auth.logout();
+            this.resetActivityEvents.forEach((eventName: string) => {
+                document.removeEventListener(eventName, this.resetInactivityTimer);
+            });
+            await this.$router.push(RouteConfig.Login.path);
+            await this.$notify.notify('Your session was timed out.');
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
+
+    /**
+     * Resets inactivity timer.
+     */
+    private resetInactivityTimer(): void {
+        clearTimeout(this.inactivityTimerId);
+        this.startInactivityTimer();
+    }
+
+    /**
+     * Adds DOM event listeners and starts timer.
+     */
+    private setupInactivityTimers(): void {
+        const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
+
+        if (isInactivityTimerEnabled === 'false') return;
+
+        this.resetActivityEvents.forEach((eventName: string) => {
+            document.addEventListener(eventName, this.resetInactivityTimer, false);
+        });
+
+        this.startInactivityTimer();
     }
 }
 </script>
