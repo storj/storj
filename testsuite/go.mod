@@ -10,9 +10,9 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20220118151013-fa0da4c7deff
+	storj.io/common v0.0.0-20220131120956-e74f624a3d55
 	storj.io/gateway-mt v1.18.1-0.20211210081136-cada9a567d31
-	storj.io/private v0.0.0-20211209191323-6595d4aa0cfe
+	storj.io/private v0.0.0-20220131131751-c913260b9ec2
 	storj.io/storj v0.12.1-0.20211102170500-1de8a695e84a
 )
 
@@ -32,7 +32,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
-	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
@@ -214,7 +213,7 @@ require (
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
-	google.golang.org/protobuf v1.26.0 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
@@ -228,9 +227,9 @@ require (
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	storj.io/drpc v0.0.26 // indirect
+	storj.io/drpc v0.0.29 // indirect
 	storj.io/gateway v1.4.1 // indirect
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a // indirect
-	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7 // indirect
-	storj.io/uplink v1.7.2-0.20220110164813-03e4f59f7af2 // indirect
+	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect
+	storj.io/uplink v1.7.2-0.20220131124001-c1db742c840d // indirect
 )

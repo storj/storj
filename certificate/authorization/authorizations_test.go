@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/base58"
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"

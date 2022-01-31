@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/base58"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/storj/cmd/uplinkng/ulext"
