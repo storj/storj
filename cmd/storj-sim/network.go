@@ -20,11 +20,11 @@ import (
 	"time"
 
 	"github.com/alessio/shellescape"
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/base58"
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
 	"storj.io/common/pb"

@@ -11,10 +11,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/base58"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/private/cfgstruct"
