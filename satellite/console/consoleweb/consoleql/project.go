@@ -4,84 +4,105 @@
 package consoleql
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/graphql-go/graphql"
 
+	"storj.io/common/memory"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 )
 
 const (
-	// ProjectType is a graphql type name for project
+	// ProjectType is a graphql type name for project.
 	ProjectType = "project"
-	// ProjectInputType is a graphql type name for project input
+	// ProjectInputType is a graphql type name for project input.
 	ProjectInputType = "projectInput"
-	// ProjectUsageType is a graphql type name for project usage
+	// ProjectLimitType is a graphql type name for project limit.
+	ProjectLimitType = "projectLimit"
+	// ProjectUsageType is a graphql type name for project usage.
 	ProjectUsageType = "projectUsage"
+	// ProjectsCursorInputType is a graphql input type name for projects cursor.
+	ProjectsCursorInputType = "projectsCursor"
+	// ProjectsPageType is a graphql type name for projects page.
+	ProjectsPageType = "projectsPage"
 	// BucketUsageCursorInputType is a graphql input
-	// type name for bucket usage cursor
+	// type name for bucket usage cursor.
 	BucketUsageCursorInputType = "bucketUsageCursor"
-	// BucketUsageType is a graphql type name for bucket usage
+	// BucketUsageType is a graphql type name for bucket usage.
 	BucketUsageType = "bucketUsage"
-	// BucketUsagePageType is a field name for bucket usage page
+	// BucketUsagePageType is a field name for bucket usage page.
 	BucketUsagePageType = "bucketUsagePage"
-	// PaymentMethodType is a field name for payment method
-	PaymentMethodType = "paymentMethod"
-	// FieldName is a field name for "name"
+	// ProjectMembersPageType is a field name for project members page.
+	ProjectMembersPageType = "projectMembersPage"
+	// ProjectMembersCursorInputType is a graphql type name for project members.
+	ProjectMembersCursorInputType = "projectMembersCursor"
+	// APIKeysPageType is a field name for api keys page.
+	APIKeysPageType = "apiKeysPage"
+	// APIKeysCursorInputType is a graphql type name for api keys.
+	APIKeysCursorInputType = "apiKeysCursor"
+	// FieldOwnerID is a field name for "ownerId".
+	FieldOwnerID = "ownerId"
+	// FieldName is a field name for "name".
 	FieldName = "name"
-	// FieldBucketName is a field name for "bucket name"
+	// FieldBucketName is a field name for "bucket name".
 	FieldBucketName = "bucketName"
-	// FieldDescription is a field name for description
+	// FieldDescription is a field name for description.
 	FieldDescription = "description"
-	// FieldMembers is field name for members
+	// FieldMembers is field name for members.
 	FieldMembers = "members"
-	// FieldAPIKeys is a field name for api keys
+	// FieldAPIKeys is a field name for api keys.
 	FieldAPIKeys = "apiKeys"
-	// FieldUsage is a field name for usage rollup
+	// FieldUsage is a field name for usage rollup.
 	FieldUsage = "usage"
-	// FieldBucketUsages is a field name for bucket usages
+	// FieldBucketUsages is a field name for bucket usages.
 	FieldBucketUsages = "bucketUsages"
-	// FieldPaymentMethods is a field name for payments methods
-	FieldPaymentMethods = "paymentMethods"
-	// FieldStorage is a field name for storage total
+	// FieldStorageLimit is a field name for the storage limit.
+	FieldStorageLimit = "storageLimit"
+	// FieldBandwidthLimit is a field name for bandwidth limit.
+	FieldBandwidthLimit = "bandwidthLimit"
+	// FieldStorage is a field name for storage total.
 	FieldStorage = "storage"
-	// FieldEgress is a field name for egress total
+	// FieldEgress is a field name for egress total.
 	FieldEgress = "egress"
-	// FieldObjectCount is a field name for objects count
+	// FieldSegmentCount is a field name for segments count.
+	FieldSegmentCount = "segmentCount"
+	// FieldObjectCount is a field name for objects count.
 	FieldObjectCount = "objectCount"
-	// FieldPageCount is a field name for total page count
+	// FieldPageCount is a field name for total page count.
 	FieldPageCount = "pageCount"
-	// FieldCurrentPage is a field name for current page number
+	// FieldCurrentPage is a field name for current page number.
 	FieldCurrentPage = "currentPage"
-	// FieldTotalCount is a field name for bucket usage count total
+	// FieldTotalCount is a field name for bucket usage count total.
 	FieldTotalCount = "totalCount"
-	// FieldCardBrand is a field name for credit card brand
-	FieldCardBrand = "brand"
-	// FieldCardLastFour is a field name for credit card last four digits
-	FieldCardLastFour = "lastFour"
-	// FieldCardToken is a field name for credit card token
-	FieldCardToken = "cardToken"
-	// FieldIsDefault is a field name for default payment method
-	FieldIsDefault = "isDefault"
-	// CursorArg is an argument name for cursor
+	// FieldMemberCount is a field name for number of project members.
+	FieldMemberCount = "memberCount"
+	// FieldProjects is a field name for projects.
+	FieldProjects = "projects"
+	// FieldProjectMembers is a field name for project members.
+	FieldProjectMembers = "projectMembers"
+	// CursorArg is an argument name for cursor.
 	CursorArg = "cursor"
-	// PageArg ia an argument name for page number
+	// PageArg ia an argument name for page number.
 	PageArg = "page"
-	// LimitArg is argument name for limit
+	// LimitArg is argument name for limit.
 	LimitArg = "limit"
-	// OffsetArg is argument name for offset
+	// OffsetArg is argument name for offset.
 	OffsetArg = "offset"
-	// SearchArg is argument name for search
+	// SearchArg is argument name for search.
 	SearchArg = "search"
-	// OrderArg is argument name for order
+	// OrderArg is argument name for order.
 	OrderArg = "order"
-	// SinceArg marks start of the period
+	// OrderDirectionArg is argument name for order direction.
+	OrderDirectionArg = "orderDirection"
+	// SinceArg marks start of the period.
 	SinceArg = "since"
-	// BeforeArg marks end of the period
+	// BeforeArg marks end of the period.
 	BeforeArg = "before"
 )
 
-// graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
+// graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo.
 func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: ProjectType,
@@ -92,55 +113,41 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 			FieldName: &graphql.Field{
 				Type: graphql.String,
 			},
+			FieldOwnerID: &graphql.Field{
+				Type: graphql.String,
+			},
 			FieldDescription: &graphql.Field{
 				Type: graphql.String,
 			},
 			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
+			FieldMemberCount: &graphql.Field{
+				Type: graphql.Int,
+			},
 			FieldMembers: &graphql.Field{
-				Type: graphql.NewList(types.projectMember),
+				Type: types.projectMemberPage,
 				Args: graphql.FieldConfigArgument{
-					OffsetArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-					LimitArg: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-					SearchArg: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					OrderArg: &graphql.ArgumentConfig{
-						Type: graphql.Int,
+					CursorArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.projectMembersCursor),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					offs, _ := p.Args[OffsetArg].(int)
-					lim, _ := p.Args[LimitArg].(int)
-					search, _ := p.Args[SearchArg].(string)
-					order, _ := p.Args[OrderArg].(int)
-
-					pagination := console.Pagination{
-						Limit:  lim,
-						Offset: int64(offs),
-						Search: search,
-						Order:  console.ProjectMemberOrder(order),
-					}
-
-					members, err := service.GetProjectMembers(p.Context, project.ID, pagination)
+					_, err := console.GetAuth(p.Context)
 					if err != nil {
 						return nil, err
 					}
 
-					_, err = console.GetAuth(p.Context)
+					cursor := cursorArgsToProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
+					page, err := service.GetProjectMembers(p.Context, project.ID, cursor)
 					if err != nil {
 						return nil, err
 					}
 
 					var users []projectMember
-					for _, member := range members {
+					for _, member := range page.ProjectMembers {
 						user, err := service.GetUser(p.Context, member.MemberID)
 						if err != nil {
 							return nil, err
@@ -152,15 +159,54 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 						})
 					}
 
-					return users, nil
+					projectMembersPage := projectMembersPage{
+						ProjectMembers: users,
+						TotalCount:     page.TotalCount,
+						Offset:         page.Offset,
+						Limit:          page.Limit,
+						Order:          int(page.Order),
+						OrderDirection: int(page.OrderDirection),
+						Search:         page.Search,
+						CurrentPage:    page.CurrentPage,
+						PageCount:      page.PageCount,
+					}
+					return projectMembersPage, nil
 				},
 			},
 			FieldAPIKeys: &graphql.Field{
-				Type: graphql.NewList(types.apiKeyInfo),
+				Type: types.apiKeyPage,
+				Args: graphql.FieldConfigArgument{
+					CursorArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.apiKeysCursor),
+					},
+				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					return service.GetAPIKeysInfoByProjectID(p.Context, project.ID)
+					_, err := console.GetAuth(p.Context)
+					if err != nil {
+						return nil, err
+					}
+
+					cursor := cursorArgsToAPIKeysCursor(p.Args[CursorArg].(map[string]interface{}))
+					page, err := service.GetAPIKeys(p.Context, project.ID, cursor)
+					if err != nil {
+						return nil, err
+					}
+
+					apiKeysPage := apiKeysPage{
+						APIKeys:        page.APIKeys,
+						TotalCount:     page.TotalCount,
+						Offset:         page.Offset,
+						Limit:          page.Limit,
+						Order:          int(page.Order),
+						OrderDirection: int(page.OrderDirection),
+						Search:         page.Search,
+						CurrentPage:    page.CurrentPage,
+						PageCount:      page.PageCount,
+					}
+
+					return apiKeysPage, err
 				},
 			},
 			FieldUsage: &graphql.Field{
@@ -179,7 +225,12 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					since := p.Args[SinceArg].(time.Time)
 					before := p.Args[BeforeArg].(time.Time)
 
-					return service.GetProjectUsage(p.Context, project.ID, since, before)
+					usage, err := service.GetProjectUsage(p.Context, project.ID, since, before)
+					if err != nil {
+						return nil, err
+					}
+
+					return usage, nil
 				},
 			},
 			FieldBucketUsages: &graphql.Field{
@@ -198,43 +249,19 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 					before := p.Args[BeforeArg].(time.Time)
 					cursor := fromMapBucketUsageCursor(p.Args[CursorArg].(map[string]interface{}))
 
-					return service.GetBucketTotals(p.Context, project.ID, cursor, before)
-				},
-			},
-			FieldPaymentMethods: &graphql.Field{
-				Type: graphql.NewList(types.paymentMethod),
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					project, _ := p.Source.(*console.Project)
-
-					paymentMethods, err := service.GetProjectPaymentMethods(p.Context, project.ID)
+					page, err := service.GetBucketTotals(p.Context, project.ID, cursor, before)
 					if err != nil {
 						return nil, err
 					}
 
-					var projectPaymentMethods []projectPayment
-					for _, paymentMethod := range paymentMethods {
-						projectPaymentMethod := projectPayment{
-							ID:         paymentMethod.ID.String(),
-							LastFour:   paymentMethod.Card.LastFour,
-							AddedAt:    paymentMethod.CreatedAt,
-							CardBrand:  paymentMethod.Card.Brand,
-							ExpMonth:   paymentMethod.Card.ExpirationMonth,
-							ExpYear:    paymentMethod.Card.ExpirationYear,
-							HolderName: paymentMethod.Card.Name,
-							IsDefault:  paymentMethod.IsDefault,
-						}
-
-						projectPaymentMethods = append(projectPaymentMethods, projectPaymentMethod)
-					}
-
-					return projectPaymentMethods, nil
+					return page, nil
 				},
 			},
 		},
 	})
 }
 
-// graphqlProjectInput creates graphql.InputObject type needed to create/update satellite.Project
+// graphqlProjectInput creates graphql.InputObject type needed to create/update satellite.Project.
 func graphqlProjectInput() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: ProjectInputType,
@@ -249,7 +276,37 @@ func graphqlProjectInput() *graphql.InputObject {
 	})
 }
 
-// graphqlBucketUsageCursor creates bucket usage cursor graphql input type
+// graphqlProjectLimit creates graphql.InputObject type needed to create/update satellite.Project.
+func graphqlProjectLimit() *graphql.InputObject {
+	return graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: ProjectLimitType,
+		Fields: graphql.InputObjectConfigFieldMap{
+			FieldStorageLimit: &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+			FieldBandwidthLimit: &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+		},
+	})
+}
+
+// graphqlBucketUsageCursor creates bucket usage cursor graphql input type.
+func graphqlProjectsCursor() *graphql.InputObject {
+	return graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: ProjectsCursorInputType,
+		Fields: graphql.InputObjectConfigFieldMap{
+			LimitArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+			PageArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+		},
+	})
+}
+
+// graphqlBucketUsageCursor creates bucket usage cursor graphql input type.
 func graphqlBucketUsageCursor() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: BucketUsageCursorInputType,
@@ -267,7 +324,7 @@ func graphqlBucketUsageCursor() *graphql.InputObject {
 	})
 }
 
-// graphqlBucketUsage creates bucket usage grapqhl type
+// graphqlBucketUsage creates bucket usage grapqhl type.
 func graphqlBucketUsage() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: BucketUsageType,
@@ -284,6 +341,9 @@ func graphqlBucketUsage() *graphql.Object {
 			FieldObjectCount: &graphql.Field{
 				Type: graphql.Float,
 			},
+			FieldSegmentCount: &graphql.Field{
+				Type: graphql.Float,
+			},
 			SinceArg: &graphql.Field{
 				Type: graphql.DateTime,
 			},
@@ -294,7 +354,34 @@ func graphqlBucketUsage() *graphql.Object {
 	})
 }
 
-// graphqlBucketUsagePage creates bucket usage page graphql object
+// graphqlProjectsPage creates a projects page graphql object.
+func graphqlProjectsPage(types *TypeCreator) *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: ProjectsPageType,
+		Fields: graphql.Fields{
+			FieldProjects: &graphql.Field{
+				Type: graphql.NewList(types.project),
+			},
+			LimitArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OffsetArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldPageCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldCurrentPage: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldTotalCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+		},
+	})
+}
+
+// graphqlBucketUsagePage creates bucket usage page graphql object.
 func graphqlBucketUsagePage(types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: BucketUsagePageType,
@@ -324,7 +411,7 @@ func graphqlBucketUsagePage(types *TypeCreator) *graphql.Object {
 	})
 }
 
-// graphqlProjectUsage creates project usage graphql type
+// graphqlProjectUsage creates project usage graphql type.
 func graphqlProjectUsage() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: ProjectUsageType,
@@ -338,6 +425,9 @@ func graphqlProjectUsage() *graphql.Object {
 			FieldObjectCount: &graphql.Field{
 				Type: graphql.Float,
 			},
+			FieldSegmentCount: &graphql.Field{
+				Type: graphql.Float,
+			},
 			SinceArg: &graphql.Field{
 				Type: graphql.DateTime,
 			},
@@ -348,62 +438,7 @@ func graphqlProjectUsage() *graphql.Object {
 	})
 }
 
-const (
-	// FieldExpirationYear is field name for expiration year
-	FieldExpirationYear = "expYear"
-	// FieldExpirationMonth is field name for expiration month
-	FieldExpirationMonth = "expMonth"
-	// FieldHolderName is field name for holder name
-	FieldHolderName = "holderName"
-	// FieldAddedAt is field name for added at date
-	FieldAddedAt = "addedAt"
-)
-
-// graphqlPaymentMethod creates invoice payment method graphql type
-func graphqlPaymentMethod() *graphql.Object {
-	return graphql.NewObject(graphql.ObjectConfig{
-		Name: PaymentMethodType,
-		Fields: graphql.Fields{
-			FieldID: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldExpirationYear: &graphql.Field{
-				Type: graphql.Int,
-			},
-			FieldExpirationMonth: &graphql.Field{
-				Type: graphql.Int,
-			},
-			FieldCardBrand: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldCardLastFour: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldHolderName: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldAddedAt: &graphql.Field{
-				Type: graphql.DateTime,
-			},
-			FieldIsDefault: &graphql.Field{
-				Type: graphql.Boolean,
-			},
-		},
-	})
-}
-
-type projectPayment struct {
-	ID         string
-	ExpYear    int64
-	ExpMonth   int64
-	CardBrand  string
-	LastFour   string
-	HolderName string
-	AddedAt    time.Time
-	IsDefault  bool
-}
-
-// fromMapProjectInfo creates console.ProjectInfo from input args
+// fromMapProjectInfo creates console.ProjectInfo from input args.
 func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInfo) {
 	project.Name, _ = args[FieldName].(string)
 	project.Description, _ = args[FieldDescription].(string)
@@ -411,8 +446,33 @@ func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInf
 	return
 }
 
-// fromMapBucketUsageCursor creates console.BucketUsageCursor from input args
-func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.BucketUsageCursor) {
+// fromMapProjectInfoProjectLimits creates console.ProjectInfo from input args.
+func fromMapProjectInfoProjectLimits(projectInfo, projectLimits map[string]interface{}) (project console.ProjectInfo, err error) {
+	project.Name, _ = projectInfo[FieldName].(string)
+	project.Description, _ = projectInfo[FieldDescription].(string)
+	storageLimit, err := strconv.Atoi(projectLimits[FieldStorageLimit].(string))
+	if err != nil {
+		return project, err
+	}
+	project.StorageLimit = memory.Size(storageLimit)
+	bandwidthLimit, err := strconv.Atoi(projectLimits[FieldBandwidthLimit].(string))
+	if err != nil {
+		return project, err
+	}
+	project.BandwidthLimit = memory.Size(bandwidthLimit)
+
+	return
+}
+
+// fromMapProjectsCursor creates console.ProjectsCursor from input args.
+func fromMapProjectsCursor(args map[string]interface{}) (cursor console.ProjectsCursor) {
+	cursor.Limit = args[LimitArg].(int)
+	cursor.Page = args[PageArg].(int)
+	return
+}
+
+// fromMapBucketUsageCursor creates accounting.BucketUsageCursor from input args.
+func fromMapBucketUsageCursor(args map[string]interface{}) (cursor accounting.BucketUsageCursor) {
 	limit, _ := args[LimitArg].(int)
 	page, _ := args[PageArg].(int)
 
@@ -420,4 +480,38 @@ func fromMapBucketUsageCursor(args map[string]interface{}) (cursor console.Bucke
 	cursor.Page = uint(page)
 	cursor.Search, _ = args[SearchArg].(string)
 	return
+}
+
+func cursorArgsToProjectMembersCursor(args map[string]interface{}) console.ProjectMembersCursor {
+	limit, _ := args[LimitArg].(int)
+	page, _ := args[PageArg].(int)
+	order, _ := args[OrderArg].(int)
+	orderDirection, _ := args[OrderDirectionArg].(int)
+
+	var cursor console.ProjectMembersCursor
+
+	cursor.Limit = uint(limit)
+	cursor.Page = uint(page)
+	cursor.Order = console.ProjectMemberOrder(order)
+	cursor.OrderDirection = console.OrderDirection(orderDirection)
+	cursor.Search, _ = args[SearchArg].(string)
+
+	return cursor
+}
+
+func cursorArgsToAPIKeysCursor(args map[string]interface{}) console.APIKeyCursor {
+	limit, _ := args[LimitArg].(int)
+	page, _ := args[PageArg].(int)
+	order, _ := args[OrderArg].(int)
+	orderDirection, _ := args[OrderDirectionArg].(int)
+
+	var cursor console.APIKeyCursor
+
+	cursor.Limit = uint(limit)
+	cursor.Page = uint(page)
+	cursor.Order = console.APIKeyOrder(order)
+	cursor.OrderDirection = console.OrderDirection(orderDirection)
+	cursor.Search, _ = args[SearchArg].(string)
+
+	return cursor
 }

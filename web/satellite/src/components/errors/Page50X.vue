@@ -1,14 +1,23 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./page50X.html"></template>
+<template src="./page50X.html" />
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component
-    // Page for server errors
-    export default class Page50X extends Vue {}
+import LogoIcon from '@/../static/images/logo.svg';
+import MainIcon from '@/../static/images/errors/50X.svg';
+
+// @vue/component
+@Component({
+    components: {
+        LogoIcon,
+        MainIcon,
+    },
+})
+// Page for server errors
+export default class Page50X extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -24,25 +33,22 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        -webkit-touch-callout: none; 
-        -webkit-user-select: none; 
-        -khtml-user-select: none; 
-        -moz-user-select: none; 
-        -ms-user-select: none; 
-        user-select: none; 
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
 
-        h1 {
-            font-family: 'font_regular';
+        &__title {
+            font-family: 'font_regular', sans-serif;
             margin-bottom: 60px;
             font-size: 32px;
         }
 
-        img, a {
+        img,
+        a {
             -webkit-user-drag: none;
-            -khtml-user-drag: none;
-            -moz-user-drag: none;
-            -o-user-drag: none;
-            user-drag: none;
         }
     }
 

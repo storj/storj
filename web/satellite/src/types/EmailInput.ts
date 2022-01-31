@@ -10,7 +10,7 @@ export class EmailInput {
         this.error = false;
     }
 
-    public setError(error: boolean) {
+    public setError(error: boolean): void {
         this.error = error;
     }
 }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Fragment>
+    <UI>
+      <Dialog Id="ValidationErrorDlg" Width="260" Height="85" Title="[ProductName] Setup">
+        <Control Id="OK" Type="PushButton" X="102" Y="57" Width="56" Height="17" Default="yes" Cancel="yes" Text="!(loc.WixUIOK)">
+          <Publish Event="EndDialog" Value="Return">1</Publish>
+        </Control>
+        <Control Id="Text" Type="Text" X="48" Y="22" Width="194" Height="30" Text="[ErrorMsg]" />
+        <Control Id="Icon" Type="Icon" X="15" Y="15" Width="24" Height="24" ToolTip="Exclamation icon" FixedSize="yes" IconSize="32" Text="WixUI_Ico_Exclam" />
+      </Dialog>
+    </UI>
+	</Fragment>
+</Wix>

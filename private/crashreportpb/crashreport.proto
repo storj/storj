@@ -1,0 +1,17 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/private/crashreportpb";
+
+package crash;
+
+service CrashReport {
+    rpc Report(ReportRequest) returns(ReportResponse) {}
+}
+
+message ReportRequest {
+    bytes gzipped_panic = 1;
+}
+
+message ReportResponse {}

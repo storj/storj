@@ -1,98 +1,117 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { NOTIFICATION_MUTATIONS } from '../mutationConstants';
-import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
+import { StoreModule } from '@/store';
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 
-export const notificationsModule = {
-    state: {
-        // Dynamic queue for displaying notifications
-        notificationQueue: [],
-    },
-    mutations: {
-        // Mutaion for adding notification to queue
-        [NOTIFICATION_MUTATIONS.ADD](state: any, notification: DelayedNotification): void {
-            state.notificationQueue.push(notification);
+import { NOTIFICATION_MUTATIONS } from '../mutationConstants';
 
-            // Pause current notification if it`s not first
-            if (state.notificationQueue.length > 1) {
-                notification.pause();
-            }
-        },
-        // Mutaion for deleting notification to queue
-        [NOTIFICATION_MUTATIONS.DELETE](state: any): void {
-            if (state.notificationQueue.length < 1) {
-                return;
-            }
+export class NotificationsState {
+    public notificationQueue: DelayedNotification[] = [];
+}
 
-            state.notificationQueue[0].pause();
-            state.notificationQueue.shift();
+interface NotificationsContext {
+    state: NotificationsState
+    commit: (string, ...unknown) => void
+}
 
-            // Starts next notification in queue if it exist
-            if (state.notificationQueue[0]) {
-                state.notificationQueue[0].start();
-            }
-        },
-        [NOTIFICATION_MUTATIONS.PAUSE](state: any): void {
-            state.notificationQueue[0].pause();
-        },
-        [NOTIFICATION_MUTATIONS.RESUME](state: any): void {
-            state.notificationQueue[0].start();
-        },
-        [NOTIFICATION_MUTATIONS.CLEAR](state: any): void {
-            state.notificationQueue = [];
-        },
-    },
-    actions: {
-        // Commits muttation for adding success notification
-        [NOTIFICATION_ACTIONS.SUCCESS]: function ({commit}: any, message: string): void {
-            const notification = new DelayedNotification(
-                () => commit(NOTIFICATION_MUTATIONS.DELETE),
-                NOTIFICATION_TYPES.SUCCESS,
-                message,
-            );
+export function makeNotificationsModule(): StoreModule<NotificationsState, NotificationsContext> {
+    return {
+        state: new NotificationsState(),
+        mutations: {
+            // Mutation for adding notification to queue
+            [NOTIFICATION_MUTATIONS.ADD](state: NotificationsState, notification: DelayedNotification): void {
+                state.notificationQueue.push(notification);
+            },
+            // Mutation for deleting notification to queue
+            [NOTIFICATION_MUTATIONS.DELETE](state: NotificationsState, id: string): void {
+                if (state.notificationQueue.length < 1) {
+                    return;
+                }
 
-            commit(NOTIFICATION_MUTATIONS.ADD, notification);
+                const selectedNotification =  getNotificationById(state.notificationQueue, id);
+                if (selectedNotification) {
+                    selectedNotification.pause();
+                    state.notificationQueue.splice(state.notificationQueue.indexOf(selectedNotification), 1);
+                }
+            },
+            [NOTIFICATION_MUTATIONS.PAUSE](state: NotificationsState, id: string): void {
+                const selectedNotification =  getNotificationById(state.notificationQueue, id);
+                if (selectedNotification) {
+                    selectedNotification.pause();
+                }
+            },
+            [NOTIFICATION_MUTATIONS.RESUME](state: NotificationsState, id: string): void {
+                const selectedNotification =  getNotificationById(state.notificationQueue, id);
+                if (selectedNotification) {
+                    selectedNotification.start();
+                }
+            },
+            [NOTIFICATION_MUTATIONS.CLEAR](state: NotificationsState): void {
+                state.notificationQueue = [];
+            },
         },
-        // Commits muttation for adding info notification
-        [NOTIFICATION_ACTIONS.NOTIFY]: function ({commit}: any, message: string): void {
+        actions: {
+            // Commits mutation for adding success notification
+            [NOTIFICATION_ACTIONS.SUCCESS]: function ({commit}: NotificationsContext, message: string): void {
+                const notification = new DelayedNotification(
+                    () => commit(NOTIFICATION_MUTATIONS.DELETE, notification.id),
+                    NOTIFICATION_TYPES.SUCCESS,
+                    message,
+                );
 
-            const notification = new DelayedNotification(
-                () => commit(NOTIFICATION_MUTATIONS.DELETE),
-                NOTIFICATION_TYPES.NOTIFICATION,
-                message,
-            );
+                commit(NOTIFICATION_MUTATIONS.ADD, notification);
+            },
+            // Commits mutation for adding info notification
+            [NOTIFICATION_ACTIONS.NOTIFY]: function ({commit}: NotificationsContext, message: string): void {
 
-            commit(NOTIFICATION_MUTATIONS.ADD, notification);
-        },
-        // Commits muttation for adding error notification
-        [NOTIFICATION_ACTIONS.ERROR]: function ({commit}: any, message: string): void {
-            const notification = new DelayedNotification(
-                () => commit(NOTIFICATION_MUTATIONS.DELETE),
-                NOTIFICATION_TYPES.ERROR,
-                message,
-            );
+                const notification = new DelayedNotification(
+                    () => commit(NOTIFICATION_MUTATIONS.DELETE, notification.id),
+                    NOTIFICATION_TYPES.NOTIFICATION,
+                    message,
+                );
 
-            commit(NOTIFICATION_MUTATIONS.ADD, notification);
+                commit(NOTIFICATION_MUTATIONS.ADD, notification);
+            },
+            // Commits mutation for adding error notification
+            [NOTIFICATION_ACTIONS.ERROR]: function ({commit}: NotificationsContext, message: string): void {
+                const notification = new DelayedNotification(
+                    () => commit(NOTIFICATION_MUTATIONS.DELETE, notification.id),
+                    NOTIFICATION_TYPES.ERROR,
+                    message,
+                );
+
+                commit(NOTIFICATION_MUTATIONS.ADD, notification);
+            },
+            // Commits mutation for adding error notification
+            [NOTIFICATION_ACTIONS.WARNING]: function ({commit}: NotificationsContext, message: string): void {
+                const notification = new DelayedNotification(
+                    () => commit(NOTIFICATION_MUTATIONS.DELETE, notification.id),
+                    NOTIFICATION_TYPES.WARNING,
+                    message,
+                );
+
+                commit(NOTIFICATION_MUTATIONS.ADD, notification);
+            },
+            [NOTIFICATION_ACTIONS.DELETE]: function ({commit}: NotificationsContext, id: string): void {
+                commit(NOTIFICATION_MUTATIONS.DELETE, id);
+            },
+            [NOTIFICATION_ACTIONS.PAUSE]: function ({commit}: NotificationsContext, id: string): void {
+                commit(NOTIFICATION_MUTATIONS.PAUSE, id);
+            },
+            [NOTIFICATION_ACTIONS.RESUME]: function ({commit}: NotificationsContext, id: string): void {
+                commit(NOTIFICATION_MUTATIONS.RESUME, id);
+            },
+            [NOTIFICATION_ACTIONS.CLEAR]: function ({commit}): void {
+                commit(NOTIFICATION_MUTATIONS.CLEAR);
+            },
         },
-        [NOTIFICATION_ACTIONS.DELETE]: function ({commit}: any): void {
-            commit(NOTIFICATION_MUTATIONS.DELETE);
-        },
-        [NOTIFICATION_ACTIONS.PAUSE]: function ({commit}: any): void {
-            commit(NOTIFICATION_MUTATIONS.PAUSE);
-        },
-        [NOTIFICATION_ACTIONS.RESUME]: function ({commit}: any): void {
-            commit(NOTIFICATION_MUTATIONS.RESUME);
-        },
-        [NOTIFICATION_ACTIONS.CLEAR]: function ({commit}): void {
-            commit(NOTIFICATION_MUTATIONS.CLEAR);
-        },
-    },
-    getters: {
-        currentNotification: (state: any): DelayedNotification => {
-            return state.notificationQueue[0] ? state.notificationQueue[0] : null;
-        },
-    },
-};
+        getters: {},
+    };
+}
+
+function getNotificationById(notifications: DelayedNotification[], id: string): DelayedNotification | undefined {
+    return notifications.find((notification: DelayedNotification) => notification.id === id);
+}

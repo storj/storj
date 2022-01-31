@@ -1,0 +1,63 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/storagenode/internalpb";
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+package storagenode.gracefulexit;
+
+// NodeGracefulExit is a private service on storagenodes.
+service NodeGracefulExit {
+  // GetSatellitesList returns a list of satellites that the storagenode has not exited.
+  rpc GetNonExitingSatellites(GetNonExitingSatellitesRequest) returns (GetNonExitingSatellitesResponse);
+  // InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
+  rpc InitiateGracefulExit(InitiateGracefulExitRequest) returns (ExitProgress);
+  // GetExitProgress returns graceful exit status on each satellite for a given storagenode.
+  rpc GetExitProgress(GetExitProgressRequest) returns (GetExitProgressResponse);
+  // GracefulExitFeasibility returns node's join date and satellites config's amount of months required for graceful exit to be allowed.
+  rpc GracefulExitFeasibility(GracefulExitFeasibilityRequest) returns (GracefulExitFeasibilityResponse);
+}
+
+message GetNonExitingSatellitesRequest{}
+
+message GetNonExitingSatellitesResponse {
+   repeated NonExitingSatellite satellites = 1;
+}
+
+// NonExitingSatellite contains information that's needed for a storagenode to start graceful exit.
+message NonExitingSatellite {
+   bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+   string domain_name = 2;
+   double space_used = 3;
+}
+
+message InitiateGracefulExitRequest {
+   bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message GetExitProgressRequest {}
+
+message GetExitProgressResponse {
+ repeated ExitProgress progress = 1;
+}
+
+message ExitProgress {
+    string domain_name = 1;
+    bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    float percent_complete = 3;
+    bool successful = 4;
+    bytes completion_receipt = 5;
+}
+
+message GracefulExitFeasibilityRequest {
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message GracefulExitFeasibilityResponse {
+    google.protobuf.Timestamp joined_at = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    int32 months_required = 2;
+    bool is_allowed = 3;
+}

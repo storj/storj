@@ -11,9 +11,10 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
+	"storj.io/common/fpath"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/versioncontrol"
 )
 
@@ -60,7 +61,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	err = controlserver.Run(ctx)
 	return err
 }
@@ -88,7 +89,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		overrides[serverAddress.Name] = defaultServerAddr
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
+		process.SaveConfigWithOverrides(overrides))
 }
 
 func main() {

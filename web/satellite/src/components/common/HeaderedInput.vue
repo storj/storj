@@ -4,129 +4,193 @@
 <template>
     <div class="input-container">
         <div v-if="!isOptional" class="label-container">
-            <img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
-            <h3 v-if="!error">{{label}}</h3>
-            <h3  v-if="!error" class="label-container__add-label">{{additionalLabel}}</h3>
-            <h3 class="label-container__error" v-if="error">{{error}}</h3>
+            <div class="label-container__main">
+                <ErrorIcon v-if="error" class="label-container__error-icon" />
+                <h3 v-if="!error" class="label-container__main__label">{{ label }}</h3>
+                <h3 v-if="!error" class="label-container__main__label add-label">{{ additionalLabel }}</h3>
+                <h3 v-if="error" class="label-container__main__error">{{ error }}</h3>
+                <div v-if="isLoading" class="loader" />
+            </div>
+            <h3 v-if="isLimitShown" class="label-container__limit">{{ currentLimit }}/{{ maxSymbols }}</h3>
         </div>
         <div v-if="isOptional" class="optional-label-container">
-            <h3>{{label}}</h3>
-            <h4>Optional</h4>
+            <h3 class="label-container__label">{{ label }}</h3>
+            <h4 class="optional-label-container__optional">Optional</h4>
         </div>
         <textarea
             v-if="isMultiline"
-            :id="this.$props.label"
-            :placeholder="this.$props.placeholder"
+            :id="label"
+            v-model="value"
+            class="headered-textarea"
+            :placeholder="placeholder"
             :style="style.inputStyle"
             :rows="5"
             :cols="40"
             wrap="hard"
             @input="onInput"
             @change="onInput"
-            v-model="value">
-        </textarea>
+        />
         <input
             v-if="!isMultiline"
-            :id="this.$props.label"
-            :placeholder="this.$props.placeholder"
-            v-bind:type="[isPassword ? 'password': 'text']"
+            :id="label"
+            v-model="value"
+            class="headered-input"
+            :placeholder="placeholder"
+            :type="[isPassword ? 'password': 'text']"
+            :style="style.inputStyle"
             @input="onInput"
             @change="onInput"
-            v-model="value"
-            :style="style.inputStyle"/>
+        >
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Prop, Vue } from 'vue-property-decorator';
-    import HeaderlessInput from './HeaderlessInput.vue';
+import { Component, Prop } from 'vue-property-decorator';
 
-    // Custom input component with labeled header
-    @Component
-    export default class HeaderedInput extends HeaderlessInput {
-        @Prop({default: ''})
-        private readonly initValue: string;
-        @Prop({default: ''})
-        private readonly additionalLabel: string;
-        @Prop({default: false})
-        private readonly isOptional: boolean;
-        @Prop({default: false})
-        private readonly isMultiline: boolean;
-        
-        public constructor() {
-            super();
-            
-            this.value = this.initValue;
-        }
+import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+
+import HeaderlessInput from './HeaderlessInput.vue';
+
+// Custom input component with labeled header
+// @vue/component
+@Component({
+    components: {
+        ErrorIcon,
+    },
+})
+export default class HeaderedInput extends HeaderlessInput {
+    @Prop({default: ''})
+    private readonly initValue: string;
+    @Prop({default: ''})
+    private readonly additionalLabel: string;
+    @Prop({default: 0})
+    private readonly currentLimit: number;
+    @Prop({default: false})
+    private readonly isOptional: boolean;
+    @Prop({default: false})
+    private readonly isLimitShown: boolean;
+    @Prop({default: false})
+    private readonly isMultiline: boolean;
+    @Prop({default: false})
+    private readonly isLoading: boolean;
+
+    public value: string;
+
+    public constructor() {
+        super();
+
+        this.value = this.initValue;
     }
+}
 </script>
 
 <style scoped lang="scss">
     .input-container {
-    	display: flex;
-    	flex-direction: column;
-    	align-items: flex-start;
-    	margin-top: 10px;
-    	width: 48%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        margin-top: 10px;
+        width: 100%;
+        font-family: 'font_regular', sans-serif;
     }
-    
+
     .label-container {
-    	display: flex;
-    	justify-content: flex-start;
-    	flex-direction: row;
-    
-    	&__add-label {
-            margin-left: 5px;
-            font-family: 'font_regular';
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+
+        &__error-icon {
+            min-height: 20px;
+            min-width: 20px;
+        }
+
+        &__main {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+
+            &__label {
+                font-size: 16px;
+                line-height: 21px;
+                color: #354049;
+            }
+
+            &__error {
+                font-size: 16px;
+                line-height: 21px;
+                color: #ff5560;
+                margin-left: 10px;
+            }
+        }
+
+        &__limit {
             font-size: 16px;
             line-height: 21px;
             color: rgba(56, 75, 101, 0.4);
-    	}
-    
-    	&__error {
-            color: #FF5560;
-            margin-left: 10px;
-    	}
+        }
     }
-    
+
     .optional-label-container {
-    	display: flex;
-    	flex-direction: row;
-    	justify-content: space-between;
-    	align-items: center;
-    	width: 100%;
-    
-    	h4 {
-            font-family: 'font_regular';
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+
+        &__optional {
             font-size: 16px;
             line-height: 21px;
-            color: #AFB7C1;
-    	}
+            color: #afb7c1;
+        }
     }
-    
-    input,
-    textarea {
-    	font-family: 'font_regular';
-    	font-size: 16px;
-    	line-height: 21px;
-    	resize: none;
-    	height: 48px;
-    	width: 100%;
-    	text-indent: 20px;
-    	border-color: rgba(56, 75, 101, 0.4);
-    	border-radius: 6px;
-    	outline: none;
-    	box-shadow: none;
+
+    .headered-input,
+    .headered-textarea {
+        font-size: 16px;
+        line-height: 21px;
+        resize: none;
+        height: 48px;
+        width: 100%;
+        padding: 0;
+        text-indent: 20px;
+        border-color: rgba(56, 75, 101, 0.4);
+        border-radius: 6px;
+        outline: none;
+        box-shadow: none;
+        -webkit-box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        box-sizing: border-box;
+
+        &::placeholder {
+            opacity: 0.6;
+        }
     }
-    
-    textarea {
-    	padding-top: 20px;
+
+    .headered-textarea {
+        padding: 15px 22px;
+        text-indent: 0;
+        line-height: 26px;
     }
-    
-    h3 {
-    	font-family: 'font_regular';
-    	font-size: 16px;
-    	line-height: 21px;
-    	color: #354049;
+
+    .add-label {
+        margin-left: 5px;
+        color: rgba(56, 75, 101, 0.4);
+    }
+
+    .loader {
+        margin-left: 10px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #3498db;
+        border-radius: 50%;
+        width: 15px;
+        height: 15px;
+        animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 </style>

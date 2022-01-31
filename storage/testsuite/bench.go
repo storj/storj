@@ -6,13 +6,15 @@ package testsuite
 import (
 	"path"
 	"strconv"
-	"sync"
 	"testing"
 
+	"golang.org/x/sync/errgroup"
+
+	"storj.io/common/testcontext"
 	"storj.io/storj/storage"
 )
 
-// RunBenchmarks runs common storage.KeyValueStore benchmarks
+// RunBenchmarks runs common storage.KeyValueStore benchmarks.
 func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 	var words = []string{
 		"alpha", "beta", "gamma", "delta", "iota", "kappa", "lambda", "mu",
@@ -22,6 +24,9 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 	}
 
 	words = words[:20] // branching factor
+	if testing.Short() {
+		words = words[:2]
+	}
 
 	var items storage.Items
 
@@ -38,26 +43,27 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 		}
 	}
 
-	defer cleanupItems(store, items)
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+
+	defer cleanupItems(b, ctx, store, items)
 
 	b.Run("Put", func(b *testing.B) {
 		b.SetBytes(int64(len(items)))
 		for k := 0; k < b.N; k++ {
-			var wg sync.WaitGroup
+			var group errgroup.Group
 			for _, item := range items {
 				key := item.Key
 				value := item.Value
 
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					err := store.Put(ctx, key, value)
-					if err != nil {
-						b.Fatal("store.Put err", err)
-					}
-				}()
+				group.Go(func() error {
+					return store.Put(ctx, key, value)
+				})
 			}
-			wg.Wait()
+
+			if err := group.Wait(); err != nil {
+				b.Fatalf("Put: %v", err)
+			}
 		}
 	})
 

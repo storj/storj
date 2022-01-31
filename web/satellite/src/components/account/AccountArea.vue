@@ -3,57 +3,39 @@
 
 <template>
     <div class="account-area-container">
-        <h1>Account</h1>
-        <TabNavigation
-            class="account-area-container__navigation"
-            :navigation="navigation"/>
         <router-view />
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import TabNavigation from '@/components/navigation/TabNavigation.vue';
-    import { ACCOUNT_ROUTES } from '@/utils/constants/tabNavigation';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            TabNavigation,
-        },
-    })
-    export default class AccountArea extends Vue {
-        public navigation: object = ACCOUNT_ROUTES;
-
-        public mounted(): void {
-            this.$router.push(ACCOUNT_ROUTES.PROFILE.path);
-        }
-    }
+/**
+ * AccountArea is a container for all account related routes.
+ */
+// @vue/component
+@Component
+export default class AccountArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        width: 4px;
+        background-color: #f5f6fa;
+    }
+
+    ::-webkit-scrollbar-track-piece {
+        background-color: #f5f6fa;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: #afb7c1;
+    }
+
     .account-area-container {
-        padding: 44px 55px 55px 55px;
-        position: relative;
-        
-        &__navigation {
-            position: absolute;
-            right: 55px;
-            top: 44px;
-            z-index: 99;
-            background-color: #F5F6FA;
-        }
-        
-        h1 {
-            position: absolute;
-            left: 55px;
-            top: 44px;
-            z-index: 99;
-            font-family: 'font_bold';
-            font-size: 24px;
-            line-height: 29px;
-            color: #354049;
-            margin-block-start: 0.5em;
-            margin-block-end: 0.5em;
-        }
+        padding: 0 30px;
+        height: 100%;
     }
 </style>

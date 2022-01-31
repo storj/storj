@@ -2,16 +2,89 @@
 // See LICENSE for copying information.
 
 import Vue from 'vue';
-import App from './App.vue';
-import router from './router';
-import store from './store';
-import Analytics from './plugins/analytics';
+import VueClipboard from 'vue-clipboard2';
 
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
+
+import App from './App.vue';
+import { router } from './router';
+import { store } from './store';
+
+window['VueNextTick'] = function(callback) {
+    return Vue.nextTick(callback);
+};
+
+Vue.config.devtools = true;
+Vue.config.performance = true;
 Vue.config.productionTip = false;
 
-Vue.use(Analytics, {
-    id: process.env.VUE_APP_SEGMENTID,
-    router,
+const notificator = new NotificatorPlugin();
+
+Vue.use(notificator);
+Vue.use(VueClipboard);
+
+/**
+ * Click outside handlers.
+ */
+const handlers = new Map();
+document.addEventListener('click', event => {
+    for (const handler of handlers.values()) {
+        handler(event);
+    }
+});
+
+/**
+ * Binds closing action to outside popups area.
+ */
+Vue.directive('click-outside', {
+    bind(el, binding) {
+        const handler = event => {
+            if (el !== event.target && !el.contains(event.target)) {
+                binding.value(event);
+            }
+        };
+
+        handlers.set(el, handler);
+    },
+
+    unbind(el) {
+        handlers.delete(el);
+    },
+});
+
+/**
+ * number directive allow user to type only numbers in input.
+ */
+Vue.directive('number', {
+    bind (el: HTMLElement) {
+        el.addEventListener('keydown', (e: KeyboardEvent) => {
+            const keyCode = parseInt(e.key);
+
+            if (!isNaN(keyCode) || e.key === 'Delete' || e.key === 'Backspace') {
+                return;
+            }
+
+            e.preventDefault();
+        });
+    },
+});
+
+/**
+ * leadingZero adds zero to the start of single digit number.
+ */
+Vue.filter('leadingZero', function (value: number): string {
+    if (value <= 9) {
+        return `0${value}`;
+    }
+
+    return `${value}`;
+});
+
+/**
+ * centsToDollars is a Vue filter that converts amount of cents in dollars string.
+ */
+Vue.filter('centsToDollars', (cents: number): string => {
+    return `$${(cents / 100).toFixed(2)}`;
 });
 
 new Vue({

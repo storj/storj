@@ -12,9 +12,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
+	"storj.io/storj/private/revocation"
 )
 
 var (
@@ -27,7 +27,7 @@ var (
 	}
 
 	revCfg struct {
-		RevocationDBURL string `default:"bolt://$CONFDIR/revocations.db" help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)"`
+		RevocationDBURL string `default:"bolt://$CONFDIR/revocations.db" help:"url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6379?db=2&password=abc123)"`
 	}
 )
 
@@ -38,12 +38,11 @@ func init() {
 }
 
 func cmdRevocations(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+	ctx, _ := process.Ctx(cmd)
 	if len(args) > 0 {
 		revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
 	}
-
-	revDB, err := identity.NewRevocationDB(revCfg.RevocationDBURL)
+	revDB, err := revocation.OpenDB(ctx, revCfg.RevocationDBURL)
 	if err != nil {
 		return err
 	}

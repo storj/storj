@@ -11,10 +11,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/peertls/extensions"
-	"storj.io/storj/pkg/process"
+	"storj.io/common/identity"
+	"storj.io/common/peertls/extensions"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
+	"storj.io/storj/private/revocation"
 )
 
 var (
@@ -114,7 +115,8 @@ func init() {
 }
 
 func cmdNewCA(cmd *cobra.Command, args []string) error {
-	_, err := newCACfg.CA.Create(process.Ctx(cmd), os.Stdout)
+	ctx, _ := process.Ctx(cmd)
+	_, err := newCACfg.CA.Create(ctx, os.Stdout)
 	return err
 }
 
@@ -129,10 +131,9 @@ func cmdGetID(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("node ID bytes:\t\t%v\n", p.ID[:])
 
 	difficulty, err := p.ID.Difficulty()
-	if err != nil {
-		return nil
+	if err == nil {
+		fmt.Printf("difficulty:\t\t%d\n", difficulty)
 	}
-	fmt.Printf("difficulty:\t\t%d\n", difficulty)
 	return nil
 }
 
@@ -161,24 +162,19 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
-	ctx := process.Ctx(cmd)
-	argLen := len(args)
-	switch {
-	case argLen > 0:
+	ctx, _ := process.Ctx(cmd)
+	if len(args) > 0 {
 		revokePeerCACfg.CA = identity.FullCAConfig{
 			CertPath: filepath.Join(identityDir, args[0], "ca.cert"),
 			KeyPath:  filepath.Join(identityDir, args[0], "ca.key"),
 		}
 
 		revokePeerCACfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
-		fallthrough
-	case argLen > 1:
+	}
+	if len(args) > 1 {
 		revokePeerCACfg.PeerCA = identity.PeerCAConfig{
 			CertPath: args[1],
 		}
-	}
-
-	if len(args) > 0 {
 	}
 
 	ca, err := revokePeerCACfg.CA.Load()
@@ -196,7 +192,7 @@ func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	revDB, err := identity.NewRevocationDB(revokePeerCACfg.RevocationDBURL)
+	revDB, err := revocation.OpenDB(ctx, revokePeerCACfg.RevocationDBURL)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,6 @@
 /*
 Package live provides live accounting functionality. That is, it keeps track
 of deltas in the amount of storage used by each project relative to the last
-tally operation (see pkg/accounting/tally).
+tally operation (see satellite/accounting/tally).
 */
 package live

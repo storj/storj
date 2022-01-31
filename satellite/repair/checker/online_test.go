@@ -8,12 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -21,13 +22,14 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ocache := overlay.NewCache(zap.NewNop(), fakeOverlayDB{}, overlay.NodeSelectionConfig{})
+	ocache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, overlay.Config{})
+	require.NoError(t, err)
 	rcache := NewReliabilityCache(ocache, time.Millisecond)
 
 	for i := 0; i < 10; i++ {
 		ctx.Go(func() error {
 			for i := 0; i < 10000; i++ {
-				pieces := []*pb.RemotePiece{{NodeId: testrand.NodeID()}}
+				pieces := []metabase.Piece{{StorageNode: testrand.NodeID()}}
 				_, err := rcache.MissingPieces(ctx, time.Now(), pieces)
 				if err != nil {
 					return err

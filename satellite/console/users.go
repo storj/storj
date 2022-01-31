@@ -8,14 +8,19 @@ import (
 	"net/mail"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/memory"
+	"storj.io/common/uuid"
 )
 
 // Users exposes methods to manage User table in database.
+//
+// architecture: Database
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
-	// GetByEmail is a method for querying user by email from the database.
+	// GetByEmailWithUnverified is a method for querying users by email from the database.
+	GetByEmailWithUnverified(ctx context.Context, email string) (*User, []User, error)
+	// GetByEmail is a method for querying user by verified email from the database.
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	// Insert is a method for inserting user into the database.
 	Insert(ctx context.Context, user *User) (*User, error)
@@ -23,27 +28,27 @@ type Users interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, user *User) error
+	// UpdatePaidTier sets whether the user is in the paid tier.
+	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64) error
+	// GetProjectLimit is a method to get the users project limit
+	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
+	// GetUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
+	GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limit *ProjectLimits, err error)
 }
 
 // UserInfo holds User updatable data.
 type UserInfo struct {
 	FullName  string `json:"fullName"`
 	ShortName string `json:"shortName"`
-	Email     string `json:"email"`
-	PartnerID string `json:"partnerId"`
 }
 
 // IsValid checks UserInfo validity and returns error describing whats wrong.
 func (user *UserInfo) IsValid() error {
 	var errs validationErrors
 
-	// validate email
-	_, err := mail.ParseAddress(user.Email)
-	errs.AddWrap(err)
-
 	// validate fullName
-	if user.FullName == "" {
-		errs.Add("fullName can't be empty")
+	if err := ValidateFullName(user.FullName); err != nil {
+		errs.AddWrap(err)
 	}
 
 	return errs.Combine()
@@ -51,19 +56,36 @@ func (user *UserInfo) IsValid() error {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	UserInfo
-	Password string `json:"password"`
+	FullName          string `json:"fullName"`
+	ShortName         string `json:"shortName"`
+	Email             string `json:"email"`
+	PartnerID         string `json:"partnerId"`
+	UserAgent         []byte `json:"userAgent"`
+	Password          string `json:"password"`
+	IsProfessional    bool   `json:"isProfessional"`
+	Position          string `json:"position"`
+	CompanyName       string `json:"companyName"`
+	WorkingOn         string `json:"workingOn"`
+	EmployeeCount     string `json:"employeeCount"`
+	HaveSalesContact  bool   `json:"haveSalesContact"`
+	RecaptchaResponse string `json:"recaptchaResponse"`
+	IP                string `json:"ip"`
+	SignupPromoCode   string `json:"signupPromoCode"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
 func (user *CreateUser) IsValid() error {
 	var errs validationErrors
 
-	errs.AddWrap(user.UserInfo.IsValid())
-	errs.AddWrap(validatePassword(user.Password))
+	errs.AddWrap(ValidateFullName(user.FullName))
+	errs.AddWrap(ValidatePassword(user.Password))
+
+	// validate email
+	_, err := mail.ParseAddress(user.Email)
+	errs.AddWrap(err)
 
 	if user.PartnerID != "" {
-		_, err := uuid.Parse(user.PartnerID)
+		_, err := uuid.FromString(user.PartnerID)
 		if err != nil {
 			errs.AddWrap(err)
 		}
@@ -72,15 +94,30 @@ func (user *CreateUser) IsValid() error {
 	return errs.Combine()
 }
 
-// UserStatus - is used to indicate status of the users account
+// ProjectLimits holds info for a users bandwidth and storage limits for new projects.
+type ProjectLimits struct {
+	ProjectBandwidthLimit memory.Size `json:"projectBandwidthLimit"`
+	ProjectStorageLimit   memory.Size `json:"projectStorageLimit"`
+	ProjectSegmentLimit   int64       `json:"projectSegmentLimit"`
+}
+
+// AuthUser holds info for user authentication token requests.
+type AuthUser struct {
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	MFAPasscode     string `json:"mfaPasscode"`
+	MFARecoveryCode string `json:"mfaRecoveryCode"`
+}
+
+// UserStatus - is used to indicate status of the users account.
 type UserStatus int
 
 const (
-	// Inactive is a user status that he receives after registration
+	// Inactive is a user status that he receives after registration.
 	Inactive UserStatus = 0
-	// Active is a user status that he receives after account activation
+	// Active is a user status that he receives after account activation.
 	Active UserStatus = 1
-	// Deleted is a user status that he receives after deleting account
+	// Deleted is a user status that he receives after deleting account.
 	Deleted UserStatus = 2
 )
 
@@ -96,6 +133,30 @@ type User struct {
 
 	Status    UserStatus `json:"status"`
 	PartnerID uuid.UUID  `json:"partnerId"`
+	UserAgent []byte     `json:"userAgent"`
 
 	CreatedAt time.Time `json:"createdAt"`
+
+	ProjectLimit          int   `json:"projectLimit"`
+	ProjectStorageLimit   int64 `json:"projectStorageLimit"`
+	ProjectBandwidthLimit int64 `json:"projectBandwidthLimit"`
+	ProjectSegmentLimit   int64 `json:"projectSegmentLimit"`
+	PaidTier              bool  `json:"paidTier"`
+
+	IsProfessional bool   `json:"isProfessional"`
+	Position       string `json:"position"`
+	CompanyName    string `json:"companyName"`
+	CompanySize    int    `json:"companySize"`
+	WorkingOn      string `json:"workingOn"`
+	EmployeeCount  string `json:"employeeCount"`
+
+	HaveSalesContact bool `json:"haveSalesContact"`
+
+	MFAEnabled       bool     `json:"mfaEnabled"`
+	MFASecretKey     string   `json:"mfaSecretKey"`
+	MFARecoveryCodes []string `json:"mfaRecoveryCodes"`
+
+	SignupPromoCode string `json:"signupPromoCode"`
+
+	LastVerificationReminder time.Time `json:"lastVerificationReminder"`
 }

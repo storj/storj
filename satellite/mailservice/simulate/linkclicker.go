@@ -6,73 +6,91 @@ package simulate
 import (
 	"context"
 	"net/http"
-	"regexp"
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"golang.org/x/net/html"
 
-	"storj.io/storj/internal/post"
+	"storj.io/storj/private/post"
+	"storj.io/storj/satellite/mailservice"
 )
 
 var mon = monkit.Package()
 
-// LinkClicker is mailservice.Sender that click all links
-// from html msg parts
-type LinkClicker struct{}
+var _ mailservice.Sender = (*LinkClicker)(nil)
 
-// FromAddress return empty mail address
+// LinkClicker is mailservice.Sender that click all links from html msg parts.
+//
+// architecture: Service
+type LinkClicker struct {
+	// MarkerAttribute specifies the attribute every anchor element must have in order to be clicked.
+	// This prevents the link clicker from clicking links that it should not (such as the password reset cancellation link).
+	// Leaving this field empty will make it click every link.
+	MarkerAttribute string
+}
+
+// NewDefaultLinkClicker returns a LinkClicker with the default marker attribute.
+func NewDefaultLinkClicker() *LinkClicker {
+	return &LinkClicker{MarkerAttribute: "data-simulate"}
+}
+
+// FromAddress return empty mail address.
 func (clicker *LinkClicker) FromAddress() post.Address {
 	return post.Address{}
 }
 
-// SendEmail click all links from email html parts
+// SendEmail click all links belonging to properly attributed anchors from email html parts.
 func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// dirty way to find links without pulling in a html dependency
-	regx := regexp.MustCompile(`href="([^\s])+"`)
-	// collect all links
-	var links []string
+	var body string
 	for _, part := range msg.Parts {
-		tags := findLinkTags(part.Content)
-		for _, tag := range tags {
-			href := regx.FindString(tag)
-			if href == "" {
-				continue
-			}
-
-			links = append(links, href[len(`href="`):len(href)-1])
-		}
+		body += part.Content
 	}
+
 	// click all links
 	var sendError error
-	for _, link := range links {
-		_, err := http.Get(link)
-		sendError = errs.Combine(sendError, err)
+	for _, link := range clicker.FindLinks(body) {
+		req, err := http.NewRequestWithContext(ctx, "GET", link, nil)
+		if err != nil {
+			continue
+		}
+		response, err := http.DefaultClient.Do(req)
+		if err != nil {
+			continue
+		}
+		sendError = errs.Combine(sendError, err, response.Body.Close())
 	}
 
 	return sendError
 }
 
-func findLinkTags(body string) []string {
-	var tags []string
+// FindLinks returns a list of all links belonging to properly attributed anchors in the HTML body.
+func (clicker *LinkClicker) FindLinks(body string) (links []string) {
+	tokens := html.NewTokenizer(strings.NewReader(body))
 Loop:
 	for {
-		stTag := strings.Index(body, "<a")
-		if stTag < 0 {
+		switch tokens.Next() {
+		case html.ErrorToken:
 			break Loop
+		case html.StartTagToken:
+			token := tokens.Token()
+			if strings.ToLower(token.Data) == "a" {
+				simulate := clicker.MarkerAttribute == ""
+				var href string
+				for _, attr := range token.Attr {
+					if strings.ToLower(attr.Key) == "href" {
+						href = attr.Val
+					} else if !simulate && attr.Key == clicker.MarkerAttribute {
+						simulate = true
+					}
+				}
+				if simulate && href != "" {
+					links = append(links, href)
+				}
+			}
 		}
-
-		stripped := body[stTag:]
-		endTag := strings.Index(stripped, "</a>")
-		if endTag < 0 {
-			break Loop
-		}
-
-		offset := endTag + len("</a>") + 1
-		body = stripped[offset:]
-		tags = append(tags, stripped[:offset])
 	}
-	return tags
+	return links
 }

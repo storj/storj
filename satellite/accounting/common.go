@@ -6,20 +6,36 @@ package accounting
 import (
 	"time"
 
-	"storj.io/storj/pkg/storj"
+	"github.com/zeebo/errs"
+
+	"storj.io/common/storj"
 )
 
-// Constants for accounting_raw, accounting_rollup, and accounting_timestamps
+// Constants for accounting_raw, accounting_rollup, and accounting_timestamps.
 const (
-	// LastAtRestTally represents the accounting timestamp for the at-rest data calculation
+	// LastAtRestTally represents the accounting timestamp for the at-rest data calculation.
 	LastAtRestTally = "LastAtRestTally"
-	// LastBandwidthTally represents the accounting timestamp for the bandwidth allocation query
+	// LastBandwidthTally represents the accounting timestamp for the bandwidth allocation query.
 	LastBandwidthTally = "LastBandwidthTally"
-	// LastRollup represents the accounting timestamp for rollup calculations
+	// LastRollup represents the accounting timestamp for rollup calculations.
 	LastRollup = "LastRollup"
 )
 
-// CSVRow represents data from QueryPaymentInfo without exposing dbx
+var (
+	// ErrInvalidArgument is returned when a function argument has an invalid
+	// business domain value.
+	ErrInvalidArgument = errs.Class("invalid argument")
+	// ErrSystemOrNetError is returned when the used storage backend returns an
+	// internal system or network error.
+	ErrSystemOrNetError = errs.Class("accounting backend")
+	// ErrKeyNotFound is returned when the key is not found in the cache.
+	ErrKeyNotFound = errs.Class("key not found")
+	// ErrUnexpectedValue is returned when an unexpected value according the
+	// business domain is in the cache.
+	ErrUnexpectedValue = errs.Class("unexpected value")
+)
+
+// CSVRow represents data from QueryPaymentInfo without exposing dbx.
 type CSVRow struct {
 	NodeID           storj.NodeID
 	NodeCreationDate time.Time

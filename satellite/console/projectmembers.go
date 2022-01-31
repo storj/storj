@@ -7,15 +7,17 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // ProjectMembers exposes methods to manage ProjectMembers table in database.
+//
+// architecture: Database
 type ProjectMembers interface {
 	// GetByMemberID is a method for querying project members from the database by memberID.
 	GetByMemberID(ctx context.Context, memberID uuid.UUID) ([]ProjectMember, error)
-	// GetByProjectID is a method for querying project members from the database by projectID, offset and limit.
-	GetByProjectID(ctx context.Context, projectID uuid.UUID, pagination Pagination) ([]ProjectMember, error)
+	// GetPagedByProjectID is a method for querying project members from the database by projectID and cursor
+	GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (*ProjectMembersPage, error)
 	// Insert is a method for inserting project member into the database.
 	Insert(ctx context.Context, memberID, projectID uuid.UUID) (*ProjectMember, error)
 	// Delete is a method for deleting project member by memberID and projectID from the database.
@@ -32,22 +34,38 @@ type ProjectMember struct {
 	CreatedAt time.Time
 }
 
-// Pagination defines pagination, filtering and sorting rules
-type Pagination struct {
-	Limit  int
-	Offset int64
-	Search string
-	Order  ProjectMemberOrder
+// ProjectMembersCursor holds info for project members cursor pagination.
+type ProjectMembersCursor struct {
+	Search         string
+	Limit          uint
+	Page           uint
+	Order          ProjectMemberOrder
+	OrderDirection OrderDirection
 }
 
-// ProjectMemberOrder is used for querying project members in specified order
+// ProjectMembersPage represent project members page result.
+type ProjectMembersPage struct {
+	ProjectMembers []ProjectMember
+
+	Search         string
+	Limit          uint
+	Order          ProjectMemberOrder
+	OrderDirection OrderDirection
+	Offset         uint64
+
+	PageCount   uint
+	CurrentPage uint
+	TotalCount  uint64
+}
+
+// ProjectMemberOrder is used for querying project members in specified order.
 type ProjectMemberOrder int8
 
 const (
-	// Name indicates that we should order by full name
+	// Name indicates that we should order by full name.
 	Name ProjectMemberOrder = 1
-	// Email indicates that we should order by email
+	// Email indicates that we should order by email.
 	Email ProjectMemberOrder = 2
-	// Created indicates that we should order by created date
+	// Created indicates that we should order by created date.
 	Created ProjectMemberOrder = 3
 )

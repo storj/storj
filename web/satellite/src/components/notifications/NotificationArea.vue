@@ -2,42 +2,58 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="notificationArea" class="notification-container" v-if="currentNotification" >
-        <Notification :notification="currentNotification" />
+    <div v-if="doNotificationsExist" class="notification-container">
+        <NotificationItem
+            v-for="notification in notifications"
+            :key="notification.id"
+            :notification="notification"
+        />
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import Notification from '@/components/notifications/Notification.vue';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Notification,
-        }
-    })
-    export default class NotificationArea extends Vue {
-        public get currentNotification(): Notification {
-            return this.$store.getters.currentNotification;
-        }
+import NotificationItem from '@/components/notifications/NotificationItem.vue';
+
+import { DelayedNotification } from '@/types/DelayedNotification';
+
+// @vue/component
+@Component({
+    components: {
+        NotificationItem,
+    },
+})
+export default class NotificationArea extends Vue {
+    /**
+     * Returns all notification queue from store.
+     */
+    public get notifications(): DelayedNotification[] {
+        return this.$store.state.notificationsModule.notificationQueue;
     }
+
+    /**
+     * Indicates if any notifications are in queue.
+     */
+    public get doNotificationsExist(): boolean {
+        return this.notifications.length > 0;
+    }
+}
 </script>
 
 <style scoped lang="scss">
     .notification-container {
-        height: 98px;
-        max-width: 80%;
-        width: 100%;
-        background-color: #fff;
+        width: 417px;
+        background-color: transparent;
         display: flex;
+        flex-direction: column;
         position: fixed;
-        bottom: 50px;
-        right: 50%;
-        transform: translate(50%);
-        align-items: center;
+        top: 114px;
+        right: 17px;
+        align-items: flex-end;
         justify-content: space-between;
-        box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
-        border-radius: 6px;
+        border-radius: 12px;
         z-index: 9999;
+        overflow: hidden;
     }
 </style>

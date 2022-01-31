@@ -8,24 +8,34 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/process"
-	"storj.io/storj/uplink/setup"
+	"storj.io/common/fpath"
+	"storj.io/uplink"
+)
+
+var (
+	rmEncryptedFlag *bool
+	rmPendingFlag   *bool
 )
 
 func init() {
-	addCmd(&cobra.Command{
-		Use:   "rm",
+	rmCmd := addCmd(&cobra.Command{
+		Use:   "rm sj://BUCKET/KEY",
 		Short: "Delete an object",
 		RunE:  deleteObject,
+		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
+	rmEncryptedFlag = rmCmd.Flags().Bool("encrypted", false, "if true, treat paths as base64-encoded encrypted paths")
+	rmPendingFlag = rmCmd.Flags().Bool("pending", false, "if true, delete a pending object")
+
+	setBasicFlags(rmCmd.Flags(), "pending")
+	setBasicFlags(rmCmd.Flags(), "encrypted")
 }
 
-func deleteObject(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+func deleteObject(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := withTelemetry(cmd)
 
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for deletion")
+		return fmt.Errorf("no object specified for deletion")
 	}
 
 	dst, err := fpath.New(args[0])
@@ -34,23 +44,30 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 	}
 
 	if dst.IsLocal() {
-		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
-	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
+	project, err := cfg.getProject(ctx, *rmEncryptedFlag)
 	if err != nil {
 		return err
 	}
+	defer closeProject(project)
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
-	if err != nil {
-		return convertError(err, dst)
-	}
-
-	defer closeProjectAndBucket(project, bucket)
-
-	err = bucket.DeleteObject(ctx, dst.Path())
-	if err != nil {
+	if *rmPendingFlag {
+		// TODO we may need a dedicated endpoint for deleting pending object streams
+		list := project.ListUploads(ctx, dst.Bucket(), &uplink.ListUploadsOptions{
+			Prefix: dst.Path(),
+		})
+		// TODO modify when we can have several pending objects for the same object key
+		if list.Next() {
+			err = project.AbortUpload(ctx, dst.Bucket(), dst.Path(), list.Item().UploadID)
+			if err != nil {
+				return convertError(err, dst)
+			}
+		} else if err := list.Err(); err != nil {
+			return convertError(err, dst)
+		}
+	} else if _, err = project.DeleteObject(ctx, dst.Bucket(), dst.Path()); err != nil {
 		return convertError(err, dst)
 	}
 

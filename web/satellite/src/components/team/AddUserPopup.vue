@@ -2,62 +2,76 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class='add-user-container' @keyup.enter="onAddUsersClick" @keyup.esc="onClose">
-        <div class='add-user' id="addTeamMemberPopup">
+    <div class="add-user-container" @keyup.enter="onAddUsersClick" @keyup.esc="onClose">
+        <div id="addTeamMemberPopup" class="add-user">
             <div class="add-user__main">
-                <div class='add-user__info-panel-container'>
-                    <h2 class='add-user__info-panel-container__main-label-text'>Add Team Member</h2>
-                    <div v-html='imageSource'></div>
+                <div class="add-user__info-panel-container">
+                    <h2 class="add-user__info-panel-container__main-label-text">Add Team Member</h2>
+                    <img src="@/../static/images/team/addMember.jpg" alt="add team member image">
                 </div>
-                <div class='add-user__form-container'>
-                    <p v-if="!formError">Email Address</p>
+                <div class="add-user__form-container">
+                    <p v-if="!formError" class="add-user__form-container__common-label">Email Address</p>
                     <div v-if="formError" class="add-user__form-container__label">
-                        <img src="../../../static/images/register/ErrorInfo.svg"/>
-                        <p>{{formError}}</p>
+                        <ErrorIcon alt="Red error icon" />
+                        <p class="add-user__form-container__label__error">{{ formError }}</p>
                     </div>
-                    <div :class="[inputs.length > 4 ? 'add-user__form-container__inputs-group scrollable' : 'add-user__form-container__inputs-group']">
+                    <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': isInputsGroupScrollable }">
                         <div v-for="(input, index) in inputs"
-                            class="add-user__form-container__inputs-group__item"
-                            :key="index" >
-                                <input
-                                    placeholder="test@mail.test"
-                                    v-model="input.value"
-                                    :class="[input.error ? 'error' : 'no-error']"
-                                    @keyup="resetFormErrors(index)" />
-                                <svg @click="deleteInput(index)" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M11.7803 1.28033C12.0732 0.987437 12.0732 0.512563 11.7803 0.21967C11.4874 -0.0732233 11.0126 -0.0732233 10.7197 0.21967L11.7803 1.28033ZM0.21967 10.7197C-0.0732233 11.0126 -0.0732233 11.4874 0.21967 11.7803C0.512563 12.0732 0.987437 12.0732 1.28033 11.7803L0.21967 10.7197ZM1.28033 0.21967C0.987437 -0.0732233 0.512563 -0.0732233 0.21967 0.21967C-0.0732233 0.512563 -0.0732233 0.987437 0.21967 1.28033L1.28033 0.21967ZM10.7197 11.7803C11.0126 12.0732 11.4874 12.0732 11.7803 11.7803C12.0732 11.4874 12.0732 11.0126 11.7803 10.7197L10.7197 11.7803ZM10.7197 0.21967L0.21967 10.7197L1.28033 11.7803L11.7803 1.28033L10.7197 0.21967ZM0.21967 1.28033L10.7197 11.7803L11.7803 10.7197L1.28033 0.21967L0.21967 1.28033Z" fill="#AFB7C1"/>
-                                </svg>
+                             :key="index"
+                             class="add-user__form-container__inputs-group__item"
+                        >
+                            <input
+                                v-model="input.value"
+                                placeholder="email@example.com"
+                                class="no-error-input"
+                                :class="{ 'error-input': input.error }"
+                                @keyup="resetFormErrors(index)"
+                            >
+                            <DeleteFieldIcon
+                                class="add-user__form-container__inputs-group__item__image"
+                                @click="deleteInput(index)"
+                            />
                         </div>
                     </div>
                     <div class="add-user-row">
-                        <div @click='addInput' class="add-user-row__item" id="addUserButton">
-                            <div :class="[isMaxInputsCount ? 'inactive-image' : '']">
-                                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect width="40" height="40" rx="20" fill="#2683FF" />
-                                    <path d="M25 18.977V21.046H20.9722V25H19.0046V21.046H15V18.977H19.0046V15H20.9722V18.977H25Z" fill="white" />
-                                </svg>
+                        <div id="addUserButton" class="add-user-row__item" @click="addInput">
+                            <div :class="{ 'inactive-image': isMaxInputsCount }">
+                                <AddFieldIcon class="add-user-row__item__image" />
                             </div>
-                            <p :class="[ isMaxInputsCount ? 'inactive-label' : '' ]">Add Another</p>
+                            <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add More</p>
                         </div>
                     </div>
-                    <div class='add-user__form-container__button-container'>
-                        <Button label='Cancel' width='205px' height='48px' :onPress="onClose" isWhite="true"/>
-                        <Button label='Add Team Members' width='205px' height='48px' :onPress="isButtonActive ? onAddUsersClick : () => {}" :isDisabled="!isButtonActive"/>
+                    <div class="add-user__form-container__button-container">
+                        <VButton
+                            label="Cancel"
+                            width="205px"
+                            height="48px"
+                            :on-press="onClose"
+                            is-transparent="true"
+                        />
+                        <VButton
+                            label="Add Team Members"
+                            width="205px"
+                            height="48px"
+                            :on-press="onAddUsersClick"
+                            :is-disabled="!isButtonActive"
+                        />
                     </div>
                 </div>
-                <div class='add-user__close-cross-container' @click='onClose'>
-                    <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'>
-                        <path d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
-                    </svg>
+                <div class="add-user__close-cross-container" @click="onClose">
+                    <CloseCrossIcon />
                 </div>
             </div>
             <div class="notification-wrap">
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="40" height="40" rx="10" fill="#2683FF"/>
-                    <path d="M18.1489 17.043H21.9149V28H18.1489V17.043ZM20 12C20.5816 12 21.0567 12.1823 21.4255 12.5468C21.8085 12.8979 22 13.357 22 13.9241C22 14.4776 21.8085 14.9367 21.4255 15.3013C21.0567 15.6658 20.5816 15.8481 20 15.8481C19.4184 15.8481 18.9362 15.6658 18.5532 15.3013C18.1844 14.9367 18 14.4776 18 13.9241C18 13.357 18.1844 12.8979 18.5532 12.5468C18.9362 12.1823 19.4184 12 20 12Z" fill="#F5F6FA"/>
-                </svg>
-                <div class="notification-wrap__text">
-                    <p>If the team member you want to invite to join the project is still not on this Satellite, please share this link to the signup page and ask them to register here: <router-link target="_blank" exact to="/register" >{{registerPath}}</router-link></p>
+                <AddMemberNotificationIcon class="notification-wrap__image" />
+                <div class="notification-wrap__text-area">
+                    <p class="notification-wrap__text-area__text">
+                        If the team member you want to invite to join the project is still not on this Satellite, please
+                        share this link to the signup page and ask them to register here:
+                        <router-link target="_blank" rel="noopener noreferrer" exact to="/signup">
+                            {{ registerPath }}
+                        </router-link>
+                    </p>
                 </div>
             </div>
         </div>
@@ -65,160 +79,207 @@
 </template>
 
 <script lang='ts'>
-    import { Component, Vue } from 'vue-property-decorator';
-    import Button from '@/components/common/Button.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-    import { EmailInput } from '@/types/EmailInput';
-    import { validateEmail } from '@/utils/validation';
-    import ROUTES from '@/utils/constants/routerConstants';
-    import { RequestResponse } from '@/types/response';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        components: {
-            Button
+import VButton from '@/components/common/VButton.vue';
+
+import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+import AddFieldIcon from '@/../static/images/team/addField.svg';
+import AddMemberNotificationIcon from '@/../static/images/team/addMemberNotification.svg';
+import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
+
+import { RouteConfig } from '@/router';
+import { EmailInput } from '@/types/EmailInput';
+import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { Validator } from '@/utils/validation';
+
+// @vue/component
+@Component({
+    components: {
+        VButton,
+        ErrorIcon,
+        DeleteFieldIcon,
+        AddFieldIcon,
+        CloseCrossIcon,
+        AddMemberNotificationIcon,
+    },
+})
+export default class AddUserPopup extends Vue {
+    /**
+     * Initial empty inputs set.
+     */
+    private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
+    private formError = '';
+    private isLoading = false;
+
+    private FIRST_PAGE = 1;
+
+    /**
+     * Tries to add users related to entered emails list to current project.
+     */
+    public async onAddUsersClick(): Promise<void> {
+        if (this.isLoading) {
+            return;
         }
-    })
-    export default class AddUserPopup extends Vue {
-        public imageSource: string = EMPTY_STATE_IMAGES.ADD_USER;
-        private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
-        private formError: string = '';
-        private isLoading: boolean = false;
 
-        public async onAddUsersClick(): Promise<void> {
-            if (this.isLoading) {
-                return;
+        this.isLoading = true;
+
+        const length = this.inputs.length;
+        const newInputsArray: EmailInput[] = [];
+        let areAllEmailsValid = true;
+        const emailArray: string[] = [];
+
+        for (let i = 0; i < length; i++) {
+            const element = this.inputs[i];
+            const isEmail = Validator.email(element.value);
+
+            if (isEmail) {
+                emailArray.push(element.value);
             }
 
-            this.isLoading = true;
+            if (isEmail || element.value === '') {
+                element.setError(false);
+                newInputsArray.push(element);
 
-            let length = this.inputs.length;
-            let newInputsArray: EmailInput[] = [];
-            let areAllEmailsValid = true;
-            let emailArray: string[] = [];
-
-            for (let i = 0; i < length; i++) {
-                let element = this.inputs[i];
-                let isEmail = validateEmail(element.value);
-
-                if (isEmail) {
-                    emailArray.push(element.value);
-                }
-
-                if (isEmail || element.value === '') {
-                    element.setError(false);
-                    newInputsArray.push(element);
-
-                    continue;
-                }
-
-                element.setError(true);
-                newInputsArray.unshift(element);
-                areAllEmailsValid = false;
-
-                this.formError = 'Field is required. Please enter a valid email address';
+                continue;
             }
 
-            this.inputs = newInputsArray;
+            element.setError(true);
+            newInputsArray.unshift(element);
+            areAllEmailsValid = false;
 
-            if (length > 3) {
-                let scrollableDiv: any = document.querySelector('.add-user__form-container__inputs-group');
+            this.formError = 'Field is required. Please enter a valid email address';
+        }
 
-                if (scrollableDiv) {
-                    let scrollableDivHeight = scrollableDiv.offsetHeight;
+        this.inputs = newInputsArray;
+
+        if (length > 3) {
+            const scrollableDiv = document.querySelector('.add-user__form-container__inputs-group');
+            if (scrollableDiv) {
+                const scrollableDivHeight = scrollableDiv.getAttribute('offsetHeight');
+                if(scrollableDivHeight) {
                     scrollableDiv.scroll(0, -scrollableDivHeight);
                 }
             }
+        }
 
-            if (!areAllEmailsValid) {
-                this.isLoading = false;
-
-                return;
-            }
-
-            let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
-            if (!result.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding team members!');
-                this.isLoading = false;
-
-                return;
-            }
-
-            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, { limit: 20, offset: 0 });
-
-            if (!response.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-                this.isLoading = false;
-
-                return;
-            }
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
-            this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-
-            const fetchMembersResponse: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
-            if (!fetchMembersResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-            }
-
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
-
+        if (!areAllEmailsValid) {
             this.isLoading = false;
+
+            return;
         }
 
-        public addInput(): void {
-            let inputsLength = this.inputs.length;
-            if (inputsLength < 10) {
-                this.inputs.push(new EmailInput());
-            }
+        if (emailArray.includes(this.$store.state.usersModule.email)) {
+            await this.$notify.error(`Error during adding project members. You can't add yourself to the project`);
+            this.isLoading = false;
+
+            return;
         }
 
-        public deleteInput(index): void {
-            if (this.inputs.length === 1) return;
+        try {
+            await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
+        } catch (error) {
+            await this.$notify.error(`Error during adding project members. ${error.message}`);
+            this.isLoading = false;
 
-            this.resetFormErrors(index);
-
-            this.$delete(this.inputs, index);
+            return;
         }
 
-        public onClose(): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        await this.$notify.success('Members successfully added to project!');
+        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+
+        try {
+            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
-        public get isMaxInputsCount(): boolean {
-            return this.inputs.length > 9;
-        }
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
 
-        public get isButtonActive(): boolean {
-            if (this.formError) return false;
+        this.isLoading = false;
+    }
 
-            let length = this.inputs.length;
-
-            for (let i = 0; i < length; i++) {
-                if (this.inputs[i].value !== '') return true;
-            }
-
-            return false;
-        }
-
-        public get registerPath(): string {
-            return location.host + ROUTES.REGISTER.path;
-        }
-
-        private resetFormErrors(index): void {
-            this.inputs[index].setError(false);
-            if (!this.hasInputError()) {
-
-                this.formError = '';
-            }
-        }
-
-        private hasInputError(): boolean {
-            return this.inputs.some((element: EmailInput) => {
-                return element.error;
-            });
+    /**
+     * Adds additional email input.
+     */
+    public addInput(): void {
+        const inputsLength = this.inputs.length;
+        if (inputsLength < 10) {
+            this.inputs.push(new EmailInput());
         }
     }
+
+    /**
+     * Deletes selected email input from list.
+     * @param index
+     */
+    public deleteInput(index: number): void {
+        if (this.inputs.length === 1) return;
+
+        this.resetFormErrors(index);
+
+        this.$delete(this.inputs, index);
+    }
+
+    /**
+     * Closes popup.
+     */
+    public onClose(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+    }
+
+    /**
+     * Indicates if emails count reached maximum.
+     */
+    public get isMaxInputsCount(): boolean {
+        return this.inputs.length > 9;
+    }
+
+    /**
+     * Indicates if add button is active.
+     * Active when no errors and at least one input is not empty.
+     */
+    public get isButtonActive(): boolean {
+        if (this.formError) return false;
+
+        const length = this.inputs.length;
+
+        for (let i = 0; i < length; i++) {
+            if (this.inputs[i].value !== '') return true;
+        }
+
+        return false;
+    }
+
+    public get registerPath(): string {
+        return location.host + RouteConfig.Register.path;
+    }
+
+    public get isInputsGroupScrollable(): boolean {
+        return this.inputs.length > 4;
+    }
+
+    /**
+     * Removes error for selected input.
+     */
+    private resetFormErrors(index): void {
+        this.inputs[index].setError(false);
+        if (!this.hasInputError) {
+
+            this.formError = '';
+        }
+    }
+
+    /**
+     * Indicates if at least one input has error.
+     */
+    private get hasInputError(): boolean {
+        return this.inputs.some((element: EmailInput) => {
+            return element.error;
+        });
+    }
+}
 </script>
 
 <style scoped lang='scss'>
@@ -234,6 +295,7 @@
         justify-content: center;
         align-items: center;
         flex-direction: column;
+        font-family: 'font_regular', sans-serif;
     }
 
     .add-user-row {
@@ -247,48 +309,45 @@
             align-items: center;
             justify-content: space-between;
 
+            &__image {
+                margin-right: 20px;
+            }
+
+            &__label {
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                margin-left: 0;
+                padding-left: 0;
+                margin-block-start: 0;
+                margin-block-end: 0;
+            }
+
             &:first-child {
                 cursor: pointer;
-                -webkit-user-select: none;
-                -khtml-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
-
-                svg {
-                    margin-right: 20px;
-                }
-
-                p {
-                    font-family: 'font_medium';
-                    font-size: 16px;
-                    margin-left: 0;
-                    padding-left: 0;
-                    margin-block-start: 0em;
-                    margin-block-end: 0em;
-                }
             }
         }
     }
 
     .inactive-label {
-        color: #DADDE5;
+        cursor: default;
+        color: #dadde5;
     }
 
-    .error {
+    .error-input {
         border: 1px solid red !important;
     }
 
     .inactive-image {
+        cursor: default;
 
-        svg {
+        .add-user-row__item__image {
 
-            rect {
-                fill: #DADDE5;
+            &__rect {
+                fill: #dadde5;
             }
 
-            path {
-                fill: #ACB0BC;
+            &__path {
+                fill: #acb0bc;
             }
         }
     }
@@ -298,24 +357,7 @@
     }
 
     .red {
-        background-color: #EB5757;
-    }
-
-    .text {
-        margin: 0;
-        margin-bottom: 0 !important;
-        font-family: 'font_regular' !important;
-        font-size: 16px;
-        line-height: 25px;
-
-        a {
-            color: #2683FF;
-            cursor: pointer;
-
-            &:hover {
-                text-decoration: underline;
-            }
-        }
+        background-color: #eb5757;
     }
 
     .add-user {
@@ -336,9 +378,9 @@
             align-items: flex-start;
             position: relative;
             justify-content: center;
-            background-color: #FFFFFF;
-            padding: 80px 20px 80px 60px;
-            width: calc(100% - 80px);
+            background-color: #fff;
+            padding: 80px 20px 80px 30px;
+            width: calc(100% - 50px);
         }
 
         &__info-panel-container {
@@ -346,23 +388,16 @@
             flex-direction: column;
             justify-content: flex-start;
             align-items: center;
-            margin-right: 100px;
-            padding: 0 50px;
-
-            &__text {
-                font-family: 'font_regular';
-                font-size: 16px;
-                margin-top: 0;
-                margin-bottom: 50px;
-            }
+            margin-right: 150px;
 
             &__main-label-text {
-                font-family: 'font_bold';
+                font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 29px;
-                color: #384B65;
-                margin-top: 0;
-                width: 107%;
+                color: #384b65;
+                margin: 0 0 90px 0;
+                width: 130%;
+                text-align: end;
             }
         }
 
@@ -379,31 +414,25 @@
                 display: flex;
                 flex-direction: row;
                 padding-left: 50px;
-                margin-bottom: 10px;
+                margin-bottom: 15px;
 
-                p {
-                    margin: 0 !important;
-                    padding-left: 10px !important;
-                    color: #EB5757;
+                &__error {
+                    margin: 0;
+                    padding-left: 10px;
+                    color: #eb5757;
                 }
             }
 
             &__inputs-group {
                 max-height: 35vh;
                 overflow-y: hidden;
-                padding-left: 50px;
-                padding-right: 50px;
-
-                &.scrollable {
-                    overflow-y: scroll;
-                }
+                padding: 3px 50px 0 50px;
 
                 &__item {
                     display: flex;
                     align-items: center;
 
-                    input {
-                        font-family: 'font_regular';
+                    .no-error-input {
                         font-size: 16px;
                         line-height: 21px;
                         resize: none;
@@ -419,13 +448,13 @@
                         }
                     }
 
-                    svg {
+                    &__image {
                         margin-bottom: 18px;
                         margin-left: 20px;
                         cursor: pointer;
 
-                        &:hover path {
-                            fill: #2683FF;
+                        &:hover .delete-input-svg-path {
+                            fill: #2683ff;
                         }
                     }
                 }
@@ -439,19 +468,12 @@
                 }
             }
 
-            p {
-                margin: 0;
-                margin-bottom: 10px;
-                font-family: 'font_regular';
+            &__common-label {
+                margin: 0 0 10px 0;
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 25px;
                 padding-left: 50px;
-            }
-
-            a {
-                font-family: 'font_medium';
-                font-size: 16px;
-                color: #2683FF;
             }
 
             &__button-container {
@@ -475,8 +497,8 @@
             width: 24px;
             cursor: pointer;
 
-            &:hover svg path {
-                fill: #2683FF;
+            &:hover .close-cross-svg-path {
+                fill: #2683ff;
             }
         }
     }
@@ -484,7 +506,6 @@
     .notification-wrap {
         background-color: rgba(194, 214, 241, 1);
         height: 98px;
-        width: calc(100% - 100px);
         display: flex;
         justify-content: flex-start;
         padding: 0 50px;
@@ -492,40 +513,36 @@
         border-bottom-left-radius: 6px;
         border-bottom-right-radius: 6px;
 
-        &__text {
+        &__image {
+            margin-right: 40px;
+            min-width: 40px;
+        }
+
+        &__text-area {
             display: flex;
             align-items: center;
 
-            p {
-                font-family: 'font_medium';
+            &__text {
+                font-family: 'font_medium', sans-serif;
                 font-size: 16px;
-                margin-left: 40px;
-
-                span {
-                    margin-right: 10px;
-                }
-            }
-
-            a {
-                cursor: pointer;
-                color: #2683FF;
-
-                &:hover {
-                    text-decoration: underline;
-                }
             }
         }
     }
 
+    .scrollable {
+        overflow-y: scroll;
+    }
+
     @media screen and (max-width: 1025px) {
+
         .add-user {
             padding: 10px;
             max-width: 1000px;
 
             &__main {
                 width: 100%;
-                padding-right: 0px;
-                padding-left: 0px;
+                padding-right: 0;
+                padding-left: 0;
             }
 
             &__info-panel-container {
@@ -533,7 +550,6 @@
             }
 
             &__form-container {
-
                 max-width: 800px;
             }
 
@@ -545,7 +561,7 @@
         #addUserButton {
             justify-content: flex-start;
 
-            svg {
+            .add-user-row__item__image {
                 padding-right: 20px;
             }
         }

@@ -11,24 +11,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testidentity"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-func TestPieceInfo(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		pieceinfos := db.PieceInfo()
+func TestV0PieceInfo(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		pieceinfos := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
@@ -172,42 +168,40 @@ func TestPieceInfo(t *testing.T) {
 	})
 }
 
-func TestPieceInfo_Trivial(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+func TestPieceinfo_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		pieceinfos := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
+		satelliteID, pieceID := testrand.NodeID(), testrand.PieceID()
 
-		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
-
-		{ // Ensure Enqueue works at all
-			err := db.Orders().Enqueue(ctx, &orders.Info{
-				Order: &pb.Order{},
-				Limit: &pb.OrderLimit{
-					SatelliteId:     satelliteID,
-					SerialNumber:    serial,
-					OrderExpiration: time.Now(),
-				},
+		{ // Ensure Add works at all
+			err := pieceinfos.Add(ctx, &pieces.Info{
+				SatelliteID:     satelliteID,
+				PieceID:         pieceID,
+				PieceCreation:   time.Now(),
+				PieceExpiration: time.Now(),
+				OrderLimit:      &pb.OrderLimit{},
+				UplinkPieceHash: &pb.PieceHash{},
 			})
 			require.NoError(t, err)
 		}
 
-		{ // Ensure ListUnsent works at all
-			_, err := db.Orders().ListUnsent(ctx, 1)
+		{ // Ensure Get works at all
+			_, err := pieceinfos.Get(ctx, satelliteID, pieceID)
 			require.NoError(t, err)
 		}
 
-		{ // Ensure ListUnsentBySatellite works at all
-			_, err := db.Orders().ListUnsentBySatellite(ctx)
+		{ // Ensure DeleteFailed works at all
+			err := pieceinfos.DeleteFailed(ctx, satelliteID, pieceID, time.Now())
 			require.NoError(t, err)
 		}
 
-		{ // Ensure Archive works at all
-			err := db.Orders().Archive(ctx, satelliteID, serial, orders.StatusAccepted)
+		{ // Ensure Delete works at all
+			err := pieceinfos.Delete(ctx, satelliteID, pieceID)
 			require.NoError(t, err)
 		}
 
-		{ // Ensure ListArchived works at all
-			_, err := db.Orders().ListArchived(ctx, 1)
+		{ // Ensure GetExpired works at all
+			_, err := pieceinfos.GetExpired(ctx, time.Now(), 1)
 			require.NoError(t, err)
 		}
 	})

@@ -4,44 +4,45 @@
 package orders
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"io"
+	"sort"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/certdb"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
+	"storj.io/storj/private/date"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeapiversion"
 )
 
-// DB implements saving order after receiving from storage node
+// DB implements saving order after receiving from storage node.
+//
+// architecture: Database
 type DB interface {
-	// CreateSerialInfo creates serial number entry in database
-	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
-	// UseSerialNumber creates serial number entry in database
-	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
-	// UnuseSerialNumber removes pair serial number -> storage node id from database
-	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
-
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
-	UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, settledAmount, deadAmount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 	UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateBandwidthBatch updates bucket and project bandwidth rollups in the database
+	UpdateBandwidthBatch(ctx context.Context, rollups []BucketBandwidthRollup) error
 
-	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
-	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateStoragenodeBandwidthSettleWithWindow updates 'settled' bandwidth for given storage node
+	UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error)
 
 	// GetBucketBandwidth gets total bucket bandwidth from period of time
 	GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error)
@@ -49,196 +50,383 @@ type DB interface {
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 }
 
+// SerialDeleteOptions are option when deleting from serial tables.
+type SerialDeleteOptions struct {
+	BatchSize int
+}
+
+// ConsumedSerial is a serial that has been consumed and its bandwidth recorded.
+type ConsumedSerial struct {
+	NodeID       storj.NodeID
+	SerialNumber storj.SerialNumber
+	ExpiresAt    time.Time
+}
+
+// PendingSerial is a serial number reported by a storagenode waiting to be
+// settled.
+type PendingSerial struct {
+	NodeID       storj.NodeID
+	BucketID     []byte
+	Action       uint
+	SerialNumber storj.SerialNumber
+	ExpiresAt    time.Time
+	Settled      uint64
+}
+
 var (
-	// Error the default orders errs class
-	Error = errs.Class("orders error")
-	// ErrUsingSerialNumber error class for serial number
+	// Error the default orders errs class.
+	Error = errs.Class("orders")
+	// ErrUsingSerialNumber error class for serial number.
 	ErrUsingSerialNumber = errs.Class("serial number")
 
 	mon = monkit.Package()
 )
 
-// Endpoint for orders receiving
-type Endpoint struct {
-	log             *zap.Logger
-	satelliteSignee signing.Signee
-	DB              DB
-	certdb          certdb.DB
+// BucketBandwidthRollup contains all the info needed for a bucket bandwidth rollup.
+type BucketBandwidthRollup struct {
+	ProjectID     uuid.UUID
+	BucketName    string
+	Action        pb.PieceAction
+	IntervalStart time.Time
+	Inline        int64
+	Allocated     int64
+	Settled       int64
+	Dead          int64
 }
 
-// NewEndpoint new orders receiving endpoint
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, certdb certdb.DB, db DB) *Endpoint {
+// SortBucketBandwidthRollups sorts the rollups.
+func SortBucketBandwidthRollups(rollups []BucketBandwidthRollup) {
+	sort.SliceStable(rollups, func(i, j int) bool {
+		uuidCompare := bytes.Compare(rollups[i].ProjectID[:], rollups[j].ProjectID[:])
+		switch {
+		case uuidCompare == -1:
+			return true
+		case uuidCompare == 1:
+			return false
+		case rollups[i].BucketName < rollups[j].BucketName:
+			return true
+		case rollups[i].BucketName > rollups[j].BucketName:
+			return false
+		case rollups[i].Action < rollups[j].Action:
+			return true
+		case rollups[i].Action > rollups[j].Action:
+			return false
+		default:
+			return false
+		}
+	})
+}
+
+// StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup.
+type StoragenodeBandwidthRollup struct {
+	NodeID    storj.NodeID
+	Action    pb.PieceAction
+	Allocated int64
+	Settled   int64
+}
+
+// SortStoragenodeBandwidthRollups sorts the rollups.
+func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
+	sort.SliceStable(rollups, func(i, j int) bool {
+		nodeCompare := bytes.Compare(rollups[i].NodeID.Bytes(), rollups[j].NodeID.Bytes())
+		switch {
+		case nodeCompare == -1:
+			return true
+		case nodeCompare == 1:
+			return false
+		case rollups[i].Action < rollups[j].Action:
+			return true
+		case rollups[i].Action > rollups[j].Action:
+			return false
+		default:
+			return false
+		}
+	})
+}
+
+// Endpoint for orders receiving.
+//
+// architecture: Endpoint
+type Endpoint struct {
+	pb.DRPCOrdersUnimplementedServer
+	log              *zap.Logger
+	satelliteSignee  signing.Signee
+	DB               DB
+	nodeAPIVersionDB nodeapiversion.DB
+	ordersSemaphore  chan struct{}
+	ordersService    *Service
+}
+
+// NewEndpoint new orders receiving endpoint.
+//
+// ordersSemaphoreSize controls the number of concurrent clients allowed to submit orders at once.
+// A value of zero means unlimited.
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB,
+	ordersSemaphoreSize int, ordersService *Service) *Endpoint {
+	var ordersSemaphore chan struct{}
+	if ordersSemaphoreSize > 0 {
+		ordersSemaphore = make(chan struct{}, ordersSemaphoreSize)
+	}
+
 	return &Endpoint{
-		log:             log,
-		satelliteSignee: satelliteSignee,
-		DB:              db,
-		certdb:          certdb,
+		log:              log,
+		satelliteSignee:  satelliteSignee,
+		DB:               db,
+		nodeAPIVersionDB: nodeAPIVersionDB,
+		ordersSemaphore:  ordersSemaphore,
+		ordersService:    ordersService,
 	}
 }
 
-func monitoredSettlementStreamReceive(ctx context.Context, stream pb.Orders_SettlementServer) (_ *pb.SettlementRequest, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return stream.Recv()
+type bucketIDAction struct {
+	bucketname string
+	projectID  uuid.UUID
+	action     pb.PieceAction
 }
 
-func monitoredSettlementStreamSend(ctx context.Context, stream pb.Orders_SettlementServer, resp *pb.SettlementResponse) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	switch resp.Status {
-	case pb.SettlementResponse_ACCEPTED:
+// SettlementWithWindow processes all orders that were created in a 1 hour window.
+// Only one window is processed at a time.
+// Batches are atomic, all orders are settled successfully or they all fail.
+func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
+	return endpoint.SettlementWithWindowFinal(stream)
+}
+
+func trackFinalStatus(status pb.SettlementWithWindowResponse_Status) {
+	switch status {
+	case pb.SettlementWithWindowResponse_ACCEPTED:
 		mon.Event("settlement_response_accepted")
-	case pb.SettlementResponse_REJECTED:
+	case pb.SettlementWithWindowResponse_REJECTED:
 		mon.Event("settlement_response_rejected")
 	default:
 		mon.Event("settlement_response_unknown")
 	}
-	return stream.Send(resp)
 }
 
-// Settlement receives and handles orders.
-func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err error) {
+// SettlementWithWindowFinal processes all orders that were created in a 1 hour window.
+// Only one window is processed at a time.
+// Batches are atomic, all orders are settled successfully or they all fail.
+func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
+	var alreadyProcessed bool
+	var status pb.SettlementWithWindowResponse_Status
+	defer trackFinalStatus(status)
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return status.Error(codes.Unauthenticated, err.Error())
+		endpoint.log.Debug("err peer identity from context", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	formatError := func(err error) error {
-		if err == io.EOF {
-			return nil
+	versionAtLeast, err := endpoint.nodeAPIVersionDB.VersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	if err != nil {
+		endpoint.log.Info("could not query if node version was new enough", zap.Error(err))
+		versionAtLeast = false
+	}
+	if !versionAtLeast {
+		err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+		if err != nil {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
-		return status.Error(codes.Unknown, err.Error())
 	}
 
 	log := endpoint.log.Named(peer.ID.String())
-	log.Debug("Settlement")
-	for {
-		// TODO: batch these requests so we hit the db in batches
-		request, err := monitoredSettlementStreamReceive(ctx, stream)
-		if err != nil {
-			return formatError(err)
-		}
+	log.Debug("SettlementWithWindow")
 
-		if request == nil {
-			return status.Error(codes.InvalidArgument, "request missing")
+	type bandwidthAmount struct {
+		Settled   int64
+		Allocated int64
+		Dead      int64
+	}
+
+	storagenodeSettled := map[int32]int64{}
+	bucketSettled := map[bucketIDAction]bandwidthAmount{}
+	seenSerials := map[storj.SerialNumber]struct{}{}
+
+	var window int64
+	var request *pb.SettlementRequest
+	var receivedCount int
+	for {
+		request, err = stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			log.Debug("err streaming order request", zap.Error(err))
+			return rpcstatus.Error(rpcstatus.Unknown, err.Error())
 		}
-		if request.Limit == nil {
-			return status.Error(codes.InvalidArgument, "order limit missing")
-		}
-		if request.Order == nil {
-			return status.Error(codes.InvalidArgument, "order missing")
-		}
+		receivedCount++
 
 		orderLimit := request.Limit
-		order := request.Order
-
-		if orderLimit.StorageNodeId != peer.ID {
-			return status.Error(codes.Unauthenticated, "only specified storage node can settle order")
+		if orderLimit == nil {
+			log.Debug("request.OrderLimit is nil")
+			continue
 		}
+		if window == 0 {
+			window = date.TruncateToHourInNano(orderLimit.OrderCreation)
+		}
+		order := request.Order
+		if order == nil {
+			log.Debug("request.Order is nil")
+			continue
+		}
+		serialNum := order.SerialNumber
 
-		rejectErr := func() error {
-			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
-				return Error.New("unable to verify order limit")
-			}
-
-			if orderLimit.DeprecatedUplinkId == nil { // new signature handling
-				if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
-					return Error.New("unable to verify order")
-				}
-			} else {
-				var uplinkSignee signing.Signee
-
-				// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
-				if endpoint.satelliteSignee.ID() == *orderLimit.DeprecatedUplinkId {
-					uplinkSignee = endpoint.satelliteSignee
-				} else {
-					uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, *orderLimit.DeprecatedUplinkId)
-					if err != nil {
-						log.Warn("unable to find uplink public key", zap.Error(err))
-						return status.Errorf(codes.Internal, "unable to find uplink public key")
-					}
-					uplinkSignee = &signing.PublicKey{
-						Self: *orderLimit.DeprecatedUplinkId,
-						Key:  uplinkPubKey,
-					}
-				}
-				if err := signing.VerifyOrderSignature(ctx, uplinkSignee, order); err != nil {
-					return Error.New("unable to verify order")
-				}
-			}
-
-			// TODO should this reject or just error ??
-			if orderLimit.SerialNumber != order.SerialNumber {
-				return Error.New("invalid serial number")
-			}
-
-			if orderLimit.OrderExpiration.Before(time.Now()) {
-				return Error.New("order limit expired")
-			}
-			return nil
-		}()
-		if rejectErr != err {
-			log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(err), zap.Error(rejectErr))
-			err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
-				SerialNumber: orderLimit.SerialNumber,
-				Status:       pb.SettlementResponse_REJECTED,
-			})
-			if err != nil {
-				return formatError(err)
-			}
+		// don't process orders that aren't valid
+		if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window) {
 			continue
 		}
 
-		bucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
+		// don't process orders with serial numbers we've already seen
+		if _, ok := seenSerials[serialNum]; ok {
+			log.Debug("seen serial", zap.String("serial number", serialNum.String()))
+			continue
+		}
+		seenSerials[serialNum] = struct{}{}
+
+		storagenodeSettled[int32(orderLimit.Action)] += order.Amount
+
+		metadata, err := endpoint.ordersService.DecryptOrderMetadata(ctx, orderLimit)
 		if err != nil {
-			log.Warn("unable to use serial number", zap.Error(err))
-			if ErrUsingSerialNumber.Has(err) {
-				err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
-					SerialNumber: orderLimit.SerialNumber,
-					Status:       pb.SettlementResponse_REJECTED,
-				})
-				if err != nil {
-					return formatError(err)
-				}
+			log.Debug("decrypt order metadata err:", zap.Error(err))
+			mon.Event("bucketinfo_from_orders_metadata_error_1")
+			continue
+		}
+
+		var bucketInfo metabase.BucketLocation
+		switch {
+		case len(metadata.CompactProjectBucketPrefix) > 0:
+			bucketInfo, err = metabase.ParseCompactBucketPrefix(metadata.GetCompactProjectBucketPrefix())
+			if err != nil {
+				log.Debug("decrypt order: ParseCompactBucketPrefix", zap.Error(err))
+				mon.Event("bucketinfo_from_orders_metadata_error_compact")
 				continue
 			}
-			return err
-		}
-		now := time.Now().UTC()
-		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-
-		projectID, bucketName, err := SplitBucketID(bucketID)
-		if err != nil {
-			return err
-		}
-		if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, *projectID, bucketName, orderLimit.Action, order.Amount, intervalStart); err != nil {
-			// TODO: we should use the serial number in the same transaction we settle the bandwidth? that way we don't need this undo in an error case?
-			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
-				log.Error("unable to unuse serial number", zap.Error(err))
+		case len(metadata.ProjectBucketPrefix) > 0:
+			bucketInfo, err = metabase.ParseBucketPrefix(metabase.BucketPrefix(metadata.GetProjectBucketPrefix()))
+			if err != nil {
+				log.Debug("decrypt order: ParseBucketPrefix", zap.Error(err))
+				mon.Event("bucketinfo_from_orders_metadata_error_uncompact")
+				continue
 			}
-			return err
+		default:
+			log.Debug("decrypt order: project bucket prefix missing", zap.Error(err))
+			mon.Event("bucketinfo_from_orders_metadata_error_default")
+			continue
 		}
 
-		// TODO: whoa this should also be in the same transaction
-		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount, intervalStart); err != nil {
-			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
-				log.Error("unable to unuse serial number", zap.Error(err))
-			}
-			if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, *projectID, bucketName, orderLimit.Action, -order.Amount, intervalStart); err != nil {
-				log.Error("unable to rollback bucket bandwidth", zap.Error(err))
-			}
-			return err
+		satelliteAction := orderLimit.Action == pb.PieceAction_GET_AUDIT ||
+			orderLimit.Action == pb.PieceAction_GET_REPAIR ||
+			orderLimit.Action == pb.PieceAction_PUT_REPAIR
+
+		// log error only for orders created by users, for satellite actions order limits are created
+		// without bucket name and project ID because segments loop doesn't have access to it
+		if !satelliteAction && (bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero()) {
+			log.Warn("decrypt order: bucketName or projectID not set",
+				zap.String("bucketName", bucketInfo.BucketName),
+				zap.String("projectID", bucketInfo.ProjectID.String()),
+			)
+			mon.Event("bucketinfo_from_orders_metadata_error_3")
+			continue
 		}
 
-		err = monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
-			SerialNumber: orderLimit.SerialNumber,
-			Status:       pb.SettlementResponse_ACCEPTED,
-		})
-		if err != nil {
-			return formatError(err)
+		currentBucketIDAction := bucketIDAction{
+			bucketname: bucketInfo.BucketName,
+			projectID:  bucketInfo.ProjectID,
+			action:     orderLimit.Action,
 		}
-
-		// TODO: in fact, why don't we batch these into group transactions as they come in from Recv() ?
+		bucketSettled[currentBucketIDAction] = bandwidthAmount{
+			Settled:   bucketSettled[currentBucketIDAction].Settled + order.Amount,
+			Allocated: bucketSettled[currentBucketIDAction].Allocated + orderLimit.Limit,
+			Dead:      bucketSettled[currentBucketIDAction].Dead + orderLimit.Limit - order.Amount,
+		}
 	}
+
+	if len(storagenodeSettled) == 0 {
+		log.Debug("no orders were successfully processed", zap.Int("received count", receivedCount))
+		status = pb.SettlementWithWindowResponse_REJECTED
+		return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+			Status:        status,
+			ActionSettled: storagenodeSettled,
+		})
+	}
+	status, alreadyProcessed, err = endpoint.DB.UpdateStoragenodeBandwidthSettleWithWindow(
+		ctx, peer.ID, storagenodeSettled, time.Unix(0, window),
+	)
+	if err != nil {
+		log.Debug("err updating storagenode bandwidth settle", zap.Error(err))
+		return err
+	}
+	log.Debug("orders processed",
+		zap.Int("total orders received", receivedCount),
+		zap.Time("window", time.Unix(0, window)),
+		zap.String("status", status.String()),
+	)
+
+	if status == pb.SettlementWithWindowResponse_ACCEPTED && !alreadyProcessed {
+		for bucketIDAction, bwAmount := range bucketSettled {
+			err = endpoint.DB.UpdateBucketBandwidthSettle(ctx,
+				bucketIDAction.projectID, []byte(bucketIDAction.bucketname), bucketIDAction.action, bwAmount.Settled, bwAmount.Dead, time.Unix(0, window),
+			)
+			if err != nil {
+				log.Info("err updating bucket bandwidth settle", zap.Error(err))
+			}
+		}
+	} else {
+		mon.Event("orders_already_processed")
+	}
+
+	if status == pb.SettlementWithWindowResponse_REJECTED {
+		storagenodeSettled = map[int32]int64{}
+	}
+	return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+		Status:        status,
+		ActionSettled: storagenodeSettled,
+	})
+}
+
+func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order,
+	orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
+	if orderLimit.StorageNodeId != peerID {
+		log.Debug("storage node id mismatch")
+		mon.Event("order_not_valid_storagenodeid")
+		return false
+	}
+	// check expiration first before the signatures so that we can throw out the large amount
+	// of expired orders being sent to us before doing expensive signature verification.
+	if orderLimit.OrderExpiration.Before(time.Now().UTC()) {
+		log.Debug("invalid settlement: order limit expired")
+		mon.Event("order_not_valid_expired")
+		return false
+	}
+	// satellite verifies that it signed the order limit
+	if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
+		log.Debug("invalid settlement: unable to verify order limit")
+		mon.Event("order_not_valid_satellite_signature")
+		return false
+	}
+	// satellite verifies that the order signature matches pub key in order limit
+	if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+		log.Debug("invalid settlement: unable to verify order")
+		mon.Event("order_not_valid_uplink_signature")
+		return false
+	}
+	if orderLimit.SerialNumber != order.SerialNumber {
+		log.Debug("invalid settlement: invalid serial number")
+		mon.Event("order_not_valid_serialnum_mismatch")
+		return false
+	}
+	// verify the 1 hr windows match
+	if window != date.TruncateToHourInNano(orderLimit.OrderCreation) {
+		log.Debug("invalid settlement: window mismatch")
+		mon.Event("order_not_valid_window_mismatch")
+		return false
+	}
+	if orderLimit.Limit < order.Amount {
+		log.Debug("invalid settlement: amounts mismatch")
+		mon.Event("order_not_valid_amounts_mismatch")
+		return false
+	}
+	return true
 }

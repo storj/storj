@@ -9,12 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/reputation"
 )
 
 func TestContainIncrementAndGet(t *testing.T) {
@@ -22,7 +23,6 @@ func TestContainIncrementAndGet(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
-		cache := planet.Satellites[0].DB.OverlayCache()
 
 		input := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
@@ -37,14 +37,9 @@ func TestContainIncrementAndGet(t *testing.T) {
 
 		assert.Equal(t, input, output)
 
-		// check contained flag set to true
-		node, err := cache.Get(ctx, input.NodeID)
-		require.NoError(t, err)
-		assert.True(t, node.Contained)
-
 		nodeID1 := planet.StorageNodes[1].ID()
 		_, err = containment.Get(ctx, nodeID1)
-		require.Error(t, err, audit.ErrContainedNotFound.New(nodeID1.String()))
+		require.Error(t, err, audit.ErrContainedNotFound.New("%v", nodeID1))
 		assert.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
@@ -62,17 +57,6 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 
 		err := containment.IncrementPending(ctx, info1)
 		require.NoError(t, err)
-
-		info2 := &audit.PendingAudit{
-			NodeID:            info1.NodeID,
-			StripeIndex:       1,
-			ShareSize:         1,
-			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
-		}
-
-		// expect failure when an entry with the same nodeID but different expected share data already exists
-		err = containment.IncrementPending(ctx, info2)
-		assert.True(t, audit.ErrAlreadyExists.Has(err))
 
 		// expect reverify count for an entry to be 0 after first IncrementPending call
 		pending, err := containment.Get(ctx, info1.NodeID)
@@ -115,7 +99,7 @@ func TestContainDelete(t *testing.T) {
 
 		// get pending audit that doesn't exist
 		_, err = containment.Get(ctx, info1.NodeID)
-		assert.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
+		assert.Error(t, err, audit.ErrContainedNotFound.New("%v", info1.NodeID))
 		assert.True(t, audit.ErrContainedNotFound.Has(err))
 
 		// delete pending audit that doesn't exist
@@ -125,6 +109,8 @@ func TestContainDelete(t *testing.T) {
 	})
 }
 
+// UpdateStats used to remove nodes from containment. It doesn't anymore.
+// This is a sanity check.
 func TestContainUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
@@ -141,7 +127,7 @@ func TestContainUpdateStats(t *testing.T) {
 		require.NoError(t, err)
 
 		// update node stats
-		_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{NodeID: info1.NodeID})
+		err = planet.Satellites[0].Reputation.Service.ApplyAudit(ctx, info1.NodeID, overlay.ReputationStatus{}, reputation.AuditSuccess)
 		require.NoError(t, err)
 
 		// check contained flag set to false
@@ -149,9 +135,8 @@ func TestContainUpdateStats(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, node.Contained)
 
-		// get pending audit that doesn't exist
+		// get pending audit
 		_, err = containment.Get(ctx, info1.NodeID)
-		assert.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
-		assert.True(t, audit.ErrContainedNotFound.Has(err))
+		require.NoError(t, err)
 	})
 }

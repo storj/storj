@@ -7,17 +7,20 @@ import (
 	"context"
 	"strings"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
+
+// ensures that projectMembers implements console.ProjectMembers.
+var _ console.ProjectMembers = (*projectMembers)(nil)
 
 // ProjectMembers exposes methods to manage ProjectMembers table in database.
 type projectMembers struct {
 	methods dbx.Methods
-	db      *dbx.DB
+	db      *satelliteDB
 }
 
 // GetByMemberID is a method for querying project member from the database by memberID.
@@ -32,30 +35,75 @@ func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID)
 }
 
 // GetByProjectID is a method for querying project members from the database by projectID, offset and limit.
-func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUID, pagination console.Pagination) (_ []console.ProjectMember, err error) {
+func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (_ *console.ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if pagination.Limit < 0 || pagination.Offset < 0 {
-		return nil, errs.New("invalid pagination argument")
+
+	search := "%" + strings.ReplaceAll(cursor.Search, " ", "%") + "%"
+
+	if cursor.Limit > 50 {
+		cursor.Limit = 50
 	}
 
-	var projectMembers []console.ProjectMember
-	searchSubQuery := "%" + strings.Replace(pagination.Search, " ", "%", -1) + "%"
-	//`+getOrder(pagination.Order)+`
+	if cursor.Page == 0 {
+		return nil, errs.New("page cannot be 0")
+	}
 
+	page := &console.ProjectMembersPage{
+		Search:         cursor.Search,
+		Limit:          cursor.Limit,
+		Offset:         uint64((cursor.Page - 1) * cursor.Limit),
+		Order:          cursor.Order,
+		OrderDirection: cursor.OrderDirection,
+	}
+
+	countQuery := pm.db.Rebind(`
+		SELECT COUNT(*)
+		FROM project_members pm 
+		INNER JOIN users u ON pm.member_id = u.id
+		WHERE pm.project_id = ?
+		AND ( u.email LIKE ? OR 
+			  u.full_name LIKE ? OR
+			  u.short_name LIKE ? 
+		)`)
+
+	countRow := pm.db.QueryRowContext(ctx,
+		countQuery,
+		projectID[:],
+		search,
+		search,
+		search)
+
+	err = countRow.Scan(&page.TotalCount)
+	if err != nil {
+		return nil, err
+	}
+	if page.TotalCount == 0 {
+		return page, nil
+	}
+	if page.Offset > page.TotalCount-1 {
+		return nil, errs.New("page is out of range")
+	}
 	// TODO: LIKE is case-sensitive postgres, however this should be case-insensitive and possibly allow typos
 	reboundQuery := pm.db.Rebind(`
 		SELECT pm.*
 			FROM project_members pm
 				INNER JOIN users u ON pm.member_id = u.id
-					WHERE pm.project_id = ?
-					AND ( u.email LIKE ? OR
-						  u.full_name LIKE ? OR
-						  u.short_name LIKE ? )
-						ORDER BY ` + sanitizedOrderColumnName(pagination.Order) + ` ASC
-						LIMIT ? OFFSET ?
-					`)
+				WHERE pm.project_id = ?
+				AND ( u.email LIKE ? OR
+					u.full_name LIKE ? OR
+					u.short_name LIKE ? )
+					ORDER BY ` + sanitizedOrderColumnName(cursor.Order) + `
+					` + sanitizeOrderDirectionName(page.OrderDirection) + `	
+					LIMIT ? OFFSET ?`)
 
-	rows, err := pm.db.Query(reboundQuery, projectID[:], searchSubQuery, searchSubQuery, searchSubQuery, pagination.Limit, pagination.Offset)
+	rows, err := pm.db.QueryContext(ctx,
+		reboundQuery,
+		projectID[:],
+		search,
+		search,
+		search,
+		page.Limit,
+		page.Offset)
 
 	defer func() {
 		err = errs.Combine(err, rows.Close())
@@ -65,33 +113,32 @@ func (pm *projectMembers) GetByProjectID(ctx context.Context, projectID uuid.UUI
 		return nil, err
 	}
 
+	var projectMembers []console.ProjectMember
 	for rows.Next() {
 		pm := console.ProjectMember{}
-		var memberIDBytes, projectIDBytes []uint8
-		var memberID, projectID uuid.UUID
 
-		err = rows.Scan(&memberIDBytes, &projectIDBytes, &pm.CreatedAt)
+		err = rows.Scan(&pm.MemberID, &pm.ProjectID, &pm.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
-
-		memberID, err := bytesToUUID(memberIDBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		projectID, err = bytesToUUID(projectIDBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		pm.ProjectID = projectID
-		pm.MemberID = memberID
 
 		projectMembers = append(projectMembers, pm)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
-	return projectMembers, err
+	page.ProjectMembers = projectMembers
+	page.Order = cursor.Order
+
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
+
+	page.CurrentPage = cursor.Page
+
+	return page, err
 }
 
 // Insert is a method for inserting project member into the database.
@@ -119,19 +166,19 @@ func (pm *projectMembers) Delete(ctx context.Context, memberID, projectID uuid.U
 	return err
 }
 
-// projectMemberFromDBX is used for creating ProjectMember entity from autogenerated dbx.ProjectMember struct
+// projectMemberFromDBX is used for creating ProjectMember entity from autogenerated dbx.ProjectMember struct.
 func projectMemberFromDBX(ctx context.Context, projectMember *dbx.ProjectMember) (_ *console.ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if projectMember == nil {
 		return nil, errs.New("projectMember parameter is nil")
 	}
 
-	memberID, err := bytesToUUID(projectMember.MemberId)
+	memberID, err := uuid.FromBytes(projectMember.MemberId)
 	if err != nil {
 		return nil, err
 	}
 
-	projectID, err := bytesToUUID(projectMember.ProjectId)
+	projectID, err := uuid.FromBytes(projectMember.ProjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -143,19 +190,27 @@ func projectMemberFromDBX(ctx context.Context, projectMember *dbx.ProjectMember)
 	}, nil
 }
 
-// sanitizedOrderColumnName return valid order by column
+// sanitizedOrderColumnName return valid order by column.
 func sanitizedOrderColumnName(pmo console.ProjectMemberOrder) string {
 	switch pmo {
 	case 2:
 		return "u.email"
 	case 3:
-		return "u.created_at"
+		return "pm.created_at"
 	default:
 		return "u.full_name"
 	}
 }
 
-// projectMembersFromDbxSlice is used for creating []ProjectMember entities from autogenerated []*dbx.ProjectMember struct
+func sanitizeOrderDirectionName(pmo console.OrderDirection) string {
+	if pmo == 2 {
+		return "DESC"
+	}
+
+	return "ASC"
+}
+
+// projectMembersFromDbxSlice is used for creating []ProjectMember entities from autogenerated []*dbx.ProjectMember struct.
 func projectMembersFromDbxSlice(ctx context.Context, projectMembersDbx []*dbx.ProjectMember) (_ []console.ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var projectMembers []console.ProjectMember

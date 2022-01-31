@@ -9,14 +9,14 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/process"
+	"storj.io/common/identity"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
 )
 
 var (
-	// ErrSetup is used when an error occurs while setting up
-	ErrSetup = errs.Class("setup error")
+	// ErrSetup is used when an error occurs while setting up.
+	ErrSetup = errs.Class("setup")
 
 	idCmd = &cobra.Command{
 		Use:         "id",

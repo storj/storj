@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 module.exports = {
-  presets: [
-    '@vue/app'
-  ]
-}
+    presets: [
+        '@vue/app'
+    ]
+};

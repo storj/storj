@@ -1,26 +1,34 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import Vue, {VueConstructor} from 'vue';
+
+import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 import { getId } from '@/utils/idGenerator';
-import { NOTIFICATION_IMAGES, NOTIFICATION_TYPES } from '@/utils/constants/notification';
+
+import SuccessIcon from "@/../static/images/notifications/success.svg";
+import NotificationIcon from "@/../static/images/notifications/notification.svg";
+import ErrorIcon from "@/../static/images/notifications/error.svg";
+import WarningIcon from "@/../static/images/notifications/warning.svg";
 
 export class DelayedNotification {
-    private readonly successColor: string = 'rgba(214, 235, 208, 0.4)';
-    private readonly errorColor: string = 'rgba(246, 205, 204, 0.4)';
-    private readonly infoColor: string = 'rgba(219, 225, 232, 0.4)';
+    private readonly successColor: string = '#DBF1D3';
+    private readonly errorColor: string = '#FFD4D2';
+    private readonly infoColor: string = '#D0E3FE';
+    private readonly warningColor: string = '#FCF8E3';
+    public readonly id: string;
 
-    private readonly id: string;
-    private readonly callback: Function;
-    private timerId: number;
+    private readonly callback: () => void;
+    private timerId: ReturnType<typeof setTimeout>;
     private startTime: number;
     private remainingTime: number;
 
     public readonly type: string;
     public readonly message: string;
-    public readonly style: any;
-    public readonly imgSource: string;
+    public readonly style: { backgroundColor: string };
+    public readonly icon: VueConstructor<Vue>;
 
-    constructor(callback: Function, type: string, message: string) {
+    constructor(callback: () => void, type: string, message: string) {
         this.callback = callback;
         this.type = type;
         this.message = message;
@@ -30,19 +38,25 @@ export class DelayedNotification {
 
         // Switch for choosing notification style depends on notification type
         switch (this.type) {
-            case NOTIFICATION_TYPES.SUCCESS:
-                this.style = { backgroundColor: this.successColor };
-                this.imgSource = NOTIFICATION_IMAGES.SUCCESS;
-                break;
+        case NOTIFICATION_TYPES.SUCCESS:
+            this.style = { backgroundColor: this.successColor };
+            this.icon = SuccessIcon;
+            break;
 
-            case NOTIFICATION_TYPES.ERROR:
-                this.style = { backgroundColor: this.errorColor };
-                this.imgSource = NOTIFICATION_IMAGES.ERROR;
-                break;
-            default:
-                this.style = { backgroundColor: this.infoColor };
-                this.imgSource = NOTIFICATION_IMAGES.NOTIFICATION;
-                break;
+        case NOTIFICATION_TYPES.ERROR:
+            this.style = { backgroundColor: this.errorColor };
+            this.icon = ErrorIcon;
+            break;
+
+        case NOTIFICATION_TYPES.WARNING:
+            this.style = { backgroundColor: this.warningColor };
+            this.icon = WarningIcon;
+            break;
+
+        default:
+            this.style = { backgroundColor: this.infoColor };
+            this.icon = NotificationIcon;
+            break;
         }
     }
 

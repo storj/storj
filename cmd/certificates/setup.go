@@ -4,16 +4,15 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/process"
+	"storj.io/common/fpath"
+	"storj.io/private/process"
+	"storj.io/storj/certificate/authorization"
 )
 
 var (
@@ -26,6 +25,8 @@ var (
 )
 
 func cmdSetup(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
@@ -40,34 +41,24 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if !config.Overwrite && !valid {
+	if !setupCfg.Overwrite && !valid {
 		fmt.Printf("certificate signer configuration already exists (%v). rerun with --overwrite\n", setupDir)
 		return nil
 	}
 
-	if config.Overwrite {
-		config.CA.Overwrite = true
-		config.Identity.Overwrite = true
-		config.Signer.Overwrite = true
-	}
-
-	if _, err := config.Signer.NewAuthDB(); err != nil {
-		return err
-	}
-
-	status, err := config.Identity.Status()
+	authorizationDB, err := authorization.OpenDBFromCfg(ctx, setupCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
 	}
-	if status != identity.CertKey {
-		return errors.New("identity is missing")
+	if err := authorizationDB.Close(); err != nil {
+		return err
 	}
 
-	overrides := map[string]interface{}{
-		"ca.cert-path":       config.CA.CertPath,
-		"ca.key-path":        config.CA.KeyPath,
-		"identity.cert-path": config.Identity.CertPath,
-		"identity.key-path":  config.Identity.KeyPath,
-	}
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
+		process.SaveConfigWithOverrides(map[string]interface{}{
+			"signer.cert-path":   setupCfg.Signer.CertPath,
+			"signer.key-path":    setupCfg.Signer.KeyPath,
+			"identity.cert-path": setupCfg.Identity.CertPath,
+			"identity.key-path":  setupCfg.Identity.KeyPath,
+		}))
 }

@@ -8,19 +8,19 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
-//TODO: change to JWT or Macaroon based auth
+// TODO: change to JWT or Macaroon based auth
 
-// Claims represents data signed by server and used for authentication
+// Claims represents data signed by server and used for authentication.
 type Claims struct {
 	ID         uuid.UUID `json:"id"`
 	Email      string    `json:"email,omitempty"`
 	Expiration time.Time `json:"expires,omitempty"`
 }
 
-// JSON returns json representation of Claims
+// JSON returns json representation of Claims.
 func (c *Claims) JSON() ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 
@@ -28,7 +28,7 @@ func (c *Claims) JSON() ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-// FromJSON returns Claims instance, parsed from JSON
+// FromJSON returns Claims instance, parsed from JSON.
 func FromJSON(data []byte) (*Claims, error) {
 	claims := new(Claims)
 

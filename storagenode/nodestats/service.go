@@ -7,136 +7,110 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/kademlia"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/storj/storagenode/pricing"
+	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/storageusage"
+	"storj.io/storj/storagenode/trust"
 )
 
 var (
-	// NodeStatsServiceErr defines node stats service error
-	NodeStatsServiceErr = errs.Class("node stats service error")
+	// NodeStatsServiceErr defines node stats service error.
+	NodeStatsServiceErr = errs.Class("nodestats")
 
 	mon = monkit.Package()
 )
 
-// Stats encapsulates storagenode stats retrieved from the satellite
-type Stats struct {
-	SatelliteID storj.NodeID
-
-	UptimeCheck ReputationStats
-	AuditCheck  ReputationStats
-}
-
-// ReputationStats encapsulates storagenode reputation metrics
-type ReputationStats struct {
-	TotalCount   int64
-	SuccessCount int64
-
-	ReputationAlpha float64
-	ReputationBeta  float64
-	ReputationScore float64
-}
-
-// SpaceUsageStamp is space usage for satellite at some point in time
-type SpaceUsageStamp struct {
-	SatelliteID storj.NodeID
-	AtRestTotal float64
-
-	TimeStamp time.Time
-}
-
-// Client encapsulates NodeStatsClient with underlying connection
+// Client encapsulates NodeStatsClient with underlying connection.
+//
+// architecture: Client
 type Client struct {
-	conn *grpc.ClientConn
-	pb.NodeStatsClient
+	conn *rpc.Conn
+	pb.DRPCNodeStatsClient
 }
 
-// Close closes underlying client connection
+// Close closes underlying client connection.
 func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-// Service retrieves info from satellites using GRPC client
+// Service retrieves info from satellites using an rpc client.
+//
+// architecture: Service
 type Service struct {
 	log *zap.Logger
 
-	transport transport.Client
-	kademlia  *kademlia.Kademlia
+	dialer rpc.Dialer
+	trust  *trust.Pool
 }
 
-// NewService creates new instance of service
-func NewService(log *zap.Logger, transport transport.Client, kademlia *kademlia.Kademlia) *Service {
+// NewService creates new instance of service.
+func NewService(log *zap.Logger, dialer rpc.Dialer, trust *trust.Pool) *Service {
 	return &Service{
-		log:       log,
-		transport: transport,
-		kademlia:  kademlia,
+		log:    log,
+		dialer: dialer,
+		trust:  trust,
 	}
 }
 
-// GetStatsFromSatellite retrieves node stats from particular satellite
-func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *Stats, err error) {
+// GetReputationStats retrieves reputation stats from particular satellite.
+func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := s.DialNodeStats(ctx, satelliteID)
+	client, err := s.dial(ctx, satelliteID)
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
-
-	defer func() {
-		if cerr := client.Close(); cerr != nil {
-			err = errs.Combine(err, NodeStatsServiceErr.New("failed to close connection: %v", cerr))
-		}
-	}()
+	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	resp, err := client.GetStats(ctx, &pb.GetStatsRequest{})
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
 
-	uptime := resp.GetUptimeCheck()
 	audit := resp.GetAuditCheck()
 
-	return &Stats{
+	return &reputation.Stats{
 		SatelliteID: satelliteID,
-		UptimeCheck: ReputationStats{
-			TotalCount:      uptime.GetTotalCount(),
-			SuccessCount:    uptime.GetSuccessCount(),
-			ReputationAlpha: uptime.GetReputationAlpha(),
-			ReputationBeta:  uptime.GetReputationBeta(),
-			ReputationScore: uptime.GetReputationScore(),
+		Audit: reputation.Metric{
+			TotalCount:   audit.GetTotalCount(),
+			SuccessCount: audit.GetSuccessCount(),
+			Alpha:        audit.GetReputationAlpha(),
+			Beta:         audit.GetReputationBeta(),
+			Score:        audit.GetReputationScore(),
+			UnknownAlpha: audit.GetUnknownReputationAlpha(),
+			UnknownBeta:  audit.GetUnknownReputationBeta(),
+			UnknownScore: audit.GetUnknownReputationScore(),
 		},
-		AuditCheck: ReputationStats{
-			TotalCount:      audit.GetTotalCount(),
-			SuccessCount:    audit.GetSuccessCount(),
-			ReputationAlpha: audit.GetReputationAlpha(),
-			ReputationBeta:  audit.GetReputationBeta(),
-			ReputationScore: audit.GetReputationScore(),
-		},
+		OnlineScore:          resp.OnlineScore,
+		DisqualifiedAt:       resp.GetDisqualified(),
+		SuspendedAt:          resp.GetSuspended(),
+		OfflineSuspendedAt:   resp.GetOfflineSuspended(),
+		OfflineUnderReviewAt: resp.GetOfflineUnderReview(),
+		VettedAt:             resp.GetVettedAt(),
+		AuditHistory:         resp.GetAuditHistory(),
+		UpdatedAt:            time.Now(),
+		JoinedAt:             resp.JoinedAt,
 	}, nil
 }
 
-// GetDailyStorageUsedForSatellite returns daily SpaceUsageStamps over a period of time for a particular satellite
-func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []SpaceUsageStamp, err error) {
+// GetDailyStorageUsage returns daily storage usage over a period of time for a particular satellite.
+func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := s.DialNodeStats(ctx, satelliteID)
+	client, err := s.dial(ctx, satelliteID)
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, client.Close()) }()
 
-	defer func() {
-		if cerr := client.Close(); cerr != nil {
-			err = errs.Combine(err, NodeStatsServiceErr.New("failed to close connection: %v", cerr))
-		}
-	}()
-
-	resp, err := client.DailyStorageUsage(ctx, &pb.DailyStorageUsageRequest{})
+	resp, err := client.DailyStorageUsage(ctx, &pb.DailyStorageUsageRequest{From: from, To: to})
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
@@ -144,33 +118,59 @@ func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satellite
 	return fromSpaceUsageResponse(resp, satelliteID), nil
 }
 
-// DialNodeStats dials GRPC NodeStats client for the satellite by id
-func (s *Service) DialNodeStats(ctx context.Context, satelliteID storj.NodeID) (*Client, error) {
-	satellite, err := s.kademlia.FindNode(ctx, satelliteID)
+// GetPricingModel returns pricing model of specific satellite.
+func (s *Service) GetPricingModel(ctx context.Context, satelliteID storj.NodeID) (_ *pricing.Pricing, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	client, err := s.dial(ctx, satelliteID)
 	if err != nil {
-		return nil, errs.New("unable to find satellite %s: %v", satelliteID, err)
+		return nil, NodeStatsServiceErr.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, client.Close()) }()
+
+	pricingModel, err := client.PricingModel(ctx, &pb.PricingModelRequest{})
+	if err != nil {
+		return nil, NodeStatsServiceErr.Wrap(err)
 	}
 
-	conn, err := s.transport.DialNode(ctx, &satellite)
-	if err != nil {
-		return nil, errs.New("unable to connect to the satellite %s: %v", satelliteID, err)
-	}
-
-	return &Client{
-		conn:            conn,
-		NodeStatsClient: pb.NewNodeStatsClient(conn),
+	return &pricing.Pricing{
+		SatelliteID:     satelliteID,
+		EgressBandwidth: pricingModel.EgressBandwidthPrice,
+		RepairBandwidth: pricingModel.RepairBandwidthPrice,
+		AuditBandwidth:  pricingModel.AuditBandwidthPrice,
+		DiskSpace:       pricingModel.DiskSpacePrice,
 	}, nil
 }
 
-// fromSpaceUsageResponse get SpaceUsageStamp slice from pb.SpaceUsageResponse
-func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []SpaceUsageStamp {
-	var stamps []SpaceUsageStamp
+// dial dials the NodeStats client for the satellite by id.
+func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodeurl, err := s.trust.GetNodeURL(ctx, satelliteID)
+	if err != nil {
+		return nil, errs.New("unable to find satellite %s: %w", satelliteID, err)
+	}
+
+	conn, err := s.dialer.DialNodeURL(ctx, nodeurl)
+	if err != nil {
+		return nil, errs.New("unable to connect to the satellite %s: %w", satelliteID, err)
+	}
+
+	return &Client{
+		conn:                conn,
+		DRPCNodeStatsClient: pb.NewDRPCNodeStatsClient(conn),
+	}, nil
+}
+
+// fromSpaceUsageResponse get DiskSpaceUsage slice from pb.SpaceUsageResponse.
+func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []storageusage.Stamp {
+	var stamps []storageusage.Stamp
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {
-		stamps = append(stamps, SpaceUsageStamp{
-			SatelliteID: satelliteID,
-			AtRestTotal: pbUsage.AtRestTotal,
-			TimeStamp:   pbUsage.TimeStamp,
+		stamps = append(stamps, storageusage.Stamp{
+			SatelliteID:   satelliteID,
+			AtRestTotal:   pbUsage.AtRestTotal,
+			IntervalStart: pbUsage.Timestamp,
 		})
 	}
 

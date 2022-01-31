@@ -1,83 +1,133 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { USER_MUTATIONS } from '../mutationConstants';
-import {
-    deleteAccountRequest,
-    updateAccountRequest,
-    changePasswordRequest,
-    getUserRequest,
-} from '@/api/users';
-import { UpdatedUser, UpdatePasswordModel, User } from '@/types/users';
-import { RequestResponse } from '@/types/response';
+import { StoreModule } from '@/store';
+import { DisableMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
+import { MetaUtils } from '@/utils/meta';
 
-export const usersModule = {
-    state: {
-        user: {
-            fullName: '',
-            shortName: '',
-            email: ''
-        }
-    },
-
-    mutations: {
-        [USER_MUTATIONS.SET_USER_INFO](state: any, user: User): void {
-            state.user = user;
-        },
-
-        [USER_MUTATIONS.REVERT_TO_DEFAULT_USER_INFO](state: any): void {
-            state.user.fullName = '';
-            state.user.shortName = '';
-            state.user.email = '';
-        },
-
-        [USER_MUTATIONS.UPDATE_USER_INFO](state: any, user: User): void {
-            state.user = user;
-        },
-
-        [USER_MUTATIONS.CLEAR](state: any): void {
-            state.user = {
-                fullName: '',
-                shortName: '',
-                email: ''
-            };
-        },
-    },
-
-    actions: {
-        updateAccount: async function ({commit}: any, userInfo: UpdatedUser): Promise<RequestResponse<User>> {
-            let response = await updateAccountRequest(userInfo);
-            
-            if (response.isSuccess) {
-                commit(USER_MUTATIONS.UPDATE_USER_INFO, response.data);
-            }
-
-            return response;
-        },
-        changePassword: async function ({state}: any, updateModel: UpdatePasswordModel): Promise<RequestResponse<null>> {
-            return await changePasswordRequest(updateModel.oldPassword, updateModel.newPassword);
-        },
-        deleteAccount: async function ({commit, state}: any, password: string): Promise<RequestResponse<null>> {
-            return await deleteAccountRequest(password);
-        },
-        getUser: async function ({commit}: any): Promise<RequestResponse<User>> {
-            let response = await getUserRequest();
-
-            if (response.isSuccess) {
-                commit(USER_MUTATIONS.SET_USER_INFO, response.data);
-            }
-
-            return response;
-        },
-        clearUser: function({commit}: any) {
-            commit(USER_MUTATIONS.CLEAR);
-        },
-    },
-
-    getters: {
-        user: (state: any) => {
-            return state.user;
-        },
-        userName: (state: any) => state.user.shortName == '' ? state.user.fullName : state.user.shortName
-    },
+export const USER_ACTIONS = {
+    UPDATE: 'updateUser',
+    GET: 'getUser',
+    ENABLE_USER_MFA: 'enableUserMFA',
+    DISABLE_USER_MFA: 'disableUserMFA',
+    GENERATE_USER_MFA_SECRET: 'generateUserMFASecret',
+    GENERATE_USER_MFA_RECOVERY_CODES: 'generateUserMFARecoveryCodes',
+    CLEAR: 'clearUser',
 };
+
+export const USER_MUTATIONS = {
+    SET_USER: 'setUser',
+    SET_USER_MFA_SECRET: 'setUserMFASecret',
+    SET_USER_MFA_RECOVERY_CODES: 'setUserMFARecoveryCodes',
+    UPDATE_USER: 'updateUser',
+    CLEAR: 'clearUser',
+};
+
+export class UsersState {
+    public user: User = new User();
+    public userMFASecret = '';
+    public userMFARecoveryCodes: string[] = [];
+}
+
+const {
+    GET,
+    UPDATE,
+    ENABLE_USER_MFA,
+    DISABLE_USER_MFA,
+    GENERATE_USER_MFA_SECRET,
+    GENERATE_USER_MFA_RECOVERY_CODES,
+} = USER_ACTIONS;
+
+const {
+    SET_USER,
+    UPDATE_USER,
+    SET_USER_MFA_SECRET,
+    SET_USER_MFA_RECOVERY_CODES,
+    CLEAR,
+} = USER_MUTATIONS;
+
+interface UsersContext {
+    state: UsersState
+    commit: (string, ...unknown) => void
+}
+
+/**
+ * creates users module with all dependencies
+ *
+ * @param api - users api
+ */
+export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersContext> {
+    return {
+        state: new UsersState(),
+
+        mutations: {
+            [SET_USER](state: UsersState, user: User): void {
+                state.user = user;
+
+                if (user.projectLimit === 0) {
+                    const limitFromConfig = MetaUtils.getMetaContent('default-project-limit');
+
+                    state.user.projectLimit = parseInt(limitFromConfig);
+
+                    return;
+                }
+
+                state.user.projectLimit = user.projectLimit;
+            },
+            [CLEAR](state: UsersState): void {
+                state.user = new User();
+                state.user.projectLimit = 1;
+            },
+            [UPDATE_USER](state: UsersState, user: UpdatedUser): void {
+                state.user.fullName = user.fullName;
+                state.user.shortName = user.shortName;
+            },
+            [SET_USER_MFA_SECRET](state: UsersState, secret: string): void {
+                state.userMFASecret = secret;
+            },
+            [SET_USER_MFA_RECOVERY_CODES](state: UsersState, codes: string[]): void {
+                state.userMFARecoveryCodes = codes;
+                state.user.mfaRecoveryCodeCount = codes.length;
+            },
+        },
+
+        actions: {
+            [UPDATE]: async function ({commit}: UsersContext, userInfo: UpdatedUser): Promise<void> {
+                await api.update(userInfo);
+
+                commit(UPDATE_USER, userInfo);
+            },
+            [GET]: async function ({commit}: UsersContext): Promise<User> {
+                const user = await api.get();
+
+                commit(SET_USER, user);
+
+                return user;
+            },
+            [DISABLE_USER_MFA]: async function (_, request: DisableMFARequest): Promise<void> {
+                await api.disableUserMFA(request.passcode, request.recoveryCode);
+            },
+            [ENABLE_USER_MFA]: async function (_, passcode: string): Promise<void> {
+                await api.enableUserMFA(passcode);
+            },
+            [GENERATE_USER_MFA_SECRET]: async function ({commit}: UsersContext): Promise<void> {
+                const secret = await api.generateUserMFASecret();
+
+                commit(SET_USER_MFA_SECRET, secret);
+            },
+            [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({commit}: UsersContext): Promise<void> {
+                const codes = await api.generateUserMFARecoveryCodes();
+
+                commit(SET_USER_MFA_RECOVERY_CODES, codes);
+            },
+            [CLEAR]: function({commit}: UsersContext) {
+                commit(CLEAR);
+            },
+        },
+
+        getters: {
+            user: (state: UsersState): User => state.user,
+            userName: (state: UsersState): string => state.user.getFullName(),
+        },
+    };
+}

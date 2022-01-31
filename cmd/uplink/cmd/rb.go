@@ -8,25 +8,29 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/uplink/setup"
+	"storj.io/common/fpath"
+)
+
+var (
+	rbForceFlag *bool
 )
 
 func init() {
-	addCmd(&cobra.Command{
-		Use:   "rb",
+	rbCmd := addCmd(&cobra.Command{
+		Use:   "rb sj://BUCKET",
 		Short: "Remove an empty bucket",
 		RunE:  deleteBucket,
+		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
+	rbForceFlag = rbCmd.Flags().Bool("force", false, "if true, empties the bucket of objects first")
+	setBasicFlags(rbCmd.Flags(), "force")
 }
 
-func deleteBucket(cmd *cobra.Command, args []string) error {
-	ctx := process.Ctx(cmd)
+func deleteBucket(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := withTelemetry(cmd)
 
 	if len(args) == 0 {
-		return fmt.Errorf("No bucket specified for deletion")
+		return fmt.Errorf("no bucket specified for deletion")
 	}
 
 	dst, err := fpath.New(args[0])
@@ -35,40 +39,39 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	if dst.IsLocal() {
-		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
 	if dst.Path() != "" {
-		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
+		return fmt.Errorf("nested buckets not supported, use format sj://bucket/")
 	}
 
-	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
-	if err != nil {
-		return err
-	}
-
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
+	project, err := cfg.getProject(ctx, true)
 	if err != nil {
 		return convertError(err, dst)
 	}
+	defer closeProject(project)
 
-	defer closeProjectAndBucket(project, bucket)
+	defer func() {
+		if err != nil {
+			fmt.Printf("Bucket %s has NOT been deleted\n %+v", dst.Bucket(), err.Error())
+		} else {
+			fmt.Printf("Bucket %s has been deleted\n", dst.Bucket())
+		}
+	}()
 
-	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
-	if err != nil {
+	if *rbForceFlag {
+		// TODO: Do we need to have retry here?
+		if _, err := project.DeleteBucketWithObjects(ctx, dst.Bucket()); err != nil {
+			return convertError(err, dst)
+		}
+
+		return nil
+	}
+
+	if _, err := project.DeleteBucket(ctx, dst.Bucket()); err != nil {
 		return convertError(err, dst)
 	}
-
-	if len(list.Items) > 0 {
-		return fmt.Errorf("Bucket not empty: %s", dst.Bucket())
-	}
-
-	err = project.DeleteBucket(ctx, dst.Bucket())
-	if err != nil {
-		return convertError(err, dst)
-	}
-
-	fmt.Printf("Bucket %s deleted\n", dst.Bucket())
 
 	return nil
 }

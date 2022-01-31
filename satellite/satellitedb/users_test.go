@@ -4,15 +4,18 @@
 package satellitedb
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 func TestUserFromDbx(t *testing.T) {
+	ctx := context.Background()
+
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
 		user, err := userFromDBX(ctx, nil)
 		assert.Nil(t, user)

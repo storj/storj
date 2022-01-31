@@ -1,0 +1,41 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Pagination.vue renders correctly 1`] = `
+<div class="pagination-container">
+  <div class="pagination-container__pages">
+    <div class="pagination-container__button">
+      <paginationlefticon-stub class="pagination-container__button__image"></paginationlefticon-stub>
+    </div>
+    <div class="pagination-container__items">
+      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <!---->
+      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <!---->
+      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+    </div>
+    <div class="pagination-container__button">
+      <paginationrighticon-stub class="pagination-container__button__image"></paginationrighticon-stub>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Pagination.vue renders correctly with props 1`] = `
+<div class="pagination-container">
+  <div class="pagination-container__pages">
+    <div class="pagination-container__button">
+      <paginationlefticon-stub class="pagination-container__button__image"></paginationlefticon-stub>
+    </div>
+    <div class="pagination-container__items">
+      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <!---->
+      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <!---->
+      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+    </div>
+    <div class="pagination-container__button">
+      <paginationrighticon-stub class="pagination-container__button__image"></paginationrighticon-stub>
+    </div>
+  </div>
+</div>
+`;

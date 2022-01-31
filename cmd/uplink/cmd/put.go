@@ -5,28 +5,41 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/process"
+	"storj.io/common/fpath"
+)
+
+var (
+	putProgress *bool
+	putExpires  *string
+	putMetadata *string
 )
 
 func init() {
-	addCmd(&cobra.Command{
-		Use:   "put",
+	putCmd := addCmd(&cobra.Command{
+		Use:   "put sj://BUCKET/KEY",
 		Short: "Copies data from standard in to a Storj object",
 		RunE:  putMain,
+		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
+
+	putProgress = putCmd.Flags().Bool("progress", false, "if true, show upload progress")
+	putExpires = putCmd.Flags().String("expires", "", "optional expiration date of the new object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
+	putMetadata = putCmd.Flags().String("metadata", "", "optional metadata for the object. Please use a single level JSON object of string to string only")
+
+	setBasicFlags(putCmd.Flags(), "progress", "expires", "metadata")
 }
 
-// putMain is the function executed when putCmd is called
+// putMain is the function executed when putCmd is called.
 func putMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for copy")
+		return fmt.Errorf("no object specified for copy")
 	}
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	dst, err := fpath.New(args[0])
 	if err != nil {
@@ -34,7 +47,7 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if dst.IsLocal() {
-		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
 	src, err := fpath.New("-")
@@ -42,5 +55,16 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return upload(ctx, src, dst, false)
+	var expiration time.Time
+	if *putExpires != "" {
+		expiration, err = time.Parse(time.RFC3339, *putExpires)
+		if err != nil {
+			return err
+		}
+		if expiration.Before(time.Now()) {
+			return fmt.Errorf("invalid expiration date: (%s) has already passed", *putExpires)
+		}
+	}
+
+	return upload(ctx, src, dst, expiration, []byte(*putMetadata), *putProgress)
 }

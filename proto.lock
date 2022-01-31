@@ -1,100 +1,7 @@
 {
   "definitions": [
     {
-      "protopath": "pkg:/:macaroon:/:types.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "Caveat",
-            "fields": [
-              {
-                "id": 1,
-                "name": "disallow_reads",
-                "type": "bool"
-              },
-              {
-                "id": 2,
-                "name": "disallow_writes",
-                "type": "bool"
-              },
-              {
-                "id": 3,
-                "name": "disallow_lists",
-                "type": "bool"
-              },
-              {
-                "id": 4,
-                "name": "disallow_deletes",
-                "type": "bool"
-              },
-              {
-                "id": 10,
-                "name": "allowed_paths",
-                "type": "Path",
-                "is_repeated": true
-              },
-              {
-                "id": 20,
-                "name": "not_after",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  }
-                ]
-              },
-              {
-                "id": 21,
-                "name": "not_before",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  }
-                ]
-              },
-              {
-                "id": 30,
-                "name": "nonce",
-                "type": "bytes"
-              }
-            ],
-            "messages": [
-              {
-                "name": "Path",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "bucket",
-                    "type": "bytes"
-                  },
-                  {
-                    "id": 2,
-                    "name": "encrypted_path_prefix",
-                    "type": "bytes"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          }
-        ],
-        "package": {
-          "name": "macaroon"
-        }
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:certificate.proto",
+      "protopath": "certificate:/:certificatepb:/:certificate.proto",
       "def": {
         "messages": [
           {
@@ -108,7 +15,7 @@
               {
                 "id": 2,
                 "name": "timestamp",
-                "type": "int64"
+                "type": "int32"
               }
             ]
           },
@@ -136,196 +43,19 @@
             ]
           }
         ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          }
-        ],
         "package": {
           "name": "node"
         },
         "options": [
           {
             "name": "go_package",
-            "value": "pb"
+            "value": "storj.io/storj/certificate/certificatepb"
           }
         ]
       }
     },
     {
-      "protopath": "pkg:/:pb:/:datarepair.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "InjuredSegment",
-            "fields": [
-              {
-                "id": 1,
-                "name": "path",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "lost_pieces",
-                "type": "int32",
-                "is_repeated": true
-              },
-              {
-                "id": 3,
-                "name": "inserted_time",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          }
-        ],
-        "package": {
-          "name": "repair"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:encryption.proto",
-      "def": {
-        "enums": [
-          {
-            "name": "CipherSuite",
-            "enum_fields": [
-              {
-                "name": "ENC_UNSPECIFIED"
-              },
-              {
-                "name": "ENC_NULL",
-                "integer": 1
-              },
-              {
-                "name": "ENC_AESGCM",
-                "integer": 2
-              },
-              {
-                "name": "ENC_SECRETBOX",
-                "integer": 3
-              }
-            ]
-          }
-        ],
-        "messages": [
-          {
-            "name": "EncryptionParameters",
-            "fields": [
-              {
-                "id": 1,
-                "name": "cipher_suite",
-                "type": "CipherSuite"
-              },
-              {
-                "id": 2,
-                "name": "block_size",
-                "type": "int64"
-              }
-            ]
-          }
-        ],
-        "package": {
-          "name": "encryption"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:encryption_access.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "EncryptionAccess",
-            "fields": [
-              {
-                "id": 1,
-                "name": "default_key",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "store_entries",
-                "type": "StoreEntry",
-                "is_repeated": true
-              }
-            ],
-            "messages": [
-              {
-                "name": "StoreEntry",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "bucket",
-                    "type": "bytes"
-                  },
-                  {
-                    "id": 2,
-                    "name": "unencrypted_path",
-                    "type": "bytes"
-                  },
-                  {
-                    "id": 3,
-                    "name": "encrypted_path",
-                    "type": "bytes"
-                  },
-                  {
-                    "id": 4,
-                    "name": "key",
-                    "type": "bytes"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          }
-        ],
-        "package": {
-          "name": "encryption_access"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:gogo.proto",
+      "protopath": "private:/:multinodepb:/:gogo.proto",
       "def": {
         "messages": [
           {
@@ -753,104 +483,234 @@
           },
           {
             "name": "go_package",
-            "value": "github.com/gogo/protobuf/gogoproto"
+            "value": "storj.io/storj/private/multinodepb"
           }
         ]
       }
     },
     {
-      "protopath": "pkg:/:pb:/:inspector.proto",
+      "protopath": "private:/:multinodepb:/:multinode.proto",
       "def": {
         "messages": [
           {
-            "name": "ListIrreparableSegmentsRequest",
+            "name": "RequestHeader",
             "fields": [
               {
                 "id": 1,
-                "name": "limit",
-                "type": "int32"
-              },
-              {
-                "id": 2,
-                "name": "last_seen_segment_path",
+                "name": "api_key",
                 "type": "bytes"
               }
             ]
           },
           {
-            "name": "IrreparableSegment",
+            "name": "DiskSpaceRequest",
             "fields": [
               {
                 "id": 1,
-                "name": "path",
-                "type": "bytes"
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "DiskSpaceResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "allocated",
+                "type": "int64"
               },
               {
                 "id": 2,
-                "name": "segment_detail",
-                "type": "pointerdb.Pointer"
+                "name": "used_pieces",
+                "type": "int64"
               },
               {
                 "id": 3,
-                "name": "lost_pieces",
-                "type": "int32"
+                "name": "used_trash",
+                "type": "int64"
               },
               {
                 "id": 4,
-                "name": "last_repair_attempt",
+                "name": "free",
                 "type": "int64"
               },
               {
                 "id": 5,
-                "name": "repair_attempt_count",
+                "name": "available",
+                "type": "int64"
+              },
+              {
+                "id": 6,
+                "name": "overused",
                 "type": "int64"
               }
             ]
           },
           {
-            "name": "ListIrreparableSegmentsResponse",
+            "name": "BandwidthMonthSummaryRequest",
             "fields": [
               {
                 "id": 1,
-                "name": "segments",
-                "type": "IrreparableSegment",
-                "is_repeated": true
+                "name": "header",
+                "type": "RequestHeader"
               }
             ]
           },
           {
-            "name": "CountNodesResponse",
+            "name": "BandwidthMonthSummaryResponse",
             "fields": [
               {
                 "id": 1,
-                "name": "count",
+                "name": "used",
                 "type": "int64"
               }
             ]
           },
           {
-            "name": "CountNodesRequest"
-          },
-          {
-            "name": "GetBucketListRequest"
-          },
-          {
-            "name": "GetBucketListResponse",
+            "name": "VersionRequest",
             "fields": [
               {
                 "id": 1,
-                "name": "buckets",
-                "type": "Bucket",
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "VersionResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "version",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "LastContactRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "LastContactResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "last_contact",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ReputationRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
+                "id": 2,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ReputationResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "online",
+                "type": "Online"
+              },
+              {
+                "id": 2,
+                "name": "audit",
+                "type": "Audit"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Online",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "score",
+                    "type": "double"
+                  }
+                ]
+              },
+              {
+                "name": "Audit",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "score",
+                    "type": "double"
+                  },
+                  {
+                    "id": 2,
+                    "name": "suspension_score",
+                    "type": "double"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "TrustedSatellitesRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "TrustedSatellitesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "trusted_satellites",
+                "type": "NodeURL",
                 "is_repeated": true
               }
             ],
             "messages": [
               {
-                "name": "Bucket",
+                "name": "NodeURL",
                 "fields": [
                   {
                     "id": 1,
-                    "name": "bucket_id",
+                    "name": "node_id",
                     "type": "bytes",
                     "options": [
                       {
@@ -865,25 +725,262 @@
                   },
                   {
                     "id": 2,
-                    "name": "routing_nodes",
-                    "type": "node.Node",
-                    "is_repeated": true
-                  },
-                  {
-                    "id": 3,
-                    "name": "cached_nodes",
-                    "type": "node.Node",
-                    "is_repeated": true
+                    "name": "address",
+                    "type": "string"
                   }
                 ]
               }
             ]
           },
           {
-            "name": "GetBucketsRequest"
+            "name": "OperatorRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
           },
           {
-            "name": "GetBucketsResponse",
+            "name": "OperatorResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "wallet",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "wallet_features",
+                "type": "string",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "EstimatedPayoutSatelliteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
+                "id": 2,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "EstimatedPayoutSatelliteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "estimated_earnings",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "EstimatedPayoutRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "EstimatedPayoutResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "estimated_earnings",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "SummaryRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "SummaryResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "payout_info",
+                "type": "PayoutInfo"
+              }
+            ]
+          },
+          {
+            "name": "SummaryPeriodRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
+                "id": 2,
+                "name": "period",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "SummaryPeriodResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "payout_info",
+                "type": "PayoutInfo"
+              }
+            ]
+          },
+          {
+            "name": "SummarySatelliteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
+                "id": 2,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "SummarySatelliteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "payout_info",
+                "type": "PayoutInfo"
+              }
+            ]
+          },
+          {
+            "name": "SummarySatellitePeriodRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
+                "id": 2,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "period",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "SummarySatellitePeriodResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "payout_info",
+                "type": "PayoutInfo"
+              }
+            ]
+          },
+          {
+            "name": "EarnedRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "EarnedResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "total",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "EarnedSatelliteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "EarnedSatelliteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "earned_satellite",
+                "type": "EarnedSatellite",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "EarnedSatellite",
             "fields": [
               {
                 "id": 1,
@@ -892,24 +989,7 @@
               },
               {
                 "id": 2,
-                "name": "ids",
-                "type": "bytes",
-                "is_repeated": true,
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "GetBucketRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
+                "name": "satellite_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -925,48 +1005,36 @@
             ]
           },
           {
-            "name": "GetBucketResponse",
+            "name": "UndistributedRequest",
             "fields": [
               {
                 "id": 1,
-                "name": "id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "UndistributedResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "total",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "PaystubSatelliteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
               },
               {
                 "id": 2,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "BucketList",
-            "fields": [
-              {
-                "id": 1,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "PingNodeRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
+                "name": "satellite_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -978,125 +1046,75 @@
                     "value": "false"
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "name": "PaystubSatelliteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "paystub",
+                "type": "Paystub"
+              }
+            ]
+          },
+          {
+            "name": "PaystubRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "PaystubResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "paystub",
+                "type": "Paystub"
+              }
+            ]
+          },
+          {
+            "name": "PaystubPeriodRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
               },
               {
                 "id": 2,
-                "name": "address",
+                "name": "period",
                 "type": "string"
               }
             ]
           },
           {
-            "name": "PingNodeResponse",
+            "name": "PaystubPeriodResponse",
             "fields": [
               {
                 "id": 1,
-                "name": "ok",
-                "type": "bool"
+                "name": "paystub",
+                "type": "Paystub"
               }
             ]
           },
           {
-            "name": "LookupNodeRequest",
+            "name": "PaystubSatellitePeriodRequest",
             "fields": [
               {
                 "id": 1,
-                "name": "id",
-                "type": "string"
+                "name": "header",
+                "type": "RequestHeader"
               },
               {
                 "id": 2,
-                "name": "address",
-                "type": "string"
-              }
-            ]
-          },
-          {
-            "name": "LookupNodeResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node",
-                "type": "node.Node"
-              },
-              {
-                "id": 2,
-                "name": "meta",
-                "type": "node.NodeMetadata"
-              }
-            ]
-          },
-          {
-            "name": "NodeInfoRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "address",
-                "type": "node.NodeAddress"
-              }
-            ]
-          },
-          {
-            "name": "NodeInfoResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "type",
-                "type": "node.NodeType"
-              },
-              {
-                "id": 2,
-                "name": "operator",
-                "type": "node.NodeOperator"
-              },
-              {
-                "id": 3,
-                "name": "capacity",
-                "type": "node.NodeCapacity"
-              },
-              {
-                "id": 4,
-                "name": "version",
-                "type": "node.NodeVersion"
-              }
-            ]
-          },
-          {
-            "name": "FindNearRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "start",
+                "name": "satellite_id",
                 "type": "bytes",
                 "options": [
                   {
@@ -1111,4274 +1129,289 @@
               },
               {
                 "id": 3,
-                "name": "limit",
-                "type": "int64"
+                "name": "period",
+                "type": "string"
               }
             ]
           },
           {
-            "name": "FindNearResponse",
-            "fields": [
-              {
-                "id": 2,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "DumpNodesRequest"
-          },
-          {
-            "name": "DumpNodesResponse",
+            "name": "PaystubSatellitePeriodResponse",
             "fields": [
               {
                 "id": 1,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
+                "name": "paystub",
+                "type": "Paystub"
               }
             ]
           },
           {
-            "name": "StatsRequest"
-          },
-          {
-            "name": "StatSummaryResponse",
+            "name": "PayoutInfo",
             "fields": [
               {
                 "id": 1,
-                "name": "used_space",
+                "name": "held",
                 "type": "int64"
               },
               {
                 "id": 2,
-                "name": "available_space",
+                "name": "paid",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "Paystub",
+            "fields": [
+              {
+                "id": 1,
+                "name": "usage_at_rest",
+                "type": "double"
+              },
+              {
+                "id": 2,
+                "name": "usage_get",
                 "type": "int64"
               },
               {
                 "id": 3,
-                "name": "used_ingress",
+                "name": "usage_get_repair",
                 "type": "int64"
               },
               {
                 "id": 4,
-                "name": "used_egress",
+                "name": "usage_get_audit",
                 "type": "int64"
               },
               {
                 "id": 5,
-                "name": "used_bandwidth",
+                "name": "comp_at_rest",
                 "type": "int64"
               },
               {
                 "id": 6,
-                "name": "available_bandwidth",
+                "name": "comp_get",
                 "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "DashboardRequest"
-          },
-          {
-            "name": "DashboardResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "node_connections",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "bootstrap_address",
-                "type": "string"
-              },
-              {
-                "id": 4,
-                "name": "internal_address",
-                "type": "string"
-              },
-              {
-                "id": 5,
-                "name": "external_address",
-                "type": "string"
-              },
-              {
-                "id": 6,
-                "name": "dashboard_address",
-                "type": "string"
               },
               {
                 "id": 7,
-                "name": "stats",
-                "type": "StatSummaryResponse"
+                "name": "comp_get_repair",
+                "type": "int64"
               },
               {
                 "id": 8,
-                "name": "uptime",
-                "type": "google.protobuf.Duration"
+                "name": "comp_get_audit",
+                "type": "int64"
               },
               {
                 "id": 9,
-                "name": "last_pinged",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "name": "held",
+                "type": "int64"
               },
               {
                 "id": 10,
-                "name": "last_queried",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "SegmentHealthRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "segment_index",
+                "name": "paid",
                 "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "project_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SegmentHealth",
-            "fields": [
-              {
-                "id": 1,
-                "name": "healthy_ids",
-                "type": "bytes",
-                "is_repeated": true,
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "unhealthy_ids",
-                "type": "bytes",
-                "is_repeated": true,
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "offline_ids",
-                "type": "bytes",
-                "is_repeated": true,
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "name": "segment",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SegmentHealthResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "health",
-                "type": "SegmentHealth"
-              },
-              {
-                "id": 2,
-                "name": "redundancy",
-                "type": "pointerdb.RedundancyScheme"
-              }
-            ]
-          },
-          {
-            "name": "ObjectHealthRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "project_id",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "start_after_segment",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "end_before_segment",
-                "type": "int64"
-              },
-              {
-                "id": 6,
-                "name": "limit",
-                "type": "int32"
-              }
-            ]
-          },
-          {
-            "name": "ObjectHealthResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "segments",
-                "type": "SegmentHealth",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "redundancy",
-                "type": "pointerdb.RedundancyScheme"
-              }
-            ]
-          }
-        ],
-        "services": [
-          {
-            "name": "KadInspector",
-            "rpcs": [
-              {
-                "name": "CountNodes",
-                "in_type": "CountNodesRequest",
-                "out_type": "CountNodesResponse"
-              },
-              {
-                "name": "PingNode",
-                "in_type": "PingNodeRequest",
-                "out_type": "PingNodeResponse"
-              },
-              {
-                "name": "LookupNode",
-                "in_type": "LookupNodeRequest",
-                "out_type": "LookupNodeResponse"
-              },
-              {
-                "name": "NodeInfo",
-                "in_type": "NodeInfoRequest",
-                "out_type": "NodeInfoResponse"
-              },
-              {
-                "name": "FindNear",
-                "in_type": "FindNearRequest",
-                "out_type": "FindNearResponse"
-              },
-              {
-                "name": "DumpNodes",
-                "in_type": "DumpNodesRequest",
-                "out_type": "DumpNodesResponse"
-              },
-              {
-                "name": "GetBucketList",
-                "in_type": "GetBucketListRequest",
-                "out_type": "GetBucketListResponse"
-              }
-            ]
-          },
-          {
-            "name": "OverlayInspector",
-            "rpcs": [
-              {
-                "name": "CountNodes",
-                "in_type": "CountNodesRequest",
-                "out_type": "CountNodesResponse"
-              },
-              {
-                "name": "DumpNodes",
-                "in_type": "DumpNodesRequest",
-                "out_type": "DumpNodesResponse"
-              }
-            ]
-          },
-          {
-            "name": "PieceStoreInspector",
-            "rpcs": [
-              {
-                "name": "Stats",
-                "in_type": "StatsRequest",
-                "out_type": "StatSummaryResponse"
-              },
-              {
-                "name": "Dashboard",
-                "in_type": "DashboardRequest",
-                "out_type": "DashboardResponse"
-              }
-            ]
-          },
-          {
-            "name": "IrreparableInspector",
-            "rpcs": [
-              {
-                "name": "ListIrreparableSegments",
-                "in_type": "ListIrreparableSegmentsRequest",
-                "out_type": "ListIrreparableSegmentsResponse"
-              }
-            ]
-          },
-          {
-            "name": "HealthInspector",
-            "rpcs": [
-              {
-                "name": "ObjectHealth",
-                "in_type": "ObjectHealthRequest",
-                "out_type": "ObjectHealthResponse"
-              },
-              {
-                "name": "SegmentHealth",
-                "in_type": "SegmentHealthRequest",
-                "out_type": "SegmentHealthResponse"
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "node.proto"
-          },
-          {
-            "path": "pointerdb.proto"
-          },
-          {
-            "path": "google/protobuf/duration.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          }
-        ],
-        "package": {
-          "name": "inspector"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:meta.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "SerializableMeta",
-            "fields": [
-              {
-                "id": 1,
-                "name": "content_type",
-                "type": "string"
-              }
-            ],
-            "maps": [
-              {
-                "key_type": "string",
-                "field": {
-                  "id": 2,
-                  "name": "user_defined",
-                  "type": "string"
-                }
-              }
-            ]
-          }
-        ],
-        "package": {
-          "name": "objects"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:metainfo.proto",
-      "def": {
-        "enums": [
-          {
-            "name": "Object.Status",
-            "enum_fields": [
-              {
-                "name": "INVALID"
-              },
-              {
-                "name": "UPLOADING",
-                "integer": 1
-              },
-              {
-                "name": "COMMITTING",
-                "integer": 2
-              },
-              {
-                "name": "COMMITTED",
-                "integer": 3
-              },
-              {
-                "name": "DELETING",
-                "integer": 4
-              }
-            ]
-          }
-        ],
-        "messages": [
-          {
-            "name": "Bucket",
-            "fields": [
-              {
-                "id": 1,
-                "name": "name",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "path_cipher",
-                "type": "encryption.CipherSuite"
-              },
-              {
-                "id": 3,
-                "name": "created_at",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "name": "default_segment_size",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "default_redundancy_scheme",
-                "type": "pointerdb.RedundancyScheme"
-              },
-              {
-                "id": 6,
-                "name": "default_encryption_parameters",
-                "type": "encryption.EncryptionParameters"
-              },
-              {
-                "id": 7,
-                "name": "partner_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "BucketListItem",
-            "fields": [
-              {
-                "id": 1,
-                "name": "name",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "created_at",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "BucketCreateRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "name",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "path_cipher",
-                "type": "encryption.CipherSuite"
-              },
-              {
-                "id": 3,
-                "name": "default_segment_size",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "default_redundancy_scheme",
-                "type": "pointerdb.RedundancyScheme"
-              },
-              {
-                "id": 5,
-                "name": "default_encryption_parameters",
-                "type": "encryption.EncryptionParameters"
-              },
-              {
-                "id": 6,
-                "name": "partner_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "BucketCreateResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "Bucket"
-              }
-            ]
-          },
-          {
-            "name": "BucketGetRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "name",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "BucketGetResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "Bucket"
-              }
-            ]
-          },
-          {
-            "name": "BucketDeleteRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "name",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "BucketDeleteResponse"
-          },
-          {
-            "name": "BucketListRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "cursor",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "limit",
-                "type": "int32"
-              },
-              {
-                "id": 3,
-                "name": "direction",
-                "type": "int32"
-              }
-            ]
-          },
-          {
-            "name": "BucketListResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "items",
-                "type": "BucketListItem",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "more",
-                "type": "bool"
-              }
-            ]
-          },
-          {
-            "name": "BucketSetAttributionRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "name",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "attribution_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "BucketSetAttributionResponse"
-          },
-          {
-            "name": "AddressedOrderLimit",
-            "fields": [
-              {
-                "id": 1,
-                "name": "limit",
-                "type": "orders.OrderLimit"
-              },
-              {
-                "id": 2,
-                "name": "storage_node_address",
-                "type": "node.NodeAddress"
-              }
-            ]
-          },
-          {
-            "name": "SegmentWriteRequestOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "segment",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "redundancy",
-                "type": "pointerdb.RedundancyScheme"
-              },
-              {
-                "id": 5,
-                "name": "max_encrypted_segment_size",
-                "type": "int64"
-              },
-              {
-                "id": 6,
-                "name": "expiration",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "SegmentWriteResponseOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "addressed_limits",
-                "type": "AddressedOrderLimit",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "root_piece_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PieceID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "private_key",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PiecePrivateKey"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "SegmentCommitRequestOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "segment",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "pointer",
-                "type": "pointerdb.Pointer"
-              },
-              {
-                "id": 5,
-                "name": "original_limits",
-                "type": "orders.OrderLimit",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "SegmentCommitResponseOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "pointer",
-                "type": "pointerdb.Pointer"
-              }
-            ]
-          },
-          {
-            "name": "SegmentDownloadRequestOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "segment",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "SegmentDownloadResponseOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "addressed_limits",
-                "type": "AddressedOrderLimit",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "pointer",
-                "type": "pointerdb.Pointer"
-              },
-              {
-                "id": 3,
-                "name": "private_key",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PiecePrivateKey"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "SegmentInfoRequestOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "segment",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "SegmentInfoResponseOld",
-            "fields": [
-              {
-                "id": 2,
-                "name": "pointer",
-                "type": "pointerdb.Pointer"
-              }
-            ]
-          },
-          {
-            "name": "SegmentDeleteRequestOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "segment",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "SegmentDeleteResponseOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "addressed_limits",
-                "type": "AddressedOrderLimit",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "private_key",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PiecePrivateKey"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "ListSegmentsRequestOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "prefix",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "start_after",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "end_before",
-                "type": "bytes"
-              },
-              {
-                "id": 5,
-                "name": "recursive",
-                "type": "bool"
-              },
-              {
-                "id": 6,
-                "name": "limit",
-                "type": "int32"
-              },
-              {
-                "id": 7,
-                "name": "meta_flags",
-                "type": "fixed32"
-              }
-            ]
-          },
-          {
-            "name": "ListSegmentsResponseOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "items",
-                "type": "Item",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "more",
-                "type": "bool"
-              }
-            ],
-            "messages": [
-              {
-                "name": "Item",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "path",
-                    "type": "bytes"
-                  },
-                  {
-                    "id": 2,
-                    "name": "pointer",
-                    "type": "pointerdb.Pointer"
-                  },
-                  {
-                    "id": 3,
-                    "name": "is_prefix",
-                    "type": "bool"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "SetAttributionRequestOld",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket_name",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "partner_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SetAttributionResponseOld"
-          },
-          {
-            "name": "ProjectInfoRequest"
-          },
-          {
-            "name": "ProjectInfoResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "project_salt",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "Object",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "version",
-                "type": "int32"
-              },
-              {
-                "id": 4,
-                "name": "status",
-                "type": "Status"
-              },
-              {
-                "id": 5,
-                "name": "stream_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 6,
-                "name": "created_at",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 7,
-                "name": "status_at",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 8,
-                "name": "expires_at",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 9,
-                "name": "encrypted_metadata_nonce",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "Nonce"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 10,
-                "name": "encrypted_metadata",
-                "type": "bytes"
               },
               {
                 "id": 11,
-                "name": "fixed_segment_size",
+                "name": "distributed",
                 "type": "int64"
               },
               {
                 "id": 12,
-                "name": "redundancy_scheme",
-                "type": "pointerdb.RedundancyScheme"
-              },
-              {
-                "id": 13,
-                "name": "encryption_parameters",
-                "type": "encryption.EncryptionParameters"
-              },
-              {
-                "id": 14,
-                "name": "total_size",
-                "type": "int64"
-              },
-              {
-                "id": 15,
-                "name": "inline_size",
-                "type": "int64"
-              },
-              {
-                "id": 16,
-                "name": "remote_size",
+                "name": "disposed",
                 "type": "int64"
               }
             ]
           },
           {
-            "name": "ObjectBeginRequest",
+            "name": "HeldAmountHistoryRequest",
             "fields": [
               {
                 "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "version",
-                "type": "int32"
-              },
-              {
-                "id": 4,
-                "name": "expires_at",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 5,
-                "name": "encrypted_metadata_nonce",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "Nonce"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 6,
-                "name": "encrypted_metadata",
-                "type": "bytes"
-              },
-              {
-                "id": 7,
-                "name": "redundancy_scheme",
-                "type": "pointerdb.RedundancyScheme"
-              },
-              {
-                "id": 8,
-                "name": "encryption_parameters",
-                "type": "encryption.EncryptionParameters"
+                "name": "header",
+                "type": "RequestHeader"
               }
             ]
           },
           {
-            "name": "ObjectBeginResponse",
+            "name": "HeldAmountHistoryResponse",
             "fields": [
               {
                 "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "version",
-                "type": "int32"
-              },
-              {
-                "id": 4,
-                "name": "stream_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 5,
-                "name": "redundancy_scheme",
-                "type": "pointerdb.RedundancyScheme"
-              },
-              {
-                "id": 6,
-                "name": "encryption_parameters",
-                "type": "encryption.EncryptionParameters"
-              }
-            ]
-          },
-          {
-            "name": "ObjectCommitRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "ObjectCommitResponse"
-          },
-          {
-            "name": "ObjectGetRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "version",
-                "type": "int32"
-              }
-            ]
-          },
-          {
-            "name": "ObjectGetResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "object",
-                "type": "Object"
-              }
-            ]
-          },
-          {
-            "name": "ObjectListRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_prefix",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "encrypted_cursor",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "limit",
-                "type": "int32"
-              },
-              {
-                "id": 5,
-                "name": "object_includes",
-                "type": "ObjectListItemIncludes"
-              }
-            ]
-          },
-          {
-            "name": "ObjectListResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "items",
-                "type": "ObjectListItem",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "more",
-                "type": "bool"
-              }
-            ]
-          },
-          {
-            "name": "ObjectListItem",
-            "fields": [
-              {
-                "id": 1,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "version",
-                "type": "int32"
-              },
-              {
-                "id": 3,
-                "name": "status",
-                "type": "Object.Status"
-              },
-              {
-                "id": 4,
-                "name": "created_at",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 5,
-                "name": "status_at",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 6,
-                "name": "expires_at",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 7,
-                "name": "encrypted_metadata_nonce",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "Nonce"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 8,
-                "name": "encrypted_metadata",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "ObjectListItemIncludes",
-            "fields": [
-              {
-                "id": 1,
-                "name": "metadata",
-                "type": "bool"
-              }
-            ]
-          },
-          {
-            "name": "ObjectBeginDeleteRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "version",
-                "type": "int32"
-              }
-            ]
-          },
-          {
-            "name": "ObjectBeginDeleteResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "ObjectFinishDeleteRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "ObjectFinishDeleteResponse"
-          },
-          {
-            "name": "SatStreamID",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "version",
-                "type": "int32"
-              },
-              {
-                "id": 4,
-                "name": "redundancy",
-                "type": "pointerdb.RedundancyScheme"
-              },
-              {
-                "id": 5,
-                "name": "creation_date",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 6,
-                "name": "expiration_date",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 7,
-                "name": "encrypted_metadata_nonce",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "Nonce"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 8,
-                "name": "encrypted_metadata",
-                "type": "bytes"
-              },
-              {
-                "id": 9,
-                "name": "satellite_signature",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "Segment",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "position",
-                "type": "SegmentPosition"
-              },
-              {
-                "id": 3,
-                "name": "encrypted_key_nonce",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "Nonce"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "name": "encrypted_key",
-                "type": "bytes"
-              },
-              {
-                "id": 5,
-                "name": "size_encrypted_data",
-                "type": "int64"
-              },
-              {
-                "id": 6,
-                "name": "encrypted_inline_data",
-                "type": "bytes"
-              },
-              {
-                "id": 7,
-                "name": "pieces",
-                "type": "Piece",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "Piece",
-            "fields": [
-              {
-                "id": 1,
-                "name": "piece_num",
-                "type": "int32"
-              },
-              {
-                "id": 2,
-                "name": "node",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "SegmentPosition",
-            "fields": [
-              {
-                "id": 1,
-                "name": "part_number",
-                "type": "int32"
-              },
-              {
-                "id": 2,
-                "name": "index",
-                "type": "int32"
-              }
-            ]
-          },
-          {
-            "name": "SegmentBeginRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "position",
-                "type": "SegmentPosition"
-              },
-              {
-                "id": 3,
-                "name": "max_order_limit",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "SegmentBeginResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "addressed_limits",
-                "type": "AddressedOrderLimit",
-                "is_repeated": true
-              },
-              {
-                "id": 3,
-                "name": "private_key",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PiecePrivateKey"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "SegmentCommitRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "encrypted_key_nonce",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "Nonce"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "encrypted_key",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "size_encrypted_data",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "upload_result",
-                "type": "SegmentPieceUploadResult",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "SegmentPieceUploadResult",
-            "fields": [
-              {
-                "id": 1,
-                "name": "piece_num",
-                "type": "int32"
-              },
-              {
-                "id": 2,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "hash",
-                "type": "orders.PieceHash"
-              }
-            ]
-          },
-          {
-            "name": "SatSegmentID",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "SatStreamID"
-              },
-              {
-                "id": 2,
-                "name": "part_number",
-                "type": "int32"
-              },
-              {
-                "id": 3,
-                "name": "index",
-                "type": "int32"
-              },
-              {
-                "id": 5,
-                "name": "root_piece_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PieceID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 6,
-                "name": "original_order_limits",
-                "type": "AddressedOrderLimit",
-                "is_repeated": true
-              },
-              {
-                "id": 7,
-                "name": "creation_date",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 8,
-                "name": "satellite_signature",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SegmentCommitResponse"
-          },
-          {
-            "name": "SegmentMakeInlineRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "position",
-                "type": "SegmentPosition"
-              },
-              {
-                "id": 3,
-                "name": "encrypted_key_nonce",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "Nonce"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "name": "encrypted_key",
-                "type": "bytes"
-              },
-              {
-                "id": 5,
-                "name": "encrypted_inline_data",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SegmentMakeInlineResponse"
-          },
-          {
-            "name": "SegmentBeginDeleteRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "position",
-                "type": "SegmentPosition"
-              }
-            ]
-          },
-          {
-            "name": "SegmentBeginDeleteResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "addressed_limits",
-                "type": "AddressedOrderLimit",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "SegmentFinishDeleteRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "results",
-                "type": "SegmentPieceDeleteResult",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "SegmentPieceDeleteResult",
-            "fields": [
-              {
-                "id": 1,
-                "name": "piece_num",
-                "type": "int32"
-              },
-              {
-                "id": 2,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "hash",
-                "type": "orders.PieceHash"
-              }
-            ]
-          },
-          {
-            "name": "SegmentFinishDeleteResponse"
-          },
-          {
-            "name": "SegmentListRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "cursor_position",
-                "type": "SegmentPosition"
-              },
-              {
-                "id": 3,
-                "name": "limit",
-                "type": "int32"
-              }
-            ]
-          },
-          {
-            "name": "SegmentListResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "items",
-                "type": "SegmentListItem",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "more",
-                "type": "bool"
-              }
-            ]
-          },
-          {
-            "name": "SegmentListItem",
-            "fields": [
-              {
-                "id": 1,
-                "name": "position",
-                "type": "SegmentPosition"
-              }
-            ]
-          },
-          {
-            "name": "SegmentDownloadRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "stream_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "cursor_position",
-                "type": "SegmentPosition"
-              }
-            ]
-          },
-          {
-            "name": "SegmentDownloadResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "addressed_limits",
-                "type": "AddressedOrderLimit",
-                "is_repeated": true
-              },
-              {
-                "id": 3,
-                "name": "encrypted_inline_data",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "next",
-                "type": "SegmentPosition"
-              }
-            ]
-          }
-        ],
-        "services": [
-          {
-            "name": "Metainfo",
-            "rpcs": [
-              {
-                "name": "CreateBucket",
-                "in_type": "BucketCreateRequest",
-                "out_type": "BucketCreateResponse"
-              },
-              {
-                "name": "GetBucket",
-                "in_type": "BucketGetRequest",
-                "out_type": "BucketGetResponse"
-              },
-              {
-                "name": "DeleteBucket",
-                "in_type": "BucketDeleteRequest",
-                "out_type": "BucketDeleteResponse"
-              },
-              {
-                "name": "ListBuckets",
-                "in_type": "BucketListRequest",
-                "out_type": "BucketListResponse"
-              },
-              {
-                "name": "SetBucketAttribution",
-                "in_type": "BucketSetAttributionRequest",
-                "out_type": "BucketSetAttributionResponse"
-              },
-              {
-                "name": "BeginObject",
-                "in_type": "ObjectBeginRequest",
-                "out_type": "ObjectBeginResponse"
-              },
-              {
-                "name": "CommitObject",
-                "in_type": "ObjectCommitRequest",
-                "out_type": "ObjectCommitResponse"
-              },
-              {
-                "name": "GetObject",
-                "in_type": "ObjectGetRequest",
-                "out_type": "ObjectGetResponse"
-              },
-              {
-                "name": "ListObjects",
-                "in_type": "ObjectListRequest",
-                "out_type": "ObjectListResponse"
-              },
-              {
-                "name": "BeginDeleteObject",
-                "in_type": "ObjectBeginDeleteRequest",
-                "out_type": "ObjectBeginDeleteResponse"
-              },
-              {
-                "name": "FinishDeleteObject",
-                "in_type": "ObjectFinishDeleteRequest",
-                "out_type": "ObjectFinishDeleteResponse"
-              },
-              {
-                "name": "BeginSegment",
-                "in_type": "SegmentBeginRequest",
-                "out_type": "SegmentBeginResponse"
-              },
-              {
-                "name": "CommitSegment",
-                "in_type": "SegmentCommitRequest",
-                "out_type": "SegmentCommitResponse"
-              },
-              {
-                "name": "MakeInlineSegment",
-                "in_type": "SegmentMakeInlineRequest",
-                "out_type": "SegmentMakeInlineResponse"
-              },
-              {
-                "name": "BeginDeleteSegment",
-                "in_type": "SegmentBeginDeleteRequest",
-                "out_type": "SegmentBeginDeleteResponse"
-              },
-              {
-                "name": "FinishDeleteSegment",
-                "in_type": "SegmentFinishDeleteRequest",
-                "out_type": "SegmentFinishDeleteResponse"
-              },
-              {
-                "name": "ListSegments",
-                "in_type": "SegmentListRequest",
-                "out_type": "SegmentListResponse"
-              },
-              {
-                "name": "DownloadSegment",
-                "in_type": "SegmentDownloadRequest",
-                "out_type": "SegmentDownloadResponse"
-              },
-              {
-                "name": "CreateSegmentOld",
-                "in_type": "SegmentWriteRequestOld",
-                "out_type": "SegmentWriteResponseOld"
-              },
-              {
-                "name": "CommitSegmentOld",
-                "in_type": "SegmentCommitRequestOld",
-                "out_type": "SegmentCommitResponseOld"
-              },
-              {
-                "name": "SegmentInfoOld",
-                "in_type": "SegmentInfoRequestOld",
-                "out_type": "SegmentInfoResponseOld"
-              },
-              {
-                "name": "DownloadSegmentOld",
-                "in_type": "SegmentDownloadRequestOld",
-                "out_type": "SegmentDownloadResponseOld"
-              },
-              {
-                "name": "DeleteSegmentOld",
-                "in_type": "SegmentDeleteRequestOld",
-                "out_type": "SegmentDeleteResponseOld"
-              },
-              {
-                "name": "ListSegmentsOld",
-                "in_type": "ListSegmentsRequestOld",
-                "out_type": "ListSegmentsResponseOld"
-              },
-              {
-                "name": "SetAttributionOld",
-                "in_type": "SetAttributionRequestOld",
-                "out_type": "SetAttributionResponseOld"
-              },
-              {
-                "name": "ProjectInfo",
-                "in_type": "ProjectInfoRequest",
-                "out_type": "ProjectInfoResponse"
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "encryption.proto"
-          },
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          },
-          {
-            "path": "node.proto"
-          },
-          {
-            "path": "pointerdb.proto"
-          },
-          {
-            "path": "orders.proto"
-          }
-        ],
-        "package": {
-          "name": "metainfo"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:node.proto",
-      "def": {
-        "enums": [
-          {
-            "name": "NodeType",
-            "enum_fields": [
-              {
-                "name": "INVALID"
-              },
-              {
-                "name": "SATELLITE",
-                "integer": 1
-              },
-              {
-                "name": "STORAGE",
-                "integer": 2
-              },
-              {
-                "name": "UPLINK",
-                "integer": 3
-              },
-              {
-                "name": "BOOTSTRAP",
-                "integer": 4
-              }
-            ]
-          },
-          {
-            "name": "NodeTransport",
-            "enum_fields": [
-              {
-                "name": "TCP_TLS_GRPC"
-              }
-            ]
-          }
-        ],
-        "messages": [
-          {
-            "name": "Node",
-            "fields": [
-              {
-                "id": 1,
-                "name": "id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "address",
-                "type": "NodeAddress"
-              },
-              {
-                "id": 14,
-                "name": "last_ip",
-                "type": "string"
-              }
-            ],
-            "reserved_ids": [
-              3,
-              4,
-              5,
-              6,
-              7,
-              8,
-              9,
-              10,
-              11,
-              12,
-              13
-            ],
-            "reserved_names": [
-              "type",
-              "restrictions",
-              "reputation",
-              "metadata",
-              "latency_list",
-              "audit_success",
-              "is_up",
-              "update_latency",
-              "update_audit_success",
-              "update_uptime",
-              "version"
-            ]
-          },
-          {
-            "name": "NodeAddress",
-            "fields": [
-              {
-                "id": 1,
-                "name": "transport",
-                "type": "NodeTransport"
-              },
-              {
-                "id": 2,
-                "name": "address",
-                "type": "string"
-              }
-            ]
-          },
-          {
-            "name": "NodeOperator",
-            "fields": [
-              {
-                "id": 1,
-                "name": "email",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "wallet",
-                "type": "string"
-              }
-            ]
-          },
-          {
-            "name": "NodeCapacity",
-            "fields": [
-              {
-                "id": 1,
-                "name": "free_bandwidth",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "free_disk",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "NodeMetadata",
-            "fields": [
-              {
-                "id": 1,
-                "name": "email",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "wallet",
-                "type": "string"
-              }
-            ]
-          },
-          {
-            "name": "NodeRestrictions",
-            "fields": [
-              {
-                "id": 1,
-                "name": "free_bandwidth",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "free_disk",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "NodeVersion",
-            "fields": [
-              {
-                "id": 1,
-                "name": "version",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "commit_hash",
-                "type": "string"
-              },
-              {
-                "id": 3,
-                "name": "timestamp",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "name": "release",
-                "type": "bool"
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          }
-        ],
-        "package": {
-          "name": "node"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:nodestats.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "ReputationStats",
-            "fields": [
-              {
-                "id": 1,
-                "name": "total_count",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "success_count",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "reputation_alpha",
-                "type": "double"
-              },
-              {
-                "id": 4,
-                "name": "reputation_beta",
-                "type": "double"
-              },
-              {
-                "id": 5,
-                "name": "reputation_score",
-                "type": "double"
-              }
-            ]
-          },
-          {
-            "name": "GetStatsRequest"
-          },
-          {
-            "name": "GetStatsResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "uptime_check",
-                "type": "ReputationStats"
-              },
-              {
-                "id": 2,
-                "name": "audit_check",
-                "type": "ReputationStats"
-              }
-            ]
-          },
-          {
-            "name": "DailyStorageUsageRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "from",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "to",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "DailyStorageUsageResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "daily_storage_usage",
-                "type": "StorageUsage",
+                "name": "history",
+                "type": "HeldAmountHistory",
                 "is_repeated": true
               }
             ],
             "messages": [
               {
-                "name": "StorageUsage",
+                "name": "HeldAmount",
                 "fields": [
                   {
-                    "id": 2,
-                    "name": "at_rest_total",
-                    "type": "double"
+                    "id": 1,
+                    "name": "period",
+                    "type": "string"
                   },
                   {
-                    "id": 3,
-                    "name": "time_stamp",
-                    "type": "google.protobuf.Timestamp",
+                    "id": 2,
+                    "name": "amount",
+                    "type": "int64"
+                  }
+                ]
+              },
+              {
+                "name": "HeldAmountHistory",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "satellite_id",
+                    "type": "bytes",
                     "options": [
                       {
-                        "name": "(gogoproto.stdtime)",
-                        "value": "true"
+                        "name": "(gogoproto.customtype)",
+                        "value": "NodeID"
                       },
                       {
                         "name": "(gogoproto.nullable)",
                         "value": "false"
                       }
                     ]
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "services": [
-          {
-            "name": "NodeStats",
-            "rpcs": [
-              {
-                "name": "GetStats",
-                "in_type": "GetStatsRequest",
-                "out_type": "GetStatsResponse"
-              },
-              {
-                "name": "DailyStorageUsage",
-                "in_type": "DailyStorageUsageRequest",
-                "out_type": "DailyStorageUsageResponse"
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          }
-        ],
-        "package": {
-          "name": "nodestats"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:orders.proto",
-      "def": {
-        "enums": [
-          {
-            "name": "PieceAction",
-            "enum_fields": [
-              {
-                "name": "INVALID"
-              },
-              {
-                "name": "PUT",
-                "integer": 1
-              },
-              {
-                "name": "GET",
-                "integer": 2
-              },
-              {
-                "name": "GET_AUDIT",
-                "integer": 3
-              },
-              {
-                "name": "GET_REPAIR",
-                "integer": 4
-              },
-              {
-                "name": "PUT_REPAIR",
-                "integer": 5
-              },
-              {
-                "name": "DELETE",
-                "integer": 6
-              }
-            ]
-          },
-          {
-            "name": "SettlementResponse.Status",
-            "enum_fields": [
-              {
-                "name": "INVALID"
-              },
-              {
-                "name": "ACCEPTED",
-                "integer": 1
-              },
-              {
-                "name": "REJECTED",
-                "integer": 2
-              }
-            ]
-          }
-        ],
-        "messages": [
-          {
-            "name": "OrderLimit",
-            "fields": [
-              {
-                "id": 1,
-                "name": "serial_number",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SerialNumber"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "satellite_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "deprecated_uplink_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  }
-                ]
-              },
-              {
-                "id": 13,
-                "name": "uplink_public_key",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PiecePublicKey"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "name": "storage_node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 5,
-                "name": "piece_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PieceID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 6,
-                "name": "limit",
-                "type": "int64"
-              },
-              {
-                "id": 7,
-                "name": "action",
-                "type": "PieceAction"
-              },
-              {
-                "id": 8,
-                "name": "piece_expiration",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 9,
-                "name": "order_expiration",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 12,
-                "name": "order_creation",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 10,
-                "name": "satellite_signature",
-                "type": "bytes"
-              },
-              {
-                "id": 11,
-                "name": "satellite_address",
-                "type": "node.NodeAddress"
-              }
-            ]
-          },
-          {
-            "name": "OrderLimitSigning",
-            "fields": [
-              {
-                "id": 1,
-                "name": "serial_number",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SerialNumber"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "satellite_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "deprecated_uplink_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  }
-                ]
-              },
-              {
-                "id": 13,
-                "name": "uplink_public_key",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PiecePublicKey"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "name": "storage_node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 5,
-                "name": "piece_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PieceID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 6,
-                "name": "limit",
-                "type": "int64"
-              },
-              {
-                "id": 7,
-                "name": "action",
-                "type": "PieceAction"
-              },
-              {
-                "id": 8,
-                "name": "piece_expiration",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  }
-                ]
-              },
-              {
-                "id": 9,
-                "name": "order_expiration",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  }
-                ]
-              },
-              {
-                "id": 12,
-                "name": "order_creation",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  }
-                ]
-              },
-              {
-                "id": 10,
-                "name": "satellite_signature",
-                "type": "bytes"
-              },
-              {
-                "id": 11,
-                "name": "satellite_address",
-                "type": "node.NodeAddress"
-              }
-            ]
-          },
-          {
-            "name": "Order",
-            "fields": [
-              {
-                "id": 1,
-                "name": "serial_number",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SerialNumber"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "amount",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "uplink_signature",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "OrderSigning",
-            "fields": [
-              {
-                "id": 1,
-                "name": "serial_number",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SerialNumber"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "amount",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "uplink_signature",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "PieceHash",
-            "fields": [
-              {
-                "id": 1,
-                "name": "piece_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PieceID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "hash",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "piece_size",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "timestamp",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "signature",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "PieceHashSigning",
-            "fields": [
-              {
-                "id": 1,
-                "name": "piece_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PieceID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "hash",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "piece_size",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "timestamp",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "signature",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SettlementRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "limit",
-                "type": "OrderLimit"
-              },
-              {
-                "id": 2,
-                "name": "order",
-                "type": "Order"
-              }
-            ]
-          },
-          {
-            "name": "SettlementResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "serial_number",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SerialNumber"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "status",
-                "type": "Status"
-              }
-            ]
-          }
-        ],
-        "services": [
-          {
-            "name": "Orders",
-            "rpcs": [
-              {
-                "name": "Settlement",
-                "in_type": "SettlementRequest",
-                "out_type": "SettlementResponse",
-                "in_streamed": true,
-                "out_streamed": true
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          },
-          {
-            "path": "node.proto"
-          }
-        ],
-        "package": {
-          "name": "orders"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:overlay.proto",
-      "def": {
-        "enums": [
-          {
-            "name": "Restriction.Operator",
-            "enum_fields": [
-              {
-                "name": "LT"
-              },
-              {
-                "name": "EQ",
-                "integer": 1
-              },
-              {
-                "name": "GT",
-                "integer": 2
-              },
-              {
-                "name": "LTE",
-                "integer": 3
-              },
-              {
-                "name": "GTE",
-                "integer": 4
-              }
-            ]
-          },
-          {
-            "name": "Restriction.Operand",
-            "enum_fields": [
-              {
-                "name": "FREE_BANDWIDTH"
-              },
-              {
-                "name": "FREE_DISK",
-                "integer": 1
-              }
-            ]
-          }
-        ],
-        "messages": [
-          {
-            "name": "QueryRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "sender",
-                "type": "node.Node"
-              },
-              {
-                "id": 2,
-                "name": "target",
-                "type": "node.Node"
-              },
-              {
-                "id": 3,
-                "name": "limit",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "pingback",
-                "type": "bool"
-              },
-              {
-                "id": 5,
-                "name": "vouchers",
-                "type": "vouchers.Voucher",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "QueryResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "sender",
-                "type": "node.Node"
-              },
-              {
-                "id": 2,
-                "name": "response",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
-            "name": "PingRequest"
-          },
-          {
-            "name": "PingResponse"
-          },
-          {
-            "name": "InfoRequest"
-          },
-          {
-            "name": "InfoResponse",
-            "fields": [
-              {
-                "id": 2,
-                "name": "type",
-                "type": "node.NodeType"
-              },
-              {
-                "id": 3,
-                "name": "operator",
-                "type": "node.NodeOperator"
-              },
-              {
-                "id": 4,
-                "name": "capacity",
-                "type": "node.NodeCapacity"
-              },
-              {
-                "id": 5,
-                "name": "version",
-                "type": "node.NodeVersion"
-              }
-            ]
-          },
-          {
-            "name": "Restriction",
-            "fields": [
-              {
-                "id": 1,
-                "name": "operator",
-                "type": "Operator"
-              },
-              {
-                "id": 2,
-                "name": "operand",
-                "type": "Operand"
-              },
-              {
-                "id": 3,
-                "name": "value",
-                "type": "int64"
-              }
-            ]
-          }
-        ],
-        "services": [
-          {
-            "name": "Nodes",
-            "rpcs": [
-              {
-                "name": "Query",
-                "in_type": "QueryRequest",
-                "out_type": "QueryResponse"
-              },
-              {
-                "name": "Ping",
-                "in_type": "PingRequest",
-                "out_type": "PingResponse"
-              },
-              {
-                "name": "RequestInfo",
-                "in_type": "InfoRequest",
-                "out_type": "InfoResponse"
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "node.proto"
-          },
-          {
-            "path": "vouchers.proto"
-          }
-        ],
-        "package": {
-          "name": "overlay"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:piecestore2.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "PieceUploadRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "limit",
-                "type": "orders.OrderLimit"
-              },
-              {
-                "id": 2,
-                "name": "order",
-                "type": "orders.Order"
-              },
-              {
-                "id": 3,
-                "name": "chunk",
-                "type": "Chunk"
-              },
-              {
-                "id": 4,
-                "name": "done",
-                "type": "orders.PieceHash"
-              }
-            ],
-            "messages": [
-              {
-                "name": "Chunk",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "offset",
-                    "type": "int64"
                   },
                   {
                     "id": 2,
-                    "name": "data",
-                    "type": "bytes"
+                    "name": "held_amounts",
+                    "type": "HeldAmount",
+                    "is_repeated": true
                   }
                 ]
-              }
-            ]
-          },
-          {
-            "name": "PieceUploadResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "done",
-                "type": "orders.PieceHash"
-              }
-            ]
-          },
-          {
-            "name": "PieceDownloadRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "limit",
-                "type": "orders.OrderLimit"
-              },
-              {
-                "id": 2,
-                "name": "order",
-                "type": "orders.Order"
-              },
-              {
-                "id": 3,
-                "name": "chunk",
-                "type": "Chunk"
-              }
-            ],
-            "messages": [
-              {
-                "name": "Chunk",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "offset",
-                    "type": "int64"
-                  },
-                  {
-                    "id": 2,
-                    "name": "chunk_size",
-                    "type": "int64"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "PieceDownloadResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "chunk",
-                "type": "Chunk"
-              }
-            ],
-            "messages": [
-              {
-                "name": "Chunk",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "offset",
-                    "type": "int64"
-                  },
-                  {
-                    "id": 2,
-                    "name": "data",
-                    "type": "bytes"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "PieceDeleteRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "limit",
-                "type": "orders.OrderLimit"
-              }
-            ]
-          },
-          {
-            "name": "PieceDeleteResponse"
-          },
-          {
-            "name": "RetainRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "creation_date",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "filter",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "RetainResponse"
-          }
-        ],
-        "services": [
-          {
-            "name": "Piecestore",
-            "rpcs": [
-              {
-                "name": "Upload",
-                "in_type": "PieceUploadRequest",
-                "out_type": "PieceUploadResponse",
-                "in_streamed": true
-              },
-              {
-                "name": "Download",
-                "in_type": "PieceDownloadRequest",
-                "out_type": "PieceDownloadResponse",
-                "in_streamed": true,
-                "out_streamed": true
-              },
-              {
-                "name": "Delete",
-                "in_type": "PieceDeleteRequest",
-                "out_type": "PieceDeleteResponse"
-              },
-              {
-                "name": "Retain",
-                "in_type": "RetainRequest",
-                "out_type": "RetainResponse"
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          },
-          {
-            "path": "orders.proto"
-          }
-        ],
-        "package": {
-          "name": "piecestore"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:pointerdb.proto",
-      "def": {
-        "enums": [
-          {
-            "name": "RedundancyScheme.SchemeType",
-            "enum_fields": [
-              {
-                "name": "INVALID"
-              },
-              {
-                "name": "RS",
-                "integer": 1
-              }
-            ]
-          },
-          {
-            "name": "Pointer.DataType",
-            "enum_fields": [
-              {
-                "name": "INLINE"
-              },
-              {
-                "name": "REMOTE",
-                "integer": 1
-              }
-            ]
-          }
-        ],
-        "messages": [
-          {
-            "name": "RedundancyScheme",
-            "fields": [
-              {
-                "id": 1,
-                "name": "type",
-                "type": "SchemeType"
-              },
-              {
-                "id": 2,
-                "name": "min_req",
-                "type": "int32"
-              },
-              {
-                "id": 3,
-                "name": "total",
-                "type": "int32"
-              },
-              {
-                "id": 4,
-                "name": "repair_threshold",
-                "type": "int32"
-              },
-              {
-                "id": 5,
-                "name": "success_threshold",
-                "type": "int32"
-              },
-              {
-                "id": 6,
-                "name": "erasure_share_size",
-                "type": "int32"
-              }
-            ]
-          },
-          {
-            "name": "RemotePiece",
-            "fields": [
-              {
-                "id": 1,
-                "name": "piece_num",
-                "type": "int32"
-              },
-              {
-                "id": 2,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "hash",
-                "type": "orders.PieceHash"
-              }
-            ]
-          },
-          {
-            "name": "RemoteSegment",
-            "fields": [
-              {
-                "id": 1,
-                "name": "redundancy",
-                "type": "RedundancyScheme"
-              },
-              {
-                "id": 2,
-                "name": "root_piece_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "PieceID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "remote_pieces",
-                "type": "RemotePiece",
-                "is_repeated": true
-              },
-              {
-                "id": 4,
-                "name": "merkle_root",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "Pointer",
-            "fields": [
-              {
-                "id": 1,
-                "name": "type",
-                "type": "DataType"
-              },
-              {
-                "id": 3,
-                "name": "inline_segment",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "remote",
-                "type": "RemoteSegment"
-              },
-              {
-                "id": 5,
-                "name": "segment_size",
-                "type": "int64"
-              },
-              {
-                "id": 6,
-                "name": "creation_date",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 7,
-                "name": "expiration_date",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 8,
-                "name": "metadata",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "ListResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "items",
-                "type": "Item",
-                "is_repeated": true
-              },
-              {
-                "id": 2,
-                "name": "more",
-                "type": "bool"
-              }
-            ],
-            "messages": [
-              {
-                "name": "Item",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "path",
-                    "type": "string"
-                  },
-                  {
-                    "id": 2,
-                    "name": "pointer",
-                    "type": "Pointer"
-                  },
-                  {
-                    "id": 3,
-                    "name": "is_prefix",
-                    "type": "bool"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "google/protobuf/timestamp.proto"
-          },
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "node.proto"
-          },
-          {
-            "path": "orders.proto"
-          }
-        ],
-        "package": {
-          "name": "pointerdb"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:scope.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "Scope",
-            "fields": [
-              {
-                "id": 1,
-                "name": "satellite_addr",
-                "type": "string"
-              },
-              {
-                "id": 2,
-                "name": "api_key",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "encryption_access",
-                "type": "encryption_access.EncryptionAccess"
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "encryption_access.proto"
-          }
-        ],
-        "package": {
-          "name": "scope"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:streams.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "SegmentMeta",
-            "fields": [
-              {
-                "id": 1,
-                "name": "encrypted_key",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "key_nonce",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "StreamInfo",
-            "fields": [
-              {
-                "id": 1,
-                "name": "number_of_segments",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "segments_size",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "last_segment_size",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "metadata",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "StreamMeta",
-            "fields": [
-              {
-                "id": 1,
-                "name": "encrypted_stream_info",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encryption_type",
-                "type": "int32"
-              },
-              {
-                "id": 3,
-                "name": "encryption_block_size",
-                "type": "int32"
-              },
-              {
-                "id": 4,
-                "name": "last_segment_meta",
-                "type": "SegmentMeta"
-              }
-            ]
-          }
-        ],
-        "package": {
-          "name": "streams"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:vouchers.proto",
-      "def": {
-        "enums": [
-          {
-            "name": "VoucherResponse.Status",
-            "enum_fields": [
-              {
-                "name": "INVALID"
-              },
-              {
-                "name": "ACCEPTED",
-                "integer": 1
-              },
-              {
-                "name": "REJECTED",
-                "integer": 2
-              }
-            ]
-          }
-        ],
-        "messages": [
-          {
-            "name": "Voucher",
-            "fields": [
-              {
-                "id": 1,
-                "name": "satellite_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "storage_node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "expiration",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "name": "satellite_signature",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "VoucherRequest"
-          },
-          {
-            "name": "VoucherResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "voucher",
-                "type": "Voucher"
-              },
-              {
-                "id": 2,
-                "name": "status",
-                "type": "Status"
               }
             ]
           }
         ],
         "services": [
           {
-            "name": "Vouchers",
+            "name": "Storage",
             "rpcs": [
               {
-                "name": "Request",
-                "in_type": "VoucherRequest",
-                "out_type": "VoucherResponse"
+                "name": "DiskSpace",
+                "in_type": "DiskSpaceRequest",
+                "out_type": "DiskSpaceResponse"
+              }
+            ]
+          },
+          {
+            "name": "Bandwidth",
+            "rpcs": [
+              {
+                "name": "MonthSummary",
+                "in_type": "BandwidthMonthSummaryRequest",
+                "out_type": "BandwidthMonthSummaryResponse"
+              }
+            ]
+          },
+          {
+            "name": "Node",
+            "rpcs": [
+              {
+                "name": "Version",
+                "in_type": "VersionRequest",
+                "out_type": "VersionResponse"
+              },
+              {
+                "name": "LastContact",
+                "in_type": "LastContactRequest",
+                "out_type": "LastContactResponse"
+              },
+              {
+                "name": "Reputation",
+                "in_type": "ReputationRequest",
+                "out_type": "ReputationResponse"
+              },
+              {
+                "name": "TrustedSatellites",
+                "in_type": "TrustedSatellitesRequest",
+                "out_type": "TrustedSatellitesResponse"
+              },
+              {
+                "name": "Operator",
+                "in_type": "OperatorRequest",
+                "out_type": "OperatorResponse"
+              }
+            ]
+          },
+          {
+            "name": "Payouts",
+            "rpcs": [
+              {
+                "name": "Summary",
+                "in_type": "SummaryRequest",
+                "out_type": "SummaryResponse"
+              },
+              {
+                "name": "SummaryPeriod",
+                "in_type": "SummaryPeriodRequest",
+                "out_type": "SummaryPeriodResponse"
+              },
+              {
+                "name": "SummarySatellite",
+                "in_type": "SummarySatelliteRequest",
+                "out_type": "SummarySatelliteResponse"
+              },
+              {
+                "name": "SummarySatellitePeriod",
+                "in_type": "SummarySatellitePeriodRequest",
+                "out_type": "SummarySatellitePeriodResponse"
+              },
+              {
+                "name": "Earned",
+                "in_type": "EarnedRequest",
+                "out_type": "EarnedResponse"
+              },
+              {
+                "name": "EarnedSatellite",
+                "in_type": "EarnedSatelliteRequest",
+                "out_type": "EarnedSatelliteResponse"
+              },
+              {
+                "name": "EstimatedPayoutSatellite",
+                "in_type": "EstimatedPayoutSatelliteRequest",
+                "out_type": "EstimatedPayoutSatelliteResponse"
+              },
+              {
+                "name": "EstimatedPayout",
+                "in_type": "EstimatedPayoutRequest",
+                "out_type": "EstimatedPayoutResponse"
+              },
+              {
+                "name": "Undistributed",
+                "in_type": "UndistributedRequest",
+                "out_type": "UndistributedResponse"
+              },
+              {
+                "name": "PaystubSatellite",
+                "in_type": "PaystubSatelliteRequest",
+                "out_type": "PaystubSatelliteResponse"
+              },
+              {
+                "name": "Paystub",
+                "in_type": "PaystubRequest",
+                "out_type": "PaystubResponse"
+              },
+              {
+                "name": "PaystubPeriod",
+                "in_type": "PaystubPeriodRequest",
+                "out_type": "PaystubPeriodResponse"
+              },
+              {
+                "name": "PaystubSatellitePeriod",
+                "in_type": "PaystubSatellitePeriodRequest",
+                "out_type": "PaystubSatellitePeriodResponse"
+              },
+              {
+                "name": "HeldAmountHistory",
+                "in_type": "HeldAmountHistoryRequest",
+                "out_type": "HeldAmountHistoryResponse"
               }
             ]
           }
@@ -5392,12 +1425,12 @@
           }
         ],
         "package": {
-          "name": "vouchers"
+          "name": "multinode"
         },
         "options": [
           {
             "name": "go_package",
-            "value": "pb"
+            "value": "storj.io/storj/private/multinodepb"
           }
         ]
       }

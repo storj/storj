@@ -4,57 +4,111 @@
 package consoleql_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/graphql-go/graphql"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/post"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/auth"
-	"storj.io/storj/satellite"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
+	"storj.io/storj/private/post"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/testredis"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/localpayments"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/rewards"
 )
 
-// discardSender discard sending of an actual email
+// discardSender discard sending of an actual email.
 type discardSender struct{}
 
-// SendEmail immediately returns with nil error
+// SendEmail immediately returns with nil error.
 func (*discardSender) SendEmail(ctx context.Context, msg *post.Message) error {
 	return nil
 }
 
-// FromAddress returns empty post.Address
+// FromAddress returns empty post.Address.
 func (*discardSender) FromAddress() post.Address {
 	return post.Address{}
 }
 
-func TestGrapqhlMutation(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+func TestGraphqlMutation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
 		log := zaptest.NewLogger(t)
 
+		partnersService := rewards.NewPartnersService(
+			log.Named("partners"),
+			rewards.DefaultPartnersDB,
+		)
+
+		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")
+
+		redis, err := testredis.Mini(ctx)
+		require.NoError(t, err)
+		defer ctx.Check(redis.Close)
+
+		cache, err := live.OpenCache(ctx, log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
+		require.NoError(t, err)
+
+		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
+
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, *sat.Metabase.DB, 5*time.Minute, -10*time.Second)
+
+		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
+		pc := paymentsconfig.Config{
+			StorageTBPrice: "10",
+			EgressTBPrice:  "45",
+			SegmentPrice:   "0.0000022",
+		}
+
+		paymentsService, err := stripecoinpayments.NewService(
+			log.Named("payments.stripe:service"),
+			stripecoinpayments.NewStripeMock(
+				testrand.NodeID(),
+				db.StripeCoinPayments().Customers(),
+				db.Console().Users(),
+			),
+			pc.StripeCoinPayments,
+			db.StripeCoinPayments(),
+			db.Console().Projects(),
+			db.ProjectAccounting(),
+			pc.StorageTBPrice,
+			pc.EgressTBPrice,
+			pc.SegmentPrice,
+			pc.BonusRate)
+		require.NoError(t, err)
+
 		service, err := console.NewService(
-			log,
+			log.Named("console"),
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
-			db.Rewards(),
-			localpayments.NewService(nil),
-			console.TestPasswordCost,
+			db.ProjectAccounting(),
+			projectUsage,
+			sat.API.Buckets.Service,
+			partnersService,
+			paymentsService.Accounts(),
+			analyticsService,
+			console.Config{
+				PasswordCost:        console.TestPasswordCost,
+				DefaultProjectLimit: 5,
+				TokenExpirationTime: 24 * time.Hour,
+			},
 		)
 		require.NoError(t, err)
 
@@ -66,94 +120,51 @@ func TestGrapqhlMutation(t *testing.T) {
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
 		rootObject[consoleql.SignInPath] = "login"
+		rootObject[consoleql.LetUsKnowURL] = "letUsKnowURL"
+		rootObject[consoleql.ContactInfoURL] = "contactInfoURL"
+		rootObject[consoleql.TermsAndConditionsURL] = "termsAndConditionsURL"
 
 		schema, err := consoleql.CreateSchema(log, service, mailService)
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "John Roll",
-				ShortName: "Roll",
-				Email:     "test@mail.test",
-				PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
-			},
-			Password: "123a123",
+			FullName:        "John Roll",
+			ShortName:       "Roll",
+			Email:           "test@mail.test",
+			UserAgent:       []byte("120bf202-8252-437e-ac12-0e364bee852e"),
+			Password:        "123a123",
+			SignupPromoCode: "promo1",
 		}
-		refUserID := ""
 
 		regToken, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
-		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		require.NoError(t, err)
-		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
+		require.Equal(t, createUser.UserAgent, rootUser.UserAgent)
+
+		couponType, err := paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email, rootUser.SignupPromoCode)
+
+		var signupCouponType payments.CouponType = payments.SignupCoupon
+
+		require.NoError(t, err)
+		assert.Equal(t, signupCouponType, couponType)
 
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
 
-		err = service.ActivateAccount(ctx, activationToken)
+		_, err = service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
-		token, err := service.Token(ctx, createUser.Email, createUser.Password)
+		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 		require.NoError(t, err)
 
 		authCtx := console.WithAuth(ctx, sauth)
 
-		t.Run("Create user mutation", func(t *testing.T) {
-			newUser := console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Green Mickey",
-					ShortName: "Green",
-					Email:     "u1@mail.test",
-					PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
-				},
-				Password: "123a123",
-			}
-
-			regTokenTest, err := service.CreateRegToken(ctx, 1)
-			require.NoError(t, err)
-
-			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,partnerId,createdAt}}",
-				newUser.Email,
-				newUser.Password,
-				newUser.FullName,
-				newUser.ShortName,
-				newUser.PartnerID,
-				regTokenTest.Secret,
-			)
-
-			result := graphql.Do(graphql.Params{
-				Schema:        schema,
-				Context:       ctx,
-				RequestString: query,
-				RootObject:    rootObject,
-			})
-
-			for _, err := range result.Errors {
-				assert.NoError(t, err)
-			}
-			require.False(t, result.HasErrors())
-
-			data := result.Data.(map[string]interface{})
-			usrData := data[consoleql.CreateUserMutation].(map[string]interface{})
-			idStr := usrData["id"].(string)
-
-			uID, err := uuid.Parse(idStr)
-			assert.NoError(t, err)
-
-			user, err := service.GetUser(authCtx, *uID)
-			assert.NoError(t, err)
-
-			assert.Equal(t, newUser.FullName, user.FullName)
-			assert.Equal(t, newUser.ShortName, user.ShortName)
-			assert.Equal(t, newUser.PartnerID, user.PartnerID.String())
-		})
-
-		testQuery := func(t *testing.T, query string) interface{} {
+		testQuery := func(t *testing.T, query string) (interface{}, error) {
 			result := graphql.Do(graphql.Params{
 				Schema:        schema,
 				Context:       authCtx,
@@ -162,140 +173,24 @@ func TestGrapqhlMutation(t *testing.T) {
 			})
 
 			for _, err := range result.Errors {
-				assert.NoError(t, err)
+				if err.OriginalError() != nil {
+					return nil, err
+				}
 			}
 			require.False(t, result.HasErrors())
 
-			return result.Data
+			return result.Data, nil
 		}
 
-		t.Run("Update account mutation email only", func(t *testing.T) {
-			email := "new@mail.test"
-			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{email:\"%s\"}){id,email,fullName,shortName,createdAt}}",
-				email,
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
-
-			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
-			assert.Equal(t, email, user[consoleql.FieldEmail])
-			assert.Equal(t, rootUser.FullName, user[consoleql.FieldFullName])
-			assert.Equal(t, rootUser.ShortName, user[consoleql.FieldShortName])
-		})
-
-		t.Run("Update account mutation fullName only", func(t *testing.T) {
-			fullName := "George"
-			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{fullName:\"%s\"}){id,email,fullName,shortName,createdAt}}",
-				fullName,
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
-
-			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
-			assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
-			assert.Equal(t, fullName, user[consoleql.FieldFullName])
-			assert.Equal(t, rootUser.ShortName, user[consoleql.FieldShortName])
-		})
-
-		t.Run("Update account mutation shortName only", func(t *testing.T) {
-			shortName := "Yellow"
-			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{shortName:\"%s\"}){id,email,fullName,shortName,createdAt}}",
-				shortName,
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
-
-			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
-			assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
-			assert.Equal(t, rootUser.FullName, user[consoleql.FieldFullName])
-			assert.Equal(t, shortName, user[consoleql.FieldShortName])
-		})
-
-		t.Run("Update account mutation all info", func(t *testing.T) {
-			email := "test@newmail.com"
-			fullName := "Fill Goal"
-			shortName := "Goal"
-
-			query := fmt.Sprintf(
-				"mutation {updateAccount(input:{email:\"%s\",fullName:\"%s\",shortName:\"%s\"}){id,email,fullName,shortName,createdAt}}",
-				email,
-				fullName,
-				shortName,
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			user := data[consoleql.UpdateAccountMutation].(map[string]interface{})
-
-			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
-			assert.Equal(t, email, user[consoleql.FieldEmail])
-			assert.Equal(t, fullName, user[consoleql.FieldFullName])
-			assert.Equal(t, shortName, user[consoleql.FieldShortName])
-
-			createdAt := time.Time{}
-			err := createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
-
-			assert.NoError(t, err)
-			assert.True(t, rootUser.CreatedAt.Equal(createdAt))
-		})
-
-		t.Run("Change password mutation", func(t *testing.T) {
-			newPassword := "145a145a"
-
-			query := fmt.Sprintf(
-				"mutation {changePassword(password:\"%s\",newPassword:\"%s\"){id,email,fullName,shortName,createdAt}}",
-				createUser.Password,
-				newPassword,
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			user := data[consoleql.ChangePasswordMutation].(map[string]interface{})
-
-			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
-			assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
-			assert.Equal(t, rootUser.FullName, user[consoleql.FieldFullName])
-			assert.Equal(t, rootUser.ShortName, user[consoleql.FieldShortName])
-
-			createdAt := time.Time{}
-			err := createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
-
-			assert.NoError(t, err)
-			assert.True(t, rootUser.CreatedAt.Equal(createdAt))
-
-			oldHash := rootUser.PasswordHash
-
-			rootUser, err = service.GetUser(authCtx, rootUser.ID)
-			require.NoError(t, err)
-
-			assert.False(t, bytes.Equal(oldHash, rootUser.PasswordHash))
-
-			createUser.Password = newPassword
-		})
-
-		token, err = service.Token(ctx, rootUser.Email, createUser.Password)
+		token, err = service.Token(ctx, console.AuthUser{Email: rootUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		sauth, err = service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+		sauth, err = service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 		require.NoError(t, err)
 
 		authCtx = console.WithAuth(ctx, sauth)
 
-		var projectID string
+		var projectIDField string
 		t.Run("Create project mutation", func(t *testing.T) {
 			projectInfo := console.ProjectInfo{
 				Name:        "Project name",
@@ -308,7 +203,8 @@ func TestGrapqhlMutation(t *testing.T) {
 				projectInfo.Description,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
 
 			data := result.(map[string]interface{})
 			project := data[consoleql.CreateProjectMutation].(map[string]interface{})
@@ -316,42 +212,24 @@ func TestGrapqhlMutation(t *testing.T) {
 			assert.Equal(t, projectInfo.Name, project[consoleql.FieldName])
 			assert.Equal(t, projectInfo.Description, project[consoleql.FieldDescription])
 
-			projectID = project[consoleql.FieldID].(string)
+			projectIDField = project[consoleql.FieldID].(string)
 		})
 
-		pID, err := uuid.Parse(projectID)
+		projectID, err := uuid.FromString(projectIDField)
 		require.NoError(t, err)
 
-		project, err := service.GetProject(authCtx, *pID)
+		project, err := service.GetProject(authCtx, projectID)
 		require.NoError(t, err)
-
-		t.Run("Update project description mutation", func(t *testing.T) {
-			query := fmt.Sprintf(
-				"mutation {updateProjectDescription(id:\"%s\",description:\"%s\"){id,name,description}}",
-				project.ID.String(),
-				"",
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			proj := data[consoleql.UpdateProjectDescriptionMutation].(map[string]interface{})
-
-			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
-			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, "", proj[consoleql.FieldDescription])
-		})
+		require.Equal(t, rootUser.PartnerID, project.PartnerID)
 
 		regTokenUser1, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName: "User1",
-				Email:    "u1@mail.test",
-			},
+			FullName: "User1",
+			Email:    "u1@mail.test",
 			Password: "123a123",
-		}, regTokenUser1.Secret, refUserID)
+		}, regTokenUser1.Secret)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -362,7 +240,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			err = service.ActivateAccount(ctx, activationToken1)
+			_, err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 
 			user1.Email = "u1@mail.test"
@@ -372,12 +250,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		require.NoError(t, err)
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName: "User1",
-				Email:    "u2@mail.test",
-			},
+			FullName: "User1",
+			Email:    "u2@mail.test",
 			Password: "123a123",
-		}, regTokenUser2.Secret, refUserID)
+		}, regTokenUser2.Secret)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -388,7 +264,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			err = service.ActivateAccount(ctx, activationToken2)
+			_, err = service.ActivateAccount(ctx, activationToken2)
 			require.NoError(t, err)
 
 			user2.Email = "u2@mail.test"
@@ -396,37 +272,43 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		t.Run("Add project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(limit:50,offset:0){joinedAt}}}",
+				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
 
 			data := result.(map[string]interface{})
 			proj := data[consoleql.AddProjectMembersMutation].(map[string]interface{})
 
+			members := proj[consoleql.FieldMembers].(map[string]interface{})
+			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
+
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, 3, len(proj[consoleql.FieldMembers].([]interface{})))
+			assert.Equal(t, 3, len(projectMembers))
 		})
 
 		t.Run("Delete project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(limit:50,offset:0){user{id}}}}",
+				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{user{id}}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
 
 			data := result.(map[string]interface{})
 			proj := data[consoleql.DeleteProjectMembersMutation].(map[string]interface{})
 
-			members := proj[consoleql.FieldMembers].([]interface{})
-			rootMember := members[0].(map[string]interface{})[consoleql.UserType].(map[string]interface{})
+			members := proj[consoleql.FieldMembers].(map[string]interface{})
+			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
+			rootMember := projectMembers[0].(map[string]interface{})[consoleql.UserType].(map[string]interface{})
 
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])
@@ -444,7 +326,8 @@ func TestGrapqhlMutation(t *testing.T) {
 				keyName,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
 
 			data := result.(map[string]interface{})
 			createAPIKey := data[consoleql.CreateAPIKeyMutation].(map[string]interface{})
@@ -462,10 +345,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		})
 
 		t.Run("Delete api key mutation", func(t *testing.T) {
-			id, err := uuid.Parse(keyID)
+			id, err := uuid.FromString(keyID)
 			require.NoError(t, err)
 
-			info, err := service.GetAPIKeyInfo(authCtx, *id)
+			info, err := service.GetAPIKeyInfo(authCtx, id)
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(
@@ -473,7 +356,9 @@ func TestGrapqhlMutation(t *testing.T) {
 				keyID,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
+
 			data := result.(map[string]interface{})
 			keyInfoList := data[consoleql.DeleteAPIKeysMutation].([]interface{})
 
@@ -485,39 +370,42 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 		})
 
+		const testName = "testName"
+		const testDescription = "test description"
+		const StorageLimit = "100"
+		const BandwidthLimit = "100"
+
+		t.Run("Update project mutation", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {updateProject(id:\"%s\",projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,name,description}}",
+				project.ID.String(),
+				testName,
+				testDescription,
+				StorageLimit,
+				BandwidthLimit,
+			)
+
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
+
+			data := result.(map[string]interface{})
+			proj := data[consoleql.UpdateProjectMutation].(map[string]interface{})
+
+			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
+			assert.Equal(t, testName, proj[consoleql.FieldName])
+			assert.Equal(t, testDescription, proj[consoleql.FieldDescription])
+		})
+
 		t.Run("Delete project mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
 				"mutation {deleteProject(id:\"%s\"){id,name}}",
 				projectID,
 			)
 
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			proj := data[consoleql.DeleteProjectMutation].(map[string]interface{})
-
-			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
-
-			_, err := service.GetProject(authCtx, project.ID)
-			assert.Error(t, err)
-		})
-
-		t.Run("Delete account mutation", func(t *testing.T) {
-			query := fmt.Sprintf(
-				"mutation {deleteAccount(password:\"%s\"){id}}",
-				createUser.Password,
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			user := data[consoleql.DeleteAccountMutation].(map[string]interface{})
-
-			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
-
-			_, err := service.GetUser(authCtx, rootUser.ID)
-			assert.Error(t, err)
+			result, err := testQuery(t, query)
+			require.Error(t, err)
+			require.Nil(t, result)
+			require.Equal(t, console.ErrUnauthorized.New("not implemented").Error(), err.Error())
 		})
 	})
 }

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) .NET Foundation and contributors. All rights reserved. Licensed under the Microsoft Reciprocal License. See LICENSE.TXT file in the project root for full license information. -->
+
+
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <UI>
+            <Dialog Id="StorjWelcomeDlg" Width="370" Height="270" Title="!(loc.WelcomeDlg_Title)">
+                <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" >
+                    <Publish Property="WixUI_InstallMode" Value="Update">Installed AND PATCH</Publish>
+                </Control>
+                <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+                    <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+                </Control>
+                <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="!(loc.WelcomeDlgBitmap)" />
+                <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.WixUIBack)" />
+                <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+
+                <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="The Setup Wizard will install the Storj V3 Storage Node on your computer." >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+                <Control Id="RequirementsIntro" Type="Text" X="135" Y="105" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="Before you begin, make sure you meet the following requirements:" >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+                <Control Id="AuthToken" Type="Text" X="135" Y="130" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="- You've received an authorization token from Storj Labs" >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+                <Control Id="Identity" Type="Text" X="135" Y="142" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="- You've generated a new identity for your storage node" >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+                <Control Id="Wallet" Type="Text" X="135" Y="154" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="- You have an ERC20 compatible wallet to receive payouts" >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+                <Control Id="PortForwarding" Type="Text" X="135" Y="166" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="- You've configured port forwarding for your storage node" >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+                <Control Id="LearnMoreLink" Type="Hyperlink" X="135" Y="181" Width="320" Height="16">
+                    <Text><![CDATA[<a href="https://docs.storj.io/node/setup/gui-windows">Learn more</a>]]></Text>
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+                <Control Id="ClickNextInstruction" Type="Text" X="135" Y="208" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="Click Next to continue or Cancel to exit the Setup Wizard." >
+                    <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
+                    <Condition Action="hide">Installed AND PATCH</Condition>
+                </Control>
+                <!-- Patch text -->
+                <Control Id="PatchDescription" Type="Text" X="135" Y="80" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.WelcomeUpdateDlgDescriptionUpdate)" >
+                    <Condition Action="show">(Installed AND PATCH) AND NOT WIX_UPGRADE_DETECTED</Condition>
+                    <Condition Action="hide">(NOT Installed OR NOT PATCH) OR WIX_UPGRADE_DETECTED</Condition>
+                </Control>
+                <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.WelcomeDlgTitle)" />
+            </Dialog>
+
+            <InstallUISequence>
+                <Show Dialog="StorjWelcomeDlg" Before="ProgressDlg" Overridable="yes">(NOT Installed OR PATCH) AND NOT WIX_UPGRADE_DETECTED</Show>
+            </InstallUISequence>
+        </UI>
+    </Fragment>
+</Wix>

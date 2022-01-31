@@ -8,53 +8,47 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
+
+	"storj.io/common/storj"
 )
 
-// applyDefaultHostAndPortToAddr applies the default host and/or port if either is missing in the specified address.
-func applyDefaultHostAndPortToAddr(address, defaultAddress string) (string, error) {
-	defaultHost, defaultPort, err := net.SplitHostPort(defaultAddress)
+// PromptForAccessName handles user input for access name to be used with wizards.
+func PromptForAccessName() (string, error) {
+	_, err := fmt.Printf("Choose an access name (use lowercase letters) [\"default\"]: ")
 	if err != nil {
 		return "", err
 	}
 
-	addressParts := strings.Split(address, ":")
-	numberOfParts := len(addressParts)
-
-	if numberOfParts > 1 && len(addressParts[0]) > 0 && len(addressParts[1]) > 0 {
-		// address is host:port so skip applying any defaults.
-		return address, nil
+	var accessName string
+	n, err := fmt.Scanln(&accessName)
+	if err != nil && n != 0 {
+		return "", err
 	}
 
-	// We are missing a host:port part. Figure out which part we are missing.
-	indexOfPortSeparator := strings.Index(address, ":")
-	lengthOfFirstPart := len(addressParts[0])
-
-	if indexOfPortSeparator < 0 {
-		if lengthOfFirstPart == 0 {
-			// address is blank.
-			return defaultAddress, nil
-		}
-		// address is host
-		return net.JoinHostPort(addressParts[0], defaultPort), nil
+	if accessName == "" {
+		return "default", nil
 	}
 
-	if indexOfPortSeparator == 0 {
-		// address is :1234
-		return net.JoinHostPort(defaultHost, addressParts[1]), nil
+	if accessName != strings.ToLower(accessName) {
+		return "", errs.New("Please only use lowercase letters for access name.")
 	}
 
-	// address is host:
-	return net.JoinHostPort(addressParts[0], defaultPort), nil
+	return accessName, nil
 }
 
-// PromptForSatellite handles user input for a satellite address to be used with wizards
+// PromptForSatellite handles user input for a satellite address to be used with wizards.
 func PromptForSatellite(cmd *cobra.Command) (string, error) {
-	satellites := []string{"us-central-1.tardigrade.io", "europe-west-1.tardigrade.io", "asia-east-1.tardigrade.io"}
+	satellites := []string{
+		"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777",
+		"12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@eu1.storj.io:7777",
+		"121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@ap1.storj.io:7777",
+	}
 
 	_, err := fmt.Print("Select your satellite:\n")
 	if err != nil {
@@ -62,13 +56,23 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	}
 
 	for iterator, value := range satellites {
-		_, err := fmt.Printf("\t[%d] %s\n", iterator+1, value)
+		nodeURL, err := storj.ParseNodeURL(value)
 		if err != nil {
-			return "", nil
+			return "", err
+		}
+
+		host, _, err := net.SplitHostPort(nodeURL.Address)
+		if err != nil {
+			return "", err
+		}
+
+		_, err = fmt.Printf("\t[%d] %s\n", iterator+1, host)
+		if err != nil {
+			return "", nil //nolint: nilerr // we'll skip the prompt, when there's an error
 		}
 	}
 
-	_, err = fmt.Print("Please enter numeric choice or enter satellite address manually [1]: ")
+	_, err = fmt.Print(`Enter number or satellite address as "<nodeid>@<address>:<port>" [1]: `)
 	if err != nil {
 		return "", err
 	}
@@ -76,34 +80,43 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	var satelliteAddress string
 	n, err := fmt.Scanln(&satelliteAddress)
 	if err != nil {
-		if n == 0 {
-			// fmt.Scanln cannot handle empty input
-			satelliteAddress = satellites[0]
-		} else {
+		if n != 0 {
 			return "", err
 		}
+		// fmt.Scanln cannot handle empty input
+		satelliteAddress = satellites[0]
 	}
 
-	// TODO add better validation
-	if satelliteAddress == "" {
+	if len(satelliteAddress) == 0 {
 		return "", errs.New("satellite address cannot be empty")
-	} else if len(satelliteAddress) == 1 {
-		switch satelliteAddress {
-		case "1":
-			satelliteAddress = satellites[0]
-		case "2":
-			satelliteAddress = satellites[1]
-		case "3":
-			satelliteAddress = satellites[2]
-		default:
-			return "", errs.New("Satellite address cannot be one character")
-		}
 	}
 
-	return applyDefaultHostAndPortToAddr(satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
+	if len(satelliteAddress) == 1 {
+		satIdx, err := strconv.Atoi(satelliteAddress)
+		if err != nil {
+			return "", errs.New("invalid satellite address option")
+		}
+
+		if satIdx < 1 || satIdx > len(satellites) {
+			return "", errs.New("invalid satellite address option")
+		}
+
+		satelliteAddress = satellites[satIdx-1]
+	}
+
+	nodeURL, err := storj.ParseNodeURL(satelliteAddress)
+	if err != nil {
+		return "", err
+	}
+
+	if nodeURL.ID.IsZero() {
+		return "", errs.New(`missing node id, satellite address must be in the format "<nodeid>@<address>:<port>"`)
+	}
+
+	return satelliteAddress, nil
 }
 
-// PromptForAPIKey handles user input for an API key to be used with wizards
+// PromptForAPIKey handles user input for an API key to be used with wizards.
 func PromptForAPIKey() (string, error) {
 	_, err := fmt.Print("Enter your API key: ")
 	if err != nil {
@@ -122,13 +135,15 @@ func PromptForAPIKey() (string, error) {
 	return apiKey, nil
 }
 
-// PromptForEncryptionKey handles user input for an encryption key to be used with wizards
-func PromptForEncryptionKey() (string, error) {
-	_, err := fmt.Print("Enter your encryption passphrase: ")
+// PromptForEncryptionPassphrase handles user input for an encryption passphrase to be used with wizards.
+func PromptForEncryptionPassphrase() (string, error) {
+	_, err := fmt.Print(`Data is encrypted on the network, with an encryption passphrase
+stored on your local machine. Enter a passphrase you'd like to use.
+Enter your encryption passphrase: `)
 	if err != nil {
 		return "", err
 	}
-	encKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+	encKey, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return "", err
 	}
@@ -145,7 +160,7 @@ func PromptForEncryptionKey() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	repeatedEncKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+	repeatedEncKey, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return "", err
 	}
@@ -159,4 +174,32 @@ func PromptForEncryptionKey() (string, error) {
 	}
 
 	return string(encKey), nil
+}
+
+// PromptForTracing handles user input for consent to turn on tracing to be used with wizards.
+func PromptForTracing() (bool, error) {
+	_, err := fmt.Printf(`
+With your permission, Storj can automatically collect analytics information from your uplink CLI to help improve the quality and performance of our products. This information is sent only with your consent and is submitted anonymously to Storj Labs: (y/n)
+`)
+	if err != nil {
+		return false, err
+	}
+
+	var userConsent string
+	n, err := fmt.Scanln(&userConsent)
+	if err != nil {
+		if n != 0 {
+			return false, err
+		}
+		// fmt.Scanln cannot handle empty input
+		userConsent = "n"
+	}
+
+	switch userConsent {
+	case "y", "yes", "Y", "Yes":
+		return true, nil
+	default:
+		return false, nil
+	}
+
 }

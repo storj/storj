@@ -8,25 +8,25 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/pkg/process"
+	"storj.io/common/fpath"
 )
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "cat",
+		Use:   "cat sj://BUCKET/KEY",
 		Short: "Copies a Storj object to standard out",
 		RunE:  catMain,
+		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
 }
 
-// catMain is the function executed when catCmd is called
+// catMain is the function executed when catCmd is called.
 func catMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for copy")
+		return fmt.Errorf("no object specified for copy")
 	}
 
-	ctx := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	src, err := fpath.New(args[0])
 	if err != nil {
@@ -34,7 +34,7 @@ func catMain(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if src.IsLocal() {
-		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
 	dst, err := fpath.New("-")

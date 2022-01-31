@@ -5,107 +5,99 @@ package satellitedb
 
 import (
 	"context"
+	"sync"
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/accounting"
+	"storj.io/common/lrucache"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// ConsoleDB contains access to different satellite databases
+// ensures that ConsoleDB implements console.DB.
+var _ console.DB = (*ConsoleDB)(nil)
+
+// ConsoleDB contains access to different satellite databases.
 type ConsoleDB struct {
-	db *dbx.DB
+	apikeysLRUOptions lrucache.Options
+
+	db *satelliteDB
 	tx *dbx.Tx
 
 	methods dbx.Methods
+
+	apikeysOnce *sync.Once
+	apikeys     *apikeys
 }
 
-// Users is getter a for Users repository
+// Users is getter a for Users repository.
 func (db *ConsoleDB) Users() console.Users {
 	return &users{db.methods}
 }
 
-// Projects is a getter for Projects repository
+// Projects is a getter for Projects repository.
 func (db *ConsoleDB) Projects() console.Projects {
-	return &projects{db.methods}
+	return &projects{db: db.methods, sdb: db.db}
 }
 
-// ProjectMembers is a getter for ProjectMembers repository
+// ProjectMembers is a getter for ProjectMembers repository.
 func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 	return &projectMembers{db.methods, db.db}
 }
 
-// APIKeys is a getter for APIKeys repository
+// APIKeys is a getter for APIKeys repository.
 func (db *ConsoleDB) APIKeys() console.APIKeys {
-	return &apikeys{db.methods}
+	db.apikeysOnce.Do(func() {
+		db.apikeys = &apikeys{
+			methods: db.methods,
+			lru:     lrucache.New(db.apikeysLRUOptions),
+			db:      db.db,
+		}
+	})
+
+	return db.apikeys
 }
 
-// BucketUsage is a getter for accounting.BucketUsage repository
-func (db *ConsoleDB) BucketUsage() accounting.BucketUsage {
-	return &bucketusage{db.methods}
-}
-
-// RegistrationTokens is a getter for RegistrationTokens repository
+// RegistrationTokens is a getter for RegistrationTokens repository.
 func (db *ConsoleDB) RegistrationTokens() console.RegistrationTokens {
 	return &registrationTokens{db.methods}
 }
 
-// ResetPasswordTokens is a getter for ResetPasswordTokens repository
+// ResetPasswordTokens is a getter for ResetPasswordTokens repository.
 func (db *ConsoleDB) ResetPasswordTokens() console.ResetPasswordTokens {
 	return &resetPasswordTokens{db.methods}
 }
 
-// UsageRollups is a getter for console.UsageRollups repository
-func (db *ConsoleDB) UsageRollups() console.UsageRollups {
-	return &usagerollups{db.db}
-}
-
-// UserCredits is a getter for console.UserCredits repository
-func (db *ConsoleDB) UserCredits() console.UserCredits {
-	return &usercredits{db: db.db}
-}
-
-// UserPayments is a getter for console.UserPayments repository
-func (db *ConsoleDB) UserPayments() console.UserPayments {
-	return &userpayments{db.methods}
-}
-
-// ProjectPayments is a getter for console.ProjectPayments repository
-func (db *ConsoleDB) ProjectPayments() console.ProjectPayments {
-	return &projectPayments{db.db, db.methods}
-}
-
-// ProjectInvoiceStamps is a getter for console.ProjectInvoiceStamps repository
-func (db *ConsoleDB) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
-	return &projectinvoicestamps{db.methods}
-}
-
-// BeginTx is a method for opening transaction
-func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
+// WithTx is a method for executing and retrying transaction.
+func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
 	if db.db == nil {
-		return nil, errs.New("DB is not initialized!")
+		return errs.New("DB is not initialized!")
 	}
 
-	tx, err := db.db.Open(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		dbTx := &DBTx{
+			ConsoleDB: &ConsoleDB{
+				apikeysLRUOptions: db.apikeysLRUOptions,
 
-	return &DBTx{
-		ConsoleDB: &ConsoleDB{
-			tx:      tx,
-			methods: tx,
-		},
-	}, nil
+				// Need to expose dbx.DB for when database methods need access to check database driver type
+				db:      db.db,
+				tx:      tx,
+				methods: tx,
+
+				apikeysOnce: db.apikeysOnce,
+				apikeys:     db.apikeys,
+			},
+		}
+		return fn(ctx, dbTx)
+	})
 }
 
-// DBTx extends Database with transaction scope
+// DBTx extends Database with transaction scope.
 type DBTx struct {
 	*ConsoleDB
 }
 
-// Commit is a method for committing and closing transaction
+// Commit is a method for committing and closing transaction.
 func (db *DBTx) Commit() error {
 	if db.tx == nil {
 		return errs.New("begin transaction before commit it!")
@@ -114,7 +106,7 @@ func (db *DBTx) Commit() error {
 	return db.tx.Commit()
 }
 
-// Rollback is a method for rollback and closing transaction
+// Rollback is a method for rollback and closing transaction.
 func (db *DBTx) Rollback() error {
 	if db.tx == nil {
 		return errs.New("begin transaction before rollback it!")

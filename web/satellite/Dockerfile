@@ -1,4 +1,4 @@
-FROM node:10.15.1 as satellite-ui
+FROM node:14.15.3 as satellite-ui
 
 WORKDIR /app
 COPY web/satellite/ /app

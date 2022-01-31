@@ -4,29 +4,31 @@
 package piecestore_test
 
 import (
+	"bytes"
 	"context"
-	"fmt"
+	"io/ioutil"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/signing"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storagenode/pieces"
+	"storj.io/common/identity"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 )
 
 const oneWeek = 7 * 24 * time.Hour
 
 func TestOrderLimitPutValidation(t *testing.T) {
-	for i, tt := range []struct {
+	for _, tt := range []struct {
+		testName            string
 		useUnknownSatellite bool
 		pieceID             storj.PieceID
 		action              pb.PieceAction
@@ -34,11 +36,11 @@ func TestOrderLimitPutValidation(t *testing.T) {
 		pieceExpiration     time.Duration
 		orderExpiration     time.Duration
 		limit               int64
-		availableBandwidth  int64
 		availableSpace      int64
 		err                 string
 	}{
-		{ // unapproved satellite id
+		{
+			testName:            "unapproved satellite id",
 			useUnknownSatellite: true,
 			pieceID:             storj.PieceID{1},
 			action:              pb.PieceAction_PUT,
@@ -48,7 +50,8 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			limit:               memory.KiB.Int64(),
 			err:                 " is untrusted",
 		},
-		{ // approved satellite id
+		{
+			testName:        "approved satellite id",
 			pieceID:         storj.PieceID{2},
 			action:          pb.PieceAction_PUT,
 			serialNumber:    storj.SerialNumber{2},
@@ -56,7 +59,8 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			orderExpiration: oneWeek,
 			limit:           10 * memory.KiB.Int64(),
 		},
-		{ // wrong action type
+		{
+			testName:        "wrong action type",
 			pieceID:         storj.PieceID{3},
 			action:          pb.PieceAction_GET,
 			serialNumber:    storj.SerialNumber{3},
@@ -65,7 +69,8 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			limit:           memory.KiB.Int64(),
 			err:             "expected put or put repair action got GET",
 		},
-		{ // piece expired
+		{
+			testName:        "piece expired",
 			pieceID:         storj.PieceID{4},
 			action:          pb.PieceAction_PUT,
 			serialNumber:    storj.SerialNumber{4},
@@ -74,7 +79,8 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			limit:           memory.KiB.Int64(),
 			err:             "piece expired:",
 		},
-		{ // limit is negative
+		{
+			testName:        "limit is negative",
 			pieceID:         storj.PieceID{5},
 			action:          pb.PieceAction_PUT,
 			serialNumber:    storj.SerialNumber{5},
@@ -83,7 +89,8 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			limit:           -1,
 			err:             "order limit is negative",
 		},
-		{ // order limit expired
+		{
+			testName:        "order limit expired",
 			pieceID:         storj.PieceID{6},
 			action:          pb.PieceAction_PUT,
 			serialNumber:    storj.SerialNumber{6},
@@ -92,17 +99,8 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			limit:           memory.KiB.Int64(),
 			err:             "order expired:",
 		},
-		{ // allocated bandwidth limit
-			pieceID:            storj.PieceID{7},
-			action:             pb.PieceAction_PUT,
-			serialNumber:       storj.SerialNumber{7},
-			pieceExpiration:    oneWeek,
-			orderExpiration:    oneWeek,
-			limit:              10 * memory.KiB.Int64(),
-			availableBandwidth: 5 * memory.KiB.Int64(),
-			err:                "out of bandwidth",
-		},
-		{ // allocated space limit
+		{
+			testName:        "allocated space limit",
 			pieceID:         storj.PieceID{8},
 			action:          pb.PieceAction_PUT,
 			serialNumber:    storj.SerialNumber{8},
@@ -110,205 +108,167 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			orderExpiration: oneWeek,
 			limit:           10 * memory.KiB.Int64(),
 			availableSpace:  5 * memory.KiB.Int64(),
-			err:             "out of space",
+			err:             "not enough available disk space",
 		},
 	} {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+		tt := tt
+		t.Run(tt.testName, func(t *testing.T) {
+			testplanet.Run(t, testplanet.Config{
+				SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-		planet, err := testplanet.New(t, 1, 1, 1)
-		require.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
+				// set desirable space
+				setSpace(ctx, t, planet, tt.availableSpace)
 
-		planet.Start(ctx)
+				client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+				require.NoError(t, err)
+				defer ctx.Check(client.Close)
 
-		// set desirable bandwidth
-		setBandwidth(ctx, t, planet, tt.availableBandwidth)
-		// set desirable space
-		setSpace(ctx, t, planet, tt.availableSpace)
+				signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+				satellite := planet.Satellites[0].Identity
+				if tt.useUnknownSatellite {
+					unapprovedSatellite, err := planet.NewIdentity()
+					require.NoError(t, err)
+					signer = signing.SignerFromFullIdentity(unapprovedSatellite)
+					satellite = unapprovedSatellite
+				}
 
-		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-		require.NoError(t, err)
-		defer ctx.Check(client.Close)
+				orderLimit, piecePrivateKey := GenerateOrderLimit(
+					t,
+					satellite.ID,
+					planet.StorageNodes[0].ID(),
+					tt.pieceID,
+					tt.action,
+					tt.serialNumber,
+					tt.pieceExpiration,
+					tt.orderExpiration,
+					tt.limit,
+				)
 
-		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		satellite := planet.Satellites[0].Identity
-		if tt.useUnknownSatellite {
-			unapprovedSatellite, err := planet.NewIdentity()
-			require.NoError(t, err)
-			signer = signing.SignerFromFullIdentity(unapprovedSatellite)
-			satellite = unapprovedSatellite
-		}
+				orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+				require.NoError(t, err)
 
-		orderLimit, piecePrivateKey := GenerateOrderLimit(
-			t,
-			satellite.ID,
-			planet.StorageNodes[0].ID(),
-			tt.pieceID,
-			tt.action,
-			tt.serialNumber,
-			tt.pieceExpiration,
-			tt.orderExpiration,
-			tt.limit,
-		)
+				buffer := make([]byte, 10*memory.KiB)
+				testrand.Read(buffer)
 
-		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
-		require.NoError(t, err)
-
-		uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-		require.NoError(t, err)
-
-		var writeErr error
-		buffer := make([]byte, memory.KiB)
-		for i := 0; i < 10; i++ {
-			testrand.Read(buffer)
-			_, writeErr = uploader.Write(buffer)
-			if writeErr != nil {
-				break
-			}
-		}
-		_, commitErr := uploader.Commit(ctx)
-		err = errs.Combine(writeErr, commitErr)
-		testIndex := fmt.Sprintf("#%d", i)
-		if tt.err != "" {
-			require.Error(t, err, testIndex)
-			require.Contains(t, err.Error(), tt.err, testIndex)
-		} else {
-			require.NoError(t, err, testIndex)
-		}
+				_, err = client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(buffer))
+				if tt.err != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tt.err)
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		})
 	}
 }
 
 func TestOrderLimitGetValidation(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-	planet, err := testplanet.New(t, 1, 1, 1)
-	require.NoError(t, err)
-	defer ctx.Check(planet.Shutdown)
+		defaultPieceSize := 10 * memory.KiB
 
-	planet.Start(ctx)
-
-	defaultPieceSize := 10 * memory.KiB
-
-	for _, storageNode := range planet.StorageNodes {
-		err = storageNode.DB.Bandwidth().Add(ctx, planet.Satellites[0].ID(), pb.PieceAction_GET, memory.TB.Int64()-(15*memory.KiB.Int64()), time.Now())
-		require.NoError(t, err)
-	}
-
-	{ // upload test piece
-		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-		require.NoError(t, err)
-		defer ctx.Check(client.Close)
-
-		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		satellite := planet.Satellites[0].Identity
-
-		orderLimit, piecePrivateKey := GenerateOrderLimit(
-			t,
-			satellite.ID,
-			planet.StorageNodes[0].ID(),
-			storj.PieceID{1},
-			pb.PieceAction_PUT,
-			storj.SerialNumber{0},
-			oneWeek,
-			oneWeek,
-			defaultPieceSize.Int64(),
-		)
-
-		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
-		require.NoError(t, err)
-
-		uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-		require.NoError(t, err)
-
-		data := testrand.Bytes(defaultPieceSize)
-
-		_, err = uploader.Write(data)
-		require.NoError(t, err)
-		_, err = uploader.Commit(ctx)
-		require.NoError(t, err)
-	}
-
-	for _, tt := range []struct {
-		satellite       *identity.FullIdentity
-		pieceID         storj.PieceID
-		action          pb.PieceAction
-		serialNumber    storj.SerialNumber
-		pieceExpiration time.Duration
-		orderExpiration time.Duration
-		limit           int64
-		err             string
-	}{
-		{ // allocated bandwidth limit
-			pieceID:         storj.PieceID{1},
-			action:          pb.PieceAction_GET,
-			serialNumber:    storj.SerialNumber{1},
-			pieceExpiration: oneWeek,
-			orderExpiration: oneWeek,
-			limit:           10 * memory.KiB.Int64(),
-			err:             "out of bandwidth",
-		},
-	} {
-		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-		require.NoError(t, err)
-		defer ctx.Check(client.Close)
-
-		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		satellite := planet.Satellites[0].Identity
-		if tt.satellite != nil {
-			signer = signing.SignerFromFullIdentity(tt.satellite)
-			satellite = tt.satellite
-		}
-
-		orderLimit, piecePrivateKey := GenerateOrderLimit(
-			t,
-			satellite.ID,
-			planet.StorageNodes[0].ID(),
-			tt.pieceID,
-			tt.action,
-			tt.serialNumber,
-			tt.pieceExpiration,
-			tt.orderExpiration,
-			tt.limit,
-		)
-
-		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
-		require.NoError(t, err)
-
-		downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, tt.limit)
-		require.NoError(t, err)
-
-		var readErr error
-		buffer := make([]byte, memory.KiB)
-		for i := 0; i < 10; i++ {
-			_, readErr = downloader.Read(buffer)
-			if readErr != nil {
-				break
-			}
-		}
-		closeErr := downloader.Close()
-		err = errs.Combine(readErr, closeErr)
-		if tt.err != "" {
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.err)
-		} else {
+		for _, storageNode := range planet.StorageNodes {
+			err := storageNode.DB.Bandwidth().Add(ctx, planet.Satellites[0].ID(), pb.PieceAction_GET, memory.TB.Int64()-(15*memory.KiB.Int64()), time.Now())
 			require.NoError(t, err)
 		}
-	}
-}
 
-func setBandwidth(ctx context.Context, t *testing.T, planet *testplanet.Planet, bandwidth int64) {
-	if bandwidth == 0 {
-		return
-	}
-	for _, storageNode := range planet.StorageNodes {
-		availableBandwidth, err := storageNode.Storage2.Monitor.AvailableBandwidth(ctx)
-		require.NoError(t, err)
-		diff := (bandwidth - availableBandwidth) * -1
-		err = storageNode.DB.Bandwidth().Add(ctx, planet.Satellites[0].ID(), pb.PieceAction_GET, diff, time.Now())
-		require.NoError(t, err)
-	}
+		{ // upload test piece
+			client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+			require.NoError(t, err)
+			defer ctx.Check(client.Close)
+
+			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			satellite := planet.Satellites[0].Identity
+
+			orderLimit, piecePrivateKey := GenerateOrderLimit(
+				t,
+				satellite.ID,
+				planet.StorageNodes[0].ID(),
+				storj.PieceID{1},
+				pb.PieceAction_PUT,
+				storj.SerialNumber{0},
+				oneWeek,
+				oneWeek,
+				defaultPieceSize.Int64(),
+			)
+
+			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+			require.NoError(t, err)
+
+			_, err = client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(testrand.Bytes(defaultPieceSize)))
+			require.NoError(t, err)
+		}
+
+		// wait for all requests to finish to ensure that the upload usage has been
+		// accounted for.
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		for _, tt := range []struct {
+			satellite       *identity.FullIdentity
+			pieceID         storj.PieceID
+			action          pb.PieceAction
+			serialNumber    storj.SerialNumber
+			pieceExpiration time.Duration
+			orderExpiration time.Duration
+			limit           int64
+			err             string
+		}{
+			{ // incorrect action - PUT rather than GET
+				pieceID:         storj.PieceID{1},
+				action:          pb.PieceAction_PUT,
+				serialNumber:    storj.SerialNumber{1},
+				pieceExpiration: oneWeek,
+				orderExpiration: oneWeek,
+				limit:           10 * memory.KiB.Int64(),
+				err:             "expected get or get repair or audit action got PUT",
+			},
+		} {
+			func() {
+				client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+				require.NoError(t, err)
+				defer ctx.Check(client.Close)
+
+				signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+				satellite := planet.Satellites[0].Identity
+				if tt.satellite != nil {
+					signer = signing.SignerFromFullIdentity(tt.satellite)
+					satellite = tt.satellite
+				}
+
+				orderLimit, piecePrivateKey := GenerateOrderLimit(
+					t,
+					satellite.ID,
+					planet.StorageNodes[0].ID(),
+					tt.pieceID,
+					tt.action,
+					tt.serialNumber,
+					tt.pieceExpiration,
+					tt.orderExpiration,
+					tt.limit,
+				)
+
+				orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+				require.NoError(t, err)
+
+				downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, tt.limit)
+				require.NoError(t, err)
+
+				buffer, readErr := ioutil.ReadAll(downloader)
+				closeErr := downloader.Close()
+				err = errs.Combine(readErr, closeErr)
+				if tt.err != "" {
+					assert.Equal(t, 0, len(buffer))
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tt.err)
+				} else {
+					require.NoError(t, err)
+				}
+			}()
+		}
+	})
 }
 
 func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, space int64) {
@@ -318,17 +278,11 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 	for _, storageNode := range planet.StorageNodes {
 		availableSpace, err := storageNode.Storage2.Monitor.AvailableSpace(ctx)
 		require.NoError(t, err)
-		diff := (space - availableSpace) * -1
-		now := time.Now()
-		err = storageNode.DB.PieceInfo().Add(ctx, &pieces.Info{
-			SatelliteID:     planet.Satellites[0].ID(),
-			PieceID:         storj.PieceID{99},
-			PieceSize:       diff,
-			PieceCreation:   now,
-			PieceExpiration: time.Time{},
-			OrderLimit:      &pb.OrderLimit{},
-			UplinkPieceHash: &pb.PieceHash{},
-		})
+		// add these bytes to the space used cache so that we can test what happens
+		// when we exceeded available space on the storagenode
+		err = storageNode.DB.PieceSpaceUsedDB().UpdatePieceTotals(ctx, availableSpace-space, availableSpace-space)
+		require.NoError(t, err)
+		err = storageNode.Storage2.CacheService.Init(ctx)
 		require.NoError(t, err)
 	}
 }

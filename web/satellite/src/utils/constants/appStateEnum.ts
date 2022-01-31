@@ -4,6 +4,5 @@
 export enum AppState {
     LOADING = 1,
     LOADED,
-    LOADED_EMPTY,
     ERROR,
 }

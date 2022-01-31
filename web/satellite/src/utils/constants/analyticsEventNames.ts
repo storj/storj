@@ -1,10 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-const EVENTS = {
-    CLICKED_LOGO: 'clicked-on-logo',
-    CLICKED_LOGIN: 'clicked-on-login',
-    CLICKED_BACK_TO_LOGIN: 'clicked-on-back-to-login', 
-};
-
-export default EVENTS;
+// Make sure these event names match up with the client-side event names in satellite/analytics/service.go
+export enum AnalyticsEvent {
+    GATEWAY_CREDENTIALS_CREATED = 'Credentials Created',
+    PASSPHRASE_CREATED = 'Passphrase Created',
+    EXTERNAL_LINK_CLICKED = 'External Link Clicked',
+    PATH_SELECTED = 'Path Selected',
+    LINK_SHARED = 'Link Shared',
+    OBJECT_UPLOADED = 'Object Uploaded',
+    API_KEY_GENERATED = 'API Key Generated',
+}

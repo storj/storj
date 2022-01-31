@@ -7,167 +7,189 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"golang.org/x/sync/semaphore"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/common/memory"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
-	"storj.io/storj/uplink/ecclient"
-	"storj.io/storj/uplink/storage/segments"
 )
 
 // Error is a standard error class for this package.
 var (
-	Error = errs.Class("repairer error")
+	Error = errs.Class("repairer")
 	mon   = monkit.Package()
 )
 
-// Config contains configurable values for repairer
+// Config contains configurable values for repairer.
 type Config struct {
-	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
-	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"1h" devDefault:"0h5m0s"`
-	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" devDefault:"10m0s" releaseDefault:"2h"`
-	MaxBufferMem                  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
+	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1" testDefault:"10"`
+	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"5m0s" devDefault:"1m0s" testDefault:"$TESTINTERVAL"`
+	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"5m0s" testDefault:"1m"`
+	DownloadTimeout               time.Duration `help:"time limit for downloading pieces from a node for repair" default:"5m0s" testDefault:"1m"`
+	TotalTimeout                  time.Duration `help:"time limit for an entire repair job, from queue pop to upload completion" default:"45m" testDefault:"10m"`
+	MaxBufferMem                  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4.0 MiB"`
 	MaxExcessRateOptimalThreshold float64       `help:"ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload" default:"0.05"`
+	InMemoryRepair                bool          `help:"whether to download pieces for repair in memory (true) or download to disk (false)" default:"false"`
 }
 
-// GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	ec := ecclient.NewClient(log.Named("ecclient"), tc, c.MaxBufferMem.Int())
-
-	return segments.NewSegmentRepairer(
-		log.Named("repairer"), metainfo, orders, cache, ec, identity, c.Timeout, c.MaxExcessRateOptimalThreshold,
-	), nil
-}
-
-// SegmentRepairer is a repairer for segments
-type SegmentRepairer interface {
-	Repair(ctx context.Context, path storj.Path) (err error)
-}
-
-// Service contains the information needed to run the repair service
+// Service contains the information needed to run the repair service.
+//
+// architecture: Worker
 type Service struct {
-	log       *zap.Logger
-	queue     queue.RepairQueue
-	config    *Config
-	Limiter   *sync2.Limiter
-	Loop      sync2.Cycle
-	transport transport.Client
-	metainfo  *metainfo.Service
-	orders    *orders.Service
-	cache     *overlay.Cache
-	repairer  SegmentRepairer
+	log        *zap.Logger
+	queue      queue.RepairQueue
+	config     *Config
+	JobLimiter *semaphore.Weighted
+	Loop       *sync2.Cycle
+	repairer   *SegmentRepairer
+
+	nowFn func() time.Time
 }
 
-// NewService creates repairing service
-func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
+// NewService creates repairing service.
+func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer) *Service {
 	return &Service{
-		log:       log,
-		queue:     queue,
-		config:    config,
-		Limiter:   sync2.NewLimiter(concurrency),
-		Loop:      *sync2.NewCycle(interval),
-		transport: transport,
-		metainfo:  metainfo,
-		orders:    orders,
-		cache:     cache,
+		log:        log,
+		queue:      queue,
+		config:     config,
+		JobLimiter: semaphore.NewWeighted(int64(config.MaxRepair)),
+		Loop:       sync2.NewCycle(config.Interval),
+		repairer:   repairer,
+
+		nowFn: time.Now,
 	}
 }
 
-// Close closes resources
+// Close closes resources.
 func (service *Service) Close() error { return nil }
 
-// Run runs the repairer service
+// WaitForPendingRepairs waits for all ongoing repairs to complete.
+//
+// NB: this assumes that service.config.MaxRepair will never be changed once this Service instance
+// is initialized. If that is not a valid assumption, we should keep a copy of its initial value to
+// use here instead.
+func (service *Service) WaitForPendingRepairs() {
+	// Acquire and then release the entire capacity of the semaphore, ensuring that
+	// it is completely empty (or, at least it was empty at some point).
+	//
+	// No error return is possible here; context.Background() can't be canceled
+	_ = service.JobLimiter.Acquire(context.Background(), int64(service.config.MaxRepair))
+	service.JobLimiter.Release(int64(service.config.MaxRepair))
+}
+
+// Run runs the repairer service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: close segment repairer, currently this leaks connections
-	service.repairer, err = service.config.GetSegmentRepairer(
-		ctx,
-		service.log,
-		service.transport,
-		service.metainfo,
-		service.orders,
-		service.cache,
-		service.transport.Identity(),
-	)
-	if err != nil {
-		return err
-	}
+	// Wait for all repairs to complete
+	defer service.WaitForPendingRepairs()
 
-	// wait for all repairs to complete
-	defer service.Limiter.Wait()
-
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		err := service.process(ctx)
-		if err != nil {
-			zap.L().Error("process", zap.Error(Error.Wrap(err)))
-		}
-		return nil
-	})
+	return service.Loop.Run(ctx, service.processWhileQueueHasItems)
 }
 
-// process picks items from repair queue and spawns a repair worker
-func (service *Service) process(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+// processWhileQueueHasItems keeps calling process() until the queue is empty or something
+// else goes wrong in fetching from the queue.
+func (service *Service) processWhileQueueHasItems(ctx context.Context) error {
 	for {
-		seg, err := service.queue.Select(ctx)
-		zap.L().Info("Dequeued segment from repair queue", zap.Binary("segment", seg.GetPath()))
+		err := service.process(ctx)
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
 			}
+			service.log.Error("process", zap.Error(Error.Wrap(err)))
 			return err
 		}
-
-		service.Limiter.Go(ctx, func() {
-			err := service.worker(ctx, seg)
-			if err != nil {
-				zap.L().Error("repair worker failed:", zap.Error(err))
-			}
-		})
 	}
 }
 
-func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+// process picks items from repair queue and spawns a repair worker.
+func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	workerStartTime := time.Now().UTC()
-
-	zap.L().Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
-	err = service.repairer.Repair(ctx, string(seg.GetPath()))
-	if err != nil {
-		return Error.New("repairing injured segment: %v", err)
+	// wait until we are allowed to spawn a new job
+	if err := service.JobLimiter.Acquire(ctx, 1); err != nil {
+		return err
 	}
 
-	zap.L().Info("Deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
-	err = service.queue.Delete(ctx, seg)
+	// IMPORTANT: this timeout must be started before service.queue.Select(), in case
+	// service.queue.Select() takes some non-negligible amount of time, so that we can depend on
+	// repair jobs being given up within some set interval after the time in the 'attempted'
+	// column in the queue table.
+	//
+	// This is the reason why we are using a semaphore in this somewhat awkward way instead of
+	// using a simpler sync2.Limiter pattern. We don't want this timeout to include the waiting
+	// time from the semaphore acquisition, but it _must_ include the queue fetch time. At the
+	// same time, we don't want to do the queue pop in a separate goroutine, because we want to
+	// return from service.Run when queue fetch fails.
+	ctx, cancel := context.WithTimeout(ctx, service.config.TotalTimeout)
+
+	seg, err := service.queue.Select(ctx)
 	if err != nil {
-		return Error.New("deleting repaired segment from the queue: %v", err)
+		service.JobLimiter.Release(1)
+		cancel()
+		return err
+	}
+	service.log.Debug("Retrieved segment from repair queue")
+
+	// this goroutine inherits the JobLimiter semaphore acquisition and is now responsible
+	// for releasing it.
+	go func() {
+		defer service.JobLimiter.Release(1)
+		defer cancel()
+
+		if err := service.worker(ctx, seg); err != nil {
+			service.log.Error("repair worker failed:", zap.Error(err))
+		}
+	}()
+
+	return nil
+}
+
+func (service *Service) worker(ctx context.Context, seg *queue.InjuredSegment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	workerStartTime := service.nowFn().UTC()
+
+	service.log.Debug("Limiter running repair on segment")
+	// note that shouldDelete is used even in the case where err is not null
+	shouldDelete, err := service.repairer.Repair(ctx, seg)
+	if shouldDelete {
+		if err != nil {
+			service.log.Error("unexpected error repairing segment!", zap.Error(err))
+		} else {
+			service.log.Debug("removing repaired segment from repair queue")
+		}
+		if shouldDelete {
+			delErr := service.queue.Delete(ctx, seg)
+			if delErr != nil {
+				err = errs.Combine(err, Error.New("failed to remove segment from queue: %v", delErr))
+			}
+		}
+	}
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
-	repairedTime := time.Now().UTC()
+	repairedTime := service.nowFn().UTC()
 	timeForRepair := repairedTime.Sub(workerStartTime)
-	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds())
+	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //mon:locked
 
-	insertedTime := seg.GetInsertedTime()
+	insertedTime := seg.InsertedAt
 	// do not send metrics if segment was added before the InsertedTime field was added
 	if !insertedTime.IsZero() {
 		timeSinceQueued := workerStartTime.Sub(insertedTime)
-		mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds())
+		mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds()) //mon:locked
 	}
 
 	return nil
+}
+
+// SetNow allows tests to have the server act as if the current time is whatever they want.
+func (service *Service) SetNow(nowFn func() time.Time) {
+	service.nowFn = nowFn
+	service.repairer.SetNow(nowFn)
 }

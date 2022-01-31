@@ -6,11 +6,12 @@ package satellitedbtest_test
 import (
 	"testing"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestDatabase(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 	})
 }

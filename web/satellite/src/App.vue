@@ -2,101 +2,172 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app" v-on:click="onClick">
-        <router-view/>
+    <div id="app">
+        <router-view />
         <!-- Area for displaying notification -->
-        <NotificationArea/>
+        <NotificationArea />
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import NotificationArea from '@/components/notifications/NotificationArea.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        data: function() {
-            return {
-                ids: [
-                    'accountDropdown',
-                    'accountDropdownButton',
-                    'projectDropdown',
-                    'projectDropdownButton',
-                    'sortTeamMemberByDropdown',
-                    'sortTeamMemberByDropdownButton',
-                    'notificationArea',
-                    'successfulRegistrationPopup',
-                    'deletePaymentMethodButton',
-                    'deletePaymentMethodDialog',
-                    'makeDefaultPaymentMethodButton',
-                    'makeDefaultPaymentDialog'
-                ]
-            };
-        },
-        components: {
-            NotificationArea
-        },
-        methods: {
-            onClick: function(e) {
-                let target: any = e.target;
-                while (target) {
-                    if (this.$data.ids.includes(target.id)) {
-                        return;
+import NotificationArea from '@/components/notifications/NotificationArea.vue';
+
+import { PartneredSatellite } from '@/types/common.ts';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MetaUtils } from '@/utils/meta';
+
+// @vue/component
+@Component({
+    components: {
+        NotificationArea,
+    },
+})
+export default class App extends Vue {
+    /**
+     * Lifecycle hook after initial render.
+     * Sets up variables from meta tags from config such satellite name, etc.
+     */
+    public mounted(): void {
+        const satelliteName = MetaUtils.getMetaContent('satellite-name');
+        const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
+        let partneredSatellitesJson = [];
+        if (partneredSatellitesData) {
+            partneredSatellitesJson = JSON.parse(partneredSatellitesData);
+        }
+        const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
+        const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
+        const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
+        const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard');
+        const isNewNavStructure = MetaUtils.getMetaContent('new-navigation-structure');
+        const isNewObjectsFlow = MetaUtils.getMetaContent('new-objects-flow');
+
+        if (satelliteName) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
+
+            if (partneredSatellitesJson) {
+                const partneredSatellites: PartneredSatellite[] = [];
+                partneredSatellitesJson.forEach((partner) => {
+                    const name = partner[0];
+                    const address = partner[1];
+                    // skip current satellite
+                    if (name !== satelliteName) {
+                        partneredSatellites.push(new PartneredSatellite(name, address));
                     }
-                    target = target.parentNode;
-                }
-
-                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+                });
+                this.$store.dispatch(APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
             }
         }
-    })
 
-    export default class App extends Vue {
+        if (isBetaSatellite) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_STATUS, isBetaSatellite === 'true');
+        }
+
+        if (couponCodeBillingUIEnabled) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled === 'true');
+        }
+
+        if (couponCodeSignupUIEnabled) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
+        }
+
+        if (isNewProjectDashboard) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard === 'true');
+        }
+
+        if (isNewNavStructure) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure === 'true');
+        }
+
+        if (isNewObjectsFlow) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow === 'true');
+        }
     }
+}
 </script>
 
 <style lang="scss">
-    @font-face {
-        font-family: "font_regular";
-        src: url("../static/fonts/font_regular.ttf");
+    html {
+        overflow: hidden;
+    }
+
+    body {
+        margin: 0 !important;
+        height: 100vh;
+        zoom: 100%;
+        overflow: hidden;
+    }
+
+    img,
+    a {
+        -webkit-user-drag: none;
+    }
+
+    #app {
+        height: 100%;
     }
 
     @font-face {
-        font-family: "font_medium";
-        src: url("../static/fonts/font_medium.ttf");
+        font-family: 'font_regular';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src:
+            local(''),
+            url('../static/fonts/inter-v3-latin-regular.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-regular.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-regular.ttf') format('truetype');
     }
 
     @font-face {
-        font-family: "font_bold";
-        src: url("../static/fonts/font_bold.ttf");
+        font-family: 'font_medium';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src:
+            local(''),
+            url('../static/fonts/inter-v3-latin-600.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-600.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-600.ttf') format('truetype');
+    }
+
+    @font-face {
+        font-family: 'font_bold';
+        font-style: normal;
+        font-weight: 800;
+        font-display: swap;
+        src:
+            local(''),
+            url('../static/fonts/inter-v3-latin-800.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-800.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-800.ttf') format('truetype');
     }
 
     a {
+        text-decoration: none;
+        outline: none;
         cursor: pointer;
     }
 
     input,
     textarea {
         font-family: inherit;
-        font-weight: 600;
         border: 1px solid rgba(56, 75, 101, 0.4);
         color: #354049;
-        caret-color: #2683FF;
+        caret-color: #2683ff;
     }
 
-    /* width */
     ::-webkit-scrollbar {
         width: 4px;
     }
 
-    /* Track */
     ::-webkit-scrollbar-track {
         box-shadow: inset 0 0 5px #fff;
     }
 
-    /* Handle */
     ::-webkit-scrollbar-thumb {
-        background: #AFB7C1;
+        background: #afb7c1;
         border-radius: 6px;
         height: 5px;
     }

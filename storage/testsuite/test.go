@@ -8,56 +8,56 @@ import (
 	"encoding/gob"
 	"fmt"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/storage"
 )
 
-// RunTests runs common storage.KeyValueStore tests
+// RunTests runs common storage.KeyValueStore tests.
 func RunTests(t *testing.T, store storage.KeyValueStore) {
 	// store = storelogger.NewTest(t, store)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	t.Run("CRUD", func(t *testing.T) { testCRUD(t, ctx, store) })
+	t.Run("Constraints", func(t *testing.T) { testConstraints(t, ctx, store) })
+	t.Run("Iterate", func(t *testing.T) { testIterate(t, ctx, store) })
+	t.Run("IterateAll", func(t *testing.T) { testIterateAll(t, ctx, store) })
+	t.Run("Prefix", func(t *testing.T) { testPrefix(t, ctx, store) })
 
-	t.Run("CRUD", func(t *testing.T) { testCRUD(t, store) })
-	t.Run("Constraints", func(t *testing.T) { testConstraints(t, store) })
-	t.Run("Iterate", func(t *testing.T) { testIterate(t, store) })
-	t.Run("IterateAll", func(t *testing.T) { testIterateAll(t, store) })
-	t.Run("Prefix", func(t *testing.T) { testPrefix(t, store) })
+	t.Run("List", func(t *testing.T) { testList(t, ctx, store) })
+	t.Run("ListV2", func(t *testing.T) { testListV2(t, ctx, store) })
 
-	t.Run("List", func(t *testing.T) { testList(t, store) })
-	t.Run("ListV2", func(t *testing.T) { testListV2(t, store) })
-
-	t.Run("Parallel", func(t *testing.T) { testParallel(t, store) })
+	t.Run("Parallel", func(t *testing.T) { testParallel(t, ctx, store) })
 }
 
-func testConstraints(t *testing.T, store storage.KeyValueStore) {
+func testConstraints(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
+	lookupLimit := store.LookupLimit()
+
 	var items storage.Items
-	for i := 0; i < storage.LookupLimit+5; i++ {
+	for i := 0; i < lookupLimit+5; i++ {
 		items = append(items, storage.ListItem{
 			Key:   storage.Key("test-" + strconv.Itoa(i)),
 			Value: storage.Value("xyz"),
 		})
 	}
 
-	var wg sync.WaitGroup
+	var group errgroup.Group
 	for _, item := range items {
 		key := item.Key
 		value := item.Value
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := store.Put(ctx, key, value)
-			if err != nil {
-				t.Fatal("store.Put err:", err)
-			}
-		}()
+		group.Go(func() error {
+			return store.Put(ctx, key, value)
+		})
 	}
-	wg.Wait()
-	defer cleanupItems(store, items)
+	if err := group.Wait(); err != nil {
+		t.Fatalf("Put failed: %v", err)
+	}
+	defer cleanupItems(t, ctx, store, items)
 
 	t.Run("Put Empty", func(t *testing.T) {
 		var key storage.Key
@@ -71,24 +71,24 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 	})
 
 	t.Run("GetAll limit", func(t *testing.T) {
-		_, err := store.GetAll(ctx, items[:storage.LookupLimit].GetKeys())
+		_, err := store.GetAll(ctx, items[:lookupLimit].GetKeys())
 		if err != nil {
 			t.Fatalf("GetAll LookupLimit should succeed: %v", err)
 		}
 
-		_, err = store.GetAll(ctx, items[:storage.LookupLimit+1].GetKeys())
-		if err == nil && err == storage.ErrLimitExceeded {
+		_, err = store.GetAll(ctx, items[:lookupLimit+1].GetKeys())
+		if !storage.ErrLimitExceeded.Has(err) {
 			t.Fatalf("GetAll LookupLimit+1 should fail: %v", err)
 		}
 	})
 
 	t.Run("List limit", func(t *testing.T) {
-		keys, err := store.List(ctx, nil, storage.LookupLimit)
-		if err != nil || len(keys) != storage.LookupLimit {
+		keys, err := store.List(ctx, nil, lookupLimit)
+		if err != nil || len(keys) != lookupLimit {
 			t.Fatalf("List LookupLimit should succeed: %v / got %d", err, len(keys))
 		}
-		_, err = store.List(ctx, nil, storage.LookupLimit+1)
-		if err != nil || len(keys) != storage.LookupLimit {
+		_, err = store.List(ctx, nil, lookupLimit+1)
+		if err != nil || len(keys) != lookupLimit {
 			t.Fatalf("List LookupLimit+1 shouldn't fail: %v / got %d", err, len(keys))
 		}
 	})
@@ -163,16 +163,18 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 			{storage.Value("old-value"), nil},
 			{storage.Value("old-value"), storage.Value("new-value")},
 		} {
-			errTag := fmt.Sprintf("%d. %+v", i, tt)
-			key := storage.Key("test-key")
-			val := storage.Value("test-value")
-			defer func() { _ = store.Delete(ctx, key) }()
+			func() {
+				errTag := fmt.Sprintf("%d. %+v", i, tt)
+				key := storage.Key("test-key")
+				val := storage.Value("test-value")
+				defer func() { _ = store.Delete(ctx, key) }()
 
-			err := store.Put(ctx, key, val)
-			require.NoError(t, err, errTag)
+				err := store.Put(ctx, key, val)
+				require.NoError(t, err, errTag)
 
-			err = store.CompareAndSwap(ctx, key, tt.old, tt.new)
-			assert.True(t, storage.ErrValueChanged.Has(err), "%s: unexpected error: %+v", errTag, err)
+				err = store.CompareAndSwap(ctx, key, tt.old, tt.new)
+				assert.True(t, storage.ErrValueChanged.Has(err), "%s: unexpected error: %+v", errTag, err)
+			}()
 		}
 	})
 

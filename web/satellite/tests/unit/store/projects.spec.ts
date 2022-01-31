@@ -1,376 +1,332 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { projectsModule } from '@/store/modules/projects';
-import * as api from '@/api/projects';
-import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
-import { PROJECTS_MUTATIONS } from '@/store/mutationConstants';
-import { createLocalVue } from '@vue/test-utils';
 import Vuex from 'vuex';
-import { RequestResponse } from '@/types/response';
-import { Project } from '@/types/projects';
 
-const mutations = projectsModule.mutations;
+import { ProjectsApiGql } from '@/api/projects';
+import { makeProjectsModule, PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from '@/store/modules/projects';
+import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
+import { createLocalVue } from '@vue/test-utils';
+
+const Vue = createLocalVue();
+const projectsApi = new ProjectsApiGql();
+const {
+    FETCH,
+    CREATE,
+    SELECT,
+    DELETE,
+    CLEAR,
+    UPDATE_NAME,
+    UPDATE_DESCRIPTION,
+    GET_LIMITS,
+} = PROJECTS_ACTIONS;
+const {
+    ADD,
+    SET_PROJECTS,
+    SELECT_PROJECT,
+    UPDATE_PROJECT_NAME,
+    UPDATE_PROJECT_DESCRIPTION,
+    REMOVE,
+    CLEAR_PROJECTS,
+    SET_LIMITS,
+} = PROJECTS_MUTATIONS;
+
+const projectsModule = makeProjectsModule(projectsApi);
+const selectedProject = new Project('1', '', '', '');
+projectsModule.state.selectedProject = selectedProject;
+
+Vue.use(Vuex);
+
+const store = new Vuex.Store<{
+    projectsModule: typeof projectsModule.state,
+}>({ modules: { projectsModule } });
+
+const state = store.state.projectsModule;
+
+const projects = [
+    new Project(
+        '11',
+        'name',
+        'descr',
+        '23',
+        'testOwnerId',
+        false,
+    ),
+    new Project(
+        '1',
+        'name2',
+        'descr2',
+        '24',
+        'testOwnerId1',
+        false,
+    ),
+];
+
+const limits = new ProjectLimits(15, 12, 14, 13);
+
+const project = new Project('11', 'name', 'descr', '23', 'testOwnerId');
 
 describe('mutations', () => {
     beforeEach(() => {
         createLocalVue().use(Vuex);
     });
-    it('create project', () => {
-        const state = {
-            projects: [],
-        };
-        const project = {
-            name: 'testName',
-        };
-        const store = new Vuex.Store({state, mutations});
 
-        store.commit(PROJECTS_MUTATIONS.CREATE, project);
+    it('add project', () => {
 
-        expect(state.projects.length).toBe(1);
+        store.commit(ADD, project);
 
-        const mutatedProject: Project = state.projects[0];
-
-        expect(mutatedProject.name).toBe('testName');
+        expect(state.projects[0].id).toBe(project.id);
+        expect(state.projects[0].name).toBe(project.name);
+        expect(state.projects[0].description).toBe(project.description);
+        expect(state.projects[0].createdAt).toBe(project.createdAt);
+        expect(state.projects[0].ownerId).toBe(project.ownerId);
     });
 
-    it('fetch project', () => {
-        const state = {
-            projects: []
-        };
+    it('set projects', () => {
+        store.commit(SET_PROJECTS, projects);
 
-        const store = new Vuex.Store({state, mutations});
-
-        const projectsToPush = [{id: '1'}, {id: '2'}];
-
-        store.commit(PROJECTS_MUTATIONS.FETCH, projectsToPush);
-
-        expect(state.projects.length).toBe(2);
-    });
-
-    it('success select project', () => {
-        const state = {
-            projects: [{id: '1'}, {id: 'testId'}, {id: '2'}, ],
-            selectedProject: {
-                id: ''
-            }
-        };
-
-        const store = new Vuex.Store({state, mutations});
-
-        const projectId = 'testId';
-
-        store.commit(PROJECTS_MUTATIONS.SELECT, projectId);
-
-        expect(state.selectedProject.id).toBe('testId');
-    });
-
-    it('error select project', () => {
-        const state = {
-            projects: [{id: '1'}, {id: 'testId'}, {id: '2'}, ],
-            selectedProject: {
-                id: 'old'
-            }
-        };
-
-        const store = new Vuex.Store({state, mutations});
-
-        const projectId = '3';
-
-        store.commit(PROJECTS_MUTATIONS.SELECT, projectId);
-
-        expect(state.selectedProject.id).toBe('old');
-    });
-
-    it('error update project not exist', () => {
-        const state = {
-            projects: [{id: '1'}, {id: 'testId'}, {id: '2'}, ],
-            selectedProject: {
-                id: 'old'
-            }
-        };
-
-        const store = new Vuex.Store({state, mutations});
-
-        const projectId = {id: '3'};
-
-        store.commit(PROJECTS_MUTATIONS.UPDATE, projectId);
-
-        expect(state.selectedProject.id).toBe('old');
-    });
-
-    it('error update project not selected', () => {
-        const state = {
-            projects: [{id: '1'}, {id: 'testId'}, {id: '2'}, ],
-            selectedProject: {
-                id: 'old',
-                description: 'oldD'
-            }
-        };
-
-        const store = new Vuex.Store({state, mutations});
-
-        const project = {id: '2', description: 'newD'};
-
-        store.commit(PROJECTS_MUTATIONS.UPDATE, project);
-
-        expect(state.selectedProject.id).toBe('old');
-        expect(state.selectedProject.description).toBe('oldD');
-    });
-
-    it('success update project', () => {
-        const state = {
-            projects: [{id: '1'}, {id: 'testId'}, {id: '2'}],
-            selectedProject: {
-                id: '2',
-                description: 'oldD'
-            }
-        };
-
-        const store = new Vuex.Store({state, mutations});
-
-        const project = {id: '2', description: 'newD'};
-
-        store.commit(PROJECTS_MUTATIONS.UPDATE, project);
-
-        expect(state.selectedProject.id).toBe('2');
-        expect(state.selectedProject.description).toBe('newD');
-    });
-
-    it('error delete project', () => {
-        const state = {
-            selectedProject: {
-                id: '1',
-            }
-        };
-
-        const store = new Vuex.Store({state, mutations});
-
-        const projectId = '2';
-
-        store.commit(PROJECTS_MUTATIONS.DELETE, projectId);
-
+        expect(state.projects).toBe(projects);
         expect(state.selectedProject.id).toBe('1');
     });
 
-    it('success delete project', () => {
-        const state = {
-            selectedProject: {
-                id: '2',
-            }
-        };
+    it('select project', () => {
+        state.projects = projects;
 
-        const store = new Vuex.Store({state, mutations});
+        store.commit(SELECT_PROJECT, '11');
+        expect(state.selectedProject.id).toBe('11');
+        expect(state.currentLimits.bandwidthLimit).toBe(0);
+    });
 
-        const projectId = '2';
+    it('update project name', () => {
+        state.projects = projects;
 
-        store.commit(PROJECTS_MUTATIONS.DELETE, projectId);
+        const newName = 'newName';
 
-        expect(state.selectedProject.id).toBe('');
+        store.commit(UPDATE_PROJECT_NAME, { id: '11', name: newName });
+
+        const project = state.projects.find((pr: Project) => pr.id === '11');
+        expect(project).toBeDefined();
+        if(project) expect(project.name).toBe(newName);
+    });
+
+    it('update project description', () => {
+        state.projects = projects;
+
+        const newDescription = 'newDescription';
+
+        store.commit(UPDATE_PROJECT_DESCRIPTION, { id: '11', description: newDescription });
+
+        const project = state.projects.find((pr: Project) => pr.id === '11');
+        expect(project).toBeDefined();
+        if(project) expect(project.description).toBe(newDescription);
+    });
+
+    it('remove project', () => {
+        state.projects = projects;
+
+        store.commit(REMOVE, '11');
+
+        expect(state.projects.length).toBe(1);
+        expect(state.projects[0].id).toBe('1');
+    });
+
+    it('set limits', () => {
+        state.projects = projects;
+
+        store.commit(SET_LIMITS, limits);
+
+        expect(state.currentLimits.bandwidthUsed).toBe(12);
+        expect(state.currentLimits.bandwidthLimit).toBe(15);
+        expect(state.currentLimits.storageUsed).toBe(13);
+        expect(state.currentLimits.storageLimit).toBe(14);
+    });
+
+    it('clear projects', () => {
+        state.projects = projects;
+
+        store.commit(CLEAR_PROJECTS);
+
+        expect(state.projects.length).toBe(0);
     });
 });
 
 describe('actions', () => {
     beforeEach(() => {
         jest.resetAllMocks();
-    });
-    it('success fetch project', async () => {
-        jest.spyOn(api, 'fetchProjectsRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<Project[]>>{isSuccess: true, data: [{id: '1'}, {id: '2'}]})
-        );
-
-        const commit = jest.fn();
-
-        const dispatchResponse = await projectsModule.actions.fetchProjects({commit});
-
-        expect(dispatchResponse.isSuccess).toBeTruthy();
-        expect(commit).toHaveBeenCalledWith(PROJECTS_MUTATIONS.FETCH, [{id: '1'}, {id: '2'}]);
+        createLocalVue().use(Vuex);
     });
 
-    it('error fetch project', async () => {
-        jest.spyOn(api, 'fetchProjectsRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<Project[]>>{isSuccess: false})
+    it('success fetch projects', async () => {
+        jest.spyOn(projectsApi, 'get').mockReturnValue(
+            Promise.resolve(projects),
         );
-        const commit = jest.fn();
-        const dispatchResponse = await projectsModule.actions.fetchProjects({commit});
 
-        expect(dispatchResponse.isSuccess).toBeFalsy();
-        expect(commit).toHaveBeenCalledTimes(0);
+        await store.dispatch(FETCH);
+
+        expect(state.projects).toBe(projects);
+    });
+
+    it('fetch throws an error when api call fails', async () => {
+        state.projects = [];
+        jest.spyOn(projectsApi, 'get').mockImplementation(() => { throw new Error(); });
+
+        try {
+            await store.dispatch(FETCH);
+        } catch (error) {
+            expect(state.projects.length).toBe(0);
+            expect(state.currentLimits.bandwidthLimit).toBe(0);
+        }
     });
 
     it('success create project', async () => {
-        jest.spyOn(api, 'createProjectRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<Project>>{isSuccess: true, data: {id: '1'}})
-        );
-        const commit = jest.fn();
-        const project: Project = {
-            name: '',
-            id: '',
-            description: '',
-            isSelected: false,
-            createdAt: ''
-        };
-
-        const dispatchResponse = await projectsModule.actions.createProject({commit}, project);
-
-        expect(dispatchResponse.isSuccess).toBeTruthy();
-        expect(commit).toHaveBeenCalledWith(PROJECTS_MUTATIONS.CREATE, {id: '1'});
-    });
-
-    it('error create project', async () => {
-        jest.spyOn(api, 'createProjectRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<Project>>{isSuccess: false})
+        state.projects = [];
+        jest.spyOn(projectsApi, 'create').mockReturnValue(
+            Promise.resolve(project),
         );
 
-        const commit = jest.fn();
-
-        const project: Project = {
-            name: '',
-            id: '',
-            description: '',
-            isSelected: false,
-            createdAt: ''
-        };
-
-        const dispatchResponse = await projectsModule.actions.createProject({commit}, project);
-
-        expect(dispatchResponse.isSuccess).toBeFalsy();
-        expect(commit).toHaveBeenCalledTimes(0);
+        await store.dispatch(CREATE, {name: '', description: ''});
+        expect(state.projects.length).toBe(1);
+        expect(state.currentLimits.bandwidthLimit).toBe(0);
     });
 
-    it('success select project', () => {
-        const commit = jest.fn();
+    it('create throws an error when create api call fails', async () => {
+        state.projects = [];
+        jest.spyOn(projectsApi, 'create').mockImplementation(() => { throw new Error(); });
 
-        projectsModule.actions.selectProject({commit}, 'id');
-
-        expect(commit).toHaveBeenCalledWith(PROJECTS_MUTATIONS.SELECT, 'id');
-    });
-
-    it('success update project description', async () => {
-        jest.spyOn(api, 'updateProjectRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: true}));
-        const commit = jest.fn();
-        const project: Project = {
-            name: '',
-            id: 'id',
-            description: 'desc',
-            isSelected: false,
-            createdAt: ''
-        };
-
-        const dispatchResponse = await projectsModule.actions.updateProject({commit}, project);
-
-        expect(dispatchResponse.isSuccess).toBeTruthy();
-        expect(commit).toBeCalledWith(PROJECTS_MUTATIONS.UPDATE, project);
-    });
-
-    it('error update project description', async () => {
-        jest.spyOn(api, 'updateProjectRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: false}));
-        const commit = jest.fn();
-        const project: Project = {
-            name: '',
-            id: '',
-            description: '',
-            isSelected: false,
-            createdAt: ''
-        };
-
-        const dispatchResponse = await projectsModule.actions.updateProject({commit}, project);
-
-        expect(dispatchResponse.isSuccess).toBeFalsy();
-        expect(commit).toHaveBeenCalledTimes(0);
+        try {
+            await store.dispatch(CREATE, 'testName');
+            expect(true).toBe(false);
+        } catch (error) {
+            expect(state.projects.length).toBe(0);
+            expect(state.currentLimits.bandwidthLimit).toBe(0);
+        }
     });
 
     it('success delete project', async () => {
-        jest.spyOn(api, 'deleteProjectRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: true}));
-        const commit = jest.fn();
-        const project = 'id';
+        jest.spyOn(projectsApi, 'delete').mockReturnValue(
+            Promise.resolve(),
+        );
 
-        const dispatchResponse = await projectsModule.actions.deleteProject({commit}, project);
+        state.projects = projects;
 
-        expect(dispatchResponse.isSuccess).toBeTruthy();
-        expect(commit).toHaveBeenCalledWith(PROJECTS_MUTATIONS.DELETE, project);
+        await store.dispatch(DELETE, '11');
+
+        expect(state.projects.length).toBe(1);
+        expect(state.projects[0].id).toBe('1');
     });
 
-    it('error delete project', async () => {
-        jest.spyOn(api, 'deleteProjectRequest').mockReturnValue(Promise.resolve(<RequestResponse<null>>{isSuccess: false}));
-        const commit = jest.fn();
+    it('delete throws an error when api call fails', async () => {
+        jest.spyOn(projectsApi, 'delete').mockImplementation(() => { throw new Error(); });
 
-        const dispatchResponse = await projectsModule.actions.deleteProject({commit}, 'id');
+        state.projects = projects;
 
-        expect(dispatchResponse.isSuccess).toBeFalsy();
-        expect(commit).toHaveBeenCalledTimes(0);
+        try {
+            await store.dispatch(DELETE, '11');
+            expect(true).toBe(false);
+        } catch (error) {
+            expect(state.projects).toEqual(projects);
+        }
+    });
+
+    it('success select project', () => {
+        state.projects = projects;
+
+        store.dispatch(SELECT, '1');
+
+        expect(state.selectedProject.id).toEqual('1');
+    });
+
+    it('success update project name', async () => {
+        jest.spyOn(projectsApi, 'update').mockReturnValue(
+            Promise.resolve(),
+        );
+
+        state.projects = projects;
+        const newName = 'newName';
+        const fieldsToUpdate = new ProjectFields(newName, state.projects[0].description);
+
+        await store.dispatch(UPDATE_NAME, fieldsToUpdate);
+
+        const project = state.projects.find((pr: Project) => pr.id === '1');
+        expect(project).toBeDefined();
+        if(project) expect(project.name).toBe(newName);
+    });
+
+    it('success update project description', async () => {
+        jest.spyOn(projectsApi, 'update').mockReturnValue(
+            Promise.resolve(),
+        );
+
+        state.projects = projects;
+        const newDescription = 'newDescription1';
+        const fieldsToUpdate = new ProjectFields(state.projects[0].name, newDescription);
+
+        await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);
+
+        const project = state.projects.find((pr: Project) => pr.id === '1');
+        expect(project).toBeDefined();
+        if(project) expect(project.description).toBe(newDescription);
+    });
+
+    it('update throws an error when api call fails', async () => {
+        jest.spyOn(projectsApi, 'update').mockImplementation(() => { throw new Error(); });
+
+        state.projects = projects;
+        const newDescription = 'newDescription2';
+        const fieldsToUpdate = new ProjectFields(state.projects[0].name, newDescription);
+
+        try {
+            await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);
+            expect(true).toBe(false);
+        } catch (error) {
+            const project = state.projects.find((pr: Project) => pr.id === '1');
+            expect(project).toBeDefined();
+            if(project) expect(project.description).toBe('newDescription1');
+        }
+    });
+
+    it('success get project limits', async () => {
+        jest.spyOn(projectsApi, 'getLimits').mockReturnValue(
+            Promise.resolve(limits),
+        );
+
+        state.projects = projects;
+
+        await store.dispatch(GET_LIMITS, state.selectedProject.id);
+
+        expect(state.currentLimits.bandwidthUsed).toBe(12);
+        expect(state.currentLimits.bandwidthLimit).toBe(15);
+        expect(state.currentLimits.storageUsed).toBe(13);
+        expect(state.currentLimits.storageLimit).toBe(14);
+    });
+
+    it('success clearProjects', () => {
+        state.projects = projects;
+        store.dispatch(CLEAR);
+
+        expect(state.projects.length).toEqual(0);
     });
 });
 
 describe('getters', () => {
-
-    it('getter projects', () => {
-        const state = {
-            projects: [
-                {
-                name: '1',
-                id: '1',
-                companyName: '1',
-                description: '1',
-                createdAt: '1',
-            }],
-            selectedProject: {
-                id: '1'
-            }
-        };
-        const projectsGetterArray = projectsModule.getters.projects(state);
-
-        expect(projectsGetterArray.length).toBe(1);
-
-        const firstProject = projectsGetterArray[0];
-
-        expect(firstProject.name).toBe('1');
-        expect(firstProject.id).toBe('1');
-        expect(firstProject.description).toBe('1');
-        expect(firstProject.createdAt).toBe('1');
+    beforeEach(() => {
+        createLocalVue().use(Vuex);
     });
 
-    it('getter projects', () => {
-        const state = {
-            projects: [{
-                name: '1',
-                id: '1',
-                companyName: '1',
-                description: '1',
-                isTermsAccepted: true,
-                createdAt: '1',
-            }],
-            selectedProject: {
-                id: '2'
-            }
-        };
-        const projectsGetterArray = projectsModule.getters.projects(state);
+    it('selectedProject', () => {
+        store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, projects);
+        store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, '1');
 
-        expect(projectsGetterArray.length).toBe(1);
+        const selectedProject = store.getters.selectedProject;
 
-        const firstProject = projectsGetterArray[0];
-
-        expect(firstProject.name).toBe('1');
-        expect(firstProject.id).toBe('1');
-        expect(firstProject.description).toBe('1');
-        expect(firstProject.createdAt).toBe('1');
+        expect(selectedProject.id).toBe('1');
     });
 
-    it('getters selected project', () => {
-        const state = {
-            selectedProject: {
-                name: '1',
-                id: '1',
-                description: '1',
-                isTermsAccepted: true,
-                createdAt: '1',
-            }
-        };
-        const selectedProjectGetterObject = projectsModule.getters.selectedProject(state);
+    it('projects array', () => {
+        store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, projects);
 
-        expect(selectedProjectGetterObject.name).toBe('1');
-        expect(selectedProjectGetterObject.id).toBe('1');
-        expect(selectedProjectGetterObject.description).toBe('1');
-        expect(selectedProjectGetterObject.createdAt).toBe('1');
+        const allProjects = store.getters.projects;
+
+        expect(allProjects.length).toEqual(2);
     });
 });

@@ -8,20 +8,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/storagenode"
+	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {
@@ -63,16 +62,10 @@ func TestDeleteTalliesBefore(t *testing.T) {
 
 func TestOnlyInline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		tallySvc := planet.Satellites[0].Accounting.Tally
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 		uplink := planet.Uplinks[0]
-
-		projects, err1 := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		if err1 != nil {
-			assert.NoError(t, err1)
-		}
-		projectID := projects[0].ID
 
 		// Setup: create data for the uplink to upload
 		expectedData := testrand.Bytes(1 * memory.KiB)
@@ -86,239 +79,204 @@ func TestOnlyInline(t *testing.T) {
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		expectedBucketName := "testbucket"
-		expectedTally := accounting.BucketTally{
-			BucketName:     []byte(expectedBucketName),
-			ProjectID:      projectID[:],
-			Segments:       1,
-			InlineSegments: 1,
-			Files:          1,
-			InlineFiles:    1,
-			Bytes:          int64(expectedTotalBytes),
-			InlineBytes:    int64(expectedTotalBytes),
-			MetadataSize:   111, // brittle, this is hardcoded since its too difficult to get this value progamatically
+		expectedTally := &accounting.BucketTally{
+			BucketLocation: metabase.BucketLocation{
+				ProjectID:  uplink.Projects[0].ID,
+				BucketName: expectedBucketName,
+			},
+			ObjectCount:   1,
+			TotalSegments: 1,
+			TotalBytes:    int64(expectedTotalBytes),
+			MetadataSize:  0,
 		}
-		// The projectID should be the 16 bytes uuid representation, not 36 byte string representation
-		assert.Equal(t, 16, len(projectID[:]))
 
 		// Execute test: upload a file, then calculate at rest data
 		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		assert.NoError(t, err)
 
-		// Run calculate twice to test unique constraint issue
+		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
-			latestTally, actualNodeData, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
-			require.NoError(t, err)
-			assert.Len(t, actualNodeData, 0)
-
-			_, err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, latestTally, actualBucketData)
+			collector := tally.NewBucketTallyCollector(planet.Satellites[0].Log.Named("bucket tally"), time.Now(), planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.Tally)
+			err := collector.Run(ctx)
 			require.NoError(t, err)
 
-			// Confirm the correct bucket storage tally was created
-			assert.Equal(t, len(actualBucketData), 1)
-			for bucketID, actualTally := range actualBucketData {
-				assert.Contains(t, bucketID, expectedBucketName)
-				assert.Equal(t, expectedTally, *actualTally)
+			now := time.Now().Add(time.Duration(i) * time.Second)
+			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, now, collector.Bucket)
+			require.NoError(t, err)
+
+			assert.Equal(t, 1, len(collector.Bucket))
+			for _, actualTally := range collector.Bucket {
+				// checking the exact metadata size is brittle, instead, verify that it's not zero
+				assert.NotZero(t, actualTally.MetadataSize)
+				actualTally.MetadataSize = expectedTally.MetadataSize
+				assert.Equal(t, expectedTally, actualTally)
 			}
 		}
 	})
 }
 
-func TestCalculateNodeAtRestData(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		tallySvc := planet.Satellites[0].Accounting.Tally
-		uplink := planet.Uplinks[0]
-
-		// Setup: create 50KiB of data for the uplink to upload
-		expectedData := testrand.Bytes(50 * memory.KiB)
-
-		// Setup: get the expected size of the data that will be stored in pointer
-		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
-		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionParameters())
-		require.NoError(t, err)
-
-		// Execute test: upload a file, then calculate at rest data
-		expectedBucketName := "testbucket"
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
-
-		assert.NoError(t, err)
-		_, actualNodeData, _, err := tallySvc.CalculateAtRestData(ctx)
-		require.NoError(t, err)
-
-		// Confirm the correct number of shares were stored
-		uplinkRS := uplinkConfig.GetRedundancyScheme()
-		if !correctRedundencyScheme(len(actualNodeData), uplinkRS) {
-			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(actualNodeData))
-		}
-
-		// Confirm the correct number of bytes were stored on each node
-		for _, actualTotalBytes := range actualNodeData {
-			assert.Equal(t, int64(actualTotalBytes), expectedTotalBytes)
-		}
-	})
-}
-
 func TestCalculateBucketAtRestData(t *testing.T) {
-	var testCases = []struct {
-		name         string
-		project      string
-		segmentIndex string
-		bucketName   string
-		objectName   string
-		inline       bool
-		last         bool
-	}{
-		{"bucket, no objects", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "", "mockBucketName", "", true, false},
-		{"inline, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "l", "mockBucketName", "mockObjectName", true, true},
-		{"remote, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "s0", "mockBucketName", "mockObjectName1", false, false},
-		{"last segment, same project, different bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "l", "mockBucketName1", "mockObjectName2", false, true},
-		{"different project", "9656af6e-2d9c-42fa-91f2-bfd516a722d1", "s0", "mockBucketName", "mockObjectName", false, false},
-	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+				testplanet.MaxSegmentSize(20*memory.KiB),
+			),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellitePeer := planet.Satellites[0]
-		redundancyScheme := planet.Uplinks[0].GetConfig(satellitePeer).GetRedundancyScheme()
-		expectedBucketTallies := make(map[string]*accounting.BucketTally)
-		for _, tt := range testCases {
-			tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
+		satellite := planet.Satellites[0]
 
-			t.Run(tt.name, func(t *testing.T) {
-				projectID, err := uuid.Parse(tt.project)
-				require.NoError(t, err)
+		err := planet.Uplinks[0].Upload(ctx, satellite, "alpha", "inline", make([]byte, 10*memory.KiB))
+		require.NoError(t, err)
 
-				// setup: create a pointer and save it to pointerDB
-				pointer, _ := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
-				metainfo := satellitePeer.Metainfo.Service
-				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName, tt.objectName)
-				if tt.objectName == "" {
-					objectPath = fmt.Sprintf("%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName)
-				}
-				err = metainfo.Put(ctx, objectPath, pointer)
-				require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, satellite, "alpha", "remote", make([]byte, 30*memory.KiB))
+		require.NoError(t, err)
 
-				// setup: create expected bucket tally for the pointer just created, but only if
-				// the pointer was for an object and not just for a bucket
-				if tt.objectName != "" {
-					bucketID := fmt.Sprintf("%s/%s", tt.project, tt.bucketName)
-					newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
-					newTally.BucketName = []byte(tt.bucketName)
-					newTally.ProjectID = projectID[:]
-					expectedBucketTallies[bucketID] = newTally
-				}
+		err = planet.Uplinks[0].Upload(ctx, satellite, "beta", "remote", make([]byte, 30*memory.KiB))
+		require.NoError(t, err)
 
-				// test: calculate at rest data
-				tallySvc := satellitePeer.Accounting.Tally
-				_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
-				require.NoError(t, err)
+		err = planet.Uplinks[1].Upload(ctx, satellite, "alpha", "remote", make([]byte, 30*memory.KiB))
+		require.NoError(t, err)
 
-				assert.Equal(t, len(expectedBucketTallies), len(actualBucketData))
-				for bucket, actualTally := range actualBucketData {
-					assert.Equal(t, *expectedBucketTallies[bucket], *actualTally)
-				}
-			})
+		objects, err := satellite.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+
+		segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+
+		expectedTotal := map[metabase.BucketLocation]*accounting.BucketTally{}
+		ensure := func(loc metabase.BucketLocation) *accounting.BucketTally {
+			if t, ok := expectedTotal[loc]; ok {
+				return t
+			}
+			t := &accounting.BucketTally{BucketLocation: loc}
+			expectedTotal[loc] = t
+			return t
+		}
+
+		streamLocation := map[uuid.UUID]metabase.BucketLocation{}
+		for _, object := range objects {
+			loc := object.Location().Bucket()
+			streamLocation[object.StreamID] = loc
+			t := ensure(loc)
+			t.ObjectCount++
+			t.MetadataSize += int64(len(object.EncryptedMetadata))
+		}
+		for _, segment := range segments {
+			loc := streamLocation[segment.StreamID]
+			t := ensure(loc)
+			t.TotalSegments++
+			t.TotalBytes += int64(segment.EncryptedSize)
+		}
+		require.Len(t, expectedTotal, 3)
+
+		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), time.Now(), satellite.Metabase.DB, planet.Satellites[0].Config.Tally)
+		err = collector.Run(ctx)
+		require.NoError(t, err)
+		require.Equal(t, expectedTotal, collector.Bucket)
+	})
+}
+
+func TestIgnoresExpiredPointers(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		now := time.Now()
+		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "bucket", "path", []byte{1}, now.Add(12*time.Hour))
+		require.NoError(t, err)
+
+		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), now.Add(24*time.Hour), satellite.Metabase.DB, planet.Satellites[0].Config.Tally)
+		err = collector.Run(ctx)
+		require.NoError(t, err)
+
+		// there should be no observed buckets because all of the objects are expired
+		require.Equal(t, collector.Bucket, map[metabase.BucketLocation]*accounting.BucketTally{})
+	})
+}
+
+func TestLiveAccounting(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.MaxSegmentSize(20 * memory.KiB),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		tally := planet.Satellites[0].Accounting.Tally
+		projectID := planet.Uplinks[0].Projects[0].ID
+		tally.Loop.Pause()
+
+		expectedData := testrand.Bytes(19 * memory.KiB)
+
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		require.NoError(t, err)
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+
+		segmentSize := int64(segments[0].EncryptedSize)
+
+		tally.Loop.TriggerWait()
+
+		expectedSize := segmentSize
+
+		total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, expectedSize, total)
+
+		for i := 0; i < 3; i++ {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", fmt.Sprintf("test/path/%d", i), expectedData)
+			require.NoError(t, err)
+
+			tally.Loop.TriggerWait()
+
+			expectedSize += segmentSize
+
+			total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
+			require.NoError(t, err)
+			require.Equal(t, expectedSize, total)
 		}
 	})
 }
 
-// addBucketTally creates a new expected bucket tally based on the
-// pointer that was just created for the test case
-func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *accounting.BucketTally {
-	// if there is already an existing tally for this project and bucket, then
-	// add the new pointer data to the existing tally
-	if existingTally != nil {
-		existingTally.Segments++
-		existingTally.Bytes += int64(2)
-		existingTally.MetadataSize += int64(12)
-		existingTally.RemoteSegments++
-		existingTally.RemoteBytes += int64(2)
-		return existingTally
-	}
-
-	// if the pointer was inline, create a tally with inline info
-	if inline {
-		newInlineTally := accounting.BucketTally{
-			Segments:       int64(1),
-			InlineSegments: int64(1),
-			Files:          int64(1),
-			InlineFiles:    int64(1),
-			Bytes:          int64(2),
-			InlineBytes:    int64(2),
-			MetadataSize:   int64(12),
-		}
-		return &newInlineTally
-	}
-
-	// if the pointer was remote, create a tally with remote info
-	newRemoteTally := accounting.BucketTally{
-		Segments:       int64(1),
-		RemoteSegments: int64(1),
-		Bytes:          int64(2),
-		RemoteBytes:    int64(2),
-		MetadataSize:   int64(12),
-	}
-
-	if last {
-		newRemoteTally.Files++
-		newRemoteTally.RemoteFiles++
-	}
-
-	return &newRemoteTally
-}
-
-// makePointer creates a pointer
-func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
-	segmentSize int64, inline bool) (*pb.Pointer, error) {
-
-	if inline {
-		inlinePointer := &pb.Pointer{
-			CreationDate:  time.Now(),
-			Type:          pb.Pointer_INLINE,
-			InlineSegment: make([]byte, segmentSize),
-			SegmentSize:   segmentSize,
-			Metadata:      []byte("fakemetadata"),
-		}
-		return inlinePointer, nil
-	}
-
-	pieces := make([]*pb.RemotePiece, 0, len(storageNodes))
-	for i, storagenode := range storageNodes {
-		pieces = append(pieces, &pb.RemotePiece{
-			PieceNum: int32(i),
-			NodeId:   storagenode.ID(),
-		})
-	}
-
-	pointer := &pb.Pointer{
-		CreationDate: time.Now(),
-		Type:         pb.Pointer_REMOTE,
-		Remote: &pb.RemoteSegment{
-			Redundancy: &pb.RedundancyScheme{
-				Type:             pb.RedundancyScheme_RS,
-				MinReq:           int32(rs.RequiredShares),
-				Total:            int32(rs.TotalShares),
-				RepairThreshold:  int32(rs.RepairShares),
-				SuccessThreshold: int32(rs.OptimalShares),
-				ErasureShareSize: rs.ShareSize,
-			},
-			RemotePieces: pieces,
+func TestEmptyProjectUpdatesLiveAccounting(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.MaxSegmentSize(20 * memory.KiB),
 		},
-		SegmentSize: segmentSize,
-		Metadata:    []byte("fakemetadata"),
-	}
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
-	return pointer, nil
-}
+		project1 := planet.Uplinks[1].Projects[0].ID
 
-func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
+		data := testrand.Bytes(30 * memory.KiB)
 
-	// The shareCount should be a value between RequiredShares and TotalShares where
-	// RequiredShares is the min number of shares required to recover a segment and
-	// TotalShares is the number of shares to encode
-	if int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares) {
-		return true
-	}
+		// we need an extra bucket with data for this test. If no buckets are found at all,
+		// the update block is skipped in tally
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "test", data)
+		require.NoError(t, err)
 
-	return false
+		err = planet.Uplinks[1].Upload(ctx, planet.Satellites[0], "bucket", "test", data)
+		require.NoError(t, err)
+
+		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
+		total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, project1)
+		require.NoError(t, err)
+		require.True(t, total >= int64(len(data)))
+
+		err = planet.Uplinks[1].DeleteObject(ctx, planet.Satellites[0], "bucket", "test")
+		require.NoError(t, err)
+
+		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
+
+		p1Total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, project1)
+		require.NoError(t, err)
+		require.Zero(t, p1Total)
+	})
 }

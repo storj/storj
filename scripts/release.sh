@@ -9,9 +9,11 @@ echo $TIMESTAMP
 
 echo -n "Git commit: "
 if [[ "$(git diff --stat)" != '' ]] || [[ -n "$(git status -s)" ]]; then
+  echo "Changes detected, building a development version"
   COMMIT=$(git rev-parse HEAD)-dirty
   RELEASE=false
 else
+  echo "Building a release version"
   COMMIT=$(git rev-parse HEAD)
   RELEASE=true
 fi
@@ -28,7 +30,7 @@ fi
 
 echo Running "go $@"
 exec go "$1" -ldflags \
-	"-X storj.io/storj/internal/version.buildTimestamp=$TIMESTAMP
-         -X storj.io/storj/internal/version.buildCommitHash=$COMMIT
-         -X storj.io/storj/internal/version.buildVersion=$VERSION
-         -X storj.io/storj/internal/version.buildRelease=$RELEASE" "${@:2}"
+  "-X storj.io/private/version.buildTimestamp=$TIMESTAMP
+   -X storj.io/private/version.buildCommitHash=$COMMIT
+   -X storj.io/private/version.buildVersion=$VERSION
+   -X storj.io/private/version.buildRelease=$RELEASE" "${@:2}"

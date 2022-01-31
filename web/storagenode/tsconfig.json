@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "strict": true,
+    "noImplicitAny": false,
+    "jsx": "preserve",
+    "importHelpers": true,
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "strictPropertyInitialization": false,
+    "types": [
+      "webpack-env",
+      "jest",
+      "segment-analytics"
+    ],
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
+    "lib": [
+      "esnext",
+      "dom",
+      "dom.iterable",
+      "scripthost"
+    ]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "src/app/types/svg.d.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

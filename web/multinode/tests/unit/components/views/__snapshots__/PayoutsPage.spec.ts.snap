@@ -1,0 +1,20 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`PayoutsPage renders correctly 1`] = `
+<div class="payouts">
+  <h1 class="payouts__title">Payouts</h1>
+  <div class="payouts__content-area">
+    <div class="payouts__left-area">
+      <div class="payouts__left-area__dropdowns">
+        <satellite-selection-dropdown-stub></satellite-selection-dropdown-stub>
+        <payout-period-calendar-button-stub period="All time"></payout-period-calendar-button-stub>
+      </div>
+      <payouts-summary-table-stub nodepayoutssummary="" class="payouts__left-area__table"></payouts-summary-table-stub>
+    </div>
+    <div class="payouts__right-area">
+      <details-area-stub totalearned="0" totalheld="0" totalpaid="0" period="All time"></details-area-stub>
+      <balance-area-stub undistributed="0" currentmonthestimation="0"></balance-area-stub>
+    </div>
+  </div>
+</div>
+`;

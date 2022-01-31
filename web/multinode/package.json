@@ -1,0 +1,95 @@
+{
+  "name": "multinode",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "lint": "vue-cli-service lint --max-warnings 0 --fix && stylelint . --max-warnings 0 --fix",
+    "lint-ci": "vue-cli-service lint --max-warnings 0 --no-fix && stylelint . --max-warnings 0 --no-fix",
+    "build": "vue-cli-service build",
+    "dev": "vue-cli-service build --mode development --watch",
+    "test": "vue-cli-service test:unit"
+  },
+  "dependencies": {
+    "chart.js": "2.9.4",
+    "vue": "2.6.11",
+    "vue-chartjs": "3.5.1",
+    "vue-class-component": "7.2.6",
+    "vue-clipboard2": "0.3.1",
+    "vue-property-decorator": "9.1.2",
+    "vue-router": "3.4.9",
+    "vuex": "3.6.0"
+  },
+  "devDependencies": {
+    "@babel/core": "7.14.8",
+    "@babel/plugin-proposal-object-rest-spread": "7.8.3",
+    "@typescript-eslint/eslint-plugin": "4.28.5",
+    "@typescript-eslint/parser": "4.28.5",
+    "@vue/cli-plugin-babel": "4.1.1",
+    "@vue/cli-plugin-eslint": "4.5.13",
+    "@vue/cli-plugin-typescript": "4.5.13",
+    "@vue/cli-plugin-unit-jest": "4.1.1",
+    "@vue/cli-service": "4.5.13",
+    "@vue/eslint-config-typescript": "7.0.0",
+    "@vue/test-utils": "1.0.0-beta.30",
+    "babel-core": "7.0.0-bridge.0",
+    "babel-eslint": "10.1.0",
+    "compression-webpack-plugin": "6.0.0",
+    "core-js": "3.6.5",
+    "eslint": "6.7.2",
+    "eslint-plugin-storj": "github:storj/eslint-storj",
+    "eslint-plugin-vue": "7.16.0",
+    "jest-fetch-mock": "3.0.0",
+    "sass": "1.37.0",
+    "sass-loader": "8.0.0",
+    "sinon": "7.5.0",
+    "stylelint": "13.7.1",
+    "stylelint-config-standard": "19.0.0",
+    "stylelint-scss": "3.18.0",
+    "ts-jest": "25.5.0",
+    "typescript": "3.7.4",
+    "vue-jest": "3.0.5",
+    "vue-svg-loader": "0.16.0",
+    "vue-template-compiler": "2.6.11"
+  },
+  "jest": {
+    "automock": false,
+    "setupFiles": [
+      "./jestSetup.ts"
+    ],
+    "globals": {
+      "ts-jest": {
+        "diagnostics": false
+      }
+    },
+    "moduleFileExtensions": [
+      "js",
+      "jsx",
+      "json",
+      "vue",
+      "ts",
+      "tsx"
+    ],
+    "collectCoverage": true,
+    "transform": {
+      "^.+\\.js$": "babel-jest",
+      "^.+\\.vue$": "vue-jest",
+      ".+\\.(css|styl|less|sass|scss|png|jpg|ttf|woff|woff2)$": "jest-transform-stub",
+      "^.+\\.tsx?$": "ts-jest",
+      "^.+\\.svg$": "<rootDir>/tests/unit/mock/svgTransform.js"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "snapshotSerializers": [
+      "jest-serializer-vue"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/unit/**/*.spec.(js|jsx|ts|tsx)|<rootDir>/__tests__/*.(js|jsx|ts|tsx)"
+    ],
+    "testURL": "http://localhost/"
+  }
+}
