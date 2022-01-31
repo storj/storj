@@ -8,9 +8,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/base58"
 	"storj.io/common/encryption"
 	"storj.io/common/memory"
 	"storj.io/common/paths"

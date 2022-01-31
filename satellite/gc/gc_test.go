@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/base58"
 	"storj.io/common/encryption"
 	"storj.io/common/memory"
 	"storj.io/common/paths"
