@@ -31,6 +31,7 @@ import (
 
 // Test no entries in table doesn't error.
 func TestMigrateUsersSelectNoRows(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -50,6 +51,7 @@ func TestMigrateUsersSelectNoRows(t *testing.T) {
 
 // Test no rows to update returns no error.
 func TestMigrateUsersUpdateNoRows(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -86,6 +88,7 @@ func TestMigrateUsersUpdateNoRows(t *testing.T) {
 // With only one row, selecting with an offset of 1 will return 0 rows.
 // Test that this is accounted for and updates the row correctly.
 func TestMigrateUsersSelectOffsetBeyondRowCount(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -119,6 +122,7 @@ func TestMigrateUsersSelectOffsetBeyondRowCount(t *testing.T) {
 
 // Test user_agent field is updated correctly.
 func TestMigrateUsers(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -209,6 +213,7 @@ func TestMigrateUsers(t *testing.T) {
 
 // Test no entries in table doesn't error.
 func TestMigrateProjectsSelectNoRows(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -228,6 +233,7 @@ func TestMigrateProjectsSelectNoRows(t *testing.T) {
 
 // Test no rows to update returns no error.
 func TestMigrateProjectsUpdateNoRows(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -263,6 +269,7 @@ func TestMigrateProjectsUpdateNoRows(t *testing.T) {
 // With only one row, selecting with an offset of 1 will return 0 rows.
 // Test that this is accounted for and updates the row correctly.
 func TestMigrateProjectsSelectOffsetBeyondRowCount(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -296,6 +303,7 @@ func TestMigrateProjectsSelectOffsetBeyondRowCount(t *testing.T) {
 
 // Test user_agent field is updated correctly.
 func TestMigrateProjects(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -383,6 +391,7 @@ func TestMigrateProjects(t *testing.T) {
 
 // Test no entries in table doesn't error.
 func TestMigrateAPIKeysSelectNoRows(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -402,6 +411,7 @@ func TestMigrateAPIKeysSelectNoRows(t *testing.T) {
 
 // Test no rows to update returns no error.
 func TestMigrateAPIKeysUpdateNoRows(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -445,6 +455,7 @@ func TestMigrateAPIKeysUpdateNoRows(t *testing.T) {
 // With only one row, selecting with an offset of 1 will return 0 rows.
 // Test that this is accounted for and updates the row correctly.
 func TestMigrateAPIKeysSelectOffsetBeyondRowCount(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -486,6 +497,7 @@ func TestMigrateAPIKeysSelectOffsetBeyondRowCount(t *testing.T) {
 
 // Test user_agent field is updated correctly.
 func TestMigrateAPIKeys(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -583,6 +595,7 @@ func TestMigrateAPIKeys(t *testing.T) {
 
 // Test no entries in table doesn't error.
 func TestMigrateBucketMetainfosSelectNoRows(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -602,6 +615,7 @@ func TestMigrateBucketMetainfosSelectNoRows(t *testing.T) {
 
 // Test no rows to update returns no error.
 func TestMigrateBucketMetainfosUpdateNoRows(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -647,6 +661,7 @@ func TestMigrateBucketMetainfosUpdateNoRows(t *testing.T) {
 // With only one row, selecting with an offset of 1 will return 0 rows.
 // Test that this is accounted for and updates the row correctly.
 func TestMigrateBucketMetainfosSelectOffsetBeyondRowCount(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -688,6 +703,7 @@ func TestMigrateBucketMetainfosSelectOffsetBeyondRowCount(t *testing.T) {
 
 // Test user_agent field is updated correctly.
 func TestMigrateBucketMetainfos(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -1001,7 +1017,7 @@ func test(t *testing.T, offset int, prepare func(t *testing.T, ctx *testcontext.
 			require.NoError(t, err)
 			defer ctx.Check(db.Close)
 
-			err = db.MigrateToLatest(ctx)
+			err = db.TestingMigrateToLatest(ctx)
 			require.NoError(t, err)
 
 			prepare(t, ctx, tempDB, db)
