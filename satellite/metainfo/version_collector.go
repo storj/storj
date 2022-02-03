@@ -18,7 +18,8 @@ import (
 const uplinkProduct = "uplink"
 
 var knownUserAgents = []string{
-	"rclone", "gateway-st", "gateway-mt", "linksharing", "uplink-cli",
+	"rclone", "gateway-st", "gateway-mt", "linksharing", "uplink-cli", "transfer-sh", "filezilla", "duplicati",
+	"comet", "orbiter",
 }
 
 type versionOccurrence struct {
