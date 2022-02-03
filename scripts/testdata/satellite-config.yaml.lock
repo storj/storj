@@ -211,6 +211,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: false
 
+# how long oauth access tokens are issued for
+# console.oauth-access-token-expiry: 24h0m0s
+
+# how long oauth authorization codes are issued for
+# console.oauth-code-expiry: 10m0s
+
+# how long oauth refresh tokens are issued for
+# console.oauth-refresh-token-expiry: 720h0m0s
+
 # enable open registration
 # console.open-registration-enabled: false
 
