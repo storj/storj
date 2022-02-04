@@ -27,7 +27,7 @@ import (
 
 func TestBucketExistenceCheck(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -55,7 +55,7 @@ func TestBucketExistenceCheck(t *testing.T) {
 
 func TestMaxOutBuckets(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		limit := planet.Satellites[0].Config.Metainfo.ProjectLimits.MaxBuckets
 		for i := 1; i <= limit; i++ {
@@ -71,7 +71,7 @@ func TestMaxOutBuckets(t *testing.T) {
 
 func TestBucketNameValidation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -132,14 +132,14 @@ func TestBucketNameValidation(t *testing.T) {
 
 func TestBucketEmptinessBeforeDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 5; i++ {
 			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket", "object-key"+strconv.Itoa(i), testrand.Bytes(memory.KiB))
 			require.NoError(t, err)
 		}
 
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 5; i++ {
 			err := planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "test-bucket")
 			require.Error(t, err)
 			require.True(t, errors.Is(err, uplink.ErrBucketNotEmpty))
