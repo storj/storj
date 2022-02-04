@@ -10864,6 +10864,10 @@ type Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_Greater
 	_set                  bool
 }
 
+type PaidTier_Row struct {
+	PaidTier bool
+}
+
 type Placement_Row struct {
 	Placement *int
 }
@@ -12368,6 +12372,28 @@ func (obj *pgxImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ProjectLimit)
 	if err != nil {
 		return (*ProjectLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_User_PaidTier_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	row *PaidTier_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &PaidTier_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
+	if err != nil {
+		return (*PaidTier_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -18720,6 +18746,28 @@ func (obj *pgxcockroachImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Get_User_PaidTier_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	row *PaidTier_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &PaidTier_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
+	if err != nil {
+		return (*PaidTier_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_User_ProjectStorageLimit_User_ProjectBandwidthLimit_User_ProjectSegmentLimit_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	row *ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row, err error) {
@@ -24720,6 +24768,16 @@ func (rx *Rx) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Cont
 	return tx.Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx, user_normalized_email)
 }
 
+func (rx *Rx) Get_User_PaidTier_By_Id(ctx context.Context,
+	user_id User_Id_Field) (
+	row *PaidTier_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_User_PaidTier_By_Id(ctx, user_id)
+}
+
 func (rx *Rx) Get_User_ProjectLimit_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	row *ProjectLimit_Row, err error) {
@@ -25723,6 +25781,10 @@ type Methods interface {
 	Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 		user_normalized_email User_NormalizedEmail_Field) (
 		user *User, err error)
+
+	Get_User_PaidTier_By_Id(ctx context.Context,
+		user_id User_Id_Field) (
+		row *PaidTier_Row, err error)
 
 	Get_User_ProjectLimit_By_Id(ctx context.Context,
 		user_id User_Id_Field) (

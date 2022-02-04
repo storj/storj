@@ -539,12 +539,14 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 
 	for _, record := range records {
 		if err = ctx.Err(); err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 
 		proj, err := service.projectsDB.Get(ctx, record.ProjectID)
 		if err != nil {
-			return err
+			// This should never happen, but be sure to log info to further troubleshoot before exiting.
+			service.log.Error("project ID for corresponding project record not found", zap.Stringer("Record ID", record.ID), zap.Stringer("Project ID", record.ProjectID))
+			return errs.Wrap(err)
 		}
 
 		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
@@ -554,11 +556,11 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 				continue
 			}
 
-			return err
+			return errs.Wrap(err)
 		}
 
 		if err = service.createInvoiceItems(ctx, cusID, proj.Name, record); err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 	}
 
