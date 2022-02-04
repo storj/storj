@@ -197,6 +197,16 @@ func (users *users) GetUserProjectLimits(ctx context.Context, id uuid.UUID) (lim
 	return limitsFromDBX(ctx, row)
 }
 
+func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := users.db.Get_User_PaidTier_By_Id(ctx, dbx.User_Id(id[:]))
+	if err != nil {
+		return false, err
+	}
+	return row.PaidTier, nil
+}
+
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
 func toUpdateUser(user *console.User) (*dbx.User_Update_Fields, error) {
 	update := dbx.User_Update_Fields{
