@@ -11,7 +11,7 @@ import (
 
 	"github.com/zeebo/clingy"
 
-	_ "storj.io/private/process"
+	_ "storj.io/common/rpc/quic" // include quic connector
 	"storj.io/storj/cmd/uplinkng/ulext"
 )
 

@@ -6,10 +6,12 @@ package main
 import (
 	"context"
 
+	"storj.io/common/rpc"
 	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
+	"storj.io/uplink/private/transport"
 )
 
 const uplinkCLIUserAgent = "uplink-cli"
@@ -38,6 +40,10 @@ func (ex *external) OpenProject(ctx context.Context, accessName string, options 
 
 	config := uplink.Config{
 		UserAgent: uplinkCLIUserAgent,
+	}
+
+	if ex.quic {
+		transport.SetConnector(&config, rpc.NewHybridConnector())
 	}
 
 	return config.OpenProject(ctx, access)
