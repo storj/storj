@@ -288,8 +288,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
-		oidc := oidc.NewEndpoint(server.config.ExternalAddress, oidcService, service, server.config.OauthCodeExpiry,
-			server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry)
+		oidc := oidc.NewEndpoint(server.config.ExternalAddress, logger, oidcService, service,
+			server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry)
 
 		router.HandleFunc("/.well-known/openid-configuration", oidc.WellKnownConfiguration)
 		router.Handle("/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidc.AuthorizeUser))).Methods(http.MethodPost)

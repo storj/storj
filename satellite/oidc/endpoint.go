@@ -4,7 +4,6 @@
 package oidc
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/go-oauth2/oauth2/v4/manage"
 	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/spacemonkeygo/monkit/v3"
+	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
@@ -24,7 +24,11 @@ var (
 )
 
 // NewEndpoint constructs an OpenID identity provider.
-func NewEndpoint(externalAddress string, oidcService *Service, service *console.Service, codeExpiry, accessTokenExpiry, refreshTokenExpiry time.Duration) *Endpoint {
+func NewEndpoint(
+	externalAddress string, log *zap.Logger,
+	oidcService *Service, service *console.Service,
+	codeExpiry, accessTokenExpiry, refreshTokenExpiry time.Duration,
+) *Endpoint {
 	manager := manage.NewManager()
 
 	tokenStore := oidcService.TokenStore()
@@ -58,6 +62,7 @@ func NewEndpoint(externalAddress string, oidcService *Service, service *console.
 		tokenStore: tokenStore,
 		service:    service,
 		server:     svr,
+		log:        log,
 		config: ProviderConfig{
 			Issuer:      externalAddress,
 			AuthURL:     externalAddress + "oauth/v2/authorize",
@@ -75,6 +80,7 @@ type Endpoint struct {
 	tokenStore oauth2.TokenStore
 	service    *console.Service
 	server     *server.Server
+	log        *zap.Logger
 	config     ProviderConfig
 }
 
@@ -84,12 +90,11 @@ func (e *Endpoint) WellKnownConfiguration(w http.ResponseWriter, r *http.Request
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	data, err := json.Marshal(e.config)
+	w.Header().Set("Content-Type", "application/json")
 
+	err = json.NewEncoder(w).Encode(e.config)
 	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-	} else {
-		http.ServeContent(w, r, "", time.Now(), bytes.NewReader(data))
+		e.log.Error("failed to encode oidc config", zap.Error(err))
 	}
 }
 
@@ -102,7 +107,7 @@ func (e *Endpoint) AuthorizeUser(w http.ResponseWriter, r *http.Request) {
 
 	err = e.server.HandleAuthorizeRequest(w, r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		e.log.Error("failed to authorize user", zap.Error(err))
 	}
 }
 
@@ -114,7 +119,7 @@ func (e *Endpoint) Tokens(w http.ResponseWriter, r *http.Request) {
 
 	err = e.server.HandleTokenRequest(w, r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		e.log.Error("failed to exchange for token", zap.Error(err))
 	}
 }
 
@@ -165,12 +170,11 @@ func (e *Endpoint) UserInfo(w http.ResponseWriter, r *http.Request) {
 	userInfo.Email = user.Email
 	userInfo.EmailVerified = true
 
-	data, err := json.Marshal(userInfo)
+	w.Header().Set("Content-Type", "application/json")
 
+	err = json.NewEncoder(w).Encode(userInfo)
 	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-	} else {
-		http.ServeContent(w, r, "", time.Now(), bytes.NewReader(data))
+		e.log.Error("failed to encode user info", zap.Error(err))
 	}
 }
 
