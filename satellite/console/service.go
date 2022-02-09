@@ -949,14 +949,9 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		return ErrValidation.Wrap(err)
 	}
 
-	err = s.store.Users().Update(ctx, &User{
-		ID:           auth.User.ID,
-		FullName:     fullName,
-		ShortName:    shortName,
-		Email:        auth.User.Email,
-		PasswordHash: nil,
-		Status:       auth.User.Status,
-	})
+	auth.User.FullName = fullName
+	auth.User.ShortName = shortName
+	err = s.store.Users().Update(ctx, &auth.User)
 	if err != nil {
 		return Error.Wrap(err)
 	}
