@@ -40,6 +40,15 @@ func (ex *external) loadAccesses() error {
 		return errs.Wrap(err)
 	}
 
+	// older versions may have written out invalid access mapping files
+	// so check here and resave if necessary.
+	defaultName, ok := checkAccessMapping(jsonInput.Default, jsonInput.Accesses)
+	if ok {
+		if err := ex.SaveAccessInfo(defaultName, jsonInput.Accesses); err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
 	ex.access.defaultName = jsonInput.Default
 	ex.access.accesses = jsonInput.Accesses
 	ex.access.loaded = true
@@ -47,38 +56,38 @@ func (ex *external) loadAccesses() error {
 	return nil
 }
 
-func parseAccessOrPossiblyFile(serializedOrFile string) (*uplink.Access, error) {
-	if access, err := uplink.ParseAccess(serializedOrFile); err == nil {
+func parseAccessDataOrPossiblyFile(accessDataOrFile string) (*uplink.Access, error) {
+	if access, err := uplink.ParseAccess(accessDataOrFile); err == nil {
 		return access, nil
 	}
 
-	serialized, err := ioutil.ReadFile(serializedOrFile)
+	accessData, err := ioutil.ReadFile(accessDataOrFile)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	return uplink.ParseAccess(string(bytes.TrimSpace(serialized)))
+	return uplink.ParseAccess(string(bytes.TrimSpace(accessData)))
 }
 
-func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err error) {
-	if access, err := parseAccessOrPossiblyFile(accessName); err == nil {
+func (ex *external) OpenAccess(accessDesc string) (access *uplink.Access, err error) {
+	if access, err := parseAccessDataOrPossiblyFile(accessDesc); err == nil {
 		return access, nil
 	}
 
-	accessDefault, accesses, err := ex.GetAccessInfo(true)
+	defaultName, accesses, err := ex.GetAccessInfo(true)
 	if err != nil {
 		return nil, err
 	}
-	if accessName != "" {
-		accessDefault = accessName
+	if accessDesc != "" {
+		defaultName = accessDesc
 	}
 
-	if data, ok := accesses[accessDefault]; ok {
-		return uplink.ParseAccess(data)
+	if accessData, ok := accesses[defaultName]; ok {
+		return uplink.ParseAccess(accessData)
 	}
 
 	// the default was likely a name, so return a potentially nicer message.
-	if len(accessDefault) < 20 {
-		return nil, errs.New("Cannot find access named %q in saved accesses", accessDefault)
+	if len(defaultName) < 20 {
+		return nil, errs.New("Cannot find access named %q in saved accesses", defaultName)
 	}
 	return nil, errs.New("Unable to get access grant")
 }
