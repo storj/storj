@@ -39,6 +39,14 @@ echo "which uplink: $(which uplink)"
 echo "Shasum for uplink:"
 shasum $(which uplink)
 
+new_uplink() {
+    UPLINK_LEGACY_CONFIG_DIR="${main_cfg_dir}/uplink" uplink --config-dir="${main_cfg_dir}/uplink" "$@"
+}
+
+old_uplink() {
+    UPLINK_LEGACY_CONFIG_DIR="${main_cfg_dir}/uplink-old-api" uplink --config-dir="${main_cfg_dir}/uplink-old-api" "$@"
+}
+
 echo -e "\nConfig directory for satellite:"
 echo "${main_cfg_dir}/satellite/0"
 echo "Shasum for satellite:"
@@ -66,13 +74,14 @@ for suffix in ${existing_bucket_name_suffixes}; do
 
     echo "bucket name: ${bucket_name}"
     echo "download folder name: ${download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
 
-    uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/small-upload-testfile" "${old_api_download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/big-upload-testfile" "${old_api_download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${old_api_download_dst_dir}"
+    new_uplink cp --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
+    new_uplink cp --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
+    new_uplink cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
+
+    old_uplink cp --progress=false "sj://$bucket_name/small-upload-testfile" "${old_api_download_dst_dir}"
+    old_uplink cp --progress=false "sj://$bucket_name/big-upload-testfile" "${old_api_download_dst_dir}"
+    old_uplink cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${old_api_download_dst_dir}"
 
     if cmp "${original_dst_dir}/small-upload-testfile" "${download_dst_dir}/small-upload-testfile"
     then
