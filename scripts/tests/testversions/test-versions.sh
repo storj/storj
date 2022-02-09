@@ -62,6 +62,9 @@ echo "which uplink: $(which uplink)"
 echo "Shasum for uplink:"
 shasum $(which uplink)
 
+export UPLINK_CONFIG_DIR="${main_cfg_dir}/uplink"
+export UPLINK_LEGACY_CONFIG_DIR="${main_cfg_dir}/uplink"
+
 # for oldest uplink versions, access is not supported, and we need to configure separate values for api key, sat addr, and encryption key
 if [ ! -d ${main_cfg_dir}/uplink ]; then
     mkdir -p ${main_cfg_dir}/uplink
