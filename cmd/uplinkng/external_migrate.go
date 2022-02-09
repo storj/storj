@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -39,10 +40,14 @@ func (ex *external) migrate() (err error) {
 
 	// load the information necessary to write the new config from
 	// the old file.
-	access, accesses, entries, err := ex.parseLegacyConfig(legacyFh)
+	defaultName, accesses, entries, err := ex.parseLegacyConfig(legacyFh)
 	if err != nil {
 		return errs.Wrap(err)
 	}
+
+	// ensure the loaded config matches the new format where the default
+	// name is actually a name that always points into the accesses map.
+	defaultName, _ = checkAccessMapping(defaultName, accesses)
 
 	// ensure the directory that will hold the config files exists.
 	if err := os.MkdirAll(ex.dirs.current, 0755); err != nil {
@@ -51,7 +56,7 @@ func (ex *external) migrate() (err error) {
 
 	// first, create and write the access file. that way, if there's an error
 	// creating the config file, we will recreate this file.
-	if err := ex.SaveAccessInfo(access, accesses); err != nil {
+	if err := ex.SaveAccessInfo(defaultName, accesses); err != nil {
 		return errs.Wrap(err)
 	}
 
@@ -67,7 +72,7 @@ func (ex *external) migrate() (err error) {
 // parseLegacyConfig loads the default access name, the map of available accesses, and
 // a list of config entries from the yaml file in the reader.
 func (ex *external) parseLegacyConfig(r io.Reader) (string, map[string]string, []ini.Entry, error) {
-	access := ""
+	defaultName := ""
 	accesses := make(map[string]string)
 	entries := make([]ini.Entry, 0)
 
@@ -106,7 +111,7 @@ func (ex *external) parseLegacyConfig(r io.Reader) (string, map[string]string, [
 				// because they go into a separate file now. check for keys that match
 				// one of those and stuff them away outside of entries.
 				if key == "access" {
-					access = value
+					defaultName = value
 				} else if strings.HasPrefix(key, "accesses.") {
 					accesses[key[len("accesses."):]] = value
 				} else if section == "accesses" {
@@ -142,5 +147,29 @@ func (ex *external) parseLegacyConfig(r io.Reader) (string, map[string]string, [
 		return "", nil, nil, err
 	}
 
-	return access, accesses, entries, nil
+	return defaultName, accesses, entries, nil
+}
+
+func checkAccessMapping(accessName string, accesses map[string]string) (newName string, ok bool) {
+	if _, ok := accesses[accessName]; ok {
+		return accessName, false
+	}
+
+	// the only reason the name would not be present is because
+	// it's actually an access grant. we could check that, but
+	// if an error happens, the old config must be broken in
+	// a way we can't repair, anyway, so let's just keep it the
+	// same amount of broken. so, all we need to do is pick a
+	// name that doesn't yet exist.
+
+	newName = "main"
+	for i := 2; ; i++ {
+		if _, ok := accesses[newName]; !ok {
+			break
+		}
+		newName = fmt.Sprintf("main-%d", i)
+	}
+
+	accesses[newName] = accessName
+	return newName, true
 }
