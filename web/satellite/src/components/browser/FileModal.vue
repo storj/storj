@@ -351,7 +351,12 @@ export default class FileModal extends Vue {
      * Download the current opened file.
      */
     public download(): void {
-        this.$store.dispatch('files/download', this.file);
+        try {
+            this.$store.dispatch("files/download", this.file);
+            this.$notify.warning("Do not share download link with other people. If you want to share this data better use \"Share\" option.");
+        } catch (error) {
+            this.$notify.error("Can not download your file");
+        }
     }
 
     /**
