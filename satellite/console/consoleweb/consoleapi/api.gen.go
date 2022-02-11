@@ -22,16 +22,18 @@ type ProjectManagementService interface {
 	GetUserProjects(context.Context) ([]console.Project, api.HTTPError)
 }
 
+// Handler is an api handler that exposes all projects related functionality.
 type Handler struct {
 	log     *zap.Logger
 	service ProjectManagementService
 	auth    api.Auth
 }
 
-func NewProjectManagement(log *zap.Logger, service ProjectManagementService, router *mux.Router) *Handler {
+func NewProjectManagement(log *zap.Logger, service ProjectManagementService, router *mux.Router, auth api.Auth) *Handler {
 	handler := &Handler{
 		log:     log,
 		service: service,
+		auth:    auth,
 	}
 
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
