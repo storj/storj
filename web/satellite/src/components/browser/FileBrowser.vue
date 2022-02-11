@@ -12,96 +12,74 @@
                     @dragover.prevent
                 >
                     <div class="row mb-2 d-flex justify-content-end">
-                        <div class="col-sm-12 col-md-4 col-lg-3 mb-3">
+                        <div v-click-outside="closeUploadDropdown" class="position-relative">
                             <button
                                 type="button"
-                                class="btn btn-sm btn-light btn-block"
-                                style="margin-right: 15px;"
+                                class="btn btn-sm btn-primary btn-block upload-button"
+                                @click.stop="toggleUploadDropdown"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M8.32666 0.974108L8.34573 0.992444L11.7281 4.37479C11.9849 4.63164 11.9849 5.04808 11.7281 5.30494C11.4775 5.55552 11.075 5.56164 10.817 5.32327L10.7979 5.30494L8.5164 3.02335V10.4543C8.5164 10.8175 8.22193 11.112 7.85869 11.112C7.5043 11.112 7.21538 10.8317 7.2015 10.4808L7.20097 10.4543V3.06712L4.96339 5.30494C4.7128 5.55552 4.31031 5.56164 4.05232 5.32327L4.03324 5.30494C3.78266 5.05435 3.77654 4.65186 4.01491 4.39386L4.03324 4.37479L7.41559 0.992444C7.66618 0.741856 8.06866 0.735744 8.32666 0.974108ZM15.2008 13.8745C15.2008 14.2378 14.9063 14.5322 14.5431 14.5322H1.50841C1.14517 14.5322 0.850702 14.2378 0.850702 13.8745C0.850702 13.5113 1.14517 13.2168 1.50841 13.2168H14.5431C14.9063 13.2168 15.2008 13.5113 15.2008 13.8745ZM1.45849 14.4823C1.09525 14.4823 0.800781 14.1878 0.800781 13.8246V11.1937C0.800781 10.8305 1.09525 10.536 1.45849 10.536C1.82174 10.536 2.11621 10.8305 2.11621 11.1937V13.8246C2.11621 14.1878 1.82174 14.4823 1.45849 14.4823ZM14.4931 14.4823C14.1299 14.4823 13.8354 14.1878 13.8354 13.8246V11.1937C13.8354 10.8305 14.1299 10.536 14.4931 10.536C14.8564 10.536 15.1509 10.8305 15.1509 11.1937V13.8246C15.1509 14.1878 14.8564 14.4823 14.4931 14.4823Z" fill="white" />
+                                </svg>
+                                Upload
+                                <span class="upload-button__divider" />
+                                <BlackArrowHide v-if="isUploadDropDownShown" class="arrow" />
+                                <BlackArrowExpand v-else class="arrow" />
+                            </button>
+                            <div v-if="isUploadDropDownShown" class="dropdown">
+                                <div class="dropdown__item">
+                                    <input
+                                        ref="fileInput"
+                                        type="file"
+                                        aria-roledescription="file-upload"
+                                        hidden
+                                        multiple
+                                        @change="upload"
+                                    >
+                                    <div
+                                        class="upload-option"
+                                        @click="buttonFileUpload"
+                                    >
+                                        <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M8.75652 0.799805C9.13527 0.799805 9.49851 0.950259 9.76632 1.21807L13.5258 4.97747C13.7937 5.24529 13.9441 5.60854 13.9441 5.9873V12.9387C13.9441 14.1875 12.9318 15.1998 11.683 15.1998H4.66153C3.41274 15.1998 2.40039 14.1875 2.40039 12.9387V3.06104C2.40039 1.81225 3.41274 0.799805 4.66153 0.799805H8.75652ZM8.17213 2.10889H4.66153C4.14568 2.10889 3.72559 2.51926 3.70993 3.03139L3.70947 3.06104V12.9387C3.70947 13.4545 4.11979 13.8746 4.63188 13.8903L4.66153 13.8907H11.683C12.1989 13.8907 12.6189 13.4804 12.6346 12.9683L12.635 12.9387V6.57167L8.82679 6.57176C8.47412 6.57176 8.18659 6.29284 8.17277 5.94355L8.17225 5.91722L8.17213 2.10889ZM11.9597 5.26259L9.48122 2.78425L9.48134 5.26268L11.9597 5.26259Z" fill="black" />
+                                        </svg>
+                                        Upload File
+                                    </div>
+                                </div>
+                                <div class="dropdown__item">
+                                    <input
+                                        ref="folderInput"
+                                        type="file"
+                                        aria-roledescription="folder-upload"
+                                        hidden
+                                        webkitdirectory
+                                        mozdirectory
+                                        multiple
+                                        @change="upload"
+                                    >
+                                    <div
+                                        class="upload-option"
+                                        @click="buttonFolderUpload"
+                                    >
+                                        <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M6.30544 1.63444C6.45643 1.66268 6.59063 1.70959 6.72634 1.78156L6.76941 1.80506C6.88832 1.87193 7.00713 1.95699 7.28196 2.18186L9.17564 3.73123H11.997C13.111 3.73123 13.515 3.84722 13.9223 4.06503C14.3295 4.28284 14.6492 4.60247 14.867 5.00975L14.8903 5.0542C15.0931 5.44734 15.2008 5.8615 15.2008 6.93502V11.104C15.2008 12.4302 15.0627 12.9111 14.8034 13.396C14.5441 13.8808 14.1636 14.2613 13.6787 14.5206L13.6302 14.5461L13.5824 14.5704C13.1346 14.7936 12.6429 14.9137 11.4512 14.918H4.61483C3.2886 14.918 2.80768 14.7799 2.32283 14.5206C1.83798 14.2613 1.45747 13.8808 1.19817 13.396L1.17264 13.3475C0.934003 12.8862 0.805265 12.4029 0.800781 11.1696V4.36463C0.800781 3.69226 0.909136 3.24683 1.1133 2.86088C1.31746 2.47493 1.61743 2.17098 2.00065 1.96174C2.38387 1.75251 2.82783 1.63828 3.50014 1.62941L5.70273 1.60054L5.81497 1.6001C6.06913 1.60045 6.18205 1.61136 6.30544 1.63444ZM7.08876 6.29289C6.82188 6.49471 6.49897 6.60794 6.16527 6.6174L6.1197 6.61805H3.03986C2.70795 6.61805 2.39296 6.54561 2.10984 6.41568V11.1649L2.11118 11.3259L2.11278 11.4328C2.12691 12.1945 2.19366 12.4815 2.35254 12.7786C2.48984 13.0353 2.68348 13.2289 2.94019 13.3662L2.97747 13.3857L3.01739 13.4054C3.30474 13.543 3.62468 13.5996 4.40102 13.6078L4.61483 13.6089L11.4963 13.6086C12.4225 13.6041 12.7384 13.539 13.0614 13.3662C13.3181 13.2289 13.5117 13.0353 13.649 12.7786L13.6685 12.7413L13.6882 12.7014C13.8257 12.414 13.8824 12.0941 13.8906 11.3178L13.8917 11.104V6.93502C13.8917 6.11696 13.8448 5.87439 13.7126 5.62711C13.6168 5.44797 13.484 5.31521 13.3049 5.21941L13.274 5.20332C13.0416 5.08595 12.7921 5.04222 12.0474 5.04038L8.74506 5.04026L7.08876 6.29289ZM5.75624 2.90917L5.6387 2.9104L3.51741 2.93839L3.42225 2.94052C3.03877 2.95287 2.81488 3.00869 2.62798 3.11073C2.47022 3.19687 2.35451 3.31411 2.27046 3.473C2.16869 3.66538 2.11572 3.89577 2.11033 4.29509C2.11339 4.31637 2.1153 4.33777 2.11616 4.35945L2.11668 4.38577C2.11668 4.88583 2.51425 5.29302 3.01055 5.3085L3.03986 5.30896H6.1197C6.17638 5.30896 6.2317 5.29277 6.27926 5.26255L6.29915 5.24874L7.68339 4.20185L6.38268 3.13773C6.22518 3.00999 6.16925 2.96959 6.12489 2.94458L6.11301 2.93809C6.09421 2.92812 6.08564 2.92512 6.06472 2.92121L6.03713 2.91681L6.01827 2.91465C5.97123 2.91001 5.90046 2.90815 5.75624 2.90917Z" fill="black" />
+                                        </svg>
+                                        Upload Folder
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="position-relative">
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-light btn-block new-folder-button"
                                 @click="toggleFolderCreationInput"
                             >
-                                <svg
-                                    width="17"
-                                    height="16"
-                                    viewBox="0 0 17 16"
-                                    fill="none"
-                                    class="mr-2"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path
-                                        d="M0.912109 1.92481C0.912109 1.1558 1.56545 0.5 2.41211 0.5H7.41211C7.70648 0.5 7.91211 0.724912 7.91211 0.962406C7.91211 1.78796 8.60191 2.42481 9.41211 2.42481H14.4121C15.2588 2.42481 15.9121 3.08061 15.9121 3.84962V14.0752C15.9121 14.8442 15.2588 15.5 14.4121 15.5H2.41211C1.56545 15.5 0.912109 14.8442 0.912109 14.0752V1.92481Z"
-                                        fill="#768394"
-                                        stroke="#7C8794"
-                                    />
-                                    <path
-                                        d="M11.182 8.59043H5.79067M8.48633 5.89478V11.2861"
-                                        stroke="white"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    />
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M6.30544 1.63444C6.45643 1.66268 6.59063 1.70959 6.72634 1.78156L6.76941 1.80506C6.88832 1.87193 7.00713 1.95699 7.28196 2.18186L9.17564 3.73123H11.997C13.111 3.73123 13.515 3.84722 13.9223 4.06503C14.3295 4.28284 14.6492 4.60247 14.867 5.00975L14.8903 5.0542C15.0931 5.44734 15.2008 5.8615 15.2008 6.93502V11.104C15.2008 12.4302 15.0627 12.9111 14.8034 13.396C14.5441 13.8808 14.1636 14.2613 13.6787 14.5206L13.6302 14.5461L13.5824 14.5704C13.1346 14.7936 12.6429 14.9137 11.4512 14.918H4.61483C3.2886 14.918 2.80768 14.7799 2.32283 14.5206C1.83798 14.2613 1.45747 13.8808 1.19817 13.396L1.17264 13.3475C0.934003 12.8862 0.805265 12.4029 0.800781 11.1696V4.36463C0.800781 3.69226 0.909136 3.24683 1.1133 2.86088C1.31746 2.47493 1.61743 2.17098 2.00065 1.96174C2.38387 1.75251 2.82783 1.63828 3.50014 1.62941L5.70273 1.60054L5.81497 1.6001C6.06913 1.60045 6.18205 1.61136 6.30544 1.63444ZM7.08876 6.29289C6.82188 6.49471 6.49897 6.60794 6.16527 6.6174L6.1197 6.61805H3.03986C2.70795 6.61805 2.39296 6.54561 2.10984 6.41568V11.1649L2.11118 11.3259L2.11278 11.4328C2.12691 12.1945 2.19366 12.4815 2.35254 12.7786C2.48984 13.0353 2.68348 13.2289 2.94019 13.3662L2.97747 13.3857L3.01739 13.4054C3.30474 13.543 3.62468 13.5996 4.40102 13.6078L4.61483 13.6089L11.4963 13.6086C12.4225 13.6041 12.7384 13.539 13.0614 13.3662C13.3181 13.2289 13.5117 13.0353 13.649 12.7786L13.6685 12.7413L13.6882 12.7014C13.8257 12.414 13.8824 12.0941 13.8906 11.3178L13.8917 11.104V6.93502C13.8917 6.11696 13.8448 5.87439 13.7126 5.62711C13.6168 5.44797 13.484 5.31521 13.3049 5.21941L13.274 5.20332C13.0416 5.08595 12.7921 5.04222 12.0474 5.04038L8.74506 5.04026L7.08876 6.29289ZM5.75624 2.90917L5.6387 2.9104L3.51741 2.93839L3.42225 2.94052C3.03877 2.95287 2.81488 3.00869 2.62798 3.11073C2.47022 3.19687 2.35451 3.31411 2.27046 3.473C2.16869 3.66538 2.11572 3.89577 2.11033 4.29509C2.11339 4.31637 2.1153 4.33777 2.11616 4.35945L2.11668 4.38577C2.11668 4.88583 2.51425 5.29302 3.01055 5.3085L3.03986 5.30896H6.1197C6.17638 5.30896 6.2317 5.29277 6.27926 5.26255L6.29915 5.24874L7.68339 4.20185L6.38268 3.13773C6.22518 3.00999 6.16925 2.96959 6.12489 2.94458L6.11301 2.93809C6.09421 2.92812 6.08564 2.92512 6.06472 2.92121L6.03713 2.91681L6.01827 2.91465C5.97123 2.91001 5.90046 2.90815 5.75624 2.90917Z" fill="black" />
                                 </svg>
                                 New Folder
-                            </button>
-                        </div>
-
-                        <div class="col-sm-12 col-md-4 col-lg-3 mb-3">
-                            <input
-                                ref="fileInput"
-                                type="file"
-                                aria-roledescription="file-upload"
-                                hidden
-                                multiple
-                                @change="upload"
-                            >
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-primary btn-block"
-                                @click="buttonFileUpload"
-                            >
-                                <svg
-                                    width="13"
-                                    height="16"
-                                    viewBox="0 0 13 16"
-                                    class="mr-2"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path
-                                        d="m2 0c-1.10799992 0-2 0.89199996-2 2v12c0 1.108 0.89200008 2 1.9999999 2h9.0000011c1.108 0 2-0.892 2-2v-9.0000001h-3c-1.108001 0-2.0000013-0.8919999-2.0000013-1.9999998v-3.0000001zm7 0v3.0000001c0 0.5539999 0.4459999 0.9999999 1.000001 0.9999999h3zm-2.4999997 5.3964843 3.3535156 3.3535155c0.1952141 0.1952542 0.1952141 0.5117779 0 0.7070317-0.195254 0.195212-0.5117775 0.195212-0.7070315 0l-2.1464843-2.1464848v4.7929693c0 0.276144-0.2238577 0.5-0.4999998 0.5-0.2761437 0-0.5286517-0.225348-0.5000002-0.5v-4.7929693l-2.1464841 2.1464848c-0.1952542 0.195212-0.5117779 0.195212-0.7070321 0-0.1952126-0.1952545-0.1952126-0.5117779 0-0.7070317z"
-                                        fill="white"
-                                    />
-                                </svg>
-                                Upload File
-                            </button>
-                        </div>
-
-                        <div class="col-sm-12 col-md-4 col-lg-3 mb-3">
-                            <input
-                                ref="folderInput"
-                                type="file"
-                                aria-roledescription="folder-upload"
-                                hidden
-                                webkitdirectory
-                                mozdirectory
-                                multiple
-                                @change="upload"
-                            >
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-primary btn-block"
-                                @click="buttonFolderUpload"
-                            >
-                                <svg
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 16 16"
-                                    class="mr-2"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path
-                                        d="m2 0c-1.1045695 0-2 0.8954305-2 2v12c0 1.104569 0.8954305 2 2 2h12c1.104569 0 2-0.895431 2-2v-10c0-1.1045695-0.895431-2-2-2h-5c-0.5522847 0-1-0.4477153-1-1 0-0.55228475-0.4477153-1-1-1zm6.5 5.3964844 3.353516 3.3535156c0.195212 0.1952535 0.195212 0.5117777 0 0.7070312-0.195254 0.1952123-0.511778 0.1952123-0.707032 0l-2.146484-2.1464843v4.7929691c0 0.276142-0.2238576 0.5-0.5 0.5s-0.5-0.223858-0.5-0.5v-4.7929691l-2.146484 2.1464843c-0.1952536 0.1952123-0.5117784 0.1952123-0.707032 0-0.1952118-0.1952535-0.1952118-0.5117777 0-0.7070312z"
-                                        fill="white"
-                                    />
-                                </svg>
-                                Upload Folder
                             </button>
                         </div>
                     </div>
@@ -439,6 +417,8 @@ import FileEntry from "./FileEntry.vue";
 import BreadCrumbs from "./BreadCrumbs.vue";
 import FileModal from "./FileModal.vue";
 import FileShareModal from "./FileShareModal.vue";
+import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
+import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from "@/types/browser.ts";
@@ -452,14 +432,21 @@ import { RouteConfig } from "@/router";
         BreadCrumbs,
         FileBrowserHeader,
         FileModal,
-        FileShareModal
+        FileShareModal,
+        BlackArrowExpand,
+        BlackArrowHide,
     },
 })
 export default class FileBrowser extends Vue {
+    public $refs!: {
+        folderInput: HTMLInputElement;
+        fileInput: HTMLInputElement;
+    };
     public createFolderInput = "";
     public creatingFolderSpinner = false;
     public deleteConfirmation = false;
     public fetchingFilesSpinner = false;
+    public isUploadDropDownShown = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -627,7 +614,7 @@ export default class FileBrowser extends Vue {
      * Watch for changes in the path and call goToRoutePath, navigating away from the current page.
      */
     @Watch("routePath")
-    private async handleFoutePathChange() {
+    private async handleRoutePathChange() {
         await this.goToRoutePath();
     }
 
@@ -636,11 +623,10 @@ export default class FileBrowser extends Vue {
      */
     public async created(): Promise<void> {
         if (!this.bucket) {
-            if (this.isNewObjectsFlow) {
-                await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-            } else {
-                await this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
-            }
+            const path = this.isNewObjectsFlow ? RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path :
+                RouteConfig.Buckets.with(RouteConfig.EncryptData).path;
+
+            await this.$router.push(path);
 
             return;
         }
@@ -752,6 +738,7 @@ export default class FileBrowser extends Vue {
     public async buttonFileUpload(): Promise<void> {
         const fileInputElement = this.$refs.fileInput as HTMLInputElement;
         fileInputElement.click();
+        this.closeUploadDropdown();
     }
 
     /**
@@ -760,6 +747,7 @@ export default class FileBrowser extends Vue {
     public async buttonFolderUpload(): Promise<void> {
         const folderInputElement = this.$refs.folderInput as HTMLInputElement;
         folderInputElement.click();
+        this.closeUploadDropdown();
     }
 
     /**
@@ -795,10 +783,24 @@ export default class FileBrowser extends Vue {
         this.createFolderInput = "";
         this.$store.dispatch("files/updateCreateFolderInputShow", false);
     }
+
+    /**
+     * Toggles upload options dropdown.
+     */
+    public toggleUploadDropdown(): void {
+        this.isUploadDropDownShown = !this.isUploadDropDownShown;
+    }
+
+    /**
+     * Closes upload options dropdown.
+     */
+    public closeUploadDropdown(): void {
+        this.isUploadDropDownShown = false;
+    }
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 @import './scoped-bootstrap.css';
 
 .white-background {
@@ -865,10 +867,6 @@ tbody {
     background: #fff;
 }
 
-.btn {
-    line-height: 2.4;
-}
-
 .btn-primary {
     background: #376fff;
     border-color: #376fff;
@@ -902,5 +900,109 @@ tbody {
 
 .files-uploading-count {
     color: #0d6efd;
+}
+
+.arrow {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: unset;
+
+    & path {
+        fill: white;
+    }
+}
+
+.dropdown {
+    position: absolute;
+    top: 45px;
+    left: 0;
+    border-radius: 8px;
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
+    width: 240px;
+    height: auto;
+    overflow: hidden;
+    z-index: 999;
+    background: white;
+
+    &__item {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        box-sizing: border-box;
+        height: 56px;
+        width: 100%;
+        padding: 0 18px;
+        font-family: 'font_regular', sans-serif;
+        font-size: 14px;
+        color: #56606d;
+        background-clip: padding-box;
+
+        &:hover {
+            background: #fafafb;
+            color: #0149ff;
+
+            .btn-icon > path {
+                fill: #0149ff;
+            }
+        }
+
+        &:not(:first-of-type) {
+            border-top: 1px solid #ebeef1;
+        }
+    }
+}
+
+.upload-option {
+    all: unset;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+
+    & .btn-icon {
+        margin-right: 18px;
+    }
+}
+
+.btn {
+    display: flex;
+    align-items: center;
+    position: relative;
+    border-radius: 8px;
+    width: auto;
+    padding: 0 17px;
+    height: 40px;
+    font-family: 'font_bold', sans-serif;
+    line-height: 2.4;
+
+    svg {
+        margin-right: 8px;
+    }
+}
+
+.new-folder-button {
+    margin-left: 15px;
+    background: white;
+    border: 1px solid #d8dee3;
+    color: #56606d;
+}
+
+.upload-button {
+    padding-right: 24px;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    &__divider {
+        height: 100%;
+        width: 1px;
+        background: #56606d;
+        margin-left: 16px;
+    }
 }
 </style>
