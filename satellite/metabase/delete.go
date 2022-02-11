@@ -92,7 +92,105 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	if err := opts.Verify(); err != nil {
 		return DeleteObjectResult{}, err
 	}
-	err = withRows(db.db.QueryContext(ctx, `
+	if db.config.ServerSideCopy {
+		// There are 3 scenarios:
+		// 1) If the object to be removed is singular, it should simply remove the object and its segments
+		// 2) If the object is a copy, it should also remove the entry from segment_copies
+		// 3) If the object has copies of its own, a new ancestor should be promoted,
+		//    removed from segment_copies, and the other copies should point to the new ancestor
+		err = withRows(db.db.QueryContext(ctx, `
+			WITH deleted_objects AS (
+				DELETE FROM objects
+				WHERE
+					project_id   = $1 AND
+					bucket_name  = $2 AND
+					object_key   = $3 AND
+					version      = $4 AND
+					status       = `+committedStatus+`
+				RETURNING
+					version, stream_id,
+					created_at, expires_at,
+					status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					total_plain_size, total_encrypted_size, fixed_segment_size,
+					encryption
+			), 
+			deleted_segments AS (
+				DELETE FROM segments
+				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+				RETURNING 
+					segments.stream_id,
+					segments.root_piece_id,
+					segments.remote_alias_pieces,
+					segments.plain_size,
+					segments.encrypted_size,
+					segments.position,
+					segments.inline_data
+			), 
+			deleted_copies AS (
+				DELETE FROM segment_copies
+				WHERE segment_copies.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+				RETURNING segment_copies.stream_id
+			),
+			-- lowest stream_id becomes new ancestor
+			promoted_ancestor AS (
+				DELETE FROM segment_copies
+				WHERE segment_copies.stream_id = (
+					SELECT stream_id
+					FROM segment_copies
+					WHERE segment_copies.ancestor_stream_id = (
+						SELECT stream_id 
+						FROM deleted_objects
+						ORDER BY stream_id
+						LIMIT 1
+					)
+					ORDER BY stream_id
+				    LIMIT 1
+				)
+				RETURNING 
+					stream_id
+			),
+		   update_other_copies_with_new_ancestor AS (
+				UPDATE segment_copies
+				SET ancestor_stream_id = (SELECT stream_id FROM promoted_ancestor)
+				WHERE segment_copies.ancestor_stream_id IN (SELECT stream_id FROM deleted_objects)
+					-- bit weird condition but this seems necessary to prevent it from updating a row which is being deleted
+                    AND segment_copies.stream_id != (SELECT stream_id FROM promoted_ancestor)
+				RETURNING segment_copies.stream_id
+			), 
+			update_copy_promoted_to_ancestors AS (
+				UPDATE segments AS promoted_segments
+				SET 
+					remote_alias_pieces = deleted_segments.remote_alias_pieces,
+					inline_data = deleted_segments.inline_data,
+					plain_size = deleted_segments.plain_size,
+					encrypted_size = deleted_segments.encrypted_size
+				FROM deleted_segments
+				WHERE -- i suppose this only works when there is 1 stream_id being deleted
+					promoted_segments.stream_id IN (SELECT stream_id FROM promoted_ancestor) 
+					AND promoted_segments.position = deleted_segments.position
+				RETURNING deleted_segments.stream_id
+			)
+			SELECT
+				deleted_objects.version, deleted_objects.stream_id,
+				deleted_objects.created_at, deleted_objects.expires_at,
+				deleted_objects.status, deleted_objects.segment_count,
+				deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
+				deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
+				deleted_objects.encryption,
+				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+			FROM deleted_objects
+			LEFT JOIN deleted_segments 
+				ON deleted_objects.stream_id = deleted_segments.stream_id
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version))(func(rows tagsql.Rows) error {
+			result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+			return err
+		})
+		if err != nil {
+			return DeleteObjectResult{}, err
+		}
+	} else {
+		err = withRows(db.db.QueryContext(ctx, `
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE
@@ -124,11 +222,13 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 			FROM deleted_objects
 			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
 		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version))(func(rows tagsql.Rows) error {
-		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
-		return err
-	})
-	if err != nil {
-		return DeleteObjectResult{}, err
+			result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+			return err
+		})
+
+		if err != nil {
+			return DeleteObjectResult{}, err
+		}
 	}
 
 	if len(result.Objects) == 0 {

@@ -47,6 +47,13 @@ func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	require.Zero(t, diff)
 }
 
+func (step Verify) Normalize() Verify {
+	if len(step.Segments) == 0 {
+		step.Segments = nil
+	}
+	return step
+}
+
 func sortObjects(objects []metabase.Object) {
 	sort.Slice(objects, func(i, j int) bool {
 		return objects[i].StreamID.Less(objects[j].StreamID)
