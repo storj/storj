@@ -1,3 +1,6 @@
+# expiration to use if user does not specify an account management api key expiration
+# account-management-api-keys.default-expiration: 720h0m0s
+
 # admin peer http listening address
 # admin.address: ""
 

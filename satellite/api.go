@@ -34,6 +34,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/accountmanagementapikeys"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
@@ -134,6 +135,10 @@ type API struct {
 		Conversion *stripecoinpayments.ConversionService
 		Service    *stripecoinpayments.Service
 		Stripe     stripecoinpayments.StripeClient
+	}
+
+	AccountManagementAPIKeys struct {
+		Service *accountmanagementapikeys.Service
 	}
 
 	Console struct {
@@ -572,6 +577,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup account management api keys
+		peer.AccountManagementAPIKeys.Service = accountmanagementapikeys.NewService(peer.DB.OIDC().OAuthTokens(), config.AccountManagementAPIKeys)
+	}
+
 	{ // setup console
 		consoleConfig := config.Console
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
@@ -586,6 +595,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.AccountManagementAPIKeys.Service,
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
 			peer.Buckets.Service,

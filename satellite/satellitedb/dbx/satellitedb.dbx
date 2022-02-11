@@ -1392,7 +1392,7 @@ model oauth_token (
     field kind          int     // access or refresh
     field token         blob    // encrypted macaroon
     field created_at    timestamp
-    field expires_at    timestamp
+    field expires_at    timestamp ( updatable )
 )
 
 create oauth_token ()
@@ -1401,4 +1401,10 @@ read one (
     select oauth_token
     where oauth_token.kind = ?
     where oauth_token.token = ?
+)
+
+update oauth_token (
+	where oauth_token.token = ?
+	where oauth_token.kind = ?
+	noreturn
 )

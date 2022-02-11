@@ -4936,6 +4936,7 @@ type OauthToken struct {
 func (OauthToken) _Table() string { return "oauth_tokens" }
 
 type OauthToken_Update_Fields struct {
+	ExpiresAt OauthToken_ExpiresAt_Field
 }
 
 type OauthToken_ClientId_Field struct {
@@ -16514,6 +16515,44 @@ func (obj *pgxImpl) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx c
 	return nil
 }
 
+func (obj *pgxImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Context,
+	oauth_token_token OauthToken_Token_Field,
+	oauth_token_kind OauthToken_Kind_Field,
+	update OauthToken_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_tokens SET "), __sets, __sqlbundle_Literal(" WHERE oauth_tokens.token = ? AND oauth_tokens.kind = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, oauth_token_token.value(), oauth_token_kind.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -22869,6 +22908,44 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_N
 	return nil
 }
 
+func (obj *pgxcockroachImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Context,
+	oauth_token_token OauthToken_Token_Field,
+	oauth_token_kind OauthToken_Kind_Field,
+	update OauthToken_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE oauth_tokens SET "), __sets, __sqlbundle_Literal(" WHERE oauth_tokens.token = ? AND oauth_tokens.kind = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, oauth_token_token.value(), oauth_token_kind.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -25206,6 +25283,18 @@ func (rx *Rx) UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context
 	return tx.UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx, oauth_code_code, update)
 }
 
+func (rx *Rx) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Context,
+	oauth_token_token OauthToken_Token_Field,
+	oauth_token_kind OauthToken_Kind_Field,
+	update OauthToken_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx, oauth_token_token, oauth_token_kind, update)
+}
+
 func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	update PeerIdentity_Update_Fields) (
@@ -26029,6 +26118,12 @@ type Methods interface {
 	UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx context.Context,
 		oauth_code_code OauthCode_Code_Field,
 		update OauthCode_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Context,
+		oauth_token_token OauthToken_Token_Field,
+		oauth_token_kind OauthToken_Kind_Field,
+		update OauthToken_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
