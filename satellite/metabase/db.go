@@ -32,6 +32,9 @@ type Config struct {
 	ApplicationName  string
 	MinPartSize      memory.Size
 	MaxNumberOfParts int
+
+	// TODO remove this flag when server-side copy implementation will be finished
+	ServerSideCopy bool
 }
 
 // DB implements a database for storing objects and segments.

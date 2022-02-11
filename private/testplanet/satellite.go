@@ -479,6 +479,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		ApplicationName:  "satellite-testplanet",
 		MinPartSize:      config.Metainfo.MinPartSize,
 		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
+		ServerSideCopy:   config.Metainfo.ServerSideCopy,
 	})
 	if err != nil {
 		return nil, err

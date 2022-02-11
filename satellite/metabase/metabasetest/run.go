@@ -57,6 +57,7 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		ApplicationName:  "satellite-test",
 		MinPartSize:      config.MinPartSize,
 		MaxNumberOfParts: config.MaxNumberOfParts,
+		ServerSideCopy:   config.ServerSideCopy,
 	}, fn)
 }
 
