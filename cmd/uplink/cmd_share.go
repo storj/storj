@@ -4,13 +4,11 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -22,9 +20,8 @@ import (
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/storj/cmd/uplink/ulloc"
 	"storj.io/uplink"
+	"storj.io/uplink/edge"
 )
-
-const defaultAccessRegisterTimeout = 15 * time.Second
 
 type cmdShare struct {
 	ex ulext.External
@@ -37,6 +34,7 @@ type cmdShare struct {
 	url         bool
 	dns         string
 	authService string
+	caCert      string
 	public      bool
 }
 
@@ -113,11 +111,11 @@ func (c *cmdShare) Execute(ctx clingy.Context) error {
 	fmt.Fprintf(ctx, "Access    : %s\n", newAccessData)
 
 	if c.register || c.url || c.dns != "" {
-		accessKey, secretKey, endpoint, err := RegisterAccess(ctx, access, c.authService, isPublic, defaultAccessRegisterTimeout)
+		credentials, err := RegisterAccess(ctx, access, c.authService, isPublic, c.caCert)
 		if err != nil {
 			return err
 		}
-		err = DisplayGatewayCredentials(ctx, accessKey, secretKey, endpoint, "", "")
+		err = DisplayGatewayCredentials(ctx, *credentials, "", "")
 		if err != nil {
 			return err
 		}
@@ -128,12 +126,12 @@ func (c *cmdShare) Execute(ctx clingy.Context) error {
 
 		if len(c.ap.prefixes) == 1 && !c.ap.AllowUpload() && !c.ap.disallowDeletes {
 			if c.url {
-				if err = createURL(ctx, accessKey, c.ap.prefixes[0], c.baseURL, c.ap.prefixes); err != nil {
+				if err = createURL(ctx, credentials.AccessKeyID, c.ap.prefixes[0], c.baseURL, c.ap.prefixes); err != nil {
 					return err
 				}
 			}
 			if c.dns != "" {
-				if err = createDNS(ctx, accessKey, c.ap.prefixes[0], c.baseURL, c.dns); err != nil {
+				if err = createDNS(ctx, credentials.AccessKeyID, c.ap.prefixes[0], c.baseURL, c.dns); err != nil {
 					return err
 				}
 			}
@@ -190,57 +188,31 @@ func formatPaths(sharePrefixes []uplink.SharePrefix) string {
 }
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.
-func RegisterAccess(ctx context.Context, access *uplink.Access, authService string, public bool, timeout time.Duration) (accessKey, secretKey, endpoint string, err error) {
+func RegisterAccess(ctx context.Context, access *uplink.Access, authService string, public bool, certificateFile string) (credentials *edge.Credentials, err error) {
 	if authService == "" {
-		return "", "", "", errs.New("no auth service address provided")
-	}
-	accessSerialized, err := access.Serialize()
-	if err != nil {
-		return "", "", "", errs.Wrap(err)
-	}
-	postData, err := json.Marshal(map[string]interface{}{
-		"access_grant": accessSerialized,
-		"public":       public,
-	})
-	if err != nil {
-		return accessKey, "", "", errs.Wrap(err)
+		return nil, errs.New("no auth service address provided")
 	}
 
-	client := &http.Client{
-		Timeout: timeout,
+	// preserve compatibility with previous https service
+	authService = strings.TrimPrefix(authService, "https://")
+	authService = strings.TrimSuffix(authService, "/")
+	if !strings.Contains(authService, ":") {
+		authService += ":7777"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/v1/access", authService), bytes.NewReader(postData))
-	if err != nil {
-		return "", "", "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", "", err
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", "", err
+	var certificatePEM []byte
+	if certificateFile != "" {
+		certificatePEM, err = os.ReadFile(certificateFile)
+		if err != nil {
+			return nil, errs.New("can't read certificate file: %w", err)
+		}
 	}
 
-	respBody := make(map[string]string)
-	if err := json.Unmarshal(body, &respBody); err != nil {
-		return "", "", "", errs.New("unexpected response from auth service: %s", string(body))
+	edgeConfig := edge.Config{
+		AuthServiceAddress: authService,
+		CertificatePEM:     certificatePEM,
 	}
-
-	accessKey, ok := respBody["access_key_id"]
-	if !ok {
-		return "", "", "", errs.New("access_key_id missing in response")
-	}
-	secretKey, ok = respBody["secret_key"]
-	if !ok {
-		return "", "", "", errs.New("secret_key missing in response")
-	}
-	return accessKey, secretKey, respBody["endpoint"], nil
+	return edgeConfig.RegisterAccess(ctx, access, &edge.RegisterAccessOptions{Public: public})
 }
 
 // Creates linksharing url for allowed path prefixes.
@@ -277,14 +249,14 @@ func createDNS(ctx clingy.Context, accessKey string, prefix uplink.SharePrefix, 
 }
 
 // DisplayGatewayCredentials formats and writes credentials to stdout.
-func DisplayGatewayCredentials(ctx clingy.Context, accessKey, secretKey, endpoint, format, awsProfile string) (err error) {
+func DisplayGatewayCredentials(ctx clingy.Context, credentials edge.Credentials, format string, awsProfile string) (err error) {
 	switch format {
 	case "env": // export / set compatible format
 		// note that AWS_ENDPOINT configuration is not natively utilized by the AWS CLI
 		_, err = fmt.Fprintf(ctx, "AWS_ACCESS_KEY_ID=%s\n"+
 			"AWS_SECRET_ACCESS_KEY=%s\n"+
 			"AWS_ENDPOINT=%s\n",
-			accessKey, secretKey, endpoint)
+			credentials.AccessKeyID, credentials.SecretKey, credentials.Endpoint)
 		if err != nil {
 			return err
 		}
@@ -301,7 +273,7 @@ func DisplayGatewayCredentials(ctx clingy.Context, accessKey, secretKey, endpoin
 		_, err = fmt.Fprintf(ctx, "aws configure %s set aws_access_key_id %s\n"+
 			"aws configure %s set aws_secret_access_key %s\n"+
 			"aws configure %s set s3.endpoint_url %s\n",
-			profile, accessKey, profile, secretKey, profile, endpoint)
+			profile, credentials.AccessKeyID, profile, credentials.SecretKey, profile, credentials.Endpoint)
 		if err != nil {
 			return err
 		}
@@ -310,7 +282,7 @@ func DisplayGatewayCredentials(ctx clingy.Context, accessKey, secretKey, endpoin
 			"Access Key ID: %s\n"+
 			"Secret Key   : %s\n"+
 			"Endpoint     : %s\n",
-			accessKey, secretKey, endpoint)
+			credentials.AccessKeyID, credentials.SecretKey, credentials.Endpoint)
 		if err != nil {
 			return err
 		}
