@@ -251,6 +251,12 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdRegisterLostSegments,
 	}
+	fetchPiecesCmd = &cobra.Command{
+		Use:   "fetch-pieces <stream-id> <position> <output-dir>",
+		Short: "Retrieve pieces of a segment from all responding nodes",
+		Args:  cobra.ExactArgs(3),
+		RunE:  cmdFetchPieces,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -315,6 +321,7 @@ func init() {
 	rootCmd.AddCommand(consistencyCmd)
 	rootCmd.AddCommand(restoreTrashCmd)
 	rootCmd.AddCommand(registerLostSegments)
+	rootCmd.AddCommand(fetchPiecesCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -337,6 +344,7 @@ func init() {
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(restoreTrashCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(registerLostSegments, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(fetchPiecesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
