@@ -30,6 +30,16 @@ self.onmessage = async function (event) {
             }
 
             break;
+        case 'DeriveAndEncryptRootKey':
+            {
+                const passphrase = data.passphrase;
+                const projectID = data.projectID;
+                const aesKey = data.aesKey;
+
+                result = self.deriveAndEncryptRootKey(passphrase, projectID, aesKey);
+                self.postMessage(result);
+            }
+            break;
         case 'GenerateAccess':
             apiKey = data.apiKey;
             const passphrase = data.passphrase;
