@@ -1487,6 +1487,31 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	return info, key, nil
 }
 
+// GetAPIKeyInfoByName retrieves an api key by its name and project id.
+func (s *Service) GetAPIKeyInfoByName(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get api key info",
+		zap.String("projectID", projectID.String()),
+		zap.String("name", name))
+
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, key.ProjectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return key, nil
+}
+
 // GetAPIKeyInfo retrieves api key by id.
 func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
