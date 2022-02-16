@@ -94,6 +94,8 @@ type Config struct {
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
+	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
+	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -386,6 +388,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultPaidBandwidthLimit       memory.Size
 		NewNavigation                   bool
 		NewObjectsFlow                  bool
+		InactivityTimerEnabled          bool
+		InactivityTimerDelay            int
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -416,6 +420,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NewProjectDashboard = server.config.NewProjectDashboard
 	data.NewNavigation = server.config.NewNavigation
 	data.NewObjectsFlow = server.config.NewObjectsFlow
+	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
+	data.InactivityTimerDelay = server.config.InactivityTimerDelay
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {
