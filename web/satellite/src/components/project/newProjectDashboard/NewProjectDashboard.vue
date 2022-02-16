@@ -3,9 +3,9 @@
 
 <template>
     <div ref="dashboard" class="project-dashboard">
-        <h1 class="project-dashboard__title">Dashboard</h1>
+        <h1 class="project-dashboard__title" aria-roledescription="title">Dashboard</h1>
         <VLoader v-if="isDataFetching" class="project-dashboard__loader" width="100px" height="100px" />
-        <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle">
+        <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle" aria-roledescription="with-usage-title">
             Your
             <span class="project-dashboard__subtitle__value">{{ limits.objectCount }} objects</span>
             are stored in
@@ -13,7 +13,7 @@
             around the world
         </p>
         <template v-if="!isDataFetching && !limits.objectCount">
-            <p class="project-dashboard__subtitle">
+            <p class="project-dashboard__subtitle" aria-roledescription="empty-title">
                 Welcome to Storj :) <br> You’re ready to experience the future of cloud storage
             </p>
             <VButton
@@ -28,7 +28,8 @@
             <h2 class="project-dashboard__stats-header__title">Project Stats</h2>
             <div class="project-dashboard__stats-header__buttons">
                 <DateRangeSelection
-                    :date-range="chartsDateRange"
+                    :since="chartsSinceDate"
+                    :before="chartsBeforeDate"
                     :on-date-pick="onChartsDateRangePick"
                     :is-open="isChartsDatePicker"
                     :toggle="toggleChartsDatePicker"
@@ -59,38 +60,63 @@
         </div>
         <div class="project-dashboard__charts">
             <div class="project-dashboard__charts__container">
-                <h3 class="project-dashboard__charts__container__title">Storage</h3>
+                <div class="project-dashboard__charts__container__header">
+                    <h3 class="project-dashboard__charts__container__header__title">Storage</h3>
+                </div>
+                <p class="project-dashboard__charts__container__info">
+                    This is your total storage used per day
+                </p>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
-                    <p class="project-dashboard__charts__container__info">
-                        Using {{ usedLimitFormatted(limits.storageUsed) }} of {{ usedLimitFormatted(limits.storageLimit) }}
-                    </p>
-                    <DashboardChart
-                        name="storage"
+                    <StorageChart
                         :width="chartWidth"
                         :height="170"
                         :data="storageUsage"
-                        background-color="#E6EDF7"
-                        border-color="#D7E8FF"
-                        point-border-color="#003DC1"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
                     />
                 </template>
             </div>
             <div class="project-dashboard__charts__container">
-                <h3 class="project-dashboard__charts__container__title">Bandwidth</h3>
+                <div class="project-dashboard__charts__container__header">
+                    <h3 class="project-dashboard__charts__container__header__title">Bandwidth</h3>
+                    <div class="project-dashboard__charts__container__header__right">
+                        <span class="project-dashboard__charts__container__header__right__allocated-color" />
+                        <p class="project-dashboard__charts__container__header__right__allocated-label">Allocated</p>
+                        <span class="project-dashboard__charts__container__header__right__settled-color" />
+                        <p class="project-dashboard__charts__container__header__right__settled-label">Settled</p>
+                        <VInfo class="project-dashboard__charts__container__header__right__info">
+                            <template #icon>
+                                <InfoIcon />
+                            </template>
+                            <template #message>
+                                <p class="project-dashboard__charts__container__header__right__info__message">
+                                    The bandwidth allocated takes few hours to be settled.
+                                    <a
+                                        class="project-dashboard__charts__container__header__right__info__message__link"
+                                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment#bandwidth-fee"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Learn more
+                                    </a>
+                                </p>
+                            </template>
+                        </VInfo>
+                    </div>
+                </div>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
                     <p class="project-dashboard__charts__container__info">
-                        Using {{ usedLimitFormatted(limits.bandwidthUsed) }} of {{ usedLimitFormatted(limits.bandwidthLimit) }}
+                        This is your bandwidth usage per day
                     </p>
-                    <DashboardChart
-                        name="bandwidth"
+                    <BandwidthChart
                         :width="chartWidth"
                         :height="170"
-                        :data="bandwidthUsage"
-                        background-color="#FFE0E7"
-                        border-color="#FFC0CF"
-                        point-border-color="#FF458B"
+                        :settled-data="settledBandwidthUsage"
+                        :allocated-data="allocatedBandwidthUsage"
+                        :since="chartsSinceDate"
+                        :before="chartsBeforeDate"
                     />
                 </template>
             </div>
@@ -114,7 +140,9 @@
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
-                    <p class="project-dashboard__info__label">Total of {{ usedLimitFormatted(limits.storageUsed) }}</p>
+                    <p class="project-dashboard__info__label" aria-roledescription="total-storage">
+                        Total of {{ usedLimitFormatted(limits.storageUsed) }}
+                    </p>
                 </template>
             </InfoContainer>
             <InfoContainer
@@ -135,26 +163,37 @@
                 </template>
             </InfoContainer>
         </div>
+        <div class="project-dashboard__stats-header">
+            <p class="project-dashboard__stats-header__title">Buckets</p>
+        </div>
+        <VLoader v-if="areBucketsFetching" />
+        <BucketArea v-else />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from "@/store/modules/projects";
+import { PROJECTS_ACTIONS } from "@/store/modules/projects";
 import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from "@/store/modules/payments";
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 import { RouteConfig } from "@/router";
-import { DataStamp, ProjectLimits, ProjectsStorageBandwidthDaily, ProjectUsageDateRange } from "@/types/projects";
+import { DataStamp, ProjectLimits } from "@/types/projects";
 import { Dimensions, Size } from "@/utils/bytesSize";
+import { ChartUtils } from "@/utils/chart";
 
 import VLoader from "@/components/common/VLoader.vue";
 import InfoContainer from "@/components/project/newProjectDashboard/InfoContainer.vue";
-import DashboardChart from "@/components/project/newProjectDashboard/DashboardChart.vue";
+import StorageChart from "@/components/project/newProjectDashboard/StorageChart.vue";
+import BandwidthChart from "@/components/project/newProjectDashboard/BandwidthChart.vue";
 import VButton from "@/components/common/VButton.vue";
 import DateRangeSelection from "@/components/project/newProjectDashboard/DateRangeSelection.vue";
+import VInfo from "@/components/common/VInfo.vue";
+import BucketArea from '@/components/project/buckets/BucketArea.vue';
 
 import NewProjectIcon from "@/../static/images/project/newProject.svg";
+import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
 // @vue/component
 @Component({
@@ -162,14 +201,19 @@ import NewProjectIcon from "@/../static/images/project/newProject.svg";
         VLoader,
         VButton,
         InfoContainer,
-        DashboardChart,
+        StorageChart,
+        BandwidthChart,
         DateRangeSelection,
+        VInfo,
         NewProjectIcon,
+        InfoIcon,
+        BucketArea,
     }
 })
 export default class NewProjectDashboard extends Vue {
     public now = new Date().toLocaleDateString('en-US');
     public isDataFetching = true;
+    public areBucketsFetching = true;
 
     public chartWidth = 0;
 
@@ -192,11 +236,25 @@ export default class NewProjectDashboard extends Vue {
         this.recalculateChartWidth();
 
         try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, new ProjectsStorageBandwidthDaily(this.chartTestData(), this.chartTestData()));
+            const now = new Date()
+            const past = new Date()
+            past.setDate(past.getDate() - 30)
+
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since: past, before: now});
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
 
             this.isDataFetching = false;
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        const FIRST_PAGE = 1;
+
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
+
+            this.areBucketsFetching = false;
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -214,8 +272,9 @@ export default class NewProjectDashboard extends Vue {
      * Used container size recalculation for charts resizing.
      */
     public recalculateChartWidth(): void {
-        const fiftyPixels = 50;
-        this.chartWidth = this.$refs.dashboard.getBoundingClientRect().width / 2 - fiftyPixels;
+        // sixty pixels.
+        const additionalPaddingRight = 60;
+        this.chartWidth = this.$refs.dashboard.getBoundingClientRect().width / 2 - additionalPaddingRight;
     }
 
     /**
@@ -255,11 +314,18 @@ export default class NewProjectDashboard extends Vue {
 
     /**
      * onChartsDateRangePick holds logic for choosing date range for charts.
+     * Fetches new data for specific date range.
      * @param dateRange
      */
-    public onChartsDateRangePick(dateRange: Date[]): void {
-        // TODO: rework when backend is ready
-        this.$store.commit(PROJECTS_MUTATIONS.SET_CHARTS_DATE_RANGE, new ProjectUsageDateRange(dateRange[0], dateRange[1]));
+    public async onChartsDateRangePick(dateRange: Date[]): Promise<void> {
+        const since = new Date(dateRange[0])
+        const before = new Date(dateRange[1])
+
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since, before})
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
     }
 
     /**
@@ -308,14 +374,35 @@ export default class NewProjectDashboard extends Vue {
      * Returns storage chart data from store.
      */
     public get storageUsage(): DataStamp[] {
-        return this.$store.state.projectsModule.storageChartData;
+        return ChartUtils.populateEmptyUsage(this.$store.state.projectsModule.storageChartData, this.chartsSinceDate, this.chartsBeforeDate);
     }
 
     /**
-     * Returns bandwidth chart data from store.
+     * Returns settled bandwidth chart data from store.
      */
-    public get bandwidthUsage(): DataStamp[] {
-        return this.$store.state.projectsModule.bandwidthChartData;
+    public get settledBandwidthUsage(): DataStamp[] {
+        return ChartUtils.populateEmptyUsage(this.$store.state.projectsModule.settledBandwidthChartData, this.chartsSinceDate, this.chartsBeforeDate);
+    }
+
+    /**
+     * Returns allocated bandwidth chart data from store.
+     */
+    public get allocatedBandwidthUsage(): DataStamp[] {
+        return ChartUtils.populateEmptyUsage(this.$store.state.projectsModule.allocatedBandwidthChartData, this.chartsSinceDate, this.chartsBeforeDate);
+    }
+
+    /**
+     * Returns charts since date from store.
+     */
+    public get chartsSinceDate(): Date {
+        return this.$store.state.projectsModule.chartDataSince;
+    }
+
+    /**
+     * Returns charts before date from store.
+     */
+    public get chartsBeforeDate(): Date {
+        return this.$store.state.projectsModule.chartDataBefore;
     }
 
     /**
@@ -329,38 +416,14 @@ export default class NewProjectDashboard extends Vue {
             return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
         }
     }
-
-    // TODO: remove when backend is ready
-    private chartTestData(): DataStamp[] {
-        const startDate = new Date("2021-10-01");
-        const endDate = new Date("2021-10-31");
-        const arr = new Array<Date>();
-        const dt = new Date(startDate);
-
-        while (dt <= endDate) {
-            arr.push(new Date(dt));
-            dt.setDate(dt.getDate() + 1);
-        }
-
-        return arr.map(d => {
-            return new DataStamp(Math.floor(Math.random() * 1000000000000), d);
-        })
-    }
-
-    /**
-     * Returns charts date range from store.
-     */
-    private get chartsDateRange(): ProjectUsageDateRange | null {
-        return this.$store.getters.chartsDateRange;
-    }
 }
 </script>
 
 <style scoped lang="scss">
     .project-dashboard {
-        padding: 56px 40px;
+        padding: 56px 55px 56px 40px;
         height: calc(100% - 112px);
-        max-width: calc(100vw - 280px - 80px);
+        max-width: calc(100vw - 280px - 95px);
         background-image: url('../../../../static/images/project/background.png');
         background-position: top right;
         background-size: 70%;
@@ -432,12 +495,76 @@ export default class NewProjectDashboard extends Vue {
                 box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
                 border-radius: 10px;
 
-                &__title {
-                    margin: 16px 0 2px 24px;
-                    font-family: 'font_medium', sans-serif;
-                    font-size: 18px;
-                    line-height: 27px;
-                    color: #000;
+                &__header {
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: space-between;
+
+                    &__title {
+                        margin: 16px 0 2px 24px;
+                        font-family: 'font_medium', sans-serif;
+                        font-size: 18px;
+                        line-height: 27px;
+                        color: #000;
+                    }
+
+                    &__right {
+                        display: flex;
+                        align-items: center;
+                        margin: 16px 16px 0 0;
+
+                        &__allocated-color,
+                        &__settled-color {
+                            width: 10px;
+                            height: 10px;
+                            border-radius: 2px;
+                        }
+
+                        &__allocated-color {
+                            background: #ffc0cf;
+                        }
+
+                        &__settled-color {
+                            background: #ff458b;
+                        }
+
+                        &__allocated-label,
+                        &__settled-label {
+                            font-size: 14px;
+                            line-height: 17px;
+                            color: #000;
+                            margin-left: 5px;
+                        }
+
+                        &__allocated-label {
+                            margin-right: 16px;
+                        }
+
+                        &__settled-label {
+                            margin-right: 11px;
+                        }
+
+                        &__info {
+                            cursor: pointer;
+                            max-height: 20px;
+
+                            &__message {
+                                font-size: 12px;
+                                line-height: 18px;
+                                text-align: center;
+                                color: #fff;
+
+                                &__link {
+                                    text-decoration: underline !important;
+                                    color: #fff;
+
+                                    &:visited {
+                                        color: #fff;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 &__loader {
@@ -500,10 +627,30 @@ export default class NewProjectDashboard extends Vue {
         }
     }
 
+    ::v-deep .info__box {
+        width: 180px;
+        left: calc(50% - 20px);
+        top: calc(100% + 1px);
+        cursor: default;
+
+        &__message {
+            background: #56606d;
+            border-radius: 4px;
+            padding: 8px;
+        }
+
+        &__arrow {
+            background: #56606d;
+            width: 10px;
+            height: 10px;
+            margin: 0 0 -2px 40px;
+        }
+    }
+
     @media screen and (max-width: 1280px) {
 
         .project-dashboard {
-            max-width: calc(100vw - 86px - 80px);
+            max-width: calc(100vw - 86px - 95px);
         }
     }
 </style>

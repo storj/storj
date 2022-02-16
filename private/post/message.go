@@ -66,44 +66,9 @@ func (msg *Message) Bytes() (data []byte, err error) {
 	switch {
 	// multipart upload
 	case len(msg.Parts) > 0:
-		wr := multipart.NewWriter(&body)
-		defer func() { err = errs.Combine(err, wr.Close()) }()
-
-		fmt.Fprintf(&body, "Content-Type: multipart/alternative;")
-		fmt.Fprintf(&body, "\tboundary=\"%v\"\r\n", wr.Boundary())
-		fmt.Fprintf(&body, "\r\n")
-
-		var sub io.Writer
-
-		if len(msg.PlainText) > 0 {
-			sub, err := wr.CreatePart(textproto.MIMEHeader{
-				"Content-Type":              []string{"text/plain; charset=UTF-8; format=flowed"},
-				"Content-Transfer-Encoding": []string{"quoted-printable"},
-			})
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-
-			enc := quotedprintable.NewWriter(sub)
-			defer func() { err = errs.Combine(err, enc.Close()) }()
-
-			_, err = enc.Write([]byte(msg.PlainText))
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-		}
-
-		for _, part := range msg.Parts {
-			header := textproto.MIMEHeader{"Content-Type": []string{mime.QEncoding.Encode("utf-8", part.Type)}}
-			if part.Encoding != "" {
-				header["Content-Transfer-Encoding"] = []string{mime.QEncoding.Encode("utf-8", part.Encoding)}
-			}
-			if part.Disposition != "" {
-				header["Content-Disposition"] = []string{mime.QEncoding.Encode("utf-8", part.Disposition)}
-			}
-
-			sub, _ = wr.CreatePart(header)
-			fmt.Fprint(sub, part.Content)
+		err = msg.writeMultipart(&body)
+		if err != nil {
+			return nil, err
 		}
 
 	// fallback if there are no parts, write PlainText with appropriate Content-Type
@@ -120,6 +85,49 @@ func (msg *Message) Bytes() (data []byte, err error) {
 	}
 
 	return tocrlf(body.Bytes()), nil
+}
+
+func (msg *Message) writeMultipart(body *bytes.Buffer) (err error) {
+	wr := multipart.NewWriter(body)
+	defer func() { err = errs.Combine(err, wr.Close()) }()
+
+	fmt.Fprintf(body, "Content-Type: multipart/alternative;")
+	fmt.Fprintf(body, "\tboundary=\"%v\"\r\n", wr.Boundary())
+	fmt.Fprintf(body, "\r\n")
+
+	var sub io.Writer
+
+	if len(msg.PlainText) > 0 {
+		sub, err := wr.CreatePart(textproto.MIMEHeader{
+			"Content-Type":              []string{"text/plain; charset=UTF-8; format=flowed"},
+			"Content-Transfer-Encoding": []string{"quoted-printable"},
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		enc := quotedprintable.NewWriter(sub)
+		defer func() { err = errs.Combine(err, enc.Close()) }()
+
+		_, err = enc.Write([]byte(msg.PlainText))
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	for _, part := range msg.Parts {
+		header := textproto.MIMEHeader{"Content-Type": []string{mime.QEncoding.Encode("utf-8", part.Type)}}
+		if part.Encoding != "" {
+			header["Content-Transfer-Encoding"] = []string{mime.QEncoding.Encode("utf-8", part.Encoding)}
+		}
+		if part.Disposition != "" {
+			header["Content-Disposition"] = []string{mime.QEncoding.Encode("utf-8", part.Disposition)}
+		}
+
+		sub, _ = wr.CreatePart(header)
+		fmt.Fprint(sub, part.Content)
+	}
+	return nil
 }
 
 func tocrlf(data []byte) []byte {

@@ -328,6 +328,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE segments ADD COLUMN placement integer`,
 				},
 			},
+			{
+				DB:          &db.db,
+				Description: "add table for segment copies",
+				Version:     15,
+				Action: migrate.SQL{
+					`CREATE TABLE segment_copies (
+						stream_id BYTEA NOT NULL PRIMARY KEY,
+						ancestor_stream_id BYTEA NOT NULL,
+
+						CONSTRAINT not_self_ancestor CHECK (stream_id != ancestor_stream_id)
+					)`,
+					`CREATE INDEX ON segment_copies (ancestor_stream_id)`,
+				},
+			},
 		},
 	}
 }

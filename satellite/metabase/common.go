@@ -19,6 +19,9 @@ import (
 // Error is the default error for metabase.
 var Error = errs.Class("metabase")
 
+// ErrObjectAlreadyExists is used to indicate that object already exists.
+var ErrObjectAlreadyExists = errs.Class("object already exists")
+
 // Common constants for segment keys.
 const (
 	Delimiter        = '/'

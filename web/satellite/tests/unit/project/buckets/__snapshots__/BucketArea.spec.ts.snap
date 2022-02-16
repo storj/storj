@@ -4,7 +4,7 @@ exports[`BucketArea.vue renders correctly with bucket 1`] = `
 <div class="buckets-area">
   <div class="buckets-overflow">
     <div class="buckets-header">
-      <p class="buckets-header__title">Buckets</p>
+      <p class="buckets-header__title">Usage per bucket</p>
       <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
     </div>
     <div class="buckets-container">
@@ -23,7 +23,7 @@ exports[`BucketArea.vue renders correctly with pagination 1`] = `
 <div class="buckets-area">
   <div class="buckets-overflow">
     <div class="buckets-header">
-      <p class="buckets-header__title">Buckets</p>
+      <p class="buckets-header__title">Usage per bucket</p>
       <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
     </div>
     <div class="buckets-container">
@@ -51,7 +51,7 @@ exports[`BucketArea.vue renders correctly without search results 1`] = `
 <div class="buckets-area">
   <div class="buckets-overflow">
     <div class="buckets-header">
-      <p class="buckets-header__title">Buckets</p>
+      <p class="buckets-header__title">Usage per bucket</p>
       <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
     </div>
     <!---->

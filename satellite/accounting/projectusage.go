@@ -133,22 +133,20 @@ func (usage *Service) ExceedsUploadLimits(ctx context.Context, projectID uuid.UU
 		group.Go(func() error {
 			var err error
 			segmentUsage, err = usage.GetProjectSegmentUsage(ctx, projectID)
-			if err != nil {
-				// Verify If the cache key was not found
-				if ErrKeyNotFound.Has(err) {
-					segmentGetTotal, err := usage.GetProjectSegments(ctx, projectID)
-					if err != nil {
-						return err
-					}
-
-					// Create cache key with database value.
-					err = usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, segmentUsage, usage.bandwidthCacheTTL)
-					if err != nil {
-						return err
-					}
-
-					segmentUsage = segmentGetTotal
+			// Verify If the cache key was not found
+			if err != nil && ErrKeyNotFound.Has(err) {
+				segmentGetTotal, err := usage.GetProjectSegments(ctx, projectID)
+				if err != nil {
+					return err
 				}
+
+				// Create cache key with database value.
+				if err := usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, segmentGetTotal, usage.bandwidthCacheTTL); err != nil {
+					return err
+				}
+
+				segmentUsage = segmentGetTotal
+				return nil
 			}
 			return err
 		})
@@ -222,6 +220,8 @@ func (usage *Service) GetProjectSegments(ctx context.Context, projectID uuid.UUI
 
 	total, err := usage.metabaseDB.GetProjectSegmentCount(ctx, metabase.GetProjectSegmentCount{
 		ProjectID: projectID,
+
+		AsOfSystemInterval: usage.asOfSystemInterval,
 	})
 	return total, ErrProjectUsage.Wrap(err)
 }

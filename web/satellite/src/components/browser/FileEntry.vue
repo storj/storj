@@ -651,7 +651,13 @@ export default class FileEntry extends Vue {
      * Download the current file.
      */
     public download(): void {
-        this.$store.dispatch("files/download", this.file);
+        try {
+            this.$store.dispatch("files/download", this.file);
+            this.$notify.warning("Do not share download link with other people. If you want to share this data better use \"Share\" option.");
+        } catch (error) {
+            this.$notify.error("Can not download your file");
+        }
+
         this.$store.dispatch("files/closeDropdown");
         this.deleteConfirmation = false;
     }

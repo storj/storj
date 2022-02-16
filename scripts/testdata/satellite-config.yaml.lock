@@ -1,6 +1,9 @@
 # admin peer http listening address
 # admin.address: ""
 
+# default duration for AS OF SYSTEM TIME
+# admin.console-config.as-of-system-time-duration: -5m0s
+
 # default project limits for users
 # admin.console-config.default-project-limit: 1
 
@@ -127,6 +130,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # server address of the graphql api gateway and frontend app
 # console.address: :10100
 
+# default duration for AS OF SYSTEM TIME
+# console.as-of-system-time-duration: -5m0s
+
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
 
@@ -171,6 +177,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to general request page
 # console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
+
+# inactivity timer delay in seconds
+# console.inactivity-timer-delay: 600
+
+# indicates if session can be timed out due inactivity
+# console.inactivity-timer-enabled: false
 
 # indicates if satellite is in beta
 # console.is-beta-satellite: false

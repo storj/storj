@@ -18,7 +18,8 @@ import (
 const uplinkProduct = "uplink"
 
 var knownUserAgents = []string{
-	"rclone", "gateway-st", "gateway-mt", "linksharing", "uplink-cli",
+	"rclone", "gateway-st", "gateway-mt", "linksharing", "uplink-cli", "transfer-sh", "filezilla", "duplicati",
+	"comet", "orbiter",
 }
 
 type versionOccurrence struct {
@@ -47,6 +48,7 @@ func (vc *versionCollector) collect(useragentRaw []byte, method string) error {
 		return errs.New("invalid user agent %q: %v", string(useragentRaw), err)
 	}
 
+	foundProduct := false
 	for _, entry := range entries {
 		if strings.EqualFold(entry.Product, uplinkProduct) {
 			vo := versionOccurrence{
@@ -59,10 +61,11 @@ func (vc *versionCollector) collect(useragentRaw []byte, method string) error {
 		} else if knownUserAgent(entry.Product) {
 			// for known user agents monitor only product
 			mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", strings.ToLower(entry.Product))).Mark(1)
-		} else {
-			// lets keep also general value for other user agents
-			mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", "other")).Mark(1)
+			foundProduct = true
 		}
+	}
+	if !foundProduct { // lets keep also general value for other user agents
+		mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", "other")).Mark(1)
 	}
 
 	return nil

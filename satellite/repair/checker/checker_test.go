@@ -154,8 +154,9 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedLocation.ObjectKey = "piece"
-		_, err = planet.Satellites[0].Metabase.DB.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+		_, err = planet.Satellites[0].Metabase.DB.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 			ObjectLocation: expectedLocation.Object(),
+			Version:        metabase.DefaultVersion,
 		})
 		require.NoError(t, err)
 

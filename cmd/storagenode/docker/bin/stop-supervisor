@@ -1,0 +1,7 @@
+#!/bin/sh
+
+printf "READY\n";
+
+while read -r; do
+  kill -SIGQUIT $PPID
+done < /dev/stdin

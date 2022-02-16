@@ -192,7 +192,7 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-			return Object{}, ErrConflict.New("object already exists")
+			return Object{}, Error.Wrap(ErrObjectAlreadyExists.New(""))
 		}
 		return Object{}, Error.New("unable to insert object: %w", err)
 	}

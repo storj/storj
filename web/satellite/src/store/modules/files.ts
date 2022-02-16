@@ -31,7 +31,8 @@ export default {
         shiftSelectedFiles: [],
         filesToBeDeleted: [],
         fetchSharedLink: null,
-        fetchObjectMapUrl: null,
+        fetchObjectMap: null,
+        fetchObjectPreview: null,
         openedDropdown: null,
         headingSorted: "name",
         orderBy: "asc",
@@ -70,13 +71,6 @@ export default {
             return groupedFiles;
         },
 
-        preSignedUrl: (state) => (url) => {
-            return state.s3.getSignedUrl("getObject", {
-                Bucket: state.bucket,
-                Key: url
-            });
-        },
-
         isInitialized: (state) => state.s3 !== null
     },
     mutations: {
@@ -90,7 +84,8 @@ export default {
                 browserRoot,
                 openModalOnFirstUpload = true,
                 fetchSharedLink = () => "javascript:null",
-                fetchObjectMapUrl = () =>
+                fetchObjectPreview = () => "javascript:null",
+                fetchObjectMap = () =>
                     new Promise((resolve) =>
                         setTimeout(
                             () =>
@@ -118,7 +113,8 @@ export default {
             state.browserRoot = browserRoot;
             state.openModalOnFirstUpload = openModalOnFirstUpload;
             state.fetchSharedLink = fetchSharedLink;
-            state.fetchObjectMapUrl = fetchObjectMapUrl;
+            state.fetchObjectMap = fetchObjectMap;
+            state.fetchObjectPreview = fetchObjectPreview;
             state.path = "";
         },
 
@@ -510,16 +506,11 @@ export default {
                 Bucket: state.bucket,
                 Key: state.path + file.Key
             });
-
             const downloadURL = function (data, fileName) {
-                let a;
-                a = document.createElement("a");
+                let a = document.createElement("a");
                 a.href = data;
                 a.download = fileName;
-                document.body.appendChild(a);
-                a.style = "display: none";
                 a.click();
-                a.remove();
             };
 
             downloadURL(url, file.Key);

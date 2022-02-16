@@ -134,6 +134,7 @@ type Config struct {
 	OpenRegistrationEnabled bool          `help:"enable open registration" default:"false" testDefault:"true"`
 	DefaultProjectLimit     int           `help:"default project limits for users" default:"1" testDefault:"5"`
 	TokenExpirationTime     time.Duration `help:"expiration time for auth tokens, account recovery tokens, and activation tokens" default:"24h"`
+	AsOfSystemTimeDuration  time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
 	UsageLimits             UsageLimitsConfig
 	Recaptcha               RecaptchaConfig
 }
@@ -949,14 +950,24 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		return ErrValidation.Wrap(err)
 	}
 
+	auth.User.FullName = fullName
+	auth.User.ShortName = shortName
+	err = s.store.Users().Update(ctx, &auth.User)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// UpdateEmailVerificationReminder updates the last time a user was sent a verification email.
+func (s *Service) UpdateEmailVerificationReminder(ctx context.Context, t time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	err = s.store.Users().Update(ctx, &User{
-		ID:           auth.User.ID,
-		FullName:     fullName,
-		ShortName:    shortName,
-		Email:        auth.User.Email,
-		PasswordHash: nil,
-		Status:       auth.User.Status,
+		LastVerificationReminder: t,
 	})
+
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1645,6 +1656,28 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 	}
 
 	return result, nil
+}
+
+// GetDailyProjectUsage returns daily usage by project ID.
+func (s *Service) GetDailyProjectUsage(ctx context.Context, projectID uuid.UUID, from, to time.Time) (_ *accounting.ProjectDailyUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get daily usage by project ID")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	usage, err := s.projectAccounting.GetProjectDailyUsageByDateRange(ctx, projectID, from, to, s.config.AsOfSystemTimeDuration)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return usage, nil
 }
 
 // GetProjectUsageLimits returns project limits and current usage.

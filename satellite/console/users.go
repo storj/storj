@@ -34,6 +34,8 @@ type Users interface {
 	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
 	// GetUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
 	GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limit *ProjectLimits, err error)
+	// GetUserPaidTier is a method to gather whether the specified user is on the Paid Tier or not.
+	GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error)
 }
 
 // UserInfo holds User updatable data.
@@ -157,4 +159,6 @@ type User struct {
 	MFARecoveryCodes []string `json:"mfaRecoveryCodes"`
 
 	SignupPromoCode string `json:"signupPromoCode"`
+
+	LastVerificationReminder time.Time `json:"lastVerificationReminder"`
 }

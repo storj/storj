@@ -86,6 +86,68 @@ export class Admin {
 				}
 			}
 		],
+		oauth_clients: [
+			{
+				name: 'create',
+				desc: 'Add a new oauth client',
+				params: [
+					['Client ID', new InputText('text', true)],
+					['Client Secret', new InputText('text', true)],
+					['Owner ID (userID)', new InputText('text', true)],
+					['Redirect URL', new InputText('text', true)],
+					['Application Name', new InputText('text', true)],
+					['Application Logo URL', new InputText('text', false)]
+				],
+				func: async (
+					id: string,
+					secret: string,
+					ownerID: string,
+					redirectURL: string,
+					appName: string,
+					appLogoURL: string
+				): Promise<null> => {
+					return this.fetch('POST', `oauth/clients`, null, {
+						id,
+						secret,
+						userID: ownerID,
+						redirectURL,
+						appName,
+						appLogoURL
+					}) as Promise<null>;
+				}
+			},
+			{
+				name: 'update',
+				desc: 'Update an existing oauth client',
+				params: [
+					['Client ID', new InputText('text', true)],
+					['Redirect URL', new InputText('text', false)],
+					['Application Name', new InputText('text', false)],
+					['Application Logo URL', new InputText('text', false)]
+				],
+				func: async (
+					id: string,
+					redirectURL: string,
+					appName: string,
+					appLogoURL: string
+				): Promise<null> => {
+					return this.fetch('PUT', `oauth/clients/${id}`, null, {
+						id,
+						redirectURL,
+						appName,
+						appLogoURL
+					}) as Promise<null>;
+				}
+			},
+			{
+				name: 'delete',
+				desc: 'Remove an oauth client',
+				params: [['Client ID', new InputText('text', true)]],
+				func: async (clientID: string): Promise<null> => {
+					return this.fetch('DELETE', `oauth/clients/${clientID}`, null) as Promise<null>;
+				}
+			}
+		],
 		project: [
 			{
 				name: 'create',

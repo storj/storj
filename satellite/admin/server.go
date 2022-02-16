@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
@@ -45,6 +46,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// Console returns database for satellite console
 	Console() console.DB
+	// OIDC returns the database for OIDC and OAuth information.
+	OIDC() oidc.DB
 	// StripeCoinPayments returns database for satellite stripe coin payments
 	StripeCoinPayments() stripecoinpayments.DB
 }
@@ -91,6 +94,9 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	api.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	api.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	api.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
+	api.HandleFunc("/oauth/clients", server.createOAuthClient).Methods("POST")
+	api.HandleFunc("/oauth/clients/{id}", server.updateOAuthClient).Methods("PUT")
+	api.HandleFunc("/oauth/clients/{id}", server.deleteOAuthClient).Methods("DELETE")
 	api.HandleFunc("/projects", server.addProject).Methods("POST")
 	api.HandleFunc("/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
 	api.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")

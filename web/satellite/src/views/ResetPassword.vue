@@ -139,6 +139,7 @@ export default class ResetPassword extends Vue {
 
         try {
             await this.auth.resetPassword(this.token, this.password);
+            await this.auth.logout();
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
         } catch (error) {
             await this.$notify.error(error.message);

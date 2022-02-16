@@ -224,7 +224,7 @@ func TestUserDelete(t *testing.T) {
 		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 		require.Len(t, body, 0)
 
-		// Deleting unexisting user returns Not Found.
+		// Deleting non-existing user returns Not Found.
 		body = assertReq(ctx, t, link, http.MethodDelete, "", http.StatusNotFound, "", planet.Satellites[0].Config.Console.AuthToken)
 		require.Contains(t, string(body), "does not exist")
 	})

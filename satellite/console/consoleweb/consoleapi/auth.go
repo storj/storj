@@ -317,6 +317,10 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			UserName:       userName,
 		},
 	)
+
+	if err = a.service.UpdateEmailVerificationReminder(ctx, time.Now().UTC()); err != nil {
+		a.serveJSONError(w, err)
+	}
 }
 
 // loadSession looks for a cookie for the session id.
@@ -586,6 +590,10 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			UserName:              userName,
 		},
 	)
+
+	if err = a.service.UpdateEmailVerificationReminder(ctx, time.Now().UTC()); err != nil {
+		a.serveJSONError(w, err)
+	}
 }
 
 // EnableUserMFA enables multi-factor authentication for the user.

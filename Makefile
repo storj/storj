@@ -213,15 +213,16 @@ satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64
 		-f cmd/satellite/Dockerfile .
 
 .PHONY: storagenode-image
-storagenode-image: storagenode_linux_arm storagenode_linux_arm64 storagenode_linux_amd64 ## Build storagenode Docker image
+storagenode-image: ## Build storagenode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/storagenode/Dockerfile .
+    	--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 --build-arg=APK_ARCH=armhf \
+        -f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
-		-f cmd/storagenode/Dockerfile .
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 --build-arg=APK_ARCH=aarch64 \
+        -f cmd/storagenode/Dockerfile .
+
 .PHONY: uplink-image
 uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build uplink Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 \
@@ -318,12 +319,9 @@ versioncontrol_%:
 .PHONY: multinode_%
 multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: uplinkng_%
-uplinkng_%:
-	$(MAKE) binary-check COMPONENT=uplinkng GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode uplinkng
+COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries

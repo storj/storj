@@ -71,7 +71,7 @@ import BucketIcon from '@/../static/images/objects/bucket.svg';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { DEMO_BUCKET_NAME, OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 
@@ -187,7 +187,7 @@ export default class BucketsView extends Vue {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
+        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant, isPublic: false});
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
     }

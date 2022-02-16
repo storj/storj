@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/straynodes"
@@ -85,6 +86,8 @@ type DB interface {
 	RepairQueue() queue.RepairQueue
 	// Console returns database for satellite console
 	Console() console.DB
+	// OIDC returns the database for OIDC resources.
+	OIDC() oidc.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment

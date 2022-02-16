@@ -1,0 +1,101 @@
+#!/bin/sh
+set -euo pipefail
+
+get_default_url() {
+  process=$1
+  version=$2
+  wget -O- "${VERSION_SERVER_URL}/processes/${process}/${version}/url?os=linux&arch=${GOARCH}"
+}
+
+get_binary() {
+  binary=$1
+  url=$2
+  wget -O "/tmp/${binary}.zip" "${url}"
+  unzip -p "/tmp/${binary}.zip" > "/app/${binary}"
+  rm "/tmp/${binary}.zip"
+  chmod u+x "/app/${binary}"
+}
+
+# install storagenode and storagenode-updater binaries
+# during run of the container to not to release new docker image
+# on each new version of the storagenode binary.
+if [ ! -f "storagenode-updater" ]; then
+  echo "downloading storagenode-updater"
+  get_binary storagenode-updater "$(get_default_url storagenode-updater minimum)"
+
+  if ./storagenode-updater should-update storagenode-updater \
+        --binary-location /app/storagenode-updater \
+        --identity-dir identity \
+        --version.server-address="${VERSION_SERVER_URL}" 2>/dev/null
+  then
+    echo "updating storagenode-updater"
+    get_binary storagenode-updater "$(get_default_url storagenode-updater suggested)"
+  fi
+fi
+
+if [ ! -f "storagenode" ]; then
+  echo "downloading storagenode"
+
+  if ./storagenode-updater should-update storagenode \
+      --identity-dir identity \
+      --version.server-address="${VERSION_SERVER_URL}" 2>/dev/null
+  then
+    get_binary storagenode "$(get_default_url storagenode suggested)"
+  else
+    get_binary storagenode "$(get_default_url storagenode minimum)"
+  fi
+fi
+
+RUN_PARAMS="${RUN_PARAMS:-} --config-dir config"
+RUN_PARAMS="${RUN_PARAMS} --identity-dir identity"
+RUN_PARAMS="${RUN_PARAMS} --metrics.app-suffix=-alpha"
+RUN_PARAMS="${RUN_PARAMS} --metrics.interval=30m"
+
+if [ -n "${VERSION_SERVER_URL:-}" ]; then
+  RUN_PARAMS="${RUN_PARAMS} --version.server-address=${VERSION_SERVER_URL}"
+fi
+
+if [ "${AUTO_UPDATE:-}" != "true" ]; then
+  AUTO_UPDATE="false"
+fi
+
+SNO_RUN_PARAMS="${RUN_PARAMS} --console.address=:14002"
+if [ -n "${STORAGE:-}" ]; then
+  SNO_RUN_PARAMS="${SNO_RUN_PARAMS} --storage.allocated-disk-space=${STORAGE}"
+fi
+
+if [ -n "${ADDRESS:-}" ]; then
+  SNO_RUN_PARAMS="${SNO_RUN_PARAMS} --contact.external-address=${ADDRESS}"
+fi
+
+if [ -n "${EMAIL:-}" ]; then
+  SNO_RUN_PARAMS="${SNO_RUN_PARAMS} --operator.email=${EMAIL}"
+fi
+
+if [ -n "${WALLET:-}" ]; then
+  SNO_RUN_PARAMS="${SNO_RUN_PARAMS} --operator.wallet=${WALLET}"
+fi
+
+if [ "${SETUP:-}" = "true" ]; then
+  echo "Running ./storagenode setup $SNO_RUN_PARAMS"
+  exec ./storagenode setup "$SNO_RUN_PARAMS" "${*}"
+else
+    # install supervisor
+    # TODO: use docker buildx instead of installing packages at runtime?
+    if ! apk list supervisor 2>/dev/null | grep "supervisor"; then
+      echo "installing supervisor"
+      mkdir -p /var/log/supervisor
+      # perform installation during runtime to not use dockerfile RUN directive to support arch-independent build process
+      apk add --no-cache --repositories-file=/dev/null /var/lib/apk-supervisor/*.apk
+
+      sed -i \
+      "s#^command=/app/storagenode-updater\$#command=/app/storagenode-updater run --binary-location /app/storagenode ${RUN_PARAMS} #" \
+      /etc/supervisord.conf
+
+      sed -i \
+      "s#^command=/app/storagenode\$#command=/app/storagenode run ${SNO_RUN_PARAMS} ${*}#" \
+      /etc/supervisord.conf
+    fi
+
+  exec /usr/bin/supervisord -c /etc/supervisord.conf
+fi

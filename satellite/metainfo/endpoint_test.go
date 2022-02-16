@@ -4,15 +4,15 @@
 package metainfo_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
-	"storj.io/common/memory"
+	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
@@ -20,615 +20,580 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
 )
 
-func TestEndpoint_DeleteCommittedObject(t *testing.T) {
-	bucketName := "a-bucket"
-	createObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "object-filename", data)
-		require.NoError(t, err)
-	}
-	deleteAllObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
-		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(items), 1)
-
-		for _, item := range items {
-			_, err = planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucketName, item.ObjectKey)
-			require.NoError(t, err)
-		}
-
-		items, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.Len(t, items, 0)
-	}
-	testDeleteObject(t, createObject, deleteAllObjects)
-}
-
-func TestEndpoint_DeletePendingObject(t *testing.T) {
-	bucketName := "a-bucket"
-	createObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
-		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
-		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
-		require.NoError(t, err, "failed to retrieve project")
-
-		_, err = project.EnsureBucket(ctx, bucketName)
-		require.NoError(t, err, "failed to create bucket")
-
-		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
-		require.NoError(t, err, "failed to start multipart upload")
-
-		upload, err := project.UploadPart(ctx, bucketName, bucketName, info.UploadID, 1)
-		require.NoError(t, err, "failed to put object part")
-		_, err = upload.Write(data)
-		require.NoError(t, err, "failed to put object part")
-		require.NoError(t, upload.Commit(), "failed to put object part")
-	}
-	deleteAllObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
-		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(items), 1)
-
-		for _, item := range items {
-			deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeletePendingObject(ctx,
-				metabase.ObjectStream{
-					ProjectID:  projectID,
-					BucketName: bucketName,
-					ObjectKey:  item.ObjectKey,
-					Version:    metabase.DefaultVersion,
-					StreamID:   item.StreamID,
-				})
-			require.NoError(t, err)
-			require.Len(t, deletedObjects, 1)
-		}
-
-		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.Len(t, items, 0)
-	}
-	testDeleteObject(t, createObject, deleteAllObjects)
-}
-
-func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
-	bucketName := "a-bucket"
-	createCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "object-filename", data)
-		require.NoError(t, err)
-	}
-	deleteAllCommittedObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
-		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(items), 1)
-
-		for _, item := range items {
-			deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				ObjectKey:  item.ObjectKey,
-			})
-			require.NoError(t, err)
-			require.Len(t, deletedObjects, 1)
-		}
-
-		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.Len(t, items, 0)
-	}
-	testDeleteObject(t, createCommittedObject, deleteAllCommittedObjects)
-
-	createPendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
-		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
-		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
-		require.NoError(t, err, "failed to retrieve project")
-
-		_, err = project.EnsureBucket(ctx, bucketName)
-		require.NoError(t, err, "failed to create bucket")
-
-		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
-		require.NoError(t, err, "failed to start multipart upload")
-
-		upload, err := project.UploadPart(ctx, bucketName, bucketName, info.UploadID, 1)
-		require.NoError(t, err, "failed to put object part")
-		_, err = upload.Write(data)
-		require.NoError(t, err, "failed to start multipart upload")
-		require.NoError(t, upload.Commit(), "failed to start multipart upload")
-	}
-
-	deleteAllPendingObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
-		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(items), 1)
-
-		for _, item := range items {
-			deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				ObjectKey:  item.ObjectKey,
-			})
-			require.NoError(t, err)
-			require.Len(t, deletedObjects, 1)
-		}
-
-		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.Len(t, items, 0)
-	}
-
-	testDeleteObject(t, createPendingObject, deleteAllPendingObjects)
-}
-
-func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet,
-	data []byte), deleteAllObjects func(ctx context.Context, t *testing.T, planet *testplanet.Planet)) {
-	t.Run("all nodes up", func(t *testing.T) {
-		t.Parallel()
-
-		var testCases = []struct {
-			caseDescription string
-			objData         []byte
-			hasRemote       bool
-		}{
-			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
-			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
-			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
-		}
-
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				// Reconfigure RS for ensuring that we don't have long-tail cancellations
-				// and the upload doesn't leave garbage in the SNs
-				Satellite: testplanet.Combine(
-					testplanet.ReconfigureRS(2, 2, 4, 4),
-					testplanet.MaxSegmentSize(13*memory.KiB),
-				),
-			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			var (
-				percentExp = 0.75
-			)
-			for _, tc := range testCases {
-				tc := tc
-				t.Run(tc.caseDescription, func(t *testing.T) {
-
-					createObject(ctx, t, planet, tc.objData)
-
-					// calculate the SNs total used space after data upload
-					var totalUsedSpace int64
-					for _, sn := range planet.StorageNodes {
-						piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
-						require.NoError(t, err)
-						totalUsedSpace += piecesTotal
-					}
-
-					deleteAllObjects(ctx, t, planet)
-
-					planet.WaitForStorageNodeDeleters(ctx)
-
-					// calculate the SNs used space after delete the pieces
-					var totalUsedSpaceAfterDelete int64
-					for _, sn := range planet.StorageNodes {
-						piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
-						require.NoError(t, err)
-						totalUsedSpaceAfterDelete += piecesTotal
-					}
-
-					// At this point we can only guarantee that the 75% of the SNs pieces
-					// are delete due to the success threshold
-					deletedUsedSpace := float64(totalUsedSpace-totalUsedSpaceAfterDelete) / float64(totalUsedSpace)
-					if deletedUsedSpace < percentExp {
-						t.Fatalf("deleted used space is less than %f%%. Got %f", percentExp, deletedUsedSpace)
-					}
-				})
-			}
-		})
-
-	})
-
-	t.Run("some nodes down", func(t *testing.T) {
-		t.Parallel()
-
-		var testCases = []struct {
-			caseDescription string
-			objData         []byte
-		}{
-			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
-			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
-		}
-
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				// Reconfigure RS for ensuring that we don't have long-tail cancellations
-				// and the upload doesn't leave garbage in the SNs
-				Satellite: testplanet.Combine(
-					testplanet.ReconfigureRS(2, 2, 4, 4),
-					testplanet.MaxSegmentSize(13*memory.KiB),
-				),
-			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			numToShutdown := 2
-
-			for _, tc := range testCases {
-				createObject(ctx, t, planet, tc.objData)
-			}
-
-			require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
-
-			// Shutdown the first numToShutdown storage nodes before we delete the pieces
-			// and collect used space values for those nodes
-			snUsedSpace := make([]int64, len(planet.StorageNodes))
-			for i := 0; i < numToShutdown; i++ {
-				var err error
-				snUsedSpace[i], _, err = planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
-				require.NoError(t, err)
-
-				require.NoError(t, planet.StopPeer(planet.StorageNodes[i]))
-			}
-
-			deleteAllObjects(ctx, t, planet)
-
-			planet.WaitForStorageNodeDeleters(ctx)
-
-			// Check that storage nodes that were offline when deleting the pieces
-			// they are still holding data
-			// Check that storage nodes which are online when deleting pieces don't
-			// hold any piece
-			// We are comparing used space from before deletion for nodes that were
-			// offline, values for available nodes are 0
-			for i, sn := range planet.StorageNodes {
-				usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
-				require.NoError(t, err)
-
-				require.Equal(t, snUsedSpace[i], usedSpace, "StorageNode #%d", i)
-			}
-		})
-	})
-
-	t.Run("all nodes down", func(t *testing.T) {
-		t.Parallel()
-
-		var testCases = []struct {
-			caseDescription string
-			objData         []byte
-		}{
-			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
-			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
-		}
-
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				// Reconfigure RS for ensuring that we don't have long-tail cancellations
-				// and the upload doesn't leave garbage in the SNs
-				Satellite: testplanet.Combine(
-					testplanet.ReconfigureRS(2, 2, 4, 4),
-					testplanet.MaxSegmentSize(13*memory.KiB),
-				),
-			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			for _, tc := range testCases {
-				createObject(ctx, t, planet, tc.objData)
-			}
-
-			// calculate the SNs total used space after data upload
-			var usedSpaceBeforeDelete int64
-			for _, sn := range planet.StorageNodes {
-				piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
-				require.NoError(t, err)
-				usedSpaceBeforeDelete += piecesTotal
-			}
-
-			// Shutdown all the storage nodes before we delete the pieces
-			for _, sn := range planet.StorageNodes {
-				require.NoError(t, planet.StopPeer(sn))
-			}
-
-			deleteAllObjects(ctx, t, planet)
-
-			// Check that storage nodes that were offline when deleting the pieces
-			// they are still holding data
-			var totalUsedSpace int64
-			for _, sn := range planet.StorageNodes {
-				piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
-				require.NoError(t, err)
-				totalUsedSpace += piecesTotal
-			}
-
-			require.Equal(t, usedSpaceBeforeDelete, totalUsedSpace, "totalUsedSpace")
-		})
-	})
-}
-
-func TestDeleteBucket(t *testing.T) {
+func TestRevokeAccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				testplanet.ReconfigureRS(2, 2, 4, 4),
-				testplanet.MaxSegmentSize(13*memory.KiB),
-			),
-		},
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		satelliteSys := planet.Satellites[0]
-		uplnk := planet.Uplinks[0]
-
-		expectedBucketName := "remote-segments-bucket"
-
-		err := uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "single-segment-object", testrand.Bytes(10*memory.KiB))
-		require.NoError(t, err)
-		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "multi-segment-object", testrand.Bytes(50*memory.KiB))
-		require.NoError(t, err)
-		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "remote-segment-inline-object", testrand.Bytes(33*memory.KiB))
-		require.NoError(t, err)
-
-		objects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Len(t, objects, 3)
-
-		delResp, err := satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Name:      []byte(expectedBucketName),
-			DeleteAll: true,
+		accessIssuer := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+		accessUser1, err := accessIssuer.Share(uplink.Permission{
+			AllowDownload: true,
+			AllowUpload:   true,
+			AllowList:     true,
+			AllowDelete:   true,
 		})
 		require.NoError(t, err)
-		require.Equal(t, int64(3), delResp.DeletedObjectsCount)
-
-		// confirm the bucket is deleted
-		buckets, err := satelliteSys.Metainfo.Endpoint.ListBuckets(ctx, &pb.BucketListRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Direction: int32(storj.Forward),
+		accessUser2, err := accessUser1.Share(uplink.Permission{
+			AllowDownload: true,
+			AllowUpload:   true,
+			AllowList:     true,
+			AllowDelete:   true,
 		})
 		require.NoError(t, err)
-		require.Len(t, buckets.GetItems(), 0)
+
+		projectUser2, err := uplink.OpenProject(ctx, accessUser2)
+		require.NoError(t, err)
+		defer ctx.Check(projectUser2.Close)
+
+		// confirm that we can create a bucket
+		_, err = projectUser2.CreateBucket(ctx, "bob")
+		require.NoError(t, err)
+
+		// we shouldn't be allowed to revoke ourselves or our parent
+		err = projectUser2.RevokeAccess(ctx, accessUser2)
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		err = projectUser2.RevokeAccess(ctx, accessUser1)
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		projectIssuer, err := uplink.OpenProject(ctx, accessIssuer)
+		require.NoError(t, err)
+		defer ctx.Check(projectIssuer.Close)
+
+		projectUser1, err := uplink.OpenProject(ctx, accessUser1)
+		require.NoError(t, err)
+		defer ctx.Check(projectUser1.Close)
+
+		// I should be able to revoke with accessIssuer
+		err = projectIssuer.RevokeAccess(ctx, accessUser1)
+		require.NoError(t, err)
+
+		// should no longer be able to create bucket with access 2 or 3
+		_, err = projectUser2.CreateBucket(ctx, "bob1")
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		_, err = projectUser1.CreateBucket(ctx, "bob1")
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 	})
 }
 
-func TestCommitSegment_Validation(t *testing.T) {
+func TestRevokeMacaroon(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				testplanet.ReconfigureRS(1, 1, 1, 1),
-			),
-		},
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		// I want the api key for the single satellite in this test
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
 		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
-		err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket")
-		require.NoError(t, err)
-
-		beginObjectResponse, err := client.BeginObject(ctx, metaclient.BeginObjectParams{
-			Bucket:             []byte("testbucket"),
-			EncryptedObjectKey: []byte("a/b/testobject"),
-			EncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
-				BlockSize:   256,
+		// Sanity check: it should work before revoke
+		_, err = client.ListBuckets(ctx, metaclient.ListBucketsParams{
+			ListOpts: storj.BucketListOptions{
+				Cursor:    "",
+				Direction: storj.Forward,
+				Limit:     10,
 			},
 		})
 		require.NoError(t, err)
 
-		response, err := client.BeginSegment(ctx, metaclient.BeginSegmentParams{
-			StreamID: beginObjectResponse.StreamID,
-			Position: storj.SegmentPosition{
-				Index: 0,
-			},
-			MaxOrderLimit: memory.MiB.Int64(),
+		err = planet.Satellites[0].API.DB.Revocation().Revoke(ctx, apiKey.Tail(), []byte("apikey"))
+		require.NoError(t, err)
+
+		_, err = client.ListBuckets(ctx, metaclient.ListBucketsParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.BeginObject(ctx, metaclient.BeginObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.ListBuckets(ctx, metaclient.ListBucketsParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, _, err = client.ListObjects(ctx, metaclient.ListObjectsParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.CreateBucket(ctx, metaclient.CreateBucketParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.DeleteBucket(ctx, metaclient.DeleteBucketParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.GetBucket(ctx, metaclient.GetBucketParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.GetObject(ctx, metaclient.GetObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.GetProjectInfo(ctx)
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+		satStreamID := &internalpb.StreamID{
+			CreationDate: time.Now(),
+		}
+		signedStreamID, err := metainfo.SignStreamID(ctx, signer, satStreamID)
+		require.NoError(t, err)
+
+		encodedStreamID, err := pb.Marshal(signedStreamID)
+		require.NoError(t, err)
+
+		err = client.CommitObject(ctx, metaclient.CommitObjectParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.BeginSegment(ctx, metaclient.BeginSegmentParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		err = client.MakeInlineSegment(ctx, metaclient.MakeInlineSegmentParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.ListSegments(ctx, metaclient.ListSegmentsParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		// these methods needs SegmentID
+
+		signedSegmentID, err := metainfo.SignSegmentID(ctx, signer, &internalpb.SegmentID{
+			StreamId:     satStreamID,
+			CreationDate: time.Now(),
 		})
 		require.NoError(t, err)
 
-		// the number of results of uploaded pieces (0) is below the optimal threshold (1)
-		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
-			SegmentID:    response.SegmentID,
-			UploadResult: []*pb.SegmentPieceUploadResult{},
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-
-		// piece sizes are invalid: pointer verification: no remote pieces
-		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
-			SegmentID: response.SegmentID,
-			UploadResult: []*pb.SegmentPieceUploadResult{
-				{},
-			},
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-
-		// piece sizes are invalid: pointer verification: size is invalid (-1)
-		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
-			SegmentID: response.SegmentID,
-			UploadResult: []*pb.SegmentPieceUploadResult{
-				{
-					Hash: &pb.PieceHash{
-						PieceSize: -1,
-					},
-				},
-			},
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-
-		// piece sizes are invalid: pointer verification: expected size is different from provided (768 != 10000)
-		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
-			SegmentID:         response.SegmentID,
-			SizeEncryptedData: 512,
-			UploadResult: []*pb.SegmentPieceUploadResult{
-				{
-					Hash: &pb.PieceHash{
-						PieceSize: 10000,
-					},
-				},
-			},
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-
-		// piece sizes are invalid: pointer verification: sizes do not match (10000 != 9000)
-		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
-			SegmentID: response.SegmentID,
-			UploadResult: []*pb.SegmentPieceUploadResult{
-				{
-					Hash: &pb.PieceHash{
-						PieceSize: 10000,
-					},
-				},
-				{
-					Hash: &pb.PieceHash{
-						PieceSize: 9000,
-					},
-				},
-			},
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-
-		// pointer verification failed: pointer verification: invalid piece number
-		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
-			SegmentID:         response.SegmentID,
-			SizeEncryptedData: 512,
-			UploadResult: []*pb.SegmentPieceUploadResult{
-				{
-					PieceNum: 10,
-					NodeId:   response.Limits[0].Limit.StorageNodeId,
-					Hash: &pb.PieceHash{
-						PieceSize: 768,
-						PieceId:   response.Limits[0].Limit.PieceId,
-						Timestamp: time.Now(),
-					},
-				},
-			},
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-
-		// signature verification error (no signature)
-		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
-			SegmentID:         response.SegmentID,
-			SizeEncryptedData: 512,
-			UploadResult: []*pb.SegmentPieceUploadResult{
-				{
-					PieceNum: 0,
-					NodeId:   response.Limits[0].Limit.StorageNodeId,
-					Hash: &pb.PieceHash{
-						PieceSize: 768,
-						PieceId:   response.Limits[0].Limit.PieceId,
-						Timestamp: time.Now(),
-					},
-				},
-			},
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-
-		signer := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
-		signedHash, err := signing.SignPieceHash(ctx, signer, &pb.PieceHash{
-			PieceSize: 768,
-			PieceId:   response.Limits[0].Limit.PieceId,
-			Timestamp: time.Now(),
-		})
+		encodedSegmentID, err := pb.Marshal(signedSegmentID)
 		require.NoError(t, err)
 
-		// pointer verification failed: pointer verification: nil identity returned
-		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
-			SegmentID:         response.SegmentID,
-			SizeEncryptedData: 512,
-			UploadResult: []*pb.SegmentPieceUploadResult{
-				{
-					PieceNum: 0,
-					NodeId:   testrand.NodeID(), // random node ID
-					Hash:     signedHash,
-				},
-			},
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+		require.NoError(t, err)
 
-		// plain segment size 513 is out of range, maximum allowed is 512
-		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
-			SegmentID:         response.SegmentID,
-			PlainSize:         513,
-			SizeEncryptedData: 512,
-			UploadResult: []*pb.SegmentPieceUploadResult{
-				{
-					PieceNum: 0,
-					NodeId:   response.Limits[0].Limit.StorageNodeId,
-					Hash:     signedHash,
-				},
-			},
-		})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{SegmentID: segmentID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 	})
 }
 
-func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
+func TestInvalidAPIKey(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		throwawayKey, err := macaroon.NewAPIKey([]byte("secret"))
+		require.NoError(t, err)
+
+		for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
+			func() {
+				client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
+				require.NoError(t, err)
+				defer ctx.Check(client.Close)
+
+				client.SetRawAPIKey([]byte(invalidAPIKey))
+
+				_, err = client.BeginObject(ctx, metaclient.BeginObjectParams{})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.ListBuckets(ctx, metaclient.ListBucketsParams{})
+				assertInvalidArgument(t, err, false)
+
+				_, _, err = client.ListObjects(ctx, metaclient.ListObjectsParams{})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.CreateBucket(ctx, metaclient.CreateBucketParams{})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.DeleteBucket(ctx, metaclient.DeleteBucketParams{})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.GetBucket(ctx, metaclient.GetBucketParams{})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.GetObject(ctx, metaclient.GetObjectParams{})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.GetProjectInfo(ctx)
+				assertInvalidArgument(t, err, false)
+
+				// these methods needs StreamID to do authentication
+
+				signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+				satStreamID := &internalpb.StreamID{
+					CreationDate: time.Now(),
+				}
+				signedStreamID, err := metainfo.SignStreamID(ctx, signer, satStreamID)
+				require.NoError(t, err)
+
+				encodedStreamID, err := pb.Marshal(signedStreamID)
+				require.NoError(t, err)
+
+				streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+				require.NoError(t, err)
+
+				err = client.CommitObject(ctx, metaclient.CommitObjectParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.BeginSegment(ctx, metaclient.BeginSegmentParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
+
+				err = client.MakeInlineSegment(ctx, metaclient.MakeInlineSegmentParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
+
+				_, err = client.ListSegments(ctx, metaclient.ListSegmentsParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
+
+				// these methods needs SegmentID
+
+				signedSegmentID, err := metainfo.SignSegmentID(ctx, signer, &internalpb.SegmentID{
+					StreamId:     satStreamID,
+					CreationDate: time.Now(),
+				})
+				require.NoError(t, err)
+
+				encodedSegmentID, err := pb.Marshal(signedSegmentID)
+				require.NoError(t, err)
+
+				segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+				require.NoError(t, err)
+
+				err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{SegmentID: segmentID})
+				assertInvalidArgument(t, err, false)
+			}()
+		}
+	})
+}
+
+func assertInvalidArgument(t *testing.T, err error, allowed bool) {
+	t.Helper()
+
+	// If it's allowed, we allow any non-unauthenticated error because
+	// some calls error after authentication checks.
+	if !allowed {
+		assert.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+	}
+}
+
+func TestGetProjectInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
+
+		metainfo0, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey0)
+		require.NoError(t, err)
+
+		metainfo1, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey1)
+		require.NoError(t, err)
+
+		info0, err := metainfo0.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info0.ProjectSalt)
+
+		info1, err := metainfo1.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info1.ProjectSalt)
+
+		// Different projects should have different salts
+		require.NotEqual(t, info0.ProjectSalt, info1.ProjectSalt)
+	})
+}
+
+func TestRateLimit(t *testing.T) {
+	rateLimit := 2
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
+				config.Metainfo.RateLimiter.CacheExpiration = 500 * time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// TODO find a way to reset limiter before test is executed, currently
+		// testplanet is doing one additional request to get access
+		time.Sleep(1 * time.Second)
+
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 1)
+	})
+}
+
+func TestRateLimit_Disabled(t *testing.T) {
+	rateLimit := 2
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Enabled = false
+				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 0)
+	})
+}
+
+func TestRateLimit_ProjectRateLimitOverride(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = 2
+				config.Metainfo.RateLimiter.CacheExpiration = 500 * time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// TODO find a way to reset limiter before test is executed, currently
+		// testplanet is doing one additional request to get access
+		time.Sleep(1 * time.Second)
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		rateLimit := 3
+		projects[0].RateLimit = &rateLimit
+
+		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
+		require.NoError(t, err)
+
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 1)
+	})
+}
+
+func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = 2
+				config.Metainfo.RateLimiter.CacheExpiration = time.Second
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// TODO find a way to reset limiter before test is executed, currently
+		// testplanet is doing one additional request to get access
+		time.Sleep(2 * time.Second)
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		rateLimit := 3
+		projects[0].RateLimit = &rateLimit
+
+		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
+		require.NoError(t, err)
+
+		var group1 errs2.Group
+
+		for i := 0; i <= rateLimit; i++ {
+			group1.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		group1Errs := group1.Wait()
+		require.Len(t, group1Errs, 1)
+
+		rateLimit = 1
+		projects[0].RateLimit = &rateLimit
+
+		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
+		require.NoError(t, err)
+
+		time.Sleep(2 * time.Second)
+
+		var group2 errs2.Group
+
+		for i := 0; i <= rateLimit; i++ {
+			group2.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		group2Errs := group2.Wait()
+		require.Len(t, group2Errs, 1)
+	})
+}
+
+func TestRateLimit_ExceededBurstLimit(t *testing.T) {
+	burstLimit := 2
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = float64(burstLimit)
+				config.Metainfo.RateLimiter.CacheExpiration = 500 * time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// TODO find a way to reset limiter before test is executed, currently
+		// testplanet is doing one additional request to get access
+		time.Sleep(1 * time.Second)
+
+		var group errs2.Group
+		for i := 0; i <= burstLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 1)
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		zeroRateLimit := 0
+		err = satellite.DB.Console().Projects().UpdateBurstLimit(ctx, projects[0].ID, zeroRateLimit)
+		require.NoError(t, err)
+
+		time.Sleep(1 * time.Second)
+
+		var group2 errs2.Group
+		for i := 0; i <= burstLimit; i++ {
+			group2.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		group2Errs := group2.Wait()
+		require.Len(t, group2Errs, burstLimit+1)
+
+	})
+}
+
+func TestIDs(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		satelliteSys := planet.Satellites[0]
-		uplnk := planet.Uplinks[0]
 
-		// upload a small inline object
-		err := uplnk.Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
 
-		objects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Len(t, objects, 1)
+		{
+			streamID := testrand.StreamID(256)
+			err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
+				StreamID: streamID,
+			})
+			require.Error(t, err) // invalid streamID
 
-		getResp, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Bucket:        []byte("testbucket"),
-			EncryptedPath: []byte(objects[0].ObjectKey),
-		})
-		require.NoError(t, err)
+			segmentID := testrand.SegmentID(512)
+			err = metainfoClient.CommitSegment(ctx, metaclient.CommitSegmentParams{
+				SegmentID: segmentID,
+			})
+			require.Error(t, err) // invalid segmentID
+		}
 
-		testEncryptedMetadata := testrand.BytesInt(64)
-		testEncryptedMetadataEncryptedKey := testrand.BytesInt(32)
-		testEncryptedMetadataNonce := testrand.Nonce()
+		satellitePeer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 
-		// update the object metadata
-		_, err = satelliteSys.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Bucket:                        getResp.Object.Bucket,
-			EncryptedObjectKey:            getResp.Object.EncryptedPath,
-			Version:                       getResp.Object.Version,
-			StreamId:                      getResp.Object.StreamId,
-			EncryptedMetadataNonce:        testEncryptedMetadataNonce,
-			EncryptedMetadata:             testEncryptedMetadata,
-			EncryptedMetadataEncryptedKey: testEncryptedMetadataEncryptedKey,
-		})
-		require.NoError(t, err)
+		{ // streamID expired
+			signedStreamID, err := metainfo.SignStreamID(ctx, satellitePeer, &internalpb.StreamID{
+				CreationDate: time.Now().Add(-36 * time.Hour),
+			})
+			require.NoError(t, err)
 
-		// assert the metadata has been updated
-		objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Len(t, objects, 1)
-		assert.Equal(t, testEncryptedMetadata, objects[0].EncryptedMetadata)
-		assert.Equal(t, testEncryptedMetadataEncryptedKey, objects[0].EncryptedMetadataEncryptedKey)
-		assert.Equal(t, testEncryptedMetadataNonce[:], objects[0].EncryptedMetadataNonce)
+			encodedStreamID, err := pb.Marshal(signedStreamID)
+			require.NoError(t, err)
+
+			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+			require.NoError(t, err)
+
+			err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
+				StreamID: streamID,
+			})
+			require.Error(t, err)
+		}
+
+		{ // segment id missing stream id
+			signedSegmentID, err := metainfo.SignSegmentID(ctx, satellitePeer, &internalpb.SegmentID{
+				CreationDate: time.Now().Add(-1 * time.Hour),
+			})
+			require.NoError(t, err)
+
+			encodedSegmentID, err := pb.Marshal(signedSegmentID)
+			require.NoError(t, err)
+
+			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+			require.NoError(t, err)
+
+			err = metainfoClient.CommitSegment(ctx, metaclient.CommitSegmentParams{
+				SegmentID: segmentID,
+			})
+			require.Error(t, err)
+		}
+
+		{ // segmentID expired
+			signedSegmentID, err := metainfo.SignSegmentID(ctx, satellitePeer, &internalpb.SegmentID{
+				CreationDate: time.Now().Add(-36 * time.Hour),
+				StreamId: &internalpb.StreamID{
+					CreationDate: time.Now(),
+				},
+			})
+			require.NoError(t, err)
+
+			encodedSegmentID, err := pb.Marshal(signedSegmentID)
+			require.NoError(t, err)
+
+			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+			require.NoError(t, err)
+
+			err = metainfoClient.CommitSegment(ctx, metaclient.CommitSegmentParams{
+				SegmentID: segmentID,
+			})
+			require.Error(t, err)
+		}
 	})
 }

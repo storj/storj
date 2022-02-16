@@ -113,62 +113,6 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	return object, nil
 }
 
-// GetObjectLatestVersion contains arguments necessary for fetching
-// an object information for latest version.
-type GetObjectLatestVersion struct {
-	ObjectLocation
-}
-
-// GetObjectLatestVersion returns object information for latest version.
-func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVersion) (_ Object, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Object{}, err
-	}
-
-	object := Object{}
-	err = db.db.QueryRowContext(ctx, `
-		SELECT
-			stream_id, version,
-			created_at, expires_at,
-			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encryption
-		FROM objects
-		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			status       = `+committedStatus+`
-		ORDER BY version desc
-		LIMIT 1
-	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey).
-		Scan(
-			&object.StreamID, &object.Version,
-			&object.CreatedAt, &object.ExpiresAt,
-			&object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption},
-		)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Object{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
-		}
-		return Object{}, Error.New("unable to query object status: %w", err)
-	}
-
-	object.ProjectID = opts.ProjectID
-	object.BucketName = opts.BucketName
-	object.ObjectKey = opts.ObjectKey
-
-	object.Status = Committed
-
-	return object, nil
-}
-
 // GetSegmentByPosition contains arguments necessary for fetching a segment on specific position.
 type GetSegmentByPosition struct {
 	StreamID uuid.UUID
@@ -447,8 +391,9 @@ func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID
 func (db *DB) TestingAllObjectSegments(ctx context.Context, objectLocation ObjectLocation) (segments []Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	object, err := db.GetObjectLatestVersion(ctx, GetObjectLatestVersion{
+	object, err := db.GetObjectExactVersion(ctx, GetObjectExactVersion{
 		ObjectLocation: objectLocation,
+		Version:        DefaultVersion,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)

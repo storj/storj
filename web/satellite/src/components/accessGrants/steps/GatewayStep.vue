@@ -116,7 +116,7 @@ import InfoIcon from '@/../static/images/accessGrants/info.svg';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { GatewayCredentials } from '@/types/accessGrants';
+import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
@@ -230,7 +230,7 @@ export default class GatewayStep extends Vue {
     /**
      * Returns generated gateway credentials from store.
      */
-    public get gatewayCredentials(): GatewayCredentials {
+    public get gatewayCredentials(): EdgeCredentials {
         return this.$store.state.accessGrantsModule.gatewayCredentials;
     }
 

@@ -147,6 +147,45 @@ A successful response body:
 
 Deletes the user.
 
+### OAuth Client Management
+
+Manages oauth clients known to the Satellite.
+
+#### POST /api/oauth/clients
+
+Create a new OAuthClient. A client ID and clientSecret will be returned upon creation.
+
+Example request:
+
+```json
+{
+  "id": "uuid-of-the-client",
+  "secret": "shh-this-should-be-kept-safe",
+  "redirectURL": "http://localhost:8888/oauth/storj/callback",
+  "userID": "uuid-of-the-owner",
+  "appName": "Example App",
+  "appLogoURL": "http://localhost:8888/logo.png"
+}
+```
+
+#### PUT /api/oauth/clients/{id}
+
+Update an existing oauth client.
+
+Example request:
+
+```json
+{
+  "redirectURL": "http://localhost:8888/oauth/storj/callback",
+  "appName": "Example App",
+  "appLogoURL": "http://localhost:8888/logo.png"
+}
+```
+
+#### DELETE /api/oauth/clients/{id}
+
+Delete the identified oauth client.
+
 ### Project Management
 
 #### POST /api/projects

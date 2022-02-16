@@ -276,22 +276,6 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		}
 	})
 
-	b.Run("GetObjectLatestVersion", func(b *testing.B) {
-		m := make(Metrics, 0, b.N*len(s.objectStream))
-		defer m.Report(b, "ns/obj")
-
-		for i := 0; i < b.N; i++ {
-			for _, object := range s.objectStream {
-				m.Record(func() {
-					_, err := db.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
-						ObjectLocation: object.Location(),
-					})
-					require.NoError(b, err)
-				})
-			}
-		}
-	})
-
 	b.Run("GetSegmentByPosition", func(b *testing.B) {
 		m := make(Metrics, 0, b.N*len(s.objectStream)*s.parts*s.segments)
 		defer m.Report(b, "ns/seg")

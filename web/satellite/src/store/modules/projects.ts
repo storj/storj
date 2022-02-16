@@ -58,10 +58,11 @@ export class ProjectsState {
     public totalLimits: ProjectLimits = new ProjectLimits();
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
-    public bandwidthChartData: DataStamp[] = [];
+    public allocatedBandwidthChartData: DataStamp[] = [];
+    public settledBandwidthChartData: DataStamp[] = [];
     public storageChartData: DataStamp[] = [];
-    public chartDataSince: Date | null = null;
-    public chartDataBefore: Date | null = null;
+    public chartDataSince: Date = new Date();
+    public chartDataBefore: Date = new Date();
 }
 
 interface ProjectsContext {
@@ -181,9 +182,10 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 state.currentLimits = new ProjectLimits();
                 state.totalLimits = new ProjectLimits();
                 state.storageChartData = [];
-                state.bandwidthChartData = [];
-                state.chartDataSince = null;
-                state.chartDataBefore = null;
+                state.allocatedBandwidthChartData = [];
+                state.settledBandwidthChartData = [];
+                state.chartDataSince = new Date();
+                state.chartDataBefore = new Date();
             },
             [SET_PAGE_NUMBER](state: ProjectsState, pageNumber: number) {
                 state.cursor.page = pageNumber;
@@ -193,7 +195,8 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 state.page = page;
             },
             [SET_DAILY_DATA](state: ProjectsState, payload: ProjectsStorageBandwidthDaily) {
-                state.bandwidthChartData = payload.bandwidth;
+                state.allocatedBandwidthChartData = payload.allocatedBandwidth;
+                state.settledBandwidthChartData = payload.settledBandwidth;
                 state.storageChartData = payload.storage;
             },
             [SET_CHARTS_DATE_RANGE](state: ProjectsState, payload: ProjectUsageDateRange) {
@@ -217,9 +220,11 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
 
                 return projectsPage;
             },
-            [FETCH_DAILY_DATA]: async function ({commit}: ProjectsContext, payload: ProjectsStorageBandwidthDaily): Promise<void> {
-                // TODO: rework when backend is ready
-                commit(SET_DAILY_DATA, payload);
+            [FETCH_DAILY_DATA]: async function ({commit, state}: ProjectsContext, payload: ProjectUsageDateRange): Promise<void> {
+                const usage: ProjectsStorageBandwidthDaily = await api.getDailyUsage(state.selectedProject.id, payload.since, payload.before)
+
+                commit(SET_CHARTS_DATE_RANGE, payload)
+                commit(SET_DAILY_DATA, usage);
             },
             [CREATE]: async function ({commit}: ProjectsContext, createProjectFields: ProjectFields): Promise<Project> {
                 const project = await api.create(createProjectFields);
@@ -356,13 +361,6 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 });
 
                 return projectsCount;
-            },
-            chartsDateRange: (state: ProjectsState): ProjectUsageDateRange | null => {
-                if (!state.chartDataSince || !state.chartDataBefore) {
-                    return null
-                }
-
-                return new ProjectUsageDateRange(state.chartDataSince, state.chartDataBefore);
             },
         },
     };
