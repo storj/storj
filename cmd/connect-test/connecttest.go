@@ -54,7 +54,11 @@ func main() {
 		return nil
 	})
 	group.Go(func() error {
-		tcpNodeID, tcpErr = tryConnect(ctx, unverifiedClientConfig, rpc.NewDefaultTCPConnector(nil), destAddr)
+		//lint:ignore SA1019 deprecated is fine here.
+		//nolint:staticcheck // deprecated is fine here.
+		connector := rpc.NewDefaultTCPConnector(nil)
+
+		tcpNodeID, tcpErr = tryConnect(ctx, unverifiedClientConfig, connector, destAddr)
 		return nil
 	})
 	err = group.Wait()
