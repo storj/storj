@@ -377,6 +377,10 @@ func TestFinishCopyObject(t *testing.T) {
 					metabase.RawObject(copyObj),
 				},
 				Segments: expectedSegments,
+				Copies: []metabase.RawCopy{{
+					StreamID:         copyStream.StreamID,
+					AncestorStreamID: originalObj.StreamID,
+				}},
 			}.Check(ctx, t, db)
 		})
 	})
