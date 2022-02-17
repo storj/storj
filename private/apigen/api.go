@@ -9,9 +9,11 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 )
 
@@ -74,12 +76,15 @@ func (a *API) generateGo() ([]byte, error) {
 	p(`"context"`)
 	p(`"encoding/json"`)
 	p(`"net/http"`)
+	p(`"strconv"`)
+	p(`"time"`)
 	p("")
 	p(`"github.com/gorilla/mux"`)
 	p(`"github.com/zeebo/errs"`)
 	p(`"go.uber.org/zap"`)
 	p("")
 
+	p(`"storj.io/common/uuid"`)
 	p(`"storj.io/storj/private/api"`)
 
 	for _, group := range a.EndpointGroups {
@@ -110,9 +115,13 @@ func (a *API) generateGo() ([]byte, error) {
 		p("")
 
 		p("type %sService interface {", group.Name)
-		for _, method := range group.Endpoints {
-			responseType := reflect.TypeOf(method.Response)
-			p("%s(context.Context) (%s, api.HTTPError)", method.MethodName, a.handleTypesPackage(responseType))
+		for _, e := range group.Endpoints {
+			responseType := reflect.TypeOf(e.Response)
+			var params string
+			for _, param := range e.Params {
+				params += param.Type.String() + ", "
+			}
+			p("%s(context.Context, "+params+") (%s, api.HTTPError)", e.MethodName, a.handleTypesPackage(responseType))
 		}
 		p("}")
 		p("")
@@ -166,19 +175,47 @@ func (a *API) generateGo() ([]byte, error) {
 				p("")
 			}
 
-			methodFormat := "retVal, httpErr := h.service.%s(ctx"
-			args := []string{endpoint.MethodName}
-
 			// TODO to be implemented
 			// if !endpoint.NoAPIAuth {}
 
-			methodFormat += ")"
-			interfaceArgs := make([]interface{}, len(args))
-			for i, v := range args {
-				interfaceArgs[i] = v
+			for _, param := range endpoint.Params {
+				switch param.Type {
+				case reflect.TypeOf(uuid.UUID{}):
+					p("%s, err := uuid.FromString(r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
+					p("if err != nil {")
+					p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+					p("return")
+					p("}")
+					p("")
+					continue
+				case reflect.TypeOf(time.Time{}):
+					p("%sStamp, err := strconv.ParseInt(r.URL.Query().Get(\"%s\"), 10, 64)", param.Name, param.Name)
+					p("if err != nil {")
+					p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+					p("return")
+					p("}")
+					p("")
+					p("%s := time.Unix(%sStamp, 0).UTC()", param.Name, param.Name)
+					p("")
+					continue
+				case reflect.TypeOf(""):
+					p("%s := r.URL.Query().Get(\"%s\")", param.Name, param.Name)
+					p("if %s == \"\" {", param.Name)
+					p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"parameter '%s' can't be empty\"))", param.Name)
+					p("return")
+					p("}")
+					p("")
+					continue
+				}
 			}
-			p(methodFormat, interfaceArgs...)
-			p("if err != nil {")
+
+			methodFormat := "retVal, httpErr := h.service.%s(ctx, "
+			for _, methodParam := range endpoint.Params {
+				methodFormat += methodParam.Name + ", "
+			}
+			methodFormat += ")"
+			p(methodFormat, endpoint.MethodName)
+			p("if httpErr.Err != nil {")
 			p("api.ServeError(h.log, w, httpErr.Status, httpErr.Err)")
 			p("return")
 			p("}")

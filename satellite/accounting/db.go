@@ -142,21 +142,21 @@ type BucketUsagePage struct {
 // BucketUsageRollup is total bucket usage info
 // for certain period.
 type BucketUsageRollup struct {
-	ProjectID  uuid.UUID
-	BucketName string
+	ProjectID  uuid.UUID `json:"projectID"`
+	BucketName string    `json:"bucketName"`
 
-	TotalStoredData float64
+	TotalStoredData float64 `json:"totalStoredData"`
 
-	TotalSegments float64
-	ObjectCount   float64
-	MetadataSize  float64
+	TotalSegments float64 `json:"totalSegments"`
+	ObjectCount   float64 `json:"objectCount"`
+	MetadataSize  float64 `json:"metadataSize"`
 
-	RepairEgress float64
-	GetEgress    float64
-	AuditEgress  float64
+	RepairEgress float64 `json:"repairEgress"`
+	GetEgress    float64 `json:"getEgress"`
+	AuditEgress  float64 `json:"auditEgress"`
 
-	Since  time.Time
-	Before time.Time
+	Since  time.Time `json:"since"`
+	Before time.Time `json:"before"`
 }
 
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes.
