@@ -49,7 +49,7 @@ func (h *Handler) handleGetUserProjects(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 
-	err = h.auth.IsAuthenticated(r)
+	ctx, err = h.auth.IsAuthenticated(ctx, r)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return

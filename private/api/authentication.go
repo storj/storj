@@ -3,10 +3,13 @@
 
 package api
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+)
 
 // Auth exposes methods to control authentication process for each endpoint.
 type Auth interface {
 	// IsAuthenticated checks if request is performed with all needed authorization credentials.
-	IsAuthenticated(r *http.Request) error
+	IsAuthenticated(ctx context.Context, r *http.Request) (context.Context, error)
 }
