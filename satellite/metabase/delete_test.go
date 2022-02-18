@@ -963,7 +963,7 @@ func TestDeleteCopy(t *testing.T) {
 						},
 					}.Run(ctx, t, db, originalObjStream, byte(numberOfSegments))
 
-					copyObj, copySegments := metabasetest.CreateObjectCopy{
+					copyObj, _, copySegments := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
 					}.Run(ctx, t, db)
 
@@ -1011,10 +1011,10 @@ func TestDeleteCopy(t *testing.T) {
 						},
 					}.Run(ctx, t, db, originalObjectStream, byte(numberOfSegments))
 
-					copyObject1, _ := metabasetest.CreateObjectCopy{
+					copyObject1, _, _ := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
 					}.Run(ctx, t, db)
-					copyObject2, copySegments2 := metabasetest.CreateObjectCopy{
+					copyObject2, _, copySegments2 := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
 					}.Run(ctx, t, db)
 
@@ -1054,7 +1054,7 @@ func TestDeleteCopy(t *testing.T) {
 						},
 					}.Run(ctx, t, db, originalObjectStream, byte(numberOfSegments))
 
-					copyObject, copySegments := metabasetest.CreateObjectCopy{
+					copyObject, _, copySegments := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
 					}.Run(ctx, t, db)
 
@@ -1087,10 +1087,10 @@ func TestDeleteCopy(t *testing.T) {
 						},
 					}.Run(ctx, t, db, originalObjectStream, byte(numberOfSegments))
 
-					copyObject1, copySegments1 := metabasetest.CreateObjectCopy{
+					copyObject1, _, copySegments1 := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
 					}.Run(ctx, t, db)
-					copyObject2, copySegments2 := metabasetest.CreateObjectCopy{
+					copyObject2, _, copySegments2 := metabasetest.CreateObjectCopy{
 						OriginalObject: originalObj,
 					}.Run(ctx, t, db)
 

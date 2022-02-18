@@ -900,7 +900,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				},
 			}.Run(ctx, t, db, objStream, 1)
 
-			copyObj, newSegments := metabasetest.CreateObjectCopy{
+			copyObj, _, newSegments := metabasetest.CreateObjectCopy{
 				OriginalObject: originalObj,
 			}.Run(ctx, t, db)
 

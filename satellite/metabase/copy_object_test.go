@@ -277,10 +277,10 @@ func TestFinishCopyObject(t *testing.T) {
 					NewBucket:             newBucketName,
 					ObjectStream:          obj,
 					NewEncryptedObjectKey: metabasetest.RandObjectKey(),
+					NewStreamID:           newStreamID,
 
 					OverrideMetadata:     true,
 					NewEncryptedMetadata: testrand.BytesInt(256),
-					NewStreamID:          newStreamID,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
@@ -466,8 +466,9 @@ func TestFinishCopyObject(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
+			copyStream := metabasetest.RandObjectStream()
 
-			originalObj, originalSegments := metabasetest.CreateTestObject{
+			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadata:             testrand.Bytes(64),
@@ -476,18 +477,48 @@ func TestFinishCopyObject(t *testing.T) {
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
-			copyObj, newSegments := metabasetest.CreateObjectCopy{
-				OriginalObject: originalObj,
+			copyObj, expectedOriginalSegments, expectedCopySegments := metabasetest.CreateObjectCopy{
+				OriginalObject:   originalObj,
+				CopyObjectStream: &copyStream,
 			}.Run(ctx, t, db)
+
+			var expectedRawSegments []metabase.RawSegment
+			expectedRawSegments = append(expectedRawSegments, expectedOriginalSegments...)
+			expectedRawSegments = append(expectedRawSegments, expectedCopySegments...)
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(originalObj),
 					metabase.RawObject(copyObj),
 				},
-				Segments: append(metabasetest.SegmentsToRaw(originalSegments), newSegments...),
+				Segments: expectedRawSegments,
 				Copies: []metabase.RawCopy{{
 					StreamID:         copyObj.StreamID,
+					AncestorStreamID: originalObj.StreamID,
+				}},
+			}.Check(ctx, t, db)
+
+			// TODO find better names
+			copyOfCopyStream := metabasetest.RandObjectStream()
+			copyOfCopyObj, _, expectedCopyOfCopySegments := metabasetest.CreateObjectCopy{
+				OriginalObject:   copyObj,
+				CopyObjectStream: &copyOfCopyStream,
+			}.Run(ctx, t, db)
+
+			expectedRawSegments = append(expectedRawSegments, expectedCopyOfCopySegments...)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(originalObj),
+					metabase.RawObject(copyObj),
+					metabase.RawObject(copyOfCopyObj),
+				},
+				Segments: expectedRawSegments,
+				Copies: []metabase.RawCopy{{
+					StreamID:         copyStream.StreamID,
+					AncestorStreamID: originalObj.StreamID,
+				}, {
+					StreamID:         copyOfCopyObj.StreamID,
 					AncestorStreamID: originalObj.StreamID,
 				}},
 			}.Check(ctx, t, db)
@@ -519,7 +550,7 @@ func TestFinishCopyObject(t *testing.T) {
 			// do a copy without OverrideMetadata field set to true,
 			// metadata shouldn't be updated even if NewEncryptedMetadata
 			// field is set
-			copyObjNoOverride, _ := metabasetest.CreateObjectCopy{
+			copyObjNoOverride, _, _ := metabasetest.CreateObjectCopy{
 				OriginalObject:   originalObj,
 				CopyObjectStream: &copyStreamNoOverride,
 				FinishObject: &metabase.FinishCopyObject{
@@ -543,7 +574,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 			// do a copy WITH OverrideMetadata field set to true,
 			// metadata should be updated to NewEncryptedMetadata
-			copyObj, _ := metabasetest.CreateObjectCopy{
+			copyObj, _, _ := metabasetest.CreateObjectCopy{
 				OriginalObject:   originalObj,
 				CopyObjectStream: &copyStream,
 				FinishObject: &metabase.FinishCopyObject{

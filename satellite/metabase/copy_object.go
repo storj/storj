@@ -10,7 +10,6 @@ import (
 	"time"
 
 	pgxerrcode "github.com/jackc/pgerrcode"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -168,13 +167,46 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, err
 	}
 
-	originalObject, err := db.GetObjectExactVersion(ctx, GetObjectExactVersion{
-		opts.Version,
-		opts.Location(),
-	})
+	originalObject := Object{}
+
+	var ancestorStreamIDBytes []byte
+	err = db.db.QueryRowContext(ctx, `
+		SELECT
+			objects.stream_id,
+			expires_at,
+			segment_count,
+			encrypted_metadata,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption,
+			segment_copies.ancestor_stream_id
+		FROM objects
+		LEFT JOIN segment_copies ON objects.stream_id = segment_copies.stream_id
+		WHERE
+			project_id   = $1 AND
+			bucket_name  = $2 AND
+			object_key   = $3 AND
+			version      = $4 AND
+			status       = `+committedStatus,
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
+		Scan(
+			&originalObject.StreamID,
+			&originalObject.ExpiresAt,
+			&originalObject.SegmentCount,
+			&originalObject.EncryptedMetadata,
+			&originalObject.TotalPlainSize, &originalObject.TotalEncryptedSize, &originalObject.FixedSegmentSize,
+			encryptionParameters{&originalObject.Encryption},
+			&ancestorStreamIDBytes,
+		)
 	if err != nil {
-		return Object{}, errs.Wrap(err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Object{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return Object{}, Error.New("unable to query object status: %w", err)
 	}
+	originalObject.BucketName = opts.BucketName
+	originalObject.ProjectID = opts.ProjectID
+	originalObject.Version = opts.Version
+	originalObject.Status = Committed
 
 	if int(originalObject.SegmentCount) != len(opts.NewSegmentKeys) {
 		return Object{}, ErrInvalidRequest.New("wrong amount of segments keys received (received %d, need %d)", originalObject.SegmentCount, len(opts.NewSegmentKeys))
@@ -312,20 +344,30 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return Error.New("unable to copy segments: %w", err)
 		}
 
+		var ancestorStreamID uuid.UUID
+		if len(ancestorStreamIDBytes) != 0 {
+			ancestorStreamID, err = uuid.FromBytes(ancestorStreamIDBytes)
+			if err != nil {
+				return err
+			}
+		} else {
+			ancestorStreamID = originalObject.StreamID
+		}
 		// TODO : we need flatten references
 		_, err = db.db.ExecContext(ctx, `
-			INSERT INTO segment_copies (
-				stream_id, ancestor_stream_id
-			) VALUES (
-				$1, $2
-			)
-		`, opts.NewStreamID, originalObject.StreamID)
+		INSERT INTO segment_copies (
+			stream_id, ancestor_stream_id
+		) VALUES (
+			$1, $2
+		)
+	`, opts.NewStreamID, ancestorStreamID)
 		if err != nil {
 			return Error.New("unable to copy object: %w", err)
 		}
 
 		return nil
 	})
+
 	if err != nil {
 		return Object{}, err
 	}

@@ -310,7 +310,7 @@ type CreateObjectCopy struct {
 }
 
 // Run creates the copy.
-func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metabase.DB) (metabase.Object, []metabase.RawSegment) {
+func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metabase.DB) (copyObj metabase.Object, expectedOriginalSegments []metabase.RawSegment, expectedCopySegments []metabase.RawSegment) {
 
 	var copyStream metabase.ObjectStream
 	if cc.CopyObjectStream != nil {
@@ -320,7 +320,8 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	}
 
 	newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, cc.OriginalObject.SegmentCount)
-	newSegments := make([]metabase.RawSegment, cc.OriginalObject.SegmentCount)
+	expectedOriginalSegments = make([]metabase.RawSegment, cc.OriginalObject.SegmentCount)
+	expectedCopySegments = make([]metabase.RawSegment, cc.OriginalObject.SegmentCount)
 	expectedEncryptedSize := 1060
 
 	for i := 0; i < int(cc.OriginalObject.SegmentCount); i++ {
@@ -330,36 +331,29 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			EncryptedKey:      testrand.Bytes(32),
 		}
 
-		var originalSegment metabase.RawSegment
-		if len(cc.OriginalSegments) == 0 {
-			originalSegment = DefaultRawSegment(cc.OriginalObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
-			// TODO: place this calculation in metabasetest.
-			originalSegment.PlainOffset = int64(i) * int64(originalSegment.PlainSize)
-			// TODO: we should use the same value for encrypted size in both test methods.
-			originalSegment.EncryptedSize = int32(expectedEncryptedSize)
+		expectedOriginalSegments[i] = DefaultRawSegment(cc.OriginalObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+
+		// TODO: place this calculation in metabasetest.
+		expectedOriginalSegments[i].PlainOffset = int64(int32(i) * expectedOriginalSegments[i].PlainSize)
+		// TODO: we should use the same value for encrypted size in both test methods.
+		expectedOriginalSegments[i].EncryptedSize = int32(expectedEncryptedSize)
+
+		expectedCopySegments[i] = metabase.RawSegment{}
+		expectedCopySegments[i].StreamID = copyStream.StreamID
+		expectedCopySegments[i].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
+		expectedCopySegments[i].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
+		expectedCopySegments[i].EncryptedSize = expectedOriginalSegments[i].EncryptedSize
+		expectedCopySegments[i].Position = expectedOriginalSegments[i].Position
+		expectedCopySegments[i].RootPieceID = expectedOriginalSegments[i].RootPieceID
+		expectedCopySegments[i].Redundancy = expectedOriginalSegments[i].Redundancy
+		expectedCopySegments[i].PlainSize = expectedOriginalSegments[i].PlainSize
+		expectedCopySegments[i].PlainOffset = expectedOriginalSegments[i].PlainOffset
+		expectedCopySegments[i].CreatedAt = time.Now().UTC()
+		if len(expectedOriginalSegments[i].InlineData) > 0 {
+			expectedCopySegments[i].InlineData = expectedOriginalSegments[i].InlineData
 		} else {
-			originalSegment = metabase.RawSegment(cc.OriginalSegments[i])
+			expectedCopySegments[i].InlineData = []byte{}
 		}
-
-		newSegmentInlineData := originalSegment.InlineData
-		if newSegmentInlineData == nil {
-			newSegmentInlineData = []uint8{}
-		}
-		newSegment := metabase.RawSegment{
-			StreamID:          copyStream.StreamID,
-			EncryptedKeyNonce: newEncryptedKeysNonces[i].EncryptedKeyNonce,
-			EncryptedKey:      newEncryptedKeysNonces[i].EncryptedKey,
-			EncryptedSize:     originalSegment.EncryptedSize,
-			Position:          originalSegment.Position,
-			RootPieceID:       originalSegment.RootPieceID,
-			Redundancy:        originalSegment.Redundancy,
-			PlainSize:         originalSegment.PlainSize,
-			PlainOffset:       originalSegment.PlainOffset,
-			InlineData:        newSegmentInlineData,
-			CreatedAt:         time.Now().UTC(),
-		}
-
-		newSegments[i] = newSegment
 	}
 
 	opts := cc.FinishObject
@@ -378,7 +372,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	copyObj, err := db.FinishCopyObject(ctx, *opts)
 	require.NoError(t, err)
 
-	return copyObj, newSegments
+	return copyObj, expectedOriginalSegments, expectedCopySegments
 }
 
 // SegmentsToRaw converts a slice of Segment to a slice of RawSegment.
