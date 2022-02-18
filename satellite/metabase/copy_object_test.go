@@ -352,11 +352,6 @@ func TestFinishCopyObject(t *testing.T) {
 			numberOfSegments := 10
 			copyStream := metabasetest.RandObjectStream()
 
-			// make sure segments are ordered as expected when checking database
-			if copyStream.StreamID.Less(obj.StreamID) {
-				obj, copyStream = copyStream, obj
-			}
-
 			originalObj := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
