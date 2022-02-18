@@ -72,7 +72,7 @@ func TestAuth_Register(t *testing.T) {
 				}{
 					FullName:        "testuser" + strconv.Itoa(i),
 					ShortName:       "test",
-					Email:           "user@test" + strconv.Itoa(i),
+					Email:           "user@test" + strconv.Itoa(i) + ".com",
 					Partner:         test.Partner,
 					Password:        "abc123",
 					IsProfessional:  true,

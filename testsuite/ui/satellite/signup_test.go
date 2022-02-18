@@ -47,7 +47,6 @@ func TestSignup_Content(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
 		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
 		fullName := "John Doe"
-		invalidEmailAddress := "test@email"
 		password := "qazwsx123"
 
 		page := openPage(browser, signupPageURL)
@@ -65,18 +64,52 @@ func TestSignup_Content(t *testing.T) {
 
 		// User signup with invalid email
 		page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
-		page.MustElement("[aria-roledescription=email] input").MustInput(invalidEmailAddress)
 		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
-		page.Keyboard.MustPress(input.Enter)
-		waitVueTick(page)
 
-		invalidEmailMessage := page.MustElement("[aria-roledescription=email] [aria-roledescription=error-text]").MustText()
-		require.Contains(t, invalidEmailMessage, "Invalid Email")
+		invalidEmailAddresses := []string{
+			"t@t@t.t",
+			"test",
+			"t@!t.t1",
+			"t@#t.t",
+			"t@$t.t",
+			"t%t.t",
+			"t@^t.t",
+			"t@&t.t",
+			"t@*t.t",
+			"t@(t.t",
+			"t@)t.t",
+			"t@=t.t",
+			"t@[t.t",
+			"t@]t.t",
+			"t@{t.t",
+			"t@}t.t",
+			"t@/t.t",
+			"t@\\t.t",
+			"t@|t.t",
+			"t@:t.t",
+			"t@;t.t",
+			"t@,t.t",
+			"t@\"t.t",
+			"t@'t.t",
+			"t@<t.t",
+			"t@>t.t",
+			"t@_t.t",
+			"t@?t.t",
+		}
+		for _, e := range invalidEmailAddresses {
+			page.MustElement("[aria-roledescription=email] input").MustInput(e)
+			page.Keyboard.MustPress(input.Enter)
+			waitVueTick(page)
+
+			invalidEmailMessage := page.MustElement("[aria-roledescription=email] [aria-roledescription=error-text]").MustText()
+			require.Contains(t, invalidEmailMessage, "Invalid Email")
+
+			page.MustElement("[aria-roledescription=email] input").MustSelectAllText().MustInput("")
+		}
 
 		// User signup with no email or password
-		page.MustElement("[aria-roledescription=email] input").MustSelectAllText().MustInput("")
 		page.MustElement("[aria-roledescription=password] input").MustSelectAllText().MustInput("")
 		page.MustElement("[aria-roledescription=retype-password] input").MustSelectAllText().MustInput("")
 		page.Keyboard.MustPress(input.Enter)
@@ -86,6 +119,29 @@ func TestSignup_Content(t *testing.T) {
 		require.Contains(t, invalidEmailMessage1, "Invalid Email")
 		invalidPasswordMessage := page.MustElement("[aria-roledescription=password] [aria-roledescription=error-text]").MustText()
 		require.Contains(t, invalidPasswordMessage, "Invalid Password")
+
+		validEmailAddresses := []string{
+			"тест@тест.тест ",
+			" अजअज@अज.अज",
+			" test@email.test ",
+		}
+		for i, e := range validEmailAddresses {
+			page.MustElement("[aria-roledescription=name] input").MustInput(fullName)
+			page.MustElement("[aria-roledescription=password] input").MustInput(password)
+			page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
+			page.MustElement("[aria-roledescription=email] input").MustInput(e)
+			if i != 0 {
+				page.MustElement(".checkmark").MustClick()
+			}
+			page.Keyboard.MustPress(input.Enter)
+			waitVueTick(page)
+
+			successTitle := page.MustElement("[aria-roledescription=title]").MustText()
+			require.Contains(t, successTitle, "You're almost there!")
+
+			page.MustElement("[href=\"/login\"]").MustClick()
+			page.MustElement("[href=\"/signup\"]").MustClick()
+		}
 	})
 }
 
