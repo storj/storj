@@ -1850,6 +1850,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE stripecoinpayments_tx_conversion_rates ALTER COLUMN rate_numeric SET NOT NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to users table to control failed login attempts (disallow brute forcing)",
+				Version:     192,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN failed_login_count integer;`,
+					`ALTER TABLE users ADD COLUMN login_lockout_expiration timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

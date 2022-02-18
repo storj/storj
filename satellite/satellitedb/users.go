@@ -211,17 +211,20 @@ func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid b
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
 func toUpdateUser(user *console.User) (*dbx.User_Update_Fields, error) {
 	update := dbx.User_Update_Fields{
-		FullName:              dbx.User_FullName(user.FullName),
-		ShortName:             dbx.User_ShortName(user.ShortName),
-		Email:                 dbx.User_Email(user.Email),
-		NormalizedEmail:       dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
-		Status:                dbx.User_Status(int(user.Status)),
-		ProjectLimit:          dbx.User_ProjectLimit(user.ProjectLimit),
-		ProjectStorageLimit:   dbx.User_ProjectStorageLimit(user.ProjectStorageLimit),
-		ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(user.ProjectBandwidthLimit),
-		ProjectSegmentLimit:   dbx.User_ProjectSegmentLimit(user.ProjectSegmentLimit),
-		PaidTier:              dbx.User_PaidTier(user.PaidTier),
-		MfaEnabled:            dbx.User_MfaEnabled(user.MFAEnabled),
+		FullName:                 dbx.User_FullName(user.FullName),
+		ShortName:                dbx.User_ShortName(user.ShortName),
+		Email:                    dbx.User_Email(user.Email),
+		NormalizedEmail:          dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
+		Status:                   dbx.User_Status(int(user.Status)),
+		ProjectLimit:             dbx.User_ProjectLimit(user.ProjectLimit),
+		ProjectStorageLimit:      dbx.User_ProjectStorageLimit(user.ProjectStorageLimit),
+		ProjectBandwidthLimit:    dbx.User_ProjectBandwidthLimit(user.ProjectBandwidthLimit),
+		ProjectSegmentLimit:      dbx.User_ProjectSegmentLimit(user.ProjectSegmentLimit),
+		PaidTier:                 dbx.User_PaidTier(user.PaidTier),
+		MfaEnabled:               dbx.User_MfaEnabled(user.MFAEnabled),
+		LastVerificationReminder: dbx.User_LastVerificationReminder(user.LastVerificationReminder),
+		FailedLoginCount:         dbx.User_FailedLoginCount(user.FailedLoginCount),
+		LoginLockoutExpiration:   dbx.User_LoginLockoutExpiration(user.LoginLockoutExpiration),
 	}
 
 	recoveryBytes, err := json.Marshal(user.MFARecoveryCodes)
@@ -230,7 +233,6 @@ func toUpdateUser(user *console.User) (*dbx.User_Update_Fields, error) {
 	}
 	update.MfaRecoveryCodes = dbx.User_MfaRecoveryCodes(string(recoveryBytes))
 	update.MfaSecretKey = dbx.User_MfaSecretKey(user.MFASecretKey)
-	update.LastVerificationReminder = dbx.User_LastVerificationReminder(user.LastVerificationReminder)
 
 	// extra password check to update only calculated hash from service
 	if len(user.PasswordHash) != 0 {
@@ -322,6 +324,14 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 
 	if user.LastVerificationReminder != nil {
 		result.LastVerificationReminder = *user.LastVerificationReminder
+	}
+
+	if user.FailedLoginCount != nil {
+		result.FailedLoginCount = *user.FailedLoginCount
+	}
+
+	if user.LoginLockoutExpiration != nil {
+		result.LoginLockoutExpiration = *user.LoginLockoutExpiration
 	}
 
 	return &result, nil

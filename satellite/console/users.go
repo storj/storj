@@ -165,4 +165,7 @@ type User struct {
 	SignupPromoCode string `json:"signupPromoCode"`
 
 	LastVerificationReminder time.Time `json:"lastVerificationReminder"`
+
+	FailedLoginCount       int       `json:"failedLoginCount"`
+	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
 }
