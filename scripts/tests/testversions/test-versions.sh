@@ -12,6 +12,11 @@ test_files_dir="${main_cfg_dir}/testfiles"
 stage1_dst_dir="${main_cfg_dir}/stage1"
 stage2_dst_dir="${main_cfg_dir}/stage2"
 
+# version_ge returns true if version $1 is greater than or equal to $2
+version_ge(){
+    [ "$( ( echo "$1"; echo "$2" ) | sort -V | head -n 1 )" = "$2" ]
+}
+
 replace_in_file(){
     local src="$1"
     local dest="$2"
@@ -144,6 +149,16 @@ if [[ "$command" == "download" ]]; then
 
     # download all uploaded files from stage 1 with currently selected uplink
     for suffix in ${existing_bucket_name_suffixes}; do
+        # skip downloads for uplink versions older than v1.27.6 against buckets
+        # that are v1.48.0 or later because the newer uplinks always upload with
+        # multipart uploads and older uplinks cannot download those.
+        if [ "$uplink_version" != "main" ] && \
+           ! version_ge "$uplink_version" "v1.27.6" && \
+             version_ge "$suffix" "v1.48.0"; then
+            echo "Skipping $uplink_version downloading $suffix"
+            continue
+        fi
+
         bucket_name=${bucket}-${suffix}
         original_dst_dir=${stage1_dst_dir}/${suffix}
         download_dst_dir=${stage2_dst_dir}/${suffix}
