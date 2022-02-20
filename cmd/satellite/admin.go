@@ -39,6 +39,7 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL, metabase.Config{
+		ApplicationName:  "satellite-admin",
 		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
 		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
 	})

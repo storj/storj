@@ -476,6 +476,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 
 	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB, metabase.Config{
+		ApplicationName:  "satellite-testplanet",
 		MinPartSize:      config.Metainfo.MinPartSize,
 		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
 	})

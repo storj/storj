@@ -40,6 +40,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
+		ApplicationName:  "satellite-repairer",
 		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
 		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
 	})
