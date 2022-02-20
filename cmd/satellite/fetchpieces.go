@@ -60,6 +60,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
+		ApplicationName:  "satellite-pieces-fetcher",
 		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
 		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
 	})
