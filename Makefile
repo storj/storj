@@ -202,7 +202,7 @@ images: multinode-image satellite-image storagenode-image versioncontrol-image #
 	echo Built version: ${TAG}
 
 .PHONY: multinode-image
-satellite-image: multinode_linux_arm multinode_linux_arm64 multinode_linux_amd64 ## Build multinode Docker image
+multinode-image: multinode_linux_arm multinode_linux_arm64 multinode_linux_amd64 ## Build multinode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/multinode:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/multinode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/multinode:${TAG}${CUSTOMTAG}-arm32v6 \
