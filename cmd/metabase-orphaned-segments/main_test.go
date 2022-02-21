@@ -115,6 +115,7 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 			require.NoError(t, err)
 
 			metabaseDB, err := satellitedbtest.CreateMetabaseDBOnTopOf(ctx, log, metabaseTempDB, metabase.Config{
+				ApplicationName:  "satellite-test",
 				MinPartSize:      5 * memory.MiB,
 				MaxNumberOfParts: 10000,
 			})

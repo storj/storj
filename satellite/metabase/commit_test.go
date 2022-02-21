@@ -2740,6 +2740,7 @@ func TestCommitObject(t *testing.T) {
 
 func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 	metabasetest.RunWithConfig(t, metabase.Config{
+		ApplicationName:  "satellite-test",
 		MinPartSize:      5 * memory.MiB,
 		MaxNumberOfParts: 1000,
 	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
@@ -3072,6 +3073,7 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 
 func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 	metabasetest.RunWithConfig(t, metabase.Config{
+		ApplicationName:  "satellite-test",
 		MinPartSize:      5 * memory.MiB,
 		MaxNumberOfParts: 3,
 	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
