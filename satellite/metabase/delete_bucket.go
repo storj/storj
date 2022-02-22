@@ -50,7 +50,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 			RETURNING objects.stream_id
 		)
 		DELETE FROM segments
-		WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+		WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 		RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
 	`
 	case dbutil.Postgres:
@@ -65,7 +65,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 			RETURNING objects.stream_id
 		)
 		DELETE FROM segments
-		WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+		WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 		RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
 	`
 	default:

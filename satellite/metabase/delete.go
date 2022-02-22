@@ -110,7 +110,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 					encryption
 			), deleted_segments AS (
 				DELETE FROM segments
-				WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 				RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
 			)
 			SELECT
@@ -181,7 +181,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 					encryption
 			), deleted_segments AS (
 				DELETE FROM segments
-				WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 				RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
 			)
 			SELECT
@@ -237,7 +237,7 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 					encryption
 			), deleted_segments AS (
 				DELETE FROM segments
-				WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 				RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
 			)
 			SELECT
@@ -314,7 +314,7 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 						encryption
 				), deleted_segments AS (
 					DELETE FROM segments
-					WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+					WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 					RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
 				)
 				SELECT

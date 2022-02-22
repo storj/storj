@@ -890,11 +890,11 @@ func (c *__sqlbundle_Condition) Render() string {
 
 	switch {
 	case c.Equal && c.Null:
-		return c.Left + " is null"
+		return c.Left + " IS NULL"
 	case c.Equal && !c.Null:
 		return c.Left + " = " + c.Right
 	case !c.Equal && c.Null:
-		return c.Left + " is not null"
+		return c.Left + " IS NOT NULL"
 	case !c.Equal && !c.Null:
 		return c.Left + " != " + c.Right
 	default:

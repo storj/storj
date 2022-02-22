@@ -10918,11 +10918,11 @@ func (c *__sqlbundle_Condition) Render() string {
 
 	switch {
 	case c.Equal && c.Null:
-		return c.Left + " is null"
+		return c.Left + " IS NULL"
 	case c.Equal && !c.Null:
 		return c.Left + " = " + c.Right
 	case !c.Equal && c.Null:
-		return c.Left + " is not null"
+		return c.Left + " IS NOT NULL"
 	case !c.Equal && !c.Null:
 		return c.Left + " != " + c.Right
 	default:
@@ -16899,7 +16899,7 @@ func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at IS NOT NULL")
 
 	var __values []interface{}
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
@@ -23285,7 +23285,7 @@ func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_Fi
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at IS NOT NULL")
 
 	var __values []interface{}
 	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
