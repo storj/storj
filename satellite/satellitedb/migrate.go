@@ -767,8 +767,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 							) >= 10
 							OR comp_at_rest < 0
 						)
-						AND codes not like '%O%'
-						AND codes not like '%D%'
+						AND codes NOT LIKE '%O%'
+						AND codes NOT LIKE '%D%'
 						AND period < '2020-03'
 				`},
 			},
@@ -918,7 +918,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "enable multiple projects for existing users",
 				Version:     127,
 				Action: migrate.SQL{
-					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 and project_limit > 0;`,
+					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 AND project_limit > 0;`,
 				},
 			},
 			{

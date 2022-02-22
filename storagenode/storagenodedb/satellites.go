@@ -44,7 +44,7 @@ func (db *satellitesDB) SetAddress(ctx context.Context, satelliteID storj.NodeID
 func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite satellites.Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.QueryContext(ctx, "SELECT node_id, added_at, status from satellites where node_id = ?", satelliteID)
+	rows, err := db.QueryContext(ctx, "SELECT node_id, added_at, status FROM satellites WHERE node_id = ?", satelliteID)
 	if err != nil {
 		return satellite, err
 	}
