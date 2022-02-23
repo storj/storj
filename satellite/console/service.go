@@ -591,7 +591,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	if err := user.IsValid(); err != nil {
-		return nil, Error.Wrap(err)
+		// NOTE: error is already wrapped with an appropriated class.
+		return nil, err
 	}
 
 	registrationToken, err := s.checkRegistrationSecret(ctx, tokenSecret)
@@ -790,7 +791,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	if err := ValidatePassword(password); err != nil {
-		return Error.Wrap(err)
+		return ErrValidation.Wrap(err)
 	}
 
 	if t.Sub(token.CreatedAt) > s.config.TokenExpirationTime {
@@ -1328,7 +1329,6 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 	// collect user querying errors
 	for _, email := range emails {
 		user, err := s.store.Users().GetByEmail(ctx, email)
-
 		if err != nil {
 			userErr.Add(err)
 			continue
