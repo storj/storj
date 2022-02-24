@@ -53,7 +53,7 @@ func TestBeginCopyObject(t *testing.T) {
 
 			expectedMetadataNonce := testrand.Nonce()
 			expectedMetadataKey := testrand.Bytes(265)
-			expectedObject := metabasetest.CreateTestObject{
+			expectedObject, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadata:             testrand.Bytes(64),
@@ -254,7 +254,7 @@ func TestFinishCopyObject(t *testing.T) {
 			numberOfSegments := 10
 			newObjectKey := testrand.Bytes(32)
 
-			newObj := metabasetest.CreateTestObject{
+			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadata:             testrand.Bytes(64),
@@ -302,7 +302,7 @@ func TestFinishCopyObject(t *testing.T) {
 			numberOfSegments := 10
 			newObjectKey := testrand.Bytes(32)
 
-			newObj := metabasetest.CreateTestObject{
+			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadata:             testrand.Bytes(64),
@@ -354,7 +354,7 @@ func TestFinishCopyObject(t *testing.T) {
 			copyStream.ProjectID = objStream.ProjectID
 			copyStream.BucketName = objStream.BucketName
 
-			originalObj := metabasetest.CreateTestObject{
+			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  objStream,
 					EncryptedMetadata:             testrand.Bytes(64),
@@ -401,7 +401,7 @@ func TestFinishCopyObject(t *testing.T) {
 			numberOfSegments := 10
 			copyStream := metabasetest.RandObjectStream()
 
-			originalObj := metabasetest.CreateTestObject{
+			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadata:             testrand.Bytes(64),
