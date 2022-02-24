@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -317,10 +319,9 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			NewEncryptedMetadataKey:      testrand.Bytes(32),
 		}
 	}
-	FinishCopyObject{
-		Opts:    *opts,
-		ErrText: "",
-	}.Check(ctx, t, db)
+
+	_, err := db.FinishCopyObject(ctx, *opts)
+	require.NoError(t, err)
 
 	copyObj := cc.OriginalObject
 	copyObj.StreamID = copyStream.StreamID

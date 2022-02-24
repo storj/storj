@@ -346,6 +346,55 @@ func TestFinishCopyObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("returned object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			copyStream := metabasetest.RandObjectStream()
+			copyStream.ProjectID = objStream.ProjectID
+			copyStream.BucketName = objStream.BucketName
+
+			originalObj := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  objStream,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			expectedCopyObject := originalObj
+			expectedCopyObject.ObjectKey = copyStream.ObjectKey
+			expectedCopyObject.StreamID = copyStream.StreamID
+			expectedCopyObject.EncryptedMetadataEncryptedKey = testrand.Bytes(32)
+			expectedCopyObject.EncryptedMetadataNonce = testrand.Nonce().Bytes()
+
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					ObjectStream:                 objStream,
+					NewBucket:                    copyStream.BucketName,
+					NewStreamID:                  copyStream.StreamID,
+					NewEncryptedObjectKey:        []byte(copyStream.ObjectKey),
+					NewEncryptedMetadataKey:      expectedCopyObject.EncryptedMetadataEncryptedKey,
+					NewEncryptedMetadataKeyNonce: expectedCopyObject.EncryptedMetadataNonce,
+				},
+				Result: expectedCopyObject,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(originalObj),
+					metabase.RawObject(expectedCopyObject),
+				},
+				Copies: []metabase.RawCopy{
+					{
+						StreamID:         copyStream.StreamID,
+						AncestorStreamID: objStream.StreamID,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("finish copy object with existing metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 

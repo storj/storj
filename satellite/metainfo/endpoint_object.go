@@ -1870,7 +1870,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.metabase.FinishCopyObject(ctx, metabase.FinishCopyObject{
+	object, err := endpoint.metabase.FinishCopyObject(ctx, metabase.FinishCopyObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
@@ -1889,7 +1889,16 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	return &pb.ObjectFinishCopyResponse{}, nil
+	// we can return nil redundancy because this request won't be used for downloading
+	protoObject, err := endpoint.objectToProto(ctx, object, nil)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.ObjectFinishCopyResponse{
+		Object: protoObject,
+	}, nil
 }
 
 // protobufkeysToMetabase converts []*pb.EncryptedKeyAndNonce to []metabase.EncryptedKeyAndNonce.
