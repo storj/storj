@@ -448,17 +448,13 @@ func TestFinishCopyObject(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			require.NotEqual(t, originalObj.CreatedAt, objectCopy.CreatedAt)
+
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(originalObj),
 					metabase.RawObject(expectedCopyObject),
 				},
-				Copies: []metabase.RawCopy{
-					{
-						StreamID:         copyStream.StreamID,
-						AncestorStreamID: objStream.StreamID,
-					},
-				},
+				Copies: nil,
 			}.Check(ctx, t, db)
 		})
 
@@ -602,16 +598,7 @@ func TestFinishCopyObject(t *testing.T) {
 					metabase.RawObject(copyObj),
 					metabase.RawObject(copyObjNoOverride),
 				},
-				Copies: []metabase.RawCopy{
-					{
-						StreamID:         copyStream.StreamID,
-						AncestorStreamID: originalObj.StreamID,
-					},
-					{
-						StreamID:         copyObjNoOverride.StreamID,
-						AncestorStreamID: originalObj.StreamID,
-					},
-				},
+				Copies: nil,
 			}.Check(ctx, t, db)
 		})
 	})

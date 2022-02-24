@@ -275,9 +275,13 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, Error.New("unable to copy object: %w", err)
 	}
 
+	onlyInlineSegments := true
 	for index := range positions {
 		if newSegments.Positions[index] != positions[index] {
 			return Object{}, Error.New("missing new segment keys for segment %d", positions[index])
+		}
+		if onlyInlineSegments && (encryptedSizes[index] > 0) && len(inlineDatas[index]) == 0 {
+			onlyInlineSegments = false
 		}
 	}
 
@@ -344,6 +348,9 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return Error.New("unable to copy segments: %w", err)
 		}
 
+		if onlyInlineSegments {
+			return nil
+		}
 		var ancestorStreamID uuid.UUID
 		if len(ancestorStreamIDBytes) != 0 {
 			ancestorStreamID, err = uuid.FromBytes(ancestorStreamIDBytes)
@@ -353,18 +360,16 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		} else {
 			ancestorStreamID = originalObject.StreamID
 		}
-		// TODO : we need flatten references
 		_, err = db.db.ExecContext(ctx, `
-		INSERT INTO segment_copies (
-			stream_id, ancestor_stream_id
-		) VALUES (
-			$1, $2
-		)
-	`, opts.NewStreamID, ancestorStreamID)
+			INSERT INTO segment_copies (
+				stream_id, ancestor_stream_id
+			) VALUES (
+				$1, $2
+			)
+		`, opts.NewStreamID, ancestorStreamID)
 		if err != nil {
 			return Error.New("unable to copy object: %w", err)
 		}
-
 		return nil
 	})
 
