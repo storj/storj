@@ -5,12 +5,13 @@ GOPATH ?= $(shell go env GOPATH)
 NODE_VERSION ?= 16.11.1
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
+GIT_TAG := $(shell git rev-parse --short HEAD)
 ifeq (${BRANCH_NAME},main)
-TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+TAG    := ${GIT_TAG}-go${GO_VERSION}
 TRACKED_BRANCH := true
 LATEST_TAG := latest
 else
-TAG    := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
+TAG    := ${GIT_TAG}-${BRANCH_NAME}-go${GO_VERSION}
 ifneq (,$(findstring release-,$(BRANCH_NAME)))
 TRACKED_BRANCH := true
 LATEST_TAG := ${BRANCH_NAME}-latest
@@ -25,6 +26,8 @@ endif
 
 DOCKER_BUILD := docker build \
 	--build-arg TAG=${TAG}
+
+DOCKER_BUILDX := docker buildx build
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -233,6 +236,23 @@ storagenode-image: ## Build storagenode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 --build-arg=APK_ARCH=aarch64 \
         -f cmd/storagenode/Dockerfile .
+
+.PHONY: storagenode-base-image
+storagenode-base-image: ## Build storagenode Docker base image. Requires buildx. This image is expected to be built manually using buildx and QEMU.
+	${DOCKER_BUILDX} --pull=true -t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/storagenode/Dockerfile.base .
+	${DOCKER_BUILDX} --pull=true -t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6 \
+    	--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+        -f cmd/storagenode/Dockerfile.base .
+	${DOCKER_BUILDX} --pull=true -t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
+        -f cmd/storagenode/Dockerfile.base .
+
+.PHONY: push-storagenode-base-image
+push-storagenode-base-image: ## Push the storagenode base image to dockerhub
+	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64
+	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6
+	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8
 
 .PHONY: versioncontrol-image
 versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versioncontrol_linux_amd64 ## Build versioncontrol Docker image
