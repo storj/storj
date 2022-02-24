@@ -78,24 +78,15 @@ fi
 
 if [ "${SETUP:-}" = "true" ]; then
   echo "Running ./storagenode setup $SNO_RUN_PARAMS"
-  exec ./storagenode setup "$SNO_RUN_PARAMS" "${*}"
+  exec ./storagenode setup ${SNO_RUN_PARAMS} ${*}
 else
-    # install supervisor
-    # TODO: use docker buildx instead of installing packages at runtime?
-    if ! apk list supervisor 2>/dev/null | grep "supervisor"; then
-      echo "installing supervisor"
-      mkdir -p /var/log/supervisor
-      # perform installation during runtime to not use dockerfile RUN directive to support arch-independent build process
-      apk add --no-cache --repositories-file=/dev/null /var/lib/apk-supervisor/*.apk
+  sed -i \
+  "s#^command=/app/storagenode-updater\$#command=/app/storagenode-updater run --binary-location /app/storagenode ${RUN_PARAMS} #" \
+  /etc/supervisor/supervisord.conf
 
-      sed -i \
-      "s#^command=/app/storagenode-updater\$#command=/app/storagenode-updater run --binary-location /app/storagenode ${RUN_PARAMS} #" \
-      /etc/supervisord.conf
+  sed -i \
+  "s#^command=/app/storagenode\$#command=/app/storagenode run ${SNO_RUN_PARAMS} ${*}#" \
+  /etc/supervisor/supervisord.conf
 
-      sed -i \
-      "s#^command=/app/storagenode\$#command=/app/storagenode run ${SNO_RUN_PARAMS} ${*}#" \
-      /etc/supervisord.conf
-    fi
-
-  exec /usr/bin/supervisord -c /etc/supervisord.conf
+  exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
 fi
