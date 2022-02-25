@@ -398,6 +398,7 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 		req.AsOfSystemInterval = service.config.Node.AsOfSystemTime.DefaultInterval
 	}
 
+	// TODO excluding country codes on upload if cache is disabled is not implemented
 	if service.config.NodeSelectionCache.Disabled {
 		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 	}
