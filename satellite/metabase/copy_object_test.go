@@ -399,9 +399,8 @@ func TestFinishCopyObject(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
-			copyStream := metabasetest.RandObjectStream()
 
-			originalObj, _ := metabasetest.CreateTestObject{
+			originalObj, originalSegments := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadata:             testrand.Bytes(64),
@@ -410,9 +409,8 @@ func TestFinishCopyObject(t *testing.T) {
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
-			copyObj, expectedSegments := metabasetest.CreateObjectCopy{
-				OriginalObject:   originalObj,
-				CopyObjectStream: &copyStream,
+			copyObj, newSegments := metabasetest.CreateObjectCopy{
+				OriginalObject: originalObj,
 			}.Run(ctx, t, db)
 
 			metabasetest.Verify{
@@ -420,9 +418,9 @@ func TestFinishCopyObject(t *testing.T) {
 					metabase.RawObject(originalObj),
 					metabase.RawObject(copyObj),
 				},
-				Segments: expectedSegments,
+				Segments: append(metabasetest.SegmentsToRaw(originalSegments), newSegments...),
 				Copies: []metabase.RawCopy{{
-					StreamID:         copyStream.StreamID,
+					StreamID:         copyObj.StreamID,
 					AncestorStreamID: originalObj.StreamID,
 				}},
 			}.Check(ctx, t, db)

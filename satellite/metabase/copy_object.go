@@ -308,6 +308,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 
 	copyObject := originalObject
 	copyObject.StreamID = opts.NewStreamID
+	copyObject.BucketName = opts.NewBucket
 	copyObject.ObjectKey = ObjectKey(opts.NewEncryptedObjectKey)
 	copyObject.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
 	copyObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce
