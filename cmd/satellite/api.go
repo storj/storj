@@ -45,8 +45,10 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL, metabase.Config{
+		ApplicationName:  "satellite-api",
 		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
 		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
+		ServerSideCopy:   runCfg.Config.Metainfo.ServerSideCopy,
 	})
 	if err != nil {
 		return errs.New("Error creating metabase connection on satellite api: %+v", err)

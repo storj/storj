@@ -240,8 +240,8 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		dialer.DialTimeout = 20 * time.Millisecond
 		dialer.DialLatency = 200 * time.Second
 
-		connector := rpc.NewDefaultTCPConnector(nil)
-		connector.TransferRate = 1 * memory.KB
+		connector := rpc.NewHybridConnector()
+		connector.SetTransferRate(1 * memory.KB)
 		dialer.Connector = connector
 
 		// This config value will create a very short timeframe allowed for receiving
@@ -616,8 +616,8 @@ func TestVerifierDialTimeout(t *testing.T) {
 		dialer.DialTimeout = 20 * time.Millisecond
 		dialer.DialLatency = 200 * time.Second
 
-		connector := rpc.NewDefaultTCPConnector(nil)
-		connector.TransferRate = 1 * memory.KB
+		connector := rpc.NewHybridConnector()
+		connector.SetTransferRate(1 * memory.KB)
 		dialer.Connector = connector
 
 		// This config value will create a very short timeframe allowed for receiving

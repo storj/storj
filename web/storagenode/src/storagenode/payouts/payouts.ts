@@ -303,13 +303,16 @@ export class SatellitePayoutForPeriod {
         if (this.receipt.indexOf('eth') !== -1) {
             return `https://etherscan.io/tx/${prefixed(this.receipt.slice(4))}`;
         }
-        const zkScanUrl = 'https://zkscan.io/explorer/transactions'
 
-        if (this.receipt.indexOf('zksync') !== -1) {
-            return `https://zkscan.io/explorer/transactions/${prefixed(this.receipt.slice(7))}`;
-        }
-        if (this.receipt.indexOf('zkwithdraw') !== -1) {
-            return `${zkScanUrl}/${prefixed(this.receipt.slice(11))}`;
+        {
+            const zkScanUrl = 'https://zkscan.io/explorer/transactions'
+
+            if (this.receipt.indexOf('zksync') !== -1) {
+                return `${zkScanUrl}/${prefixed(this.receipt.slice(7))}`;
+            }
+            if (this.receipt.indexOf('zkwithdraw') !== -1) {
+                return `${zkScanUrl}/${prefixed(this.receipt.slice(11))}`;
+            }
         }
 
         if (this.receipt.indexOf('polygon') !== -1) {

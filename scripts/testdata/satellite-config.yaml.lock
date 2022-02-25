@@ -538,6 +538,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # ratio where to consider processed count as supicious
 # metainfo.segment-loop.suspicious-processed-ratio: 0.03
 
+# enable code for server-side copy
+# metainfo.server-side-copy: false
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 

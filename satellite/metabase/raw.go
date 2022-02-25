@@ -69,10 +69,17 @@ type RawSegment struct {
 	Placement storj.PlacementConstraint
 }
 
+// RawCopy contains a copy that is stored in the database.
+type RawCopy struct {
+	StreamID         uuid.UUID
+	AncestorStreamID uuid.UUID
+}
+
 // RawState contains full state of a table.
 type RawState struct {
 	Objects  []RawObject
 	Segments []RawSegment
+	Copies   []RawCopy
 }
 
 // TestingGetState returns the state of the database.
@@ -89,6 +96,11 @@ func (db *DB) TestingGetState(ctx context.Context) (_ *RawState, err error) {
 		return nil, Error.New("GetState: %w", err)
 	}
 
+	state.Copies, err = db.testingGetAllCopies(ctx)
+	if err != nil {
+		return nil, Error.New("GetState: %w", err)
+	}
+
 	return state, nil
 }
 
@@ -97,6 +109,7 @@ func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
 	_, err = db.db.ExecContext(ctx, `
 		DELETE FROM objects;
 		DELETE FROM segments;
+		DELETE FROM segment_copies;
 		DELETE FROM node_aliases;
 		SELECT setval('node_alias_seq', 1, false);
 	`)
@@ -178,7 +191,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 			plain_offset, plain_size,
 			encrypted_etag,
 			redundancy,
-			inline_data, remote_alias_pieces, 
+			inline_data, remote_alias_pieces,
 			placement
 		FROM segments
 		ORDER BY stream_id ASC, position ASC
@@ -232,4 +245,39 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 		return nil, nil
 	}
 	return segs, nil
+}
+
+// testingGetAllCopies returns the state of the database.
+func (db *DB) testingGetAllCopies(ctx context.Context) (_ []RawCopy, err error) {
+	copies := []RawCopy{}
+
+	rows, err := db.db.QueryContext(ctx, `
+		SELECT
+			stream_id, ancestor_stream_id
+		FROM segment_copies
+		ORDER BY stream_id ASC, ancestor_stream_id ASC
+	`)
+	if err != nil {
+		return nil, Error.New("testingGetAllCopies query: %w", err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		var copy RawCopy
+		err := rows.Scan(
+			&copy.StreamID,
+			&copy.AncestorStreamID,
+		)
+		if err != nil {
+			return nil, Error.New("testingGetAllCopies scan failed: %w", err)
+		}
+		copies = append(copies, copy)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, Error.New("testingGetAllCopies scan failed: %w", err)
+	}
+
+	if len(copies) == 0 {
+		return nil, nil
+	}
+	return copies, nil
 }

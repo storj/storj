@@ -255,3 +255,80 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 		Opts: coOpts,
 	}.Check(ctx, t, db)
 }
+
+// CreateObjectCopy is for testing object copy.
+type CreateObjectCopy struct {
+	OriginalObject   metabase.Object
+	FinishObject     *metabase.FinishCopyObject
+	CopyObjectStream *metabase.ObjectStream
+}
+
+// Run creates the copy.
+func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metabase.DB) (metabase.Object, []metabase.RawSegment) {
+
+	var copyStream metabase.ObjectStream
+	if cc.CopyObjectStream != nil {
+		copyStream = *cc.CopyObjectStream
+	} else {
+		copyStream = RandObjectStream()
+	}
+
+	newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, cc.OriginalObject.SegmentCount)
+	expectedSegments := make([]metabase.RawSegment, cc.OriginalObject.SegmentCount*2)
+	expectedEncryptedSize := 1060
+
+	for i := 0; i < int(cc.OriginalObject.SegmentCount); i++ {
+		newEncryptedKeysNonces[i] = metabase.EncryptedKeyAndNonce{
+			Position:          metabase.SegmentPosition{Index: uint32(i)},
+			EncryptedKeyNonce: testrand.Nonce().Bytes(),
+			EncryptedKey:      testrand.Bytes(32),
+		}
+
+		copyIndex := i + int(cc.OriginalObject.SegmentCount)
+		expectedSegments[i] = DefaultRawSegment(cc.OriginalObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+
+		// TODO: place this calculation in metabasetest.
+		expectedSegments[i].PlainOffset = int64(int32(i) * expectedSegments[i].PlainSize)
+		// TODO: we should use the same value for encrypted size in both test methods.
+		expectedSegments[i].EncryptedSize = int32(expectedEncryptedSize)
+
+		expectedSegments[copyIndex] = metabase.RawSegment{}
+		expectedSegments[copyIndex].StreamID = copyStream.StreamID
+		expectedSegments[copyIndex].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
+		expectedSegments[copyIndex].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
+		expectedSegments[copyIndex].EncryptedSize = expectedSegments[i].EncryptedSize
+		expectedSegments[copyIndex].Position = expectedSegments[i].Position
+		expectedSegments[copyIndex].RootPieceID = expectedSegments[i].RootPieceID
+		expectedSegments[copyIndex].Redundancy = expectedSegments[i].Redundancy
+		expectedSegments[copyIndex].PlainSize = expectedSegments[i].PlainSize
+		expectedSegments[copyIndex].PlainOffset = expectedSegments[i].PlainOffset
+		expectedSegments[copyIndex].CreatedAt = time.Now().UTC()
+	}
+
+	opts := cc.FinishObject
+	if opts == nil {
+		opts = &metabase.FinishCopyObject{
+			NewStreamID:                  copyStream.StreamID,
+			NewBucket:                    copyStream.BucketName,
+			ObjectStream:                 cc.OriginalObject.ObjectStream,
+			NewSegmentKeys:               newEncryptedKeysNonces,
+			NewEncryptedObjectKey:        []byte(copyStream.ObjectKey),
+			NewEncryptedMetadataKeyNonce: testrand.Nonce().Bytes(),
+			NewEncryptedMetadataKey:      testrand.Bytes(32),
+		}
+	}
+	FinishCopyObject{
+		Opts:    *opts,
+		ErrText: "",
+	}.Check(ctx, t, db)
+
+	copyObj := cc.OriginalObject
+	copyObj.StreamID = copyStream.StreamID
+	copyObj.ObjectKey = copyStream.ObjectKey
+	copyObj.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
+	copyObj.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce
+	copyObj.BucketName = copyStream.BucketName
+	copyObj.ZombieDeletionDeadline = nil
+
+	return copyObj, expectedSegments
+}

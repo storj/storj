@@ -39,6 +39,8 @@ func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	sortRawObjects(step.Objects)
 	sortRawSegments(state.Segments)
 	sortRawSegments(step.Segments)
+	sortRawCopies(state.Copies)
+	sortRawCopies(step.Copies)
 
 	diff := cmp.Diff(metabase.RawState(step), *state,
 		cmpopts.EquateApproxTime(5*time.Second))
@@ -60,6 +62,12 @@ func sortRawObjects(objects []metabase.RawObject) {
 func sortRawSegments(segments []metabase.RawSegment) {
 	sort.Slice(segments, func(i, j int) bool {
 		return bytes.Compare(segments[i].StreamID[:], segments[j].StreamID[:]) < 0
+	})
+}
+
+func sortRawCopies(copies []metabase.RawCopy) {
+	sort.Slice(copies, func(i, j int) bool {
+		return bytes.Compare(copies[i].StreamID[:], copies[j].StreamID[:]) < 0
 	})
 }
 

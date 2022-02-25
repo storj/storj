@@ -10,10 +10,10 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20220203111346-5c3b59fd0b9b
+	storj.io/common v0.0.0-20220215191549-ee3a77cfa9eb
 	storj.io/gateway-mt v1.18.1-0.20211210081136-cada9a567d31
 	storj.io/private v0.0.0-20220131131751-c913260b9ec2
-	storj.io/storj v0.12.1-0.20211102170500-1de8a695e84a
+	storj.io/storj v0.12.1-0.20220216152726-b24379aa917a
 )
 
 require (
@@ -179,9 +179,7 @@ require (
 	github.com/ysmood/gson v0.6.4 // indirect
 	github.com/ysmood/leakless v0.7.0 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
-	github.com/zeebo/clingy v0.0.0-20220125233608-1457d47c8d8d // indirect
 	github.com/zeebo/errs v1.2.2 // indirect
-	github.com/zeebo/errs/v2 v2.0.3 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b // indirect
 	go.opentelemetry.io/otel v0.18.0 // indirect
@@ -220,5 +218,5 @@ require (
 	storj.io/gateway v1.4.1 // indirect
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a // indirect
 	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect
-	storj.io/uplink v1.7.2-0.20220203120550-299484e42318 // indirect
+	storj.io/uplink v1.7.2-0.20220216123701-9e00d72711dc // indirect
 )

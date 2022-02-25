@@ -40,6 +40,11 @@ func (s Segment) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
 }
 
+// PiecesInAncestorSegment returns true if remote alias pieces are to be found in an ancestor segment.
+func (s Segment) PiecesInAncestorSegment() bool {
+	return s.EncryptedSize != 0 && len(s.InlineData) == 0 && len(s.Pieces) == 0
+}
+
 // Expired checks if segment is expired relative to now.
 func (s Segment) Expired(now time.Time) bool {
 	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
@@ -166,9 +171,42 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 		return Segment{}, Error.New("unable to query segment: %w", err)
 	}
 
-	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-	if err != nil {
-		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
+	}
+
+	if db.config.ServerSideCopy {
+		if segment.PiecesInAncestorSegment() {
+			//  TODO check performance
+			err = db.db.QueryRowContext(ctx, `
+			SELECT
+				root_piece_id,
+				repaired_at,
+				remote_alias_pieces
+			FROM segments
+			WHERE
+				stream_id IN (SELECT ancestor_stream_id FROM segment_copies WHERE stream_id = $1)
+				AND position = $2
+			`, opts.StreamID, opts.Position.Encode()).Scan(
+				&segment.RootPieceID,
+				&segment.RepairedAt,
+				&aliasPieces,
+			)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return Segment{}, ErrSegmentNotFound.New("segment missing")
+				}
+				return Segment{}, Error.New("unable to query segment: %w", err)
+			}
+
+			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+			if err != nil {
+				return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+			}
+		}
 	}
 
 	segment.StreamID = opts.StreamID
