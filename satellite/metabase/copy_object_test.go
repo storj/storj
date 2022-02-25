@@ -410,7 +410,7 @@ func TestFinishCopyObject(t *testing.T) {
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
-			copyObj, expectedSegments := metabasetest.CreateObjectCopy{
+			copyObj, originalSegments, newSegments := metabasetest.CreateObjectCopy{
 				OriginalObject:   originalObj,
 				CopyObjectStream: &copyStream,
 			}.Run(ctx, t, db)
@@ -420,7 +420,7 @@ func TestFinishCopyObject(t *testing.T) {
 					metabase.RawObject(originalObj),
 					metabase.RawObject(copyObj),
 				},
-				Segments: expectedSegments,
+				Segments: append(originalSegments, newSegments...),
 				Copies: []metabase.RawCopy{{
 					StreamID:         copyStream.StreamID,
 					AncestorStreamID: originalObj.StreamID,
