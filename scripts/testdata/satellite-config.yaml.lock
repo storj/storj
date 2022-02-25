@@ -613,6 +613,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
 
+# list of country codes to exclude nodes from target repair selection
+# overlay.repair-excluded-country-codes: '[]'
+
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
