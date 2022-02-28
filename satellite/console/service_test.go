@@ -318,6 +318,10 @@ func TestPaidTier(t *testing.T) {
 			Free: 10,
 			Paid: 50,
 		},
+		Project: console.ProjectLimitConfig{
+			Free: 1,
+			Paid: 3,
+		},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -336,6 +340,7 @@ func TestPaidTier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Free, *proj1.StorageLimit)
 		require.Equal(t, usageConfig.Bandwidth.Free, *proj1.BandwidthLimit)
+		require.Equal(t, usageConfig.Segment.Free, *proj1.SegmentLimit)
 
 		// user should be in free tier
 		user, err := service.GetUser(ctx, proj1.OwnerID)
@@ -353,6 +358,7 @@ func TestPaidTier(t *testing.T) {
 		user, err = service.GetUser(ctx, user.ID)
 		require.NoError(t, err)
 		require.True(t, user.PaidTier)
+		require.Equal(t, usageConfig.Project.Paid, user.ProjectLimit)
 
 		// update auth ctx
 		authCtx, err = sat.AuthenticatedContext(ctx, user.ID)
@@ -363,6 +369,7 @@ func TestPaidTier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Paid, *proj1.StorageLimit)
 		require.Equal(t, usageConfig.Bandwidth.Paid, *proj1.BandwidthLimit)
+		require.Equal(t, usageConfig.Segment.Paid, *proj1.SegmentLimit)
 
 		// expect new project to be created with paid tier usage limits
 		proj2, err := service.CreateProject(authCtx, console.ProjectInfo{Name: "Project 2"})

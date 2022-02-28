@@ -31,6 +31,12 @@
 # the default paid-tier bandwidth usage limit
 # admin.console-config.usage-limits.bandwidth.paid: 100.00 TB
 
+# the default free-tier project limit
+# admin.console-config.usage-limits.project.free: 1
+
+# the default paid-tier project limit
+# admin.console-config.usage-limits.project.paid: 3
+
 # the default free-tier segment usage limit
 # admin.console-config.usage-limits.segment.free: 150000
 
@@ -264,6 +270,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # the default paid-tier bandwidth usage limit
 # console.usage-limits.bandwidth.paid: 100.00 TB
+
+# the default free-tier project limit
+# console.usage-limits.project.free: 1
+
+# the default paid-tier project limit
+# console.usage-limits.project.paid: 3
 
 # the default free-tier segment usage limit
 # console.usage-limits.segment.free: 150000
