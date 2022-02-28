@@ -1660,6 +1660,10 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeginCopyRequest) (resp *pb.ObjectBeginCopyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if !endpoint.config.ServerSideCopy {
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
+	}
+
 	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 	if err != nil {
 		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
@@ -1826,6 +1830,10 @@ func convertBeginCopyObjectResults(result metabase.BeginCopyObjectResult) (*pb.O
 // FinishCopyObject accepts new encryption keys for object copy and updates the corresponding object ObjectKey and segments EncryptedKey.
 func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFinishCopyRequest) (resp *pb.ObjectFinishCopyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if !endpoint.config.ServerSideCopy {
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
+	}
 
 	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 	if err != nil {
