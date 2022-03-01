@@ -277,6 +277,10 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 	result, err := db.ListSegments(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
+	if len(step.Result.Segments) == 0 && len(result.Segments) == 0 {
+		return
+	}
+
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }

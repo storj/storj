@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
 )
 
@@ -53,7 +54,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 		WHERE
 			stream_id = $1 AND
 			($2 = 0::INT8 OR position > $2)
-		ORDER BY position ASC
+		ORDER BY stream_id, position ASC
 		LIMIT $3
 	`, opts.StreamID, opts.Cursor, opts.Limit+1))(func(rows tagsql.Rows) error {
 		for rows.Next() {
@@ -87,6 +88,58 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 			return ListSegmentsResult{}, nil
 		}
 		return ListSegmentsResult{}, Error.New("unable to fetch object segments: %w", err)
+	}
+
+	if db.config.ServerSideCopy {
+		copies := make([]Segment, 0, len(result.Segments))
+		copiesPositions := make([]int64, 0, len(result.Segments))
+		for _, segment := range result.Segments {
+			if segment.PiecesInAncestorSegment() {
+				copies = append(copies, segment)
+				copiesPositions = append(copiesPositions, int64(segment.Position.Encode()))
+			}
+		}
+
+		if len(copies) > 0 {
+			index := 0
+			err = withRows(db.db.QueryContext(ctx, `
+					SELECT
+						root_piece_id,
+						remote_alias_pieces
+					FROM segments
+					WHERE
+						stream_id = (SELECT ancestor_stream_id FROM segment_copies WHERE stream_id = $1)
+						AND position IN (SELECT position FROM UNNEST($2::INT8[]) as position)
+					ORDER BY stream_id, position ASC
+				`, opts.StreamID, pgutil.Int8Array(copiesPositions)))(func(rows tagsql.Rows) error {
+
+				for rows.Next() {
+					var aliasPieces AliasPieces
+					err = rows.Scan(
+						&copies[index].RootPieceID,
+						&aliasPieces,
+					)
+					if err != nil {
+						return Error.New("failed to scan segments: %w", err)
+					}
+
+					copies[index].Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+					if err != nil {
+						return Error.New("failed to convert aliases to pieces: %w", err)
+					}
+					index++
+				}
+				return nil
+			})
+			if err != nil {
+				return ListSegmentsResult{}, Error.New("unable to fetch object segments: %w", err)
+			}
+
+			if index != len(copies) {
+				return ListSegmentsResult{}, Error.New("number of ancestor segments is different than copies: want %d got %d",
+					len(copies), index)
+			}
+		}
 	}
 
 	if len(result.Segments) > opts.Limit {
