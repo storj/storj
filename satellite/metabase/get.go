@@ -178,39 +178,15 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 		}
 	}
 
-	if db.config.ServerSideCopy {
-		if segment.PiecesInAncestorSegment() {
-			//  TODO check performance
-			err = db.db.QueryRowContext(ctx, `
-			SELECT
-				root_piece_id,
-				repaired_at,
-				remote_alias_pieces
-			FROM segments
-			WHERE
-				stream_id IN (SELECT ancestor_stream_id FROM segment_copies WHERE stream_id = $1)
-				AND position = $2
-			`, opts.StreamID, opts.Position.Encode()).Scan(
-				&segment.RootPieceID,
-				&segment.RepairedAt,
-				&aliasPieces,
-			)
-			if err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return Segment{}, ErrSegmentNotFound.New("segment missing")
-				}
-				return Segment{}, Error.New("unable to query segment: %w", err)
-			}
-
-			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-			if err != nil {
-				return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
-			}
-		}
-	}
-
 	segment.StreamID = opts.StreamID
 	segment.Position = opts.Position
+
+	if db.config.ServerSideCopy {
+		err = db.updateWithAncestorSegment(ctx, &segment)
+		if err != nil {
+			return Segment{}, err
+		}
+	}
 
 	return segment, nil
 }
@@ -269,12 +245,57 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 		return Segment{}, Error.New("unable to query segment: %w", err)
 	}
 
-	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-	if err != nil {
-		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
+	}
+
+	if db.config.ServerSideCopy {
+		err = db.updateWithAncestorSegment(ctx, &segment)
+		if err != nil {
+			return Segment{}, err
+		}
 	}
 
 	return segment, nil
+}
+
+func (db *DB) updateWithAncestorSegment(ctx context.Context, segment *Segment) (err error) {
+	if !segment.PiecesInAncestorSegment() {
+		return nil
+	}
+
+	var aliasPieces AliasPieces
+
+	err = db.db.QueryRowContext(ctx, `
+			SELECT
+				root_piece_id,
+				repaired_at,
+				remote_alias_pieces
+			FROM segments
+			WHERE
+				stream_id IN (SELECT ancestor_stream_id FROM segment_copies WHERE stream_id = $1)
+				AND position = $2
+			`, segment.StreamID, segment.Position.Encode()).Scan(
+		&segment.RootPieceID,
+		&segment.RepairedAt,
+		&aliasPieces,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrSegmentNotFound.New("segment missing")
+		}
+		return Error.New("unable to query segment: %w", err)
+	}
+
+	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Error.New("unable to convert aliases to pieces: %w", err)
+	}
+
+	return nil
 }
 
 // GetSegmentByOffset contains arguments necessary for fetching a segment information.
