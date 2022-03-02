@@ -1830,6 +1830,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE stripecoinpayments_tx_conversion_rates ADD COLUMN rate_numeric double precision;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "change segment limit default value to 100M for users from paid tier",
+				Version:     190,
+				Action: migrate.SQL{
+					`UPDATE users SET project_segment_limit = 100000000 WHERE paid_tier = true`,
+					`UPDATE projects SET segment_limit = 100000000
+						WHERE owner_id IN (SELECT id FROM users WHERE paid_tier = true);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
