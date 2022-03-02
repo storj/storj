@@ -155,7 +155,9 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
 					if ErrPieceHashVerifyFailed.Has(err) {
-						ec.log.Info("audit failed", zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
+						ec.log.Info("audit failed",
+							zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.String("reason", err.Error()))
 						pieces.Failed = append(pieces.Failed, piece)
 						return
@@ -166,24 +168,28 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					case audit.PieceAuditFailure:
 						ec.log.Debug("Failed to download pieces for repair: piece not found (audit failed)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Failed = append(pieces.Failed, piece)
 
 					case audit.PieceAuditOffline:
 						ec.log.Debug("Failed to download pieces for repair: dial timeout (offline)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Offline = append(pieces.Offline, piece)
 
 					case audit.PieceAuditContained:
 						ec.log.Info("Failed to download pieces for repair: download timeout (contained)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Contained = append(pieces.Contained, piece)
 
 					case audit.PieceAuditUnknown:
 						ec.log.Info("Failed to download pieces for repair: unknown transport error (skipped)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Unknown = append(pieces.Unknown, piece)
 					}
