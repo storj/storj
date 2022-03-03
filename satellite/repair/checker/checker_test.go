@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -81,61 +80,6 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 
 		_, err = repairQueue.Select(ctx)
 		require.Error(t, err)
-	})
-}
-
-func TestInjuredsSegmentWhenPiecesAreInExcludedCountries(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		checker := planet.Satellites[0].Repair.Checker
-
-		checker.Loop.Pause()
-		planet.Satellites[0].Repair.Repairer.Loop.Pause()
-
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "key", testrand.Bytes(5*memory.KiB))
-		require.NoError(t, err)
-
-		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Len(t, objects, 1)
-
-		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
-		require.NoError(t, err)
-		require.Len(t, segments, 1)
-		require.False(t, segments[0].Inline())
-
-		err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, planet.StorageNodes[0].ID(), "FR")
-		require.NoError(t, err)
-		err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, planet.StorageNodes[1].ID(), "FR")
-		require.NoError(t, err)
-
-		checker.Loop.TriggerWait()
-
-		// check that the healthy segments was added to repair queue
-		// because of part of nodes have country code value on exclude
-		// list
-		count, err := planet.Satellites[0].DB.RepairQueue().Count(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 1, count)
-
-		// trigger checker to add segment to repair queue
-		planet.Satellites[0].Repair.Repairer.Loop.Restart()
-		planet.Satellites[0].Repair.Repairer.Loop.TriggerWait()
-		planet.Satellites[0].Repair.Repairer.Loop.Pause()
-		planet.Satellites[0].Repair.Repairer.WaitForPendingRepairs()
-
-		count, err = planet.Satellites[0].DB.RepairQueue().Count(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 0, count)
-
-		segmentsAfterRepair, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
-		require.NoError(t, err)
-
-		require.Equal(t, segments[0].Pieces, segmentsAfterRepair[0].Pieces)
 	})
 }
 

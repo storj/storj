@@ -189,6 +189,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, nil
 	}
 
+	piecesInExcludedCountries, err := repairer.overlay.GetReliablePiecesInExcludedCountries(ctx, pieces)
+	if err != nil {
+		return false, overlayQueryError.New("error identifying pieces in excluded countries: %w", err)
+	}
+
+	numHealthyInExcludedCountries := len(piecesInExcludedCountries)
+
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Counter("repairer_segments_below_min_req").Inc(0) //mon:locked
 	stats.repairerSegmentsBelowMinReq.Inc(0)
@@ -207,7 +214,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// repair not needed
-	if numHealthy > int(repairThreshold) {
+	if numHealthy-numHealthyInExcludedCountries > int(repairThreshold) {
 		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		stats.repairUnnecessary.Mark(1)
 		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold))
@@ -268,8 +275,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	var minSuccessfulNeeded int
 	{
 		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) * repairer.multiplierOptimalThreshold)
-		requestCount = int(totalNeeded) - len(healthyPieces)
-		minSuccessfulNeeded = redundancy.OptimalThreshold() - len(healthyPieces)
+		requestCount = int(totalNeeded) - len(healthyPieces) + numHealthyInExcludedCountries
+		minSuccessfulNeeded = redundancy.OptimalThreshold() - len(healthyPieces) + numHealthyInExcludedCountries
 	}
 
 	// Request Overlay for n-h new storage nodes
@@ -283,7 +290,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold, numHealthyInExcludedCountries)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}

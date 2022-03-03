@@ -74,6 +74,20 @@ var ReconfigureRS = func(minThreshold, repairThreshold, successThreshold, totalT
 	}
 }
 
+// RepairExcludedCountryCodes returns function to change satellite repair excluded country codes.
+var RepairExcludedCountryCodes = func(repairExcludedCountryCodes []string) func(log *zap.Logger, index int, config *satellite.Config) {
+	return func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Overlay.RepairExcludedCountryCodes = repairExcludedCountryCodes
+	}
+}
+
+// UploadExcludedCountryCodes returns function to change satellite upload excluded country codes.
+var UploadExcludedCountryCodes = func(uploadExcludedCountryCodes []string) func(log *zap.Logger, index int, config *satellite.Config) {
+	return func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Overlay.Node.UploadExcludedCountryCodes = uploadExcludedCountryCodes
+	}
+}
+
 // MaxSegmentSize returns function to change satellite max segment size value.
 var MaxSegmentSize = func(maxSegmentSize memory.Size) func(log *zap.Logger, index int, config *satellite.Config) {
 	return func(log *zap.Logger, index int, config *satellite.Config) {
