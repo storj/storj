@@ -108,6 +108,8 @@ type DB interface {
 	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
 	// TestVetNode directly sets a node's offline_suspended timestamp to make testing easier
 	TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
+	// TestNodeCountryCode sets node country code.
+	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
 
 	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
@@ -154,6 +156,7 @@ type NodeCriteria struct {
 	OnlineWindow       time.Duration
 	DistinctIP         bool
 	AsOfSystemInterval time.Duration // only used for CRDB queries
+	ExcludedCountries  []string
 }
 
 // ReputationStatus indicates current reputation status for a node.
@@ -494,9 +497,11 @@ func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDL
 // Reliable filters a set of nodes that are reliable, independent of new.
 func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	criteria := &NodeCriteria{
 		OnlineWindow: service.config.Node.OnlineWindow,
 	}
+	criteria.ExcludedCountries = service.config.RepairExcludedCountryCodes
 	return service.db.Reliable(ctx, criteria)
 }
 
@@ -672,4 +677,15 @@ func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) 
 	err = service.UploadSelectionCache.Refresh(ctx)
 	service.log.Warn("nodecache refresh err", zap.Error(err))
 	return err
+}
+
+// TestNodeCountryCode directly sets a node's vetted_at timestamp to null to make testing easier.
+func (service *Service) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+	err = service.db.TestNodeCountryCode(ctx, nodeID, countryCode)
+	if err != nil {
+		service.log.Warn("error updating node", zap.Stringer("node ID", nodeID), zap.Error(err))
+		return err
+	}
+
+	return nil
 }

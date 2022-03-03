@@ -767,8 +767,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 							) >= 10
 							OR comp_at_rest < 0
 						)
-						AND codes not like '%O%'
-						AND codes not like '%D%'
+						AND codes NOT LIKE '%O%'
+						AND codes NOT LIKE '%D%'
 						AND period < '2020-03'
 				`},
 			},
@@ -918,7 +918,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "enable multiple projects for existing users",
 				Version:     127,
 				Action: migrate.SQL{
-					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 and project_limit > 0;`,
+					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 AND project_limit > 0;`,
 				},
 			},
 			{
@@ -1814,7 +1814,22 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						WHERE owner_id NOT IN (SELECT id FROM users WHERE paid_tier = true);`,
 				},
 			},
-
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to coinpayments tables to replace gob-encoded big.Floats",
+				Version:     189,
+				Action: migrate.SQL{
+					`ALTER TABLE coinpayments_transactions ALTER COLUMN amount DROP NOT NULL;`,
+					`ALTER TABLE coinpayments_transactions ALTER COLUMN received DROP NOT NULL;`,
+					`ALTER TABLE coinpayments_transactions RENAME COLUMN amount TO amount_gob;`,
+					`ALTER TABLE coinpayments_transactions RENAME COLUMN received TO received_gob;`,
+					`ALTER TABLE coinpayments_transactions ADD COLUMN amount_numeric int8;`,
+					`ALTER TABLE coinpayments_transactions ADD COLUMN received_numeric int8;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates ALTER COLUMN rate DROP NOT NULL;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates RENAME COLUMN rate TO rate_gob;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates ADD COLUMN rate_numeric double precision;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

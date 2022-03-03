@@ -206,14 +206,14 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 
 	if len(excludedIDs) > 0 {
 		conds.add(
-			`not (id = any(?::bytea[]))`,
+			`NOT (id = ANY(?::bytea[]))`,
 			pgutil.NodeIDArray(excludedIDs),
 		)
 	}
 	if criteria.DistinctIP {
 		if len(excludedNetworks) > 0 {
 			conds.add(
-				`not (last_net = any(?::text[]))`,
+				`NOT (last_net = ANY(?::text[]))`,
 				pgutil.TextArray(excludedNetworks),
 			)
 		}

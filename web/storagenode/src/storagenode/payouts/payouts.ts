@@ -290,15 +290,33 @@ export class SatellitePayoutForPeriod {
     }
 
     public get transactionLink(): string {
+        const prefixed = function (hash: string): string {
+            if (hash.indexOf("0x") != 0) {
+                return "0x" + hash;
+            }
+            return hash;
+        }
         if (!this.receipt) {
             return '';
         }
 
         if (this.receipt.indexOf('eth') !== -1) {
-            return `https://etherscan.io/tx/${this.receipt.slice(4)}`;
+            return `https://etherscan.io/tx/${prefixed(this.receipt.slice(4))}`;
         }
-        if (this.receipt.indexOf('zksync') !== -1) {
-            return `https://zkscan.io/explorer/transactions/${this.receipt.slice(7)}`;
+
+        {
+            const zkScanUrl = 'https://zkscan.io/explorer/transactions'
+
+            if (this.receipt.indexOf('zksync') !== -1) {
+                return `${zkScanUrl}/${prefixed(this.receipt.slice(7))}`;
+            }
+            if (this.receipt.indexOf('zkwithdraw') !== -1) {
+                return `${zkScanUrl}/${prefixed(this.receipt.slice(11))}`;
+            }
+        }
+
+        if (this.receipt.indexOf('polygon') !== -1) {
+            return `https://polygonscan.com/tx/${prefixed(this.receipt.slice(8))}`;
         }
 
         return this.receipt;

@@ -155,7 +155,7 @@ func Delete(ctx context.Context, log *zap.Logger, config Config) (err error) {
 func findOrphanedSegments(ctx context.Context, log *zap.Logger, config Config) (_ []uuid.UUID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), config.MetabaseDB, metabase.Config{})
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), config.MetabaseDB, metabase.Config{ApplicationName: "metabase-orphaned-segments"})
 	if err != nil {
 		return nil, errs.New("unable to connect %q: %w", config.MetabaseDB, err)
 	}

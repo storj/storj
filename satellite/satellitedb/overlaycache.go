@@ -529,8 +529,9 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 		AND unknown_audit_suspended IS NULL
 		AND offline_suspended IS NULL
 		AND exit_finished_at IS NULL
-		AND last_contact_success > ?
-	`), time.Now().Add(-criteria.OnlineWindow))
+		AND last_contact_success > $1
+		AND country_code NOT IN (SELECT UNNEST($2::TEXT[]))
+	`), time.Now().Add(-criteria.OnlineWindow), pgutil.TextArray(criteria.ExcludedCountries))
 	if err != nil {
 		return nil, err
 	}
@@ -1295,6 +1296,22 @@ func (cache *overlaycache) TestSuspendNodeOffline(ctx context.Context, nodeID st
 	}
 	if dbNode == nil {
 		return errs.New("unable to get node by ID: %v", nodeID)
+	}
+	return nil
+}
+
+// TestNodeCountryCode sets node country code.
+func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.CountryCode = dbx.Node_CountryCode(countryCode)
+
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return err
+	}
+	if dbNode == nil {
+		return errs.New("unable to set node country code: %v", nodeID)
 	}
 	return nil
 }

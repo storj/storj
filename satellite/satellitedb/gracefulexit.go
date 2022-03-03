@@ -352,7 +352,7 @@ func (db *gracefulexitDB) GetFinishedExitNodes(ctx context.Context, before time.
 // affect correctness.
 func (db *gracefulexitDB) DeleteBatchExitProgress(ctx context.Context, nodeIDs []storj.NodeID) (deleted int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	stmt := `DELETE from graceful_exit_progress
+	stmt := `DELETE FROM graceful_exit_progress
 			WHERE node_id = ANY($1)`
 	for len(nodeIDs) > 0 {
 		numToSubmit := len(nodeIDs)
@@ -468,8 +468,8 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 				order_limit_send_count
 			FROM graceful_exit_segment_transfer_queue
 			WHERE node_id = ?
-				AND finished_at is NULL
-				AND last_failed_at is not NULL
+				AND finished_at IS NULL
+				AND last_failed_at IS NOT NULL
 				AND failed_count < ?
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
 	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)

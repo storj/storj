@@ -28,9 +28,7 @@ if [ ! -d ${main_cfg_dir}/uplink-old-api ]; then
     mkdir -p ${main_cfg_dir}/uplink-old-api
     access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
     new_access=$(go run $update_access_script_path $(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
-    sat_id=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ID)
-    old_sat_api_addr="$sat_id@127.0.0.1:30000"
-    uplink import --satellite-address="$old_sat_api_addr" --config-dir="${main_cfg_dir}/uplink-old-api" "$new_access"
+    echo "access: ${new_access}" > "${main_cfg_dir}/uplink-old-api/config.yaml"
 fi
 
 echo -e "\nConfig directory for uplink:"
@@ -38,6 +36,14 @@ echo "${main_cfg_dir}/uplink"
 echo "which uplink: $(which uplink)"
 echo "Shasum for uplink:"
 shasum $(which uplink)
+
+new_uplink() {
+    UPLINK_LEGACY_CONFIG_DIR="${main_cfg_dir}/uplink" uplink --config-dir="${main_cfg_dir}/uplink" "$@"
+}
+
+old_uplink() {
+    UPLINK_LEGACY_CONFIG_DIR="${main_cfg_dir}/uplink-old-api" uplink --config-dir="${main_cfg_dir}/uplink-old-api" "$@"
+}
 
 echo -e "\nConfig directory for satellite:"
 echo "${main_cfg_dir}/satellite/0"
@@ -66,13 +72,14 @@ for suffix in ${existing_bucket_name_suffixes}; do
 
     echo "bucket name: ${bucket_name}"
     echo "download folder name: ${download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
 
-    uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/small-upload-testfile" "${old_api_download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/big-upload-testfile" "${old_api_download_dst_dir}"
-    uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${old_api_download_dst_dir}"
+    new_uplink cp --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
+    new_uplink cp --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
+    new_uplink cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
+
+    old_uplink cp --progress=false "sj://$bucket_name/small-upload-testfile" "${old_api_download_dst_dir}"
+    old_uplink cp --progress=false "sj://$bucket_name/big-upload-testfile" "${old_api_download_dst_dir}"
+    old_uplink cp --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${old_api_download_dst_dir}"
 
     if cmp "${original_dst_dir}/small-upload-testfile" "${download_dst_dir}/small-upload-testfile"
     then

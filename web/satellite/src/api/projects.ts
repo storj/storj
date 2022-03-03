@@ -81,8 +81,8 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * Update project name and description.
      *
      * @param projectId - project ID
-     * @param name - project name
-     * @param description - project description
+     * @param projectFields - project fields
+     * @param projectLimits - project limits
      * @returns Project[]
      * @throws Error
      */

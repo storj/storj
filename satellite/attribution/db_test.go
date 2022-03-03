@@ -4,6 +4,7 @@
 package attribution_test
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
@@ -178,13 +179,103 @@ func TestQueryAttribution(t *testing.T) {
 	})
 }
 
+func TestQueryAllAttribution(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		now := time.Now()
+
+		projectID := testrand.UUID()
+		partnerID := testrand.UUID()
+		userAgent := []byte("agent1")
+		alphaBucket := []byte("alpha")
+		betaBucket := []byte("beta")
+		testData := []AttributionTestData{
+			{
+				name:       "new partnerID, userAgent, projectID, alpha",
+				partnerID:  testrand.UUID(),
+				userAgent:  []byte("agent2"),
+				projectID:  projectID,
+				bucketName: alphaBucket,
+
+				remoteSize: remoteSize,
+				inlineSize: inlineSize,
+				egressSize: egressSize,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			},
+			{
+				name:       "partnerID, userAgent, new projectID, alpha",
+				partnerID:  partnerID,
+				userAgent:  userAgent,
+				projectID:  testrand.UUID(),
+				bucketName: alphaBucket,
+
+				remoteSize: remoteSize / 2,
+				inlineSize: inlineSize / 2,
+				egressSize: egressSize / 2,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			},
+			{
+				name:       "new partnerID, userAgent, projectID, beta",
+				partnerID:  testrand.UUID(),
+				userAgent:  []byte("agent3"),
+				projectID:  projectID,
+				bucketName: betaBucket,
+
+				remoteSize: remoteSize / 3,
+				inlineSize: inlineSize / 3,
+				egressSize: egressSize / 3,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			},
+			{
+				name:       "partnerID, userAgent new projectID, beta",
+				partnerID:  partnerID,
+				userAgent:  userAgent,
+				projectID:  testrand.UUID(),
+				bucketName: betaBucket,
+
+				remoteSize: remoteSize / 4,
+				inlineSize: inlineSize / 4,
+				egressSize: egressSize / 4,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			}}
+
+		for i, td := range testData {
+			td := td
+			td.init()
+
+			info := attribution.Info{td.projectID, td.bucketName, td.partnerID, td.userAgent, time.Time{}}
+			_, err := db.Attribution().Insert(ctx, &info)
+			require.NoError(t, err)
+
+			for i := 0; i < td.hoursOfData; i++ {
+				createData(ctx, t, db, &td)
+			}
+			testData[i] = td
+		}
+		verifyAllData(ctx, t, db.Attribution(), testData)
+	})
+}
+
 func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attribution.DB, testData *AttributionTestData) {
 	results, err := attributionDB.QueryAttribution(ctx, testData.partnerID, testData.userAgent, testData.start, testData.end)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, len(results), "Results must not be empty.")
 	count := 0
 	for _, r := range results {
-		projectID, _ := uuid.FromBytes(r.ProjectID)
+		projectID, err := uuid.FromBytes(r.ProjectID)
+		require.NoError(t, err)
+
 		// The query returns results by partnerID, so we need to filter out by projectID
 		if projectID != testData.projectID {
 			continue
@@ -201,11 +292,44 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 	require.NotEqual(t, 0, count, "Results were returned, but did not match all of the the projectIDs.")
 }
 
+func verifyAllData(ctx *testcontext.Context, t *testing.T, attributionDB attribution.DB, testData []AttributionTestData) {
+	results, err := attributionDB.QueryAllAttribution(ctx, testData[0].start, testData[0].end)
+	require.NoError(t, err)
+	require.NotEqual(t, 0, len(results), "Results must not be empty.")
+	count := 0
+	for _, tt := range testData {
+		for _, r := range results {
+			projectID, err := uuid.FromBytes(r.ProjectID)
+			require.NoError(t, err)
+
+			// The query returns results by partnerID, so we need to filter out by projectID
+			if projectID != tt.projectID || !bytes.Equal(r.BucketName, tt.bucketName) {
+				continue
+			}
+			count++
+
+			assert.Equal(t, tt.partnerID[:], r.PartnerID, tt.name)
+			assert.Equal(t, tt.userAgent, r.UserAgent, tt.name)
+			assert.Equal(t, tt.projectID[:], r.ProjectID, tt.name)
+			assert.Equal(t, tt.bucketName, r.BucketName, tt.name)
+			assert.Equal(t, float64(tt.expectedTotalBytes/tt.hours), r.TotalBytesPerHour, tt.name)
+			assert.Equal(t, tt.expectedEgress, r.EgressData, tt.name)
+		}
+	}
+
+	require.Equal(t, len(testData), len(results))
+	require.NotEqual(t, 0, count, "Results were returned, but did not match all of the the projectIDs.")
+}
+
 func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testData *AttributionTestData) {
 	projectAccoutingDB := db.ProjectAccounting()
 	orderDB := db.Orders()
 
-	err := orderDB.UpdateBucketBandwidthSettle(ctx, testData.projectID, testData.bucketName, pb.PieceAction_GET, testData.egressSize, 0, testData.bwStart)
+	// split the expected egress size into two separate bucket_bandwidth_rollup rows to test attribution query summation
+	err := orderDB.UpdateBucketBandwidthSettle(ctx, testData.projectID, testData.bucketName, pb.PieceAction_GET, testData.egressSize/2, 0, testData.bwStart)
+	require.NoError(t, err)
+
+	err = orderDB.UpdateBucketBandwidthSettle(ctx, testData.projectID, testData.bucketName, pb.PieceAction_GET, testData.egressSize/2, 0, testData.bwStart.Add(2*time.Hour))
 	require.NoError(t, err)
 
 	// Only GET should be counted. So this should not effect results

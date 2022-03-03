@@ -366,7 +366,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
 
-			object := metabasetest.CreateTestObject{
+			object, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -536,7 +536,7 @@ func TestDeleteObjectAnyStatusAllVersions(t *testing.T) {
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
 
-			object := metabasetest.CreateTestObject{
+			object, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],

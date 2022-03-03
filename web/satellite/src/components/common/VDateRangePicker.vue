@@ -3,6 +3,7 @@
 
 <template>
     <DatePicker
+        aria-roledescription="datepicker"
         range
         :open="isOpen"
         :inline="true"

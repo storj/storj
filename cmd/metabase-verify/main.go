@@ -59,7 +59,7 @@ func VerifyCommand(log *zap.Logger) *cobra.Command {
 		ctx, cancel := process.Ctx(cmd)
 		defer cancel()
 
-		mdb, err := metabase.Open(ctx, log.Named("mdb"), metabaseDB, metabase.Config{})
+		mdb, err := metabase.Open(ctx, log.Named("mdb"), metabaseDB, metabase.Config{ApplicationName: "metabase-verify"})
 		if err != nil {
 			return Error.Wrap(err)
 		}

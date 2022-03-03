@@ -178,6 +178,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to general request page
 # console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
+# indicates if generated console api should be used
+# console.generated-api-enabled: false
+
+# inactivity timer delay in seconds
+# console.inactivity-timer-delay: 600
+
+# indicates if session can be timed out due inactivity
+# console.inactivity-timer-enabled: false
+
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
 
@@ -532,6 +541,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # ratio where to consider processed count as supicious
 # metainfo.segment-loop.suspicious-processed-ratio: 0.03
 
+# enable code for server-side copy
+# metainfo.server-side-copy: false
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
@@ -600,6 +612,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
+
+# list of country codes to exclude nodes from target repair selection
+# overlay.repair-excluded-country-codes: '[]'
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100

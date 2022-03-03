@@ -655,6 +655,40 @@ func (step FinishMoveObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
+// BeginCopyObject is for testing metabase.BeginCopyObject.
+type BeginCopyObject struct {
+	Opts     metabase.BeginCopyObject
+	Result   metabase.BeginCopyObjectResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step BeginCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.BeginCopyObject(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result)
+	require.Zero(t, diff)
+}
+
+// FinishCopyObject is for testing metabase.FinishCopyObject.
+type FinishCopyObject struct {
+	Opts     metabase.FinishCopyObject
+	Result   metabase.Object
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.FinishCopyObject(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 // GetProjectSegmentCount is for testing metabase.GetProjectSegmentCount.
 type GetProjectSegmentCount struct {
 	Opts     metabase.GetProjectSegmentCount

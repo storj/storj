@@ -3,9 +3,9 @@
 
 <template>
     <div ref="dashboard" class="project-dashboard">
-        <h1 class="project-dashboard__title">Dashboard</h1>
+        <h1 class="project-dashboard__title" aria-roledescription="title">Dashboard</h1>
         <VLoader v-if="isDataFetching" class="project-dashboard__loader" width="100px" height="100px" />
-        <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle">
+        <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle" aria-roledescription="with-usage-title">
             Your
             <span class="project-dashboard__subtitle__value">{{ limits.objectCount }} objects</span>
             are stored in
@@ -13,7 +13,7 @@
             around the world
         </p>
         <template v-if="!isDataFetching && !limits.objectCount">
-            <p class="project-dashboard__subtitle">
+            <p class="project-dashboard__subtitle" aria-roledescription="empty-title">
                 Welcome to Storj :) <br> You’re ready to experience the future of cloud storage
             </p>
             <VButton
@@ -140,7 +140,9 @@
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
-                    <p class="project-dashboard__info__label">Total of {{ usedLimitFormatted(limits.storageUsed) }}</p>
+                    <p class="project-dashboard__info__label" aria-roledescription="total-storage">
+                        Total of {{ usedLimitFormatted(limits.storageUsed) }}
+                    </p>
                 </template>
             </InfoContainer>
             <InfoContainer

@@ -123,4 +123,6 @@ type Config struct {
 	RateLimiter                 RateLimiterConfig    `help:"rate limiter configuration"`
 	ProjectLimits               ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion               piecedeletion.Config `help:"piece deletion configuration"`
+	// TODO remove this flag when server-side copy implementation will be finished
+	ServerSideCopy bool `help:"enable code for server-side copy" releaseDefault:"false" devDefault:"true"`
 }

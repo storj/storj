@@ -303,13 +303,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup audit
+		// force tcp for now because audit is very sensitive to how errors
+		// are returned, and adding quic can cause problems
+		dialer := peer.Dialer
+		//lint:ignore SA1019 deprecated is fine here.
+		//nolint:staticcheck // deprecated is fine here.
+		dialer.Connector = rpc.NewDefaultTCPConnector(nil)
+
 		config := config.Audit
 
 		peer.Audit.Queues = audit.NewQueues()
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Metabase,
-			peer.Dialer,
+			dialer,
 			peer.Overlay.Service,
 			peer.DB.Containment(),
 			peer.Orders.Service,
@@ -477,6 +484,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			service,
 			pc.StripeCoinPayments.TransactionUpdateInterval,
 			pc.StripeCoinPayments.AccountBalanceUpdateInterval,
+			pc.StripeCoinPayments.GobFloatMigrationBatchInterval,
+			pc.StripeCoinPayments.GobFloatMigrationBatchSize,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name: "payments.stripe:service",

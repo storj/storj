@@ -94,6 +94,9 @@ type Config struct {
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
+	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
+	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
+	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -343,10 +346,10 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 			"connect-src 'self' *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
-			"img-src 'self' data: *.tardigradeshare.io *.storjshare.io",
+			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io",
 			// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
 			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'self'",
-			"media-src 'self' *.tardigradeshare.io *.storjshare.io",
+			"media-src 'self' blob: *.tardigradeshare.io *.storjshare.io",
 			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
 		}
 
@@ -386,6 +389,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultPaidBandwidthLimit       memory.Size
 		NewNavigation                   bool
 		NewObjectsFlow                  bool
+		InactivityTimerEnabled          bool
+		InactivityTimerDelay            int
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -416,6 +421,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NewProjectDashboard = server.config.NewProjectDashboard
 	data.NewNavigation = server.config.NewNavigation
 	data.NewObjectsFlow = server.config.NewObjectsFlow
+	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
+	data.InactivityTimerDelay = server.config.InactivityTimerDelay
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {
