@@ -60,6 +60,8 @@ type DB interface {
 	KnownOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
+	// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
+	KnownReliableInExcludedCountries(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
 	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
@@ -489,6 +491,17 @@ func (service *Service) KnownUnreliableOrOffline(ctx context.Context, nodeIds st
 	return service.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
+// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
+func (service *Service) KnownReliableInExcludedCountries(ctx context.Context, nodeIds storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	criteria := &NodeCriteria{
+		OnlineWindow:      service.config.Node.OnlineWindow,
+		ExcludedCountries: service.config.RepairExcludedCountryCodes,
+	}
+	return service.db.KnownReliableInExcludedCountries(ctx, criteria, nodeIds)
+}
+
 // KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
 func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -599,7 +612,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	return nil
 }
 
-// GetMissingPieces returns the list of offline nodes.
+// GetMissingPieces returns the list of offline nodes and the corresponding pieces.
 func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pieces) (missingPieces []uint16, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIDs storj.NodeIDList
@@ -619,6 +632,28 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pi
 		}
 	}
 	return missingPieces, nil
+}
+
+// GetReliablePiecesInExcludedCountries returns the list of pieces held by nodes located in excluded countries.
+func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context, pieces metabase.Pieces) (piecesInExcluded []uint16, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var nodeIDs storj.NodeIDList
+	for _, p := range pieces {
+		nodeIDs = append(nodeIDs, p.StorageNode)
+	}
+	inExcluded, err := service.KnownReliableInExcludedCountries(ctx, nodeIDs)
+	if err != nil {
+		return nil, Error.New("error getting nodes %s", err)
+	}
+
+	for _, p := range pieces {
+		for _, nodeID := range inExcluded {
+			if nodeID == p.StorageNode {
+				piecesInExcluded = append(piecesInExcluded, p.Number)
+			}
+		}
+	}
+	return piecesInExcluded, nil
 }
 
 // DisqualifyNode disqualifies a storage node.

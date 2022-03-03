@@ -34,6 +34,9 @@ func (c *Criteria) MatchInclude(node *Node) bool {
 	}
 
 	for _, code := range c.ExcludedCountryCodes {
+		if code.String() == "" {
+			continue
+		}
 		if node.CountryCode == code {
 			return false
 		}
