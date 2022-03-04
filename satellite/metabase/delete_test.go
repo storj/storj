@@ -1142,6 +1142,7 @@ func TestDeleteCopy(t *testing.T) {
 								AncestorStreamID: remainingStreamIDs[0],
 							}}
 					}
+
 					expectedAncestorStreamID := remainingStreamIDs[0]
 
 					// set pieces in expected ancestor for verifcation
