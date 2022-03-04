@@ -253,6 +253,29 @@ push-storagenode-base-image: ## Push the storagenode base image to dockerhub
 	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64
 	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6
 	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8
+	# create, annotate and push manifests for latest-amd64
+	docker manifest create storjlabs/storagenode-base:latest-amd64 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64
+	docker manifest annotate storjlabs/storagenode-base:latest-amd64 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
+	docker manifest push --purge storjlabs/storagenode-base:latest-amd64
+	# create, annotate and push manifests for latest-arm32v6
+	docker manifest create storjlabs/storagenode-base:latest-arm32v6 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6
+	docker manifest annotate storjlabs/storagenode-base:latest-arm32v6 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant v6
+	docker manifest push --purge storjlabs/storagenode-base:latest-arm32v6
+	# create, annotate and push manifests for latest-arm64v8
+	docker manifest create storjlabs/storagenode-base:latest-arm64v8 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8
+	docker manifest annotate storjlabs/storagenode-base:latest-arm64v8 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8
+	docker manifest push --purge storjlabs/storagenode-base:latest-arm64v8
+	# create, annotate and push manifests for main ${GIT_TAG}${CUSTOMTAG} tag without arch extension and latest tag
+	for t in ${GIT_TAG}${CUSTOMTAG} latest; do \
+    	docker manifest create storjlabs/storagenode-base:$$t \
+    	storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64 \
+    	storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6 \
+    	storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8 \
+    	&& docker manifest annotate storjlabs/storagenode-base:$$t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
+    	&& docker manifest annotate storjlabs/storagenode-base:$$t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant v6 \
+    	&& docker manifest annotate storjlabs/storagenode-base:$$t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 \
+    	&& docker manifest push --purge storjlabs/storagenode-base:$$t \
+    ; done
 
 .PHONY: versioncontrol-image
 versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versioncontrol_linux_amd64 ## Build versioncontrol Docker image
