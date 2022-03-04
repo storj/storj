@@ -107,13 +107,16 @@ func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (result
 // FinishCopyObject holds all data needed to finish object copy.
 type FinishCopyObject struct {
 	ObjectStream
-	NewBucket      string
-	NewStreamID    uuid.UUID
-	NewSegmentKeys []EncryptedKeyAndNonce
-	// TODO: add NewEncryptedMetadata []byte for being able to change object's metadata
-	NewEncryptedObjectKey        []byte
+	NewBucket             string
+	NewEncryptedObjectKey ObjectKey
+	NewStreamID           uuid.UUID
+
+	OverrideMetadata             bool
+	NewEncryptedMetadata         []byte
 	NewEncryptedMetadataKeyNonce []byte
 	NewEncryptedMetadataKey      []byte
+
+	NewSegmentKeys []EncryptedKeyAndNonce
 }
 
 // Verify verifies metabase.FinishCopyObject data.
@@ -127,14 +130,25 @@ func (finishCopy FinishCopyObject) Verify() error {
 		return ErrInvalidRequest.New("NewBucket is missing")
 	case finishCopy.ObjectStream.StreamID == finishCopy.NewStreamID:
 		return ErrInvalidRequest.New("StreamIDs are identical")
-	case finishCopy.ObjectKey == ObjectKey(finishCopy.NewEncryptedObjectKey):
+	case finishCopy.ObjectKey == finishCopy.NewEncryptedObjectKey:
 		return ErrInvalidRequest.New("source and destination encrypted object key are identical")
 	case len(finishCopy.NewEncryptedObjectKey) == 0:
 		return ErrInvalidRequest.New("NewEncryptedObjectKey is missing")
-	case len(finishCopy.NewEncryptedMetadataKeyNonce) == 0:
-		return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
-	case len(finishCopy.NewEncryptedMetadataKey) == 0:
-		return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
+	}
+
+	if finishCopy.OverrideMetadata {
+		if finishCopy.NewEncryptedMetadata == nil && (finishCopy.NewEncryptedMetadataKeyNonce != nil || finishCopy.NewEncryptedMetadataKey != nil) {
+			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
+		} else if finishCopy.NewEncryptedMetadata != nil && (finishCopy.NewEncryptedMetadataKeyNonce == nil || finishCopy.NewEncryptedMetadataKey == nil) {
+			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+		}
+	} else {
+		switch {
+		case len(finishCopy.NewEncryptedMetadataKeyNonce) == 0:
+			return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
+		case len(finishCopy.NewEncryptedMetadataKey) == 0:
+			return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
+		}
 	}
 
 	return nil
@@ -228,6 +242,11 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		}
 	}
 
+	copyMetadata := originalObject.EncryptedMetadata
+	if opts.OverrideMetadata {
+		copyMetadata = opts.NewEncryptedMetadata
+	}
+
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		// TODO we need to handle metadata correctly (copy from original object or replace)
 		_, err = db.db.ExecContext(ctx, `
@@ -248,7 +267,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, opts.Version, opts.NewStreamID,
 			originalObject.ExpiresAt, originalObject.SegmentCount,
 			encryptionParameters{&originalObject.Encryption},
-			originalObject.EncryptedMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
+			copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
 			originalObject.TotalPlainSize, originalObject.TotalEncryptedSize, originalObject.FixedSegmentSize,
 		)
 		if err != nil {
@@ -309,7 +328,8 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	copyObject := originalObject
 	copyObject.StreamID = opts.NewStreamID
 	copyObject.BucketName = opts.NewBucket
-	copyObject.ObjectKey = ObjectKey(opts.NewEncryptedObjectKey)
+	copyObject.ObjectKey = opts.NewEncryptedObjectKey
+	copyObject.EncryptedMetadata = copyMetadata
 	copyObject.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
 	copyObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce
 

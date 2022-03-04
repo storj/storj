@@ -332,7 +332,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				NewBucket:                    copyObjStream.BucketName,
 				ObjectStream:                 obj.ObjectStream,
 				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
+				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
 				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
@@ -516,7 +516,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				NewStreamID:                  copyObjStream.StreamID,
 				NewBucket:                    copyObjStream.BucketName,
 				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
+				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
 				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
@@ -685,7 +685,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				NewStreamID:                  copyObjStream.StreamID,
 				NewBucket:                    copyObjStream.BucketName,
 				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
+				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
 				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
@@ -932,7 +932,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				NewBucket:                    copyObjStream.BucketName,
 				ObjectStream:                 obj.ObjectStream,
 				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
+				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
 				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
@@ -1112,7 +1112,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				NewStreamID:                  copyObjStream.StreamID,
 				NewBucket:                    copyObjStream.BucketName,
 				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
+				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
 				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
@@ -1277,7 +1277,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				NewStreamID:                  copyObjStream.StreamID,
 				NewBucket:                    copyObjStream.BucketName,
 				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
+				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
 				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})

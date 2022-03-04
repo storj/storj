@@ -21,10 +21,15 @@ func RandObjectStream() metabase.ObjectStream {
 	return metabase.ObjectStream{
 		ProjectID:  testrand.UUID(),
 		BucketName: testrand.BucketName(),
-		ObjectKey:  metabase.ObjectKey(testrand.Bytes(16)),
+		ObjectKey:  RandObjectKey(),
 		Version:    1,
 		StreamID:   testrand.UUID(),
 	}
+}
+
+// RandObjectKey returns a random object key.
+func RandObjectKey() metabase.ObjectKey {
+	return metabase.ObjectKey(testrand.Bytes(16))
 }
 
 // CreatePendingObject creates a new pending object with the specified number of segments.
@@ -359,7 +364,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			NewBucket:                    copyStream.BucketName,
 			ObjectStream:                 cc.OriginalObject.ObjectStream,
 			NewSegmentKeys:               newEncryptedKeysNonces,
-			NewEncryptedObjectKey:        []byte(copyStream.ObjectKey),
+			NewEncryptedObjectKey:        copyStream.ObjectKey,
 			NewEncryptedMetadataKeyNonce: testrand.Nonce().Bytes(),
 			NewEncryptedMetadataKey:      testrand.Bytes(32),
 		}

@@ -1395,9 +1395,9 @@ storj.io/common v0.0.0-20210805073808-8e0feb09e92a/go.mod h1:mhZYWpTojKsACxWE66R
 storj.io/common v0.0.0-20210916151047-6aaeb34bb916/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
 storj.io/common v0.0.0-20211102144601-401a79f0706a/go.mod h1:a2Kw7Uipu929OFANfWKLHRoD0JfhgssikEvimd6hbSQ=
 storj.io/common v0.0.0-20220131120956-e74f624a3d55/go.mod h1:m0489td5+rKDdoiYOzCkh3CfGW/cLyntZiYfso+QfMs=
-storj.io/common v0.0.0-20220218100924-daea4bf7cc6c/go.mod h1:xW3PPPGBo4bdMtEP9GREnmxQptmJNuDg1tEHcA4zqog=
-storj.io/common v0.0.0-20220228211628-96f1d7f5fdfd h1:4sUi3QM1xn7uVJNyVvhrLvieynbYd1ePXdZehcRWzH0=
-storj.io/common v0.0.0-20220228211628-96f1d7f5fdfd/go.mod h1:xW3PPPGBo4bdMtEP9GREnmxQptmJNuDg1tEHcA4zqog=
+storj.io/common v0.0.0-20220223161334-302b968d0f29/go.mod h1:xW3PPPGBo4bdMtEP9GREnmxQptmJNuDg1tEHcA4zqog=
+storj.io/common v0.0.0-20220303150900-2150c0203dcc h1:ecc15H8aEXdGh4WWyfhXM8q9x3ni5hnCXDH2+HC/z9k=
+storj.io/common v0.0.0-20220303150900-2150c0203dcc/go.mod h1:xW3PPPGBo4bdMtEP9GREnmxQptmJNuDg1tEHcA4zqog=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.24/go.mod h1:ofQUDPQbbIymRDKE0tms48k8bLP5Y+dsI9CbXGv3gko=
@@ -1418,5 +1418,5 @@ storj.io/private v0.0.0-20220131131751-c913260b9ec2 h1:POHeqNfH0YzO4d2px9NZRPvWP
 storj.io/private v0.0.0-20220131131751-c913260b9ec2/go.mod h1:i08plLYNEyxf9eObj0UAYnTyh+6r8jvra4JDnvhFsCI=
 storj.io/uplink v1.7.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
 storj.io/uplink v1.7.1-0.20211103104100-a785482780d8/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
-storj.io/uplink v1.8.1-0.20220223161331-c4e80d7a3a87 h1:oBbMBGijaMGFfrHteng2v5GPW/d6J4AB6nfey/99614=
-storj.io/uplink v1.8.1-0.20220223161331-c4e80d7a3a87/go.mod h1:maW42V/Ze1MJOEJVNpkNa1VdU7nEiNb+TEZ+pNDx2/Q=
+storj.io/uplink v1.8.1-0.20220307141551-c65f09ea27d8 h1:nW8/fo04hiUXU9RP9zkr+wPY3NVWyOd5wvkxDP9gKKY=
+storj.io/uplink v1.8.1-0.20220307141551-c65f09ea27d8/go.mod h1:CVSBjpsXFk6iFIc9jxo/530kIQJK/8iM0xdihoZkhoE=
