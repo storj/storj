@@ -29,5 +29,5 @@ func main() {
 
 	}
 
-	a.MustWrite("satellite/console/consoleweb/consoleapi/")
+	a.MustWrite("satellite/console/consoleweb/consoleapi/api.gen.go")
 }

@@ -22,16 +22,18 @@ type ProjectManagementService interface {
 	GetUserProjects(context.Context) ([]console.Project, api.HTTPError)
 }
 
+// Handler is an api handler that exposes all projects related functionality.
 type Handler struct {
 	log     *zap.Logger
 	service ProjectManagementService
 	auth    api.Auth
 }
 
-func NewProjectManagement(log *zap.Logger, service ProjectManagementService, router *mux.Router) *Handler {
+func NewProjectManagement(log *zap.Logger, service ProjectManagementService, router *mux.Router, auth api.Auth) *Handler {
 	handler := &Handler{
 		log:     log,
 		service: service,
+		auth:    auth,
 	}
 
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
@@ -47,7 +49,7 @@ func (h *Handler) handleGetUserProjects(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 
-	err = h.auth.IsAuthenticated(r)
+	ctx, err = h.auth.IsAuthenticated(ctx, r)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return

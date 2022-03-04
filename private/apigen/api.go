@@ -44,7 +44,7 @@ func (a *API) MustWrite(path string) {
 		panic(errs.Wrap(err))
 	}
 
-	err = os.WriteFile(path+"api.gen.go", generated, 0755)
+	err = os.WriteFile(path, generated, 0644)
 	if err != nil {
 		panic(errs.Wrap(err))
 	}
@@ -112,15 +112,12 @@ func (a *API) generateGo() ([]byte, error) {
 		p("type %sService interface {", group.Name)
 		for _, method := range group.Endpoints {
 			responseType := reflect.TypeOf(method.Response)
-			if strings.Contains(responseType.String(), a.PackageName) {
-				p("%s(context.Context) (%s, api.HTTPError)", method.MethodName, responseType.Elem().Name())
-			} else {
-				p("%s(context.Context) (%s, api.HTTPError)", method.MethodName, responseType)
-			}
+			p("%s(context.Context) (%s, api.HTTPError)", method.MethodName, a.handleTypesPackage(responseType))
 		}
 		p("}")
 		p("")
 
+		p("// Handler is an api handler that exposes all %s related functionality.", group.Prefix)
 		p("type Handler struct {")
 		p("log *zap.Logger")
 		p("service %sService", group.Name)
@@ -129,13 +126,14 @@ func (a *API) generateGo() ([]byte, error) {
 		p("")
 
 		p(
-			"func New%s(log *zap.Logger, service %sService, router *mux.Router) *Handler {",
+			"func New%s(log *zap.Logger, service %sService, router *mux.Router, auth api.Auth) *Handler {",
 			group.Name,
 			group.Name,
 		)
 		p("handler := &Handler{")
 		p("log: log,")
 		p("service: service,")
+		p("auth: auth,")
 		p("}")
 		p("")
 		p("%sRouter := router.PathPrefix(\"/api/v0/%s\").Subrouter()", group.Prefix, group.Prefix)
@@ -160,7 +158,7 @@ func (a *API) generateGo() ([]byte, error) {
 			p("")
 
 			if !endpoint.NoCookieAuth {
-				p("err = h.auth.IsAuthenticated(r)")
+				p("ctx, err = h.auth.IsAuthenticated(ctx, r)")
 				p("if err != nil {")
 				p("api.ServeError(h.log, w, http.StatusUnauthorized, err)")
 				p("return")
@@ -201,4 +199,15 @@ func (a *API) generateGo() ([]byte, error) {
 	}
 
 	return output, nil
+}
+
+// handleTypesPackage handles the way some type is used in generated code.
+// If type is from the same package then we use only type's name.
+// If type is from external package then we use type along with it's appropriate package name.
+func (a *API) handleTypesPackage(t reflect.Type) interface{} {
+	if strings.HasPrefix(t.String(), a.PackageName) {
+		return t.Elem().Name()
+	}
+
+	return t
 }

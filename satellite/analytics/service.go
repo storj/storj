@@ -24,6 +24,8 @@ const (
 	eventExternalLinkClicked       = "External Link Clicked"
 	eventPathSelected              = "Path Selected"
 	eventLinkShared                = "Link Shared"
+	eventObjectUploaded            = "Object Uploaded"
+	eventAPIKeyGenerated           = "API Key Generated"
 )
 
 var (
@@ -63,7 +65,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
 	}
-	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked, eventPathSelected, eventLinkShared} {
+	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked,
+		eventPathSelected, eventLinkShared, eventObjectUploaded, eventAPIKeyGenerated} {
 		service.clientEvents[name] = true
 	}
 

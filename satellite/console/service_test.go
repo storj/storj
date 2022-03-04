@@ -25,7 +25,8 @@ import (
 
 func TestService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2},
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 			service := sat.API.Console.Service
@@ -383,22 +384,21 @@ func TestMFA(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		var auth console.Authorization
-		var authCtx context.Context
-		updateAuth := func() {
-			authCtx, err = sat.AuthenticatedContext(ctx, user.ID)
+		getNewAuthorization := func() (context.Context, console.Authorization) {
+			authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
 			require.NoError(t, err)
-			auth, err = console.GetAuth(authCtx)
+			auth, err := console.GetAuth(authCtx)
 			require.NoError(t, err)
+			return authCtx, auth
 		}
-		updateAuth()
+		authCtx, auth := getNewAuthorization()
 
 		var key string
 		t.Run("TestResetMFASecretKey", func(t *testing.T) {
 			key, err = service.ResetMFASecretKey(authCtx)
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			require.NotEmpty(t, auth.User.MFASecretKey)
 		})
 
@@ -410,11 +410,11 @@ func TestMFA(t *testing.T) {
 			err = service.EnableUserMFA(authCtx, badCode, time.Time{})
 			require.True(t, console.ErrValidation.Has(err))
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			_, err = service.ResetMFARecoveryCodes(authCtx)
 			require.True(t, console.ErrUnauthorized.Has(err))
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			require.False(t, auth.User.MFAEnabled)
 		})
 
@@ -423,11 +423,11 @@ func TestMFA(t *testing.T) {
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			err = service.EnableUserMFA(authCtx, goodCode, time.Time{})
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			require.True(t, auth.User.MFAEnabled)
 			require.Equal(t, auth.User.MFASecretKey, key)
 		})
@@ -463,7 +463,7 @@ func TestMFA(t *testing.T) {
 			_, err = service.ResetMFARecoveryCodes(authCtx)
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			require.Len(t, auth.User.MFARecoveryCodes, console.MFARecoveryCodeCount)
 
 			for _, code := range auth.User.MFARecoveryCodes {
@@ -481,7 +481,7 @@ func TestMFA(t *testing.T) {
 				require.True(t, console.ErrMFARecoveryCode.Has(err))
 				require.Empty(t, token)
 
-				updateAuth()
+				authCtx, auth = getNewAuthorization()
 			}
 
 			_, err = service.ResetMFARecoveryCodes(authCtx)
@@ -493,11 +493,11 @@ func TestMFA(t *testing.T) {
 			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			err = service.DisableUserMFA(authCtx, badCode, time.Time{}, "")
 			require.True(t, console.ErrValidation.Has(err))
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			require.True(t, auth.User.MFAEnabled)
 			require.NotEmpty(t, auth.User.MFASecretKey)
 			require.NotEmpty(t, auth.User.MFARecoveryCodes)
@@ -508,11 +508,11 @@ func TestMFA(t *testing.T) {
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			err = service.DisableUserMFA(authCtx, goodCode, time.Time{}, auth.User.MFARecoveryCodes[0])
 			require.True(t, console.ErrMFAConflict.Has(err))
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			require.True(t, auth.User.MFAEnabled)
 			require.NotEmpty(t, auth.User.MFASecretKey)
 			require.NotEmpty(t, auth.User.MFARecoveryCodes)
@@ -523,11 +523,11 @@ func TestMFA(t *testing.T) {
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			err = service.DisableUserMFA(authCtx, goodCode, time.Time{}, "")
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			require.False(t, auth.User.MFAEnabled)
 			require.Empty(t, auth.User.MFASecretKey)
 			require.Empty(t, auth.User.MFARecoveryCodes)
@@ -542,15 +542,15 @@ func TestMFA(t *testing.T) {
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			err = service.EnableUserMFA(authCtx, goodCode, time.Time{})
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			_, err = service.ResetMFARecoveryCodes(authCtx)
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			require.True(t, auth.User.MFAEnabled)
 			require.NotEmpty(t, auth.User.MFASecretKey)
 			require.NotEmpty(t, auth.User.MFARecoveryCodes)
@@ -559,7 +559,7 @@ func TestMFA(t *testing.T) {
 			err = service.DisableUserMFA(authCtx, "", time.Time{}, auth.User.MFARecoveryCodes[0])
 			require.NoError(t, err)
 
-			updateAuth()
+			authCtx, auth = getNewAuthorization()
 			require.False(t, auth.User.MFAEnabled)
 			require.Empty(t, auth.User.MFASecretKey)
 			require.Empty(t, auth.User.MFARecoveryCodes)
@@ -571,7 +571,6 @@ func TestResetPassword(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		newPass := "123a123"
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
 
@@ -581,25 +580,73 @@ func TestResetPassword(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		token, err := sat.DB.Console().ResetPasswordTokens().Create(ctx, user.ID)
-		require.NoError(t, err)
-		require.NotNil(t, token)
-		tokenStr := token.Secret.String()
+		newPass := user.FullName
+
+		getNewResetToken := func() *console.ResetPasswordToken {
+			token, err := sat.DB.Console().ResetPasswordTokens().Create(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, token)
+			return token
+		}
+		token := getNewResetToken()
 
 		// Expect error when providing bad token.
-		err = service.ResetPassword(ctx, "badToken", newPass, token.CreatedAt)
+		err = service.ResetPassword(ctx, "badToken", newPass, "", "", token.CreatedAt)
 		require.True(t, console.ErrRecoveryToken.Has(err))
 
 		// Expect error when providing good but expired token.
-		err = service.ResetPassword(ctx, tokenStr, newPass, token.CreatedAt.Add(sat.Config.Console.TokenExpirationTime).Add(time.Second))
+		err = service.ResetPassword(ctx, token.Secret.String(), newPass, "", "", token.CreatedAt.Add(sat.Config.Console.TokenExpirationTime).Add(time.Second))
 		require.True(t, console.ErrTokenExpiration.Has(err))
 
 		// Expect error when providing good token with bad (too short) password.
-		err = service.ResetPassword(ctx, tokenStr, "bad", token.CreatedAt)
+		err = service.ResetPassword(ctx, token.Secret.String(), "bad", "", "", token.CreatedAt)
 		require.True(t, console.ErrValidation.Has(err))
 
 		// Expect success when providing good token and good password.
-		err = service.ResetPassword(ctx, tokenStr, newPass, token.CreatedAt)
+		err = service.ResetPassword(ctx, token.Secret.String(), newPass, "", "", token.CreatedAt)
+		require.NoError(t, err)
+
+		token = getNewResetToken()
+
+		// Enable MFA.
+		getNewAuthorization := func() (context.Context, console.Authorization) {
+			authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+			require.NoError(t, err)
+			auth, err := console.GetAuth(authCtx)
+			require.NoError(t, err)
+			return authCtx, auth
+		}
+		authCtx, _ := getNewAuthorization()
+
+		key, err := service.ResetMFASecretKey(authCtx)
+		require.NoError(t, err)
+		authCtx, auth := getNewAuthorization()
+
+		passcode, err := console.NewMFAPasscode(key, token.CreatedAt)
+		require.NoError(t, err)
+
+		err = service.EnableUserMFA(authCtx, passcode, token.CreatedAt)
+		require.NoError(t, err)
+
+		// Expect error when providing bad passcode.
+		badPasscode, err := console.NewMFAPasscode(key, token.CreatedAt.Add(time.Hour))
+		require.NoError(t, err)
+		err = service.ResetPassword(ctx, token.Secret.String(), newPass, badPasscode, "", token.CreatedAt)
+		require.True(t, console.ErrMFAPasscode.Has(err))
+
+		for _, recoveryCode := range auth.User.MFARecoveryCodes {
+			// Expect success when providing bad passcode and good recovery code.
+			err = service.ResetPassword(ctx, token.Secret.String(), newPass, badPasscode, recoveryCode, token.CreatedAt)
+			require.NoError(t, err)
+			token = getNewResetToken()
+
+			// Expect error when providing bad passcode and already-used recovery code.
+			err = service.ResetPassword(ctx, token.Secret.String(), newPass, badPasscode, recoveryCode, token.CreatedAt)
+			require.True(t, console.ErrMFARecoveryCode.Has(err))
+		}
+
+		// Expect success when providing good passcode.
+		err = service.ResetPassword(ctx, token.Secret.String(), newPass, passcode, "", token.CreatedAt)
 		require.NoError(t, err)
 	})
 }

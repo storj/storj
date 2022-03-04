@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -330,18 +332,16 @@ func TestGetSegmentByPosition(t *testing.T) {
 			newEncryptedMetadataKeyNonce := testrand.Nonce()
 			newEncryptedMetadataKey := testrand.Bytes(32)
 
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					NewStreamID:                  copyObjStream.StreamID,
-					NewBucket:                    copyObjStream.BucketName,
-					ObjectStream:                 obj.ObjectStream,
-					NewSegmentKeys:               newEncryptedKeyNonces,
-					NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
-					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
-				},
-				ErrText: "",
-			}.Check(ctx, t, db)
+			_, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
+				NewStreamID:                  copyObjStream.StreamID,
+				NewBucket:                    copyObjStream.BucketName,
+				ObjectStream:                 obj.ObjectStream,
+				NewSegmentKeys:               newEncryptedKeyNonces,
+				NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
+				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+			})
+			require.NoError(t, err)
 
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,
@@ -521,18 +521,16 @@ func TestGetSegmentByPosition(t *testing.T) {
 			newEncryptedMetadataKeyNonce := testrand.Nonce()
 			newEncryptedMetadataKey := testrand.Bytes(32)
 
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					ObjectStream:                 obj.ObjectStream,
-					NewStreamID:                  copyObjStream.StreamID,
-					NewBucket:                    copyObjStream.BucketName,
-					NewSegmentKeys:               newEncryptedKeyNonces,
-					NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
-					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
-				},
-				ErrText: "",
-			}.Check(ctx, t, db)
+			_, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
+				ObjectStream:                 obj.ObjectStream,
+				NewStreamID:                  copyObjStream.StreamID,
+				NewBucket:                    copyObjStream.BucketName,
+				NewSegmentKeys:               newEncryptedKeyNonces,
+				NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
+				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+			})
+			require.NoError(t, err)
 
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,
@@ -698,18 +696,16 @@ func TestGetSegmentByPosition(t *testing.T) {
 			newEncryptedMetadataKeyNonce := testrand.Nonce()
 			newEncryptedMetadataKey := testrand.Bytes(32)
 
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					ObjectStream:                 obj.ObjectStream,
-					NewStreamID:                  copyObjStream.StreamID,
-					NewBucket:                    copyObjStream.BucketName,
-					NewSegmentKeys:               newEncryptedKeyNonces,
-					NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
-					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
-				},
-				ErrText: "",
-			}.Check(ctx, t, db)
+			_, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
+				ObjectStream:                 obj.ObjectStream,
+				NewStreamID:                  copyObjStream.StreamID,
+				NewBucket:                    copyObjStream.BucketName,
+				NewSegmentKeys:               newEncryptedKeyNonces,
+				NewEncryptedObjectKey:        []byte(copyObjStream.ObjectKey),
+				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+			})
+			require.NoError(t, err)
 
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,

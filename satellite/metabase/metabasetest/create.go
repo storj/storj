@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -197,7 +199,7 @@ type CreateTestObject struct {
 }
 
 // Run runs the test.
-func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
+func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) (metabase.Object, []metabase.Segment) {
 	boeOpts := metabase.BeginObjectExactVersion{
 		ObjectStream: obj,
 		Encryption:   DefaultEncryption,
@@ -210,6 +212,8 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 		Opts:    boeOpts,
 		Version: obj.Version,
 	}.Check(ctx, t, db)
+
+	createdSegments := []metabase.Segment{}
 
 	for i := byte(0); i < numberOfSegments; i++ {
 		BeginSegment{
@@ -224,24 +228,57 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			},
 		}.Check(ctx, t, db)
 
+		commitSegmentOpts := metabase.CommitSegment{
+			ObjectStream: obj,
+			ExpiresAt:    boeOpts.ExpiresAt,
+			Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+			RootPieceID:  storj.PieceID{1},
+			Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+			EncryptedKey:      []byte{3},
+			EncryptedKeyNonce: []byte{4},
+			EncryptedETag:     []byte{5},
+
+			EncryptedSize: 1060,
+			PlainSize:     512,
+			PlainOffset:   int64(i) * 512,
+			Redundancy:    DefaultRedundancy,
+		}
+
 		CommitSegment{
-			Opts: metabase.CommitSegment{
-				ObjectStream: obj,
-				ExpiresAt:    boeOpts.ExpiresAt,
-				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{1},
-				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-
-				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: []byte{4},
-				EncryptedETag:     []byte{5},
-
-				EncryptedSize: 1060,
-				PlainSize:     512,
-				PlainOffset:   int64(i) * 512,
-				Redundancy:    DefaultRedundancy,
-			},
+			Opts: commitSegmentOpts,
 		}.Check(ctx, t, db)
+
+		segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: commitSegmentOpts.StreamID,
+			Position: commitSegmentOpts.Position,
+		})
+		require.NoError(t, err)
+
+		createdSegments = append(createdSegments, metabase.Segment{
+			StreamID: obj.StreamID,
+			Position: commitSegmentOpts.Position,
+
+			CreatedAt:  segment.CreatedAt,
+			RepairedAt: nil,
+			ExpiresAt:  nil,
+
+			RootPieceID:       commitSegmentOpts.RootPieceID,
+			EncryptedKeyNonce: commitSegmentOpts.EncryptedKeyNonce,
+			EncryptedKey:      commitSegmentOpts.EncryptedKey,
+
+			EncryptedSize: commitSegmentOpts.EncryptedSize,
+			PlainSize:     commitSegmentOpts.PlainSize,
+			PlainOffset:   commitSegmentOpts.PlainOffset,
+			EncryptedETag: commitSegmentOpts.EncryptedETag,
+
+			Redundancy: commitSegmentOpts.Redundancy,
+
+			InlineData: nil,
+			Pieces:     commitSegmentOpts.Pieces,
+
+			Placement: segment.Placement,
+		})
 	}
 
 	coOpts := metabase.CommitObject{
@@ -251,14 +288,18 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 		coOpts = *co.CommitObject
 	}
 
-	return CommitObject{
+	createdObject := CommitObject{
 		Opts: coOpts,
 	}.Check(ctx, t, db)
+
+	return createdObject, createdSegments
 }
 
 // CreateObjectCopy is for testing object copy.
 type CreateObjectCopy struct {
-	OriginalObject   metabase.Object
+	OriginalObject metabase.Object
+	// if empty, creates fake segments if necessary
+	OriginalSegments []metabase.Segment
 	FinishObject     *metabase.FinishCopyObject
 	CopyObjectStream *metabase.ObjectStream
 }
@@ -274,7 +315,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	}
 
 	newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, cc.OriginalObject.SegmentCount)
-	expectedSegments := make([]metabase.RawSegment, cc.OriginalObject.SegmentCount*2)
+	newSegments := make([]metabase.RawSegment, cc.OriginalObject.SegmentCount)
 	expectedEncryptedSize := 1060
 
 	for i := 0; i < int(cc.OriginalObject.SegmentCount); i++ {
@@ -284,25 +325,31 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			EncryptedKey:      testrand.Bytes(32),
 		}
 
-		copyIndex := i + int(cc.OriginalObject.SegmentCount)
-		expectedSegments[i] = DefaultRawSegment(cc.OriginalObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+		var originalSegment metabase.RawSegment
+		if len(cc.OriginalSegments) == 0 {
+			originalSegment = DefaultRawSegment(cc.OriginalObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+			// TODO: place this calculation in metabasetest.
+			originalSegment.PlainOffset = int64(i) * int64(originalSegment.PlainSize)
+			// TODO: we should use the same value for encrypted size in both test methods.
+			originalSegment.EncryptedSize = int32(expectedEncryptedSize)
+		} else {
+			originalSegment = metabase.RawSegment(cc.OriginalSegments[i])
+		}
 
-		// TODO: place this calculation in metabasetest.
-		expectedSegments[i].PlainOffset = int64(int32(i) * expectedSegments[i].PlainSize)
-		// TODO: we should use the same value for encrypted size in both test methods.
-		expectedSegments[i].EncryptedSize = int32(expectedEncryptedSize)
+		newSegment := metabase.RawSegment{
+			StreamID:          copyStream.StreamID,
+			EncryptedKeyNonce: newEncryptedKeysNonces[i].EncryptedKeyNonce,
+			EncryptedKey:      newEncryptedKeysNonces[i].EncryptedKey,
+			EncryptedSize:     originalSegment.EncryptedSize,
+			Position:          originalSegment.Position,
+			RootPieceID:       originalSegment.RootPieceID,
+			Redundancy:        originalSegment.Redundancy,
+			PlainSize:         originalSegment.PlainSize,
+			PlainOffset:       originalSegment.PlainOffset,
+			CreatedAt:         time.Now().UTC(),
+		}
 
-		expectedSegments[copyIndex] = metabase.RawSegment{}
-		expectedSegments[copyIndex].StreamID = copyStream.StreamID
-		expectedSegments[copyIndex].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
-		expectedSegments[copyIndex].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
-		expectedSegments[copyIndex].EncryptedSize = expectedSegments[i].EncryptedSize
-		expectedSegments[copyIndex].Position = expectedSegments[i].Position
-		expectedSegments[copyIndex].RootPieceID = expectedSegments[i].RootPieceID
-		expectedSegments[copyIndex].Redundancy = expectedSegments[i].Redundancy
-		expectedSegments[copyIndex].PlainSize = expectedSegments[i].PlainSize
-		expectedSegments[copyIndex].PlainOffset = expectedSegments[i].PlainOffset
-		expectedSegments[copyIndex].CreatedAt = time.Now().UTC()
+		newSegments[i] = newSegment
 	}
 
 	opts := cc.FinishObject
@@ -317,18 +364,20 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			NewEncryptedMetadataKey:      testrand.Bytes(32),
 		}
 	}
-	FinishCopyObject{
-		Opts:    *opts,
-		ErrText: "",
-	}.Check(ctx, t, db)
 
-	copyObj := cc.OriginalObject
-	copyObj.StreamID = copyStream.StreamID
-	copyObj.ObjectKey = copyStream.ObjectKey
-	copyObj.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
-	copyObj.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce
-	copyObj.BucketName = copyStream.BucketName
-	copyObj.ZombieDeletionDeadline = nil
+	copyObj, err := db.FinishCopyObject(ctx, *opts)
+	require.NoError(t, err)
 
-	return copyObj, expectedSegments
+	return copyObj, newSegments
+}
+
+// SegmentsToRaw converts a slice of Segment to a slice of RawSegment.
+func SegmentsToRaw(segments []metabase.Segment) []metabase.RawSegment {
+	rawSegments := []metabase.RawSegment{}
+
+	for _, segment := range segments {
+		rawSegments = append(rawSegments, metabase.RawSegment(segment))
+	}
+
+	return rawSegments
 }

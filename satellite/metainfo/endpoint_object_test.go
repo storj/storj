@@ -1235,3 +1235,99 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 		})
 	})
 }
+
+func TestEndpoint_CopyObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		satelliteSys := planet.Satellites[0]
+		uplnk := planet.Uplinks[0]
+
+		// upload a small inline object
+		err := uplnk.Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+		objects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		getResp, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: []byte(objects[0].ObjectKey),
+		})
+		require.NoError(t, err)
+
+		testEncryptedMetadataNonce := testrand.Nonce()
+		// update the object metadata
+		beginResp, err := satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Bucket:                getResp.Object.Bucket,
+			EncryptedObjectKey:    getResp.Object.EncryptedPath,
+			NewBucket:             []byte("testbucket"),
+			NewEncryptedObjectKey: []byte("newencryptedkey"),
+		})
+		require.NoError(t, err)
+		assert.Len(t, beginResp.SegmentKeys, 1)
+		assert.Equal(t, beginResp.EncryptedMetadataKey, objects[0].EncryptedMetadataEncryptedKey)
+		assert.Equal(t, beginResp.EncryptedMetadataKeyNonce.Bytes(), objects[0].EncryptedMetadataNonce)
+
+		segmentKeys := pb.EncryptedKeyAndNonce{
+			Position:          beginResp.SegmentKeys[0].Position,
+			EncryptedKeyNonce: testrand.Nonce(),
+			EncryptedKey:      []byte("newencryptedkey"),
+		}
+
+		_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			StreamId:                     getResp.Object.StreamId,
+			NewBucket:                    []byte("testbucket"),
+			NewEncryptedObjectKey:        []byte("newobjectkey"),
+			NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
+			NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
+			NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
+		})
+		require.NoError(t, err)
+
+		objectsAfterCopy, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objectsAfterCopy, 2)
+
+		getCopyResp, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: []byte("newobjectkey"),
+		})
+		require.NoError(t, err, objectsAfterCopy[1])
+		require.NotEqual(t, getResp.Object.StreamId, getCopyResp.Object.StreamId)
+		require.NotZero(t, getCopyResp.Object.StreamId)
+		require.Equal(t, getResp.Object.InlineSize, getCopyResp.Object.InlineSize)
+
+		// compare segments
+		originalSegment, err := satelliteSys.API.Metainfo.Endpoint.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			StreamId:       getResp.Object.StreamId,
+			CursorPosition: segmentKeys.Position,
+		})
+		require.NoError(t, err)
+		copiedSegment, err := satelliteSys.API.Metainfo.Endpoint.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			StreamId:       getCopyResp.Object.StreamId,
+			CursorPosition: segmentKeys.Position,
+		})
+		require.NoError(t, err)
+		require.Equal(t, originalSegment.EncryptedInlineData, copiedSegment.EncryptedInlineData)
+	})
+}

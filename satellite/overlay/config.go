@@ -20,11 +20,12 @@ var (
 
 // Config is a configuration for overlay service.
 type Config struct {
-	Node                  NodeSelectionConfig
-	NodeSelectionCache    UploadSelectionCacheConfig
-	GeoIP                 GeoIPConfig
-	UpdateStatsBatchSize  int           `help:"number of update requests to process per transaction" default:"100"`
-	NodeCheckInWaitPeriod time.Duration `help:"the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)" default:"2h" testDefault:"30s"`
+	Node                       NodeSelectionConfig
+	NodeSelectionCache         UploadSelectionCacheConfig
+	GeoIP                      GeoIPConfig
+	UpdateStatsBatchSize       int           `help:"number of update requests to process per transaction" default:"100"`
+	NodeCheckInWaitPeriod      time.Duration `help:"the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)" default:"2h" testDefault:"30s"`
+	RepairExcludedCountryCodes []string      `help:"list of country codes to exclude nodes from target repair selection" default:"" testDefault:"FR,BE"`
 }
 
 // AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' for CRDB queries.
@@ -43,6 +44,8 @@ type NodeSelectionConfig struct {
 	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB" testDefault:"100.00MB"`
 
 	AsOfSystemTime AsOfSystemTimeConfig
+
+	UploadExcludedCountryCodes []string `help:"list of country codes to exclude from node selection for uploads" default:"" testDefault:"FR,BE"`
 }
 
 // GeoIPConfig is a configuration struct that helps configure the GeoIP lookup features on the satellite.

@@ -231,7 +231,7 @@ storagenode-image: ## Build storagenode Docker image
     	--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 --build-arg=APK_ARCH=armhf \
         -f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 --build-arg=APK_ARCH=aarch64 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 --build-arg=APK_ARCH=aarch64 \
         -f cmd/storagenode/Dockerfile .
 
 .PHONY: versioncontrol-image

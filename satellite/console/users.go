@@ -8,6 +8,8 @@ import (
 	"net/mail"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
 )
@@ -45,15 +47,14 @@ type UserInfo struct {
 }
 
 // IsValid checks UserInfo validity and returns error describing whats wrong.
+// The returned error has the class ErrValiation.
 func (user *UserInfo) IsValid() error {
-	var errs validationErrors
-
 	// validate fullName
 	if err := ValidateFullName(user.FullName); err != nil {
-		errs.AddWrap(err)
+		return ErrValidation.Wrap(err)
 	}
 
-	return errs.Combine()
+	return nil
 }
 
 // CreateUser struct holds info for User creation.
@@ -76,24 +77,27 @@ type CreateUser struct {
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
+// The returned error has the class ErrValiation.
 func (user *CreateUser) IsValid() error {
-	var errs validationErrors
+	errgrp := errs.Group{}
 
-	errs.AddWrap(ValidateFullName(user.FullName))
-	errs.AddWrap(ValidatePassword(user.Password))
+	errgrp.Add(
+		ValidateFullName(user.FullName),
+		ValidatePassword(user.Password),
+	)
 
 	// validate email
 	_, err := mail.ParseAddress(user.Email)
-	errs.AddWrap(err)
+	errgrp.Add(err)
 
 	if user.PartnerID != "" {
 		_, err := uuid.FromString(user.PartnerID)
 		if err != nil {
-			errs.AddWrap(err)
+			errgrp.Add(err)
 		}
 	}
 
-	return errs.Combine()
+	return ErrValidation.Wrap(errgrp.Err())
 }
 
 // ProjectLimits holds info for a users bandwidth and storage limits for new projects.

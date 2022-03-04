@@ -572,8 +572,17 @@ export default class RegisterArea extends Vue {
 
         try {
             await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
-            const successPath = RouteConfig.RegisterSuccess.path + "?email=" + this.user.email;
-            await this.detectBraveBrowser() ? await this.$router.push(successPath) : location.replace(successPath);
+
+            // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
+            // signups outside of the brave browser may use a configured URL to track conversions
+            // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers
+            const internalRegisterSuccessPath = RouteConfig.RegisterSuccess.path;
+            const configuredRegisterSuccessPath = MetaUtils.getMetaContent('optional-signup-success-url') || internalRegisterSuccessPath;
+
+            const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${this.user.email}`;
+            const braveSuccessPath = `${internalRegisterSuccessPath}?email=${this.user.email}`;
+
+            await this.detectBraveBrowser() ? await this.$router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
         } catch (error) {
             if (this.$refs.recaptcha) {
                 this.$refs.recaptcha.reset();

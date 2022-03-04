@@ -49,25 +49,28 @@ func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 
 func sortObjects(objects []metabase.Object) {
 	sort.Slice(objects, func(i, j int) bool {
-		return bytes.Compare(objects[i].StreamID[:], objects[j].StreamID[:]) < 0
+		return objects[i].StreamID.Less(objects[j].StreamID)
 	})
 }
 
 func sortRawObjects(objects []metabase.RawObject) {
 	sort.Slice(objects, func(i, j int) bool {
-		return bytes.Compare(objects[i].StreamID[:], objects[j].StreamID[:]) < 0
+		return objects[i].StreamID.Less(objects[j].StreamID)
 	})
 }
 
 func sortRawSegments(segments []metabase.RawSegment) {
 	sort.Slice(segments, func(i, j int) bool {
-		return bytes.Compare(segments[i].StreamID[:], segments[j].StreamID[:]) < 0
+		if segments[i].StreamID == segments[j].StreamID {
+			return segments[i].Position.Less(segments[j].Position)
+		}
+		return segments[i].StreamID.Less(segments[j].StreamID)
 	})
 }
 
 func sortRawCopies(copies []metabase.RawCopy) {
 	sort.Slice(copies, func(i, j int) bool {
-		return bytes.Compare(copies[i].StreamID[:], copies[j].StreamID[:]) < 0
+		return copies[i].StreamID.Less(copies[j].StreamID)
 	})
 }
 
