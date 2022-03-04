@@ -97,6 +97,7 @@ type Config struct {
 	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
 	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
 	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`
+	OptionalSignupSuccessURL        string  `help:"optional url to external registration success page" default:""`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -391,6 +392,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NewObjectsFlow                  bool
 		InactivityTimerEnabled          bool
 		InactivityTimerDelay            int
+		OptionalSignupSuccessURL        string
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -423,6 +425,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
 	data.InactivityTimerDelay = server.config.InactivityTimerDelay
+	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {

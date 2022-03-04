@@ -18,7 +18,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/storj/cmd/uplink/ulloc"
 	"storj.io/uplink"
 	"storj.io/uplink/edge"
 )
@@ -79,9 +78,11 @@ func (c *cmdShare) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	isPublic := c.public || c.url || c.dns != ""
+	c.public = c.public || c.url || c.dns != ""
 
-	if isPublic {
+	if c.public {
+		c.register = true
+
 		if c.ap.notAfter.String() == "" {
 			fmt.Fprintf(ctx, "It's not recommended to create a shared Access without an expiration date.")
 			fmt.Fprintf(ctx, "If you wish to do so anyway, please run this command with --not-after=none.")
@@ -110,8 +111,8 @@ func (c *cmdShare) Execute(ctx clingy.Context) error {
 	fmt.Fprintf(ctx, "=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========\n")
 	fmt.Fprintf(ctx, "Access    : %s\n", newAccessData)
 
-	if c.register || c.url || c.dns != "" {
-		credentials, err := RegisterAccess(ctx, access, c.authService, isPublic, c.caCert)
+	if c.register {
+		credentials, err := RegisterAccess(ctx, access, c.authService, c.public, c.caCert)
 		if err != nil {
 			return err
 		}
@@ -119,21 +120,30 @@ func (c *cmdShare) Execute(ctx clingy.Context) error {
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintln(ctx, "Public Access: ", isPublic)
+		_, err = fmt.Fprintln(ctx, "Public Access: ", c.public)
 		if err != nil {
 			return err
 		}
 
-		if len(c.ap.prefixes) == 1 && !c.ap.AllowUpload() && !c.ap.disallowDeletes {
-			if c.url {
-				if err = createURL(ctx, credentials.AccessKeyID, c.ap.prefixes[0], c.baseURL, c.ap.prefixes); err != nil {
-					return err
-				}
+		if c.url {
+			if c.ap.AllowUpload() || c.ap.AllowDelete() {
+				return errs.New("will only generate linksharing URL with readonly restrictions")
 			}
-			if c.dns != "" {
-				if err = createDNS(ctx, credentials.AccessKeyID, c.ap.prefixes[0], c.baseURL, c.dns); err != nil {
-					return err
-				}
+
+			err = createURL(ctx, credentials.AccessKeyID, c.ap.prefixes, c.baseURL)
+			if err != nil {
+				return err
+			}
+		}
+
+		if c.dns != "" {
+			if c.ap.AllowUpload() || c.ap.AllowDelete() {
+				return errs.New("will only generate DNS entries with readonly restrictions")
+			}
+
+			err = createDNS(ctx, credentials.AccessKeyID, c.ap.prefixes, c.baseURL, c.dns)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -216,26 +226,47 @@ func RegisterAccess(ctx context.Context, access *uplink.Access, authService stri
 }
 
 // Creates linksharing url for allowed path prefixes.
-func createURL(ctx clingy.Context, newAccessData string, prefix uplink.SharePrefix, baseURL string, sharePrefixes []uplink.SharePrefix) (err error) {
-	loc := ulloc.NewRemote(prefix.Bucket, prefix.Prefix)
-	bucket, key, _ := loc.RemoteParts()
+func createURL(ctx clingy.Context, accessKeyID string, prefixes []uplink.SharePrefix, baseURL string) (err error) {
+	if len(prefixes) == 0 {
+		return errs.New("need at least a bucket to create a working linkshare URL")
+	}
+
+	bucket := prefixes[0].Bucket
+	key := prefixes[0].Prefix
+
+	url, err := edge.JoinShareURL(baseURL, accessKeyID, bucket, key, nil)
+	if err != nil {
+		return err
+	}
 
 	fmt.Fprintf(ctx, "=========== BROWSER URL ==================================================================\n")
-	fmt.Fprintf(ctx, "REMINDER  : Object key must end in '/' when trying to share recursively\n")
-	fmt.Fprintf(ctx, "URL       : %s/s/%s/%s/%s\n", baseURL, url.PathEscape(newAccessData), bucket, key)
-
+	if key != "" && key[len(key)-1:] != "/" {
+		fmt.Fprintf(ctx, "REMINDER  : Object key must end in '/' when trying to share a prefix\n")
+	}
+	fmt.Fprintf(ctx, "URL       : %s\n", url)
 	return nil
 }
 
 // Creates dns record info for allowed path prefixes.
-func createDNS(ctx clingy.Context, accessKey string, prefix uplink.SharePrefix, baseURL, dns string) (err error) {
+func createDNS(ctx clingy.Context, accessKey string, prefixes []uplink.SharePrefix, baseURL, dns string) (err error) {
+	if len(prefixes) == 0 {
+		return errs.New("need at least a bucket to create DNS records")
+	}
+
+	bucket := prefixes[0].Bucket
+	key := prefixes[0].Prefix
+
 	CNAME, err := url.Parse(baseURL)
 	if err != nil {
 		return err
 	}
 
-	rootString := ulloc.NewRemote(prefix.Bucket, prefix.Prefix).String()[5:]
-	printStorjRoot := fmt.Sprintf("txt-%s\tIN\tTXT  \tstorj-root:%s", dns, rootString)
+	var printStorjRoot string
+	if key == "" {
+		printStorjRoot = fmt.Sprintf("txt-%s\tIN\tTXT  \tstorj-root:%s", dns, bucket)
+	} else {
+		printStorjRoot = fmt.Sprintf("txt-%s\tIN\tTXT  \tstorj-root:%s/%s", dns, bucket, key)
+	}
 
 	fmt.Fprintf(ctx, "=========== DNS INFO =====================================================================\n")
 	fmt.Fprintf(ctx, "Remember to update the $ORIGIN with your domain name. You may also change the $TTL.\n")

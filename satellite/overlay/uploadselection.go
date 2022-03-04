@@ -106,11 +106,12 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 	}
 
 	selected, err := state.Select(ctx, uploadselection.Request{
-		Count:       req.RequestedCount,
-		NewFraction: cache.selectionConfig.NewNodeFraction,
-		Distinct:    cache.selectionConfig.DistinctIP,
-		ExcludedIDs: req.ExcludedIDs,
-		Placement:   req.Placement,
+		Count:                req.RequestedCount,
+		NewFraction:          cache.selectionConfig.NewNodeFraction,
+		Distinct:             cache.selectionConfig.DistinctIP,
+		ExcludedIDs:          req.ExcludedIDs,
+		Placement:            req.Placement,
+		ExcludedCountryCodes: cache.selectionConfig.UploadExcludedCountryCodes,
 	})
 	if uploadselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)

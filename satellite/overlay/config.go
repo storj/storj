@@ -44,6 +44,8 @@ type NodeSelectionConfig struct {
 	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB" testDefault:"100.00MB"`
 
 	AsOfSystemTime AsOfSystemTimeConfig
+
+	UploadExcludedCountryCodes []string `help:"list of country codes to exclude from node selection for uploads" default:"" testDefault:"FR,BE"`
 }
 
 // GeoIPConfig is a configuration struct that helps configure the GeoIP lookup features on the satellite.

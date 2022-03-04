@@ -297,7 +297,9 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 
 // CreateObjectCopy is for testing object copy.
 type CreateObjectCopy struct {
-	OriginalObject   metabase.Object
+	OriginalObject metabase.Object
+	// if empty, creates fake segments if necessary
+	OriginalSegments []metabase.Segment
 	FinishObject     *metabase.FinishCopyObject
 	CopyObjectStream *metabase.ObjectStream
 }
@@ -313,7 +315,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	}
 
 	newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, cc.OriginalObject.SegmentCount)
-	expectedSegments := make([]metabase.RawSegment, cc.OriginalObject.SegmentCount*2)
+	newSegments := make([]metabase.RawSegment, cc.OriginalObject.SegmentCount)
 	expectedEncryptedSize := 1060
 
 	for i := 0; i < int(cc.OriginalObject.SegmentCount); i++ {
@@ -323,25 +325,31 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			EncryptedKey:      testrand.Bytes(32),
 		}
 
-		copyIndex := i + int(cc.OriginalObject.SegmentCount)
-		expectedSegments[i] = DefaultRawSegment(cc.OriginalObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+		var originalSegment metabase.RawSegment
+		if len(cc.OriginalSegments) == 0 {
+			originalSegment = DefaultRawSegment(cc.OriginalObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+			// TODO: place this calculation in metabasetest.
+			originalSegment.PlainOffset = int64(i) * int64(originalSegment.PlainSize)
+			// TODO: we should use the same value for encrypted size in both test methods.
+			originalSegment.EncryptedSize = int32(expectedEncryptedSize)
+		} else {
+			originalSegment = metabase.RawSegment(cc.OriginalSegments[i])
+		}
 
-		// TODO: place this calculation in metabasetest.
-		expectedSegments[i].PlainOffset = int64(int32(i) * expectedSegments[i].PlainSize)
-		// TODO: we should use the same value for encrypted size in both test methods.
-		expectedSegments[i].EncryptedSize = int32(expectedEncryptedSize)
+		newSegment := metabase.RawSegment{
+			StreamID:          copyStream.StreamID,
+			EncryptedKeyNonce: newEncryptedKeysNonces[i].EncryptedKeyNonce,
+			EncryptedKey:      newEncryptedKeysNonces[i].EncryptedKey,
+			EncryptedSize:     originalSegment.EncryptedSize,
+			Position:          originalSegment.Position,
+			RootPieceID:       originalSegment.RootPieceID,
+			Redundancy:        originalSegment.Redundancy,
+			PlainSize:         originalSegment.PlainSize,
+			PlainOffset:       originalSegment.PlainOffset,
+			CreatedAt:         time.Now().UTC(),
+		}
 
-		expectedSegments[copyIndex] = metabase.RawSegment{}
-		expectedSegments[copyIndex].StreamID = copyStream.StreamID
-		expectedSegments[copyIndex].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
-		expectedSegments[copyIndex].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
-		expectedSegments[copyIndex].EncryptedSize = expectedSegments[i].EncryptedSize
-		expectedSegments[copyIndex].Position = expectedSegments[i].Position
-		expectedSegments[copyIndex].RootPieceID = expectedSegments[i].RootPieceID
-		expectedSegments[copyIndex].Redundancy = expectedSegments[i].Redundancy
-		expectedSegments[copyIndex].PlainSize = expectedSegments[i].PlainSize
-		expectedSegments[copyIndex].PlainOffset = expectedSegments[i].PlainOffset
-		expectedSegments[copyIndex].CreatedAt = time.Now().UTC()
+		newSegments[i] = newSegment
 	}
 
 	opts := cc.FinishObject
@@ -357,16 +365,19 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 		}
 	}
 
-	_, err := db.FinishCopyObject(ctx, *opts)
+	copyObj, err := db.FinishCopyObject(ctx, *opts)
 	require.NoError(t, err)
 
-	copyObj := cc.OriginalObject
-	copyObj.StreamID = copyStream.StreamID
-	copyObj.ObjectKey = copyStream.ObjectKey
-	copyObj.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
-	copyObj.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce
-	copyObj.BucketName = copyStream.BucketName
-	copyObj.ZombieDeletionDeadline = nil
+	return copyObj, newSegments
+}
 
-	return copyObj, expectedSegments
+// SegmentsToRaw converts a slice of Segment to a slice of RawSegment.
+func SegmentsToRaw(segments []metabase.Segment) []metabase.RawSegment {
+	rawSegments := []metabase.RawSegment{}
+
+	for _, segment := range segments {
+		rawSegments = append(rawSegments, metabase.RawSegment(segment))
+	}
+
+	return rawSegments
 }

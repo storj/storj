@@ -208,6 +208,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # enable open registration
 # console.open-registration-enabled: false
 
+# optional url to external registration success page
+# console.optional-signup-success-url: ""
+
 # names and addresses of partnered satellites in JSON list format
 # console.partnered-satellites: '[["US1","https://us1.storj.io"],["EU1","https://eu1.storj.io"],["AP1","https://ap1.storj.io"]]'
 
@@ -612,6 +615,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
+
+# list of country codes to exclude from node selection for uploads
+# overlay.node.upload-excluded-country-codes: '[]'
 
 # list of country codes to exclude nodes from target repair selection
 # overlay.repair-excluded-country-codes: '[]'

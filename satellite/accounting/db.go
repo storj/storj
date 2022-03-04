@@ -143,7 +143,7 @@ type BucketUsagePage struct {
 // for certain period.
 type BucketUsageRollup struct {
 	ProjectID  uuid.UUID
-	BucketName []byte
+	BucketName string
 
 	TotalStoredData float64
 
@@ -232,6 +232,8 @@ type ProjectAccounting interface {
 	GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (*ProjectObjectsSegments, error)
 	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
+	// GetSingleBucketUsageRollup returns usage rollup per single bucket for specified period of time.
+	GetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*BucketUsageRollup, error)
 	// GetBucketTotals returns per bucket usage summary for specified period of time.
 	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
 	// ArchiveRollupsBefore archives rollups older than a given time and returns number of bucket bandwidth rollups archived.
