@@ -212,6 +212,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
+	if server.config.GeneratedAPIEnabled {
+		consoleapi.NewProjectManagement(logger, server.service, router, server.service)
+	}
+
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 

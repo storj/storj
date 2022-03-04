@@ -3,7 +3,10 @@
 
 package apigen
 
-import "net/http"
+import (
+	"net/http"
+	"reflect"
+)
 
 // Endpoint represents endpoint's configuration.
 type Endpoint struct {
@@ -14,7 +17,7 @@ type Endpoint struct {
 	NoAPIAuth    bool
 	Request      interface{}
 	Response     interface{}
-	Params       []string
+	Params       []Param
 }
 
 // CookieAuth returns endpoint's cookie auth status.
@@ -53,4 +56,18 @@ func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
 	}
 
 	eg.Endpoints[pathMethod] = endpoint
+}
+
+// Param represents string interpretation of param's name and type.
+type Param struct {
+	Name string
+	Type reflect.Type
+}
+
+// NewParam constructor which creates new Param entity by given name and type.
+func NewParam(name string, instance interface{}) Param {
+	return Param{
+		Name: name,
+		Type: reflect.TypeOf(instance),
+	}
 }
