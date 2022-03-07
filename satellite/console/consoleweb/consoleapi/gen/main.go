@@ -32,13 +32,25 @@ func main() {
 		})
 
 		g.Get("/bucket-rollup", &apigen.Endpoint{
-			Name:        "Get Project's Bucket Usage",
-			Description: "Gets project's bucket usage by bucket ID",
+			Name:        "Get Project's Single Bucket Usage",
+			Description: "Gets project's single bucket usage by bucket ID",
 			MethodName:  "GenGetSingleBucketUsageRollup",
 			Response:    &accounting.BucketUsageRollup{},
 			Params: []apigen.Param{
 				apigen.NewParam("projectID", uuid.UUID{}),
 				apigen.NewParam("bucket", ""),
+				apigen.NewParam("since", time.Time{}),
+				apigen.NewParam("before", time.Time{}),
+			},
+		})
+
+		g.Get("/bucket-rollups", &apigen.Endpoint{
+			Name:        "Get Project's All Buckets Usage",
+			Description: "Gets project's all buckets usage",
+			MethodName:  "GenGetBucketUsageRollups",
+			Response:    []accounting.BucketUsageRollup{},
+			Params: []apigen.Param{
+				apigen.NewParam("projectID", uuid.UUID{}),
 				apigen.NewParam("since", time.Time{}),
 				apigen.NewParam("before", time.Time{}),
 			},

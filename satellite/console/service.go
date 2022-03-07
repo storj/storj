@@ -1735,6 +1735,38 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 	return result, nil
 }
 
+// GenGetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period for generated api.
+func (s *Service) GenGetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (rollups []accounting.BucketUsageRollup, httpError api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get bucket usage rollups", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	rollups, err = s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return
+}
+
 // GenGetSingleBucketUsageRollup retrieves usage rollup for single bucket of particular project for a given period for generated api.
 func (s *Service) GenGetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (rollup *accounting.BucketUsageRollup, httpError api.HTTPError) {
 	var err error
