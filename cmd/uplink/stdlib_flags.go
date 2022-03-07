@@ -5,8 +5,10 @@ package main
 
 import (
 	"flag"
+	"time"
 
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
 )
 
 type stdlibFlags struct {
@@ -34,3 +36,22 @@ func (s *stdlibFlags) Setup(f clingy.Flags) {
 		)
 	})
 }
+
+// transformHumanDate is a helper for command-line flags which accept relative and absolute datetimes.
+// It emplements clingy.Option.
+var transformHumanDate = clingy.Transform(func(date string) (time.Time, error) {
+	switch {
+	case date == "none":
+		return time.Time{}, nil
+	case date == "":
+		return time.Time{}, nil
+	case date == "now":
+		return time.Now(), nil
+	case date[0] == '+' || date[0] == '-':
+		d, err := time.ParseDuration(date)
+		return time.Now().Add(d), errs.Wrap(err)
+	default:
+		t, err := time.Parse(time.RFC3339, date)
+		return t, errs.Wrap(err)
+	}
+})

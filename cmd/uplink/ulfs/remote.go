@@ -46,8 +46,10 @@ func (r *Remote) Stat(ctx context.Context, bucket, key string) (*ObjectInfo, err
 }
 
 // Create returns a MultiWriteHandle for the object identified by a given bucket and key.
-func (r *Remote) Create(ctx context.Context, bucket, key string) (MultiWriteHandle, error) {
-	info, err := r.project.BeginUpload(ctx, bucket, key, nil)
+func (r *Remote) Create(ctx context.Context, bucket, key string, opts *CreateOptions) (MultiWriteHandle, error) {
+	info, err := r.project.BeginUpload(ctx, bucket, key, &uplink.UploadOptions{
+		Expires: opts.Expires,
+	})
 	if err != nil {
 		return nil, err
 	}

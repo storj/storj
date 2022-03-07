@@ -112,6 +112,14 @@ func TestCpUpload(t *testing.T) {
 		)
 	})
 
+	t.Run("Expires", func(t *testing.T) {
+		state.Succeed(t, "cp", "--expires", "+4h", "/home/user/file1.txt", "sj://user/file1.txt").RequireRemoteFiles(t,
+			ultest.File{Loc: "sj://user/file1.txt", Contents: "local"},
+		)
+
+		state.Succeed(t, "cp", "--expires", "-4h", "/home/user/file1.txt", "sj://user/file1.txt").RequireRemoteFiles(t)
+	})
+
 	t.Run("EdgeCases", func(t *testing.T) {
 		state.Succeed(t, "cp", "/home/user/file1.txt", "sj://user").RequireRemoteFiles(t,
 			ultest.File{Loc: "sj://user/file1.txt", Contents: "local"},
