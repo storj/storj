@@ -50,13 +50,13 @@ pipeline {
             parallel {
                 stage('go') {
                     steps {
-                        sh 'go build -v ./...'
+                        // use go test to build all the packages, including tests
                         sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
                     }
                 }
                 stage('go -race') {
                     steps {
-                        sh 'go build -v -race ./...'
+                        // use go test to build all the packages, including tests
                         sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
 
                         // install storj-sim
@@ -161,7 +161,7 @@ pipeline {
                         }
 
                         sh './scripts/check-package-lock.sh'
-                     }
+                    }
                 }
                 stage('Cross Compile') {
                     steps {
