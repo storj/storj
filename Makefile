@@ -175,11 +175,6 @@ multinode-console:
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
-	# embed web assets into go
-	go-bindata -prefix web/multinode/ -fs -o multinode/console/consoleassets/bindata.resource.go -pkg consoleassets web/multinode/dist/... web/multinode/static/...
-	# configure existing go code to know about the new assets
-	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> multinode/console/consoleassets/bindata.resource.go
-	gofmt -w -s multinode/console/consoleassets/bindata.resource.go
 
 .PHONY: satellite-admin-ui
 satellite-admin-ui:
