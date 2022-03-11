@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/multinode/payouts"
 	"storj.io/storj/multinode/reputation"
 	"storj.io/storj/multinode/storage"
+	"storj.io/storj/private/web"
 )
 
 var (
@@ -132,7 +133,8 @@ func NewServer(log *zap.Logger, listener net.Listener, assets fs.FS, services Se
 	reputationRouter := apiRouter.PathPrefix("/reputation").Subrouter()
 	reputationRouter.HandleFunc("/satellites/{satelliteID}", reputationController.Stats)
 
-	router.PathPrefix("/static").Handler(http.FileServer(http.FS(server.assets)))
+	staticServer := http.FileServer(http.FS(server.assets))
+	router.PathPrefix("/static").Handler(web.CacheHandler(staticServer))
 	router.PathPrefix("/").HandlerFunc(server.appHandler)
 
 	server.http = http.Server{

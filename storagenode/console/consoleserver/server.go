@@ -8,7 +8,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"path/filepath"
 
 	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -17,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/storj/private/web"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleapi"
 	"storj.io/storj/storagenode/notifications"
@@ -88,7 +88,7 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 
 	if assets != nil {
 		fs := http.FileServer(assets)
-		router.PathPrefix("/static/").Handler(server.cacheMiddleware(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/static/").Handler(web.CacheHandler(http.StripPrefix("/static", fs)))
 		router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			req := r.Clone(r.Context())
 			req.URL.Path = "/dist/"
@@ -128,24 +128,4 @@ func (server *Server) Run(ctx context.Context) (err error) {
 // Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return server.server.Close()
-}
-
-// cacheMiddleware is a middleware for caching static files.
-func (server *Server) cacheMiddleware(fn http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// "mime" package, which http.FileServer uses, depends on Operating System
-		// configuration for mime-types. When a system has hardcoded mime-types to
-		// something else, they might serve ".js" as a "plain/text".
-		//
-		// Override any of that default behavior to ensure we get the correct types for
-		// common files.
-		if contentType, ok := CommonContentType(filepath.Ext(r.URL.Path)); ok {
-			w.Header().Set("Content-Type", contentType)
-		}
-
-		w.Header().Set("Cache-Control", "public, max-age=31536000")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-
-		fn.ServeHTTP(w, r)
-	})
 }
