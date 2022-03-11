@@ -48,7 +48,6 @@ help:
 .PHONY: build-dev-deps
 build-dev-deps: ## Install dependencies for builds
 	go get golang.org/x/tools/cover
-	go get github.com/go-bindata/go-bindata/go-bindata
 	go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo
 	go get github.com/github-release/github-release
 
@@ -157,11 +156,6 @@ storagenode-console:
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
-	# embed web assets into go
-	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
-	# configure existing go code to know about the new assets
-	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
-	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
 .PHONY: multinode-console
 multinode-console:

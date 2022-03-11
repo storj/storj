@@ -6,6 +6,8 @@ package consoleserver
 import (
 	"context"
 	"errors"
+	"io"
+	"io/fs"
 	"net"
 	"net/http"
 
@@ -45,16 +47,18 @@ type Server struct {
 	notifications *notifications.Service
 	payout        *payouts.Service
 	listener      net.Listener
+	assets        fs.FS
 
 	server http.Server
 }
 
 // NewServer creates new instance of storagenode console web server.
-func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, payout *payouts.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, assets fs.FS, notifications *notifications.Service, service *console.Service, payout *payouts.Service, listener net.Listener) *Server {
 	server := Server{
 		log:           logger,
 		service:       service,
 		listener:      listener,
+		assets:        assets,
 		notifications: notifications,
 		payout:        payout,
 	}
@@ -86,21 +90,33 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	payoutRouter.HandleFunc("/periods", payoutController.HeldAmountPeriods).Methods(http.MethodGet)
 	payoutRouter.HandleFunc("/payout-history/{period}", payoutController.PayoutHistory).Methods(http.MethodGet)
 
-	if assets != nil {
-		fs := http.FileServer(assets)
-		router.PathPrefix("/static/").Handler(web.CacheHandler(http.StripPrefix("/static", fs)))
-		router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			req := r.Clone(r.Context())
-			req.URL.Path = "/dist/"
-			fs.ServeHTTP(w, req)
-		}))
-	}
+	staticServer := http.FileServer(http.FS(server.assets))
+	router.PathPrefix("/static/").Handler(web.CacheHandler(staticServer))
+	router.PathPrefix("/").HandlerFunc(server.appHandler)
 
 	server.server = http.Server{
 		Handler: router,
 	}
 
 	return &server
+}
+
+// appHandler is web app http handler function.
+func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	header := w.Header()
+
+	header.Set("Content-Type", "text/html; charset=UTF-8")
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Referrer-Policy", "same-origin")
+
+	f, err := server.assets.Open("index.html")
+	if err != nil {
+		http.Error(w, `web/storagenode unbuilt, run "npm install && npm run build" in web/storagenode.`, http.StatusNotFound)
+		return
+	}
+	defer func() { _ = f.Close() }()
+
+	_, _ = io.Copy(w, f)
 }
 
 // Run starts the server that host webapp and api endpoints.
