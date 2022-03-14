@@ -92,8 +92,7 @@ WITH deleted_objects AS (
 		project_id   = $1 AND
 		bucket_name  = $2 AND
 		object_key   = $3 AND
-		version      = $4 AND
-		status       = ` + committedStatus + `
+		version      = $4
 	RETURNING
 		version, stream_id,
 		created_at, expires_at,
@@ -129,8 +128,7 @@ WITH deleted_objects AS (
 		project_id   = $1 AND
 		bucket_name  = $2 AND
 		object_key   = $3 AND
-		version      = $4 AND
-		status       = ` + committedStatus + `
+		version      = $4
 	RETURNING
 		version, stream_id,
 		created_at, expires_at,
@@ -231,10 +229,6 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	})
 	if err != nil {
 		return DeleteObjectResult{}, err
-	}
-
-	if len(result.Objects) == 0 {
-		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
 	mon.Meter("object_delete").Mark(len(result.Objects))

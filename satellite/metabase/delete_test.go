@@ -269,7 +269,6 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 		location := obj.Location()
 
 		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -308,8 +307,9 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        1,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "metabase: no rows deleted",
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{},
+				},
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -322,8 +322,9 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        33,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "metabase: no rows deleted",
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{},
+				},
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -344,22 +345,17 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        1,
 				},
-				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "metabase: no rows deleted",
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{{
 						ObjectStream: obj,
 						CreatedAt:    now,
+						Encryption:   metabasetest.DefaultEncryption,
 						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
+					}},
 				},
 			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Delete object without segments", func(t *testing.T) {
