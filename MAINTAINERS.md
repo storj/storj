@@ -34,7 +34,7 @@ Here we need to post changes for each topic(storj-sim, Uplink, Sattelite, Storag
 Then its time to cut the release branch:
 `git checkout -b v1.3` - will create and checkout branch v1.3
 `git push origin v1.3`- will push release branch to the repo
-Also we need to cut same release branch on [tardigrade-satellite-theme](https://github.com/storj/tardigrade-satellite-theme)
+Also we need to cut same release branch on tardigrade-satellite-theme repo
 `git checkout -b v1.3` - will create and checkout branch v1.3
 `git push origin v1.3`- will push release branch to the repo
 
