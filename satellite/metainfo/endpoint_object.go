@@ -1300,7 +1300,15 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		ObjectKey:  object,
 	}
 
-	result, err := endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+	var result metabase.DeleteObjectResult
+	if endpoint.config.ServerSideCopy {
+		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+			ObjectLocation: req,
+			Version:        metabase.DefaultVersion,
+		})
+	} else {
+		result, err = endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1328,9 +1336,17 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 ) (deletedObjects []*pb.Object, err error) {
 	defer mon.Task()(&ctx, location.ProjectID.String(), location.BucketName, location.ObjectKey)(&err)
 
-	result, err := endpoint.metabase.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
-		ObjectLocation: location,
-	})
+	var result metabase.DeleteObjectResult
+	if endpoint.config.ServerSideCopy {
+		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+			ObjectLocation: location,
+			Version:        metabase.DefaultVersion,
+		})
+	} else {
+		result, err = endpoint.metabase.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
+			ObjectLocation: location,
+		})
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
