@@ -56,10 +56,10 @@ func (ap *accessPermissions) Setup(params clingy.Parameters, prefixFlags bool) {
 
 	ap.notBefore = params.Flag("not-before",
 		"Disallow access before this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
-		time.Time{}, transformHumanDate, clingy.Type("relative_date")).(time.Time)
+		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
 	ap.notAfter = params.Flag("not-after",
 		"Disallow access after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
-		time.Time{}, transformHumanDate, clingy.Type("relative_date")).(time.Time)
+		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
 
 	if !prefixFlags {
 		ap.prefixes = params.Arg("prefix", "Key prefix access will be restricted to",

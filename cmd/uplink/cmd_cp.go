@@ -92,7 +92,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 
 	c.expires = params.Flag("expires",
 		"Schedule removal after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
-		time.Time{}, transformHumanDate, clingy.Type("relative_date")).(time.Time)
+		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
 
 	c.source = params.Arg("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 	c.dest = params.Arg("dest", "Destination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)

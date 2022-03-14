@@ -37,9 +37,9 @@ func (s *stdlibFlags) Setup(f clingy.Flags) {
 	})
 }
 
-// transformHumanDate is a helper for command-line flags which accept relative and absolute datetimes.
-// It emplements clingy.Option.
-var transformHumanDate = clingy.Transform(func(date string) (time.Time, error) {
+// parseHumanDate parses command-line flags which accept relative and absolute datetimes.
+// It can be passed to clingy.Transform to create a clingy.Option.
+func parseHumanDate(date string) (time.Time, error) {
 	switch {
 	case date == "none":
 		return time.Time{}, nil
@@ -54,4 +54,4 @@ var transformHumanDate = clingy.Transform(func(date string) (time.Time, error) {
 		t, err := time.Parse(time.RFC3339, date)
 		return t, errs.Wrap(err)
 	}
-})
+}
