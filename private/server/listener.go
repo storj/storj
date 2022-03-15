@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/netutil"
@@ -46,6 +47,7 @@ func (lis *tcpUserTimeoutListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	mon.Event("incoming_connection", monkit.NewSeriesTag("kind", "tcp"))
 
 	if err := netutil.SetUserTimeout(conn, defaultUserTimeout); err != nil {
 		return nil, errs.Combine(err, conn.Close())
@@ -77,6 +79,7 @@ func (lis *quicTrackedListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	mon.Event("incoming_connection", monkit.NewSeriesTag("kind", "quic"))
 
 	connectorConn, ok := conn.(rpc.ConnectorConn)
 	if !ok {
