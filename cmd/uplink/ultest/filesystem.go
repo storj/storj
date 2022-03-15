@@ -174,6 +174,18 @@ func (tfs *testFilesystem) Move(ctx clingy.Context, source, dest ulloc.Location)
 	return nil
 }
 
+func (tfs *testFilesystem) Copy(ctx clingy.Context, source, dest ulloc.Location) error {
+	tfs.mu.Lock()
+	defer tfs.mu.Unlock()
+
+	mf, ok := tfs.files[source]
+	if !ok {
+		return errs.New("file does not exist %q", source)
+	}
+	tfs.files[dest] = mf
+	return nil
+}
+
 func (tfs *testFilesystem) Remove(ctx context.Context, loc ulloc.Location, opts *ulfs.RemoveOptions) error {
 	tfs.mu.Lock()
 	defer tfs.mu.Unlock()

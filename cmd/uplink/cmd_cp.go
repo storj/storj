@@ -211,6 +211,10 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 		return nil
 	}
 
+	if dest.Remote() && source.Remote() {
+		return fs.Copy(ctx, source, dest)
+	}
+
 	offset, length, err := parseRange(c.byteRange)
 	if err != nil {
 		return errs.Wrap(err)

@@ -96,10 +96,17 @@ uplink mv "sj://$BUCKET/big-upload-testfile"       "sj://$BUCKET/moved-big-uploa
 uplink ls "sj://$BUCKET/moved-big-upload-testfile" | grep "moved-big-upload-testfile"
 uplink mv "sj://$BUCKET/moved-big-upload-testfile" "sj://$BUCKET/big-upload-testfile"
 
+# test server-side copy operation
+uplink cp "sj://$BUCKET/big-upload-testfile"        "sj://$BUCKET/copied-big-upload-testfile"
+uplink ls "sj://$BUCKET/copied-big-upload-testfile" | grep "copied-big-upload-testfile"
+uplink ls "sj://$BUCKET/big-upload-testfile"        | grep "big-upload-testfile"
+uplink cp "sj://$BUCKET/copied-big-upload-testfile" "$DST_DIR/copied-big-upload-testfile"
+compare_files "$SRC_DIR/big-upload-testfile"        "$DST_DIR/copied-big-upload-testfile"
+
 # move prefix
 uplink mv "sj://$BUCKET/" "sj://$BUCKET/my-prefix/" --recursive
 FILES=$(uplink ls "sj://$BUCKET/my-prefix/" | tee "$TMPDIR/list" | wc -l)
-EXPECTED_FILES="6" # 5 objects + one line more for headers
+EXPECTED_FILES="7" # 6 objects + one line more for headers
 if [ "$FILES" == "$EXPECTED_FILES" ]
 then
     echo "listing after move returns $FILES files"
@@ -115,6 +122,7 @@ uplink rm "sj://$BUCKET/big-upload-testfile"
 uplink rm "sj://$BUCKET/multisegment-upload-testfile"
 uplink rm "sj://$BUCKET/diff-size-segments"
 uplink rm "sj://$BUCKET/diff-size-segments_upl_p2"
+uplink rm "sj://$BUCKET/copied-big-upload-testfile"
 
 uplink ls "sj://$BUCKET"
 uplink ls -x "sj://$BUCKET"
