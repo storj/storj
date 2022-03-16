@@ -1840,6 +1840,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						WHERE owner_id IN (SELECT id FROM users WHERE paid_tier = true);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop suspended column on reputations and nodes",
+				Version:     191,
+				Action: migrate.SQL{
+					`ALTER TABLE reputations DROP COLUMN suspended;`,
+					`ALTER TABLE nodes DROP COLUMN suspended;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
