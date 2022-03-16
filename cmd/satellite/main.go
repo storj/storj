@@ -670,7 +670,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L().Named("satellite-cli")
 
-	start, end, err := reports.ParseRange(args[1], args[2])
+	start, end, err := reports.ParseRange(args[0], args[1])
 	if err != nil {
 		return err
 	}
