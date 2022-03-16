@@ -86,8 +86,9 @@ func TestGarbageCollection(t *testing.T) {
 		require.NotZero(t, keptPieceID)
 
 		// Delete one object from metainfo service on satellite
-		_, err = satellite.Metabase.DB.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{
-			Locations: []metabase.ObjectLocation{objectLocationToDelete},
+		_, err = satellite.Metabase.DB.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+			ObjectLocation: objectLocationToDelete,
+			Version:        metabase.DefaultVersion,
 		})
 		require.NoError(t, err)
 
