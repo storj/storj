@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
 )
@@ -112,7 +113,8 @@ SELECT
 	deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
 	deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
 	deleted_objects.encryption,
-	deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+	deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces,
+	NULL
 FROM deleted_objects
 LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id`
 
@@ -168,7 +170,7 @@ promoted_ancestor AS (
 			LIMIT 1
 		)
 		ORDER BY stream_id
-	    LIMIT 1
+		LIMIT 1
 	)
 	RETURNING
 		stream_id
@@ -203,7 +205,8 @@ SELECT
 	deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
 	deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
 	deleted_objects.encryption,
-	deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+	deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces,
+	(SELECT stream_id FROM promoted_ancestor)
 FROM deleted_objects
 LEFT JOIN deleted_segments
 	ON deleted_objects.stream_id = deleted_segments.stream_id`
@@ -287,7 +290,8 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 				deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
 				deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
 				deleted_objects.encryption,
-				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces,
+				NULL
 			FROM deleted_objects
 			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
 		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
@@ -312,6 +316,10 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 // DeleteObjectAnyStatusAllVersions deletes all object versions.
 func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteObjectAnyStatusAllVersions) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if db.config.ServerSideCopy {
+		return DeleteObjectResult{}, errs.New("method cannot be used when server-side copy is enabled")
+	}
 
 	if err := opts.Verify(); err != nil {
 		return DeleteObjectResult{}, err
@@ -343,7 +351,8 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 				deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
 				deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
 				deleted_objects.encryption,
-				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces,
+				NULL
 			FROM deleted_objects
 			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
 		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
@@ -368,6 +377,10 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 // DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
 func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAllVersions) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if db.config.ServerSideCopy {
+		return DeleteObjectResult{}, errs.New("method cannot be used when server-side copy is enabled")
+	}
 
 	if len(opts.Locations) == 0 {
 		// nothing to delete, no error
@@ -452,7 +465,7 @@ func (db *DB) scanObjectDeletion(ctx context.Context, location ObjectLocation, r
 	var aliasPieces AliasPieces
 
 	for rows.Next() {
-
+		var promotedAncestor *uuid.UUID
 		object.ProjectID = location.ProjectID
 		object.BucketName = location.BucketName
 		object.ObjectKey = location.ObjectKey
@@ -462,14 +475,18 @@ func (db *DB) scanObjectDeletion(ctx context.Context, location ObjectLocation, r
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption}, &rootPieceID, &aliasPieces)
+			encryptionParameters{&object.Encryption}, &rootPieceID, &aliasPieces,
+			&promotedAncestor,
+		)
 		if err != nil {
 			return nil, nil, Error.New("unable to delete object: %w", err)
 		}
 		if len(objects) == 0 || objects[len(objects)-1].StreamID != object.StreamID {
 			objects = append(objects, object)
 		}
-		if rootPieceID != nil {
+		// not nil promotedAncestor means that while delete new ancestor was promoted and
+		// we should not delete pieces because we had copies and now one copy become ancestor
+		if rootPieceID != nil && promotedAncestor == nil {
 			segment.RootPieceID = *rootPieceID
 			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 			if err != nil {

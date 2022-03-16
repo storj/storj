@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -17,6 +18,13 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
+
+var noServerSideCopyConfig = metabase.Config{
+	ApplicationName:  "satellite-test",
+	MinPartSize:      5 * memory.MiB,
+	MaxNumberOfParts: 1000,
+	ServerSideCopy:   false,
+}
 
 func TestDeletePendingObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
@@ -459,7 +467,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 }
 
 func TestDeleteObjectAnyStatusAllVersions(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	metabasetest.RunWithConfig(t, noServerSideCopyConfig, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 
 		location := obj.Location()
@@ -646,7 +654,7 @@ func TestDeleteObjectAnyStatusAllVersions(t *testing.T) {
 }
 
 func TestDeleteObjectsAllVersions(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	metabasetest.RunWithConfig(t, noServerSideCopyConfig, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 
 		location := obj.Location()
@@ -982,11 +990,16 @@ func TestDeleteCopy(t *testing.T) {
 						},
 					}.Normalize().Check(ctx, t, db)
 
-					_, err := db.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
-						Version:        copyObj.Version,
-						ObjectLocation: copyObj.Location(),
-					})
-					require.NoError(t, err)
+					metabasetest.DeleteObjectExactVersion{
+						Opts: metabase.DeleteObjectExactVersion{
+							ObjectLocation: copyObj.Location(),
+							Version:        copyObj.Version,
+						},
+						Result: metabase.DeleteObjectResult{
+							Objects: []metabase.Object{copyObj},
+							// no segments returned as we deleted copy
+						},
+					}.Check(ctx, t, db)
 
 					// Verify that we are back at the original single object
 					metabasetest.Verify{
@@ -1018,11 +1031,16 @@ func TestDeleteCopy(t *testing.T) {
 						OriginalObject: originalObj,
 					}.Run(ctx, t, db)
 
-					_, err := db.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
-						Version:        copyObject1.Version,
-						ObjectLocation: copyObject1.Location(),
-					})
-					require.NoError(t, err)
+					metabasetest.DeleteObjectExactVersion{
+						Opts: metabase.DeleteObjectExactVersion{
+							ObjectLocation: copyObject1.Location(),
+							Version:        copyObject1.Version,
+						},
+						Result: metabase.DeleteObjectResult{
+							Objects: []metabase.Object{copyObject1},
+							// no segments returned as we deleted copy
+						},
+					}.Check(ctx, t, db)
 
 					// Verify that only one of the copies is deleted
 					metabasetest.Verify{
@@ -1058,11 +1076,17 @@ func TestDeleteCopy(t *testing.T) {
 						OriginalObject: originalObj,
 					}.Run(ctx, t, db)
 
-					_, err := db.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
-						Version:        originalObj.Version,
-						ObjectLocation: originalObj.Location(),
-					})
-					require.NoError(t, err)
+					metabasetest.DeleteObjectExactVersion{
+						Opts: metabase.DeleteObjectExactVersion{
+							ObjectLocation: originalObj.Location(),
+							Version:        originalObj.Version,
+						},
+						Result: metabase.DeleteObjectResult{
+							Objects: []metabase.Object{originalObj},
+							// no segments returned as we deleted ancestor
+							// and we moved pieces to one of copies
+						},
+					}.Check(ctx, t, db)
 
 					// verify that the copy is left
 					metabasetest.Verify{
