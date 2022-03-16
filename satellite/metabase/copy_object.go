@@ -128,6 +128,8 @@ func (finishCopy FinishCopyObject) Verify() error {
 	switch {
 	case len(finishCopy.NewBucket) == 0:
 		return ErrInvalidRequest.New("NewBucket is missing")
+	case finishCopy.NewStreamID.IsZero():
+		return ErrInvalidRequest.New("NewStreamID is missing")
 	case finishCopy.ObjectStream.StreamID == finishCopy.NewStreamID:
 		return ErrInvalidRequest.New("StreamIDs are identical")
 	case finishCopy.ObjectKey == finishCopy.NewEncryptedObjectKey:
@@ -247,9 +249,10 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		copyMetadata = opts.NewEncryptedMetadata
 	}
 
+	copyObject := originalObject
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		// TODO we need to handle metadata correctly (copy from original object or replace)
-		_, err = db.db.ExecContext(ctx, `
+		row := db.db.QueryRowContext(ctx, `
 			INSERT INTO objects (
 				project_id, bucket_name, object_key, version, stream_id,
 				expires_at, status, segment_count,
@@ -263,13 +266,14 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 				$8,
 				$9, $10, $11,
 				$12, $13, $14, null
-			)`,
+			) RETURNING created_at`,
 			opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, opts.Version, opts.NewStreamID,
 			originalObject.ExpiresAt, originalObject.SegmentCount,
 			encryptionParameters{&originalObject.Encryption},
 			copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
 			originalObject.TotalPlainSize, originalObject.TotalEncryptedSize, originalObject.FixedSegmentSize,
 		)
+		err = row.Scan(&copyObject.CreatedAt)
 		if err != nil {
 			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 				return ErrObjectAlreadyExists.New("")
@@ -325,7 +329,6 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, err
 	}
 
-	copyObject := originalObject
 	copyObject.StreamID = opts.NewStreamID
 	copyObject.BucketName = opts.NewBucket
 	copyObject.ObjectKey = opts.NewEncryptedObjectKey
