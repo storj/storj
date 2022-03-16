@@ -13,6 +13,7 @@ UPLINK_DEBUG_ADDR=""
 readonly UPLINK_DEBUG_ADDR
 
 export STORJ_ACCESS="${GATEWAY_0_ACCESS}"
+export UPLINK_ACCESS="${STORJ_ACCESS}"
 export STORJ_DEBUG_ADDR="${UPLINK_DEBUG_ADDR}"
 
 # Vars
@@ -36,7 +37,10 @@ uplink_test() {
 	local dst_dir="${temp_dir}/dst"
 	mkdir -p "${src_dir}" "${dst_dir}"
 
-	local uplink_dir="${temp_dir}/uplink"
+	local UPLINK_CONFIG_DIR="${temp_dir}/uplink"
+	export UPLINK_CONFIG_DIR
+	mkdir -p "$UPLINK_CONFIG_DIR"
+	touch "$UPLINK_CONFIG_DIR/config.ini"
 
 	random_bytes_file "2KiB" "${src_dir}/small-upload-testfile" # create 2KiB file of random bytes (inline)
 	random_bytes_file "5MiB" "${src_dir}/big-upload-testfile"   # create 5MiB file of random bytes (remote)
@@ -52,13 +56,12 @@ uplink_test() {
 	uplink cp "${src_dir}/multisegment-upload-testfile" "sj://$BUCKET/" --progress=false
 	uplink cp "${src_dir}/diff-size-segments" "sj://$BUCKET/" --progress=false
 
-	uplink <"${src_dir}/put-file" put "sj://$BUCKET/put-file"
+	uplink <"${src_dir}/put-file" cp - "sj://$BUCKET/put-file"
 
-	uplink --config-dir "${uplink_dir}" import named-access "${STORJ_ACCESS}"
+	uplink access import -f named-access "${STORJ_ACCESS}"
 
 	local files
-	files=$(STORJ_ACCESS='' uplink --config-dir "${uplink_dir}" --access named-access \
-		ls "sj://${BUCKET}" | tee "${temp_dir}/list" | wc -l)
+	files=$(uplink ls "sj://${BUCKET}" --access named-access | grep -v '^KIND' | tee "${temp_dir}/list" | wc -l)
 	local expected_files="5"
 	if [ "${files}" == "${expected_files}" ]; then
 		echo "listing returns ${files} files"
@@ -68,7 +71,7 @@ uplink_test() {
 	fi
 
 	local size_check
-	size_check=$(awk <"${temp_dir}/list" '{if($4 == "0") print "invalid size";}')
+	size_check=$(awk <"${temp_dir}/list" '{if($3 == "0") print "invalid size";}')
 	if [ "${size_check}" != "" ]; then
 		echo "listing returns invalid size for one of the objects:"
 		cat "${temp_dir}/list"
@@ -82,7 +85,7 @@ uplink_test() {
 	uplink cp "sj://$BUCKET/multisegment-upload-testfile" "${dst_dir}" --progress=false
 	uplink cp "sj://$BUCKET/diff-size-segments" "${dst_dir}" --progress=false
 	uplink cp "sj://$BUCKET/put-file" "${dst_dir}" --progress=false
-	uplink cat "sj://$BUCKET/put-file" >>"${dst_dir}/put-file-from-cat"
+	uplink cp "sj://$BUCKET/put-file" - >>"${dst_dir}/put-file-from-cat"
 
 	uplink rm "sj://$BUCKET/small-upload-testfile"
 	uplink rm "sj://$BUCKET/big-upload-testfile"
@@ -110,7 +113,7 @@ uplink_test() {
 
 	uplink rb "sj://$BUCKET" --force
 
-	if [ "$(uplink ls | grep -c "No buckets")" = "0" ]; then
+	if [ "$(uplink ls | grep -c '^CREATED')" != "0" ]; then
 		echo "uplink didn't remove the entire bucket with the 'force' flag"
 		exit 1
 	fi

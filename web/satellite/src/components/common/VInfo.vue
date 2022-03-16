@@ -76,11 +76,6 @@ export default class VInfo extends Vue {
             filter: drop-shadow(0 0 34px #0a1b2c47);
             z-index: 1;
 
-            &__click-mock {
-                height: 2px;
-                background: transparent;
-            }
-
             &__arrow {
                 background-color: white;
                 width: 40px;

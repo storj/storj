@@ -93,8 +93,9 @@ type ProjectLimits struct {
 
 // ProjectDailyUsage holds project daily usage.
 type ProjectDailyUsage struct {
-	StorageUsage   []ProjectUsageByDay `json:"storageUsage"`
-	BandwidthUsage []ProjectUsageByDay `json:"bandwidthUsage"`
+	StorageUsage            []ProjectUsageByDay `json:"storageUsage"`
+	AllocatedBandwidthUsage []ProjectUsageByDay `json:"allocatedBandwidthUsage"`
+	SettledBandwidthUsage   []ProjectUsageByDay `json:"settledBandwidthUsage"`
 }
 
 // ProjectUsageByDay holds project daily usage.
@@ -141,21 +142,21 @@ type BucketUsagePage struct {
 // BucketUsageRollup is total bucket usage info
 // for certain period.
 type BucketUsageRollup struct {
-	ProjectID  uuid.UUID
-	BucketName []byte
+	ProjectID  uuid.UUID `json:"projectID"`
+	BucketName string    `json:"bucketName"`
 
-	TotalStoredData float64
+	TotalStoredData float64 `json:"totalStoredData"`
 
-	TotalSegments float64
-	ObjectCount   float64
-	MetadataSize  float64
+	TotalSegments float64 `json:"totalSegments"`
+	ObjectCount   float64 `json:"objectCount"`
+	MetadataSize  float64 `json:"metadataSize"`
 
-	RepairEgress float64
-	GetEgress    float64
-	AuditEgress  float64
+	RepairEgress float64 `json:"repairEgress"`
+	GetEgress    float64 `json:"getEgress"`
+	AuditEgress  float64 `json:"auditEgress"`
 
-	Since  time.Time
-	Before time.Time
+	Since  time.Time `json:"since"`
+	Before time.Time `json:"before"`
 }
 
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes.
@@ -208,7 +209,7 @@ type ProjectAccounting interface {
 	GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, int64, int64, error)
 	// DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time
 	DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) error
-	// GetProjectDailyUsageByDateRange returns daily allocated bandwidth and storage usage for the specified date range.
+	// GetProjectDailyUsageByDateRange returns daily allocated, settled bandwidth and storage usage for the specified date range.
 	GetProjectDailyUsageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time, crdbInterval time.Duration) (*ProjectDailyUsage, error)
 
 	// UpdateProjectUsageLimit updates project usage limit.
@@ -231,6 +232,8 @@ type ProjectAccounting interface {
 	GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (*ProjectObjectsSegments, error)
 	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
+	// GetSingleBucketUsageRollup returns usage rollup per single bucket for specified period of time.
+	GetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*BucketUsageRollup, error)
 	// GetBucketTotals returns per bucket usage summary for specified period of time.
 	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
 	// ArchiveRollupsBefore archives rollups older than a given time and returns number of bucket bandwidth rollups archived.

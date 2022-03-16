@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
@@ -437,16 +438,44 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 
+		// Ensure User is free tier.
+		paid, err := planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		require.NoError(t, err)
+		require.False(t, paid)
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.Equal(t, http.StatusOK, response.StatusCode)
 		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
 		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.Equal(t, "{\"result\":\"no project usage exist\"}", string(responseBody))
+		require.NoError(t, response.Body.Close())
+
+		// Make User paid tier.
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
+		require.NoError(t, err)
+
+		// Ensure User is paid tier.
+		paid, err = planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		require.NoError(t, err)
+		require.True(t, paid)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID), nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		response, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+
+		responseBody, err = ioutil.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"usage for current month exists\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -531,6 +560,8 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 	})
 }
 
+// TestProjectDelete_withUsageCurrentMonth first tries to delete a actively used project of a paid tier user, which
+// should fail and afterwards converts the user to free tier and tries the deletion again. That deletion should succeed.
 func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -581,6 +612,15 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 
+		// Make User paid tier.
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
+		require.NoError(t, err)
+
+		// Ensure User is paid tier.
+		paid, err := planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		require.NoError(t, err)
+		require.True(t, paid)
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
@@ -594,9 +634,34 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"usage for current month exists\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
+
+		// Make User free tier again.
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000, 3)
+		require.NoError(t, err)
+
+		// Ensure User is free tier.
+		paid, err = planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		require.NoError(t, err)
+		require.False(t, paid)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		response, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+
+		responseBody, err = ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.Equal(t, "", string(responseBody))
+		require.NoError(t, response.Body.Close())
 	})
 }
 
+// TestProjectDelete_withUsageCurrentMonth first tries to delete a last month used project of a paid tier user, which
+// should fail and afterwards converts the user to free tier and tries the deletion again. That deletion should succeed.
+// This test ensures we bill paid tier users for past months usage and do not forget to do so.
 func TestProjectDelete_withUsagePreviousMonth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -649,6 +714,15 @@ func TestProjectDelete_withUsagePreviousMonth(t *testing.T) {
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 
+		// Make User paid tier.
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
+		require.NoError(t, err)
+
+		// Ensure User is paid tier.
+		paid, err := planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		require.NoError(t, err)
+		require.True(t, paid)
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
@@ -660,5 +734,27 @@ func TestProjectDelete_withUsagePreviousMonth(t *testing.T) {
 		require.Equal(t, "{\"error\":\"usage for last month exist, but is not billed yet\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusConflict, response.StatusCode)
+
+		// Make User free tier again.
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000, 3)
+		require.NoError(t, err)
+
+		// Ensure User is free tier.
+		paid, err = planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		require.NoError(t, err)
+		require.False(t, paid)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s", projectID), nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		response, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+
+		responseBody, err = ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.Equal(t, "", string(responseBody))
+		require.NoError(t, response.Body.Close())
 	})
 }

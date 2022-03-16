@@ -5,6 +5,8 @@ package audit_test
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
 	"testing"
 	"time"
 
@@ -21,11 +23,13 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
 
@@ -240,8 +244,8 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		dialer.DialTimeout = 20 * time.Millisecond
 		dialer.DialLatency = 200 * time.Second
 
-		connector := rpc.NewDefaultTCPConnector(nil)
-		connector.TransferRate = 1 * memory.KB
+		connector := rpc.NewHybridConnector()
+		connector.SetTransferRate(1 * memory.KB)
 		dialer.Connector = connector
 
 		// This config value will create a very short timeframe allowed for receiving
@@ -616,8 +620,8 @@ func TestVerifierDialTimeout(t *testing.T) {
 		dialer.DialTimeout = 20 * time.Millisecond
 		dialer.DialLatency = 200 * time.Second
 
-		connector := rpc.NewDefaultTCPConnector(nil)
-		connector.TransferRate = 1 * memory.KB
+		connector := rpc.NewHybridConnector()
+		connector.SetTransferRate(1 * memory.KB)
 		dialer.Connector = connector
 
 		// This config value will create a very short timeframe allowed for receiving
@@ -926,4 +930,179 @@ func TestVerifierUnknownError(t *testing.T) {
 		assert.Len(t, report.Unknown, 1)
 		assert.Equal(t, report.Unknown[0], badNode.ID())
 	})
+}
+
+func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 20,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.InMemoryRepair = true
+				},
+				testplanet.ReconfigureRS(3, 5, 8, 10),
+				testplanet.RepairExcludedCountryCodes([]string{"FR", "BE"}),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		bucket := "testbucket"
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, bucket, "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, bucket)
+
+		remotePieces := segment.Pieces
+
+		numExcluded := 5
+		var nodesInExcluded storj.NodeIDList
+		for i := 0; i < numExcluded; i++ {
+			err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, remotePieces[i].StorageNode, "FR")
+			require.NoError(t, err)
+			nodesInExcluded = append(nodesInExcluded, remotePieces[i].StorageNode)
+		}
+
+		// make extra pieces after optimal bad
+		for i := int(segment.Redundancy.OptimalShares); i < len(remotePieces); i++ {
+			err = planet.StopNodeAndUpdate(ctx, planet.FindNode(remotePieces[i].StorageNode))
+			require.NoError(t, err)
+		}
+
+		// trigger checker to add segment to repair queue
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+
+		count, err := satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		// Verify that the segment was removed
+		count, err = satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Zero(t, count)
+
+		// Verify the segment has been repaired
+		segmentAfterRepair, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, bucket)
+		require.NotEqual(t, segment.Pieces, segmentAfterRepair.Pieces)
+		require.Equal(t, 10, len(segmentAfterRepair.Pieces))
+
+		// check excluded area nodes still exist
+		for i, n := range nodesInExcluded {
+			var found bool
+			for _, p := range segmentAfterRepair.Pieces {
+				if p.StorageNode == n {
+					found = true
+					break
+				}
+			}
+			require.True(t, found, fmt.Sprintf("node %s not in segment, but should be\n", segmentAfterRepair.Pieces[i].StorageNode.String()))
+		}
+		nodesInPointer := make(map[storj.NodeID]bool)
+		for _, n := range segmentAfterRepair.Pieces {
+			// check for duplicates
+			_, ok := nodesInPointer[n.StorageNode]
+			require.False(t, ok)
+			nodesInPointer[n.StorageNode] = true
+		}
+
+		lastPieceIndex := segmentAfterRepair.Pieces.Len() - 1
+		lastPiece := segmentAfterRepair.Pieces[lastPieceIndex]
+		for _, n := range planet.StorageNodes {
+			if n.ID() == lastPiece.StorageNode {
+				pieceID := segmentAfterRepair.RootPieceID.Derive(n.ID(), int32(lastPiece.Number))
+				corruptPieceData(ctx, t, planet, n, pieceID)
+			}
+		}
+
+		// now audit
+		report, err := satellite.Audit.Verifier.Verify(ctx, audit.Segment{
+			StreamID:      segmentAfterRepair.StreamID,
+			Position:      segmentAfterRepair.Position,
+			ExpiresAt:     segmentAfterRepair.ExpiresAt,
+			EncryptedSize: segmentAfterRepair.EncryptedSize,
+		}, nil)
+		require.NoError(t, err)
+		require.Len(t, report.Fails, 1)
+		require.Equal(t, report.Fails[0], lastPiece.StorageNode)
+	})
+}
+
+// getRemoteSegment returns a remote pointer its path from satellite.
+// nolint:golint
+func getRemoteSegment(
+	ctx context.Context, t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName string,
+) (_ metabase.Segment, key metabase.SegmentKey) {
+	t.Helper()
+
+	objects, err := satellite.Metabase.DB.TestingAllObjects(ctx)
+	require.NoError(t, err)
+	require.Len(t, objects, 1)
+
+	segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
+	require.NoError(t, err)
+	require.Len(t, segments, 1)
+	require.False(t, segments[0].Inline())
+
+	return segments[0], metabase.SegmentLocation{
+		ProjectID:  projectID,
+		BucketName: bucketName,
+		ObjectKey:  objects[0].ObjectKey,
+		Position:   segments[0].Position,
+	}.Encode()
+}
+
+// corruptPieceData manipulates piece data on a storage node.
+func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *testplanet.StorageNode, corruptedPieceID storj.PieceID) {
+	t.Helper()
+
+	blobRef := storage.BlobRef{
+		Namespace: planet.Satellites[0].ID().Bytes(),
+		Key:       corruptedPieceID.Bytes(),
+	}
+
+	// get currently stored piece data from storagenode
+	reader, err := corruptedNode.Storage2.BlobsCache.Open(ctx, blobRef)
+	require.NoError(t, err)
+	pieceSize, err := reader.Size()
+	require.NoError(t, err)
+	require.True(t, pieceSize > 0)
+	pieceData := make([]byte, pieceSize)
+
+	// delete piece data
+	err = corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
+	require.NoError(t, err)
+
+	// create new random data
+	_, err = rand.Read(pieceData)
+	require.NoError(t, err)
+
+	// corrupt piece data (not PieceHeader) and write back to storagenode
+	// this means repair downloading should fail during piece hash verification
+	pieceData[pieceSize-1]++ // if we don't do this, this test should fail
+	writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef, pieceSize)
+	require.NoError(t, err)
+
+	n, err := writer.Write(pieceData)
+	require.NoError(t, err)
+	require.EqualValues(t, n, pieceSize)
+
+	err = writer.Commit(ctx)
+	require.NoError(t, err)
 }

@@ -1,6 +1,9 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { DataStamp } from "@/types/projects";
+import { Size } from "@/utils/bytesSize";
+
 /**
  * ChartData class holds info for ChartData entity.
  */
@@ -14,16 +17,16 @@ export class ChartData {
         borderColor: string,
         pointBorderColor: string,
         data: number[],
+        secondaryBackgroundColor?: string,
+        secondaryBorderColor?: string,
+        secondaryPointBorderColor?: string,
+        secondaryData?: number[],
     ) {
         this.labels = labels;
+        this.datasets[0] = new DataSets(backgroundColor, borderColor, pointBorderColor, data)
 
-        for (let i = 0; i < this.labels.length; i++) {
-            this.datasets[i] = new DataSets(
-                backgroundColor,
-                borderColor,
-                pointBorderColor,
-                data,
-            );
+        if (secondaryData && secondaryBackgroundColor && secondaryBorderColor && secondaryPointBorderColor) {
+            this.datasets[1] = new DataSets(secondaryBackgroundColor, secondaryBorderColor, secondaryPointBorderColor, secondaryData);
         }
     }
 }
@@ -223,7 +226,7 @@ export class Tooltip {
         Tooltip.elemStyling(tooltipStyling);
     }
 
-    private static createTooltip(id: string): HTMLElement {
+    public static createTooltip(id: string): HTMLElement {
         let tooltipEl = document.getElementById(id);
 
         if (!tooltipEl) {
@@ -235,19 +238,34 @@ export class Tooltip {
         return tooltipEl;
     }
 
-    private static remove(tooltipEl: HTMLElement) {
+    public static remove(tooltipEl: HTMLElement): void {
         document.body.removeChild(tooltipEl);
     }
 
-    private static render(tooltip: HTMLElement, markUp: string) {
+    private static render(tooltip: HTMLElement, markUp: string): void {
         tooltip.innerHTML = markUp;
     }
 
-    private static elemStyling(elemStyling: Styling) {
+    private static elemStyling(elemStyling: Styling): void {
         elemStyling.element.style.opacity = StylingConstants.tooltipOpacity;
         elemStyling.element.style.position = StylingConstants.tooltipPosition;
         elemStyling.element.style.left = `${elemStyling.chartPosition.left + elemStyling.tooltipModel.caretX - elemStyling.leftPosition}px`;
         elemStyling.element.style.top = `${elemStyling.chartPosition.top + window.pageYOffset + elemStyling.tooltipModel.caretY - elemStyling.topPosition}px`;
+    }
+}
+
+/**
+ * Stores data for chart's tooltip
+ */
+export class ChartTooltipData {
+    public date: string;
+    public value: string;
+
+    public constructor(stamp: DataStamp) {
+        const size = new Size(stamp.value, 1)
+
+        this.date = stamp.intervalStart.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+        this.value = `${size.formattedBytes} ${size.label}`;
     }
 }
 

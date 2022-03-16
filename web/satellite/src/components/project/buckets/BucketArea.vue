@@ -6,7 +6,7 @@
         <NoBucketArea v-if="isNoBucketAreaShown" />
         <div v-else class="buckets-overflow">
             <div class="buckets-header">
-                <p class="buckets-header__title">Buckets</p>
+                <p class="buckets-header__title">Usage per bucket</p>
                 <VHeader
                     class="buckets-header-component"
                     placeholder="Buckets"
@@ -182,6 +182,7 @@ export default class BucketArea extends Vue {
             font-size: 16px;
             line-height: 16px;
             color: #1b2533;
+            white-space: nowrap;
         }
     }
 

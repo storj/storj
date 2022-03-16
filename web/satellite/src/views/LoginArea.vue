@@ -214,14 +214,14 @@ export default class Login extends Vue {
     public onConfirmInput(value: string): void {
         this.isMFAError = false;
 
-        this.isRecoveryCodeState ? this.recoveryCode = value : this.passcode = value;
+        this.isRecoveryCodeState ? this.recoveryCode = value.trim() : this.passcode = value.trim();
     }
 
     /**
      * Sets email string on change.
      */
     public setEmail(value: string): void {
-        this.email = value;
+        this.email = value.trim();
         this.emailError = '';
     }
 
@@ -279,7 +279,7 @@ export default class Login extends Vue {
         }
 
         try {
-            await this.auth.token(this.email.trim(), this.password, this.passcode.trim(), this.recoveryCode.trim());
+            await this.auth.token(this.email, this.password, this.passcode, this.recoveryCode);
         } catch (error) {
             if (error instanceof ErrorMFARequired) {
                 if (this.isMFARequired) this.isMFAError = true;
@@ -319,7 +319,7 @@ export default class Login extends Vue {
     private validateFields(): boolean {
         let isNoErrors = true;
 
-        if (!Validator.email(this.email.trim())) {
+        if (!Validator.email(this.email)) {
             this.emailError = 'Invalid Email';
             isNoErrors = false;
         }

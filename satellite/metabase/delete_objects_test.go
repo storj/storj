@@ -115,7 +115,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 		t.Run("committed objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			object1 := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
+			object1, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
 			metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream: obj2,
@@ -123,7 +123,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 					Encryption:   metabasetest.DefaultEncryption,
 				},
 			}.Run(ctx, t, db, obj2, 1)
-			object3 := metabasetest.CreateTestObject{
+			object3, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream: obj3,
 					ExpiresAt:    &futureTime,
@@ -398,7 +398,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 		t.Run("committed objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			object1 := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
+			object1, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
 
 			object2 := object1
 			object2.ObjectStream = obj2
@@ -410,7 +410,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 				},
 			}.Run(ctx, t, db, object2.ObjectStream, 1)
 
-			object3 := metabasetest.CreateTestObject{
+			object3, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream:           obj3,
 					ZombieDeletionDeadline: &futureTime,

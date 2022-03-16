@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
@@ -38,24 +39,28 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			disqualified          bool
 			offline               bool
 			gracefullyexited      bool
+			countryCode           string
 		}{
-			{storj.NodeID{1}, false, false, false, false, false}, // good
-			{storj.NodeID{2}, false, false, true, false, false},  // disqualified
-			{storj.NodeID{3}, true, false, false, false, false},  // unknown audit suspended
-			{storj.NodeID{4}, false, false, false, true, false},  // offline
-			{storj.NodeID{5}, false, false, false, false, true},  // gracefully exited
-			{storj.NodeID{6}, false, true, false, false, false},  // offline suspended
+			{storj.NodeID{1}, false, false, false, false, false, "DE"}, // good
+			{storj.NodeID{2}, false, false, true, false, false, "DE"},  // disqualified
+			{storj.NodeID{3}, true, false, false, false, false, "DE"},  // unknown audit suspended
+			{storj.NodeID{4}, false, false, false, true, false, "DE"},  // offline
+			{storj.NodeID{5}, false, false, false, false, true, "DE"},  // gracefully exited
+			{storj.NodeID{6}, false, true, false, false, false, "DE"},  // offline suspended
+			{storj.NodeID{7}, false, false, false, false, false, "FR"}, // excluded country
+			{storj.NodeID{8}, false, false, false, false, false, ""},   // good
 		} {
 			addr := fmt.Sprintf("127.0.%d.0:8080", i)
 			lastNet := fmt.Sprintf("127.0.%d", i)
 			d := overlay.NodeCheckInInfo{
-				NodeID:     tt.nodeID,
-				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
-				LastIPPort: addr,
-				LastNet:    lastNet,
-				Version:    &pb.NodeVersion{Version: "v1.0.0"},
-				Capacity:   &pb.NodeCapacity{},
-				IsUp:       true,
+				NodeID:      tt.nodeID,
+				Address:     &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				LastIPPort:  addr,
+				LastNet:     lastNet,
+				Version:     &pb.NodeVersion{Version: "v1.0.0"},
+				Capacity:    &pb.NodeCapacity{},
+				IsUp:        true,
+				CountryCode: location.ToCountryCode(tt.countryCode),
 			}
 			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
@@ -95,10 +100,12 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			storj.NodeID{1}, storj.NodeID{2},
 			storj.NodeID{3}, storj.NodeID{4},
 			storj.NodeID{5}, storj.NodeID{6},
-			storj.NodeID{7},
+			storj.NodeID{7}, storj.NodeID{8},
+			storj.NodeID{9},
 		}
 		criteria := &overlay.NodeCriteria{
-			OnlineWindow: time.Hour,
+			OnlineWindow:      time.Hour,
+			ExcludedCountries: []string{"FR", "BE"},
 		}
 
 		invalid, err := cache.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
@@ -109,7 +116,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		require.Contains(t, invalid, storj.NodeID{4}) // offline
 		require.Contains(t, invalid, storj.NodeID{5}) // gracefully exited
 		require.Contains(t, invalid, storj.NodeID{6}) // offline suspended
-		require.Contains(t, invalid, storj.NodeID{7}) // not in db
+		require.Contains(t, invalid, storj.NodeID{9}) // not in db
 		require.Len(t, invalid, 6)
 
 		valid, err := cache.Reliable(ctx, criteria)
@@ -120,7 +127,9 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		require.NotContains(t, valid, storj.NodeID{4}) // offline
 		require.NotContains(t, valid, storj.NodeID{5}) // gracefully exited
 		require.NotContains(t, valid, storj.NodeID{6}) // offline suspended
-		require.NotContains(t, valid, storj.NodeID{7}) // not in db
+		require.NotContains(t, valid, storj.NodeID{7}) // excluded country
+		require.NotContains(t, valid, storj.NodeID{9}) // not in db
+		require.Len(t, valid, 2)
 	}
 
 	{ // TestUpdateOperator

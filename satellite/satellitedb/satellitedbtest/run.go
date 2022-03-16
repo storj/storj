@@ -8,6 +8,7 @@ package satellitedbtest
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -77,6 +78,14 @@ func SchemaSuffix() string {
 
 // SchemaName returns a properly formatted schema string.
 func SchemaName(testname, category string, index int, schemaSuffix string) string {
+	// The database is very lenient on allowed characters
+	// but the same cannot be said for all tools
+	nameCleaner := regexp.MustCompile(`[^\w]`)
+
+	testname = nameCleaner.ReplaceAllString(testname, "_")
+	category = nameCleaner.ReplaceAllString(category, "_")
+	schemaSuffix = nameCleaner.ReplaceAllString(schemaSuffix, "_")
+
 	// postgres has a maximum schema length of 64
 	// we need additional 6 bytes for the random suffix
 	//    and 4 bytes for the satellite index "/S0/""
@@ -89,10 +98,10 @@ func SchemaName(testname, category string, index int, schemaSuffix string) strin
 	}
 
 	if schemaSuffix == "" {
-		return strings.ToLower(testname + "/" + category + indexStr)
+		return strings.ToLower(testname + "_" + category + indexStr)
 	}
 
-	return strings.ToLower(testname + "/" + schemaSuffix + "/" + category + indexStr)
+	return strings.ToLower(testname + "_" + schemaSuffix + "_" + category + indexStr)
 }
 
 // tempMasterDB is a satellite.DB-implementing type that cleans up after itself when closed.

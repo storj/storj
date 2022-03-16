@@ -29,8 +29,12 @@ var (
 
 // Config is a configuration struct for part validation.
 type Config struct {
+	ApplicationName  string
 	MinPartSize      memory.Size
 	MaxNumberOfParts int
+
+	// TODO remove this flag when server-side copy implementation will be finished
+	ServerSideCopy bool
 }
 
 // DB implements a database for storing objects and segments.
@@ -61,6 +65,11 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		driverName = "cockroach"
 	default:
 		return nil, Error.New("unsupported implementation: %s", connstr)
+	}
+
+	connstr, err = pgutil.CheckApplicationName(connstr, config.ApplicationName)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	rawdb, err := tagsql.Open(ctx, driverName, connstr)
@@ -326,6 +335,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     14,
 				Action: migrate.SQL{
 					`ALTER TABLE segments ADD COLUMN placement integer`,
+				},
+			},
+			{
+				DB:          &db.db,
+				Description: "add table for segment copies",
+				Version:     15,
+				Action: migrate.SQL{
+					`CREATE TABLE segment_copies (
+						stream_id BYTEA NOT NULL PRIMARY KEY,
+						ancestor_stream_id BYTEA NOT NULL,
+
+						CONSTRAINT not_self_ancestor CHECK (stream_id != ancestor_stream_id)
+					)`,
+					`CREATE INDEX ON segment_copies (ancestor_stream_id)`,
 				},
 			},
 		},

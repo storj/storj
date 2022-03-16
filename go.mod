@@ -48,11 +48,11 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	storj.io/common v0.0.0-20220203111346-5c3b59fd0b9b
+	storj.io/common v0.0.0-20220303150900-2150c0203dcc
 	storj.io/drpc v0.0.29
 	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a
 	storj.io/private v0.0.0-20220131131751-c913260b9ec2
-	storj.io/uplink v1.7.2-0.20220203120550-299484e42318
+	storj.io/uplink v1.8.1-0.20220307141551-c65f09ea27d8
 )
 
 require (

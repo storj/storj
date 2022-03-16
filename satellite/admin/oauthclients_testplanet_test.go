@@ -16,7 +16,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/oidc"
 )
 
 func TestAdminOAuthAPI(t *testing.T) {
@@ -41,8 +41,8 @@ func TestAdminOAuthAPI(t *testing.T) {
 		address := sat.Admin.Admin.Listener.Addr()
 
 		baseURL := fmt.Sprintf("http://%s/api/oauth/clients", address)
-		empty := console.OAuthClient{}
-		client := console.OAuthClient{ID: id, Secret: []byte("badadmin"), UserID: userID, RedirectURL: "http://localhost:1234"}
+		empty := oidc.OAuthClient{}
+		client := oidc.OAuthClient{ID: id, Secret: []byte("badadmin"), UserID: userID, RedirectURL: "http://localhost:1234"}
 		updated := client
 		updated.RedirectURL = "http://localhost:1235"
 

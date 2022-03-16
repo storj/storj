@@ -157,7 +157,7 @@ func (users *users) Update(ctx context.Context, user *console.User) (err error) 
 }
 
 // UpdatePaidTier sets whether the user is in the paid tier.
-func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64) (err error) {
+func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = users.db.Update_User_By_Id(
@@ -165,6 +165,7 @@ func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier b
 		dbx.User_Id(id[:]),
 		dbx.User_Update_Fields{
 			PaidTier:              dbx.User_PaidTier(paidTier),
+			ProjectLimit:          dbx.User_ProjectLimit(projectLimit),
 			ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(projectBandwidthLimit.Int64()),
 			ProjectStorageLimit:   dbx.User_ProjectStorageLimit(projectStorageLimit.Int64()),
 			ProjectSegmentLimit:   dbx.User_ProjectSegmentLimit(projectSegmentLimit),
@@ -195,6 +196,16 @@ func (users *users) GetUserProjectLimits(ctx context.Context, id uuid.UUID) (lim
 	}
 
 	return limitsFromDBX(ctx, row)
+}
+
+func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := users.db.Get_User_PaidTier_By_Id(ctx, dbx.User_Id(id[:]))
+	if err != nil {
+		return false, err
+	}
+	return row.PaidTier, nil
 }
 
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.

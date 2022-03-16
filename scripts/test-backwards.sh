@@ -3,6 +3,14 @@ set -ueo pipefail
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 source $SCRIPTDIR/utils.sh
+
+TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
+
+cleanup(){
+    rm -rf "$TMPDIR"
+    echo "cleaned up test successfully"
+}
+trap cleanup EXIT
 trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
 : "${STORJ_NETWORK_DIR?Environment variable STORJ_NETWORK_DIR needs to be set}"
@@ -24,7 +32,16 @@ DOWNLOAD_FILES_DIR="$STORJ_NETWORK_DIR/download/$BUCKET"
 
 # override configured access with access where address is node ID + satellite addess
 STORJ_ACCESS=$(go run "$SCRIPTDIR"/update-access.go "$SATELLITE_0_DIR" "$GATEWAY_0_ACCESS")
+UPLINK_ACCESS="$STORJ_ACCESS"
+
 export STORJ_ACCESS
+export UPLINK_ACCESS
+
+# workaround for issues with automatic accepting monitoring question
+# with first run we need to accept question y/n about monitoring
+export UPLINK_CONFIG_DIR=$TMPDIR/uplink
+mkdir -p "$UPLINK_CONFIG_DIR"
+touch "$UPLINK_CONFIG_DIR/config.ini"
 
 set -x
 
@@ -37,17 +54,17 @@ if [[ "$1" == "upload" ]]; then
 
     # sometimes we overwrite files in the same bucket. allow the mb to fail because of an existing
     # bucket. if it fails for any other reason, the following cp will get it anyway.
-    uplink --config-dir "$GATEWAY_0_DIR" mb "sj://$BUCKET/" || true
+    uplink mb "sj://$BUCKET/" || true
 
-    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "$PRISTINE_FILES_DIR/small-upload-testfile" "sj://$BUCKET/"
-    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "$PRISTINE_FILES_DIR/big-upload-testfile" "sj://$BUCKET/"
-    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "$PRISTINE_FILES_DIR/multisegment-upload-testfile" "sj://$BUCKET/"
+    uplink cp --progress=false "$PRISTINE_FILES_DIR/small-upload-testfile" "sj://$BUCKET/"
+    uplink cp --progress=false "$PRISTINE_FILES_DIR/big-upload-testfile" "sj://$BUCKET/"
+    uplink cp --progress=false "$PRISTINE_FILES_DIR/multisegment-upload-testfile" "sj://$BUCKET/"
 fi
 
 if [[ "$1" == "download" ]]; then
-    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/small-upload-testfile" "$DOWNLOAD_FILES_DIR"
-    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/big-upload-testfile" "$DOWNLOAD_FILES_DIR"
-    uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/multisegment-upload-testfile" "$DOWNLOAD_FILES_DIR"
+    uplink cp --progress=false "sj://$BUCKET/small-upload-testfile" "$DOWNLOAD_FILES_DIR"
+    uplink cp --progress=false "sj://$BUCKET/big-upload-testfile" "$DOWNLOAD_FILES_DIR"
+    uplink cp --progress=false "sj://$BUCKET/multisegment-upload-testfile" "$DOWNLOAD_FILES_DIR"
 
     compare_files "$PRISTINE_FILES_DIR/small-upload-testfile" "$DOWNLOAD_FILES_DIR/small-upload-testfile"
     compare_files "$PRISTINE_FILES_DIR/big-upload-testfile" "$DOWNLOAD_FILES_DIR/big-upload-testfile"
@@ -61,9 +78,9 @@ fi
 if [[ "$1" == "cleanup" ]]; then
     for BUCKET_DIR in "$STORJ_NETWORK_DIR"/pristine/*; do
         BUCKET="$(basename "$BUCKET_DIR")"
-        uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/small-upload-testfile"
-        uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/big-upload-testfile"
-        uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/multisegment-upload-testfile"
-        uplink --config-dir "$GATEWAY_0_DIR" rb "sj://$BUCKET"
+        uplink rm "sj://$BUCKET/small-upload-testfile"
+        uplink rm "sj://$BUCKET/big-upload-testfile"
+        uplink rm "sj://$BUCKET/multisegment-upload-testfile"
+        uplink rb "sj://$BUCKET"
     done
 fi

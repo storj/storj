@@ -54,8 +54,10 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 	)
 
 	RunWithConfig(t, metabase.Config{
+		ApplicationName:  "satellite-test",
 		MinPartSize:      config.MinPartSize,
 		MaxNumberOfParts: config.MaxNumberOfParts,
+		ServerSideCopy:   config.ServerSideCopy,
 	}, fn)
 }
 
@@ -67,6 +69,7 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 			ctx := testcontext.New(b)
 			defer ctx.Cleanup()
 			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
+				ApplicationName:  "satellite-bench",
 				MinPartSize:      5 * memory.MiB,
 				MaxNumberOfParts: 10000,
 			})

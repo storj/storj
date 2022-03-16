@@ -5,8 +5,10 @@ package multinode
 
 import (
 	"context"
+	"io/fs"
 	"net"
-	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
@@ -17,7 +19,6 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/private/debug"
 	"storj.io/storj/multinode/bandwidth"
-	"storj.io/storj/multinode/console/consoleassets"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/operators"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/multinode/reputation"
 	"storj.io/storj/multinode/storage"
 	"storj.io/storj/private/lifecycle"
+	multinodeweb "storj.io/storj/web/multinode"
 )
 
 var (
@@ -175,10 +177,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 			return nil, err
 		}
 
-		assets := consoleassets.FileSystem
+		var assets fs.FS
+		assets = multinodeweb.Assets
+		// Use a custom directory instead of the embedded assets.
 		if config.Console.StaticDir != "" {
-			// a specific directory has been configured. use it
-			assets = http.Dir(config.Console.StaticDir)
+			// HACKFIX: Previous setups specify the directory for web/multinode,
+			// instead of the actual built data. This is for backwards compatibility.
+			distDir := filepath.Join(config.Console.StaticDir, "dist")
+			assets = os.DirFS(distDir)
 		}
 
 		peer.Console.Endpoint, err = server.NewServer(

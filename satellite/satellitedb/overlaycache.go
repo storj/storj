@@ -405,6 +405,80 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	return badNodes, err
 }
 
+// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
+func (cache *overlaycache) KnownReliableInExcludedCountries(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
+	for {
+		reliableInExcluded, err = cache.knownReliableInExcludedCountries(ctx, criteria, nodeIDs)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return reliableInExcluded, err
+		}
+		break
+	}
+
+	return reliableInExcluded, err
+}
+
+func (cache *overlaycache) knownReliableInExcludedCountries(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIDs) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	args := []interface{}{
+		pgutil.NodeIDArray(nodeIDs),
+		time.Now().Add(-criteria.OnlineWindow),
+	}
+
+	// When this config is not set, it's a string slice with one empty string. This is a sanity check just
+	// in case for some reason it's nil or has no elements.
+	if criteria.ExcludedCountries == nil || len(criteria.ExcludedCountries) == 0 {
+		return reliableInExcluded, nil
+	}
+
+	var excludedCountriesCondition string
+	if criteria.ExcludedCountries[0] == "" {
+		return reliableInExcluded, nil
+	}
+
+	excludedCountriesCondition = "AND country_code IN (SELECT UNNEST($3::TEXT[]))"
+	args = append(args, pgutil.TextArray(criteria.ExcludedCountries))
+
+	// get reliable and online nodes
+	var rows tagsql.Rows
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+			SELECT id
+			FROM nodes
+			`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
+			WHERE id = any($1::bytea[])
+			AND disqualified IS NULL
+			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
+			AND exit_finished_at IS  NULL
+			AND last_contact_success > $2
+			`+excludedCountriesCondition+`
+		`), args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		reliableInExcluded = append(reliableInExcluded, id)
+	}
+
+	return reliableInExcluded, Error.Wrap(rows.Err())
+}
+
 func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -520,6 +594,18 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 }
 
 func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	args := []interface{}{
+		time.Now().Add(-criteria.OnlineWindow),
+	}
+
+	// When this config is not set, it's a string slice with one empty string. I added some sanity checks to make sure we don't
+	// dereference a nil pointer or index an element that doesn't exist.
+	var excludedCountriesCondition string
+	if criteria.ExcludedCountries != nil && len(criteria.ExcludedCountries) != 0 && criteria.ExcludedCountries[0] != "" {
+		excludedCountriesCondition = "AND country_code NOT IN (SELECT UNNEST($2::TEXT[]))"
+		args = append(args, pgutil.TextArray(criteria.ExcludedCountries))
+	}
+
 	// get reliable and online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id
@@ -529,8 +615,9 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 		AND unknown_audit_suspended IS NULL
 		AND offline_suspended IS NULL
 		AND exit_finished_at IS NULL
-		AND last_contact_success > ?
-	`), time.Now().Add(-criteria.OnlineWindow))
+		AND last_contact_success > $1
+		`+excludedCountriesCondition+`
+	`), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -1295,6 +1382,22 @@ func (cache *overlaycache) TestSuspendNodeOffline(ctx context.Context, nodeID st
 	}
 	if dbNode == nil {
 		return errs.New("unable to get node by ID: %v", nodeID)
+	}
+	return nil
+}
+
+// TestNodeCountryCode sets node country code.
+func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.CountryCode = dbx.Node_CountryCode(countryCode)
+
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return err
+	}
+	if dbNode == nil {
+		return errs.New("unable to set node country code: %v", nodeID)
 	}
 	return nil
 }

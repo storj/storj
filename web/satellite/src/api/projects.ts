@@ -81,8 +81,8 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * Update project name and description.
      *
      * @param projectId - project ID
-     * @param name - project name
-     * @param description - project description
+     * @param projectFields - project fields
+     * @param projectLimits - project limits
      * @returns Project[]
      * @throws Error
      */
@@ -200,11 +200,6 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * throws Error
      */
     public async getDailyUsage(projectId: string, start: Date, end: Date): Promise<ProjectsStorageBandwidthDaily> {
-        // Set date range to be in UTC format.
-        start.setUTCDate(start.getDate());
-        start.setUTCHours(0, 0, 0, 0);
-        end.setUTCDate(end.getDate());
-        end.setUTCHours(0, 0, 0, 0);
         const since = Time.toUnixTimestamp(start).toString();
         const before = Time.toUnixTimestamp(end).toString();
         const path = `${this.ROOT_PATH}/${projectId}/daily-usage?from=${since}&to=${before}`;
@@ -214,14 +209,17 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             const usage = await response.json();
 
             return new ProjectsStorageBandwidthDaily(
-                usage.bandwidthUsage.map(el => {
-                    // Set the timestamps to be the beginning of the day.
+                usage.storageUsage.map(el => {
                     const date = new Date(el.date)
                     date.setHours(0, 0, 0, 0)
                     return new DataStamp(el.value, date)
                 }),
-                usage.storageUsage.map(el => {
-                    // Set the timestamps to be the beginning of the day.
+                usage.allocatedBandwidthUsage.map(el => {
+                    const date = new Date(el.date)
+                    date.setHours(0, 0, 0, 0)
+                    return new DataStamp(el.value, date)
+                }),
+                usage.settledBandwidthUsage.map(el => {
                     const date = new Date(el.date)
                     date.setHours(0, 0, 0, 0)
                     return new DataStamp(el.value, date)

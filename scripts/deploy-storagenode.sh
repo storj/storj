@@ -6,19 +6,21 @@ set -euo pipefail
 : "${TAG:?Must be set to the gitish version of the release without architecture}"
 
 for v in alpha arm beta latest; do
-	docker manifest create --amend storjlabs/storagenode:$v \
-	storjlabs/storagenode:${TAG}-amd64 \
-	storjlabs/storagenode:${TAG}-arm32v6 \
-	storjlabs/storagenode:${TAG}-arm64v8
+  for app in multinode storagenode; do
+	  docker manifest create --amend storjlabs/$app:$v \
+    storjlabs/$app:${TAG}-amd64 \
+    storjlabs/$app:${TAG}-arm32v6 \
+    storjlabs/$app:${TAG}-arm64v8
 
-	docker manifest annotate storjlabs/storagenode:$v \
-	storjlabs/storagenode:${TAG}-amd64 --os linux --arch amd64
+    docker manifest annotate storjlabs/$app:$v \
+    storjlabs/$app:${TAG}-amd64 --os linux --arch amd64
 
-	docker manifest annotate storjlabs/storagenode:$v \
-	storjlabs/storagenode:${TAG}-arm32v6 --os linux --arch arm --variant v6
+    docker manifest annotate storjlabs/$app:$v \
+    storjlabs/$app:${TAG}-arm32v6 --os linux --arch arm --variant v6
 
-	docker manifest annotate storjlabs/storagenode:$v \
-	storjlabs/storagenode:${TAG}-arm64v8 --os linux --arch arm64 --variant v8
+    docker manifest annotate storjlabs/$app:$v \
+    storjlabs/$app:${TAG}-arm64v8 --os linux --arch arm64 --variant v8
 
-	docker manifest push --purge storjlabs/storagenode:$v
+    docker manifest push --purge storjlabs/$app:$v
+  done
 done

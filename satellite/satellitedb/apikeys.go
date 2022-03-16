@@ -234,6 +234,7 @@ func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo,
 		ProjectID: projectID,
 		Name:      key.Name,
 		CreatedAt: key.CreatedAt,
+		Head:      key.Head,
 		Secret:    key.Secret,
 	}
 

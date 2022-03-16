@@ -50,13 +50,13 @@ pipeline {
             parallel {
                 stage('go') {
                     steps {
-                        sh 'go build -v ./...'
+                        // use go test to build all the packages, including tests
                         sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
                     }
                 }
                 stage('go -race') {
                     steps {
-                        sh 'go build -v -race ./...'
+                        // use go test to build all the packages, including tests
                         sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
 
                         // install storj-sim
@@ -161,21 +161,21 @@ pipeline {
                         }
 
                         sh './scripts/check-package-lock.sh'
-                     }
+                    }
                 }
                 stage('Cross Compile') {
                     steps {
                         // verify most of the commands, we cannot check everything since some of them
                         // have a C dependency and we don't have cross-compilation in storj/ci image
-                        sh 'GOOS=linux   GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=linux   GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=linux   GOARCH=arm   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=linux   GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=windows GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=windows GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=windows GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=darwin  GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=darwin  GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/uplinkng ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=arm   go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=linux   GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=windows GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=windows GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=windows GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=darwin  GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
+                        sh 'GOOS=darwin  GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
                     }
                 }
                 stage('Tests') {
@@ -186,6 +186,7 @@ pipeline {
                             'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
                         STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                        STORJ_TEST_LOG_LEVEL = 'info'
                         COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
                     }
                     steps {

@@ -7,6 +7,10 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"math/big"
+	"math/rand"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -326,7 +330,7 @@ func TestTransactionsDBRates(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
-		val, err := decimal.NewFromString("4.000000000000000005")
+		val, err := decimal.NewFromString("4.000000000000005")
 		require.NoError(t, err)
 
 		const txID = "tx_id"
@@ -424,214 +428,185 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 	})
 }
 
-func TestDatabaseBigFloatTransition(t *testing.T) {
+func TestDatabaseGobEncodedBigFloatTransactionMigration(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
-		accountID := testrand.UUID()
-		amount, err := monetary.AmountFromString("100000000.00000001", monetary.StorjToken)
-		require.NoError(t, err)
-		received, err := monetary.AmountFromString("0.00000002", monetary.StorjToken)
-		require.NoError(t, err)
-		rate1, err := decimal.NewFromString("1001.23456789")
-		require.NoError(t, err)
-		rate2, err := decimal.NewFromString("3.14159265")
-		require.NoError(t, err)
+		testTransactions, ok := transactions.(interface {
+			ForTestingOnlyInsertGobTransaction(ctx context.Context, tx stripecoinpayments.Transaction) (time.Time, error)
+		})
+		require.Truef(t, ok, "transactions object of type %T does not have the needed test hook method", transactions)
 
-		tx1 := stripecoinpayments.Transaction{
-			ID:        "abcdefg",
-			AccountID: accountID,
-			Address:   "0xbeedeebeedeebeedeebeedeebeedeebeedeebeed",
-			Amount:    amount,
-			Received:  received,
-			Status:    coinpayments.StatusPending,
-			Key:       "beep beep im a sheep",
-			Timeout:   time.Hour * 48,
-		}
-		tx2 := stripecoinpayments.Transaction{
-			ID:        "hijklmn",
-			AccountID: accountID,
-			Address:   "0x77687927642075206576656e20626f746865723f",
-			Amount:    amount,
-			Received:  received,
-			Status:    coinpayments.StatusPending,
-			Key:       "how now im a cow",
-			Timeout:   0,
-		}
-
-		// perform an Insert on old schema
-		{
-			createdAt, err := transactions.Insert(ctx, tx1)
-			require.NoError(t, err)
-			requireSaneTimestamp(t, createdAt)
-			tx1.CreatedAt = createdAt
-		}
-
-		// perform an Update on old schema
-		{
-			newReceived, err := monetary.AmountFromString("0.12345678", monetary.StorjToken)
-			require.NoError(t, err)
-			upd := stripecoinpayments.TransactionUpdate{
-				TransactionID: tx1.ID,
-				Status:        coinpayments.StatusReceived,
-				Received:      newReceived,
+		// make some random records, insert in db
+		const numRecords = 100
+		asInserted := make([]stripecoinpayments.Transaction, 0, numRecords)
+		for x := 0; x < numRecords; x++ {
+			tx := stripecoinpayments.Transaction{
+				ID:        coinpayments.TransactionID(fmt.Sprintf("transaction%05d", x)),
+				Status:    coinpayments.Status(x % 2), // 0 (pending) or 1 (received)
+				AccountID: testrand.UUID(),
+				Amount:    monetary.AmountFromBaseUnits(testrand.Int63n(1e15), monetary.StorjToken),
+				Received:  monetary.AmountFromBaseUnits(testrand.Int63n(1e15), monetary.StorjToken),
+				Address:   fmt.Sprintf("%x", testrand.Bytes(20)),
+				Key:       fmt.Sprintf("%x", testrand.Bytes(20)),
 			}
-			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{upd}, coinpayments.TransactionIDList{tx1.ID})
+			createTime, err := testTransactions.ForTestingOnlyInsertGobTransaction(ctx, tx)
 			require.NoError(t, err)
-			tx1.Status = coinpayments.StatusReceived
-			tx1.Received = newReceived
+			tx.CreatedAt = createTime
+			asInserted = append(asInserted, tx)
 		}
 
-		// perform a ListAccount on old schema
-		{
-			accountTxs, err := transactions.ListAccount(ctx, accountID)
-			require.NoError(t, err)
-			require.Len(t, accountTxs, 1)
-			require.Equal(t, tx1, accountTxs[0])
-		}
+		// run migration in a number of batches
+		const (
+			numBatches = 6
+			batchSize  = (numRecords + numBatches - 1) / numBatches
+		)
+		var (
+			totalMigrated int
+			batchesSoFar  int
+			rangeStart    string
+		)
 
-		// perform a ListPending on old schema
-		{
-			pendingTxs, err := transactions.ListPending(ctx, 0, 10, time.Now().UTC())
+		// check that batches work as expected
+		for {
+			migrated, nextRangeStart, err := transactions.MigrateGobFloatTransactionRecords(ctx, rangeStart, batchSize)
 			require.NoError(t, err)
-			require.Len(t, pendingTxs.Transactions, 1)
-			// ListPending doesn't get the timeout column, so set it manually in order to check equality of other fields
-			pendingTxs.Transactions[0].Timeout = tx1.Timeout
-			require.Equal(t, tx1, pendingTxs.Transactions[0])
-			require.False(t, pendingTxs.Next)
-			require.Equal(t, int64(0), pendingTxs.NextOffset)
-		}
+			batchesSoFar++
+			totalMigrated += migrated
 
-		// perform a ListUnapplied on old schema
-		{
-			unappliedTxs, err := transactions.ListUnapplied(ctx, 0, 10, time.Now().UTC())
-			require.NoError(t, err)
-			require.Len(t, unappliedTxs.Transactions, 1)
-			// ListUnapplied doesn't get the timeout column, so set it manually in order to check equality of other fields
-			unappliedTxs.Transactions[0].Timeout = tx1.Timeout
-			require.Equal(t, tx1, unappliedTxs.Transactions[0])
-			require.False(t, unappliedTxs.Next)
-			require.Equal(t, int64(0), unappliedTxs.NextOffset)
-		}
-
-		// perform a LockRate on old schema
-		{
-			err = transactions.LockRate(ctx, tx1.ID, rate1)
-			require.NoError(t, err)
-		}
-
-		// perform a GetLockedRate on old schema
-		{
-			gotRate, err := transactions.GetLockedRate(ctx, tx1.ID)
-			require.NoError(t, err)
-			require.Equal(t, rate1, gotRate)
-		}
-
-		// do schema update
-		{
-			transitionDB := transactions.(interface {
-				DebugPerformBigFloatTransition(ctx context.Context) error
-			})
-			err = transitionDB.DebugPerformBigFloatTransition(ctx)
-			require.NoError(t, err)
-		}
-
-		// perform an Insert on new schema
-		{
-			createdAt, err := transactions.Insert(ctx, tx2)
-			require.NoError(t, err)
-			requireSaneTimestamp(t, createdAt)
-			tx2.CreatedAt = createdAt
-		}
-
-		// perform a ListAccount on new schema, while tx1 has a received_gob
-		{
-			accountTxs, err := transactions.ListAccount(ctx, accountID)
-			require.NoError(t, err)
-			require.Len(t, accountTxs, 2)
-			// results should be ordered in reverse order of creation
-			require.Equal(t, tx2, accountTxs[0])
-			require.Equal(t, tx1, accountTxs[1])
-		}
-
-		// perform an Update on new schema, on a row with a received_gob
-		{
-			newReceived, err := monetary.AmountFromString("1.11111111", monetary.StorjToken)
-			require.NoError(t, err)
-			upd := stripecoinpayments.TransactionUpdate{
-				TransactionID: tx1.ID,
-				Status:        coinpayments.StatusPending,
-				Received:      newReceived,
+			// no interference from other db clients, so all should succeed
+			if migrated < batchSize {
+				// we expect this to be the last batch, so nextRangeStart should be the empty string
+				assert.Equal(t, "", nextRangeStart)
+				assert.Equal(t, numRecords, totalMigrated)
+				if migrated == 0 {
+					// it took an extra batch to find out we were done, because batchSize % numRecords == 0
+					assert.Equal(t, numBatches+1, batchesSoFar)
+				} else {
+					assert.Equal(t, numBatches, batchesSoFar)
+				}
+				break
 			}
-			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{upd}, nil)
-			require.NoError(t, err)
-			tx1.Status = coinpayments.StatusPending
-			tx1.Received = newReceived
+			assert.NotNil(t, nextRangeStart)
+			assert.Equal(t, batchSize, migrated)
+			assert.LessOrEqual(t, totalMigrated, numRecords)
+
+			require.Less(t, rangeStart, nextRangeStart)
+			rangeStart = nextRangeStart
 		}
 
-		// perform an Update on new schema, on a row with a received_numeric
-		{
-			newReceived, err := monetary.AmountFromString("2.12121212", monetary.StorjToken)
-			require.NoError(t, err)
-			upd := stripecoinpayments.TransactionUpdate{
-				TransactionID: tx2.ID,
-				Status:        coinpayments.StatusCompleted,
-				Received:      newReceived,
+		// read results back in and ensure values are still as expected
+		transactionsPage, err := transactions.ListPending(ctx, 0, numRecords+1, time.Now())
+		require.NoError(t, err)
+		assert.Len(t, transactionsPage.Transactions, numRecords)
+		assert.False(t, transactionsPage.Next)
+
+		// sort the output values to make comparison simple (they're
+		// currently sorted by created_at, which might be the same
+		// ordering we want, but it's not guaranteed, as pg and crdb
+		// only have time values to microsecond resolution).
+		sort.Slice(transactionsPage.Transactions, func(i, j int) bool {
+			return transactionsPage.Transactions[i].ID < transactionsPage.Transactions[j].ID
+		})
+
+		assert.Equal(t, asInserted, transactionsPage.Transactions)
+	})
+}
+
+func TestDatabaseGobEncodedBigFloatConversionRateMigration(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		transactions := db.StripeCoinPayments().Transactions()
+
+		testTransactions, ok := transactions.(interface {
+			ForTestingOnlyInsertGobConversionRate(ctx context.Context, txID coinpayments.TransactionID, rate decimal.Decimal) error
+		})
+		require.Truef(t, ok, "transactions object of type %T does not have the needed test hook method", transactions)
+
+		// make some random records, insert in db
+		const numRecords = 100
+
+		type rateRecord struct {
+			txID coinpayments.TransactionID
+			rate decimal.Decimal
+		}
+		asInserted := make([]rateRecord, 0, numRecords)
+		for x := 0; x < numRecords; x++ {
+			rateDecimal := mustRandomDecimalNumber(4, 11)
+			rr := rateRecord{
+				txID: coinpayments.TransactionID(fmt.Sprintf("transaction%05d", x)),
+				rate: rateDecimal,
 			}
-			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{upd}, coinpayments.TransactionIDList{tx2.ID})
+			err := testTransactions.ForTestingOnlyInsertGobConversionRate(ctx, rr.txID, rr.rate)
 			require.NoError(t, err)
-			tx2.Status = coinpayments.StatusCompleted
-			tx2.Received = newReceived
+			asInserted = append(asInserted, rr)
 		}
 
-		// perform a ListAccount on new schema, after the above changes
-		{
-			accountTxs, err := transactions.ListAccount(ctx, accountID)
+		// run migration in a number of batches
+		const (
+			numBatches = 6
+			batchSize  = (numRecords + numBatches - 1) / numBatches
+		)
+		var (
+			totalMigrated int
+			batchesSoFar  int
+			rangeStart    string
+		)
+
+		// check that batches work as expected
+		for {
+			migrated, nextRangeStart, err := transactions.MigrateGobFloatConversionRateRecords(ctx, rangeStart, batchSize)
 			require.NoError(t, err)
-			require.Len(t, accountTxs, 2)
-			// results should be ordered in reverse order of creation
-			require.Equal(t, tx2, accountTxs[0])
-			require.Equal(t, tx1, accountTxs[1])
+			batchesSoFar++
+			totalMigrated += migrated
+
+			// no interference from other db clients, so all should succeed
+			if migrated < batchSize {
+				// we expect this to be the last batch, so nextRangeStart should be the empty string
+				assert.Equal(t, "", nextRangeStart)
+				assert.Equal(t, numRecords, totalMigrated)
+				if migrated == 0 {
+					// it took an extra batch to find out we were done, because batchSize % numRecords == 0
+					assert.Equal(t, numBatches+1, batchesSoFar)
+				} else {
+					assert.Equal(t, numBatches, batchesSoFar)
+				}
+				break
+			}
+			assert.NotNil(t, nextRangeStart)
+			assert.Equal(t, batchSize, migrated)
+			assert.LessOrEqual(t, totalMigrated, numRecords)
+
+			require.Less(t, rangeStart, nextRangeStart)
+			rangeStart = nextRangeStart
 		}
 
-		// perform a ListPending on new schema
-		{
-			pendingTxs, err := transactions.ListPending(ctx, 0, 10, time.Now().UTC())
+		// read results back in and ensure values are still as expected
+		for n := 0; n < numRecords; n++ {
+			rate, err := transactions.GetLockedRate(ctx, asInserted[n].txID)
 			require.NoError(t, err)
-			require.Len(t, pendingTxs.Transactions, 1)
-			// ListPending doesn't get the timeout column, so set it manually in order to check equality of other fields
-			pendingTxs.Transactions[0].Timeout = tx1.Timeout
-			require.Equal(t, tx1, pendingTxs.Transactions[0])
-			require.False(t, pendingTxs.Next)
-			require.Equal(t, int64(0), pendingTxs.NextOffset)
-		}
-
-		// perform a ListUnapplied on new schema
-		{
-			unappliedTxs, err := transactions.ListUnapplied(ctx, 0, 10, time.Now().UTC())
-			require.NoError(t, err)
-			require.Len(t, unappliedTxs.Transactions, 1)
-			// ListUnapplied doesn't get the timeout column, so set it manually in order to check equality of other fields
-			unappliedTxs.Transactions[0].Timeout = tx2.Timeout
-			require.Equal(t, tx2, unappliedTxs.Transactions[0])
-			require.False(t, unappliedTxs.Next)
-			require.Equal(t, int64(0), unappliedTxs.NextOffset)
-		}
-
-		// perform a LockRate on new schema
-		{
-			err = transactions.LockRate(ctx, tx2.ID, rate2)
-			require.NoError(t, err)
-		}
-
-		// perform a GetLockedRate on new schema
-		{
-			gotRate, err := transactions.GetLockedRate(ctx, tx1.ID)
-			require.NoError(t, err)
-			require.Equal(t, rate1, gotRate)
-			gotRate, err = transactions.GetLockedRate(ctx, tx2.ID)
-			require.NoError(t, err)
-			require.Equal(t, rate2, gotRate)
+			assert.Truef(t, asInserted[n].rate.Equal(rate), "for row %d: expected=%s, got=%s", n, asInserted[n].rate.String(), rate.String())
 		}
 	})
+}
+
+func mustRandomDecimalNumber(wholePartDigits, fractionalPartDigits int) decimal.Decimal {
+	decimalNumber, err := randomDecimalNumber(wholePartDigits, fractionalPartDigits)
+	if err != nil {
+		panic(err)
+	}
+	return decimalNumber
+}
+
+func randomDecimalNumber(wholePartDigits, fractionalPartDigits int) (decimal.Decimal, error) {
+	wholePart := randomNumberWithNDigits(wholePartDigits)
+	fractionalPart := randomNumberWithNDigits(fractionalPartDigits)
+	numberAsString := fmt.Sprintf("%d.%0*d", wholePart, fractionalPartDigits, fractionalPart)
+	return decimal.NewFromString(numberAsString)
+}
+
+func randomNumberWithNDigits(numDigits int) *big.Int {
+	randomSource := rand.New(rand.NewSource(rand.Int63()))
+	num := big.NewInt(10)
+	num.Exp(num, big.NewInt(int64(numDigits)), nil)
+	return num.Rand(randomSource, num)
 }

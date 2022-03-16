@@ -27,20 +27,23 @@ From the above it follows that commits with a plus sign will be included in the 
 
 the next step is to create the page on Confluence with our changelog for the release v1.3.
 Example: [Release v1.31](https://storjlabs.atlassian.net/wiki/spaces/ENG/pages/1812791357/Release%2Bv1.31)
-Here we need to highlight important changes for each topic(storj-sim, Uplink, Sattelite, Storage Node, General etc.)
+Here we need to post changes for each topic(storj-sim, Uplink, Sattelite, Storage Node, General etc.)
 
 ## Cutting release branch
 
 Then its time to cut the release branch:
 `git checkout -b v1.3` - will create and checkout branch v1.3
 `git push origin v1.3`- will push release branch to the repo
+Also we need to cut same release branch on tardigrade-satellite-theme repo
+`git checkout -b v1.3` - will create and checkout branch v1.3
+`git push origin v1.3`- will push release branch to the repo
 
-The next step is to create tag using `tag-release.sh` which is in storj/scripts folder and push it.
+The next step is to create tag for `storj` repo using `tag-release.sh` which is in storj/scripts folder and push it.
 Example:
 `./scripts/tag-release.sh v1.3.0-rc`
 `git push origin v1.3.0-rc`
 Then verify that the Jenkins job of the build Storj V3 for such tag and branch has finished successfully.
-Together with that you need to create the same release branch for [tardigrade branding repo](https://github.com/storj/tardigrade-satellite-theme).
+
 
 ## How to cherry pick
 
@@ -61,22 +64,10 @@ git push origin release-v1.3
 ```
 Update Jenkins job.
 
-## Where to find the release binaries and upload them to github
+## Where to find the release binaries
 
-The release binaries you can find [here](https://storj-v3-alpha-builds.storage.googleapis.com/index.html).
-Use search to find current release and open it.
-Here you will need to download these binaries
-```
-"identity_darwin_amd64.zip", "identity_freebsd_amd64.zip", "identity_linux_amd64.zip", "identity_linux_arm.zip", "identity_linux_arm64.zip",
-"identity_windows_amd64.zip", "storagenode-updater_linux_amd64.zip", "storagenode-updater_linux_arm.zip", "storagenode-updater_linux_arm64.zip",
-"storagenode-updater_windows_amd64.zip", "storagenode_freebsd_amd64.zip", "storagenode_linux_amd64.zip", "storagenode_linux_arm.zip", "storagenode_linux_arm64.zip",
-"storagenode_windows_amd64.msi.zip", "storagenode_windows_amd64.zip", "uplink_darwin_amd64.zip", "uplink_freebsd_amd64.zip", "uplink_linux_amd64.zip",
-"uplink_linux_arm.zip", "uplink_linux_arm64.zip", "uplink_windows_amd64.zip", "uplinkng_darwin_amd64.zip", "uplinkng_freebsd_amd64.zip", "uplinkng_linux_amd64.zip",
-"uplinkng_linux_arm.zip", "uplinkng_linux_arm64.zip", "uplinkng_windows_amd64.zip"
-```
-Then you will need to go to the storj repo on github and open  [releases](https://github.com/storj/storj/releases).
-Press button [draft new release](https://github.com/storj/storj/releases/new), select the tag and upload binaries.
-Also you will need to post here a changelog from the Confluence page, and press the button `Save draft`. You can look at examples from previous releases on GitHub.
+After Jenkins job for this release finished it will automaticaly post this tag on [GitHub release page](https://github.com/storj/storj/releases). The status will be `Draft`.
+Update this tag with changelog that you previosly created.
 
 ## Which tests do we want to execute
 Everything that could break production.

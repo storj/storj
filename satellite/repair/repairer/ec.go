@@ -132,10 +132,13 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					triedLastIPPort = true
 				}
 
-				pieceReadCloser, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, pieceSize)
+				pieceReadCloser, _, _, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, "", pieceSize)
 				// if piecestore dial with last ip:port failed try again with node address
 				if triedLastIPPort && piecestore.Error.Has(err) {
-					pieceReadCloser, err = ec.downloadAndVerifyPiece(ctx, limit, limit.GetStorageNodeAddress().GetAddress(), privateKey, pieceSize)
+					if pieceReadCloser != nil {
+						_ = pieceReadCloser.Close()
+					}
+					pieceReadCloser, _, _, err = ec.downloadAndVerifyPiece(ctx, limit, limit.GetStorageNodeAddress().GetAddress(), privateKey, "", pieceSize)
 				}
 
 				cond.L.Lock()
@@ -146,9 +149,15 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				}
 
 				if err != nil {
+					if pieceReadCloser != nil {
+						_ = pieceReadCloser.Close()
+					}
+
 					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
 					if ErrPieceHashVerifyFailed.Has(err) {
-						ec.log.Info("audit failed", zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
+						ec.log.Info("audit failed",
+							zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.String("reason", err.Error()))
 						pieces.Failed = append(pieces.Failed, piece)
 						return
@@ -159,24 +168,28 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					case audit.PieceAuditFailure:
 						ec.log.Debug("Failed to download pieces for repair: piece not found (audit failed)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Failed = append(pieces.Failed, piece)
 
 					case audit.PieceAuditOffline:
 						ec.log.Debug("Failed to download pieces for repair: dial timeout (offline)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Offline = append(pieces.Offline, piece)
 
 					case audit.PieceAuditContained:
 						ec.log.Info("Failed to download pieces for repair: download timeout (contained)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Contained = append(pieces.Contained, piece)
 
 					case audit.PieceAuditUnknown:
 						ec.log.Info("Failed to download pieces for repair: unknown transport error (skipped)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Unknown = append(pieces.Unknown, piece)
 					}
@@ -223,7 +236,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
-func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, address string, privateKey storj.PiecePrivateKey, pieceSize int64) (pieceReadCloser io.ReadCloser, err error) {
+func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, address string, privateKey storj.PiecePrivateKey, tmpDir string, pieceSize int64) (pieceReadCloser io.ReadCloser, hash *pb.PieceHash, originalLimit *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// contact node
@@ -235,13 +248,13 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		Address: address,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 
 	downloader, err := ps.Download(downloadCtx, limit.GetLimit(), privateKey, 0, pieceSize)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	defer func() { err = errs.Combine(err, downloader.Close()) }()
 
@@ -252,31 +265,28 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	if ec.inmemory {
 		pieceBytes, err := ioutil.ReadAll(downloadReader)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 		downloadedPieceSize = int64(len(pieceBytes))
 		pieceReadCloser = ioutil.NopCloser(bytes.NewReader(pieceBytes))
 	} else {
-		tempfile, err := tmpfile.New("", "satellite-repair-*")
+		tempfile, err := tmpfile.New(tmpDir, "satellite-repair-*")
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
-		defer func() {
-			// close and remove file if there is some error
-			if err != nil {
-				err = errs.Combine(err, tempfile.Close())
-			}
-		}()
+		// no defer tempfile.Close() here; caller is responsible for closing
+		// the file, even if an error results (the caller might want the data
+		// even if there is a verification error).
 
 		downloadedPieceSize, err = io.Copy(tempfile, downloadReader)
 		if err != nil {
-			return nil, err
+			return tempfile, nil, nil, err
 		}
 
 		// seek to beginning of file so the repair job starts at the beginning of the piece
 		_, err = tempfile.Seek(0, io.SeekStart)
 		if err != nil {
-			return nil, err
+			return tempfile, nil, nil, err
 		}
 		pieceReadCloser = tempfile
 	}
@@ -284,31 +294,31 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	mon.Meter("repair_bytes_downloaded").Mark64(downloadedPieceSize) //mon:locked
 
 	if downloadedPieceSize != pieceSize {
-		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, downloadedPieceSize)
+		return pieceReadCloser, nil, nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, downloadedPieceSize)
 	}
 
 	// get signed piece hash and original order limit
-	hash, originalLimit := downloader.GetHashAndLimit()
+	hash, originalLimit = downloader.GetHashAndLimit()
 	if hash == nil {
-		return nil, Error.New("hash was not sent from storagenode")
+		return pieceReadCloser, hash, originalLimit, Error.New("hash was not sent from storagenode")
 	}
 	if originalLimit == nil {
-		return nil, Error.New("original order limit was not sent from storagenode")
+		return pieceReadCloser, hash, originalLimit, Error.New("original order limit was not sent from storagenode")
 	}
 
 	// verify order limit from storage node is signed by the satellite
 	if err := verifyOrderLimitSignature(ctx, ec.satelliteSignee, originalLimit); err != nil {
-		return nil, err
+		return pieceReadCloser, hash, originalLimit, err
 	}
 
 	// verify the hashes from storage node
 	calculatedHash := hashWriter.Sum(nil)
 	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
 
-		return nil, ErrPieceHashVerifyFailed.Wrap(err)
+		return pieceReadCloser, hash, originalLimit, ErrPieceHashVerifyFailed.Wrap(err)
 	}
 
-	return pieceReadCloser, nil
+	return pieceReadCloser, hash, originalLimit, nil
 }
 
 func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {

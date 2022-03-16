@@ -100,7 +100,7 @@ export default class VChart extends Vue {
             },
             elements: {
                 point: {
-                    radius: this.chartData.datasets.length === 1 ? 10 : 0,
+                    radius: this.chartData.labels.length === 1 ? 10 : 0,
                     hoverRadius: 10,
                     hitRadius: 8,
                 },
@@ -125,6 +125,7 @@ export default class VChart extends Vue {
             },
             tooltips: {
                 enabled: false,
+                axis: 'x',
                 custom: (tooltipModel) => {
                     this.tooltipConstructor(tooltipModel);
                 },

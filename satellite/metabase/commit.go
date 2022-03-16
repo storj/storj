@@ -206,9 +206,12 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 type BeginSegment struct {
 	ObjectStream
 
-	Position    SegmentPosition
+	Position SegmentPosition
+
+	// TODO: unused field, can remove
 	RootPieceID storj.PieceID
-	Pieces      Pieces
+
+	Pieces Pieces
 }
 
 // BeginSegment verifies, whether a new segment upload can be started.

@@ -163,6 +163,10 @@ func (cache *NodeAliasCache) ConvertPiecesToAliases(ctx context.Context, pieces 
 func (cache *NodeAliasCache) ConvertAliasesToPieces(ctx context.Context, aliasPieces AliasPieces) (_ Pieces, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if len(aliasPieces) == 0 {
+		return Pieces{}, nil
+	}
+
 	latest := cache.getLatest()
 
 	pieces := make(Pieces, len(aliasPieces))

@@ -211,8 +211,9 @@ export class DataStamp {
  */
 export class ProjectsStorageBandwidthDaily {
     public constructor(
-        public bandwidth: DataStamp[] = [],
         public storage: DataStamp[] = [],
+        public allocatedBandwidth: DataStamp[] = [],
+        public settledBandwidth: DataStamp[] = [],
     ) {}
 }
 
