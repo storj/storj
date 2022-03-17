@@ -574,8 +574,9 @@ github.com/zeebo/assert v1.3.0/go.mod h1:Pq9JiuJQpG8JLJdtkwrJESF0Foym2/D9XMU5ciN
 github.com/zeebo/clingy v0.0.0-20220125233608-1457d47c8d8d h1:UaVtVecb8eS/OUZAy9T4PW4RGWA4LpgWxWRrpgFZ7V0=
 github.com/zeebo/clingy v0.0.0-20220125233608-1457d47c8d8d/go.mod h1:MHEhXvEfewflU7SSVKHI7nkdU+fpyxZ5XPPzj+5gYNw=
 github.com/zeebo/errs v1.1.1/go.mod h1:Yj8dHrUQwls1bF3dr/vcSIu+qf4mI7idnTcHfoACc6I=
-github.com/zeebo/errs v1.2.2 h1:5NFypMTuSdoySVTqlNs1dEoU21QVamMQJxW/Fii5O7g=
 github.com/zeebo/errs v1.2.2/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
+github.com/zeebo/errs v1.3.0 h1:hmiaKqgYZzcVgRL1Vkc1Mn2914BbzB0IBxs+ebeutGs=
+github.com/zeebo/errs v1.3.0/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
 github.com/zeebo/errs/v2 v2.0.3 h1:WwqAmopgot4ZC+CgIveP+H91Nf78NDEGWjtAXen45Hw=
 github.com/zeebo/errs/v2 v2.0.3/go.mod h1:OKmvVZt4UqpyJrYFykDKm168ZquJ55pbbIVUICNmLN0=
 github.com/zeebo/float16 v0.1.0 h1:kRqxv5og6z1emEyz5FpW0/BVHe5VfxEAw6b1ljCZlUc=
@@ -921,8 +922,9 @@ storj.io/common v0.0.0-20220131120956-e74f624a3d55/go.mod h1:m0489td5+rKDdoiYOzC
 storj.io/common v0.0.0-20220223161334-302b968d0f29/go.mod h1:xW3PPPGBo4bdMtEP9GREnmxQptmJNuDg1tEHcA4zqog=
 storj.io/common v0.0.0-20220303150900-2150c0203dcc h1:ecc15H8aEXdGh4WWyfhXM8q9x3ni5hnCXDH2+HC/z9k=
 storj.io/common v0.0.0-20220303150900-2150c0203dcc/go.mod h1:xW3PPPGBo4bdMtEP9GREnmxQptmJNuDg1tEHcA4zqog=
-storj.io/drpc v0.0.29 h1:Ihd4ls/JQFr0lctefie3iu+3QM4duccCKr9uMzf4sKY=
 storj.io/drpc v0.0.29/go.mod h1:6rcOyR/QQkSTX/9L5ZGtlZaE2PtXTTZl8d+ulSeeYEg=
+storj.io/drpc v0.0.30-0.20220317163747-7713ed76eb9b h1:enotfzTyGm8aQ79j4IyFhZATC7diABywxEoKggFq8gI=
+storj.io/drpc v0.0.30-0.20220317163747-7713ed76eb9b/go.mod h1:6rcOyR/QQkSTX/9L5ZGtlZaE2PtXTTZl8d+ulSeeYEg=
 storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a h1:qads+aZlFKm5gUxobfF9s2x8/byPaPPLe2Mz+J82R+k=
 storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a/go.mod h1:DGEycSjvzE0JqcD3+6IjwPEK6x30oOus6AApXzl7t0s=
 storj.io/private v0.0.0-20220131131751-c913260b9ec2 h1:POHeqNfH0YzO4d2px9NZRPvWPumvA3581YPK2nwP7gw=
