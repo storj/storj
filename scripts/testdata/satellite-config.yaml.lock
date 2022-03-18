@@ -668,7 +668,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.provider: ""
 
 # price user should pay for each segment stored in network per month
-# payments.segment-price: "0"
+# payments.segment-price: "0.0000088"
 
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"
