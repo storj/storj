@@ -54,24 +54,6 @@ func (ap *accessPermissions) Setup(params clingy.Parameters, prefixFlags bool) {
 	ap.disallowWrites = params.Flag("disallow-writes", "Disallow writes with the access", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 
-	now := time.Now()
-	transformHumanDate := clingy.Transform(func(date string) (time.Time, error) {
-		switch {
-		case date == "none":
-			return time.Time{}, nil
-		case date == "":
-			return time.Time{}, nil
-		case date == "now":
-			return now, nil
-		case date[0] == '+' || date[0] == '-':
-			d, err := time.ParseDuration(date)
-			return now.Add(d), errs.Wrap(err)
-		default:
-			t, err := time.Parse(time.RFC3339, date)
-			return t, errs.Wrap(err)
-		}
-	})
-
 	ap.notBefore = params.Flag("not-before",
 		"Disallow access before this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
 		time.Time{}, transformHumanDate, clingy.Type("relative_date")).(time.Time)

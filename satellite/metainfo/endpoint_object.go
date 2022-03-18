@@ -1300,7 +1300,15 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		ObjectKey:  object,
 	}
 
-	result, err := endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+	var result metabase.DeleteObjectResult
+	if endpoint.config.ServerSideCopy {
+		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+			ObjectLocation: req,
+			Version:        metabase.DefaultVersion,
+		})
+	} else {
+		result, err = endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1328,9 +1336,17 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 ) (deletedObjects []*pb.Object, err error) {
 	defer mon.Task()(&ctx, location.ProjectID.String(), location.BucketName, location.ObjectKey)(&err)
 
-	result, err := endpoint.metabase.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
-		ObjectLocation: location,
-	})
+	var result metabase.DeleteObjectResult
+	if endpoint.config.ServerSideCopy {
+		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+			ObjectLocation: location,
+			Version:        metabase.DefaultVersion,
+		})
+	} else {
+		result, err = endpoint.metabase.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
+			ObjectLocation: location,
+		})
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1652,6 +1668,268 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	}
 
 	return &pb.ObjectFinishMoveResponse{}, nil
+}
+
+// Server side copy.
+
+// BeginCopyObject begins copying object to different key.
+func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeginCopyRequest) (resp *pb.ObjectBeginCopyResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !endpoint.config.ServerSideCopy {
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
+	}
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	now := time.Now()
+	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionRead,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionWrite,
+				Bucket:        req.NewBucket,
+				EncryptedPath: req.NewEncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionWrite,
+				Bucket:        req.NewBucket,
+				EncryptedPath: req.NewEncryptedObjectKey,
+				Time:          now,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, bucket := range [][]byte{req.Bucket, req.NewBucket} {
+		err = endpoint.validateBucket(ctx, bucket)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+	}
+
+	// we are verifying existence of target bucket only because source bucket
+	// will be checked while quering source object
+	// TODO this needs to be optimized to avoid DB call on each request
+	newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
+		}
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	// if source and target buckets are different, we need to check their geofencing configs
+	if !bytes.Equal(req.Bucket, req.NewBucket) {
+		oldBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
+		if err != nil {
+			if storj.ErrBucketNotFound.Has(err) {
+				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
+			}
+			endpoint.log.Error("unable to check bucket", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+		if oldBucketPlacement != newBucketPlacement {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "copying object to bucket with different placement policy is not (yet) supported")
+		}
+	}
+
+	result, err := endpoint.metabase.BeginCopyObject(ctx, metabase.BeginCopyObject{
+		ObjectLocation: metabase.ObjectLocation{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+		},
+		Version: metabase.DefaultVersion,
+	})
+	if err != nil {
+		return nil, endpoint.convertMetabaseErr(err)
+	}
+
+	response, err := convertBeginCopyObjectResults(result)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
+		Bucket:             req.Bucket,
+		EncryptedObjectKey: req.EncryptedObjectKey,
+		Version:            int32(metabase.DefaultVersion),
+		StreamId:           result.StreamID[:],
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
+			BlockSize:   int64(result.EncryptionParameters.BlockSize),
+		},
+		Placement: int32(newBucketPlacement),
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	response.StreamId = satStreamID
+	return response, nil
+}
+
+func convertBeginCopyObjectResults(result metabase.BeginCopyObjectResult) (*pb.ObjectBeginCopyResponse, error) {
+	keys := make([]*pb.EncryptedKeyAndNonce, len(result.EncryptedKeysNonces))
+	for i, key := range result.EncryptedKeysNonces {
+		var nonce storj.Nonce
+		var err error
+		if len(key.EncryptedKeyNonce) != 0 {
+			nonce, err = storj.NonceFromBytes(key.EncryptedKeyNonce)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		keys[i] = &pb.EncryptedKeyAndNonce{
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(key.Position.Part),
+				Index:      int32(key.Position.Index),
+			},
+			EncryptedKey:      key.EncryptedKey,
+			EncryptedKeyNonce: nonce,
+		}
+	}
+
+	// TODO we need this becase of an uplink issue with how we are storing key and nonce
+	if result.EncryptedMetadataKey == nil {
+		streamMeta := &pb.StreamMeta{}
+		err := pb.Unmarshal(result.EncryptedMetadata, streamMeta)
+		if err != nil {
+			return nil, err
+		}
+		if streamMeta.LastSegmentMeta != nil {
+			result.EncryptedMetadataKey = streamMeta.LastSegmentMeta.EncryptedKey
+			result.EncryptedMetadataKeyNonce = streamMeta.LastSegmentMeta.KeyNonce
+		}
+	}
+
+	var metadataNonce storj.Nonce
+	var err error
+	if len(result.EncryptedMetadataKeyNonce) != 0 {
+		metadataNonce, err = storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &pb.ObjectBeginCopyResponse{
+		EncryptedMetadataKey:      result.EncryptedMetadataKey,
+		EncryptedMetadataKeyNonce: metadataNonce,
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
+			BlockSize:   int64(result.EncryptionParameters.BlockSize),
+		},
+		SegmentKeys: keys,
+	}, nil
+}
+
+// FinishCopyObject accepts new encryption keys for object copy and updates the corresponding object ObjectKey and segments EncryptedKey.
+func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFinishCopyRequest) (resp *pb.ObjectFinishCopyResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !endpoint.config.ServerSideCopy {
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
+	}
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Time:          time.Now(),
+		Bucket:        req.NewBucket,
+		EncryptedPath: req.NewEncryptedMetadataKey,
+	})
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.NewBucket)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	exists, err := endpoint.buckets.HasBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	if err != nil {
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if !exists {
+		return nil, rpcstatus.Errorf(rpcstatus.NotFound, "target bucket not found: %s", req.NewBucket)
+	}
+
+	streamUUID, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	newStreamID, err := uuid.New()
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	var newNonce []byte
+	if !req.NewEncryptedMetadataKeyNonce.IsZero() {
+		newNonce = req.NewEncryptedMetadataKeyNonce[:]
+	}
+
+	object, err := endpoint.metabase.FinishCopyObject(ctx, metabase.FinishCopyObject{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(streamID.Bucket),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
+			Version:    metabase.DefaultVersion,
+			StreamID:   streamUUID,
+		},
+		NewStreamID:                  newStreamID,
+		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
+		NewBucket:                    string(req.NewBucket),
+		NewEncryptedObjectKey:        metabase.ObjectKey(req.NewEncryptedObjectKey),
+		OverrideMetadata:             req.OverrideMetadata,
+		NewEncryptedMetadata:         req.NewEncryptedMetadata,
+		NewEncryptedMetadataKeyNonce: newNonce,
+		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
+	})
+	if err != nil {
+		return nil, endpoint.convertMetabaseErr(err)
+	}
+
+	// we can return nil redundancy because this request won't be used for downloading
+	protoObject, err := endpoint.objectToProto(ctx, object, nil)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.ObjectFinishCopyResponse{
+		Object: protoObject,
+	}, nil
 }
 
 // protobufkeysToMetabase converts []*pb.EncryptedKeyAndNonce to []metabase.EncryptedKeyAndNonce.

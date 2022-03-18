@@ -31,11 +31,17 @@
 # the default paid-tier bandwidth usage limit
 # admin.console-config.usage-limits.bandwidth.paid: 100.00 TB
 
+# the default free-tier project limit
+# admin.console-config.usage-limits.project.free: 1
+
+# the default paid-tier project limit
+# admin.console-config.usage-limits.project.paid: 3
+
 # the default free-tier segment usage limit
 # admin.console-config.usage-limits.segment.free: 150000
 
 # the default paid-tier segment usage limit
-# admin.console-config.usage-limits.segment.paid: 1000000
+# admin.console-config.usage-limits.segment.paid: 100000000
 
 # the default free-tier storage usage limit
 # admin.console-config.usage-limits.storage.free: 150.00 GB
@@ -178,6 +184,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to general request page
 # console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
+# indicates if generated console api should be used
+# console.generated-api-enabled: false
+
+# inactivity timer delay in seconds
+# console.inactivity-timer-delay: 600
+
+# indicates if session can be timed out due inactivity
+# console.inactivity-timer-enabled: false
+
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
 
@@ -196,8 +211,20 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: false
 
+# how long oauth access tokens are issued for
+# console.oauth-access-token-expiry: 24h0m0s
+
+# how long oauth authorization codes are issued for
+# console.oauth-code-expiry: 10m0s
+
+# how long oauth refresh tokens are issued for
+# console.oauth-refresh-token-expiry: 720h0m0s
+
 # enable open registration
 # console.open-registration-enabled: false
+
+# optional url to external registration success page
+# console.optional-signup-success-url: ""
 
 # names and addresses of partnered satellites in JSON list format
 # console.partnered-satellites: '[["US1","https://us1.storj.io"],["EU1","https://eu1.storj.io"],["AP1","https://ap1.storj.io"]]'
@@ -253,11 +280,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the default paid-tier bandwidth usage limit
 # console.usage-limits.bandwidth.paid: 100.00 TB
 
+# the default free-tier project limit
+# console.usage-limits.project.free: 1
+
+# the default paid-tier project limit
+# console.usage-limits.project.paid: 3
+
 # the default free-tier segment usage limit
 # console.usage-limits.segment.free: 150000
 
 # the default paid-tier segment usage limit
-# console.usage-limits.segment.paid: 1000000
+# console.usage-limits.segment.paid: 100000000
 
 # the default free-tier storage usage limit
 # console.usage-limits.storage.free: 150.00 GB
@@ -532,6 +565,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # ratio where to consider processed count as supicious
 # metainfo.segment-loop.suspicious-processed-ratio: 0.03
 
+# enable code for server-side copy
+# metainfo.server-side-copy: false
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
@@ -600,6 +636,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
+
+# list of country codes to exclude from node selection for uploads
+# overlay.node.upload-excluded-country-codes: '[]'
+
+# list of country codes to exclude nodes from target repair selection
+# overlay.repair-excluded-country-codes: '[]'
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100

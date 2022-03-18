@@ -107,7 +107,7 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 
 		cusDB := db.StripeCoinPayments().Customers().Raw()
 
-		rows, err := cusDB.Query(ctx, "SELECT id, email, signup_promo_code FROM users WHERE id NOT IN (SELECT user_id from stripe_customers) AND users.status=1")
+		rows, err := cusDB.Query(ctx, "SELECT id, email, signup_promo_code FROM users WHERE id NOT IN (SELECT user_id FROM stripe_customers) AND users.status=1")
 		if err != nil {
 			return err
 		}

@@ -46,12 +46,14 @@ func init() {
 type Config struct {
 	SatelliteDB string
 	Limit       int
+	MaxUpdates  int
 }
 
 // BindFlags adds bench flags to the the flagset.
 func (config *Config) BindFlags(flag *flag.FlagSet) {
 	flag.StringVar(&config.SatelliteDB, "satellitedb", "", "connection URL for satelliteDB")
 	flag.IntVar(&config.Limit, "limit", 1000, "number of updates to perform at once")
+	flag.IntVar(&config.MaxUpdates, "max-updates", 0, "max number of updates to perform on each table")
 }
 
 // VerifyFlags verifies whether the values provided are valid.
@@ -85,7 +87,8 @@ type Partners struct {
 
 // Migrate updates the user_agent column if partner_id != NULL AND user_agent IS NULL.
 // If the partner_id matches a PartnerInfo.UUID in the partnerDB, user_agent will be
-// set to PartnerInfo.Name. Otherwise, user_agent will be set to partner_id.
+// set to PartnerInfo.Name. Otherwise, user_agent will be set to partner_id. If
+// Config.MaxUpdates > 0, only that number of rows will be updated.
 // Affected tables:
 //
 // users
@@ -116,28 +119,17 @@ func Migrate(ctx context.Context, log *zap.Logger, config Config) (err error) {
 		p.Names = append(p.Names, []byte(info.Name))
 	}
 
-	// We select the next id then use limit as an offset which actually gives us limit+1 rows.
-	offset := config.Limit - 1
+	// The original migrations are already somewhat complex and in my opinion,
+	// trying to edit them to be able to handle conditionally limiting updates increased the
+	// complexity. While I think splitting out the limited update migrations isn't the
+	// most ideal solution, since this code is temporary we don't need to worry about
+	// maintenance concerns with having multiple queries.
+	if config.MaxUpdates > 1000 {
+		return errs.New("When running limited migration, set --max-updates to something less than 1000")
+	}
+	if config.MaxUpdates > 0 {
+		return MigrateTablesLimited(ctx, log, conn, &p, config)
+	}
 
-	err = MigrateUsers(ctx, log, conn, &p, offset)
-	if err != nil {
-		return errs.New("error migrating users: %w", err)
-	}
-	err = MigrateProjects(ctx, log, conn, &p, offset)
-	if err != nil {
-		return errs.New("error migrating projects: %w", err)
-	}
-	err = MigrateAPIKeys(ctx, log, conn, &p, offset)
-	if err != nil {
-		return errs.New("error migrating api_keys: %w", err)
-	}
-	err = MigrateBucketMetainfos(ctx, log, conn, &p, offset)
-	if err != nil {
-		return errs.New("error migrating bucket_metainfos: %w", err)
-	}
-	err = MigrateValueAttributions(ctx, log, conn, &p, offset)
-	if err != nil {
-		return errs.New("error migrating value_attributions: %w", err)
-	}
-	return nil
+	return MigrateTables(ctx, log, conn, &p, config)
 }

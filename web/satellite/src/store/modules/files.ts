@@ -506,16 +506,11 @@ export default {
                 Bucket: state.bucket,
                 Key: state.path + file.Key
             });
-
             const downloadURL = function (data, fileName) {
-                let a;
-                a = document.createElement("a");
+                let a = document.createElement("a");
                 a.href = data;
                 a.download = fileName;
-                document.body.appendChild(a);
-                a.style = "display: none";
                 a.click();
-                a.remove();
             };
 
             downloadURL(url, file.Key);

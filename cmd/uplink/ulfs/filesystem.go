@@ -14,6 +14,11 @@ import (
 	"storj.io/uplink"
 )
 
+// CreateOptions contains extra options to create an object.
+type CreateOptions struct {
+	Expires time.Time
+}
+
 // ListOptions describes options to the List command.
 type ListOptions struct {
 	Recursive bool
@@ -35,7 +40,7 @@ func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
 type Filesystem interface {
 	Close() error
 	Open(ctx clingy.Context, loc ulloc.Location) (MultiReadHandle, error)
-	Create(ctx clingy.Context, loc ulloc.Location) (MultiWriteHandle, error)
+	Create(ctx clingy.Context, loc ulloc.Location, opts *CreateOptions) (MultiWriteHandle, error)
 	Move(ctx clingy.Context, source, dest ulloc.Location) error
 	Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error
 	List(ctx context.Context, prefix ulloc.Location, opts *ListOptions) (ObjectIterator, error)

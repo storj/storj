@@ -139,7 +139,7 @@ func WithFile(location string, contents ...string) ExecuteOption {
 			tfs.ensureBucket(bucket)
 		}
 
-		mwh, err := tfs.Create(ctx, loc)
+		mwh, err := tfs.Create(ctx, loc, nil)
 		require.NoError(t, err)
 		defer func() { _ = mwh.Abort(ctx) }()
 
@@ -174,7 +174,7 @@ func WithPendingFile(location string) ExecuteOption {
 			t.Fatalf("Invalid pending local file: %s", loc)
 		}
 
-		_, err = tfs.Create(ctx, loc)
+		_, err = tfs.Create(ctx, loc, nil)
 		require.NoError(t, err)
 	}}
 }

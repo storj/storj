@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 )
 
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
@@ -83,11 +84,12 @@ func NewState(reputableNodes, newNodes []*Node) *State {
 
 // Request contains arguments for State.Request.
 type Request struct {
-	Count       int
-	NewFraction float64
-	Distinct    bool
-	ExcludedIDs []storj.NodeID
-	Placement   storj.PlacementConstraint
+	Count                int
+	NewFraction          float64
+	Distinct             bool
+	ExcludedIDs          []storj.NodeID
+	Placement            storj.PlacementConstraint
+	ExcludedCountryCodes []string
 }
 
 // Select selects requestedCount nodes where there will be newFraction nodes.
@@ -109,6 +111,10 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*Node, err
 
 	if request.ExcludedIDs != nil {
 		criteria.ExcludeNodeIDs = request.ExcludedIDs
+	}
+
+	for _, code := range request.ExcludedCountryCodes {
+		criteria.ExcludedCountryCodes = append(criteria.ExcludedCountryCodes, location.ToCountryCode(code))
 	}
 
 	criteria.Placement = request.Placement

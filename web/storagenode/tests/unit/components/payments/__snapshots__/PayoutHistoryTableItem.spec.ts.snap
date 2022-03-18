@@ -80,7 +80,7 @@ exports[`PayoutHistoryTableItem renders correctly with actual values (eth) 2`] =
         </div>
         <div class="payout-history-item__expanded-area__right-area__divider"></div>
         <div class="payout-history-item__expanded-area__right-area__footer">
-          <div class="payout-history-item__expanded-area__right-area__footer__transaction"><a href="https://etherscan.io/tx/receipt1" target="_blank" rel="noreferrer noopener" class="payout-history-item__expanded-area__right-area__footer__transaction__link">
+          <div class="payout-history-item__expanded-area__right-area__footer__transaction"><a href="https://etherscan.io/tx/0xreceipt1" target="_blank" rel="noreferrer noopener" class="payout-history-item__expanded-area__right-area__footer__transaction__link">
               Transaction
             </a>
             <shareicon-stub class="payout-history-item__expanded-area__right-area__footer__transaction__icon"></shareicon-stub>
@@ -156,7 +156,7 @@ exports[`PayoutHistoryTableItem renders correctly with actual values (zksync) 1`
         </div>
         <div class="payout-history-item__expanded-area__right-area__divider"></div>
         <div class="payout-history-item__expanded-area__right-area__footer">
-          <div class="payout-history-item__expanded-area__right-area__footer__transaction"><a href="https://zkscan.io/explorer/transactions/receipt1" target="_blank" rel="noreferrer noopener" class="payout-history-item__expanded-area__right-area__footer__transaction__link">
+          <div class="payout-history-item__expanded-area__right-area__footer__transaction"><a href="https://zkscan.io/explorer/transactions/0xreceipt1" target="_blank" rel="noreferrer noopener" class="payout-history-item__expanded-area__right-area__footer__transaction__link">
               Transaction
             </a>
             <shareicon-stub class="payout-history-item__expanded-area__right-area__footer__transaction__icon"></shareicon-stub>

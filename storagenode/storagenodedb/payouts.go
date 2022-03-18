@@ -264,7 +264,7 @@ func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.Node
 func (db *payoutDB) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT distinct period FROM paystubs WHERE satellite_id = ? ORDER BY created_at`
+	query := `SELECT DISTINCT period FROM paystubs WHERE satellite_id = ? ORDER BY created_at`
 
 	rows, err := db.QueryContext(ctx, query, satelliteID[:])
 	if err != nil {
@@ -294,7 +294,7 @@ func (db *payoutDB) SatellitePeriods(ctx context.Context, satelliteID storj.Node
 func (db *payoutDB) AllPeriods(ctx context.Context) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT distinct period FROM paystubs ORDER BY created_at`
+	query := `SELECT DISTINCT period FROM paystubs ORDER BY created_at`
 
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
@@ -593,7 +593,7 @@ func (db *payoutDB) GetSatellitePaystubs(ctx context.Context, satelliteID storj.
 	rowPayment := db.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
 			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
-			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) from paystubs WHERE satellite_id = $1`, satelliteID)
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) FROM paystubs WHERE satellite_id = $1`, satelliteID)
 
 	var paystub payouts.PayStub
 
@@ -625,7 +625,7 @@ func (db *payoutDB) GetPaystubs(ctx context.Context) (_ *payouts.PayStub, err er
 	rowPayment := db.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
 			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
-			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) from paystubs`)
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) FROM paystubs`)
 
 	var paystub payouts.PayStub
 
@@ -657,7 +657,7 @@ func (db *payoutDB) GetPeriodPaystubs(ctx context.Context, period string) (_ *pa
 	rowPayment := db.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
 			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
-			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) from paystubs WHERE period = $1`, period)
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) FROM paystubs WHERE period = $1`, period)
 
 	var paystub payouts.PayStub
 
@@ -689,7 +689,7 @@ func (db *payoutDB) GetSatellitePeriodPaystubs(ctx context.Context, period strin
 	rowPayment := db.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
 			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
-			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) from paystubs WHERE period = $1 AND satellite_id = $2`, period, satelliteID)
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0), COALESCE(SUM(disposed),0) FROM paystubs WHERE period = $1 AND satellite_id = $2`, period, satelliteID)
 
 	var paystub payouts.PayStub
 

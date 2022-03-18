@@ -97,6 +97,9 @@ func TestShare(t *testing.T) {
 	})
 
 	t.Run("share access with --public", func(t *testing.T) {
+		// Can't run this scenario because AuthService is not running in testplanet.
+		// If necessary we can mock AuthService like in https://github.com/storj/uplink/blob/main/testsuite/edge_test.go
+		t.Skip("No AuthService available in testplanet")
 		state := ultest.Setup(commands)
 
 		state.Succeed(t, "share", "--public", "--not-after=none", "sj://some/prefix").RequireStdoutGlob(t, `

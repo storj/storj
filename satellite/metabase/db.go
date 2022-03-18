@@ -29,8 +29,12 @@ var (
 
 // Config is a configuration struct for part validation.
 type Config struct {
+	ApplicationName  string
 	MinPartSize      memory.Size
 	MaxNumberOfParts int
+
+	// TODO remove this flag when server-side copy implementation will be finished
+	ServerSideCopy bool
 }
 
 // DB implements a database for storing objects and segments.
@@ -61,6 +65,11 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		driverName = "cockroach"
 	default:
 		return nil, Error.New("unsupported implementation: %s", connstr)
+	}
+
+	connstr, err = pgutil.CheckApplicationName(connstr, config.ApplicationName)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	rawdb, err := tagsql.Open(ctx, driverName, connstr)

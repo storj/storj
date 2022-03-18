@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -22,6 +24,7 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/uplink/private/eestream"
+	"storj.io/uplink/private/piecestore"
 )
 
 var (
@@ -186,6 +189,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, nil
 	}
 
+	piecesInExcludedCountries, err := repairer.overlay.GetReliablePiecesInExcludedCountries(ctx, pieces)
+	if err != nil {
+		return false, overlayQueryError.New("error identifying pieces in excluded countries: %w", err)
+	}
+
+	numHealthyInExcludedCountries := len(piecesInExcludedCountries)
+
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Counter("repairer_segments_below_min_req").Inc(0) //mon:locked
 	stats.repairerSegmentsBelowMinReq.Inc(0)
@@ -204,7 +214,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// repair not needed
-	if numHealthy > int(repairThreshold) {
+	if numHealthy-numHealthyInExcludedCountries > int(repairThreshold) {
 		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		stats.repairUnnecessary.Mark(1)
 		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold))
@@ -265,8 +275,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	var minSuccessfulNeeded int
 	{
 		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) * repairer.multiplierOptimalThreshold)
-		requestCount = int(totalNeeded) - len(healthyPieces)
-		minSuccessfulNeeded = redundancy.OptimalThreshold() - len(healthyPieces)
+		requestCount = int(totalNeeded) - len(healthyPieces) + numHealthyInExcludedCountries
+		minSuccessfulNeeded = redundancy.OptimalThreshold() - len(healthyPieces) + numHealthyInExcludedCountries
 	}
 
 	// Request Overlay for n-h new storage nodes
@@ -280,7 +290,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold, numHealthyInExcludedCountries)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
@@ -529,6 +539,83 @@ func (repairer *SegmentRepairer) loadRedundancy(redundancy *pb.RedundancyScheme)
 // SetNow allows tests to have the server act as if the current time is whatever they want.
 func (repairer *SegmentRepairer) SetNow(nowFn func() time.Time) {
 	repairer.nowFn = nowFn
+}
+
+// AdminFetchInfo groups together all the information about a piece that should be retrievable
+// from storage nodes.
+type AdminFetchInfo struct {
+	Reader        io.ReadCloser
+	Hash          *pb.PieceHash
+	GetLimit      *pb.AddressedOrderLimit
+	OriginalLimit *pb.OrderLimit
+	FetchError    error
+}
+
+// AdminFetchPieces retrieves raw pieces and the associated hashes and original order
+// limits from the storage nodes on which they are stored, and returns them intact to
+// the caller rather than decoding or decrypting or verifying anything. This is to be
+// used for debugging purposes.
+func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *metabase.Segment, saveDir string) (pieceInfos []AdminFetchInfo, err error) {
+	if seg.Inline() {
+		return nil, errs.New("cannot download an inline segment")
+	}
+
+	redundancy, err := eestream.NewRedundancyStrategyFromStorj(seg.Redundancy)
+	if err != nil {
+		return nil, errs.New("invalid redundancy strategy: %w", err)
+	}
+
+	if len(seg.Pieces) < int(seg.Redundancy.RequiredShares) {
+		return nil, errs.New("segment only has %d pieces; needs %d for reconstruction", seg.Pieces, seg.Redundancy.RequiredShares)
+	}
+
+	// we treat all pieces as "healthy" for our purposes here; we want to download as many
+	// of them as we reasonably can. Thus, we pass in seg.Pieces for 'healthy'
+	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, *seg, seg.Pieces)
+	if err != nil {
+		return nil, errs.New("could not create order limits: %w", err)
+	}
+
+	pieceSize := eestream.CalcPieceSize(int64(seg.EncryptedSize), redundancy)
+
+	pieceInfos = make([]AdminFetchInfo, len(getOrderLimits))
+	limiter := sync2.NewLimiter(redundancy.RequiredCount())
+
+	for currentLimitIndex, limit := range getOrderLimits {
+		if limit == nil {
+			continue
+		}
+		pieceInfos[currentLimitIndex].GetLimit = limit
+
+		currentLimitIndex, limit := currentLimitIndex, limit
+		limiter.Go(ctx, func() {
+			info := cachedNodesInfo[limit.GetLimit().StorageNodeId]
+			address := limit.GetStorageNodeAddress().GetAddress()
+			var triedLastIPPort bool
+			if info.LastIPPort != "" && info.LastIPPort != address {
+				address = info.LastIPPort
+				triedLastIPPort = true
+			}
+
+			pieceReadCloser, hash, originalLimit, err := repairer.ec.downloadAndVerifyPiece(ctx, limit, address, getPrivateKey, saveDir, pieceSize)
+			// if piecestore dial with last ip:port failed try again with node address
+			if triedLastIPPort && piecestore.Error.Has(err) {
+				if pieceReadCloser != nil {
+					_ = pieceReadCloser.Close()
+				}
+				pieceReadCloser, hash, originalLimit, err = repairer.ec.downloadAndVerifyPiece(ctx, limit, limit.GetStorageNodeAddress().GetAddress(), getPrivateKey, saveDir, pieceSize)
+			}
+
+			pieceInfos[currentLimitIndex].Reader = pieceReadCloser
+			pieceInfos[currentLimitIndex].Hash = hash
+			pieceInfos[currentLimitIndex].OriginalLimit = originalLimit
+			pieceInfos[currentLimitIndex].FetchError = err
+		})
+	}
+
+	limiter.Wait()
+
+	return pieceInfos, nil
 }
 
 // sliceToSet converts the given slice to a set.

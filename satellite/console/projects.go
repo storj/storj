@@ -54,6 +54,7 @@ type UsageLimitsConfig struct {
 	Storage   StorageLimitConfig
 	Bandwidth BandwidthLimitConfig
 	Segment   SegmentLimitConfig
+	Project   ProjectLimitConfig
 }
 
 // StorageLimitConfig is a configuration struct for default storage per-project usage limits.
@@ -71,7 +72,13 @@ type BandwidthLimitConfig struct {
 // SegmentLimitConfig is a configuration struct for default segments per-project usage limits.
 type SegmentLimitConfig struct {
 	Free int64 `help:"the default free-tier segment usage limit" default:"150000"`
-	Paid int64 `help:"the default paid-tier segment usage limit" default:"1000000"`
+	Paid int64 `help:"the default paid-tier segment usage limit" default:"100000000"`
+}
+
+// ProjectLimitConfig is a configuration struct for default project limits.
+type ProjectLimitConfig struct {
+	Free int `help:"the default free-tier project limit" default:"1"`
+	Paid int `help:"the default paid-tier project limit" default:"3"`
 }
 
 // Project is a database object that describes Project entity.

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -182,6 +183,15 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// trim leading and trailing spaces of email address.
+	registerData.Email = strings.TrimSpace(registerData.Email)
+
+	isValidEmail := validateEmail(registerData.Email)
+	if !isValidEmail {
+		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
+		return
+	}
+
 	// remove special characters from submitted name so that malicious link cannot be injected into verification or password reset emails.
 	registerData.FullName = replaceURLCharacters(registerData.FullName)
 	registerData.ShortName = replaceURLCharacters(registerData.ShortName)
@@ -321,6 +331,15 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if err = a.service.UpdateEmailVerificationReminder(ctx, time.Now().UTC()); err != nil {
 		a.serveJSONError(w, err)
 	}
+}
+
+// validateEmail validates email to have correct form and syntax.
+func validateEmail(email string) bool {
+	// This regular expression was built according to RFC 5322 and then extended to include international characters.
+	re := regexp.MustCompile(`^(?:[a-z0-9\p{L}!#$%&'*+/=?^_{|}~\x60-]+(?:\.[a-z0-9\p{L}!#$%&'*+/=?^_{|}~\x60-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9\p{L}](?:[a-z0-9\p{L}-]*[a-z0-9\p{L}])?\.)+[a-z0-9\p{L}](?:[a-z\p{L}]*[a-z\p{L}])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9\p{L}-]*[a-z0-9\p{L}]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$`)
+	match := re.MatchString(email)
+
+	return match
 }
 
 // loadSession looks for a cookie for the session id.
@@ -688,8 +707,10 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var resetPassword struct {
-		RecoveryToken string `json:"token"`
-		NewPassword   string `json:"password"`
+		RecoveryToken   string `json:"token"`
+		NewPassword     string `json:"password"`
+		MFAPasscode     string `json:"mfaPasscode"`
+		MFARecoveryCode string `json:"mfaRecoveryCode"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&resetPassword)
@@ -697,7 +718,24 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 	}
 
-	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, time.Now())
+	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, resetPassword.MFAPasscode, resetPassword.MFARecoveryCode, time.Now())
+
+	if console.ErrMFAMissing.Has(err) || console.ErrMFAPasscode.Has(err) || console.ErrMFARecoveryCode.Has(err) {
+		w.WriteHeader(a.getStatusCode(err))
+		w.Header().Set("Content-Type", "application/json")
+
+		err = json.NewEncoder(w).Encode(map[string]string{
+			"error": a.getUserErrorMessage(err),
+			"code":  "mfa_required",
+		})
+
+		if err != nil {
+			a.log.Error("failed to write json response", zap.Error(ErrUtils.Wrap(err)))
+		}
+
+		return
+	}
+
 	if err != nil {
 		a.serveJSONError(w, err)
 	}

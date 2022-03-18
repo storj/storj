@@ -72,7 +72,7 @@ func TestAuth_Register(t *testing.T) {
 				}{
 					FullName:        "testuser" + strconv.Itoa(i),
 					ShortName:       "test",
-					Email:           "user@test" + strconv.Itoa(i),
+					Email:           "user@test" + strconv.Itoa(i) + ".com",
 					Partner:         test.Partner,
 					Password:        "abc123",
 					IsProfessional:  true,
@@ -526,9 +526,14 @@ func TestMFAEndpoints(t *testing.T) {
 func TestResetPasswordEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RateLimit.Burst = 10
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		newPass := "123a123"
 		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
@@ -536,17 +541,23 @@ func TestResetPasswordEndpoint(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		token, err := sat.DB.Console().ResetPasswordTokens().Create(ctx, user.ID)
-		require.NoError(t, err)
-		require.NotNil(t, token)
-		tokenStr := token.Secret.String()
+		newPass := user.FullName
 
-		tryReset := func(token, password string) int {
+		getNewResetToken := func() *console.ResetPasswordToken {
+			token, err := sat.DB.Console().ResetPasswordTokens().Create(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, token)
+			return token
+		}
+
+		tryPasswordReset := func(tokenStr, password, mfaPasscode, mfaRecoveryCode string) (int, bool) {
 			url := sat.ConsoleURL() + "/api/v0/auth/reset-password"
 
 			bodyBytes, err := json.Marshal(map[string]string{
-				"password": password,
-				"token":    token,
+				"password":        password,
+				"token":           tokenStr,
+				"mfaPasscode":     mfaPasscode,
+				"mfaRecoveryCode": mfaRecoveryCode,
 			})
 			require.NoError(t, err)
 
@@ -557,13 +568,61 @@ func TestResetPasswordEndpoint(t *testing.T) {
 
 			result, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
+
+			var response struct {
+				Code string `json:"code"`
+			}
+
+			if result.ContentLength > 0 {
+				err = json.NewDecoder(result.Body).Decode(&response)
+				require.NoError(t, err)
+			}
+
 			require.NoError(t, result.Body.Close())
-			return result.StatusCode
+
+			return result.StatusCode, response.Code == "mfa_required"
 		}
 
-		require.Equal(t, http.StatusUnauthorized, tryReset("badToken", newPass))
-		require.Equal(t, http.StatusBadRequest, tryReset(tokenStr, "bad"))
-		require.Equal(t, http.StatusOK, tryReset(tokenStr, newPass))
+		token := getNewResetToken()
+
+		status, mfaError := tryPasswordReset("badToken", newPass, "", "")
+		require.Equal(t, http.StatusUnauthorized, status)
+		require.False(t, mfaError)
+
+		status, mfaError = tryPasswordReset(token.Secret.String(), "bad", "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+		require.False(t, mfaError)
+
+		status, mfaError = tryPasswordReset(token.Secret.String(), newPass, "", "")
+		require.Equal(t, http.StatusOK, status)
+		require.False(t, mfaError)
+		token = getNewResetToken()
+
+		// Enable MFA.
+		getNewAuthContext := func() context.Context {
+			authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+			require.NoError(t, err)
+			return authCtx
+		}
+		authCtx := getNewAuthContext()
+
+		key, err := service.ResetMFASecretKey(authCtx)
+		require.NoError(t, err)
+		authCtx = getNewAuthContext()
+
+		passcode, err := console.NewMFAPasscode(key, token.CreatedAt)
+		require.NoError(t, err)
+
+		err = service.EnableUserMFA(authCtx, passcode, token.CreatedAt)
+		require.NoError(t, err)
+
+		status, mfaError = tryPasswordReset(token.Secret.String(), newPass, "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+		require.True(t, mfaError)
+
+		status, mfaError = tryPasswordReset(token.Secret.String(), newPass, "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+		require.True(t, mfaError)
 	})
 }
 

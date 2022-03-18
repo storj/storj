@@ -47,6 +47,11 @@ func newTestFilesystem() *testFilesystem {
 type memFileData struct {
 	contents string
 	created  int64
+	expires  time.Time
+}
+
+func (mf memFileData) expired() bool {
+	return mf.expires != time.Time{} && mf.expires.Before(time.Now())
 }
 
 func (tfs *testFilesystem) ensureBucket(name string) {
@@ -55,6 +60,9 @@ func (tfs *testFilesystem) ensureBucket(name string) {
 
 func (tfs *testFilesystem) Files() (files []File) {
 	for loc, mf := range tfs.files {
+		if mf.expired() {
+			continue
+		}
 		files = append(files, File{
 			Loc:      loc.String(),
 			Contents: mf.contents,
@@ -109,7 +117,7 @@ func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (ulfs.Mu
 	return newMultiReadHandle(mf.contents), nil
 }
 
-func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulfs.MultiWriteHandle, err error) {
+func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location, opts *ulfs.CreateOptions) (_ ulfs.MultiWriteHandle, err error) {
 	tfs.mu.Lock()
 	defer tfs.mu.Unlock()
 
@@ -133,11 +141,17 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 		}
 	}
 
+	expires := time.Time{}
+	if opts != nil {
+		expires = opts.Expires
+	}
+
 	tfs.created++
 	wh := &memWriteHandle{
-		loc: loc,
-		tfs: tfs,
-		cre: tfs.created,
+		loc:     loc,
+		tfs:     tfs,
+		cre:     tfs.created,
+		expires: expires,
 	}
 
 	if loc.Remote() {
@@ -185,10 +199,11 @@ func (tfs *testFilesystem) List(ctx context.Context, prefix ulloc.Location, opts
 
 	var infos []ulfs.ObjectInfo
 	for loc, mf := range tfs.files {
-		if loc.HasPrefix(prefixDir) || loc == prefix {
+		if (loc.HasPrefix(prefixDir) || loc == prefix) && !mf.expired() {
 			infos = append(infos, ulfs.ObjectInfo{
 				Loc:     loc,
 				Created: time.Unix(mf.created, 0),
+				Expires: mf.expires,
 			})
 		}
 	}
@@ -252,9 +267,14 @@ func (tfs *testFilesystem) Stat(ctx context.Context, loc ulloc.Location) (*ulfs.
 		return nil, errs.New("file does not exist: %q", loc.Loc())
 	}
 
+	if mf.expired() {
+		return nil, errs.New("file does not exist: %q", loc.Loc())
+	}
+
 	return &ulfs.ObjectInfo{
 		Loc:           loc,
 		Created:       time.Unix(mf.created, 0),
+		Expires:       mf.expires,
 		ContentLength: int64(len(mf.contents)),
 	}, nil
 }
@@ -290,11 +310,12 @@ func (tfs *testFilesystem) mkdir(ctx context.Context, dir string) error {
 //
 
 type memWriteHandle struct {
-	buf  []byte
-	loc  ulloc.Location
-	tfs  *testFilesystem
-	cre  int64
-	done bool
+	buf     []byte
+	loc     ulloc.Location
+	tfs     *testFilesystem
+	cre     int64
+	expires time.Time
+	done    bool
 }
 
 func (b *memWriteHandle) WriteAt(p []byte, off int64) (int, error) {
@@ -323,6 +344,7 @@ func (b *memWriteHandle) Commit() error {
 	b.tfs.files[b.loc] = memFileData{
 		contents: string(b.buf),
 		created:  b.cre,
+		expires:  b.expires,
 	}
 
 	return nil

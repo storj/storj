@@ -17,7 +17,7 @@
                 <headered-input
                     class="add-new-node__body__input"
                     label="Public IP Address"
-                    placeholder="Enter Public IP Address"
+                    placeholder="Enter Public IP Address and Port"
                     :error="publicIPError"
                     @setData="setPublicIP"
                 />

@@ -20,6 +20,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -223,6 +224,28 @@ func TestGetNodes(t *testing.T) {
 			require.NotEqual(t, node.LastNet, "")
 			require.NotEqual(t, node.LastNet, "")
 		}
+	})
+}
+
+func TestGetNodesExcludeCountryCodes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, planet.StorageNodes[0].ID(), "FR")
+		require.NoError(t, err)
+
+		cache := planet.Satellites[0].Overlay.Service.UploadSelectionCache
+
+		// confirm cache.GetNodes returns the correct nodes
+		selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
+		// we only expect one node to be returned, even though we requested two, so there will be an error
+		require.Error(t, err)
+
+		_, new := cache.Size()
+		require.Equal(t, 2, new)
+		require.Equal(t, 1, len(selectedNodes))
+		// the node that was returned should be the one that does not have the "FR" country code
+		require.Equal(t, planet.StorageNodes[1].ID(), selectedNodes[0].ID)
 	})
 }
 

@@ -100,7 +100,7 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 
 func (db *StoragenodeAccounting) getNodeIdsSince(ctx context.Context, since time.Time) (nodeids [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(`select distinct storagenode_id from storagenode_bandwidth_rollups where interval_start >= $1`), since)
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(`SELECT DISTINCT storagenode_id FROM storagenode_bandwidth_rollups WHERE interval_start >= $1`), since)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

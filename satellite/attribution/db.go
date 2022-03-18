@@ -41,8 +41,10 @@ type CSVRow struct {
 type DB interface {
 	// Get retrieves attribution info using project id and bucket name.
 	Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (*Info, error)
-	// Insert creates and stores new Info
+	// Insert creates and stores new Info.
 	Insert(ctx context.Context, info *Info) (*Info, error)
-	// QueryAttribution queries partner bucket attribution data
+	// QueryAttribution queries partner bucket attribution data.
 	QueryAttribution(ctx context.Context, partnerID uuid.UUID, userAgent []byte, start time.Time, end time.Time) ([]*CSVRow, error)
+	// QueryAllAttribution queries all partner bucket attribution data.
+	QueryAllAttribution(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
 }

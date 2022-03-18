@@ -82,7 +82,7 @@ export default class ForgotPassword extends Vue {
      * Sets the email field to the given value.
      */
     public setEmail(value: string): void {
-        this.email = value;
+        this.email = value.trim();
         this.emailError = '';
     }
 
@@ -151,7 +151,7 @@ export default class ForgotPassword extends Vue {
      * Returns whether the email address is properly structured.
      */
     private validateFields(): boolean {
-        const isEmailValid = Validator.email(this.email.trim());
+        const isEmailValid = Validator.email(this.email);
 
         if (!isEmailValid) {
             this.emailError = 'Invalid Email';

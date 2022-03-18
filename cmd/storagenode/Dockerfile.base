@@ -1,0 +1,12 @@
+ARG DOCKER_ARCH
+
+FROM ${DOCKER_ARCH:-amd64}/alpine:3.15
+RUN apk --no-cache -U add ca-certificates supervisor wget
+RUN mkdir -p /var/log/supervisor /app
+COPY cmd/storagenode/docker-base/ /
+# set permissions to allow non-root access
+RUN chmod -R a+rw /etc/supervisor /var/log/supervisor /app
+# remove the default supervisord.conf
+RUN rm -rf /etc/supervisord.conf
+# create a symlink to custom supervisord config file at the default location
+RUN ln -s /etc/supervisor/supervisord.conf /etc/supervisord.conf

@@ -14,9 +14,37 @@ import (
 	"storj.io/private/dbutil/pgutil"
 )
 
+// MigrateTables runs the migration for each table.
+func MigrateTables(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, config Config) (err error) {
+	err = MigrateUsers(ctx, log, conn, p, config)
+	if err != nil {
+		return errs.New("error migrating users: %w", err)
+	}
+	err = MigrateProjects(ctx, log, conn, p, config)
+	if err != nil {
+		return errs.New("error migrating projects: %w", err)
+	}
+	err = MigrateAPIKeys(ctx, log, conn, p, config)
+	if err != nil {
+		return errs.New("error migrating api_keys: %w", err)
+	}
+	err = MigrateBucketMetainfos(ctx, log, conn, p, config)
+	if err != nil {
+		return errs.New("error migrating bucket_metainfos: %w", err)
+	}
+	err = MigrateValueAttributions(ctx, log, conn, p, config)
+	if err != nil {
+		return errs.New("error migrating value_attributions: %w", err)
+	}
+	return nil
+}
+
 // MigrateUsers updates the user_agent column to corresponding Partners.Names or partner_id if applicable.
-func MigrateUsers(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, offset int) (err error) {
+func MigrateUsers(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, config Config) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// We select the next id then use limit as an offset which actually gives us limit+1 rows.
+	offset := config.Limit - 1
 
 	startID := []byte{}
 	nextID := []byte{}
@@ -125,8 +153,11 @@ func MigrateUsers(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partn
 }
 
 // MigrateProjects updates the user_agent column to corresponding PartnerInfo.Names or partner_id if applicable.
-func MigrateProjects(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, offset int) (err error) {
+func MigrateProjects(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, config Config) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// We select the next id then use limit as an offset which actually gives us limit+1 rows.
+	offset := config.Limit - 1
 
 	startID := []byte{}
 	nextID := []byte{}
@@ -236,8 +267,11 @@ func MigrateProjects(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Pa
 }
 
 // MigrateAPIKeys updates the user_agent column to corresponding PartnerInfo.Names or partner_id if applicable.
-func MigrateAPIKeys(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, offset int) (err error) {
+func MigrateAPIKeys(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, config Config) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// We select the next id then use limit as an offset which actually gives us limit+1 rows.
+	offset := config.Limit - 1
 
 	startID := []byte{}
 	nextID := []byte{}
@@ -345,8 +379,11 @@ func MigrateAPIKeys(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Par
 }
 
 // MigrateBucketMetainfos updates the user_agent column to corresponding Partners.Names or partner_id if applicable.
-func MigrateBucketMetainfos(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, offset int) (err error) {
+func MigrateBucketMetainfos(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, config Config) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// We select the next id then use limit as an offset which actually gives us limit+1 rows.
+	offset := config.Limit - 1
 
 	startID := []byte{}
 	nextID := []byte{}
@@ -454,8 +491,11 @@ func MigrateBucketMetainfos(ctx context.Context, log *zap.Logger, conn *pgx.Conn
 }
 
 // MigrateValueAttributions updates the user_agent column to corresponding Partners.Names or partner_id if applicable.
-func MigrateValueAttributions(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, offset int) (err error) {
+func MigrateValueAttributions(ctx context.Context, log *zap.Logger, conn *pgx.Conn, p *Partners, config Config) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// We select the next id then use limit as an offset which actually gives us limit+1 rows.
+	offset := config.Limit - 1
 
 	startProjectID := []byte{}
 	startBucket := []byte{}

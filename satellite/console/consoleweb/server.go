@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/rewards"
 )
@@ -94,6 +95,14 @@ type Config struct {
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
+	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
+	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
+	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`
+	OptionalSignupSuccessURL        string  `help:"optional url to external registration success page" default:""`
+
+	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
+	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
+	OauthRefreshTokenExpiry time.Duration `help:"how long oauth refresh tokens are issued for" default:"720h"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -170,7 +179,7 @@ type templates struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:               logger,
 		config:            config,
@@ -206,7 +215,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	}
 
 	router := mux.NewRouter()
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
+
+	if server.config.GeneratedAPIEnabled {
+		consoleapi.NewProjectManagement(logger, server.service, router, server.service)
+	}
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
@@ -276,10 +288,20 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
+		oidc := oidc.NewEndpoint(server.config.ExternalAddress, oidcService, service, server.config.OauthCodeExpiry,
+			server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry)
+
+		router.HandleFunc("/.well-known/openid-configuration", oidc.WellKnownConfiguration)
+		router.Handle("/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidc.AuthorizeUser))).Methods(http.MethodPost)
+		router.Handle("/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.Tokens))).Methods(http.MethodPost)
+		router.Handle("/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
+
+		fs := http.FileServer(http.Dir(server.config.StaticDir))
+		router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
+
 		router.HandleFunc("/activation/", server.accountActivationHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
-		router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -343,10 +365,10 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 			"connect-src 'self' *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
-			"img-src 'self' data: *.tardigradeshare.io *.storjshare.io",
+			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io",
 			// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
 			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'self'",
-			"media-src 'self' *.tardigradeshare.io *.storjshare.io",
+			"media-src 'self' blob: *.tardigradeshare.io *.storjshare.io",
 			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
 		}
 
@@ -386,6 +408,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultPaidBandwidthLimit       memory.Size
 		NewNavigation                   bool
 		NewObjectsFlow                  bool
+		InactivityTimerEnabled          bool
+		InactivityTimerDelay            int
+		OptionalSignupSuccessURL        string
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -416,6 +441,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NewProjectDashboard = server.config.NewProjectDashboard
 	data.NewNavigation = server.config.NewNavigation
 	data.NewObjectsFlow = server.config.NewObjectsFlow
+	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
+	data.InactivityTimerDelay = server.config.InactivityTimerDelay
+	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {

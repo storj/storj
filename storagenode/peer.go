@@ -7,8 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
-	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -36,7 +37,6 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
-	"storj.io/storj/storagenode/console/consoleassets"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
@@ -63,6 +63,7 @@ import (
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 	version2 "storj.io/storj/storagenode/version"
+	storagenodeweb "storj.io/storj/web/storagenode"
 )
 
 var (
@@ -666,10 +667,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		assets := consoleassets.FileSystem
+		var assets fs.FS
+		assets = storagenodeweb.Assets
 		if config.Console.StaticDir != "" {
-			// a specific directory has been configured. use it
-			assets = http.Dir(config.Console.StaticDir)
+			// HACKFIX: Previous setups specify the directory for web/storagenode,
+			// instead of the actual built data. This is for backwards compatibility.
+			distDir := filepath.Join(config.Console.StaticDir, "dist")
+			assets = os.DirFS(distDir)
 		}
 
 		peer.Console.Endpoint = consoleserver.NewServer(

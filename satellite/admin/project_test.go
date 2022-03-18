@@ -458,7 +458,7 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 		require.NoError(t, response.Body.Close())
 
 		// Make User paid tier.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000)
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
@@ -613,7 +613,7 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make User paid tier.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000)
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
@@ -636,7 +636,7 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, response.Body.Close())
 
 		// Make User free tier again.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000)
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is free tier.
@@ -715,7 +715,7 @@ func TestProjectDelete_withUsagePreviousMonth(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make User paid tier.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000)
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
@@ -736,7 +736,7 @@ func TestProjectDelete_withUsagePreviousMonth(t *testing.T) {
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 
 		// Make User free tier again.
-		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000)
+		err = planet.Satellites[0].DB.Console().Users().UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, false, memory.TB, memory.TB, 100000, 3)
 		require.NoError(t, err)
 
 		// Ensure User is free tier.

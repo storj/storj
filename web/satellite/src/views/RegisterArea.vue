@@ -252,10 +252,9 @@ import { Validator } from '@/utils/validation';
 export default class RegisterArea extends Vue {
     private readonly user = new User();
 
-    // tardigrade logic
+    // DCS logic
     private secret = '';
 
-    private userId = '';
     private isTermsAccepted = false;
     private password = '';
     private repeatedPassword = '';
@@ -286,7 +285,7 @@ export default class RegisterArea extends Vue {
 
     public isPasswordStrengthShown = false;
 
-    // tardigrade logic
+    // DCS logic
     public isDropdownShown = false;
 
     // Employee Count dropdown options
@@ -391,7 +390,7 @@ export default class RegisterArea extends Vue {
      * Sets user's password field from value string.
      */
     public setPassword(value: string): void {
-        this.user.password = value.trim();
+        this.user.password = value;
         this.password = value;
         this.passwordError = '';
     }
@@ -430,13 +429,6 @@ export default class RegisterArea extends Vue {
      */
     public get couponCodeSignupUIEnabled(): boolean {
         return this.$store.state.appStateModule.couponCodeSigunpUIEnabled;
-    }
-
-    /**
-     * Returns the email of the created user.
-     */
-    public get email(): string {
-        return this.user.email;
     }
 
     /**
@@ -493,12 +485,12 @@ export default class RegisterArea extends Vue {
     private validateFields(): boolean {
         let isNoErrors = true;
 
-        if (!this.user.fullName.trim()) {
-            this.fullNameError = 'Invalid Name';
+        if (!this.user.fullName) {
+            this.fullNameError = 'Name can\'t be empty';
             isNoErrors = false;
         }
 
-        if (!Validator.email(this.user.email.trim())) {
+        if (!this.isEmailValid()) {
             this.emailError = 'Invalid Email';
             isNoErrors = false;
         }
@@ -510,17 +502,17 @@ export default class RegisterArea extends Vue {
 
         if (this.isProfessional) {
 
-            if (!this.user.companyName.trim()) {
+            if (!this.user.companyName) {
                 this.companyNameError = 'No Company Name filled in';
                 isNoErrors = false;
             }
 
-            if (!this.user.position.trim()) {
+            if (!this.user.position) {
                 this.positionError = 'No Position filled in';
                 isNoErrors = false;
             }
 
-            if (!this.user.employeeCount.trim()) {
+            if (!this.user.employeeCount) {
                 this.employeeCountError = 'No Company Size filled in';
                 isNoErrors = false;
             }
@@ -554,6 +546,19 @@ export default class RegisterArea extends Vue {
     }
 
     /**
+     * Validates email string.
+     * We'll have this email validation for new users instead of using regular Validator.email method because of backwards compatibility.
+     * We don't want to block old users who managed to create and verify their accounts with some weird email addresses.
+     */
+    private isEmailValid(): boolean {
+        // This regular expression fulfills our needs to validate international emails.
+        // It was built according to RFC 5322 and then extended to include international characters.
+        // eslint-disable-next-line no-misleading-character-class
+        const regex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9\u0080-\u00FF\u0100-\u017F\u0180-\u024F\u0250-\u02AF\u0300-\u036F\u0370-\u03FF\u0400-\u04FF\u0500-\u052F\u0530-\u058F\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u0780-\u07BF\u07C0-\u07FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u0F00-\u0FFF\u1000-\u109F\u10A0-\u10FF\u1100-\u11FF\u1200-\u137F\u1380-\u139F\u13A0-\u13FF\u1400-\u167F\u1680-\u169F\u16A0-\u16FF\u1700-\u171F\u1720-\u173F\u1740-\u175F\u1760-\u177F\u1780-\u17FF\u1800-\u18AF\u1900-\u194F\u1950-\u197F\u1980-\u19DF\u19E0-\u19FF\u1A00-\u1A1F\u1B00-\u1B7F\u1D00-\u1D7F\u1D80-\u1DBF\u1DC0-\u1DFF\u1E00-\u1EFF\u1F00-\u1FFF\u20D0-\u20FF\u2100-\u214F\u2C00-\u2C5F\u2C60-\u2C7F\u2C80-\u2CFF\u2D00-\u2D2F\u2D30-\u2D7F\u2D80-\u2DDF\u2F00-\u2FDF\u2FF0-\u2FFF\u3040-\u309F\u30A0-\u30FF\u3100-\u312F\u3130-\u318F\u3190-\u319F\u31C0-\u31EF\u31F0-\u31FF\u3200-\u32FF\u3300-\u33FF\u3400-\u4DBF\u4DC0-\u4DFF\u4E00-\u9FFF\uA000-\uA48F\uA490-\uA4CF\uA700-\uA71F\uA800-\uA82F\uA840-\uA87F\uAC00-\uD7AF\uF900-\uFAFF]+\.)+[a-zA-Z\u0080-\u00FF\u0100-\u017F\u0180-\u024F\u0250-\u02AF\u0300-\u036F\u0370-\u03FF\u0400-\u04FF\u0500-\u052F\u0530-\u058F\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u0780-\u07BF\u07C0-\u07FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u0F00-\u0FFF\u1000-\u109F\u10A0-\u10FF\u1100-\u11FF\u1200-\u137F\u1380-\u139F\u13A0-\u13FF\u1400-\u167F\u1680-\u169F\u16A0-\u16FF\u1700-\u171F\u1720-\u173F\u1740-\u175F\u1760-\u177F\u1780-\u17FF\u1800-\u18AF\u1900-\u194F\u1950-\u197F\u1980-\u19DF\u19E0-\u19FF\u1A00-\u1A1F\u1B00-\u1B7F\u1D00-\u1D7F\u1D80-\u1DBF\u1DC0-\u1DFF\u1E00-\u1EFF\u1F00-\u1FFF\u20D0-\u20FF\u2100-\u214F\u2C00-\u2C5F\u2C60-\u2C7F\u2C80-\u2CFF\u2D00-\u2D2F\u2D30-\u2D7F\u2D80-\u2DDF\u2F00-\u2FDF\u2FF0-\u2FFF\u3040-\u309F\u30A0-\u30FF\u3100-\u312F\u3130-\u318F\u3190-\u319F\u31C0-\u31EF\u31F0-\u31FF\u3200-\u32FF\u3300-\u33FF\u3400-\u4DBF\u4DC0-\u4DFF\u4E00-\u9FFF\uA000-\uA48F\uA490-\uA4CF\uA700-\uA71F\uA800-\uA82F\uA840-\uA87F\uAC00-\uD7AF\uF900-\uFAFF]{2,}))$/;
+        return regex.test(this.user.email);
+    }
+
+    /**
      * Creates user and toggles successful registration area visibility.
      */
     private async createUser(): Promise<void> {
@@ -572,8 +577,17 @@ export default class RegisterArea extends Vue {
 
         try {
             await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
-            const successPath = RouteConfig.RegisterSuccess.path + "?email=" + this.user.email;
-            await this.detectBraveBrowser() ? await this.$router.push(successPath) : location.replace(successPath);
+
+            // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
+            // signups outside of the brave browser may use a configured URL to track conversions
+            // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers
+            const internalRegisterSuccessPath = RouteConfig.RegisterSuccess.path;
+            const configuredRegisterSuccessPath = MetaUtils.getMetaContent('optional-signup-success-url') || internalRegisterSuccessPath;
+
+            const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${this.user.email}`;
+            const braveSuccessPath = `${internalRegisterSuccessPath}?email=${this.user.email}`;
+
+            await this.detectBraveBrowser() ? await this.$router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
         } catch (error) {
             if (this.$refs.recaptcha) {
                 this.$refs.recaptcha.reset();

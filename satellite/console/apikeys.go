@@ -37,6 +37,7 @@ type APIKeyInfo struct {
 	PartnerID uuid.UUID `json:"partnerId"`
 	UserAgent []byte    `json:"userAgent"`
 	Name      string    `json:"name"`
+	Head      []byte    `json:"-"`
 	Secret    []byte    `json:"-"`
 	CreatedAt time.Time `json:"createdAt"`
 }

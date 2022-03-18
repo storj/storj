@@ -136,7 +136,7 @@ func (db *bandwidthDB) getSummary(ctx context.Context, from, to time.Time, filte
 	from, to = from.UTC(), to.UTC()
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT action, sum(a) amount from(
+		SELECT action, sum(a) amount FROM(
 				SELECT action, sum(amount) a
 				FROM bandwidth_usage
 				WHERE datetime(?) <= created_at AND created_at <= datetime(?)
@@ -198,7 +198,7 @@ func (db *bandwidthDB) getSatelliteSummary(ctx context.Context, satelliteID stor
 
 	from, to = from.UTC(), to.UTC()
 
-	query := `SELECT action, sum(a) amount from(
+	query := `SELECT action, sum(a) amount FROM(
 			SELECT action, sum(amount) a
 				FROM bandwidth_usage
 				WHERE datetime(?) <= created_at AND created_at <= datetime(?)
@@ -245,7 +245,7 @@ func (db *bandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Tim
 	from, to = from.UTC(), to.UTC()
 
 	rows, err := db.QueryContext(ctx, `
-	SELECT satellite_id, action, sum(a) amount from(
+	SELECT satellite_id, action, sum(a) amount FROM(
 		SELECT satellite_id, action, sum(amount) a
 			FROM bandwidth_usage
 			WHERE datetime(?) <= created_at AND created_at <= datetime(?)

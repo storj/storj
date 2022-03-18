@@ -4,17 +4,14 @@
 const path = require('path');
 
 module.exports = {
-    publicPath: '/static/dist',
     productionSourceMap: false,
     parallel: true,
     lintOnSave: false, // disables eslint for builds
+    assetsDir: "static",
     configureWebpack: {
         plugins: [],
     },
     chainWebpack: config => {
-        config.output.chunkFilename('js/vendors_[hash].js');
-        config.output.filename('js/app_[hash].js');
-
         config.resolve.alias
             .set('@', path.resolve('src'));
 
@@ -22,7 +19,6 @@ module.exports = {
             .plugin('html')
             .tap(args => {
                 args[0].template = './index.html';
-
                 return args;
             });
 

@@ -60,6 +60,8 @@ type DB interface {
 	KnownOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
+	// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
+	KnownReliableInExcludedCountries(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
 	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
@@ -108,6 +110,8 @@ type DB interface {
 	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
 	// TestVetNode directly sets a node's offline_suspended timestamp to make testing easier
 	TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
+	// TestNodeCountryCode sets node country code.
+	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
 
 	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
@@ -154,6 +158,7 @@ type NodeCriteria struct {
 	OnlineWindow       time.Duration
 	DistinctIP         bool
 	AsOfSystemInterval time.Duration // only used for CRDB queries
+	ExcludedCountries  []string
 }
 
 // ReputationStatus indicates current reputation status for a node.
@@ -395,6 +400,7 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 		req.AsOfSystemInterval = service.config.Node.AsOfSystemTime.DefaultInterval
 	}
 
+	// TODO excluding country codes on upload if cache is disabled is not implemented
 	if service.config.NodeSelectionCache.Disabled {
 		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 	}
@@ -485,6 +491,17 @@ func (service *Service) KnownUnreliableOrOffline(ctx context.Context, nodeIds st
 	return service.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
+// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
+func (service *Service) KnownReliableInExcludedCountries(ctx context.Context, nodeIds storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	criteria := &NodeCriteria{
+		OnlineWindow:      service.config.Node.OnlineWindow,
+		ExcludedCountries: service.config.RepairExcludedCountryCodes,
+	}
+	return service.db.KnownReliableInExcludedCountries(ctx, criteria, nodeIds)
+}
+
 // KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
 func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -494,9 +511,11 @@ func (service *Service) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDL
 // Reliable filters a set of nodes that are reliable, independent of new.
 func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	criteria := &NodeCriteria{
 		OnlineWindow: service.config.Node.OnlineWindow,
 	}
+	criteria.ExcludedCountries = service.config.RepairExcludedCountryCodes
 	return service.db.Reliable(ctx, criteria)
 }
 
@@ -593,7 +612,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	return nil
 }
 
-// GetMissingPieces returns the list of offline nodes.
+// GetMissingPieces returns the list of offline nodes and the corresponding pieces.
 func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pieces) (missingPieces []uint16, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIDs storj.NodeIDList
@@ -613,6 +632,28 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pi
 		}
 	}
 	return missingPieces, nil
+}
+
+// GetReliablePiecesInExcludedCountries returns the list of pieces held by nodes located in excluded countries.
+func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context, pieces metabase.Pieces) (piecesInExcluded []uint16, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var nodeIDs storj.NodeIDList
+	for _, p := range pieces {
+		nodeIDs = append(nodeIDs, p.StorageNode)
+	}
+	inExcluded, err := service.KnownReliableInExcludedCountries(ctx, nodeIDs)
+	if err != nil {
+		return nil, Error.New("error getting nodes %s", err)
+	}
+
+	for _, p := range pieces {
+		for _, nodeID := range inExcluded {
+			if nodeID == p.StorageNode {
+				piecesInExcluded = append(piecesInExcluded, p.Number)
+			}
+		}
+	}
+	return piecesInExcluded, nil
 }
 
 // DisqualifyNode disqualifies a storage node.
@@ -672,4 +713,15 @@ func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) 
 	err = service.UploadSelectionCache.Refresh(ctx)
 	service.log.Warn("nodecache refresh err", zap.Error(err))
 	return err
+}
+
+// TestNodeCountryCode directly sets a node's vetted_at timestamp to null to make testing easier.
+func (service *Service) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+	err = service.db.TestNodeCountryCode(ctx, nodeID, countryCode)
+	if err != nil {
+		service.log.Warn("error updating node", zap.Stringer("node ID", nodeID), zap.Error(err))
+		return err
+	}
+
+	return nil
 }

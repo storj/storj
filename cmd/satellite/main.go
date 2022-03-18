@@ -27,7 +27,6 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
@@ -138,10 +137,10 @@ var (
 		RunE:  cmdNodeUsage,
 	}
 	partnerAttributionCmd = &cobra.Command{
-		Use:   "partner-attribution [partner ID] [start] [end]",
+		Use:   "partner-attribution [start] [end]",
 		Short: "Generate a partner attribution report for a given period to use for payments",
 		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
-		Args:  cobra.MinimumNArgs(3),
+		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdValueAttribution,
 	}
 	reportsGracefulExitCmd = &cobra.Command{
@@ -251,6 +250,12 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdRegisterLostSegments,
 	}
+	fetchPiecesCmd = &cobra.Command{
+		Use:   "fetch-pieces <stream-id> <position> <output-dir>",
+		Short: "Retrieve pieces of a segment from all responding nodes",
+		Args:  cobra.ExactArgs(3),
+		RunE:  cmdFetchPieces,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -315,6 +320,7 @@ func init() {
 	rootCmd.AddCommand(consistencyCmd)
 	rootCmd.AddCommand(restoreTrashCmd)
 	rootCmd.AddCommand(registerLostSegments)
+	rootCmd.AddCommand(fetchPiecesCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -337,6 +343,7 @@ func init() {
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(restoreTrashCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(registerLostSegments, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(fetchPiecesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -386,8 +393,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
+		ApplicationName:  "satellite-core",
 		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
 		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
+		ServerSideCopy:   runCfg.Config.Metainfo.ServerSideCopy,
 	})
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
@@ -473,8 +482,10 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
+		ApplicationName:  "satellite-migration",
 		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
 		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
+		ServerSideCopy:   runCfg.Config.Metainfo.ServerSideCopy,
 	})
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
@@ -659,20 +670,14 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L().Named("satellite-cli")
 
-	partnerID, err := uuid.FromString(args[0])
-	if err != nil {
-		return errs.Combine(errs.New("Invalid Partner ID format. %s", args[0]), err)
-	}
-	userAgent := []byte(args[0])
-
-	start, end, err := reports.ParseRange(args[1], args[2])
+	start, end, err := reports.ParseRange(args[0], args[1])
 	if err != nil {
 		return err
 	}
 
 	// send output to stdout
 	if partnerAttribtionCfg.Output == "" {
-		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, userAgent, start, end, os.Stdout)
+		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -691,7 +696,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, userAgent, start, end, file)
+	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, file)
 }
 
 func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {

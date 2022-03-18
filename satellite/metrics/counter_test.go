@@ -13,7 +13,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/metrics"
 )
 
 func TestCounterInlineAndRemote(t *testing.T) {
@@ -22,8 +22,6 @@ func TestCounterInlineAndRemote(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
-		metricsChore := satellite.Metrics.Chore
-		metricsChore.Loop.Pause()
 
 		segmentSize := 8 * memory.KiB
 
@@ -43,32 +41,28 @@ func TestCounterInlineAndRemote(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// metric chore is joining as monitor and will wait for another observer
-		// so we manually joining NullObserver
-		metricsChore.Loop.Trigger()
-		err := satellite.Metabase.SegmentLoop.Join(ctx, segmentloop.NullObserver{})
+		counter := metrics.NewCounter()
+		err := satellite.Metabase.SegmentLoop.Join(ctx, counter)
 		require.NoError(t, err)
 
-		require.EqualValues(t, 2, metricsChore.Counter.InlineObjects)
-		require.EqualValues(t, 2, metricsChore.Counter.RemoteObjects)
+		require.EqualValues(t, 2, counter.InlineObjects)
+		require.EqualValues(t, 2, counter.RemoteObjects)
 
-		require.EqualValues(t, 2, metricsChore.Counter.TotalInlineSegments)
-		require.EqualValues(t, 2, metricsChore.Counter.TotalRemoteSegments)
+		require.EqualValues(t, 2, counter.TotalInlineSegments)
+		require.EqualValues(t, 2, counter.TotalRemoteSegments)
 		// 2 inline segments * (1024 + encryption overhead)
-		require.EqualValues(t, 2080, metricsChore.Counter.TotalInlineBytes)
+		require.EqualValues(t, 2080, counter.TotalInlineBytes)
 		// 2 remote segments * (8192 + encryption overhead)
-		require.EqualValues(t, 29696, metricsChore.Counter.TotalRemoteBytes)
+		require.EqualValues(t, 29696, counter.TotalRemoteBytes)
 	})
 }
 
 func TestCounterInlineOnly(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
-		metricsChore := satellite.Metrics.Chore
-		metricsChore.Loop.Pause()
 
 		// upload 2 inline files
 		for i := 0; i < 2; i++ {
@@ -78,14 +72,12 @@ func TestCounterInlineOnly(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// metric chore is joining as monitor and will wait for another observer
-		// so we manually joining NullObserver
-		metricsChore.Loop.Trigger()
-		err := satellite.Metabase.SegmentLoop.Join(ctx, segmentloop.NullObserver{})
+		counter := metrics.NewCounter()
+		err := satellite.Metabase.SegmentLoop.Join(ctx, counter)
 		require.NoError(t, err)
 
-		require.EqualValues(t, 2, metricsChore.Counter.InlineObjects)
-		require.EqualValues(t, 0, metricsChore.Counter.RemoteObjects)
+		require.EqualValues(t, 2, counter.InlineObjects)
+		require.EqualValues(t, 0, counter.RemoteObjects)
 	})
 }
 
@@ -98,8 +90,6 @@ func TestCounterRemoteOnly(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
-		metricsChore := satellite.Metrics.Chore
-		metricsChore.Loop.Pause()
 
 		// upload 2 remote files with multiple segments
 		for i := 0; i < 2; i++ {
@@ -109,13 +99,11 @@ func TestCounterRemoteOnly(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// metric chore is joining as monitor and will wait for another observer
-		// so we manually joining NullObserver
-		metricsChore.Loop.Trigger()
-		err := satellite.Metabase.SegmentLoop.Join(ctx, segmentloop.NullObserver{})
+		counter := metrics.NewCounter()
+		err := satellite.Metabase.SegmentLoop.Join(ctx, counter)
 		require.NoError(t, err)
 
-		require.EqualValues(t, 0, metricsChore.Counter.InlineObjects)
-		require.EqualValues(t, 2, metricsChore.Counter.RemoteObjects)
+		require.EqualValues(t, 0, counter.InlineObjects)
+		require.EqualValues(t, 2, counter.RemoteObjects)
 	})
 }

@@ -767,8 +767,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 							) >= 10
 							OR comp_at_rest < 0
 						)
-						AND codes not like '%O%'
-						AND codes not like '%D%'
+						AND codes NOT LIKE '%O%'
+						AND codes NOT LIKE '%D%'
 						AND period < '2020-03'
 				`},
 			},
@@ -918,7 +918,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "enable multiple projects for existing users",
 				Version:     127,
 				Action: migrate.SQL{
-					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 and project_limit > 0;`,
+					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 AND project_limit > 0;`,
 				},
 			},
 			{
@@ -1828,6 +1828,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE stripecoinpayments_tx_conversion_rates ALTER COLUMN rate DROP NOT NULL;`,
 					`ALTER TABLE stripecoinpayments_tx_conversion_rates RENAME COLUMN rate TO rate_gob;`,
 					`ALTER TABLE stripecoinpayments_tx_conversion_rates ADD COLUMN rate_numeric double precision;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "change segment limit default value to 100M for users from paid tier",
+				Version:     190,
+				Action: migrate.SQL{
+					`UPDATE users SET project_segment_limit = 100000000 WHERE paid_tier = true`,
+					`UPDATE projects SET segment_limit = 100000000
+						WHERE owner_id IN (SELECT id FROM users WHERE paid_tier = true);`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
