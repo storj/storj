@@ -5,4 +5,4 @@ if [ "$*" != "show --property=MainPID storagenode" ]; then
   exit 1
 fi
 
-printf 'MainPID=%s' "$(supervisorctl pid storagenode)"
+printf 'MainPID=%s' "$(supervisorctl -c /etc/supervisor/supervisord.conf pid storagenode)"
