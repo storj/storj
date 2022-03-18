@@ -372,6 +372,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				PlainSize:         512,
 
 				Redundancy: metabasetest.DefaultRedundancy,
+				InlineData: []byte{},
 			}
 
 			expectedCopiedSegmentGet := expectedSegment
@@ -380,6 +381,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 			expectedCopiedSegmentGet.StreamID = copyObjStream.StreamID
 			expectedCopiedSegmentGet.EncryptedKey = newEncryptedKeyNonces[0].EncryptedKey
 			expectedCopiedSegmentGet.EncryptedKeyNonce = newEncryptedKeyNonces[0].EncryptedKeyNonce
+			expectedCopiedSegmentGet.InlineData = []byte{}
 
 			metabasetest.GetSegmentByPosition{
 				Opts: metabase.GetSegmentByPosition{
@@ -547,6 +549,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 				EncryptedKey:      newEncryptedKeyNonces[0].EncryptedKey,
 				EncryptedKeyNonce: newEncryptedKeyNonces[0].EncryptedKeyNonce,
+				InlineData:        []byte{},
 			}
 
 			expectedCopiedSegmentGet := expectedSegment
@@ -554,6 +557,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 			expectedCopiedSegmentGet.EncryptedKey = newEncryptedKeyNonces[0].EncryptedKey
 			expectedCopiedSegmentGet.EncryptedKeyNonce = newEncryptedKeyNonces[0].EncryptedKeyNonce
+			expectedCopiedSegmentGet.InlineData = []byte{}
 
 			metabasetest.GetSegmentByPosition{
 				Opts: metabase.GetSegmentByPosition{
@@ -886,154 +890,51 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objStream := metabasetest.RandObjectStream()
-			copyObjStream := metabasetest.RandObjectStream()
-			copyObjStream.ProjectID = objStream.ProjectID
-			objLocation := objStream.Location()
-			copyLocation := copyObjStream.Location()
 
-			obj := metabasetest.CreateObject(ctx, t, db, objStream, 1)
-
-			encryptedKeyNonces := []metabase.EncryptedKeyAndNonce{{
-				EncryptedKeyNonce: []byte{4},
-				EncryptedKey:      []byte{3},
-				Position: metabase.SegmentPosition{
-					Index: 0,
+			originalObj, originalSegments := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  objStream,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
 				},
-			}}
+			}.Run(ctx, t, db, objStream, 1)
 
-			newEncryptedKeyNonces := []metabase.EncryptedKeyAndNonce{{
-				EncryptedKeyNonce: []byte{3},
-				EncryptedKey:      []byte{4},
-				Position: metabase.SegmentPosition{
-					Index: 0,
-				},
-			}}
-
-			metabasetest.BeginCopyObject{
-				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
-					ObjectLocation: obj.Location(),
-				},
-				Result: metabase.BeginCopyObjectResult{
-					StreamID:                  obj.StreamID,
-					EncryptedMetadata:         obj.EncryptedMetadata,
-					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
-					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
-					EncryptedKeysNonces:       encryptedKeyNonces,
-					EncryptionParameters:      obj.Encryption,
-				},
-			}.Check(ctx, t, db)
-
-			newEncryptedMetadataKeyNonce := testrand.Nonce()
-			newEncryptedMetadataKey := testrand.Bytes(32)
-
-			_, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
-				NewStreamID:                  copyObjStream.StreamID,
-				NewBucket:                    copyObjStream.BucketName,
-				ObjectStream:                 obj.ObjectStream,
-				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
-				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
-			})
-			require.NoError(t, err)
-
-			expectedSegment := metabase.Segment{
-				StreamID: obj.StreamID,
-				Position: metabase.SegmentPosition{
-					Index: 0,
-				},
-				CreatedAt:         obj.CreatedAt,
-				ExpiresAt:         obj.ExpiresAt,
-				RootPieceID:       storj.PieceID{1},
-				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: []byte{4},
-				EncryptedETag:     []byte{5},
-				EncryptedSize:     1024,
-				PlainSize:         512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        metabasetest.DefaultRedundancy,
-			}
-
-			expectedCopiedSegmentRaw := metabase.Segment{
-				StreamID: copyObjStream.StreamID,
-				Position: metabase.SegmentPosition{
-					Index: 0,
-				},
-				CreatedAt:   obj.CreatedAt,
-				ExpiresAt:   obj.ExpiresAt,
-				RootPieceID: storj.PieceID{1},
-
-				Pieces: metabase.Pieces{},
-
-				EncryptedKey:      newEncryptedKeyNonces[0].EncryptedKey,
-				EncryptedKeyNonce: newEncryptedKeyNonces[0].EncryptedKeyNonce,
-				EncryptedSize:     1024,
-				PlainSize:         512,
-
-				Redundancy: metabasetest.DefaultRedundancy,
-			}
-
-			expectedCopiedSegmentGet := expectedSegment
-
-			expectedCopiedSegmentGet.EncryptedETag = nil
-			expectedCopiedSegmentGet.StreamID = copyObjStream.StreamID
-			expectedCopiedSegmentGet.EncryptedKey = newEncryptedKeyNonces[0].EncryptedKey
-			expectedCopiedSegmentGet.EncryptedKeyNonce = newEncryptedKeyNonces[0].EncryptedKeyNonce
+			copyObj, newSegments := metabasetest.CreateObjectCopy{
+				OriginalObject: originalObj,
+			}.Run(ctx, t, db)
 
 			metabasetest.GetLatestObjectLastSegment{
 				Opts: metabase.GetLatestObjectLastSegment{
-					ObjectLocation: objLocation,
+					ObjectLocation: originalObj.Location(),
 				},
-				Result: expectedSegment,
+				Result: originalSegments[0],
 			}.Check(ctx, t, db)
+
+			copySegmentGet := originalSegments[0]
+			copySegmentGet.StreamID = copyObj.StreamID
+			copySegmentGet.EncryptedETag = nil
+			copySegmentGet.InlineData = []byte{}
+			copySegmentGet.EncryptedKey = newSegments[0].EncryptedKey
+			copySegmentGet.EncryptedKeyNonce = newSegments[0].EncryptedKeyNonce
 
 			metabasetest.GetLatestObjectLastSegment{
 				Opts: metabase.GetLatestObjectLastSegment{
-					ObjectLocation: copyLocation,
+					ObjectLocation: copyObj.Location(),
 				},
-				Result: expectedCopiedSegmentGet,
+				Result: copySegmentGet,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj.ObjectStream,
-						CreatedAt:    now,
-						Status:       metabase.Committed,
-						SegmentCount: 1,
-
-						TotalPlainSize:     512,
-						TotalEncryptedSize: 1024,
-						FixedSegmentSize:   512,
-
-						Encryption: metabasetest.DefaultEncryption,
-					},
-					{
-						ObjectStream: copyObjStream,
-						CreatedAt:    now,
-						ExpiresAt:    obj.ExpiresAt,
-						Status:       metabase.Committed,
-						SegmentCount: 1,
-
-						TotalPlainSize:     512,
-						TotalEncryptedSize: 1024,
-						FixedSegmentSize:   512,
-
-						EncryptedMetadataNonce:        newEncryptedMetadataKeyNonce[:],
-						EncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
-						Encryption:                    metabasetest.DefaultEncryption,
-					},
+					metabase.RawObject(originalObj),
+					metabase.RawObject(copyObj),
 				},
-				Segments: []metabase.RawSegment{
-					metabase.RawSegment(expectedSegment),
-					metabase.RawSegment(expectedCopiedSegmentRaw),
-				},
-				Copies: []metabase.RawCopy{
-					{
-						StreamID:         copyObjStream.StreamID,
-						AncestorStreamID: objStream.StreamID,
-					}},
+				Segments: append(metabasetest.SegmentsToRaw(originalSegments), newSegments...),
+				Copies: []metabase.RawCopy{{
+					StreamID:         copyObj.StreamID,
+					AncestorStreamID: originalObj.StreamID,
+				}},
 			}.Check(ctx, t, db)
 		})
 
@@ -1143,6 +1044,8 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 				EncryptedKey:      newEncryptedKeyNonces[0].EncryptedKey,
 				EncryptedKeyNonce: newEncryptedKeyNonces[0].EncryptedKeyNonce,
+
+				InlineData: []byte{},
 			}
 
 			expectedCopiedSegmentGet := expectedSegment
@@ -1150,6 +1053,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 			expectedCopiedSegmentGet.EncryptedKey = newEncryptedKeyNonces[0].EncryptedKey
 			expectedCopiedSegmentGet.EncryptedKeyNonce = newEncryptedKeyNonces[0].EncryptedKeyNonce
+			expectedCopiedSegmentGet.InlineData = []byte{}
 
 			metabasetest.GetLatestObjectLastSegment{
 				Opts: metabase.GetLatestObjectLastSegment{

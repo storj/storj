@@ -27,6 +27,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/drpc"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -274,7 +275,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize))
-		} else if errs2.IsCanceled(err) && !committed {
+		} else if (errs2.IsCanceled(err) || drpc.ClosedError.Has(err)) && !committed {
 			mon.Counter("upload_cancel_count").Inc(1)
 			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
@@ -514,7 +515,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			downloadRate = float64(downloadSize) / dt.Seconds()
 		}
 		downloadDuration := dt.Nanoseconds()
-		if errs2.IsCanceled(err) {
+		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)

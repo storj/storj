@@ -165,8 +165,6 @@ require (
 	github.com/spf13/cobra v1.1.3 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect
 	github.com/stripe/stripe-go/v72 v72.51.0 // indirect
-	github.com/tidwall/gjson v1.3.5 // indirect
-	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tidwall/gjson v1.6.0 // indirect
 	github.com/tidwall/match v1.0.1 // indirect
 	github.com/tidwall/pretty v1.0.1 // indirect
@@ -183,7 +181,7 @@ require (
 	github.com/ysmood/gson v0.6.4 // indirect
 	github.com/ysmood/leakless v0.7.0 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
-	github.com/zeebo/errs v1.2.2 // indirect
+	github.com/zeebo/errs v1.3.0 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b // indirect
 	go.opentelemetry.io/otel v0.18.0 // indirect
@@ -218,7 +216,7 @@ require (
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	storj.io/drpc v0.0.29 // indirect
+	storj.io/drpc v0.0.30-0.20220317163747-7713ed76eb9b // indirect
 	storj.io/gateway v1.4.1 // indirect
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a // indirect
 	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect

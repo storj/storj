@@ -341,6 +341,10 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			originalSegment = metabase.RawSegment(cc.OriginalSegments[i])
 		}
 
+		newSegmentInlineData := originalSegment.InlineData
+		if newSegmentInlineData == nil {
+			newSegmentInlineData = []uint8{}
+		}
 		newSegment := metabase.RawSegment{
 			StreamID:          copyStream.StreamID,
 			EncryptedKeyNonce: newEncryptedKeysNonces[i].EncryptedKeyNonce,
@@ -351,6 +355,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			Redundancy:        originalSegment.Redundancy,
 			PlainSize:         originalSegment.PlainSize,
 			PlainOffset:       originalSegment.PlainOffset,
+			InlineData:        newSegmentInlineData,
 			CreatedAt:         time.Now().UTC(),
 		}
 

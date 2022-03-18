@@ -37,7 +37,7 @@ require (
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/assert v1.3.0
 	github.com/zeebo/clingy v0.0.0-20220125233608-1457d47c8d8d
-	github.com/zeebo/errs v1.2.2
+	github.com/zeebo/errs v1.3.0
 	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
@@ -50,7 +50,7 @@ require (
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	storj.io/common v0.0.0-20220303150900-2150c0203dcc
-	storj.io/drpc v0.0.29
+	storj.io/drpc v0.0.30-0.20220317163747-7713ed76eb9b
 	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a
 	storj.io/private v0.0.0-20220131131751-c913260b9ec2
 	storj.io/uplink v1.8.1-0.20220307141551-c65f09ea27d8

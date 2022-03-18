@@ -7,12 +7,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/txutil"
 	"storj.io/private/tagsql"
@@ -178,33 +180,39 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, ErrInvalidRequest.New("wrong amount of segments keys received (received %d, need %d)", originalObject.SegmentCount, len(opts.NewSegmentKeys))
 	}
 
-	var newSegmentKeys struct {
+	var newSegments struct {
 		Positions          []int64
 		EncryptedKeys      [][]byte
 		EncryptedKeyNonces [][]byte
 	}
 
 	for _, u := range opts.NewSegmentKeys {
-		newSegmentKeys.EncryptedKeys = append(newSegmentKeys.EncryptedKeys, u.EncryptedKey)
-		newSegmentKeys.EncryptedKeyNonces = append(newSegmentKeys.EncryptedKeyNonces, u.EncryptedKeyNonce)
-		newSegmentKeys.Positions = append(newSegmentKeys.Positions, int64(u.Position.Encode()))
+		newSegments.EncryptedKeys = append(newSegments.EncryptedKeys, u.EncryptedKey)
+		newSegments.EncryptedKeyNonces = append(newSegments.EncryptedKeyNonces, u.EncryptedKeyNonce)
+		newSegments.Positions = append(newSegments.Positions, int64(u.Position.Encode()))
 	}
 
-	segments := make([]Segment, originalObject.SegmentCount)
 	positions := make([]int64, originalObject.SegmentCount)
 
+	rootPieceIDs := make([][]byte, originalObject.SegmentCount)
+
+	expiresAts := make([]*time.Time, originalObject.SegmentCount)
+	encryptedSizes := make([]int32, originalObject.SegmentCount)
+	plainSizes := make([]int32, originalObject.SegmentCount)
+	plainOffsets := make([]int64, originalObject.SegmentCount)
+	inlineDatas := make([][]byte, originalObject.SegmentCount)
+
+	redundancySchemes := make([]int64, originalObject.SegmentCount)
 	// TODO: there are probably columns that we can skip
 	// maybe it's possible to have the select and the insert in one query
 	err = withRows(db.db.QueryContext(ctx, `
 			SELECT
 				position,
-				expires_at, repaired_at,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
+				expires_at,
+				root_piece_id,
 				encrypted_size, plain_offset, plain_size,
-				encrypted_etag,
 				redundancy,
-				inline_data,
-				placement
+				inline_data
 			FROM segments
 			WHERE stream_id = $1
 			ORDER BY position ASC
@@ -213,19 +221,16 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		index := 0
 		for rows.Next() {
 			err = rows.Scan(
-				&segments[index].Position,
-				&segments[index].ExpiresAt, &segments[index].RepairedAt,
-				&segments[index].RootPieceID, &segments[index].EncryptedKeyNonce, &segments[index].EncryptedKey,
-				&segments[index].EncryptedSize, &segments[index].PlainOffset, &segments[index].PlainSize,
-				&segments[index].EncryptedETag,
-				redundancyScheme{&segments[index].Redundancy},
-				&segments[index].InlineData,
-				&segments[index].Placement,
+				&positions[index],
+				&expiresAts[index],
+				&rootPieceIDs[index],
+				&encryptedSizes[index], &plainOffsets[index], &plainSizes[index],
+				&redundancySchemes[index],
+				&inlineDatas[index],
 			)
 			if err != nil {
 				return err
 			}
-			positions[index] = int64(segments[index].Position.Encode())
 			index++
 		}
 
@@ -238,9 +243,9 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, Error.New("unable to copy object: %w", err)
 	}
 
-	for index := range segments {
-		if newSegmentKeys.Positions[index] != int64(segments[index].Position.Encode()) {
-			return Object{}, Error.New("missing new segment keys for segment %d", int64(segments[index].Position.Encode()))
+	for index := range positions {
+		if newSegments.Positions[index] != positions[index] {
+			return Object{}, Error.New("missing new segment keys for segment %d", positions[index])
 		}
 	}
 
@@ -281,34 +286,30 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return Error.New("unable to copy object: %w", err)
 		}
 
-		// TODO: optimize - we should do a bulk insert
-		for index, originalSegment := range segments {
-			_, err = db.db.ExecContext(ctx, `
-				INSERT INTO segments (
-					stream_id, position,
-					encrypted_key_nonce, encrypted_key,
-					root_piece_id, -- non-null constraint
-					redundancy,
-					encrypted_size, plain_offset, plain_size,
-					inline_data
-				) VALUES (
-					$1, $2,
-					$3, $4,
-					$5,
-					$6,
-					$7, $8,	$9,
-					$10
-				)
-			`, opts.NewStreamID, originalSegment.Position.Encode(),
-				newSegmentKeys.EncryptedKeyNonces[index], newSegmentKeys.EncryptedKeys[index],
-				originalSegment.RootPieceID,
-				redundancyScheme{&originalSegment.Redundancy},
-				originalSegment.EncryptedSize, originalSegment.PlainOffset, originalSegment.PlainSize,
-				originalSegment.InlineData,
-			)
-			if err != nil {
-				return Error.New("unable to copy segment: %w", err)
-			}
+		_, err = db.db.ExecContext(ctx, `
+		INSERT INTO segments (
+			stream_id, position,
+			encrypted_key_nonce, encrypted_key,
+			root_piece_id,
+			redundancy,
+			encrypted_size, plain_offset, plain_size,
+			inline_data
+		) SELECT
+			$1, UNNEST($2::INT8[]),
+			UNNEST($3::BYTEA[]), UNNEST($4::BYTEA[]),
+			UNNEST($5::BYTEA[]),
+			UNNEST($6::INT8[]),
+			UNNEST($7::INT4[]), UNNEST($8::INT8[]),	UNNEST($9::INT4[]),
+			UNNEST($10::BYTEA[])
+		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions),
+			pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
+			pgutil.ByteaArray(rootPieceIDs),
+			pgutil.Int8Array(redundancySchemes),
+			pgutil.Int4Array(encryptedSizes), pgutil.Int8Array(plainOffsets), pgutil.Int4Array(plainSizes),
+			pgutil.ByteaArray(inlineDatas),
+		)
+		if err != nil {
+			return Error.New("unable to copy segments: %w", err)
 		}
 
 		// TODO : we need flatten references
