@@ -17,6 +17,9 @@ FOLDER="${2-}"
 echo "Drafting release"
 github-release release --user storj --repo storj --tag "$TAG" --draft
 
+echo "Sleep 10 seconds in order to wait for release propagation"
+sleep 10
+
 echo "Uploading binaries to release draft"
 for app in $apps;
 do
