@@ -18,15 +18,15 @@ type Service struct {
 }
 
 // ClientStore returns a store used to lookup oauth clients from the consent flow.
-func (s *Service) ClientStore() *clientStore {
-	return &clientStore{
+func (s *Service) ClientStore() *ClientStore {
+	return &ClientStore{
 		clients: s.store.OAuthClients(),
 	}
 }
 
 // TokenStore returns a store used to manage access tokens during the consent flow.
-func (s *Service) TokenStore() *tokenStore {
-	return &tokenStore{
+func (s *Service) TokenStore() *TokenStore {
+	return &TokenStore{
 		codes:  s.store.OAuthCodes(),
 		tokens: s.store.OAuthTokens(),
 	}

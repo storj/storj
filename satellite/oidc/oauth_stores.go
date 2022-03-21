@@ -12,12 +12,15 @@ import (
 	"storj.io/common/uuid"
 )
 
-// clientStore provides a simple adapter for the oauth implementation.
-type clientStore struct {
+// ClientStore provides a simple adapter for the oauth implementation.
+type ClientStore struct {
 	clients OAuthClients
 }
 
-func (c *clientStore) GetByID(ctx context.Context, id string) (oauth2.ClientInfo, error) {
+var _ oauth2.ClientStore = (*ClientStore)(nil)
+
+// GetByID returns client information by id.
+func (c *ClientStore) GetByID(ctx context.Context, id string) (oauth2.ClientInfo, error) {
 	uid, err := uuid.FromString(id)
 	if err != nil {
 		return nil, err
@@ -26,13 +29,16 @@ func (c *clientStore) GetByID(ctx context.Context, id string) (oauth2.ClientInfo
 	return c.clients.Get(ctx, uid)
 }
 
-// tokenStore provides a simple adapter for the oauth implementation.
-type tokenStore struct {
+// TokenStore provides a simple adapter for the oauth implementation.
+type TokenStore struct {
 	codes  OAuthCodes
 	tokens OAuthTokens
 }
 
-func (t *tokenStore) Create(ctx context.Context, info oauth2.TokenInfo) (err error) {
+var _ oauth2.TokenStore = (*TokenStore)(nil)
+
+// Create creates a new token with the given info.
+func (t *TokenStore) Create(ctx context.Context, info oauth2.TokenInfo) (err error) {
 	var code OAuthCode
 	var access, refresh OAuthToken
 
@@ -108,19 +114,23 @@ func (t *tokenStore) Create(ctx context.Context, info oauth2.TokenInfo) (err err
 	return nil
 }
 
-func (t *tokenStore) RemoveByCode(ctx context.Context, code string) error {
+// RemoveByCode deletes token by authorization code.
+func (t *TokenStore) RemoveByCode(ctx context.Context, code string) error {
 	return t.codes.Claim(ctx, code)
 }
 
-func (t *tokenStore) RemoveByAccess(ctx context.Context, access string) error {
+// RemoveByAccess deletes token by access token.
+func (t *TokenStore) RemoveByAccess(ctx context.Context, access string) error {
 	return nil // unsupported by current configuration
 }
 
-func (t *tokenStore) RemoveByRefresh(ctx context.Context, refresh string) error {
+// RemoveByRefresh deletes token by refresh token.
+func (t *TokenStore) RemoveByRefresh(ctx context.Context, refresh string) error {
 	return nil // unsupported by current configuration
 }
 
-func (t *tokenStore) GetByCode(ctx context.Context, code string) (oauth2.TokenInfo, error) {
+// GetByCode uses authorization code to find token information.
+func (t *TokenStore) GetByCode(ctx context.Context, code string) (oauth2.TokenInfo, error) {
 	oauthCode, err := t.codes.Get(ctx, code)
 	if err != nil {
 		return nil, err
@@ -129,7 +139,8 @@ func (t *tokenStore) GetByCode(ctx context.Context, code string) (oauth2.TokenIn
 	return &record{code: oauthCode}, nil
 }
 
-func (t *tokenStore) GetByAccess(ctx context.Context, access string) (oauth2.TokenInfo, error) {
+// GetByAccess uses access token to find token information.
+func (t *TokenStore) GetByAccess(ctx context.Context, access string) (oauth2.TokenInfo, error) {
 	oauthToken, err := t.tokens.Get(ctx, KindAccessToken, access)
 	if err != nil {
 		return nil, err
@@ -138,7 +149,8 @@ func (t *tokenStore) GetByAccess(ctx context.Context, access string) (oauth2.Tok
 	return &record{access: oauthToken}, nil
 }
 
-func (t *tokenStore) GetByRefresh(ctx context.Context, refresh string) (oauth2.TokenInfo, error) {
+// GetByRefresh uses refresh token to find token information.
+func (t *TokenStore) GetByRefresh(ctx context.Context, refresh string) (oauth2.TokenInfo, error) {
 	oauthToken, err := t.tokens.Get(ctx, KindRefreshToken, refresh)
 	if err != nil {
 		return nil, err
