@@ -16,7 +16,7 @@ import (
 
 func main() {
 	a := &apigen.API{
-		Version:     "v1",
+		Version:     "v0",
 		Description: "",
 		PackageName: "consoleapi",
 	}
@@ -53,6 +53,16 @@ func main() {
 				apigen.NewParam("projectID", uuid.UUID{}),
 				apigen.NewParam("since", time.Time{}),
 				apigen.NewParam("before", time.Time{}),
+			},
+		})
+
+		g.Put("/create", &apigen.Endpoint{
+			Name:        "Create new Project",
+			Description: "Creates new Project with given info",
+			MethodName:  "GenCreateProject",
+			Response:    &console.Project{},
+			Params: []apigen.Param{
+				apigen.NewParam("projectInfo", console.ProjectInfo{}),
 			},
 		})
 	}

@@ -48,6 +48,11 @@ func (eg *EndpointGroup) Get(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodGet, endpoint)
 }
 
+// Put adds new PUT endpoint to endpoints group.
+func (eg *EndpointGroup) Put(path string, endpoint *Endpoint) {
+	eg.addEndpoint(path, http.MethodPut, endpoint)
+}
+
 // addEndpoint adds new endpoint to endpoints list.
 func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
 	pathMethod := PathMethod{

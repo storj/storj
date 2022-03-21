@@ -1222,6 +1222,75 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	return p, nil
 }
 
+// GenCreateProject is a method for creating new project for generated api.
+func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, httpError api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "create project")
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	currentProjectCount, err := s.checkProjectLimit(ctx, auth.User.ID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    ErrProjLimit.Wrap(err),
+		}
+	}
+
+	newProjectLimits, err := s.getUserProjectLimits(ctx, auth.User.ID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    ErrProjLimit.Wrap(err),
+		}
+	}
+
+	var projectID uuid.UUID
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		p, err = tx.Projects().Insert(ctx,
+			&Project{
+				Description:    projectInfo.Description,
+				Name:           projectInfo.Name,
+				OwnerID:        auth.User.ID,
+				PartnerID:      auth.User.PartnerID,
+				UserAgent:      auth.User.UserAgent,
+				StorageLimit:   &newProjectLimits.StorageLimit,
+				BandwidthLimit: &newProjectLimits.BandwidthLimit,
+				SegmentLimit:   &newProjectLimits.SegmentLimit,
+			},
+		)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		_, err = tx.ProjectMembers().Insert(ctx, auth.User.ID, p.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		projectID = p.ID
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    err,
+		}
+	}
+
+	s.analytics.TrackProjectCreated(auth.User.ID, auth.User.Email, projectID, currentProjectCount+1)
+
+	return p, httpError
+}
+
 // DeleteProject is a method for deleting project by id.
 func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
