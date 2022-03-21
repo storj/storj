@@ -61,7 +61,7 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 		process.Exec(rootCmd)
 		return nil
 	})
-	defer group.Wait()
+	defer func() { _ = group.Wait() }()
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 

@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//go:build ignore
 // +build ignore
 
 // Tests whether the uplink tool correctly times out when one of the storage nodes it's talking to

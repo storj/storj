@@ -1,6 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//go:build windows && !unittest
 // +build windows,!unittest
 
 package main
