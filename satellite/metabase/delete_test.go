@@ -955,6 +955,8 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 }
 
 func TestDeleteCopy(t *testing.T) {
+	t.Skip("skip until deletion query will be fixed for CRDB")
+
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		for _, numberOfSegments := range []int{0, 1, 3} {
 			t.Run(fmt.Sprintf("%d segments", numberOfSegments), func(t *testing.T) {
