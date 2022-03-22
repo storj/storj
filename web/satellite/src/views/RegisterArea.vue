@@ -584,8 +584,8 @@ export default class RegisterArea extends Vue {
             const internalRegisterSuccessPath = RouteConfig.RegisterSuccess.path;
             const configuredRegisterSuccessPath = MetaUtils.getMetaContent('optional-signup-success-url') || internalRegisterSuccessPath;
 
-            const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${this.user.email}`;
-            const braveSuccessPath = `${internalRegisterSuccessPath}?email=${this.user.email}`;
+            const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(this.user.email)}`;
+            const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(this.user.email)}`;
 
             await this.detectBraveBrowser() ? await this.$router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
         } catch (error) {
