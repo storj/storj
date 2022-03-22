@@ -43,16 +43,9 @@ func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	sortRawCopies(step.Copies)
 
 	diff := cmp.Diff(metabase.RawState(step), *state,
-		cmpopts.EquateApproxTime(5*time.Second))
+		cmpopts.EquateApproxTime(5*time.Second),
+		cmpopts.EquateEmpty())
 	require.Zero(t, diff)
-}
-
-// Normalize prepares the data for comparison.
-func (step Verify) Normalize() Verify {
-	if len(step.Segments) == 0 {
-		step.Segments = nil
-	}
-	return step
 }
 
 func sortObjects(objects []metabase.Object) {

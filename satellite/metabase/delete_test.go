@@ -993,7 +993,7 @@ func TestDeleteCopy(t *testing.T) {
 						},
 						Segments: append(metabasetest.SegmentsToRaw(originalSegments), copySegments...),
 						Copies:   copies,
-					}.Normalize().Check(ctx, t, db)
+					}.Check(ctx, t, db)
 
 					metabasetest.DeleteObjectExactVersion{
 						Opts: metabase.DeleteObjectExactVersion{
@@ -1012,7 +1012,7 @@ func TestDeleteCopy(t *testing.T) {
 							metabase.RawObject(originalObj),
 						},
 						Segments: metabasetest.SegmentsToRaw(originalSegments),
-					}.Normalize().Check(ctx, t, db)
+					}.Check(ctx, t, db)
 				})
 
 				t.Run("delete one of two copies", func(t *testing.T) {
@@ -1063,7 +1063,7 @@ func TestDeleteCopy(t *testing.T) {
 						},
 						Segments: append(metabasetest.SegmentsToRaw(originalSegments), copySegments2...),
 						Copies:   copies,
-					}.Normalize().Check(ctx, t, db)
+					}.Check(ctx, t, db)
 				})
 
 				t.Run("delete original", func(t *testing.T) {
@@ -1102,7 +1102,7 @@ func TestDeleteCopy(t *testing.T) {
 							metabase.RawObject(copyObject),
 						},
 						Segments: copySegments,
-					}.Normalize().Check(ctx, t, db)
+					}.Check(ctx, t, db)
 				})
 
 				t.Run("delete original and leave two copies", func(t *testing.T) {
@@ -1151,7 +1151,7 @@ func TestDeleteCopy(t *testing.T) {
 						},
 						Segments: append(copySegments1, copySegments2...),
 						Copies:   copies,
-					}.Normalize().Check(ctx, t, db)
+					}.Check(ctx, t, db)
 				})
 			})
 		}
