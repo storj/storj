@@ -50,16 +50,23 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 			RETURNING (xmax != 0) AS alreadyInserted
 		`
 	case dbutil.Cockroach:
+		// TODO it's not optimal solution but crdb is not used in prod for repair queue
 		query = `
-			WITH updater AS (
-				UPDATE repair_queue SET segment_health = $3, updated_at = current_timestamp
+			WITH inserted AS (
+				SELECT count(*) as alreadyInserted FROM repair_queue 
 				WHERE stream_id = $1 AND position = $2
-				RETURNING *
 			)
-			INSERT INTO repair_queue (stream_id, position, segment_health)
-			SELECT $1, $2, $3
-			WHERE NOT EXISTS (SELECT * FROM updater)
-			RETURNING false
+			INSERT INTO repair_queue
+			(
+				stream_id, position, segment_health
+			)
+			VALUES (
+				$1, $2, $3
+			)
+			ON CONFLICT (stream_id, position)
+			DO UPDATE
+			SET segment_health=$3, updated_at=current_timestamp
+			RETURNING (SELECT alreadyInserted FROM inserted)
 		`
 	}
 	rows, err := r.db.QueryContext(ctx, query, seg.StreamID, seg.Position.Encode(), seg.SegmentHealth)
