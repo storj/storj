@@ -120,7 +120,7 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		Endpoint: "https://api.hubapi.com/events/v3/send?hapikey=" + q.escapedAPIKey,
 		Data: map[string]interface{}{
 			"email":     fields.Email,
-			"eventName": eventPrefix + "_" + "account_created_new",
+			"eventName": eventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
 			"properties": map[string]interface{}{
 				"userid":             fields.ID.String(),
 				"email":              fields.Email,

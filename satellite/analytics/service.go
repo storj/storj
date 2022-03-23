@@ -5,6 +5,7 @@ package analytics
 
 import (
 	"context"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -127,9 +128,27 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		return
 	}
 
+	fullName := fields.FullName
+	names := strings.SplitN(fullName, " ", 2)
+
+	var firstName string
+	var lastName string
+
+	if len(names) > 1 {
+		firstName = names[0]
+		lastName = names[1]
+	} else {
+		firstName = fullName
+	}
+
 	traits := segment.NewTraits()
-	traits.SetName(fields.FullName)
+	traits.SetFirstName(firstName)
+	traits.SetLastName(lastName)
 	traits.SetEmail(fields.Email)
+	traits.Set("lifecyclestage", "customer")
+	traits.Set("origin_header", fields.OriginHeader)
+	traits.Set("signup_referrer", fields.Referrer)
+	traits.Set("account_created", true)
 
 	service.enqueueMessage(segment.Identify{
 		UserId:      fields.ID.String(),
@@ -156,7 +175,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	service.enqueueMessage(segment.Track{
 		UserId:      fields.ID.String(),
 		AnonymousId: fields.AnonymousID,
-		Event:       eventAccountCreated,
+		Event:       service.satelliteName + " " + eventAccountCreated,
 		Properties:  props,
 	})
 
@@ -182,11 +201,11 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
-		Event:      eventSignedIn,
+		Event:      service.satelliteName + " " + eventSignedIn,
 		Properties: props,
 	})
 
-	service.hubspot.EnqueueEvent(email, eventSignedIn, map[string]interface{}{
+	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventSignedIn, map[string]interface{}{
 		"userid": userID.String(),
 	})
 }
@@ -203,11 +222,11 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, proj
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
-		Event:      eventProjectCreated,
+		Event:      service.satelliteName + " " + eventProjectCreated,
 		Properties: props,
 	})
 
-	service.hubspot.EnqueueEvent(email, eventProjectCreated, map[string]interface{}{
+	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventProjectCreated, map[string]interface{}{
 		"userid":        userID.String(),
 		"project_count": currentProjectCount,
 		"project_id":    projectID.String(),
@@ -222,10 +241,10 @@ func (service *Service) TrackAccessGrantCreated(userID uuid.UUID, email string) 
 
 	service.enqueueMessage(segment.Track{
 		UserId: userID.String(),
-		Event:  eventAccessGrantCreated,
+		Event:  service.satelliteName + " " + eventAccessGrantCreated,
 	})
 
-	service.hubspot.EnqueueEvent(email, eventAccessGrantCreated, map[string]interface{}{
+	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventAccessGrantCreated, map[string]interface{}{
 		"userid": userID.String(),
 	})
 }
@@ -249,11 +268,11 @@ func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
-		Event:      eventAccountVerified,
+		Event:      service.satelliteName + " " + eventAccountVerified,
 		Properties: props,
 	})
 
-	service.hubspot.EnqueueEvent(email, eventAccountVerified, map[string]interface{}{
+	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventAccountVerified, map[string]interface{}{
 		"userid": userID.String(),
 	})
 }
@@ -272,10 +291,10 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 	}
 	service.enqueueMessage(segment.Track{
 		UserId: userID.String(),
-		Event:  eventName,
+		Event:  service.satelliteName + " " + eventName,
 	})
 
-	service.hubspot.EnqueueEvent(email, eventName, map[string]interface{}{
+	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventName, map[string]interface{}{
 		"userid": userID.String(),
 	})
 }
@@ -298,11 +317,11 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
-		Event:      eventName,
+		Event:      service.satelliteName + " " + eventName,
 		Properties: props,
 	})
 
-	service.hubspot.EnqueueEvent(email, eventName, map[string]interface{}{
+	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventName, map[string]interface{}{
 		"userid": userID.String(),
 		"link":   link,
 	})
