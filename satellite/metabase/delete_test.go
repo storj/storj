@@ -955,8 +955,6 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 }
 
 func TestDeleteCopy(t *testing.T) {
-	t.Skip("skip until deletion query will be fixed for CRDB")
-
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		for _, numberOfSegments := range []int{0, 1, 3} {
 			t.Run(fmt.Sprintf("%d segments", numberOfSegments), func(t *testing.T) {
@@ -1017,7 +1015,6 @@ func TestDeleteCopy(t *testing.T) {
 
 				t.Run("delete one of two copies", func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-					numberOfSegments := 0
 					originalObjectStream := metabasetest.RandObjectStream()
 
 					originalObj, originalSegments := metabasetest.CreateTestObject{
@@ -1068,10 +1065,9 @@ func TestDeleteCopy(t *testing.T) {
 
 				t.Run("delete original", func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-					numberOfSegments := 0
 					originalObjectStream := metabasetest.RandObjectStream()
 
-					originalObj, _ := metabasetest.CreateTestObject{
+					originalObj, originalSegments := metabasetest.CreateTestObject{
 						CommitObject: &metabase.CommitObject{
 							ObjectStream:                  originalObjectStream,
 							EncryptedMetadata:             testrand.Bytes(64),
@@ -1096,6 +1092,10 @@ func TestDeleteCopy(t *testing.T) {
 						},
 					}.Check(ctx, t, db)
 
+					for i := range copySegments {
+						copySegments[i].Pieces = originalSegments[i].Pieces
+					}
+
 					// verify that the copy is left
 					metabasetest.Verify{
 						Objects: []metabase.RawObject{
@@ -1107,10 +1107,9 @@ func TestDeleteCopy(t *testing.T) {
 
 				t.Run("delete original and leave two copies", func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-					numberOfSegments := 0
 					originalObjectStream := metabasetest.RandObjectStream()
 
-					originalObj, _ := metabasetest.CreateTestObject{
+					originalObj, originalSegments := metabasetest.CreateTestObject{
 						CommitObject: &metabase.CommitObject{
 							ObjectStream:                  originalObjectStream,
 							EncryptedMetadata:             testrand.Bytes(64),
@@ -1143,6 +1142,17 @@ func TestDeleteCopy(t *testing.T) {
 								AncestorStreamID: remainingStreamIDs[0],
 							}}
 					}
+					expectedAncestorStreamID := remainingStreamIDs[0]
+
+					// set pieces in expected ancestor for verifcation
+					for _, segments := range [][]metabase.RawSegment{copySegments1, copySegments2} {
+						for i := range segments {
+							if segments[i].StreamID == expectedAncestorStreamID {
+								segments[i].Pieces = originalSegments[i].Pieces
+							}
+						}
+					}
+
 					// verify that two functioning copies are left and the original object is gone
 					metabasetest.Verify{
 						Objects: []metabase.RawObject{

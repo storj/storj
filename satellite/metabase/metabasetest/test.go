@@ -353,7 +353,7 @@ func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t testing.T
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
 
