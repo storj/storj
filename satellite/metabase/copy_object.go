@@ -9,12 +9,9 @@ import (
 	"errors"
 	"time"
 
-	pgxerrcode "github.com/jackc/pgerrcode"
-
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil"
-	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/txutil"
 	"storj.io/private/tagsql"
 )
@@ -133,8 +130,6 @@ func (finishCopy FinishCopyObject) Verify() error {
 		return ErrInvalidRequest.New("NewStreamID is missing")
 	case finishCopy.ObjectStream.StreamID == finishCopy.NewStreamID:
 		return ErrInvalidRequest.New("StreamIDs are identical")
-	case finishCopy.ObjectKey == finishCopy.NewEncryptedObjectKey:
-		return ErrInvalidRequest.New("source and destination encrypted object key are identical")
 	case len(finishCopy.NewEncryptedObjectKey) == 0:
 		return ErrInvalidRequest.New("NewEncryptedObjectKey is missing")
 	}
@@ -293,6 +288,19 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		// TODO we need to handle metadata correctly (copy from original object or replace)
 		row := db.db.QueryRowContext(ctx, `
+			WITH existing_object AS (
+				SELECT
+					objects.stream_id,
+					copies.stream_id AS new_ancestor,
+					objects.segment_count
+				FROM objects
+				LEFT OUTER JOIN segment_copies copies ON objects.stream_id = copies.ancestor_stream_id
+				WHERE
+					project_id   = $1 AND
+					bucket_name  = $2 AND
+					object_key   = $3 AND
+					version      = $4
+			)
 			INSERT INTO objects (
 				project_id, bucket_name, object_key, version, stream_id,
 				expires_at, status, segment_count,
@@ -306,36 +314,61 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 				$8,
 				$9, $10, $11,
 				$12, $13, $14, null
-			) RETURNING created_at`,
+			) ON CONFLICT (project_id, bucket_name, object_key, version)
+				DO UPDATE SET
+					stream_id = $5,
+					created_at = now(),
+					expires_at = $6,
+					status = `+committedStatus+`,
+					segment_count = $7,
+					encryption = $8,
+					encrypted_metadata = $9,
+					encrypted_metadata_nonce = $10,
+					encrypted_metadata_encrypted_key = $11,
+					total_plain_size = $12,
+					total_encrypted_size = $13,
+					fixed_segment_size = $14,
+					zombie_deletion_deadline = NULL
+			RETURNING
+				created_at,
+				(SELECT stream_id FROM existing_object LIMIT 1),
+				(SELECT new_ancestor FROM existing_object LIMIT 1),
+				(SELECT segment_count FROM existing_object LIMIT 1)`,
 			opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, opts.Version, opts.NewStreamID,
 			originalObject.ExpiresAt, originalObject.SegmentCount,
 			encryptionParameters{&originalObject.Encryption},
 			copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
 			originalObject.TotalPlainSize, originalObject.TotalEncryptedSize, originalObject.FixedSegmentSize,
 		)
-		err = row.Scan(&copyObject.CreatedAt)
+
+		var existingObjStreamID *uuid.UUID
+		var newAncestorStreamID *uuid.UUID
+		var oldSegmentCount *int
+
+		err = row.Scan(&copyObject.CreatedAt, &existingObjStreamID, &newAncestorStreamID, &oldSegmentCount)
 		if err != nil {
-			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-				return ErrObjectAlreadyExists.New("")
-			}
 			return Error.New("unable to copy object: %w", err)
 		}
 
+		err = db.deleteExistingObjectSegments(ctx, tx, existingObjStreamID, newAncestorStreamID, oldSegmentCount)
+		if err != nil {
+			return Error.New("unable to copy object: %w", err)
+		}
 		_, err = db.db.ExecContext(ctx, `
-		INSERT INTO segments (
-			stream_id, position,
-			encrypted_key_nonce, encrypted_key,
-			root_piece_id,
-			redundancy,
-			encrypted_size, plain_offset, plain_size,
-			inline_data
-		) SELECT
-			$1, UNNEST($2::INT8[]),
-			UNNEST($3::BYTEA[]), UNNEST($4::BYTEA[]),
-			UNNEST($5::BYTEA[]),
-			UNNEST($6::INT8[]),
-			UNNEST($7::INT4[]), UNNEST($8::INT8[]),	UNNEST($9::INT4[]),
-			UNNEST($10::BYTEA[])
+			INSERT INTO segments (
+				stream_id, position,
+				encrypted_key_nonce, encrypted_key,
+				root_piece_id,
+				redundancy,
+				encrypted_size, plain_offset, plain_size,
+				inline_data
+			) SELECT
+				$1, UNNEST($2::INT8[]),
+				UNNEST($3::BYTEA[]), UNNEST($4::BYTEA[]),
+				UNNEST($5::BYTEA[]),
+				UNNEST($6::INT8[]),
+				UNNEST($7::INT4[]), UNNEST($8::INT8[]),	UNNEST($9::INT4[]),
+				UNNEST($10::BYTEA[])
 		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions),
 			pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
 			pgutil.ByteaArray(rootPieceIDs),
@@ -388,4 +421,57 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	mon.Meter("finish_copy_object").Mark(1)
 
 	return copyObject, nil
+}
+
+func (db *DB) deleteExistingObjectSegments(ctx context.Context, tx tagsql.Tx, existingObjStreamID *uuid.UUID, newAncestorStreamID *uuid.UUID, segmentCount *int) (err error) {
+	if existingObjStreamID != nil && *segmentCount > 0 {
+		if newAncestorStreamID == nil {
+			_, err = db.db.ExecContext(ctx, `
+			DELETE FROM segments WHERE stream_id = $1
+		`, existingObjStreamID,
+			)
+			if err != nil {
+				return Error.New("unable to copy segments: %w", err)
+			}
+			return nil
+		}
+		var infos deletedObjectInfo
+
+		infos.SegmentCount = int32(*segmentCount)
+		infos.PromotedAncestor = newAncestorStreamID
+		infos.Segments = make([]deletedRemoteSegmentInfo, *segmentCount)
+
+		var aliasPieces AliasPieces
+		err = withRows(db.db.QueryContext(ctx, `
+			DELETE FROM segments WHERE stream_id = $1
+			RETURNING position, remote_alias_pieces, repaired_at
+			`, existingObjStreamID))(func(rows tagsql.Rows) error {
+			index := 0
+			for rows.Next() {
+				err = rows.Scan(
+					&infos.Segments[index].Position,
+					&aliasPieces,
+					&infos.Segments[index].RepairedAt,
+				)
+				if err != nil {
+					return err
+				}
+				infos.Segments[index].Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+				if err != nil {
+					return Error.New("unable to copy object: %w", err)
+				}
+				index++
+			}
+			return rows.Err()
+		})
+		if err != nil {
+			return Error.New("unable to copy segments: %w", err)
+		}
+
+		err = db.promoteNewAncestors(ctx, tx, []deletedObjectInfo{infos})
+		if err != nil {
+			return Error.New("unable to copy segments: %w", err)
+		}
+	}
+	return nil
 }

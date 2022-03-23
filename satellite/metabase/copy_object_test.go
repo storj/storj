@@ -196,23 +196,6 @@ func TestFinishCopyObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("copy to the same EncryptedObjectKey", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					NewBucket:             newBucketName,
-					NewEncryptedObjectKey: obj.ObjectKey,
-					ObjectStream:          obj,
-					NewStreamID:           newStreamID,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "source and destination encrypted object key are identical",
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
 		t.Run("invalid EncryptedMetadataKeyNonce", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -617,6 +600,126 @@ func TestFinishCopyObject(t *testing.T) {
 					metabase.RawObject(copyObjNoOverride),
 				},
 				Copies: nil,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("finish copy object to already existing destination", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// Test:
+			// - 3 objects: objA, objB, objC
+			// - copy objB to objA - creating objBprime
+			// - check that segments of original objA have been deleted
+			// - check that we now have three objects: objBprime, objB, objC
+			// - copy objC to objB creating objCprime
+			// - check that we now have three objects: objBprime, objCprime, objC
+			// - check that objBprime has become an original object, now that its ancestor
+			// objB has been overwritten
+
+			// object that already exists
+			objStreamA := metabasetest.RandObjectStream()
+			objStreamB := metabasetest.RandObjectStream()
+			objStreamC := metabasetest.RandObjectStream()
+
+			// set same projectID for all
+			objStreamB.ProjectID = objStreamA.ProjectID
+			objStreamC.ProjectID = objStreamA.ProjectID
+
+			objA, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  objStreamA,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, objStreamA, 4)
+
+			objB, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  objStreamB,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, objStreamB, 3)
+
+			objC, segmentsOfC := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  objStreamC,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, objStreamC, 1)
+
+			// B' is a copy of B to A
+			objStreamBprime := objStreamA
+			objStreamBprime.StreamID = testrand.UUID()
+			objBprime, expectedSegmentsOfB, expectedSegmentsOfBprime := metabasetest.CreateObjectCopy{
+				OriginalObject:   objB,
+				CopyObjectStream: &objStreamBprime,
+			}.Run(ctx, t, db)
+
+			// check that we indeed overwrote object A
+			require.Equal(t, objA.BucketName, objBprime.BucketName)
+			require.Equal(t, objA.ProjectID, objBprime.ProjectID)
+			require.Equal(t, objA.ObjectKey, objBprime.ObjectKey)
+
+			require.NotEqual(t, objA.StreamID, objBprime.StreamID)
+
+			var expectedRawSegments []metabase.RawSegment
+			expectedRawSegments = append(expectedRawSegments, expectedSegmentsOfBprime...)
+			expectedRawSegments = append(expectedRawSegments, expectedSegmentsOfB...)
+			expectedRawSegments = append(expectedRawSegments, metabasetest.SegmentsToRaw(segmentsOfC)...)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(objBprime),
+					metabase.RawObject(objB),
+					metabase.RawObject(objC),
+				},
+				Segments: expectedRawSegments,
+				Copies: []metabase.RawCopy{{
+					StreamID:         objBprime.StreamID,
+					AncestorStreamID: objB.StreamID,
+				}},
+			}.Check(ctx, t, db)
+
+			// C' is a copy of C to B
+			objStreamCprime := objStreamB
+			objStreamCprime.StreamID = testrand.UUID()
+			objCprime, _, expectedSegmentsOfCprime := metabasetest.CreateObjectCopy{
+				OriginalObject:   objC,
+				CopyObjectStream: &objStreamCprime,
+			}.Run(ctx, t, db)
+
+			require.Equal(t, objStreamB.BucketName, objCprime.BucketName)
+			require.Equal(t, objStreamB.ProjectID, objCprime.ProjectID)
+			require.Equal(t, objStreamB.ObjectKey, objCprime.ObjectKey)
+			require.NotEqual(t, objB.StreamID, objCprime)
+
+			// B' should become the original of B and now hold pieces.
+			for i := range expectedSegmentsOfBprime {
+				expectedSegmentsOfBprime[i].EncryptedETag = nil
+				expectedSegmentsOfBprime[i].Pieces = expectedSegmentsOfB[i].Pieces
+			}
+
+			var expectedSegments []metabase.RawSegment
+			expectedSegments = append(expectedSegments, expectedSegmentsOfBprime...)
+			expectedSegments = append(expectedSegments, expectedSegmentsOfCprime...)
+			expectedSegments = append(expectedSegments, metabasetest.SegmentsToRaw(segmentsOfC)...)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(objBprime),
+					metabase.RawObject(objCprime),
+					metabase.RawObject(objC),
+				},
+				Segments: expectedSegments,
+				Copies: []metabase.RawCopy{{
+					StreamID:         objCprime.StreamID,
+					AncestorStreamID: objC.StreamID,
+				}},
 			}.Check(ctx, t, db)
 		})
 	})
