@@ -114,7 +114,7 @@ type FinishCopyObject struct {
 
 	OverrideMetadata             bool
 	NewEncryptedMetadata         []byte
-	NewEncryptedMetadataKeyNonce []byte
+	NewEncryptedMetadataKeyNonce storj.Nonce
 	NewEncryptedMetadataKey      []byte
 
 	NewSegmentKeys []EncryptedKeyAndNonce
@@ -140,25 +140,26 @@ func (finishCopy FinishCopyObject) Verify() error {
 	}
 
 	if finishCopy.OverrideMetadata {
-		if finishCopy.NewEncryptedMetadata == nil && (finishCopy.NewEncryptedMetadataKeyNonce != nil || finishCopy.NewEncryptedMetadataKey != nil) {
+		if finishCopy.NewEncryptedMetadata == nil && (!finishCopy.NewEncryptedMetadataKeyNonce.IsZero() || finishCopy.NewEncryptedMetadataKey != nil) {
 			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-		} else if finishCopy.NewEncryptedMetadata != nil && (finishCopy.NewEncryptedMetadataKeyNonce == nil || finishCopy.NewEncryptedMetadataKey == nil) {
+		} else if finishCopy.NewEncryptedMetadata != nil && (finishCopy.NewEncryptedMetadataKeyNonce.IsZero() || finishCopy.NewEncryptedMetadataKey == nil) {
 			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 		}
-	} else {
-		switch {
-		case len(finishCopy.NewEncryptedMetadataKeyNonce) == 0:
-			return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
-		case len(finishCopy.NewEncryptedMetadataKey) == 0:
-			return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
-		}
 	}
+	// TODO disable temporary until uplink is fixed
+	// else {
+	// switch {
+	// case finishCopy.NewEncryptedMetadataKeyNonce.IsZero() && len(finishCopy.NewEncryptedMetadataKey) != 0:
+	// 	return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
+	// case len(finishCopy.NewEncryptedMetadataKey) == 0 && !finishCopy.NewEncryptedMetadataKeyNonce.IsZero():
+	// 	return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
+	// }
+	// }
 
 	return nil
 }
 
 // FinishCopyObject accepts new encryption keys for copied object and insert the corresponding new object ObjectKey and segments EncryptedKey.
-// TODO should be in one transaction.
 // TODO handle the case when the source and destination encrypted object keys are the same.
 func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -382,7 +383,9 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	copyObject.ObjectKey = opts.NewEncryptedObjectKey
 	copyObject.EncryptedMetadata = copyMetadata
 	copyObject.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
-	copyObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce
+	if !opts.NewEncryptedMetadataKeyNonce.IsZero() {
+		copyObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
+	}
 
 	mon.Meter("finish_copy_object").Mark(1)
 

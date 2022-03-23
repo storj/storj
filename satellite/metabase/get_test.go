@@ -333,7 +333,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				ObjectStream:                 obj.ObjectStream,
 				NewSegmentKeys:               newEncryptedKeyNonces,
 				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
@@ -519,7 +519,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				NewBucket:                    copyObjStream.BucketName,
 				NewSegmentKeys:               newEncryptedKeyNonces,
 				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
@@ -686,7 +686,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				NewBucket:                    copyObjStream.BucketName,
 				NewSegmentKeys:               newEncryptedKeyNonces,
 				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
@@ -1006,7 +1006,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				NewBucket:                    copyObjStream.BucketName,
 				NewSegmentKeys:               newEncryptedKeyNonces,
 				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
@@ -1170,7 +1170,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				NewBucket:                    copyObjStream.BucketName,
 				NewSegmentKeys:               newEncryptedKeyNonces,
 				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
