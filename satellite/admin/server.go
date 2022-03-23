@@ -7,9 +7,7 @@ package admin
 import (
 	"context"
 	"crypto/subtle"
-	"embed"
 	"errors"
-	"io/fs"
 	"net"
 	"net/http"
 	"time"
@@ -20,15 +18,13 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
+	adminui "storj.io/storj/satellite/admin/ui"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
-
-//go:embed ui/assets/*
-var ui embed.FS
 
 // Config defines configuration for debug server.
 type Config struct {
@@ -115,12 +111,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.
 	if config.StaticDir == "" {
-		uiAssets, err := fs.Sub(ui, "ui/assets")
-		if err != nil {
-			log.Error("invalid embbeded static assets directory, the Admin UI is not enabled")
-		} else {
-			root.PathPrefix("/").Handler(http.FileServer(http.FS(uiAssets))).Methods("GET")
-		}
+		root.PathPrefix("/").Handler(http.FileServer(http.FS(adminui.Assets))).Methods("GET")
 	} else {
 		root.PathPrefix("/").Handler(http.FileServer(http.Dir(config.StaticDir))).Methods("GET")
 	}

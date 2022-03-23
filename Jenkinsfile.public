@@ -46,6 +46,44 @@ pipeline {
                 sh 'touch web/satellite/node_modules/go.mod web/storagenode/node_modules/go.mod web/multinode/node_modules/go.mod'
             }
         }
+        stage('Build Web') {
+            // The build code depends on the following assets being loaded.
+            parallel {
+                stage('web/satellite') {
+                    steps {
+                        dir('web/satellite') {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh './scripts/build-wasm.sh'
+                            sh 'npm run build'
+                        }
+                    }
+                }
+                stage('web/storagenode') {
+                    steps {
+                        dir('web/storagenode') {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                        }
+                    }
+                }
+                stage('web/multinode') {
+                    steps {
+                        dir('web/multinode') {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                        }
+                    }
+                }
+                stage('satellite/admin/ui') {
+                    steps {
+                        dir('satellite/admin/ui') {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                        }
+                    }
+                }
+            }
+        }
         stage('Build') {
             parallel {
                 stage('go') {
@@ -86,41 +124,6 @@ pipeline {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
-                        }
-                    }
-                }
-
-                stage('web/satellite') {
-                    steps {
-                        dir('web/satellite') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh './scripts/build-wasm.sh'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-                stage('web/storagenode') {
-                    steps {
-                        dir('web/storagenode') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-                stage('web/multinode') {
-                    steps {
-                        dir('web/multinode') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-                stage('satellite/admin/ui') {
-                    steps {
-                        dir('satellite/admin/ui') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run build'
-                            sh 'rm -rf build .svelte-kit' // Remove these directories for avoiding linting their files.
                         }
                     }
                 }
