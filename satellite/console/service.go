@@ -56,9 +56,8 @@ const (
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
 	activationTokenExpiredErrMsg = "This activation token has expired, please request another one"
-
-	usedRegTokenErrMsg = "This registration token has already been used"
-	projLimitErrMsg    = "Sorry, project creation is limited for your account. Please contact support!"
+	usedRegTokenErrMsg           = "This registration token has already been used"
+	projLimitErrMsg              = "Sorry, project creation is limited for your account. Please contact support!"
 )
 
 var (
@@ -105,15 +104,16 @@ var (
 type Service struct {
 	Signer
 
-	log, auditLogger  *zap.Logger
-	store             DB
-	projectAccounting accounting.ProjectAccounting
-	projectUsage      *accounting.Service
-	buckets           Buckets
-	partners          *rewards.PartnersService
-	accounts          payments.Accounts
-	recaptchaHandler  RecaptchaHandler
-	analytics         *analytics.Service
+	log, auditLogger         *zap.Logger
+	store                    DB
+	accountManagementAPIKeys AccountManagementAPIKeys
+	projectAccounting        accounting.ProjectAccounting
+	projectUsage             *accounting.Service
+	buckets                  Buckets
+	partners                 *rewards.PartnersService
+	accounts                 payments.Accounts
+	recaptchaHandler         RecaptchaHandler
+	analytics                *analytics.Service
 
 	config Config
 }
@@ -154,7 +154,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, config Config) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, accountManagementAPIKeys AccountManagementAPIKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, config Config) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -169,18 +169,19 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 	}
 
 	return &Service{
-		log:               log,
-		auditLogger:       log.Named("auditlog"),
-		Signer:            signer,
-		store:             store,
-		projectAccounting: projectAccounting,
-		projectUsage:      projectUsage,
-		buckets:           buckets,
-		partners:          partners,
-		accounts:          accounts,
-		recaptchaHandler:  NewDefaultRecaptcha(config.Recaptcha.SecretKey),
-		analytics:         analytics,
-		config:            config,
+		log:                      log,
+		auditLogger:              log.Named("auditlog"),
+		Signer:                   signer,
+		store:                    store,
+		accountManagementAPIKeys: accountManagementAPIKeys,
+		projectAccounting:        projectAccounting,
+		projectUsage:             projectUsage,
+		buckets:                  buckets,
+		partners:                 partners,
+		accounts:                 accounts,
+		recaptchaHandler:         NewDefaultRecaptcha(config.Recaptcha.SecretKey),
+		analytics:                analytics,
+		config:                   config,
 	}, nil
 }
 
@@ -1634,6 +1635,38 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 	return
 }
 
+// CreateAccountManagementAPIKey creates an account management api key.
+func (s *Service) CreateAccountManagementAPIKey(ctx context.Context, expiration time.Duration) (apiKey string, expiresAt time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "create account management api key")
+	if err != nil {
+		return "", time.Time{}, Error.Wrap(err)
+	}
+
+	apiKey, expiresAt, err = s.accountManagementAPIKeys.Create(ctx, auth.User.ID, expiration)
+	if err != nil {
+		return "", time.Time{}, Error.Wrap(err)
+	}
+	return apiKey, expiresAt, nil
+}
+
+// RevokeAccountManagementAPIKey revokes an account management api key.
+func (s *Service) RevokeAccountManagementAPIKey(ctx context.Context, apiKey string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = s.getAuthAndAuditLog(ctx, "revoke account management api key")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.accountManagementAPIKeys.Revoke(ctx, apiKey)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
 // GetProjectUsage retrieves project usage for a given period.
 func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1733,6 +1766,38 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 	}
 
 	return result, nil
+}
+
+// GenGetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period for generated api.
+func (s *Service) GenGetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (rollups []accounting.BucketUsageRollup, httpError api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get bucket usage rollups", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	rollups, err = s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return
 }
 
 // GenGetSingleBucketUsageRollup retrieves usage rollup for single bucket of particular project for a given period for generated api.

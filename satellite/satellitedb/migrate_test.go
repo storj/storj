@@ -284,6 +284,16 @@ func migrateTest(t *testing.T, connStr string) {
 		finalSchema = currentSchema
 	}
 
+	// TODO(yar): remove this exception on adding migration to remove `suspended` column
+	nodes, ok := finalSchema.FindTable("nodes")
+	if ok {
+		nodes.RemoveColumn("suspended")
+	}
+	reputations, ok := finalSchema.FindTable("reputations")
+	if ok {
+		reputations.RemoveColumn("suspended")
+	}
+
 	// verify that we also match the dbx version
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }

@@ -39,3 +39,9 @@ To create an optimized version of the app:
 ```bash
 npm run build
 ```
+
+And then, place the files of the build in the assets directory for allowing Go to embed them into the satellite binary.
+
+```bash
+cp -r build/* assets/
+```

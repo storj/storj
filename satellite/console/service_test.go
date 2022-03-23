@@ -691,3 +691,37 @@ func TestActivateAccountToken(t *testing.T) {
 
 	})
 }
+
+func TestAccountManagementAPIKeys(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		proj1, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+
+		user, err := service.GetUser(ctx, proj1.OwnerID)
+		require.NoError(t, err)
+
+		authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		now := time.Now()
+		expires := 5 * time.Hour
+		apiKey, expiresAt, err := service.CreateAccountManagementAPIKey(authCtx, expires)
+		require.NoError(t, err)
+		require.NotEmpty(t, apiKey)
+		require.True(t, expiresAt.After(now))
+		require.True(t, expiresAt.Before(now.Add(expires+time.Hour)))
+
+		// test revocation
+		require.NoError(t, service.RevokeAccountManagementAPIKey(authCtx, apiKey))
+
+		// test revoke non existent key
+		nonexistent := testrand.UUID()
+		err = service.RevokeAccountManagementAPIKey(authCtx, nonexistent.String())
+		require.Error(t, err)
+	})
+}

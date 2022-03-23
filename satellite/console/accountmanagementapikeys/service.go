@@ -1,0 +1,175 @@
+// Copyright (C) 2022 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package accountmanagementapikeys
+
+import (
+	"context"
+	"crypto/sha256"
+	"database/sql"
+	"errors"
+	"time"
+
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
+	"storj.io/storj/satellite/oidc"
+)
+
+var mon = monkit.Package()
+
+var (
+	// Error describes internal account management api keys error.
+	Error = errs.Class("account management api keys service")
+
+	// ErrDuplicateKey is error type that occurs when a generated account
+	// management api key already exists.
+	ErrDuplicateKey = errs.Class("duplicate key")
+
+	// ErrInvalidKey is an error type that occurs when a user submits a key
+	// that does not match anything in the database.
+	ErrInvalidKey = errs.Class("invalid key")
+)
+
+// Config contains configuration parameters for account management api keys.
+type Config struct {
+	DefaultExpiration time.Duration `help:"expiration to use if user does not specify an account management api key expiration" default:"720h"`
+}
+
+// Service handles operations regarding account management api keys.
+type Service struct {
+	db     oidc.OAuthTokens
+	config Config
+}
+
+// NewService creates a new account management api keys service.
+func NewService(db oidc.OAuthTokens, config Config) *Service {
+	return &Service{
+		db:     db,
+		config: config,
+	}
+}
+
+// Create creates and inserts an account management api key into the db.
+func (s *Service) Create(ctx context.Context, userID uuid.UUID, expiration time.Duration) (apiKey string, expiresAt time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	apiKey, hash, err := s.GenerateNewKey(ctx)
+	if err != nil {
+		return "", time.Time{}, Error.Wrap(err)
+	}
+	expiresAt, err = s.InsertIntoDB(ctx, oidc.OAuthToken{
+		UserID: userID,
+		Kind:   oidc.KindAccountManagementTokenV0,
+		Token:  hash,
+	}, time.Now(), expiration)
+	if err != nil {
+		return "", time.Time{}, Error.Wrap(err)
+	}
+	return apiKey, expiresAt, nil
+}
+
+// GenerateNewKey generates a new account management api key.
+func (s *Service) GenerateNewKey(ctx context.Context) (apiKey, hash string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	id, err := uuid.New()
+	if err != nil {
+		return "", "", Error.Wrap(err)
+	}
+
+	apiKey = id.String()
+	hash = hashKeyFromUUID(ctx, id)
+	return apiKey, hash, nil
+}
+
+// This is used for hashing during key creation so we don't need to convert from a string back to a uuid.
+func hashKeyFromUUID(ctx context.Context, apiKeyUUID uuid.UUID) string {
+	mon.Task()(&ctx)(nil)
+
+	hashBytes := sha256.Sum256(apiKeyUUID.Bytes())
+	return string(hashBytes[:])
+}
+
+// HashKey returns a hash of api key. This is used for hashing inside GetUserFromKey.
+func (s *Service) HashKey(ctx context.Context, apiKey string) (hash string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	id, err := uuid.FromString(apiKey)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+	hashBytes := sha256.Sum256(id.Bytes())
+	return string(hashBytes[:]), nil
+}
+
+// InsertIntoDB checks OAuthTokens DB for a token before inserting. This is because OAuthTokens DB allows
+// duplicate tokens, but we can't have duplicate api keys.
+func (s *Service) InsertIntoDB(ctx context.Context, oAuthToken oidc.OAuthToken, now time.Time, expiration time.Duration) (expiresAt time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// The token column is the key to the OAuthTokens table, but the Create method does not return an error if a duplicate token insert is attempted.
+	// We need to make sure a unique api key is created, so check that the value doesn't already exist.
+	_, err = s.db.Get(ctx, oidc.KindAccountManagementTokenV0, oAuthToken.Token)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return time.Time{}, Error.Wrap(err)
+		}
+	} else if err == nil {
+		return time.Time{}, Error.Wrap(ErrDuplicateKey.New("failed to generate a unique account management api key"))
+	}
+
+	if expiration <= 0 {
+		expiration = s.config.DefaultExpiration
+	}
+
+	expiresAt = now.Add(expiration)
+
+	oAuthToken.CreatedAt = now
+	oAuthToken.ExpiresAt = expiresAt
+
+	err = s.db.Create(ctx, oAuthToken)
+	if err != nil {
+		return time.Time{}, Error.Wrap(err)
+	}
+	return expiresAt, nil
+}
+
+// GetUserFromKey gets the userID attached to an account management api key.
+func (s *Service) GetUserFromKey(ctx context.Context, apiKey string) (userID uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	hash, err := s.HashKey(ctx, apiKey)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	keyInfo, err := s.db.Get(ctx, oidc.KindAccountManagementTokenV0, hash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return uuid.UUID{}, Error.Wrap(ErrInvalidKey.New("invalid account management api key"))
+		}
+		return uuid.UUID{}, err
+	}
+	return keyInfo.UserID, err
+}
+
+// Revoke revokes an account management api key.
+func (s *Service) Revoke(ctx context.Context, apiKey string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	hash, err := s.HashKey(ctx, apiKey)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = s.db.Get(ctx, oidc.KindAccountManagementTokenV0, hash)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	err = s.db.RevokeAccountManagementTokenV0(ctx, hash)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
+}
