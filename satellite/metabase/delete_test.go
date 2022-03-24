@@ -977,6 +977,14 @@ func TestDeleteCopy(t *testing.T) {
 						OriginalObject: originalObj,
 					}.Run(ctx, t, db)
 
+					var copies []metabase.RawCopy
+					if numberOfSegments > 0 {
+						copies = []metabase.RawCopy{
+							{
+								StreamID:         copyObj.StreamID,
+								AncestorStreamID: originalObj.StreamID,
+							}}
+					}
 					// check that copy went OK
 					metabasetest.Verify{
 						Objects: []metabase.RawObject{
@@ -984,13 +992,8 @@ func TestDeleteCopy(t *testing.T) {
 							metabase.RawObject(copyObj),
 						},
 						Segments: append(metabasetest.SegmentsToRaw(originalSegments), copySegments...),
-						Copies: []metabase.RawCopy{
-							{
-								StreamID:         copyObj.StreamID,
-								AncestorStreamID: originalObj.StreamID,
-							},
-						},
-					}.Normalize().Check(ctx, t, db)
+						Copies:   copies,
+					}.Check(ctx, t, db)
 
 					metabasetest.DeleteObjectExactVersion{
 						Opts: metabase.DeleteObjectExactVersion{
@@ -1009,7 +1012,7 @@ func TestDeleteCopy(t *testing.T) {
 							metabase.RawObject(originalObj),
 						},
 						Segments: metabasetest.SegmentsToRaw(originalSegments),
-					}.Normalize().Check(ctx, t, db)
+					}.Check(ctx, t, db)
 				})
 
 				t.Run("delete one of two copies", func(t *testing.T) {
@@ -1044,6 +1047,14 @@ func TestDeleteCopy(t *testing.T) {
 						},
 					}.Check(ctx, t, db)
 
+					var copies []metabase.RawCopy
+					if numberOfSegments > 0 {
+						copies = []metabase.RawCopy{
+							{
+								StreamID:         copyObject2.StreamID,
+								AncestorStreamID: originalObj.StreamID,
+							}}
+					}
 					// Verify that only one of the copies is deleted
 					metabasetest.Verify{
 						Objects: []metabase.RawObject{
@@ -1051,13 +1062,8 @@ func TestDeleteCopy(t *testing.T) {
 							metabase.RawObject(copyObject2),
 						},
 						Segments: append(metabasetest.SegmentsToRaw(originalSegments), copySegments2...),
-						Copies: []metabase.RawCopy{
-							{
-								StreamID:         copyObject2.StreamID,
-								AncestorStreamID: originalObj.StreamID,
-							},
-						},
-					}.Normalize().Check(ctx, t, db)
+						Copies:   copies,
+					}.Check(ctx, t, db)
 				})
 
 				t.Run("delete original", func(t *testing.T) {
@@ -1096,7 +1102,7 @@ func TestDeleteCopy(t *testing.T) {
 							metabase.RawObject(copyObject),
 						},
 						Segments: copySegments,
-					}.Normalize().Check(ctx, t, db)
+					}.Check(ctx, t, db)
 				})
 
 				t.Run("delete original and leave two copies", func(t *testing.T) {
@@ -1129,6 +1135,14 @@ func TestDeleteCopy(t *testing.T) {
 					remainingStreamIDs := []uuid.UUID{copyObject1.StreamID, copyObject2.StreamID}
 					uuid.SortAscending(remainingStreamIDs)
 
+					var copies []metabase.RawCopy
+					if numberOfSegments > 0 {
+						copies = []metabase.RawCopy{
+							{
+								StreamID:         remainingStreamIDs[1],
+								AncestorStreamID: remainingStreamIDs[0],
+							}}
+					}
 					// verify that two functioning copies are left and the original object is gone
 					metabasetest.Verify{
 						Objects: []metabase.RawObject{
@@ -1136,13 +1150,8 @@ func TestDeleteCopy(t *testing.T) {
 							metabase.RawObject(copyObject2),
 						},
 						Segments: append(copySegments1, copySegments2...),
-						Copies: []metabase.RawCopy{
-							{
-								StreamID:         remainingStreamIDs[1],
-								AncestorStreamID: remainingStreamIDs[0],
-							},
-						},
-					}.Normalize().Check(ctx, t, db)
+						Copies:   copies,
+					}.Check(ctx, t, db)
 				})
 			})
 		}

@@ -605,11 +605,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 					metabase.RawSegment(expectedSegment),
 					metabase.RawSegment(expectedCopiedSegmentRaw),
 				},
-				Copies: []metabase.RawCopy{
-					{
-						StreamID:         copyObjStream.StreamID,
-						AncestorStreamID: objStream.StreamID,
-					}},
+				Copies: nil,
 			}.Check(ctx, t, db)
 		})
 
@@ -785,11 +781,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 					metabase.RawSegment(expectedSegment),
 					metabase.RawSegment(expectedCopiedSegmentRaw),
 				},
-				Copies: []metabase.RawCopy{
-					{
-						StreamID:         copyObjStream.StreamID,
-						AncestorStreamID: objStream.StreamID,
-					}},
+				Copies: nil,
 			}.Check(ctx, t, db)
 		})
 	})
@@ -1095,11 +1087,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					metabase.RawSegment(expectedSegment),
 					metabase.RawSegment(expectedCopiedSegmentRaw),
 				},
-				Copies: []metabase.RawCopy{
-					{
-						StreamID:         copyObjStream.StreamID,
-						AncestorStreamID: objStream.StreamID,
-					}},
+				Copies: nil,
 			}.Check(ctx, t, db)
 		})
 
@@ -1271,11 +1259,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					metabase.RawSegment(expectedSegment),
 					metabase.RawSegment(expectedCopiedSegmentRaw),
 				},
-				Copies: []metabase.RawCopy{
-					{
-						StreamID:         copyObjStream.StreamID,
-						AncestorStreamID: objStream.StreamID,
-					}},
+				Copies: nil,
 			}.Check(ctx, t, db)
 		})
 	})
