@@ -3,7 +3,7 @@
 
 ## Objective
 
-Explain the customer problem we are solving and how it relates to our vision, goals, and initiatives. This will establish the high-level purpose of what we want to accomplish and for whom. This also keeps the broader team focused on building features that delight our customers — resulting in us delivering a MLP
+Explain the customer problem we are solving and how it relates to our vision, goals, and initiatives. This will establish the high-level purpose of what we want to accomplish and for whom. This also keeps the broader team focused on building features that delight our customers.
 
 - list what we want to do
 - why we want to do it
