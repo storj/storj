@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -euo pipefail
 
 get_default_url() {
@@ -77,7 +77,7 @@ if [ -n "${WALLET:-}" ]; then
 fi
 
 if [ "${SETUP:-}" = "true" ]; then
-  echo "Running ./storagenode setup $SNO_RUN_PARAMS"
+  echo "Running ./storagenode setup $SNO_RUN_PARAMS ${*}"
   exec ./storagenode setup ${SNO_RUN_PARAMS} ${*}
 else
   sed -i \

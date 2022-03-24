@@ -219,8 +219,8 @@ satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64
 storagenode-image: ## Build storagenode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/storagenode/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 \
-    	--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 --build-arg=DOCKER_PLATFORM=linux/arm/v6 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 \
+    	--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 --build-arg=DOCKER_PLATFORM=linux/arm/v6 \
         -f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 --build-arg=DOCKER_PLATFORM=linux/arm64 \
@@ -230,8 +230,8 @@ storagenode-image: ## Build storagenode Docker image
 storagenode-base-image: ## Build storagenode Docker base image. Requires buildx. This image is expected to be built manually using buildx and QEMU.
 	${DOCKER_BUILDX} --pull=true -t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/storagenode/Dockerfile.base .
-	${DOCKER_BUILDX} --pull=true -t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6 \
-    	--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+	${DOCKER_BUILDX} --pull=true -t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v5 \
+    	--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
         -f cmd/storagenode/Dockerfile.base .
 	${DOCKER_BUILDX} --pull=true -t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
@@ -240,16 +240,16 @@ storagenode-base-image: ## Build storagenode Docker base image. Requires buildx.
 .PHONY: push-storagenode-base-image
 push-storagenode-base-image: ## Push the storagenode base image to dockerhub
 	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64
-	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6
+	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v5
 	docker push storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8
 	# create, annotate and push manifests for latest-amd64
 	docker manifest create storjlabs/storagenode-base:latest-amd64 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64
 	docker manifest annotate storjlabs/storagenode-base:latest-amd64 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64
 	docker manifest push --purge storjlabs/storagenode-base:latest-amd64
-	# create, annotate and push manifests for latest-arm32v6
-	docker manifest create storjlabs/storagenode-base:latest-arm32v6 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6
-	docker manifest annotate storjlabs/storagenode-base:latest-arm32v6 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant v6
-	docker manifest push --purge storjlabs/storagenode-base:latest-arm32v6
+	# create, annotate and push manifests for latest-arm32v5
+	docker manifest create storjlabs/storagenode-base:latest-arm32v5 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v5
+	docker manifest annotate storjlabs/storagenode-base:latest-arm32v5 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v5 --os linux --arch arm --variant v6
+	docker manifest push --purge storjlabs/storagenode-base:latest-arm32v5
 	# create, annotate and push manifests for latest-arm64v8
 	docker manifest create storjlabs/storagenode-base:latest-arm64v8 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8
 	docker manifest annotate storjlabs/storagenode-base:latest-arm64v8 storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8
@@ -258,10 +258,10 @@ push-storagenode-base-image: ## Push the storagenode base image to dockerhub
 	for t in ${GIT_TAG}${CUSTOMTAG} latest; do \
     	docker manifest create storjlabs/storagenode-base:$$t \
     	storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64 \
-    	storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6 \
+    	storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v5 \
     	storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8 \
     	&& docker manifest annotate storjlabs/storagenode-base:$$t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
-    	&& docker manifest annotate storjlabs/storagenode-base:$$t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant v6 \
+    	&& docker manifest annotate storjlabs/storagenode-base:$$t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm32v5 --os linux --arch arm --variant v6 \
     	&& docker manifest annotate storjlabs/storagenode-base:$$t storjlabs/storagenode-base:${GIT_TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 \
     	&& docker manifest push --purge storjlabs/storagenode-base:$$t \
     ; done
@@ -370,9 +370,9 @@ sign-windows-installer:
 ##@ Deploy
 
 .PHONY: push-images
-push-images: ## Push Docker images to Docker Hub (jenkins)
+push-images: push-storagenode-images ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	for c in multinode satellite storagenode uplink versioncontrol ; do \
+	for c in multinode satellite uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
@@ -387,6 +387,22 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
+
+.PHONY: push-storagenode-images
+push-storagenode-images:
+	docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
+  	&& docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 \
+    && docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
+    && for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
+    	docker manifest create storjlabs/storagenode:$$t \
+    	storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
+    	storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 \
+    	storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
+    	&& docker manifest annotate storjlabs/storagenode:$$t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
+    	&& docker manifest annotate storjlabs/storagenode:$$t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 --os linux --arch arm --variant v5 \
+    	&& docker manifest annotate storjlabs/storagenode:$$t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 \
+    	&& docker manifest push --purge storjlabs/storagenode:$$t \
+    ; done
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
