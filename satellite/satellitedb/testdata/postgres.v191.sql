@@ -57,9 +57,9 @@ CREATE TABLE coinpayments_transactions (
 	user_id bytea NOT NULL,
 	address text NOT NULL,
 	amount_gob bytea,
-	amount_numeric int8,
+	amount_numeric int8 NOT NULL,
 	received_gob bytea,
-	received_numeric int8,
+	received_numeric int8 NOT NULL,
 	status integer NOT NULL,
 	key text NOT NULL,
 	timeout integer NOT NULL,
@@ -401,7 +401,7 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	tx_id text NOT NULL,
 	rate_gob bytea,
-	rate_numeric double precision,
+	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );
@@ -586,9 +586,9 @@ INSERT INTO "stripe_customers" ("user_id", "customer_id", "created_at") VALUES (
 
 INSERT INTO "stripecoinpayments_invoice_project_records"("id", "project_id", "storage", "egress", "objects", "period_start", "period_end", "state", "created_at") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'\\021\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, 0, 0, 0, '2019-06-01 08:28:24.267934+00', '2019-06-01 08:28:24.267934+00', 0, '2019-06-01 08:28:24.267934+00');
 
-INSERT INTO "stripecoinpayments_tx_conversion_rates" ("tx_id", "rate_gob", "created_at") VALUES ('tx_id', E'\\363\\311\\033w\\222\\303Ci,'::bytea, '2019-06-01 08:28:24.267934+00');
+INSERT INTO "stripecoinpayments_tx_conversion_rates" ("tx_id", "rate_numeric", "created_at") VALUES ('tx_id', '1.929883831', '2019-06-01 08:28:24.267934+00');
 
-INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount_gob", "received_gob", "status", "key", "timeout", "created_at") VALUES ('tx_id', E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'address', E'\\363\\311\\033w'::bytea, E'\\363\\311\\033w'::bytea, 1, 'key', 60, '2019-06-01 08:28:24.267934+00');
+INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount_numeric", "received_numeric", "status", "key", "timeout", "created_at") VALUES ('tx_id', E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'address', 1411112222, 1311112222, 1, 'key', 60, '2019-06-01 08:28:24.267934+00');
 
 INSERT INTO "storagenode_bandwidth_rollups" ("storagenode_id", "interval_start", "interval_seconds", "action", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2020-01-11 08:00:00.000000' AT TIME ZONE current_setting('TIMEZONE'), 3600, 1, 2024);
 
@@ -664,13 +664,7 @@ INSERT INTO "oauth_codes"("client_id", "user_id", "scope", "redirect_url", "chal
 
 INSERT INTO "oauth_tokens"("client_id", "user_id", "scope", "kind", "token", "created_at", "expires_at") VALUES (E'FD6209C0-7A17-4FC3-895C-E57A6C7CBBE1'::bytea, E'\\364\\312\\033w\\222\\303Ci\\265\\342U\\303\\312\\202",'::bytea, 'scope', 1, E'B9C93D5F-CBD7-4615-9184-E714CFE14365'::bytea, '2021-12-05 03:22:39.614594+00', '2021-12-05 03:22:39.614594+00');
 
-INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount_gob", "amount_numeric", "received_gob", "received_numeric", "status", "key", "timeout", "created_at") VALUES ('different_tx_id_from_before', E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'address', E'\\x0112000000400000000b9cc6615b299c5b96'::bytea, 125419938429, E'\\x011200000040ffffffe6abcc77118461cefd'::bytea, 1, 1, 'key', 60, '2021-07-28 20:24:11.932313-05');
-INSERT INTO "stripecoinpayments_tx_conversion_rates" ("tx_id", "rate_gob", "rate_numeric", "created_at") VALUES ('different_tx_id_from_before', E'\\x01020000004000000002c3890fdaa221774ec3a4'::bytea, 3.14159265359, '2021-07-28 20:24:11.932313-05');
+INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount_numeric", "received_numeric", "status", "key", "timeout", "created_at") VALUES ('different_tx_id_from_before', E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'address', 125419938429, 1, 1, 'key', 60, '2021-07-28 20:24:11.932313-05');
+INSERT INTO "stripecoinpayments_tx_conversion_rates" ("tx_id", "rate_numeric", "created_at") VALUES ('different_tx_id_from_before', 3.14159265359, '2021-07-28 20:24:11.932313-05');
 
 -- NEW DATA --
-
--- this simulates the migration which would have been carried out (outside of SQL) by the satellite core
-UPDATE coinpayments_transactions SET amount_gob = NULL, received_gob = NULL, amount_numeric = 1411112222, received_numeric = 1311112222 WHERE id = 'tx_id';
-UPDATE coinpayments_transactions SET amount_gob = NULL, received_gob = NULL WHERE id = 'different_tx_id_from_before';
-UPDATE stripecoinpayments_tx_conversion_rates SET rate_gob = NULL, rate_numeric = '1.929883831' WHERE tx_id = 'tx_id';
-UPDATE stripecoinpayments_tx_conversion_rates SET rate_gob = NULL WHERE tx_id = 'different_tx_id_from_before';

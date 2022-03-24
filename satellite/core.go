@@ -484,8 +484,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			service,
 			pc.StripeCoinPayments.TransactionUpdateInterval,
 			pc.StripeCoinPayments.AccountBalanceUpdateInterval,
-			pc.StripeCoinPayments.GobFloatMigrationBatchInterval,
-			pc.StripeCoinPayments.GobFloatMigrationBatchSize,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name: "payments.stripe:service",

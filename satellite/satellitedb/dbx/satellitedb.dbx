@@ -1110,10 +1110,8 @@ model coinpayments_transaction (
     field id               text
     field user_id          blob
     field address          text
-    field amount_gob       blob  ( nullable, updatable )
-    field amount_numeric   int64 ( nullable, updatable )
-    field received_gob     blob  ( nullable, updatable )
-    field received_numeric int64 ( nullable, updatable )
+    field amount_numeric   int64
+    field received_numeric int64 ( updatable )
     field status           int   ( updatable )
     field key              text
     field timeout          int
@@ -1178,8 +1176,7 @@ model stripecoinpayments_tx_conversion_rate (
     key tx_id
 
     field tx_id        text
-    field rate_gob     blob    ( nullable )
-    field rate_numeric float64 ( nullable )
+    field rate_numeric float64
 
     field created_at timestamp ( autoinsert )
 )

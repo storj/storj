@@ -5,7 +5,6 @@ package satellitedb
 
 import (
 	"context"
-	"math/big"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -51,13 +50,11 @@ func (db *coinPaymentsTransactions) Insert(ctx context.Context, tx stripecoinpay
 		dbx.CoinpaymentsTransaction_Id(tx.ID.String()),
 		dbx.CoinpaymentsTransaction_UserId(tx.AccountID[:]),
 		dbx.CoinpaymentsTransaction_Address(tx.Address),
+		dbx.CoinpaymentsTransaction_AmountNumeric(tx.Amount.BaseUnits()),
+		dbx.CoinpaymentsTransaction_ReceivedNumeric(tx.Received.BaseUnits()),
 		dbx.CoinpaymentsTransaction_Status(tx.Status.Int()),
 		dbx.CoinpaymentsTransaction_Key(tx.Key),
 		dbx.CoinpaymentsTransaction_Timeout(int(tx.Timeout.Seconds())),
-		dbx.CoinpaymentsTransaction_Create_Fields{
-			AmountNumeric:   dbx.CoinpaymentsTransaction_AmountNumeric(tx.Amount.BaseUnits()),
-			ReceivedNumeric: dbx.CoinpaymentsTransaction_ReceivedNumeric(tx.Received.BaseUnits()),
-		},
 	)
 	if err != nil {
 		return time.Time{}, err
@@ -79,7 +76,6 @@ func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripe
 				dbx.CoinpaymentsTransaction_Id(update.TransactionID.String()),
 				dbx.CoinpaymentsTransaction_Update_Fields{
 					ReceivedNumeric: dbx.CoinpaymentsTransaction_ReceivedNumeric(update.Received.BaseUnits()),
-					ReceivedGob:     dbx.CoinpaymentsTransaction_ReceivedGob_Null(),
 					Status:          dbx.CoinpaymentsTransaction_Status(update.Status.Int()),
 				},
 			)
@@ -173,9 +169,8 @@ func (db *coinPaymentsTransactions) LockRate(ctx context.Context, id coinpayment
 
 	_, err = db.db.Create_StripecoinpaymentsTxConversionRate(ctx,
 		dbx.StripecoinpaymentsTxConversionRate_TxId(id.String()),
-		dbx.StripecoinpaymentsTxConversionRate_Create_Fields{
-			RateNumeric: dbx.StripecoinpaymentsTxConversionRate_RateNumeric(rateFloat),
-		})
+		dbx.StripecoinpaymentsTxConversionRate_RateNumeric(rateFloat),
+	)
 	return Error.Wrap(err)
 }
 
@@ -190,17 +185,7 @@ func (db *coinPaymentsTransactions) GetLockedRate(ctx context.Context, id coinpa
 		return decimal.Decimal{}, err
 	}
 
-	if dbxRate.RateNumeric == nil {
-		// This row does not have a numeric rate value yet
-		var rateF big.Float
-		if err = rateF.GobDecode(dbxRate.RateGob); err != nil {
-			return decimal.Decimal{}, Error.Wrap(err)
-		}
-		rate, err = monetary.DecimalFromBigFloat(&rateF)
-		return rate, Error.Wrap(err)
-	}
-
-	rate = decimal.NewFromFloat(*dbxRate.RateNumeric)
+	rate = decimal.NewFromFloat(dbxRate.RateNumeric)
 	return rate, nil
 }
 
@@ -236,9 +221,7 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 				id,
 				user_id,
 				address,
-				amount_gob,
 				amount_numeric,
-				received_gob,
 				received_numeric,
 				status,
 				key,
@@ -263,14 +246,12 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 	for rows.Next() {
 		var id, address string
 		var userID uuid.UUID
-		var amountGob, receivedGob []byte
-		var amountNumeric, receivedNumeric *int64
-		var amount, received monetary.Amount
+		var amount, received *int64
 		var status int
 		var key string
 		var createdAt time.Time
 
-		err := rows.Scan(&id, &userID, &address, &amountGob, &amountNumeric, &receivedGob, &receivedNumeric, &status, &key, &createdAt)
+		err := rows.Scan(&id, &userID, &address, &amount, &received, &status, &key, &createdAt)
 		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, Error.Wrap(err)
 		}
@@ -279,32 +260,13 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 		//  in the database.
 		currency := monetary.StorjToken
 
-		if amountNumeric == nil {
-			// 'amount' in this row hasn't yet been updated to a numeric value
-			amount, err = monetaryAmountFromGobEncodedBigFloat(amountGob, currency)
-			if err != nil {
-				return stripecoinpayments.TransactionsPage{}, Error.New("invalid gob encoding in amount_gob under transaction id %x: %v", id, err)
-			}
-		} else {
-			amount = monetary.AmountFromBaseUnits(*amountNumeric, currency)
-		}
-		if receivedNumeric == nil {
-			// 'received' in this row hasn't yet been updated to a numeric value
-			received, err = monetaryAmountFromGobEncodedBigFloat(receivedGob, currency)
-			if err != nil {
-				return stripecoinpayments.TransactionsPage{}, Error.New("invalid gob encoding in received_gob under transaction id %x: %v", id, err)
-			}
-		} else {
-			received = monetary.AmountFromBaseUnits(*receivedNumeric, currency)
-		}
-
 		page.Transactions = append(page.Transactions,
 			stripecoinpayments.Transaction{
 				ID:        coinpayments.TransactionID(id),
 				AccountID: userID,
 				Address:   address,
-				Amount:    amount,
-				Received:  received,
+				Amount:    monetary.AmountFromBaseUnits(*amount, currency),
+				Received:  monetary.AmountFromBaseUnits(*received, currency),
 				Status:    coinpayments.Status(status),
 				Key:       key,
 				CreatedAt: createdAt,
@@ -333,9 +295,7 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 				txs.id,
 				txs.user_id,
 				txs.address,
-				txs.amount_gob,
 				txs.amount_numeric,
-				txs.received_gob,
 				txs.received_numeric,
 				txs.status,
 				txs.key,
@@ -360,13 +320,12 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 	for rows.Next() {
 		var id, address string
 		var userID uuid.UUID
-		var amountGob, receivedGob []byte
 		var amountNumeric, receivedNumeric *int64
 		var status int
 		var key string
 		var createdAt time.Time
 
-		err := rows.Scan(&id, &userID, &address, &amountGob, &amountNumeric, &receivedGob, &receivedNumeric, &status, &key, &createdAt)
+		err := rows.Scan(&id, &userID, &address, &amountNumeric, &receivedNumeric, &status, &key, &createdAt)
 		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, err
 		}
@@ -375,33 +334,13 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 		//  in the database.
 		currency := monetary.StorjToken
 
-		var amount, received monetary.Amount
-		if amountNumeric == nil {
-			// 'amount' in this row hasn't yet been updated to a numeric value
-			amount, err = monetaryAmountFromGobEncodedBigFloat(amountGob, currency)
-			if err != nil {
-				return stripecoinpayments.TransactionsPage{}, Error.New("invalid gob encoding in amount_gob under transaction id %x: %v", id, err)
-			}
-		} else {
-			amount = monetary.AmountFromBaseUnits(*amountNumeric, currency)
-		}
-		if receivedNumeric == nil {
-			// 'received' in this row hasn't yet been updated to a numeric value
-			received, err = monetaryAmountFromGobEncodedBigFloat(receivedGob, currency)
-			if err != nil {
-				return stripecoinpayments.TransactionsPage{}, Error.New("invalid gob encoding in received_gob under transaction id %x: %v", id, err)
-			}
-		} else {
-			received = monetary.AmountFromBaseUnits(*receivedNumeric, currency)
-		}
-
 		page.Transactions = append(page.Transactions,
 			stripecoinpayments.Transaction{
 				ID:        coinpayments.TransactionID(id),
 				AccountID: userID,
 				Address:   address,
-				Amount:    amount,
-				Received:  received,
+				Amount:    monetary.AmountFromBaseUnits(*amountNumeric, currency),
+				Received:  monetary.AmountFromBaseUnits(*receivedNumeric, currency),
 				Status:    coinpayments.Status(status),
 				Key:       key,
 				CreatedAt: createdAt,
@@ -433,42 +372,15 @@ func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stri
 	//  in the database.
 	currency := monetary.StorjToken
 
-	var amount, received monetary.Amount
-
-	if dbxCPTX.AmountNumeric == nil {
-		amount, err = monetaryAmountFromGobEncodedBigFloat(dbxCPTX.AmountGob, currency)
-		if err != nil {
-			return nil, Error.New("amount column: %v", err)
-		}
-	} else {
-		amount = monetary.AmountFromBaseUnits(*dbxCPTX.AmountNumeric, currency)
-	}
-	if dbxCPTX.ReceivedNumeric == nil {
-		received, err = monetaryAmountFromGobEncodedBigFloat(dbxCPTX.ReceivedGob, currency)
-		if err != nil {
-			return nil, Error.New("received column: %v", err)
-		}
-	} else {
-		received = monetary.AmountFromBaseUnits(*dbxCPTX.ReceivedNumeric, currency)
-	}
-
 	return &stripecoinpayments.Transaction{
 		ID:        coinpayments.TransactionID(dbxCPTX.Id),
 		AccountID: userID,
 		Address:   dbxCPTX.Address,
-		Amount:    amount,
-		Received:  received,
+		Amount:    monetary.AmountFromBaseUnits(dbxCPTX.AmountNumeric, currency),
+		Received:  monetary.AmountFromBaseUnits(dbxCPTX.ReceivedNumeric, currency),
 		Status:    coinpayments.Status(dbxCPTX.Status),
 		Key:       dbxCPTX.Key,
 		Timeout:   time.Second * time.Duration(dbxCPTX.Timeout),
 		CreatedAt: dbxCPTX.CreatedAt,
 	}, nil
-}
-
-func monetaryAmountFromGobEncodedBigFloat(encoded []byte, currency *monetary.Currency) (_ monetary.Amount, err error) {
-	var bf big.Float
-	if err := bf.GobDecode(encoded); err != nil {
-		return monetary.Amount{}, Error.Wrap(err)
-	}
-	return monetary.AmountFromBigFloat(&bf, currency)
 }

@@ -39,11 +39,6 @@ type TransactionsDB interface {
 	ListPending(ctx context.Context, offset int64, limit int, before time.Time) (TransactionsPage, error)
 	// ListUnapplied returns TransactionsPage with completed transaction that should be applied to account balance.
 	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (TransactionsPage, error)
-
-	// MigrateGobFloatTransactionRecords is a strictly-temporary task that will, with time, eliminate gob-encoded big.Float records from the coinpayments_transactions table. It should be called repeatedly, passing back nextRangeStart for the next rangeStart parameter, until it encounters an error or returns nextRangeStart = "".
-	MigrateGobFloatTransactionRecords(ctx context.Context, rangeStart string, limit int) (migrated int, nextRangeStart string, err error)
-	// MigrateGobFloatConversionRateRecords is a strictly-temporary task that will, with time, eliminate gob-encoded big.Float records from the stripecoinpayments_tx_conversion_rates table. It should be called repeatedly, passing back nextRangeStart for the next rangeStart parameter, until it encounters an error or returns nextRangeStart = "".
-	MigrateGobFloatConversionRateRecords(ctx context.Context, rangeStart string, limit int) (migrated int, nextRangeStart string, err error)
 }
 
 // Transaction defines coinpayments transaction info that is stored in the DB.

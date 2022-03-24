@@ -56,10 +56,8 @@ CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
 	address text NOT NULL,
-	amount_gob bytea,
-	amount_numeric bigint,
-	received_gob bytea,
-	received_numeric bigint,
+	amount_numeric bigint NOT NULL,
+	received_numeric bigint NOT NULL,
 	status integer NOT NULL,
 	key text NOT NULL,
 	timeout integer NOT NULL,
@@ -398,8 +396,7 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 );
 CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	tx_id text NOT NULL,
-	rate_gob bytea,
-	rate_numeric double precision,
+	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );

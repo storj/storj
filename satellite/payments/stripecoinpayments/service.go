@@ -47,10 +47,6 @@ type Config struct {
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" default:"10m" testDefault:"$TESTINTERVAL"`
 	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit                 int           `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
-
-	// temporary! remove after all gob-encoded big.Float values are out of all satellite DBs.
-	GobFloatMigrationBatchInterval time.Duration `help:"amount of time to wait between gob-encoded big.Float database migration batches" default:"1m" testDefault:"$TESTINTERVAL" hidden:"true"`
-	GobFloatMigrationBatchSize     int           `help:"number of rows with gob-encoded big.Float values to migrate at once" default:"100" testDefault:"10" hidden:"true"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
