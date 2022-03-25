@@ -1,13 +1,13 @@
-#!/bin/sh
+#!/bin/bash
 set -euo pipefail
 
 SETUP_PARAMS=""
 
-if [[ -n "${IDENTITY_ADDR:-}" ]]; then
+if [ -n "${IDENTITY_ADDR:-}" ]; then
 	export STORJ_SERVER_ADDRESS="${IDENTITY_ADDR}"
 fi
 
-if [[ ! -f "${CONF_PATH}/config.yaml" ]]; then
+if [ ! -f "${CONF_PATH}/config.yaml" ]; then
 	./satellite setup $SETUP_PARAMS
 fi
 
