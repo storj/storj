@@ -50,6 +50,31 @@ func NewProjectManagement(log *zap.Logger, service ProjectManagementService, rou
 	return handler
 }
 
+func (h *Handler) handleGenGetUsersProjects(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenGetUsersProjects(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenGetUsersProjects response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
 func (h *Handler) handleGenGetSingleBucketUsageRollup(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -57,7 +82,7 @@ func (h *Handler) handleGenGetSingleBucketUsageRollup(w http.ResponseWriter, r *
 
 	w.Header().Set("Content-Type", "application/json")
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r)
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
@@ -110,7 +135,7 @@ func (h *Handler) handleGenGetBucketUsageRollups(w http.ResponseWriter, r *http.
 
 	w.Header().Set("Content-Type", "application/json")
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r)
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
@@ -147,30 +172,5 @@ func (h *Handler) handleGenGetBucketUsageRollups(w http.ResponseWriter, r *http.
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GenGetBucketUsageRollups response", zap.Error(ErrProjectsAPI.Wrap(err)))
-	}
-}
-
-func (h *Handler) handleGenGetUsersProjects(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	retVal, httpErr := h.service.GenGetUsersProjects(ctx)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(retVal)
-	if err != nil {
-		h.log.Debug("failed to write json GenGetUsersProjects response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }

@@ -66,9 +66,11 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 			err = json.Unmarshal(responseBody, &output)
 			require.NoError(t, err)
 
-			userID, err := keyService.GetUserFromKey(ctx, output.APIKey)
+			userID, exp, err := keyService.GetUserAndExpirationFromKey(ctx, output.APIKey)
 			require.NoError(t, err)
 			require.Equal(t, user.ID, userID)
+			require.False(t, exp.IsZero())
+			require.False(t, exp.Before(now))
 
 			// check the expiration is around the time we expect
 			defaultExpiration := satellite.Config.AccountManagementAPIKeys.DefaultExpiration
@@ -103,9 +105,11 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 			err = json.Unmarshal(responseBody, &output)
 			require.NoError(t, err)
 
-			userID, err := keyService.GetUserFromKey(ctx, output.APIKey)
+			userID, exp, err := keyService.GetUserAndExpirationFromKey(ctx, output.APIKey)
 			require.NoError(t, err)
 			require.Equal(t, user.ID, userID)
+			require.False(t, exp.IsZero())
+			require.False(t, exp.Before(now))
 
 			// check the expiration is around the time we expect
 			durationTime, err := time.ParseDuration(durationString)
@@ -136,7 +140,7 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			_, err = keyService.GetUserFromKey(ctx, apiKey)
+			_, _, err = keyService.GetUserAndExpirationFromKey(ctx, apiKey)
 			require.Error(t, err)
 		})
 	})

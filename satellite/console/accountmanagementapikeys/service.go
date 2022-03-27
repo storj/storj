@@ -136,22 +136,22 @@ func (s *Service) InsertIntoDB(ctx context.Context, oAuthToken oidc.OAuthToken, 
 	return expiresAt, nil
 }
 
-// GetUserFromKey gets the userID attached to an account management api key.
-func (s *Service) GetUserFromKey(ctx context.Context, apiKey string) (userID uuid.UUID, err error) {
+// GetUserAndExpirationFromKey gets the userID and expiration date attached to an account management api key.
+func (s *Service) GetUserAndExpirationFromKey(ctx context.Context, apiKey string) (userID uuid.UUID, exp time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	hash, err := s.HashKey(ctx, apiKey)
 	if err != nil {
-		return uuid.UUID{}, err
+		return uuid.UUID{}, time.Now(), err
 	}
 	keyInfo, err := s.db.Get(ctx, oidc.KindAccountManagementTokenV0, hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return uuid.UUID{}, Error.Wrap(ErrInvalidKey.New("invalid account management api key"))
+			return uuid.UUID{}, time.Now(), Error.Wrap(ErrInvalidKey.New("invalid account management api key"))
 		}
-		return uuid.UUID{}, err
+		return uuid.UUID{}, time.Now(), err
 	}
-	return keyInfo.UserID, err
+	return keyInfo.UserID, keyInfo.ExpiresAt, err
 }
 
 // Revoke revokes an account management api key.

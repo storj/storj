@@ -168,17 +168,22 @@ func (a *API) generateGo() ([]byte, error) {
 			p("w.Header().Set(\"Content-Type\", \"application/json\")")
 			p("")
 
-			if !endpoint.NoCookieAuth {
-				p("ctx, err = h.auth.IsAuthenticated(ctx, r)")
+			if !endpoint.NoCookieAuth || !endpoint.NoAPIAuth {
+				if !endpoint.NoCookieAuth && !endpoint.NoAPIAuth {
+					p("ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)")
+				}
+				if endpoint.NoCookieAuth && !endpoint.NoAPIAuth {
+					p("ctx, err = h.auth.IsAuthenticated(ctx, r, false, true)")
+				}
+				if !endpoint.NoCookieAuth && endpoint.NoAPIAuth {
+					p("ctx, err = h.auth.IsAuthenticated(ctx, r, true, false)")
+				}
 				p("if err != nil {")
 				p("api.ServeError(h.log, w, http.StatusUnauthorized, err)")
 				p("return")
 				p("}")
 				p("")
 			}
-
-			// TODO to be implemented
-			// if !endpoint.NoAPIAuth {}
 
 			for _, param := range endpoint.Params {
 				switch param.Type {
