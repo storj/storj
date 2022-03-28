@@ -119,8 +119,7 @@ export const makeFilesModule = (): FilesModule => ({
         filesToBeDeleted: [],
         fetchSharedLink: () => "javascript:null",
         fetchObjectMap: () => "javascript:null",
-        fetchObjectPreview: () =>
-            "https://link.us1.storjshare.io/s/jx7t2i4lky36b3pomls6upakdzba/filebrowser%2Fsto-1.jpeg?map=1",
+        fetchObjectPreview: () => "javascript:null",
         openedDropdown: null,
         headingSorted: "name",
         orderBy: "asc",
@@ -175,16 +174,7 @@ export const makeFilesModule = (): FilesModule => ({
                 openModalOnFirstUpload = true,
                 fetchSharedLink = () => "javascript:null",
                 fetchObjectPreview = () => "javascript:null",
-                fetchObjectMap = () =>
-                    new Promise((resolve) =>
-                        setTimeout(
-                            () =>
-                                resolve(
-                                    "https://link.us1.storjshare.io/s/jx7t2i4lky36b3pomls6upakdzba/filebrowser%2Fsto-1.jpeg?map=1"
-                                ),
-                            1000
-                        )
-                    ),
+                fetchObjectMap = () => "javascript:null",
             }: {
         accessKey: string;
         secretKey: string;
