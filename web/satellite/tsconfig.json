@@ -15,7 +15,8 @@
     "strictPropertyInitialization": false,
     "types": [
       "webpack-env",
-      "jest"
+      "jest",
+      "filesystem"
     ],
     "paths": {
       "@/*": [

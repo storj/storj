@@ -1660,7 +1660,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
 		NewBucket:                    string(req.NewBucket),
 		NewEncryptedObjectKey:        req.NewEncryptedObjectKey,
-		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce[:],
+		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
 	})
 	if err != nil {
@@ -1894,11 +1894,6 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	var newNonce []byte
-	if !req.NewEncryptedMetadataKeyNonce.IsZero() {
-		newNonce = req.NewEncryptedMetadataKeyNonce[:]
-	}
-
 	object, err := endpoint.metabase.FinishCopyObject(ctx, metabase.FinishCopyObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -1913,7 +1908,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		NewEncryptedObjectKey:        metabase.ObjectKey(req.NewEncryptedObjectKey),
 		OverrideMetadata:             req.OverrideMetadata,
 		NewEncryptedMetadata:         req.NewEncryptedMetadata,
-		NewEncryptedMetadataKeyNonce: newNonce,
+		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
 	})
 	if err != nil {

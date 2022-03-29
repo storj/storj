@@ -20,6 +20,13 @@
 //    STORJ_TEST_COCKROACH=omit
 //
 //
+// Host
+//
+// It's possible to change the listing host with:
+//
+//    STORJ_TEST_HOST=127.0.0.2;127.0.0.3
+//
+//
 // Debugging
 //
 // For debugging, it's possible to set STORJ_TEST_MONKIT to get a trace per test.

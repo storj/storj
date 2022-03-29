@@ -137,7 +137,7 @@ func TestFinishCopyObject(t *testing.T) {
 					ObjectStream:                 obj,
 					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
 					NewEncryptedMetadataKey:      []byte{1, 2, 3},
-					NewEncryptedMetadataKeyNonce: []byte{1, 2, 3},
+					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 					NewStreamID:                  newStreamID,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -156,7 +156,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewBucket:                    newBucketName,
 					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
 					NewEncryptedMetadataKey:      []byte{1, 2, 3},
-					NewEncryptedMetadataKeyNonce: []byte{1, 2, 3},
+					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "NewStreamID is missing",
@@ -213,40 +213,42 @@ func TestFinishCopyObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("invalid EncryptedMetadataKeyNonce", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+		// TODO disable temporary until uplink is fixed
+		// t.Run("invalid EncryptedMetadataKeyNonce", func(t *testing.T) {
+		// 	defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					NewBucket:             newBucketName,
-					ObjectStream:          obj,
-					NewEncryptedObjectKey: metabasetest.RandObjectKey(),
-					NewStreamID:           newStreamID,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataKeyNonce is missing",
-			}.Check(ctx, t, db)
+		// 	metabasetest.FinishCopyObject{
+		// 		Opts: metabase.FinishCopyObject{
+		// 			NewBucket:               newBucketName,
+		// 			ObjectStream:            obj,
+		// 			NewEncryptedObjectKey:   metabasetest.RandObjectKey(),
+		// 			NewStreamID:             newStreamID,
+		// 			NewEncryptedMetadataKey: []byte{0},
+		// 		},
+		// 		ErrClass: &metabase.ErrInvalidRequest,
+		// 		ErrText:  "EncryptedMetadataKeyNonce is missing",
+		// 	}.Check(ctx, t, db)
 
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
+		// 	metabasetest.Verify{}.Check(ctx, t, db)
+		// })
 
-		t.Run("invalid EncryptedMetadataKey", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+		// t.Run("invalid EncryptedMetadataKey", func(t *testing.T) {
+		// 	defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.FinishCopyObject{
-				Opts: metabase.FinishCopyObject{
-					NewBucket:                    newBucketName,
-					ObjectStream:                 obj,
-					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
-					NewEncryptedMetadataKeyNonce: []byte{0},
-					NewStreamID:                  newStreamID,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataKey is missing",
-			}.Check(ctx, t, db)
+		// 	metabasetest.FinishCopyObject{
+		// 		Opts: metabase.FinishCopyObject{
+		// 			NewBucket:                    newBucketName,
+		// 			ObjectStream:                 obj,
+		// 			NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
+		// 			NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+		// 			NewStreamID:                  newStreamID,
+		// 		},
+		// 		ErrClass: &metabase.ErrInvalidRequest,
+		// 		ErrText:  "EncryptedMetadataKey is missing",
+		// 	}.Check(ctx, t, db)
 
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
+		// 	metabasetest.Verify{}.Check(ctx, t, db)
+		// })
 
 		t.Run("empty EncryptedMetadata with OverrideMetadata=true", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -259,7 +261,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 					OverrideMetadata:             true,
 					NewEncryptedMetadataKey:      []byte{1},
-					NewEncryptedMetadataKeyNonce: []byte{1},
+					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 					NewStreamID:                  newStreamID,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -305,7 +307,7 @@ func TestFinishCopyObject(t *testing.T) {
 					ObjectStream:                 newObj,
 					NewSegmentKeys:               newEncryptedKeysNonces,
 					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
 				ErrClass: &storj.ErrObjectNotFound,
@@ -355,7 +357,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewStreamID:                  newStreamID,
 					NewSegmentKeys:               newEncryptedKeysNonces,
 					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -404,7 +406,7 @@ func TestFinishCopyObject(t *testing.T) {
 					ObjectStream:                 obj,
 					NewSegmentKeys:               newEncryptedKeysNonces,
 					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce.Bytes(),
+					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.Error,
@@ -429,11 +431,12 @@ func TestFinishCopyObject(t *testing.T) {
 				},
 			}.Run(ctx, t, db, objStream, 0)
 
+			metadataNonce := testrand.Nonce()
 			expectedCopyObject := originalObj
 			expectedCopyObject.ObjectKey = copyStream.ObjectKey
 			expectedCopyObject.StreamID = copyStream.StreamID
 			expectedCopyObject.EncryptedMetadataEncryptedKey = testrand.Bytes(32)
-			expectedCopyObject.EncryptedMetadataNonce = testrand.Nonce().Bytes()
+			expectedCopyObject.EncryptedMetadataNonce = metadataNonce.Bytes()
 
 			objectCopy := metabasetest.FinishCopyObject{
 				Opts: metabase.FinishCopyObject{
@@ -442,7 +445,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewStreamID:                  copyStream.StreamID,
 					NewEncryptedObjectKey:        copyStream.ObjectKey,
 					NewEncryptedMetadataKey:      expectedCopyObject.EncryptedMetadataEncryptedKey,
-					NewEncryptedMetadataKeyNonce: expectedCopyObject.EncryptedMetadataNonce,
+					NewEncryptedMetadataKeyNonce: metadataNonce,
 				},
 				Result: expectedCopyObject,
 			}.Check(ctx, t, db)
@@ -541,7 +544,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 			newMetadata := testrand.Bytes(256)
 			newMetadataKey := testrand.Bytes(32)
-			newMetadataKeyNonce := testrand.Nonce().Bytes()
+			newMetadataKeyNonce := testrand.Nonce()
 
 			// do a copy without OverrideMetadata field set to true,
 			// metadata shouldn't be updated even if NewEncryptedMetadata
@@ -566,7 +569,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 			require.Equal(t, originalMetadata, copyObjNoOverride.EncryptedMetadata)
 			require.Equal(t, newMetadataKey, copyObjNoOverride.EncryptedMetadataEncryptedKey)
-			require.Equal(t, newMetadataKeyNonce, copyObjNoOverride.EncryptedMetadataNonce)
+			require.Equal(t, newMetadataKeyNonce.Bytes(), copyObjNoOverride.EncryptedMetadataNonce)
 
 			// do a copy WITH OverrideMetadata field set to true,
 			// metadata should be updated to NewEncryptedMetadata
@@ -590,7 +593,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 			require.Equal(t, newMetadata, copyObj.EncryptedMetadata)
 			require.Equal(t, newMetadataKey, copyObj.EncryptedMetadataEncryptedKey)
-			require.Equal(t, newMetadataKeyNonce, copyObj.EncryptedMetadataNonce)
+			require.Equal(t, newMetadataKeyNonce.Bytes(), copyObj.EncryptedMetadataNonce)
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{

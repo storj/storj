@@ -24,6 +24,7 @@ func TestBasic(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
+				config.Admin.StaticDir = "ui/build"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

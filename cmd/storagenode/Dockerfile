@@ -1,7 +1,7 @@
 ARG DOCKER_ARCH
 ARG DOCKER_PLATFORM
 
-FROM --platform=${DOCKER_PLATFORM:-linux/amd64} storjlabs/storagenode-base:51e5e949a-${DOCKER_ARCH:-amd64}
+FROM --platform=${DOCKER_PLATFORM:-linux/amd64} storjlabs/storagenode-base:4a6c2e2a9-${DOCKER_ARCH:-amd64}
 ARG TAG
 ARG GOARCH
 ARG VERSION_SERVER_URL

@@ -89,13 +89,13 @@ pipeline {
                 stage('go') {
                     steps {
                         // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
+                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
                     }
                 }
                 stage('go -race') {
                     steps {
                         // use go test to build all the packages, including tests
-                        sh 'go test -v -p 16 -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
+                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
 
                         // install storj-sim
                         sh 'go install -race -v storj.io/storj/cmd/satellite '+
@@ -183,6 +183,7 @@ pipeline {
                 }
                 stage('Tests') {
                     environment {
+                        STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
@@ -205,7 +206,7 @@ pipeline {
                         sh 'psql -U postgres -c \'create database testmetabase;\''
                         sh 'use-ports -from 1024 -to 10000 &'
 
-                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                        sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
                     }
 
                     post {
@@ -237,7 +238,7 @@ pipeline {
                     }
                     steps {
                         sh 'psql -U postgres -c \'create database benchstorj;\''
-                        sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+                        sh 'go test -tags noembed -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
                     }
                 }
 

@@ -455,10 +455,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Metainfo.SegmentLoop.ListLimit = 0
 
 	// Actual testplanet-specific configuration
-	config.Server.Address = "127.0.0.1:0"
-	config.Server.PrivateAddress = "127.0.0.1:0"
-	config.Admin.Address = "127.0.0.1:0"
-	config.Console.Address = "127.0.0.1:0"
+	config.Server.Address = planet.NewListenAddress()
+	config.Server.PrivateAddress = planet.NewListenAddress()
+	config.Admin.Address = planet.NewListenAddress()
+	config.Console.Address = planet.NewListenAddress()
 	config.Server.Config.PeerCAWhitelistPath = planet.whitelistPath
 	config.Server.Config.UsePeerCAWhitelist = true
 	config.Version = planet.NewVersionConfig()

@@ -349,6 +349,31 @@ Blank fields will not be updated.`,
 					}) as Promise<null>;
 				}
 			}
+		],
+		account_management_api_keys: [
+			{
+				name: 'create',
+				desc: 'Create an account management API key',
+				//params: [['API key', new InputText('text', true)]],
+				params: [
+					["user's email", new InputText('text', true)],
+					['expiration', new InputText('text', false)]
+				],
+				func: async (useremail: string, expiration?: string): Promise<Record<string, unknown>> => {
+					return this.fetch('POST', `accountmanagementapikeys/${useremail}`, null, {
+						expiration
+					});
+				}
+			},
+			{
+				name: 'revoke',
+				desc: 'Revoke an account management API key',
+				//params: [['API key', new InputText('text', true)]],
+				params: [['api key', new InputText('text', true)]],
+				func: async (apikey: string): Promise<Record<string, unknown>> => {
+					return this.fetch('PUT', `accountmanagementapikeys/${apikey}/revoke`);
+				}
+			}
 		]
 	};
 

@@ -118,7 +118,7 @@ type FinishMoveObject struct {
 	NewBucket                    string
 	NewSegmentKeys               []EncryptedKeyAndNonce
 	NewEncryptedObjectKey        []byte
-	NewEncryptedMetadataKeyNonce []byte
+	NewEncryptedMetadataKeyNonce storj.Nonce
 	NewEncryptedMetadataKey      []byte
 }
 
@@ -133,10 +133,11 @@ func (finishMove FinishMoveObject) Verify() error {
 		return ErrInvalidRequest.New("NewBucket is missing")
 	case len(finishMove.NewEncryptedObjectKey) == 0:
 		return ErrInvalidRequest.New("NewEncryptedObjectKey is missing")
-	case len(finishMove.NewEncryptedMetadataKeyNonce) == 0:
-		return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
-	case len(finishMove.NewEncryptedMetadataKey) == 0:
-		return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
+		// TODO disable temporary until uplink is fixed
+		// case finishMove.NewEncryptedMetadataKeyNonce.IsZero():
+		// 	return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
+		// case len(finishMove.NewEncryptedMetadataKey) == 0:
+		// 	return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
 	}
 
 	return nil

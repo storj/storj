@@ -364,7 +364,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 			ObjectStream:                 cc.OriginalObject.ObjectStream,
 			NewSegmentKeys:               newEncryptedKeysNonces,
 			NewEncryptedObjectKey:        copyStream.ObjectKey,
-			NewEncryptedMetadataKeyNonce: testrand.Nonce().Bytes(),
+			NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 			NewEncryptedMetadataKey:      testrand.Bytes(32),
 		}
 	}
