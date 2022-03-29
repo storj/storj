@@ -3,7 +3,8 @@
 
 import { GlobalWithFetchMock } from 'jest-fetch-mock';
 
-const customGlobal: GlobalWithFetchMock = global as unknown as GlobalWithFetchMock;
+const customGlobal = (global as unknown) as
+    (GlobalWithFetchMock & { console: Record<any,unknown> });
 
 customGlobal.fetch = require('jest-fetch-mock');
 customGlobal.fetchMock = customGlobal.fetch;

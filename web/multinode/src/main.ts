@@ -31,7 +31,7 @@ Vue.directive('click-outside', {
                 return;
             }
 
-            if (vnode.context) {
+            if (vnode.context && binding.expression) {
                 vnode.context[binding.expression](event);
             }
         };

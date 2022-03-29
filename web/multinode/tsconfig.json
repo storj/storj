@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "esnext",
+    "target": "es5",
     "module": "esnext",
     "strict": true,
     "noImplicitAny": false,
@@ -15,8 +15,7 @@
     "strictPropertyInitialization": false,
     "types": [
       "webpack-env",
-      "jest",
-      "@types/jest"
+      "jest"
     ],
     "paths": {
       "@/*": [
