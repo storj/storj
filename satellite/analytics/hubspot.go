@@ -100,18 +100,27 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 		firstName = fullName
 	}
 
+	newField := func(name, value string) map[string]interface{} {
+		return map[string]interface{}{
+			"name":  name,
+			"value": value,
+		}
+	}
+
 	createUser := HubSpotEvent{
-		Endpoint: "https://api.hubapi.com/crm/v3/objects/contacts?hapikey=" + q.escapedAPIKey,
+		Endpoint: "https://api.hsforms.com/submissions/v3/integration/submit/20293085/77cfa709-f533-44b8-bf3a-ed1278ca3202?hapikey=" + q.escapedAPIKey,
 		Data: map[string]interface{}{
-			"email": fields.Email,
-			"properties": map[string]interface{}{
-				"email":           fields.Email,
-				"firstname":       firstName,
-				"lastname":        lastName,
-				"lifecyclestage":  "customer",
-				"origin_header":   fields.OriginHeader,
-				"signup_referrer": fields.Referrer,
-				"account_created": true,
+			"context": map[string]interface{}{
+				"hutk": fields.HubspotUTK,
+			},
+			"fields": []map[string]interface{}{
+				newField("email", fields.Email),
+				newField("firstname", firstName),
+				newField("lastname", lastName),
+				newField("lifecyclestage", "customer"),
+				newField("origin_header", fields.OriginHeader),
+				newField("signup_referrer", fields.Referrer),
+				newField("account_created", "true"),
 			},
 		},
 	}

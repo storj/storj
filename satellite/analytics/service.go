@@ -113,6 +113,7 @@ type TrackCreateUserFields struct {
 	HaveSalesContact bool
 	OriginHeader     string
 	Referrer         string
+	HubspotUTK       string
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
