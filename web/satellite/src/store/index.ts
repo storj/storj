@@ -22,7 +22,7 @@ import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/m
 import { makeUsersModule } from '@/store/modules/users';
 import { User } from '@/types/users';
 
-import files from '@/store/modules/files';
+import { FilesState, makeFilesModule } from '@/store/modules/files';
 
 Vue.use(Vuex);
 
@@ -62,7 +62,7 @@ export interface ModulesState {
     usersModule: User;
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
-    files: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    files: FilesState;
 }
 
 // Satellite store (vuex)
@@ -77,7 +77,7 @@ export const store = new Vuex.Store<ModulesState>({
         projectsModule: makeProjectsModule(projectsApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
         objectsModule: makeObjectsModule(),
-        files,
+        files: makeFilesModule(),
     },
 });
 

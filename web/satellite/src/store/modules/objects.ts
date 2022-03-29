@@ -6,6 +6,7 @@ import S3, { Bucket } from 'aws-sdk/clients/s3';
 import { StoreModule } from '@/store';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { FilesState } from '@/store/modules/files';
 
 export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',
@@ -63,10 +64,8 @@ interface ObjectsContext {
     state: ObjectsState
     commit: (string, ...unknown) => void
     dispatch: (string, ...unknown) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
-    rootState: {
-        files: {
-            uploading: []
-        }
+	rootState: {
+        files: FilesState
     }
 }
 
