@@ -1850,6 +1850,36 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE stripecoinpayments_tx_conversion_rates ALTER COLUMN rate_numeric SET NOT NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add oauth_clients table and user index",
+				Version:     192,
+				Action: migrate.SQL{
+					`CREATE TABLE storjscan_wallets (
+						user_id bytea NOT NULL,
+						wallet_address text NOT NULL UNIQUE,
+						debits bigint NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id )
+					);`,
+
+					`CREATE TABLE storjscan_transactions (
+						id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						wallet_address text NOT NULL,
+                        tx_id text NOT NULL UNIQUE,
+                        payment_type text NOT NULL,
+                        block_index bigint NOT NULL UNIQUE,
+                        block_number bigint NOT NULL,
+                        token_value bigint NOT NULL,
+                        usd_value bigint NOT NULL,
+						status integer NOT NULL,
+                        timestamp timestamp with time zone NOT NULL,
+                        created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

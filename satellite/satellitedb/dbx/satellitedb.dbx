@@ -1104,6 +1104,64 @@ read limitoffset (
     orderby desc stripe_customer.created_at
 )
 
+model storjscan_wallet (
+    key user_id
+    unique wallet_address
+
+    field user_id              blob
+    field wallet_address       text
+    field debits               int64     ( updatable )
+    field created_at           timestamp ( autoinsert )
+)
+
+create storjscan_wallet ( )
+update storjscan_wallet ( where storjscan_wallet.wallet_address = ? )
+
+read one (
+	select storjscan_wallet.wallet_address
+	where storjscan_wallet.user_id = ?
+)
+
+read one (
+	select storjscan_wallet.debits
+	where storjscan_wallet.user_id = ?
+)
+
+model storjscan_transaction (
+    key id
+    unique tx_id block_index
+
+    field id               text
+    field user_id          blob
+    field wallet_address   text
+    field tx_id            text
+    field payment_type     text
+    field block_index      int64
+    field block_number     int64
+    field token_value      int64
+    field usd_value        int64
+    field status           int    ( updatable )
+    field timestamp        timestamp
+
+    field created_at timestamp ( autoinsert )
+)
+
+create storjscan_transaction ()
+update storjscan_transaction ( where storjscan_transaction.id = ? )
+
+read all (
+    select storjscan_transaction
+    where storjscan_transaction.user_id = ?
+    orderby desc storjscan_transaction.created_at
+)
+
+read all (
+    select storjscan_transaction
+    where storjscan_transaction.user_id = ?
+    where storjscan_transaction.status = ?
+    orderby desc storjscan_transaction.created_at
+)
+
 model coinpayments_transaction (
     key id
 

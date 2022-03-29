@@ -373,6 +373,30 @@ CREATE TABLE storagenode_storage_tallies (
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( interval_end_time, node_id )
 );
+CREATE TABLE storjscan_transactions (
+	id text NOT NULL,
+	user_id bytea NOT NULL,
+	wallet_address text NOT NULL,
+	tx_id text NOT NULL,
+	payment_type text NOT NULL,
+	block_index bigint NOT NULL,
+	block_number bigint NOT NULL,
+	token_value bigint NOT NULL,
+	usd_value bigint NOT NULL,
+	status integer NOT NULL,
+	timestamp timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( tx_id, block_index )
+);
+CREATE TABLE storjscan_wallets (
+	user_id bytea NOT NULL,
+	wallet_address text NOT NULL,
+	debits bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( wallet_address )
+);
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,

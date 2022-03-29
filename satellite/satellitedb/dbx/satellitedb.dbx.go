@@ -693,6 +693,30 @@ CREATE TABLE storagenode_storage_tallies (
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( interval_end_time, node_id )
 );
+CREATE TABLE storjscan_transactions (
+	id text NOT NULL,
+	user_id bytea NOT NULL,
+	wallet_address text NOT NULL,
+	tx_id text NOT NULL,
+	payment_type text NOT NULL,
+	block_index bigint NOT NULL,
+	block_number bigint NOT NULL,
+	token_value bigint NOT NULL,
+	usd_value bigint NOT NULL,
+	status integer NOT NULL,
+	timestamp timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( tx_id, block_index )
+);
+CREATE TABLE storjscan_wallets (
+	user_id bytea NOT NULL,
+	wallet_address text NOT NULL,
+	debits bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( wallet_address )
+);
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
@@ -1312,6 +1336,30 @@ CREATE TABLE storagenode_storage_tallies (
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( interval_end_time, node_id )
+);
+CREATE TABLE storjscan_transactions (
+	id text NOT NULL,
+	user_id bytea NOT NULL,
+	wallet_address text NOT NULL,
+	tx_id text NOT NULL,
+	payment_type text NOT NULL,
+	block_index bigint NOT NULL,
+	block_number bigint NOT NULL,
+	token_value bigint NOT NULL,
+	usd_value bigint NOT NULL,
+	status integer NOT NULL,
+	timestamp timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( tx_id, block_index )
+);
+CREATE TABLE storjscan_wallets (
+	user_id bytea NOT NULL,
+	wallet_address text NOT NULL,
+	debits bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( wallet_address )
 );
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
@@ -8057,6 +8105,344 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
+type StorjscanTransaction struct {
+	Id            string
+	UserId        []byte
+	WalletAddress string
+	TxId          string
+	PaymentType   string
+	BlockIndex    int64
+	BlockNumber   int64
+	TokenValue    int64
+	UsdValue      int64
+	Status        int
+	Timestamp     time.Time
+	CreatedAt     time.Time
+}
+
+func (StorjscanTransaction) _Table() string { return "storjscan_transactions" }
+
+type StorjscanTransaction_Update_Fields struct {
+	Status StorjscanTransaction_Status_Field
+}
+
+type StorjscanTransaction_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StorjscanTransaction_Id(v string) StorjscanTransaction_Id_Field {
+	return StorjscanTransaction_Id_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_Id_Field) _Column() string { return "id" }
+
+type StorjscanTransaction_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StorjscanTransaction_UserId(v []byte) StorjscanTransaction_UserId_Field {
+	return StorjscanTransaction_UserId_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_UserId_Field) _Column() string { return "user_id" }
+
+type StorjscanTransaction_WalletAddress_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StorjscanTransaction_WalletAddress(v string) StorjscanTransaction_WalletAddress_Field {
+	return StorjscanTransaction_WalletAddress_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_WalletAddress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_WalletAddress_Field) _Column() string { return "wallet_address" }
+
+type StorjscanTransaction_TxId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StorjscanTransaction_TxId(v string) StorjscanTransaction_TxId_Field {
+	return StorjscanTransaction_TxId_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_TxId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_TxId_Field) _Column() string { return "tx_id" }
+
+type StorjscanTransaction_PaymentType_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StorjscanTransaction_PaymentType(v string) StorjscanTransaction_PaymentType_Field {
+	return StorjscanTransaction_PaymentType_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_PaymentType_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_PaymentType_Field) _Column() string { return "payment_type" }
+
+type StorjscanTransaction_BlockIndex_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StorjscanTransaction_BlockIndex(v int64) StorjscanTransaction_BlockIndex_Field {
+	return StorjscanTransaction_BlockIndex_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_BlockIndex_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_BlockIndex_Field) _Column() string { return "block_index" }
+
+type StorjscanTransaction_BlockNumber_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StorjscanTransaction_BlockNumber(v int64) StorjscanTransaction_BlockNumber_Field {
+	return StorjscanTransaction_BlockNumber_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_BlockNumber_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_BlockNumber_Field) _Column() string { return "block_number" }
+
+type StorjscanTransaction_TokenValue_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StorjscanTransaction_TokenValue(v int64) StorjscanTransaction_TokenValue_Field {
+	return StorjscanTransaction_TokenValue_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_TokenValue_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_TokenValue_Field) _Column() string { return "token_value" }
+
+type StorjscanTransaction_UsdValue_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StorjscanTransaction_UsdValue(v int64) StorjscanTransaction_UsdValue_Field {
+	return StorjscanTransaction_UsdValue_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_UsdValue_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_UsdValue_Field) _Column() string { return "usd_value" }
+
+type StorjscanTransaction_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func StorjscanTransaction_Status(v int) StorjscanTransaction_Status_Field {
+	return StorjscanTransaction_Status_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_Status_Field) _Column() string { return "status" }
+
+type StorjscanTransaction_Timestamp_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StorjscanTransaction_Timestamp(v time.Time) StorjscanTransaction_Timestamp_Field {
+	return StorjscanTransaction_Timestamp_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_Timestamp_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_Timestamp_Field) _Column() string { return "timestamp" }
+
+type StorjscanTransaction_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StorjscanTransaction_CreatedAt(v time.Time) StorjscanTransaction_CreatedAt_Field {
+	return StorjscanTransaction_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StorjscanTransaction_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanTransaction_CreatedAt_Field) _Column() string { return "created_at" }
+
+type StorjscanWallet struct {
+	UserId        []byte
+	WalletAddress string
+	Debits        int64
+	CreatedAt     time.Time
+}
+
+func (StorjscanWallet) _Table() string { return "storjscan_wallets" }
+
+type StorjscanWallet_Update_Fields struct {
+	Debits StorjscanWallet_Debits_Field
+}
+
+type StorjscanWallet_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StorjscanWallet_UserId(v []byte) StorjscanWallet_UserId_Field {
+	return StorjscanWallet_UserId_Field{_set: true, _value: v}
+}
+
+func (f StorjscanWallet_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanWallet_UserId_Field) _Column() string { return "user_id" }
+
+type StorjscanWallet_WalletAddress_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StorjscanWallet_WalletAddress(v string) StorjscanWallet_WalletAddress_Field {
+	return StorjscanWallet_WalletAddress_Field{_set: true, _value: v}
+}
+
+func (f StorjscanWallet_WalletAddress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanWallet_WalletAddress_Field) _Column() string { return "wallet_address" }
+
+type StorjscanWallet_Debits_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StorjscanWallet_Debits(v int64) StorjscanWallet_Debits_Field {
+	return StorjscanWallet_Debits_Field{_set: true, _value: v}
+}
+
+func (f StorjscanWallet_Debits_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanWallet_Debits_Field) _Column() string { return "debits" }
+
+type StorjscanWallet_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StorjscanWallet_CreatedAt(v time.Time) StorjscanWallet_CreatedAt_Field {
+	return StorjscanWallet_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StorjscanWallet_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanWallet_CreatedAt_Field) _Column() string { return "created_at" }
+
 type StripeCustomer struct {
 	UserId     []byte
 	CustomerId string
@@ -10725,6 +11111,10 @@ type CustomerId_Row struct {
 	CustomerId string
 }
 
+type Debits_Row struct {
+	Debits int64
+}
+
 type Id_PieceCount_Row struct {
 	Id         []byte
 	PieceCount int64
@@ -10819,6 +11209,10 @@ type UsageLimit_Row struct {
 
 type Value_Row struct {
 	Value time.Time
+}
+
+type WalletAddress_Row struct {
+	WalletAddress string
 }
 
 func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
@@ -11542,6 +11936,82 @@ func (obj *pgxImpl) Create_StripeCustomer(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return stripe_customer, nil
+
+}
+
+func (obj *pgxImpl) Create_StorjscanWallet(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field,
+	storjscan_wallet_debits StorjscanWallet_Debits_Field) (
+	storjscan_wallet *StorjscanWallet, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := storjscan_wallet_user_id.value()
+	__wallet_address_val := storjscan_wallet_wallet_address.value()
+	__debits_val := storjscan_wallet_debits.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_wallets ( user_id, wallet_address, debits, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.debits, storjscan_wallets.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __wallet_address_val, __debits_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storjscan_wallet = &StorjscanWallet{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storjscan_wallet.UserId, &storjscan_wallet.WalletAddress, &storjscan_wallet.Debits, &storjscan_wallet.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storjscan_wallet, nil
+
+}
+
+func (obj *pgxImpl) Create_StorjscanTransaction(ctx context.Context,
+	storjscan_transaction_id StorjscanTransaction_Id_Field,
+	storjscan_transaction_user_id StorjscanTransaction_UserId_Field,
+	storjscan_transaction_wallet_address StorjscanTransaction_WalletAddress_Field,
+	storjscan_transaction_tx_id StorjscanTransaction_TxId_Field,
+	storjscan_transaction_payment_type StorjscanTransaction_PaymentType_Field,
+	storjscan_transaction_block_index StorjscanTransaction_BlockIndex_Field,
+	storjscan_transaction_block_number StorjscanTransaction_BlockNumber_Field,
+	storjscan_transaction_token_value StorjscanTransaction_TokenValue_Field,
+	storjscan_transaction_usd_value StorjscanTransaction_UsdValue_Field,
+	storjscan_transaction_status StorjscanTransaction_Status_Field,
+	storjscan_transaction_timestamp StorjscanTransaction_Timestamp_Field) (
+	storjscan_transaction *StorjscanTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := storjscan_transaction_id.value()
+	__user_id_val := storjscan_transaction_user_id.value()
+	__wallet_address_val := storjscan_transaction_wallet_address.value()
+	__tx_id_val := storjscan_transaction_tx_id.value()
+	__payment_type_val := storjscan_transaction_payment_type.value()
+	__block_index_val := storjscan_transaction_block_index.value()
+	__block_number_val := storjscan_transaction_block_number.value()
+	__token_value_val := storjscan_transaction_token_value.value()
+	__usd_value_val := storjscan_transaction_usd_value.value()
+	__status_val := storjscan_transaction_status.value()
+	__timestamp_val := storjscan_transaction_timestamp.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_transactions ( id, user_id, wallet_address, tx_id, payment_type, block_index, block_number, token_value, usd_value, status, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING storjscan_transactions.id, storjscan_transactions.user_id, storjscan_transactions.wallet_address, storjscan_transactions.tx_id, storjscan_transactions.payment_type, storjscan_transactions.block_index, storjscan_transactions.block_number, storjscan_transactions.token_value, storjscan_transactions.usd_value, storjscan_transactions.status, storjscan_transactions.timestamp, storjscan_transactions.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __wallet_address_val, __tx_id_val, __payment_type_val, __block_index_val, __block_number_val, __token_value_val, __usd_value_val, __status_val, __timestamp_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storjscan_transaction = &StorjscanTransaction{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storjscan_transaction.Id, &storjscan_transaction.UserId, &storjscan_transaction.WalletAddress, &storjscan_transaction.TxId, &storjscan_transaction.PaymentType, &storjscan_transaction.BlockIndex, &storjscan_transaction.BlockNumber, &storjscan_transaction.TokenValue, &storjscan_transaction.UsdValue, &storjscan_transaction.Status, &storjscan_transaction.Timestamp, &storjscan_transaction.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storjscan_transaction, nil
 
 }
 
@@ -14111,6 +14581,141 @@ func (obj *pgxImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc
 
 }
 
+func (obj *pgxImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *WalletAddress_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.wallet_address FROM storjscan_wallets WHERE storjscan_wallets.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_wallet_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &WalletAddress_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.WalletAddress)
+	if err != nil {
+		return (*WalletAddress_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_StorjscanWallet_Debits_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *Debits_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.debits FROM storjscan_wallets WHERE storjscan_wallets.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_wallet_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Debits_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Debits)
+	if err != nil {
+		return (*Debits_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) All_StorjscanTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+	storjscan_transaction_user_id StorjscanTransaction_UserId_Field) (
+	rows []*StorjscanTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_transactions.id, storjscan_transactions.user_id, storjscan_transactions.wallet_address, storjscan_transactions.tx_id, storjscan_transactions.payment_type, storjscan_transactions.block_index, storjscan_transactions.block_number, storjscan_transactions.token_value, storjscan_transactions.usd_value, storjscan_transactions.status, storjscan_transactions.timestamp, storjscan_transactions.created_at FROM storjscan_transactions WHERE storjscan_transactions.user_id = ? ORDER BY storjscan_transactions.created_at DESC")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_transaction_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StorjscanTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storjscan_transaction := &StorjscanTransaction{}
+				err = __rows.Scan(&storjscan_transaction.Id, &storjscan_transaction.UserId, &storjscan_transaction.WalletAddress, &storjscan_transaction.TxId, &storjscan_transaction.PaymentType, &storjscan_transaction.BlockIndex, &storjscan_transaction.BlockNumber, &storjscan_transaction.TokenValue, &storjscan_transaction.UsdValue, &storjscan_transaction.Status, &storjscan_transaction.Timestamp, &storjscan_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storjscan_transaction)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_StorjscanTransaction_By_UserId_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+	storjscan_transaction_user_id StorjscanTransaction_UserId_Field,
+	storjscan_transaction_status StorjscanTransaction_Status_Field) (
+	rows []*StorjscanTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_transactions.id, storjscan_transactions.user_id, storjscan_transactions.wallet_address, storjscan_transactions.tx_id, storjscan_transactions.payment_type, storjscan_transactions.block_index, storjscan_transactions.block_number, storjscan_transactions.token_value, storjscan_transactions.usd_value, storjscan_transactions.status, storjscan_transactions.timestamp, storjscan_transactions.created_at FROM storjscan_transactions WHERE storjscan_transactions.user_id = ? AND storjscan_transactions.status = ? ORDER BY storjscan_transactions.created_at DESC")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_transaction_user_id.value(), storjscan_transaction_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StorjscanTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storjscan_transaction := &StorjscanTransaction{}
+				err = __rows.Scan(&storjscan_transaction.Id, &storjscan_transaction.UserId, &storjscan_transaction.WalletAddress, &storjscan_transaction.TxId, &storjscan_transaction.PaymentType, &storjscan_transaction.BlockIndex, &storjscan_transaction.BlockNumber, &storjscan_transaction.TokenValue, &storjscan_transaction.UsdValue, &storjscan_transaction.Status, &storjscan_transaction.Timestamp, &storjscan_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storjscan_transaction)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 	rows []*CoinpaymentsTransaction, err error) {
@@ -16029,6 +16634,88 @@ func (obj *pgxImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_Str
 	return nil
 }
 
+func (obj *pgxImpl) Update_StorjscanWallet_By_WalletAddress(ctx context.Context,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field,
+	update StorjscanWallet_Update_Fields) (
+	storjscan_wallet *StorjscanWallet, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE storjscan_wallets SET "), __sets, __sqlbundle_Literal(" WHERE storjscan_wallets.wallet_address = ? RETURNING storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.debits, storjscan_wallets.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Debits._set {
+		__values = append(__values, update.Debits.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("debits = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, storjscan_wallet_wallet_address.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storjscan_wallet = &StorjscanWallet{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storjscan_wallet.UserId, &storjscan_wallet.WalletAddress, &storjscan_wallet.Debits, &storjscan_wallet.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storjscan_wallet, nil
+}
+
+func (obj *pgxImpl) Update_StorjscanTransaction_By_Id(ctx context.Context,
+	storjscan_transaction_id StorjscanTransaction_Id_Field,
+	update StorjscanTransaction_Update_Fields) (
+	storjscan_transaction *StorjscanTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE storjscan_transactions SET "), __sets, __sqlbundle_Literal(" WHERE storjscan_transactions.id = ? RETURNING storjscan_transactions.id, storjscan_transactions.user_id, storjscan_transactions.wallet_address, storjscan_transactions.tx_id, storjscan_transactions.payment_type, storjscan_transactions.block_index, storjscan_transactions.block_number, storjscan_transactions.token_value, storjscan_transactions.usd_value, storjscan_transactions.status, storjscan_transactions.timestamp, storjscan_transactions.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, storjscan_transaction_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storjscan_transaction = &StorjscanTransaction{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storjscan_transaction.Id, &storjscan_transaction.UserId, &storjscan_transaction.WalletAddress, &storjscan_transaction.TxId, &storjscan_transaction.PaymentType, &storjscan_transaction.BlockIndex, &storjscan_transaction.BlockNumber, &storjscan_transaction.TokenValue, &storjscan_transaction.UsdValue, &storjscan_transaction.Status, &storjscan_transaction.Timestamp, &storjscan_transaction.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storjscan_transaction, nil
+}
+
 func (obj *pgxImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
 	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 	update CoinpaymentsTransaction_Update_Fields) (
@@ -16853,6 +17540,26 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripe_customers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storjscan_wallets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storjscan_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17918,6 +18625,82 @@ func (obj *pgxcockroachImpl) Create_StripeCustomer(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return stripe_customer, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_StorjscanWallet(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field,
+	storjscan_wallet_debits StorjscanWallet_Debits_Field) (
+	storjscan_wallet *StorjscanWallet, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := storjscan_wallet_user_id.value()
+	__wallet_address_val := storjscan_wallet_wallet_address.value()
+	__debits_val := storjscan_wallet_debits.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_wallets ( user_id, wallet_address, debits, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.debits, storjscan_wallets.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __wallet_address_val, __debits_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storjscan_wallet = &StorjscanWallet{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storjscan_wallet.UserId, &storjscan_wallet.WalletAddress, &storjscan_wallet.Debits, &storjscan_wallet.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storjscan_wallet, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_StorjscanTransaction(ctx context.Context,
+	storjscan_transaction_id StorjscanTransaction_Id_Field,
+	storjscan_transaction_user_id StorjscanTransaction_UserId_Field,
+	storjscan_transaction_wallet_address StorjscanTransaction_WalletAddress_Field,
+	storjscan_transaction_tx_id StorjscanTransaction_TxId_Field,
+	storjscan_transaction_payment_type StorjscanTransaction_PaymentType_Field,
+	storjscan_transaction_block_index StorjscanTransaction_BlockIndex_Field,
+	storjscan_transaction_block_number StorjscanTransaction_BlockNumber_Field,
+	storjscan_transaction_token_value StorjscanTransaction_TokenValue_Field,
+	storjscan_transaction_usd_value StorjscanTransaction_UsdValue_Field,
+	storjscan_transaction_status StorjscanTransaction_Status_Field,
+	storjscan_transaction_timestamp StorjscanTransaction_Timestamp_Field) (
+	storjscan_transaction *StorjscanTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := storjscan_transaction_id.value()
+	__user_id_val := storjscan_transaction_user_id.value()
+	__wallet_address_val := storjscan_transaction_wallet_address.value()
+	__tx_id_val := storjscan_transaction_tx_id.value()
+	__payment_type_val := storjscan_transaction_payment_type.value()
+	__block_index_val := storjscan_transaction_block_index.value()
+	__block_number_val := storjscan_transaction_block_number.value()
+	__token_value_val := storjscan_transaction_token_value.value()
+	__usd_value_val := storjscan_transaction_usd_value.value()
+	__status_val := storjscan_transaction_status.value()
+	__timestamp_val := storjscan_transaction_timestamp.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_transactions ( id, user_id, wallet_address, tx_id, payment_type, block_index, block_number, token_value, usd_value, status, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING storjscan_transactions.id, storjscan_transactions.user_id, storjscan_transactions.wallet_address, storjscan_transactions.tx_id, storjscan_transactions.payment_type, storjscan_transactions.block_index, storjscan_transactions.block_number, storjscan_transactions.token_value, storjscan_transactions.usd_value, storjscan_transactions.status, storjscan_transactions.timestamp, storjscan_transactions.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __wallet_address_val, __tx_id_val, __payment_type_val, __block_index_val, __block_number_val, __token_value_val, __usd_value_val, __status_val, __timestamp_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storjscan_transaction = &StorjscanTransaction{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storjscan_transaction.Id, &storjscan_transaction.UserId, &storjscan_transaction.WalletAddress, &storjscan_transaction.TxId, &storjscan_transaction.PaymentType, &storjscan_transaction.BlockIndex, &storjscan_transaction.BlockNumber, &storjscan_transaction.TokenValue, &storjscan_transaction.UsdValue, &storjscan_transaction.Status, &storjscan_transaction.Timestamp, &storjscan_transaction.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storjscan_transaction, nil
 
 }
 
@@ -20487,6 +21270,141 @@ func (obj *pgxcockroachImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_Ord
 
 }
 
+func (obj *pgxcockroachImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *WalletAddress_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.wallet_address FROM storjscan_wallets WHERE storjscan_wallets.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_wallet_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &WalletAddress_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.WalletAddress)
+	if err != nil {
+		return (*WalletAddress_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_StorjscanWallet_Debits_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *Debits_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.debits FROM storjscan_wallets WHERE storjscan_wallets.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_wallet_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Debits_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Debits)
+	if err != nil {
+		return (*Debits_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_StorjscanTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+	storjscan_transaction_user_id StorjscanTransaction_UserId_Field) (
+	rows []*StorjscanTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_transactions.id, storjscan_transactions.user_id, storjscan_transactions.wallet_address, storjscan_transactions.tx_id, storjscan_transactions.payment_type, storjscan_transactions.block_index, storjscan_transactions.block_number, storjscan_transactions.token_value, storjscan_transactions.usd_value, storjscan_transactions.status, storjscan_transactions.timestamp, storjscan_transactions.created_at FROM storjscan_transactions WHERE storjscan_transactions.user_id = ? ORDER BY storjscan_transactions.created_at DESC")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_transaction_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StorjscanTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storjscan_transaction := &StorjscanTransaction{}
+				err = __rows.Scan(&storjscan_transaction.Id, &storjscan_transaction.UserId, &storjscan_transaction.WalletAddress, &storjscan_transaction.TxId, &storjscan_transaction.PaymentType, &storjscan_transaction.BlockIndex, &storjscan_transaction.BlockNumber, &storjscan_transaction.TokenValue, &storjscan_transaction.UsdValue, &storjscan_transaction.Status, &storjscan_transaction.Timestamp, &storjscan_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storjscan_transaction)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_StorjscanTransaction_By_UserId_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+	storjscan_transaction_user_id StorjscanTransaction_UserId_Field,
+	storjscan_transaction_status StorjscanTransaction_Status_Field) (
+	rows []*StorjscanTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_transactions.id, storjscan_transactions.user_id, storjscan_transactions.wallet_address, storjscan_transactions.tx_id, storjscan_transactions.payment_type, storjscan_transactions.block_index, storjscan_transactions.block_number, storjscan_transactions.token_value, storjscan_transactions.usd_value, storjscan_transactions.status, storjscan_transactions.timestamp, storjscan_transactions.created_at FROM storjscan_transactions WHERE storjscan_transactions.user_id = ? AND storjscan_transactions.status = ? ORDER BY storjscan_transactions.created_at DESC")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_transaction_user_id.value(), storjscan_transaction_status.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StorjscanTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storjscan_transaction := &StorjscanTransaction{}
+				err = __rows.Scan(&storjscan_transaction.Id, &storjscan_transaction.UserId, &storjscan_transaction.WalletAddress, &storjscan_transaction.TxId, &storjscan_transaction.PaymentType, &storjscan_transaction.BlockIndex, &storjscan_transaction.BlockNumber, &storjscan_transaction.TokenValue, &storjscan_transaction.UsdValue, &storjscan_transaction.Status, &storjscan_transaction.Timestamp, &storjscan_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storjscan_transaction)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 	rows []*CoinpaymentsTransaction, err error) {
@@ -22405,6 +23323,88 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeI
 	return nil
 }
 
+func (obj *pgxcockroachImpl) Update_StorjscanWallet_By_WalletAddress(ctx context.Context,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field,
+	update StorjscanWallet_Update_Fields) (
+	storjscan_wallet *StorjscanWallet, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE storjscan_wallets SET "), __sets, __sqlbundle_Literal(" WHERE storjscan_wallets.wallet_address = ? RETURNING storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.debits, storjscan_wallets.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Debits._set {
+		__values = append(__values, update.Debits.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("debits = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, storjscan_wallet_wallet_address.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storjscan_wallet = &StorjscanWallet{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storjscan_wallet.UserId, &storjscan_wallet.WalletAddress, &storjscan_wallet.Debits, &storjscan_wallet.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storjscan_wallet, nil
+}
+
+func (obj *pgxcockroachImpl) Update_StorjscanTransaction_By_Id(ctx context.Context,
+	storjscan_transaction_id StorjscanTransaction_Id_Field,
+	update StorjscanTransaction_Update_Fields) (
+	storjscan_transaction *StorjscanTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE storjscan_transactions SET "), __sets, __sqlbundle_Literal(" WHERE storjscan_transactions.id = ? RETURNING storjscan_transactions.id, storjscan_transactions.user_id, storjscan_transactions.wallet_address, storjscan_transactions.tx_id, storjscan_transactions.payment_type, storjscan_transactions.block_index, storjscan_transactions.block_number, storjscan_transactions.token_value, storjscan_transactions.usd_value, storjscan_transactions.status, storjscan_transactions.timestamp, storjscan_transactions.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, storjscan_transaction_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storjscan_transaction = &StorjscanTransaction{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storjscan_transaction.Id, &storjscan_transaction.UserId, &storjscan_transaction.WalletAddress, &storjscan_transaction.TxId, &storjscan_transaction.PaymentType, &storjscan_transaction.BlockIndex, &storjscan_transaction.BlockNumber, &storjscan_transaction.TokenValue, &storjscan_transaction.UsdValue, &storjscan_transaction.Status, &storjscan_transaction.Timestamp, &storjscan_transaction.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storjscan_transaction, nil
+}
+
 func (obj *pgxcockroachImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
 	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 	update CoinpaymentsTransaction_Update_Fields) (
@@ -23238,6 +24238,26 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storjscan_wallets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storjscan_transactions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -23806,6 +24826,27 @@ func (rx *Rx) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx 
 	return tx.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, storagenode_storage_tally_interval_end_time_greater_or_equal)
 }
 
+func (rx *Rx) All_StorjscanTransaction_By_UserId_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+	storjscan_transaction_user_id StorjscanTransaction_UserId_Field,
+	storjscan_transaction_status StorjscanTransaction_Status_Field) (
+	rows []*StorjscanTransaction, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_StorjscanTransaction_By_UserId_And_Status_OrderBy_Desc_CreatedAt(ctx, storjscan_transaction_user_id, storjscan_transaction_status)
+}
+
+func (rx *Rx) All_StorjscanTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+	storjscan_transaction_user_id StorjscanTransaction_UserId_Field) (
+	rows []*StorjscanTransaction, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_StorjscanTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx, storjscan_transaction_user_id)
+}
+
 func (rx *Rx) All_User_By_NormalizedEmail(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	rows []*User, err error) {
@@ -24114,6 +25155,40 @@ func (rx *Rx) Create_StoragenodeBandwidthRollup(ctx context.Context,
 		return
 	}
 	return tx.Create_StoragenodeBandwidthRollup(ctx, storagenode_bandwidth_rollup_storagenode_id, storagenode_bandwidth_rollup_interval_start, storagenode_bandwidth_rollup_interval_seconds, storagenode_bandwidth_rollup_action, storagenode_bandwidth_rollup_settled, optional)
+
+}
+
+func (rx *Rx) Create_StorjscanTransaction(ctx context.Context,
+	storjscan_transaction_id StorjscanTransaction_Id_Field,
+	storjscan_transaction_user_id StorjscanTransaction_UserId_Field,
+	storjscan_transaction_wallet_address StorjscanTransaction_WalletAddress_Field,
+	storjscan_transaction_tx_id StorjscanTransaction_TxId_Field,
+	storjscan_transaction_payment_type StorjscanTransaction_PaymentType_Field,
+	storjscan_transaction_block_index StorjscanTransaction_BlockIndex_Field,
+	storjscan_transaction_block_number StorjscanTransaction_BlockNumber_Field,
+	storjscan_transaction_token_value StorjscanTransaction_TokenValue_Field,
+	storjscan_transaction_usd_value StorjscanTransaction_UsdValue_Field,
+	storjscan_transaction_status StorjscanTransaction_Status_Field,
+	storjscan_transaction_timestamp StorjscanTransaction_Timestamp_Field) (
+	storjscan_transaction *StorjscanTransaction, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_StorjscanTransaction(ctx, storjscan_transaction_id, storjscan_transaction_user_id, storjscan_transaction_wallet_address, storjscan_transaction_tx_id, storjscan_transaction_payment_type, storjscan_transaction_block_index, storjscan_transaction_block_number, storjscan_transaction_token_value, storjscan_transaction_usd_value, storjscan_transaction_status, storjscan_transaction_timestamp)
+
+}
+
+func (rx *Rx) Create_StorjscanWallet(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field,
+	storjscan_wallet_debits StorjscanWallet_Debits_Field) (
+	storjscan_wallet *StorjscanWallet, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_StorjscanWallet(ctx, storjscan_wallet_user_id, storjscan_wallet_wallet_address, storjscan_wallet_debits)
 
 }
 
@@ -24655,6 +25730,26 @@ func (rx *Rx) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
 		return
 	}
 	return tx.Get_StoragenodePaystub_By_NodeId_And_Period(ctx, storagenode_paystub_node_id, storagenode_paystub_period)
+}
+
+func (rx *Rx) Get_StorjscanWallet_Debits_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *Debits_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StorjscanWallet_Debits_By_UserId(ctx, storjscan_wallet_user_id)
+}
+
+func (rx *Rx) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *WalletAddress_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StorjscanWallet_WalletAddress_By_UserId(ctx, storjscan_wallet_user_id)
 }
 
 func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
@@ -25215,6 +26310,28 @@ func (rx *Rx) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context,
 	return tx.Update_Reputation_By_Id_And_AuditHistory(ctx, reputation_id, reputation_audit_history, update)
 }
 
+func (rx *Rx) Update_StorjscanTransaction_By_Id(ctx context.Context,
+	storjscan_transaction_id StorjscanTransaction_Id_Field,
+	update StorjscanTransaction_Update_Fields) (
+	storjscan_transaction *StorjscanTransaction, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_StorjscanTransaction_By_Id(ctx, storjscan_transaction_id, update)
+}
+
+func (rx *Rx) Update_StorjscanWallet_By_WalletAddress(ctx context.Context,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field,
+	update StorjscanWallet_Update_Fields) (
+	storjscan_wallet *StorjscanWallet, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_StorjscanWallet_By_WalletAddress(ctx, storjscan_wallet_wallet_address, update)
+}
+
 func (rx *Rx) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
 	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
 	update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
@@ -25314,6 +26431,15 @@ type Methods interface {
 	All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx context.Context,
 		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
 		rows []*StoragenodeStorageTally, err error)
+
+	All_StorjscanTransaction_By_UserId_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
+		storjscan_transaction_user_id StorjscanTransaction_UserId_Field,
+		storjscan_transaction_status StorjscanTransaction_Status_Field) (
+		rows []*StorjscanTransaction, err error)
+
+	All_StorjscanTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
+		storjscan_transaction_user_id StorjscanTransaction_UserId_Field) (
+		rows []*StorjscanTransaction, err error)
 
 	All_User_By_NormalizedEmail(ctx context.Context,
 		user_normalized_email User_NormalizedEmail_Field) (
@@ -25480,6 +26606,26 @@ type Methods interface {
 		storagenode_bandwidth_rollup_settled StoragenodeBandwidthRollup_Settled_Field,
 		optional StoragenodeBandwidthRollup_Create_Fields) (
 		storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error)
+
+	Create_StorjscanTransaction(ctx context.Context,
+		storjscan_transaction_id StorjscanTransaction_Id_Field,
+		storjscan_transaction_user_id StorjscanTransaction_UserId_Field,
+		storjscan_transaction_wallet_address StorjscanTransaction_WalletAddress_Field,
+		storjscan_transaction_tx_id StorjscanTransaction_TxId_Field,
+		storjscan_transaction_payment_type StorjscanTransaction_PaymentType_Field,
+		storjscan_transaction_block_index StorjscanTransaction_BlockIndex_Field,
+		storjscan_transaction_block_number StorjscanTransaction_BlockNumber_Field,
+		storjscan_transaction_token_value StorjscanTransaction_TokenValue_Field,
+		storjscan_transaction_usd_value StorjscanTransaction_UsdValue_Field,
+		storjscan_transaction_status StorjscanTransaction_Status_Field,
+		storjscan_transaction_timestamp StorjscanTransaction_Timestamp_Field) (
+		storjscan_transaction *StorjscanTransaction, err error)
+
+	Create_StorjscanWallet(ctx context.Context,
+		storjscan_wallet_user_id StorjscanWallet_UserId_Field,
+		storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field,
+		storjscan_wallet_debits StorjscanWallet_Debits_Field) (
+		storjscan_wallet *StorjscanWallet, err error)
 
 	Create_StripeCustomer(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field,
@@ -25712,6 +26858,14 @@ type Methods interface {
 		storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
 		storagenode_paystub_period StoragenodePaystub_Period_Field) (
 		storagenode_paystub *StoragenodePaystub, err error)
+
+	Get_StorjscanWallet_Debits_By_UserId(ctx context.Context,
+		storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+		row *Debits_Row, err error)
+
+	Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Context,
+		storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+		row *WalletAddress_Row, err error)
 
 	Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field) (
@@ -25980,6 +27134,16 @@ type Methods interface {
 		reputation_audit_history Reputation_AuditHistory_Field,
 		update Reputation_Update_Fields) (
 		reputation *Reputation, err error)
+
+	Update_StorjscanTransaction_By_Id(ctx context.Context,
+		storjscan_transaction_id StorjscanTransaction_Id_Field,
+		update StorjscanTransaction_Update_Fields) (
+		storjscan_transaction *StorjscanTransaction, err error)
+
+	Update_StorjscanWallet_By_WalletAddress(ctx context.Context,
+		storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field,
+		update StorjscanWallet_Update_Fields) (
+		storjscan_wallet *StorjscanWallet, err error)
 
 	Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
