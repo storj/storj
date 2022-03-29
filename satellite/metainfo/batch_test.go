@@ -38,9 +38,9 @@ func TestBatch(t *testing.T) {
 				})
 			}
 			requests = append(requests, &metaclient.ListBucketsParams{
-				ListOpts: storj.BucketListOptions{
+				ListOpts: metaclient.BucketListOptions{
 					Cursor:    "",
-					Direction: storj.After,
+					Direction: metaclient.After,
 				},
 			})
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -80,12 +80,12 @@ func TestBatch(t *testing.T) {
 				expectedData[i] = testrand.Bytes(memory.KiB)
 
 				requests = append(requests, &metaclient.MakeInlineSegmentParams{
-					Position: storj.SegmentPosition{
+					Position: metaclient.SegmentPosition{
 						Index: int32(i),
 					},
 					PlainSize:           int64(len(expectedData[i])),
 					EncryptedInlineData: expectedData[i],
-					Encryption: storj.SegmentEncryption{
+					Encryption: metaclient.SegmentEncryption{
 						EncryptedKey: testrand.Bytes(256),
 					},
 				})
@@ -113,13 +113,13 @@ func TestBatch(t *testing.T) {
 
 			for i := 0; i < numOfSegments-1; i++ {
 				requests = append(requests, &metaclient.DownloadSegmentParams{
-					Position: storj.SegmentPosition{
+					Position: metaclient.SegmentPosition{
 						Index: int32(i),
 					},
 				})
 			}
 			requests = append(requests, &metaclient.DownloadSegmentParams{
-				Position: storj.SegmentPosition{
+				Position: metaclient.SegmentPosition{
 					Index: -1,
 				},
 			})
@@ -157,12 +157,12 @@ func TestBatch(t *testing.T) {
 
 				requests = append(requests, &metaclient.MakeInlineSegmentParams{
 					StreamID: beginObjectResp.StreamID,
-					Position: storj.SegmentPosition{
+					Position: metaclient.SegmentPosition{
 						Index: int32(i),
 					},
 					PlainSize:           int64(len(expectedData[i])),
 					EncryptedInlineData: expectedData[i],
-					Encryption: storj.SegmentEncryption{
+					Encryption: metaclient.SegmentEncryption{
 						EncryptedKey: testrand.Bytes(256),
 					},
 				})

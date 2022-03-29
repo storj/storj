@@ -75,7 +75,9 @@ func TestAdminOAuthAPI(t *testing.T) {
 
 			body := ""
 			if testCase.request != nil {
-				if data, _ := json.Marshal(testCase.request); len(data) > 0 {
+				data, err := json.Marshal(testCase.request)
+				require.NoError(t, err)
+				if len(data) > 0 {
 					body = string(data)
 				}
 			}

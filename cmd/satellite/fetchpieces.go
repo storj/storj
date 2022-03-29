@@ -125,10 +125,13 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 			writeErrorMessageToFile(log, err, saveDir, pieceIndex)
 		}
 		writeMetaInfoToFile(log, pieceInfo.GetLimit, pieceInfo.OriginalLimit, pieceInfo.Hash, saveDir, pieceIndex)
-		writePieceToFile(log, pieceInfo.Reader, saveDir, pieceIndex)
 
-		if err := pieceInfo.Reader.Close(); err != nil {
-			log.Error("could not close piece reader", zap.Error(err))
+		if pieceInfo.Reader != nil {
+			writePieceToFile(log, pieceInfo.Reader, saveDir, pieceIndex)
+
+			if err := pieceInfo.Reader.Close(); err != nil {
+				log.Error("could not close piece reader", zap.Error(err))
+			}
 		}
 	}
 

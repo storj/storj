@@ -118,8 +118,8 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	config := storagenode.Config{
 		Server: server.Config{
-			Address:        "127.0.0.1:0",
-			PrivateAddress: "127.0.0.1:0",
+			Address:        planet.NewListenAddress(),
+			PrivateAddress: planet.NewListenAddress(),
 
 			Config: tlsopts.Config{
 				RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
@@ -157,7 +157,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			StorageSync:    defaultInterval,
 		},
 		Console: consoleserver.Config{
-			Address:   "127.0.0.1:0",
+			Address:   planet.NewListenAddress(),
 			StaticDir: filepath.Join(developmentRoot, "web/storagenode/"),
 		},
 		Storage2: piecestore.Config{

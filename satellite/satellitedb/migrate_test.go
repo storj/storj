@@ -84,7 +84,7 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 			if err != nil {
 				var pgErr *pgconn.PgError
 				if errors.As(err, &pgErr) {
-					return fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pgErr, pgErr.Detail, pgErr.Hint)
+					return fmt.Errorf("Version %d error: %w\nDetail: %s\nHint: %s", version, pgErr, pgErr.Detail, pgErr.Hint)
 				}
 				return fmt.Errorf("Version %d error: %w", version, err)
 			}
@@ -282,6 +282,16 @@ func migrateTest(t *testing.T, connStr string) {
 
 		// keep the last version around
 		finalSchema = currentSchema
+	}
+
+	// TODO(yar): remove this exception on adding migration to remove `suspended` column
+	nodes, ok := finalSchema.FindTable("nodes")
+	if ok {
+		nodes.RemoveColumn("suspended")
+	}
+	reputations, ok := finalSchema.FindTable("reputations")
+	if ok {
+		reputations.RemoveColumn("suspended")
 	}
 
 	// verify that we also match the dbx version

@@ -127,7 +127,6 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 		TotalAuditCount:             res.TotalAuditCount,
 		VettedAt:                    res.VettedAt,
 		Disqualified:                res.Disqualified,
-		Suspended:                   res.Suspended,
 		UnknownAuditSuspended:       res.UnknownAuditSuspended,
 		OfflineSuspended:            res.OfflineSuspended,
 		UnderReview:                 res.UnderReview,

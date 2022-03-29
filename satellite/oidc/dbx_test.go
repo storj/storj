@@ -109,6 +109,14 @@ func TestOAuthTokens(t *testing.T) {
 				CreatedAt: start,
 				ExpiresAt: start.Add(time.Hour),
 			},
+			{
+				ClientID:  clientID,
+				UserID:    userID,
+				Kind:      oidc.KindAccountManagementTokenV0,
+				Token:     "testToken",
+				CreatedAt: start,
+				ExpiresAt: start.Add(time.Hour),
+			},
 		}
 
 		for _, token := range allTokens {
@@ -127,11 +135,19 @@ func TestOAuthTokens(t *testing.T) {
 		}{
 			{oidc.KindAccessToken, "expired", sql.ErrNoRows},
 			{oidc.KindRefreshToken, "valid", nil},
+			{oidc.KindAccountManagementTokenV0, "testToken", nil},
 		}
 
 		for _, testCase := range testCases {
 			_, err := tokens.Get(ctx, testCase.kind, testCase.token)
 			require.Equal(t, testCase.err, err)
+			if testCase.kind == oidc.KindAccountManagementTokenV0 {
+				err = tokens.RevokeAccountManagementTokenV0(ctx, testCase.token)
+				require.NoError(t, err)
+				token, err := tokens.Get(ctx, testCase.kind, testCase.token)
+				require.Equal(t, sql.ErrNoRows, err)
+				require.True(t, token.ExpiresAt.IsZero())
+			}
 		}
 	})
 }

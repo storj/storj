@@ -24,6 +24,7 @@ func TestBasic(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
+				config.Admin.StaticDir = "ui/build"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -32,7 +33,7 @@ func TestBasic(t *testing.T) {
 		baseURL := "http://" + address.String()
 
 		t.Run("UI", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/.gitignore", nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/.keep", nil)
 			require.NoError(t, err)
 
 			response, err := http.DefaultClient.Do(req)
@@ -42,7 +43,7 @@ func TestBasic(t *testing.T) {
 
 			content, err := ioutil.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
-			require.NotEmpty(t, content)
+			require.Empty(t, content)
 			require.NoError(t, err)
 		})
 

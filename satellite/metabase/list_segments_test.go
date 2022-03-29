@@ -279,7 +279,7 @@ func TestListSegments(t *testing.T) {
 					Run(ctx, t, db, originalObjectStream, numberOfSegments)
 
 				copyStream := metabasetest.RandObjectStream()
-				_, copySegments := metabasetest.CreateObjectCopy{
+				_, _, copySegments := metabasetest.CreateObjectCopy{
 					OriginalObject:   originalObject,
 					CopyObjectStream: &copyStream,
 				}.Run(ctx, t, db)

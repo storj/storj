@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/accountmanagementapikeys"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc"
@@ -144,7 +145,8 @@ type Config struct {
 
 	Payments paymentsconfig.Config
 
-	Console consoleweb.Config
+	AccountManagementAPIKeys accountmanagementapikeys.Config
+	Console                  consoleweb.Config
 
 	Version version_checker.Config
 

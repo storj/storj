@@ -30,6 +30,13 @@ type APIKeys interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// AccountManagementAPIKeys is an interface for account management api key operations.
+type AccountManagementAPIKeys interface {
+	Create(ctx context.Context, userID uuid.UUID, expiration time.Duration) (apiKey string, expiresAt time.Time, err error)
+	GetUserFromKey(ctx context.Context, apiKey string) (userID uuid.UUID, err error)
+	Revoke(ctx context.Context, apiKey string) (err error)
+}
+
 // APIKeyInfo describing api key model in the database.
 type APIKeyInfo struct {
 	ID        uuid.UUID `json:"id"`

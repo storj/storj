@@ -7,12 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	pgxerrcode "github.com/jackc/pgerrcode"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/txutil"
 	"storj.io/private/tagsql"
@@ -113,7 +114,7 @@ type FinishCopyObject struct {
 
 	OverrideMetadata             bool
 	NewEncryptedMetadata         []byte
-	NewEncryptedMetadataKeyNonce []byte
+	NewEncryptedMetadataKeyNonce storj.Nonce
 	NewEncryptedMetadataKey      []byte
 
 	NewSegmentKeys []EncryptedKeyAndNonce
@@ -128,6 +129,8 @@ func (finishCopy FinishCopyObject) Verify() error {
 	switch {
 	case len(finishCopy.NewBucket) == 0:
 		return ErrInvalidRequest.New("NewBucket is missing")
+	case finishCopy.NewStreamID.IsZero():
+		return ErrInvalidRequest.New("NewStreamID is missing")
 	case finishCopy.ObjectStream.StreamID == finishCopy.NewStreamID:
 		return ErrInvalidRequest.New("StreamIDs are identical")
 	case finishCopy.ObjectKey == finishCopy.NewEncryptedObjectKey:
@@ -137,25 +140,26 @@ func (finishCopy FinishCopyObject) Verify() error {
 	}
 
 	if finishCopy.OverrideMetadata {
-		if finishCopy.NewEncryptedMetadata == nil && (finishCopy.NewEncryptedMetadataKeyNonce != nil || finishCopy.NewEncryptedMetadataKey != nil) {
+		if finishCopy.NewEncryptedMetadata == nil && (!finishCopy.NewEncryptedMetadataKeyNonce.IsZero() || finishCopy.NewEncryptedMetadataKey != nil) {
 			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-		} else if finishCopy.NewEncryptedMetadata != nil && (finishCopy.NewEncryptedMetadataKeyNonce == nil || finishCopy.NewEncryptedMetadataKey == nil) {
+		} else if finishCopy.NewEncryptedMetadata != nil && (finishCopy.NewEncryptedMetadataKeyNonce.IsZero() || finishCopy.NewEncryptedMetadataKey == nil) {
 			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 		}
-	} else {
-		switch {
-		case len(finishCopy.NewEncryptedMetadataKeyNonce) == 0:
-			return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
-		case len(finishCopy.NewEncryptedMetadataKey) == 0:
-			return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
-		}
 	}
+	// TODO disable temporary until uplink is fixed
+	// else {
+	// switch {
+	// case finishCopy.NewEncryptedMetadataKeyNonce.IsZero() && len(finishCopy.NewEncryptedMetadataKey) != 0:
+	// 	return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
+	// case len(finishCopy.NewEncryptedMetadataKey) == 0 && !finishCopy.NewEncryptedMetadataKeyNonce.IsZero():
+	// 	return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
+	// }
+	// }
 
 	return nil
 }
 
 // FinishCopyObject accepts new encryption keys for copied object and insert the corresponding new object ObjectKey and segments EncryptedKey.
-// TODO should be in one transaction.
 // TODO handle the case when the source and destination encrypted object keys are the same.
 func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -164,45 +168,84 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, err
 	}
 
-	originalObject, err := db.GetObjectExactVersion(ctx, GetObjectExactVersion{
-		opts.Version,
-		opts.Location(),
-	})
+	originalObject := Object{}
+
+	var ancestorStreamIDBytes []byte
+	err = db.db.QueryRowContext(ctx, `
+		SELECT
+			objects.stream_id,
+			expires_at,
+			segment_count,
+			encrypted_metadata,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption,
+			segment_copies.ancestor_stream_id
+		FROM objects
+		LEFT JOIN segment_copies ON objects.stream_id = segment_copies.stream_id
+		WHERE
+			project_id   = $1 AND
+			bucket_name  = $2 AND
+			object_key   = $3 AND
+			version      = $4 AND
+			status       = `+committedStatus,
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
+		Scan(
+			&originalObject.StreamID,
+			&originalObject.ExpiresAt,
+			&originalObject.SegmentCount,
+			&originalObject.EncryptedMetadata,
+			&originalObject.TotalPlainSize, &originalObject.TotalEncryptedSize, &originalObject.FixedSegmentSize,
+			encryptionParameters{&originalObject.Encryption},
+			&ancestorStreamIDBytes,
+		)
 	if err != nil {
-		return Object{}, errs.Wrap(err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Object{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return Object{}, Error.New("unable to query object status: %w", err)
 	}
+	originalObject.BucketName = opts.BucketName
+	originalObject.ProjectID = opts.ProjectID
+	originalObject.Version = opts.Version
+	originalObject.Status = Committed
 
 	if int(originalObject.SegmentCount) != len(opts.NewSegmentKeys) {
 		return Object{}, ErrInvalidRequest.New("wrong amount of segments keys received (received %d, need %d)", originalObject.SegmentCount, len(opts.NewSegmentKeys))
 	}
 
-	var newSegmentKeys struct {
+	var newSegments struct {
 		Positions          []int64
 		EncryptedKeys      [][]byte
 		EncryptedKeyNonces [][]byte
 	}
 
 	for _, u := range opts.NewSegmentKeys {
-		newSegmentKeys.EncryptedKeys = append(newSegmentKeys.EncryptedKeys, u.EncryptedKey)
-		newSegmentKeys.EncryptedKeyNonces = append(newSegmentKeys.EncryptedKeyNonces, u.EncryptedKeyNonce)
-		newSegmentKeys.Positions = append(newSegmentKeys.Positions, int64(u.Position.Encode()))
+		newSegments.EncryptedKeys = append(newSegments.EncryptedKeys, u.EncryptedKey)
+		newSegments.EncryptedKeyNonces = append(newSegments.EncryptedKeyNonces, u.EncryptedKeyNonce)
+		newSegments.Positions = append(newSegments.Positions, int64(u.Position.Encode()))
 	}
 
-	segments := make([]Segment, originalObject.SegmentCount)
 	positions := make([]int64, originalObject.SegmentCount)
 
+	rootPieceIDs := make([][]byte, originalObject.SegmentCount)
+
+	expiresAts := make([]*time.Time, originalObject.SegmentCount)
+	encryptedSizes := make([]int32, originalObject.SegmentCount)
+	plainSizes := make([]int32, originalObject.SegmentCount)
+	plainOffsets := make([]int64, originalObject.SegmentCount)
+	inlineDatas := make([][]byte, originalObject.SegmentCount)
+
+	redundancySchemes := make([]int64, originalObject.SegmentCount)
 	// TODO: there are probably columns that we can skip
 	// maybe it's possible to have the select and the insert in one query
 	err = withRows(db.db.QueryContext(ctx, `
 			SELECT
 				position,
-				expires_at, repaired_at,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
+				expires_at,
+				root_piece_id,
 				encrypted_size, plain_offset, plain_size,
-				encrypted_etag,
 				redundancy,
-				inline_data,
-				placement
+				inline_data
 			FROM segments
 			WHERE stream_id = $1
 			ORDER BY position ASC
@@ -211,19 +254,16 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		index := 0
 		for rows.Next() {
 			err = rows.Scan(
-				&segments[index].Position,
-				&segments[index].ExpiresAt, &segments[index].RepairedAt,
-				&segments[index].RootPieceID, &segments[index].EncryptedKeyNonce, &segments[index].EncryptedKey,
-				&segments[index].EncryptedSize, &segments[index].PlainOffset, &segments[index].PlainSize,
-				&segments[index].EncryptedETag,
-				redundancyScheme{&segments[index].Redundancy},
-				&segments[index].InlineData,
-				&segments[index].Placement,
+				&positions[index],
+				&expiresAts[index],
+				&rootPieceIDs[index],
+				&encryptedSizes[index], &plainOffsets[index], &plainSizes[index],
+				&redundancySchemes[index],
+				&inlineDatas[index],
 			)
 			if err != nil {
 				return err
 			}
-			positions[index] = int64(segments[index].Position.Encode())
 			index++
 		}
 
@@ -236,9 +276,13 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, Error.New("unable to copy object: %w", err)
 	}
 
-	for index := range segments {
-		if newSegmentKeys.Positions[index] != int64(segments[index].Position.Encode()) {
-			return Object{}, Error.New("missing new segment keys for segment %d", int64(segments[index].Position.Encode()))
+	onlyInlineSegments := true
+	for index := range positions {
+		if newSegments.Positions[index] != positions[index] {
+			return Object{}, Error.New("missing new segment keys for segment %d", positions[index])
+		}
+		if onlyInlineSegments && (encryptedSizes[index] > 0) && len(inlineDatas[index]) == 0 {
+			onlyInlineSegments = false
 		}
 	}
 
@@ -247,9 +291,10 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		copyMetadata = opts.NewEncryptedMetadata
 	}
 
+	copyObject := originalObject
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		// TODO we need to handle metadata correctly (copy from original object or replace)
-		_, err = db.db.ExecContext(ctx, `
+		row := db.db.QueryRowContext(ctx, `
 			INSERT INTO objects (
 				project_id, bucket_name, object_key, version, stream_id,
 				expires_at, status, segment_count,
@@ -263,13 +308,14 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 				$8,
 				$9, $10, $11,
 				$12, $13, $14, null
-			)`,
+			) RETURNING created_at`,
 			opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, opts.Version, opts.NewStreamID,
 			originalObject.ExpiresAt, originalObject.SegmentCount,
 			encryptionParameters{&originalObject.Encryption},
 			copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
 			originalObject.TotalPlainSize, originalObject.TotalEncryptedSize, originalObject.FixedSegmentSize,
 		)
+		err = row.Scan(&copyObject.CreatedAt)
 		if err != nil {
 			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 				return ErrObjectAlreadyExists.New("")
@@ -277,61 +323,69 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return Error.New("unable to copy object: %w", err)
 		}
 
-		// TODO: optimize - we should do a bulk insert
-		for index, originalSegment := range segments {
-			_, err = db.db.ExecContext(ctx, `
-				INSERT INTO segments (
-					stream_id, position,
-					encrypted_key_nonce, encrypted_key,
-					root_piece_id, -- non-null constraint
-					redundancy,
-					encrypted_size, plain_offset, plain_size,
-					inline_data
-				) VALUES (
-					$1, $2,
-					$3, $4,
-					$5,
-					$6,
-					$7, $8,	$9,
-					$10
-				)
-			`, opts.NewStreamID, originalSegment.Position.Encode(),
-				newSegmentKeys.EncryptedKeyNonces[index], newSegmentKeys.EncryptedKeys[index],
-				originalSegment.RootPieceID,
-				redundancyScheme{&originalSegment.Redundancy},
-				originalSegment.EncryptedSize, originalSegment.PlainOffset, originalSegment.PlainSize,
-				originalSegment.InlineData,
-			)
-			if err != nil {
-				return Error.New("unable to copy segment: %w", err)
-			}
+		_, err = db.db.ExecContext(ctx, `
+		INSERT INTO segments (
+			stream_id, position,
+			encrypted_key_nonce, encrypted_key,
+			root_piece_id,
+			redundancy,
+			encrypted_size, plain_offset, plain_size,
+			inline_data
+		) SELECT
+			$1, UNNEST($2::INT8[]),
+			UNNEST($3::BYTEA[]), UNNEST($4::BYTEA[]),
+			UNNEST($5::BYTEA[]),
+			UNNEST($6::INT8[]),
+			UNNEST($7::INT4[]), UNNEST($8::INT8[]),	UNNEST($9::INT4[]),
+			UNNEST($10::BYTEA[])
+		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions),
+			pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
+			pgutil.ByteaArray(rootPieceIDs),
+			pgutil.Int8Array(redundancySchemes),
+			pgutil.Int4Array(encryptedSizes), pgutil.Int8Array(plainOffsets), pgutil.Int4Array(plainSizes),
+			pgutil.ByteaArray(inlineDatas),
+		)
+		if err != nil {
+			return Error.New("unable to copy segments: %w", err)
 		}
 
-		// TODO : we need flatten references
+		if onlyInlineSegments {
+			return nil
+		}
+		var ancestorStreamID uuid.UUID
+		if len(ancestorStreamIDBytes) != 0 {
+			ancestorStreamID, err = uuid.FromBytes(ancestorStreamIDBytes)
+			if err != nil {
+				return err
+			}
+		} else {
+			ancestorStreamID = originalObject.StreamID
+		}
 		_, err = db.db.ExecContext(ctx, `
 			INSERT INTO segment_copies (
 				stream_id, ancestor_stream_id
 			) VALUES (
 				$1, $2
 			)
-		`, opts.NewStreamID, originalObject.StreamID)
+		`, opts.NewStreamID, ancestorStreamID)
 		if err != nil {
 			return Error.New("unable to copy object: %w", err)
 		}
-
 		return nil
 	})
+
 	if err != nil {
 		return Object{}, err
 	}
 
-	copyObject := originalObject
 	copyObject.StreamID = opts.NewStreamID
 	copyObject.BucketName = opts.NewBucket
 	copyObject.ObjectKey = opts.NewEncryptedObjectKey
 	copyObject.EncryptedMetadata = copyMetadata
 	copyObject.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
-	copyObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce
+	if !opts.NewEncryptedMetadataKeyNonce.IsZero() {
+		copyObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
+	}
 
 	mon.Meter("finish_copy_object").Mark(1)
 

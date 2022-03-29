@@ -1300,7 +1300,15 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 		ObjectKey:  object,
 	}
 
-	result, err := endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+	var result metabase.DeleteObjectResult
+	if endpoint.config.ServerSideCopy {
+		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+			ObjectLocation: req,
+			Version:        metabase.DefaultVersion,
+		})
+	} else {
+		result, err = endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1328,9 +1336,17 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 ) (deletedObjects []*pb.Object, err error) {
 	defer mon.Task()(&ctx, location.ProjectID.String(), location.BucketName, location.ObjectKey)(&err)
 
-	result, err := endpoint.metabase.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
-		ObjectLocation: location,
-	})
+	var result metabase.DeleteObjectResult
+	if endpoint.config.ServerSideCopy {
+		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+			ObjectLocation: location,
+			Version:        metabase.DefaultVersion,
+		})
+	} else {
+		result, err = endpoint.metabase.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
+			ObjectLocation: location,
+		})
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1644,7 +1660,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
 		NewBucket:                    string(req.NewBucket),
 		NewEncryptedObjectKey:        req.NewEncryptedObjectKey,
-		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce[:],
+		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
 	})
 	if err != nil {
@@ -1878,11 +1894,6 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	var newNonce []byte
-	if !req.NewEncryptedMetadataKeyNonce.IsZero() {
-		newNonce = req.NewEncryptedMetadataKeyNonce[:]
-	}
-
 	object, err := endpoint.metabase.FinishCopyObject(ctx, metabase.FinishCopyObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -1897,7 +1908,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		NewEncryptedObjectKey:        metabase.ObjectKey(req.NewEncryptedObjectKey),
 		OverrideMetadata:             req.OverrideMetadata,
 		NewEncryptedMetadata:         req.NewEncryptedMetadata,
-		NewEncryptedMetadataKeyNonce: newNonce,
+		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
 	})
 	if err != nil {

@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/blang/semver"
@@ -19,7 +20,7 @@ const uplinkProduct = "uplink"
 
 var knownUserAgents = []string{
 	"rclone", "gateway-st", "gateway-mt", "linksharing", "uplink-cli", "transfer-sh", "filezilla", "duplicati",
-	"comet", "orbiter",
+	"comet", "orbiter", "uplink-php", "nextcloud",
 }
 
 type versionOccurrence struct {
@@ -48,23 +49,23 @@ func (vc *versionCollector) collect(useragentRaw []byte, method string) error {
 		return errs.New("invalid user agent %q: %v", string(useragentRaw), err)
 	}
 
-	foundProduct := false
+	// foundProducts tracks potentially multiple noteworthy products names from the user-agent
+	var foundProducts []string
 	for _, entry := range entries {
-		if strings.EqualFold(entry.Product, uplinkProduct) {
-			vo := versionOccurrence{
-				Product: entry.Product,
-				Version: entry.Version,
-				Method:  method,
-			}
-
+		product := strings.ToLower(entry.Product)
+		if product == uplinkProduct {
+			vo := versionOccurrence{Product: product, Version: entry.Version, Method: method}
 			vc.sendUplinkMetric(vo)
-		} else if knownUserAgent(entry.Product) {
-			// for known user agents monitor only product
-			mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", strings.ToLower(entry.Product))).Mark(1)
-			foundProduct = true
+		} else if contains(knownUserAgents, product) && !contains(foundProducts, product) {
+			foundProducts = append(foundProducts, product)
 		}
 	}
-	if !foundProduct { // lets keep also general value for other user agents
+
+	if len(foundProducts) > 0 {
+		sort.Strings(foundProducts)
+		// concatenate all known products for this metric, EG "gateway-mt + rclone"
+		mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", strings.Join(foundProducts, " + "))).Mark(1)
+	} else { // lets keep also general value for user agents with no known product
 		mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", "other")).Mark(1)
 	}
 
@@ -95,9 +96,10 @@ func (vc *versionCollector) sendUplinkMetric(vo versionOccurrence) {
 	mon.Meter("uplink_versions", monkit.NewSeriesTag("version", vo.Version), monkit.NewSeriesTag("method", vo.Method)).Mark(1)
 }
 
-func knownUserAgent(userAgent string) bool {
-	for _, knownUserAgent := range knownUserAgents {
-		if strings.EqualFold(userAgent, knownUserAgent) {
+// contains returns true if the given string is contained in the given slice.
+func contains(slice []string, testValue string) bool {
+	for _, sliceValue := range slice {
+		if sliceValue == testValue {
 			return true
 		}
 	}

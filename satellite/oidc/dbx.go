@@ -180,3 +180,12 @@ func (o *tokensDBX) Create(ctx context.Context, token OAuthToken) error {
 
 	return err
 }
+
+// RevokeAccountManagementTokenV0 revokes a v0 account management token by setting its expires_at time to zero.
+func (o *tokensDBX) RevokeAccountManagementTokenV0(ctx context.Context, token string) error {
+	return o.db.UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx, dbx.OauthToken_Token([]byte(token)),
+		dbx.OauthToken_Kind(int(KindAccountManagementTokenV0)),
+		dbx.OauthToken_Update_Fields{
+			ExpiresAt: dbx.OauthToken_ExpiresAt(time.Time{}),
+		})
+}

@@ -1,3 +1,6 @@
+# expiration to use if user does not specify an account management api key expiration
+# account-management-api-keys.default-expiration: 720h0m0s
+
 # admin peer http listening address
 # admin.address: ""
 
@@ -210,6 +213,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: false
+
+# how long oauth access tokens are issued for
+# console.oauth-access-token-expiry: 24h0m0s
+
+# how long oauth authorization codes are issued for
+# console.oauth-code-expiry: 10m0s
+
+# how long oauth refresh tokens are issued for
+# console.oauth-refresh-token-expiry: 720h0m0s
 
 # enable open registration
 # console.open-registration-enabled: false
@@ -659,7 +671,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.provider: ""
 
 # price user should pay for each segment stored in network per month
-# payments.segment-price: "0"
+# payments.segment-price: "0.0000088"
 
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"
