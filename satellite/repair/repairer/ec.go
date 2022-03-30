@@ -134,7 +134,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 				pieceReadCloser, _, _, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, "", pieceSize)
 				// if piecestore dial with last ip:port failed try again with node address
-				if triedLastIPPort && piecestore.Error.Has(err) {
+				if triedLastIPPort && piecestore.Error.Has(err) && !piecestore.CloseError.Has(err) {
 					if pieceReadCloser != nil {
 						_ = pieceReadCloser.Close()
 					}

@@ -134,6 +134,10 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
+                        sh 'check-mod-tidy -mod .build/go.mod.orig'
+                        dir("testsuite") {
+                            sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
+                        }
                         sh 'check-copyright'
                         sh 'check-imports -race ./...'
                         sh 'check-peer-constraints -race'
@@ -142,7 +146,6 @@ pipeline {
                         sh 'check-errs ./...'
                         sh 'staticcheck ./...'
                         sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                        sh 'check-mod-tidy -mod .build/go.mod.orig'
                         sh 'make check-monitoring'
                         sh 'make test-wasm-size'
 
@@ -155,7 +158,6 @@ pipeline {
                             sh 'check-errs ./...'
                             sh 'staticcheck ./...'
                             sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                            sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
                         }
 
                         dir("satellite/admin/ui") {
