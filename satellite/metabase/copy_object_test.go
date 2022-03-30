@@ -213,42 +213,57 @@ func TestFinishCopyObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		// TODO disable temporary until uplink is fixed
-		// t.Run("invalid EncryptedMetadataKeyNonce", func(t *testing.T) {
-		// 	defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+		t.Run("invalid EncryptedMetadataKeyNonce", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-		// 	metabasetest.FinishCopyObject{
-		// 		Opts: metabase.FinishCopyObject{
-		// 			NewBucket:               newBucketName,
-		// 			ObjectStream:            obj,
-		// 			NewEncryptedObjectKey:   metabasetest.RandObjectKey(),
-		// 			NewStreamID:             newStreamID,
-		// 			NewEncryptedMetadataKey: []byte{0},
-		// 		},
-		// 		ErrClass: &metabase.ErrInvalidRequest,
-		// 		ErrText:  "EncryptedMetadataKeyNonce is missing",
-		// 	}.Check(ctx, t, db)
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					NewBucket:               newBucketName,
+					ObjectStream:            obj,
+					NewEncryptedObjectKey:   metabasetest.RandObjectKey(),
+					NewStreamID:             newStreamID,
+					NewEncryptedMetadataKey: []byte{0},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataKeyNonce is missing",
+			}.Check(ctx, t, db)
 
-		// 	metabasetest.Verify{}.Check(ctx, t, db)
-		// })
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 
-		// t.Run("invalid EncryptedMetadataKey", func(t *testing.T) {
-		// 	defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+		t.Run("invalid EncryptedMetadataKey", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-		// 	metabasetest.FinishCopyObject{
-		// 		Opts: metabase.FinishCopyObject{
-		// 			NewBucket:                    newBucketName,
-		// 			ObjectStream:                 obj,
-		// 			NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
-		// 			NewEncryptedMetadataKeyNonce: testrand.Nonce(),
-		// 			NewStreamID:                  newStreamID,
-		// 		},
-		// 		ErrClass: &metabase.ErrInvalidRequest,
-		// 		ErrText:  "EncryptedMetadataKey is missing",
-		// 	}.Check(ctx, t, db)
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					NewBucket:                    newBucketName,
+					ObjectStream:                 obj,
+					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
+					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+					NewStreamID:                  newStreamID,
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataKey is missing",
+			}.Check(ctx, t, db)
 
-		// 	metabasetest.Verify{}.Check(ctx, t, db)
-		// })
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("empty EncryptedMetadataKey and EncryptedMetadataKeyNonce", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					NewBucket:             newBucketName,
+					ObjectStream:          obj,
+					NewEncryptedObjectKey: metabasetest.RandObjectKey(),
+					NewStreamID:           newStreamID,
+				},
+				// validation pass without EncryptedMetadataKey and EncryptedMetadataKeyNonce
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
+			}.Check(ctx, t, db)
+		})
 
 		t.Run("empty EncryptedMetadata with OverrideMetadata=true", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)

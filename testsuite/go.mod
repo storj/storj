@@ -220,5 +220,5 @@ require (
 	storj.io/gateway v1.4.1 // indirect
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a // indirect
 	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a // indirect
-	storj.io/uplink v1.8.2-0.20220328201716-2ca4df442232 // indirect
+	storj.io/uplink v1.8.2-0.20220329143354-9065e58fc5df // indirect
 )

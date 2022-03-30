@@ -145,16 +145,14 @@ func (finishCopy FinishCopyObject) Verify() error {
 		} else if finishCopy.NewEncryptedMetadata != nil && (finishCopy.NewEncryptedMetadataKeyNonce.IsZero() || finishCopy.NewEncryptedMetadataKey == nil) {
 			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 		}
+	} else {
+		switch {
+		case finishCopy.NewEncryptedMetadataKeyNonce.IsZero() && len(finishCopy.NewEncryptedMetadataKey) != 0:
+			return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
+		case len(finishCopy.NewEncryptedMetadataKey) == 0 && !finishCopy.NewEncryptedMetadataKeyNonce.IsZero():
+			return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
+		}
 	}
-	// TODO disable temporary until uplink is fixed
-	// else {
-	// switch {
-	// case finishCopy.NewEncryptedMetadataKeyNonce.IsZero() && len(finishCopy.NewEncryptedMetadataKey) != 0:
-	// 	return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
-	// case len(finishCopy.NewEncryptedMetadataKey) == 0 && !finishCopy.NewEncryptedMetadataKeyNonce.IsZero():
-	// 	return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
-	// }
-	// }
 
 	return nil
 }
