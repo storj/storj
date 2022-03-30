@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
@@ -111,7 +113,7 @@ func (a *API) generateGo() ([]byte, error) {
 		p(")")
 		p("")
 
-		p("var Err%sAPI = errs.Class(\"%s %s api\")", strings.Title(group.Prefix), a.PackageName, group.Prefix)
+		p("var Err%sAPI = errs.Class(\"%s %s api\")", cases.Title(language.Und).String(group.Prefix), a.PackageName, group.Prefix)
 		p("")
 
 		p("type %sService interface {", group.Name)
@@ -223,7 +225,7 @@ func (a *API) generateGo() ([]byte, error) {
 
 			p("err = json.NewEncoder(w).Encode(retVal)")
 			p("if err != nil {")
-			p("h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))", endpoint.MethodName, strings.Title(group.Prefix))
+			p("h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))", endpoint.MethodName, cases.Title(language.Und).String(group.Prefix))
 			p("}")
 			p("}")
 			p("")

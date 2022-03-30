@@ -65,12 +65,12 @@ func (ex *external) Setup(f clingy.Flags) {
 
 	ex.dirs.current = f.Flag(
 		"config-dir", "Directory that stores the configuration",
-		appDir(false, "storj", "uplink"),
+		appDir(false, defaultUplinkSubdir()...),
 	).(string)
 
 	ex.dirs.legacy = f.Flag(
 		"legacy-config-dir", "Directory that stores legacy configuration. Only used during migration",
-		appDir(true, "storj", "uplink"),
+		appDir(true, defaultUplinkSubdir()...),
 		clingy.Advanced,
 	).(string)
 
@@ -187,17 +187,19 @@ func (ex *external) PromptSecret(ctx clingy.Context, prompt string) (secret stri
 	}
 }
 
+func defaultUplinkSubdir() []string {
+	switch runtime.GOOS {
+	case "windows", "darwin":
+		return []string{"Storj", "Uplink"}
+	default:
+		return []string{"storj", "uplink"}
+	}
+}
+
 // appDir returns best base directory for the currently running operating system. It
 // has a legacy bool to have it return the same values that storj.io/common/fpath.ApplicationDir
 // would have returned.
 func appDir(legacy bool, subdir ...string) string {
-	for i := range subdir {
-		if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-			subdir[i] = strings.Title(subdir[i])
-		} else {
-			subdir[i] = strings.ToLower(subdir[i])
-		}
-	}
 	var appdir string
 	home := os.Getenv("HOME")
 

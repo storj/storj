@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -125,5 +126,46 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 }
 
 func kebabToPascal(str string) string {
-	return strings.ReplaceAll(strings.Title(str), "-", "")
+	return strings.ReplaceAll(stringsTitle(str), "-", "")
+}
+
+func stringsTitle(s string) string {
+	// strings.Title and cases.Title(language.Und) do different things.
+	// For example:
+	//   s := `StoragenodeUpdater`
+	//   strings.Title(s) == `StoragenodeUpdater`
+	//   cases.Title(language.Und).String(s) == `Storagenodeupdater`
+
+	// This reimplements strings.Title to bypass Deprecated notice.
+	prev := ' '
+	return strings.Map(
+		func(r rune) rune {
+			if isSeparator(prev) {
+				prev = r
+				return unicode.ToTitle(r)
+			}
+			prev = r
+			return r
+		}, s)
+}
+
+func isSeparator(r rune) bool {
+	// ASCII alphanumerics and underscore are not separators
+	if r <= 0x7F {
+		switch {
+		case '0' <= r && r <= '9':
+			return false
+		case 'a' <= r && r <= 'z':
+			return false
+		case 'A' <= r && r <= 'Z':
+			return false
+		case r == '_':
+			return false
+		}
+		return true
+	}
+	if unicode.IsLetter(r) || unicode.IsDigit(r) {
+		return false
+	}
+	return unicode.IsSpace(r)
 }

@@ -46,11 +46,9 @@ func (service *Service) GetOrCreate(ctx context.Context, userID string) (_ *Toke
 		return nil, err
 	}
 
-	if existingGroup != nil && len(existingGroup) > 0 {
-		for _, authorization := range existingGroup {
-			if authorization.Claim == nil {
-				return &authorization.Token, nil
-			}
+	for _, authorization := range existingGroup {
+		if authorization.Claim == nil {
+			return &authorization.Token, nil
 		}
 	}
 
