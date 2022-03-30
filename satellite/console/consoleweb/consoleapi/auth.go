@@ -186,7 +186,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	// trim leading and trailing spaces of email address.
 	registerData.Email = strings.TrimSpace(registerData.Email)
 
-	isValidEmail := validateEmail(registerData.Email)
+	isValidEmail := ValidateEmail(registerData.Email)
 	if !isValidEmail {
 		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
 		return
@@ -340,8 +340,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// validateEmail validates email to have correct form and syntax.
-func validateEmail(email string) bool {
+// ValidateEmail validates email to have correct form and syntax.
+func ValidateEmail(email string) bool {
 	// This regular expression was built according to RFC 5322 and then extended to include international characters.
 	re := regexp.MustCompile(`^(?:[a-z0-9\p{L}!#$%&'*+/=?^_{|}~\x60-]+(?:\.[a-z0-9\p{L}!#$%&'*+/=?^_{|}~\x60-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9\p{L}](?:[a-z0-9\p{L}-]*[a-z0-9\p{L}])?\.)+[a-z0-9\p{L}](?:[a-z\p{L}]*[a-z\p{L}])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9\p{L}-]*[a-z0-9\p{L}]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$`)
 	match := re.MatchString(email)

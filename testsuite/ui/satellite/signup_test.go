@@ -67,47 +67,15 @@ func TestSignup_Content(t *testing.T) {
 		page.MustElement("[aria-roledescription=password] input").MustInput(password)
 		page.MustElement("[aria-roledescription=retype-password] input").MustInput(password)
 		page.MustElement(".checkmark").MustClick()
+		invalidEmailAddress := "t@t@t.test"
+		page.MustElement("[aria-roledescription=email] input").MustInput(invalidEmailAddress)
+		page.Keyboard.MustPress(input.Enter)
+		waitVueTick(page)
 
-		invalidEmailAddresses := []string{
-			"t@t@t.t",
-			"test",
-			"t@!t.t1",
-			"t@#t.t",
-			"t@$t.t",
-			"t%t.t",
-			"t@^t.t",
-			"t@&t.t",
-			"t@*t.t",
-			"t@(t.t",
-			"t@)t.t",
-			"t@=t.t",
-			"t@[t.t",
-			"t@]t.t",
-			"t@{t.t",
-			"t@}t.t",
-			"t@/t.t",
-			"t@\\t.t",
-			"t@|t.t",
-			"t@:t.t",
-			"t@;t.t",
-			"t@,t.t",
-			"t@\"t.t",
-			"t@'t.t",
-			"t@<t.t",
-			"t@>t.t",
-			"t@_t.t",
-			"t@?t.t",
-		}
-		for _, e := range invalidEmailAddresses {
-			page.MustElement("[aria-roledescription=email] input").MustInput(e)
-			page.Keyboard.MustPress(input.Enter)
-			waitVueTick(page)
+		invalidEmailMessage := page.MustElement("[aria-roledescription=email] [aria-roledescription=error-text]").MustText()
+		require.Contains(t, invalidEmailMessage, "Invalid Email")
 
-			invalidEmailMessage := page.MustElement("[aria-roledescription=email] [aria-roledescription=error-text]").MustText()
-			require.Contains(t, invalidEmailMessage, "Invalid Email")
-
-			page.MustElement("[aria-roledescription=email] input").MustSelectAllText().MustInput("")
-		}
+		page.MustElement("[aria-roledescription=email] input").MustSelectAllText().MustInput("")
 
 		// User signup with no email or password
 		page.MustElement("[aria-roledescription=password] input").MustSelectAllText().MustInput("")
@@ -121,8 +89,8 @@ func TestSignup_Content(t *testing.T) {
 		require.Contains(t, invalidPasswordMessage, "Invalid Password")
 
 		validEmailAddresses := []string{
-			"тест@тест.тест ",
-			" अजअज@अज.अज",
+			"тест@тест.test ",
+			" अजअज@अज.test",
 			" test@email.test ",
 		}
 		for i, e := range validEmailAddresses {
