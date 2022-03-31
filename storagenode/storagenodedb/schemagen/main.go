@@ -1,14 +1,12 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:build ignore
-// +build ignore
-
 package main
 
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"go/format"
 	"io"
@@ -16,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -26,20 +25,40 @@ import (
 )
 
 func main() {
+	outfile := flag.String("o", "", "output file")
+	flag.Parse()
+
 	ctx := context.Background()
 	log := zap.L()
 
-	err := runSchemaGen(ctx, log)
+	out, err := runSchemaGen(ctx, log)
 	if err != nil {
+		printWithLines(os.Stderr, out)
 		fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(1)
 	}
+
+	if *outfile == "" {
+		fmt.Print(string(out))
+	} else {
+		err := os.WriteFile(*outfile, out, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v", err)
+			os.Exit(1)
+		}
+	}
 }
 
-func runSchemaGen(ctx context.Context, log *zap.Logger) (err error) {
+func printWithLines(w io.Writer, data []byte) {
+	for i, line := range strings.Split(string(data), "\n") {
+		fmt.Fprintf(w, "%3d: %s\n", i, line)
+	}
+}
+
+func runSchemaGen(ctx context.Context, log *zap.Logger) (_ []byte, err error) {
 	storagePath, err := ioutil.TempDir("", "testdb")
 	if err != nil {
-		return errs.New("Error getting test storage path: %+w", err)
+		return nil, errs.New("Error getting test storage path: %+w", err)
 	}
 	defer func() {
 		removeErr := os.RemoveAll(storagePath)
@@ -55,7 +74,7 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (err error) {
 		Pieces:  storagePath,
 	})
 	if err != nil {
-		return errs.New("Error creating new storagenode db: %+w", err)
+		return nil, errs.New("Error creating new storagenode db: %+w", err)
 	}
 	defer func() {
 		closeErr := db.Close()
@@ -66,7 +85,7 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (err error) {
 
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
-		return errs.New("Error creating tables for storagenode db: %+w", err)
+		return nil, errs.New("Error creating tables for storagenode db: %+w", err)
 	}
 
 	// get schemas
@@ -78,7 +97,7 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (err error) {
 		nextDB := dbContainer.GetDB()
 		schema, err := sqliteutil.QuerySchema(ctx, nextDB)
 		if err != nil {
-			return errs.New("Error getting schema for db: %+w", err)
+			return nil, errs.New("Error getting schema for db: %+w", err)
 		}
 		// we don't care about changes in versions table
 		schema.DropTable("versions")
@@ -119,16 +138,16 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (err error) {
 	for _, schemaName := range schemaList {
 		schema := allSchemas[schemaName]
 		(func() {
-			printf("%q: &dbschema.Schema{\n", schemaName)
+			printf("%q: {\n", schemaName)
 			defer printf("},\n")
 
-			writeErr := WriteSchemaGoStruct(&buf, schema)
+			writeErr := writeSchemaGoStruct(&buf, schema)
 			if writeErr != nil {
 				err = errs.New("Error writing schema struct: %+w", writeErr)
 			}
 		})()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -139,14 +158,13 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (err error) {
 
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
-		return errs.New("Error formatting: %+w", err)
+		return buf.Bytes(), errs.New("Error formatting: %+w", err)
 	}
-	fmt.Println(string(formatted))
 
-	return err
+	return formatted, nil
 }
 
-func WriteSchemaGoStruct(w io.Writer, schema *dbschema.Schema) (err error) {
+func writeSchemaGoStruct(w io.Writer, schema *dbschema.Schema) (err error) {
 	printf := func(format string, args ...interface{}) {
 		if err != nil {
 			return
@@ -160,7 +178,7 @@ func WriteSchemaGoStruct(w io.Writer, schema *dbschema.Schema) (err error) {
 			defer printf("},\n")
 
 			for _, table := range schema.Tables {
-				err = WriteTableGoStruct(w, table)
+				err = writeTableGoStruct(w, table)
 				if err != nil {
 					return
 				}
@@ -175,7 +193,7 @@ func WriteSchemaGoStruct(w io.Writer, schema *dbschema.Schema) (err error) {
 			defer printf("},\n")
 
 			for _, index := range schema.Indexes {
-				printf("%#v,\n", index)
+				printf("%v,\n", prettyValue(index))
 			}
 		})()
 	}
@@ -183,7 +201,7 @@ func WriteSchemaGoStruct(w io.Writer, schema *dbschema.Schema) (err error) {
 	return err
 }
 
-func WriteTableGoStruct(w io.Writer, table *dbschema.Table) (err error) {
+func writeTableGoStruct(w io.Writer, table *dbschema.Table) (err error) {
 	printf := func(format string, args ...interface{}) {
 		if err != nil {
 			return
@@ -191,7 +209,7 @@ func WriteTableGoStruct(w io.Writer, table *dbschema.Table) (err error) {
 		_, err = fmt.Fprintf(w, format, args...)
 	}
 
-	printf("&dbschema.Table{\n")
+	printf("{\n")
 	defer printf("}")
 
 	printf("Name: %q,\n", table.Name)
@@ -199,7 +217,7 @@ func WriteTableGoStruct(w io.Writer, table *dbschema.Table) (err error) {
 		printf("PrimaryKey: %#v,\n", table.PrimaryKey)
 	}
 	if table.Unique != nil {
-		printf("Unique: %#v,\n", table.Unique)
+		printf("Unique: %v,\n", prettyValue(table.Unique))
 	}
 	if len(table.Columns) > 0 {
 		(func() {
@@ -207,7 +225,7 @@ func WriteTableGoStruct(w io.Writer, table *dbschema.Table) (err error) {
 			defer printf("},\n")
 
 			for _, column := range table.Columns {
-				err = WriteColumnGoStruct(w, column)
+				err = writeColumnGoStruct(w, column)
 				if err != nil {
 					return
 				}
@@ -218,7 +236,7 @@ func WriteTableGoStruct(w io.Writer, table *dbschema.Table) (err error) {
 	return err
 }
 
-func WriteColumnGoStruct(w io.Writer, column *dbschema.Column) (err error) {
+func writeColumnGoStruct(w io.Writer, column *dbschema.Column) (err error) {
 	printf := func(format string, args ...interface{}) {
 		if err != nil {
 			return
@@ -226,7 +244,7 @@ func WriteColumnGoStruct(w io.Writer, column *dbschema.Column) (err error) {
 		_, err = fmt.Fprintf(w, format, args...)
 	}
 
-	printf("&dbschema.Column{\n")
+	printf("{\n")
 	defer printf("},\n")
 
 	printf("Name: %q,\n", column.Name)
@@ -237,4 +255,12 @@ func WriteColumnGoStruct(w io.Writer, column *dbschema.Column) (err error) {
 	}
 
 	return err
+}
+
+// prettyValue converts to string without the outer type
+// definition.
+func prettyValue(v interface{}) string {
+	s := fmt.Sprintf("%#v", v)
+	p := strings.Index(s, "{")
+	return s[p:]
 }
