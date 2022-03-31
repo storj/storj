@@ -126,6 +126,7 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	return process, nil
 }
 
+// kebabToPascal converts `alpha-beta` to `AlphaBeta`.
 func kebabToPascal(str string) string {
 	return strings.ReplaceAll(cases.Title(language.Und, cases.NoLower).String(str), "-", "")
 }
