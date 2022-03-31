@@ -68,6 +68,8 @@ export class AuthHttpApi implements UsersApi {
         const result = await response.json();
         const errMsg = result.error || 'Failed to receive authentication token';
         switch (response.status) {
+        case 400:
+            throw new ErrorBadRequest(errMsg);
         case 401:
             throw new ErrorUnauthorized(errMsg);
         case 429:
