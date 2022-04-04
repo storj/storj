@@ -455,7 +455,7 @@ export const makeFilesModule = (): FilesModule => ({
           a: FileSystemEntry | null
       ): a is FileSystemEntry => a !== null;
 
-      const iterator = items
+      const iterator = [...items]
           .map((item) =>
               "webkitGetAsEntry" in item ? item.webkitGetAsEntry() : item
           )
