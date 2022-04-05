@@ -4,12 +4,15 @@
 <template>
     <div id="app">
         <router-view />
+        <notifications group="alerts" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import Notifications from 'vue-notification'
 
+Vue.use(Notifications);
 // @vue/component
 @Component
 export default class App extends Vue {
