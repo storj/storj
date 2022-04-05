@@ -392,18 +392,18 @@ push-images: push-storagenode-images ## Push Docker images to Docker Hub (jenkin
 .PHONY: push-storagenode-images
 push-storagenode-images:
 	docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
-  	&& docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 \
-    && docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
-    && for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
-    	docker manifest create storjlabs/storagenode:$$t \
-    	storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
-    	storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 \
-    	storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
-    	&& docker manifest annotate storjlabs/storagenode:$$t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
-    	&& docker manifest annotate storjlabs/storagenode:$$t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 --os linux --arch arm --variant v5 \
-    	&& docker manifest annotate storjlabs/storagenode:$$t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 \
-    	&& docker manifest push --purge storjlabs/storagenode:$$t \
-    ; done
+	&& docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 \
+	&& docker push storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
+	&& for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
+		docker manifest create storjlabs/storagenode:$$t \
+		storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
+		storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 \
+		storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
+		&& docker manifest annotate storjlabs/storagenode:$$t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
+		&& docker manifest annotate storjlabs/storagenode:$$t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v5 --os linux --arch arm --variant v5 \
+		&& docker manifest annotate storjlabs/storagenode:$$t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 \
+		&& docker manifest push --purge storjlabs/storagenode:$$t \
+	; done
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
