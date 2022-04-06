@@ -75,7 +75,6 @@ export function newNotificationsModule(service: NotificationsService): StoreModu
             },
             [NOTIFICATIONS_ACTIONS.MARK_AS_READ]: async function ({commit}: NotificationsContext, id: string): Promise<void> {
                 await service.readSingeNotification(id);
-
                 commit(NOTIFICATIONS_MUTATIONS.MARK_AS_READ, id);
             },
             [NOTIFICATIONS_ACTIONS.READ_ALL]: async function ({commit}: NotificationsContext): Promise<void> {

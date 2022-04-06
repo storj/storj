@@ -130,7 +130,7 @@ export default class VPagination extends Vue {
             await this.onPageClickCallback(page);
         } catch (error) {
             // TODO: add notification here
-            console.error(error.message);
+            console.error(error);
             this.isLoading = false;
 
             return;
@@ -155,7 +155,7 @@ export default class VPagination extends Vue {
             await this.onPageClickCallback(this.currentPageNumber + 1);
         } catch (error) {
             // TODO: add notification here
-            console.error(error.message);
+            console.error(error);
             this.isLoading = false;
 
             return;
@@ -180,7 +180,7 @@ export default class VPagination extends Vue {
             await this.onPageClickCallback(this.currentPageNumber - 1);
         } catch (error) {
             // TODO: add notification here
-            console.error(error.message);
+            console.error(error);
             this.isLoading = false;
 
             return;

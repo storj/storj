@@ -119,7 +119,7 @@ export default class PayoutArea extends Vue {
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);

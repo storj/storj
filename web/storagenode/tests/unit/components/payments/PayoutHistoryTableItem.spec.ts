@@ -40,7 +40,7 @@ describe('PayoutHistoryTableItem', (): void => {
 
         await wrapper.find('.payout-history-item__header').trigger('click');
 
-        expect(wrapper.vm.isExpanded).toBe(true);
+        expect(wrapper.vm.$data.isExpanded).toBe(true);
         expect(wrapper).toMatchSnapshot();
     });
 

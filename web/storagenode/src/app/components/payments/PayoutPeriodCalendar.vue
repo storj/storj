@@ -110,7 +110,7 @@ export default class PayoutPeriodCalendar extends Vue {
 
             if (!isLastPeriodSelected) {
                 await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
-                console.error(error.message);
+                console.error(error);
             }
         }
 

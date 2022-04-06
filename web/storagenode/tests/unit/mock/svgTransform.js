@@ -1,17 +1,8 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-const vueJest = require('vue-jest/lib/template-compiler');
-
 module.exports = {
-    process(content) {
-        const { render } = vueJest({
-            content,
-            attrs: {
-                functional: false,
-            },
-        });
-
-        return `module.exports = { render: ${render} }`;
-    },
-};
+    process () {
+        return `module.exports = { render: function(){ return this._c("svg") } }`
+    }
+}
