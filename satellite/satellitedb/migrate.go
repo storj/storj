@@ -1860,6 +1860,24 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN login_lockout_expiration timestamp with time zone;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "make zero project related columns to have default values",
+				Version:     193,
+				Action: migrate.SQL{
+					`UPDATE users SET
+						project_bandwidth_limit = 150000000000,
+						project_storage_limit = 150000000000,
+						project_segment_limit = 150000,
+						project_limit = 1
+					WHERE (
+						project_bandwidth_limit = 0 AND
+						project_storage_limit = 0 AND
+						project_limit = 0 AND
+						paid_tier = false
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
