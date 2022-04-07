@@ -1840,6 +1840,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						WHERE owner_id IN (SELECT id FROM users WHERE paid_tier = true);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "make _numeric fields not null (all are now populated)",
+				Version:     191,
+				Action: migrate.SQL{
+					`ALTER TABLE coinpayments_transactions ALTER COLUMN amount_numeric SET NOT NULL;`,
+					`ALTER TABLE coinpayments_transactions ALTER COLUMN received_numeric SET NOT NULL;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates ALTER COLUMN rate_numeric SET NOT NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

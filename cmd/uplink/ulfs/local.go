@@ -59,6 +59,11 @@ func (l *Local) Move(ctx context.Context, oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
 }
 
+// Copy copies file to provided path.
+func (l *Local) Copy(ctx context.Context, oldpath, newpath string) error {
+	return errs.New("not supported")
+}
+
 // Remove unlinks the file at the path. It is not an error if the file does not exist.
 func (l *Local) Remove(ctx context.Context, path string, opts *RemoveOptions) error {
 	if opts.isPending() {

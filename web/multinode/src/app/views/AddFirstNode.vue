@@ -103,7 +103,7 @@ export default class AddFirstNode extends Vue {
         try {
             await this.$store.dispatch('nodes/add', this.nodeToAdd);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
             this.isLoading = false;
         }
 

@@ -72,7 +72,7 @@ func TestAuth_Register(t *testing.T) {
 				}{
 					FullName:        "testuser" + strconv.Itoa(i),
 					ShortName:       "test",
-					Email:           "user@test" + strconv.Itoa(i) + ".com",
+					Email:           "user@test" + strconv.Itoa(i) + ".test",
 					Partner:         test.Partner,
 					Password:        "abc123",
 					IsProfessional:  true,
@@ -797,4 +797,42 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 		require.Equal(t, filteredName, user.FullName)
 		require.Equal(t, filteredName, user.ShortName)
 	})
+}
+
+func TestEmailValidation(t *testing.T) {
+	invalidEmailAddresses := []string{
+		"test@t@t.test",
+		"test",
+		"test@!t.test",
+		"test@#test.test",
+		"test@$t.test",
+		"t%t.test",
+		"test@^test.test",
+		"test@&test.test",
+		"test@*test.test",
+		"test@(test.test",
+		"test@)test.test",
+		"test@=test.test",
+		"test@[test.test",
+		"test@]test.test",
+		"test@{test.test",
+		"test@}test.test",
+		"test@/test.test",
+		"test@\\test.test",
+		"test@|test.test",
+		"test@:test.test",
+		"test@;test.test",
+		"test@,test.test",
+		"test@\"test.test",
+		"test@'test.test",
+		"test@<test.test",
+		"test@>test.test",
+		"test@_test.test",
+		"test@?test.test",
+	}
+
+	for _, e := range invalidEmailAddresses {
+		result := consoleapi.ValidateEmail(e)
+		require.False(t, result)
+	}
 }

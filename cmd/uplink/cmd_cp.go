@@ -92,7 +92,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 
 	c.expires = params.Flag("expires",
 		"Schedule removal after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
-		time.Time{}, transformHumanDate, clingy.Type("relative_date")).(time.Time)
+		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
 
 	c.source = params.Arg("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 	c.dest = params.Arg("dest", "Destination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
@@ -209,6 +209,10 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ulloc.Location, progress bool) error {
 	if c.dryrun {
 		return nil
+	}
+
+	if dest.Remote() && source.Remote() {
+		return fs.Copy(ctx, source, dest)
 	}
 
 	offset, length, err := parseRange(c.byteRange)

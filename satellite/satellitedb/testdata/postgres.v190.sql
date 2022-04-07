@@ -668,3 +668,9 @@ INSERT INTO "coinpayments_transactions" ("id", "user_id", "address", "amount_gob
 INSERT INTO "stripecoinpayments_tx_conversion_rates" ("tx_id", "rate_gob", "rate_numeric", "created_at") VALUES ('different_tx_id_from_before', E'\\x01020000004000000002c3890fdaa221774ec3a4'::bytea, 3.14159265359, '2021-07-28 20:24:11.932313-05');
 
 -- NEW DATA --
+
+-- this simulates the migration which would have been carried out (outside of SQL) by the satellite core
+UPDATE coinpayments_transactions SET amount_gob = NULL, received_gob = NULL, amount_numeric = 1411112222, received_numeric = 1311112222 WHERE id = 'tx_id';
+UPDATE coinpayments_transactions SET amount_gob = NULL, received_gob = NULL WHERE id = 'different_tx_id_from_before';
+UPDATE stripecoinpayments_tx_conversion_rates SET rate_gob = NULL, rate_numeric = '1.929883831' WHERE tx_id = 'tx_id';
+UPDATE stripecoinpayments_tx_conversion_rates SET rate_gob = NULL WHERE tx_id = 'different_tx_id_from_before';

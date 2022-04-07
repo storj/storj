@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:generate sh -c "go run schemagen.go > schema.go.tmp && mv schema.go.tmp schema.go"
+//go:generate go run ./schemagen -o schema.go
 
 package storagenodedb
 

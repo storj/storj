@@ -138,6 +138,10 @@ func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storj.N
 func (cache *NodeAliasCache) ConvertPiecesToAliases(ctx context.Context, pieces Pieces) (_ AliasPieces, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if len(pieces) == 0 {
+		return AliasPieces{}, nil
+	}
+
 	nodes := make([]storj.NodeID, len(pieces))
 	for i, p := range pieces {
 		nodes[i] = p.StorageNode

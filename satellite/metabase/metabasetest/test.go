@@ -231,23 +231,6 @@ func (step GetLatestObjectLastSegment) Check(ctx *testcontext.Context, t testing
 	require.Zero(t, diff)
 }
 
-// GetSegmentByOffset is for testing metabase.GetSegmentByOffset.
-type GetSegmentByOffset struct {
-	Opts     metabase.GetSegmentByOffset
-	Result   metabase.Segment
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step GetSegmentByOffset) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.GetSegmentByOffset(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
-	require.Zero(t, diff)
-}
-
 // BucketEmpty is for testing metabase.BucketEmpty.
 type BucketEmpty struct {
 	Opts     metabase.BucketEmpty
@@ -370,7 +353,7 @@ func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t testing.T
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
 

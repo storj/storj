@@ -61,6 +61,12 @@ func (r *Remote) Move(ctx context.Context, oldbucket, oldkey, newbucket, newkey 
 	return errs.Wrap(r.project.MoveObject(ctx, oldbucket, oldkey, newbucket, newkey, nil))
 }
 
+// Copy copies object to provided key and bucket.
+func (r *Remote) Copy(ctx context.Context, oldbucket, oldkey, newbucket, newkey string) error {
+	_, err := r.project.CopyObject(ctx, oldbucket, oldkey, newbucket, newkey, nil)
+	return errs.Wrap(err)
+}
+
 // Remove deletes the object at the provided key and bucket.
 func (r *Remote) Remove(ctx context.Context, bucket, key string, opts *RemoveOptions) error {
 	if !opts.isPending() {

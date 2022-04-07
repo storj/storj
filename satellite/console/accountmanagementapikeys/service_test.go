@@ -25,17 +25,19 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 		service := sat.API.AccountManagementAPIKeys.Service
 
 		id := testrand.UUID()
+		now := time.Now()
 		expires := time.Hour
 		apiKey, _, err := service.Create(ctx, id, expires)
 		require.NoError(t, err)
 
 		// test GetUserFromKey
-		userID, err := service.GetUserFromKey(ctx, apiKey)
+		userID, exp, err := service.GetUserAndExpirationFromKey(ctx, apiKey)
 		require.NoError(t, err)
 		require.Equal(t, id, userID)
+		require.False(t, exp.IsZero())
+		require.False(t, exp.Before(now))
 
 		// make sure an error is returned from duplicate apikey
-		now := time.Now()
 		hash, err := service.HashKey(ctx, apiKey)
 		require.NoError(t, err)
 		_, err = service.InsertIntoDB(ctx, oidc.OAuthToken{
@@ -57,7 +59,7 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 		require.Error(t, err)
 
 		// test GetUserFromKey non existent key
-		_, err = service.GetUserFromKey(ctx, nonexistent)
+		_, _, err = service.GetUserAndExpirationFromKey(ctx, nonexistent)
 		require.True(t, accountmanagementapikeys.ErrInvalidKey.Has(err))
 	})
 }

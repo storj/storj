@@ -87,7 +87,7 @@ export default class SNONotification extends Vue {
             this.$store.dispatch(NOTIFICATIONS_ACTIONS.MARK_AS_READ, this.notification.id);
         } catch (error) {
             // TODO: implement UI notification system.
-            console.error(error.message);
+            console.error(error);
         }
     }
 }

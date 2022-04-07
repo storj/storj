@@ -376,10 +376,8 @@ CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
 	address text NOT NULL,
-	amount_gob bytea,
-	amount_numeric bigint,
-	received_gob bytea,
-	received_numeric bigint,
+	amount_numeric bigint NOT NULL,
+	received_numeric bigint NOT NULL,
 	status integer NOT NULL,
 	key text NOT NULL,
 	timeout integer NOT NULL,
@@ -718,8 +716,7 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 );
 CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	tx_id text NOT NULL,
-	rate_gob bytea,
-	rate_numeric double precision,
+	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );
@@ -999,10 +996,8 @@ CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
 	address text NOT NULL,
-	amount_gob bytea,
-	amount_numeric bigint,
-	received_gob bytea,
-	received_numeric bigint,
+	amount_numeric bigint NOT NULL,
+	received_numeric bigint NOT NULL,
 	status integer NOT NULL,
 	key text NOT NULL,
 	timeout integer NOT NULL,
@@ -1341,8 +1336,7 @@ CREATE TABLE stripecoinpayments_invoice_project_records (
 );
 CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	tx_id text NOT NULL,
-	rate_gob bytea,
-	rate_numeric double precision,
+	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );
@@ -2326,10 +2320,8 @@ type CoinpaymentsTransaction struct {
 	Id              string
 	UserId          []byte
 	Address         string
-	AmountGob       []byte
-	AmountNumeric   *int64
-	ReceivedGob     []byte
-	ReceivedNumeric *int64
+	AmountNumeric   int64
+	ReceivedNumeric int64
 	Status          int
 	Key             string
 	Timeout         int
@@ -2338,17 +2330,7 @@ type CoinpaymentsTransaction struct {
 
 func (CoinpaymentsTransaction) _Table() string { return "coinpayments_transactions" }
 
-type CoinpaymentsTransaction_Create_Fields struct {
-	AmountGob       CoinpaymentsTransaction_AmountGob_Field
-	AmountNumeric   CoinpaymentsTransaction_AmountNumeric_Field
-	ReceivedGob     CoinpaymentsTransaction_ReceivedGob_Field
-	ReceivedNumeric CoinpaymentsTransaction_ReceivedNumeric_Field
-}
-
 type CoinpaymentsTransaction_Update_Fields struct {
-	AmountGob       CoinpaymentsTransaction_AmountGob_Field
-	AmountNumeric   CoinpaymentsTransaction_AmountNumeric_Field
-	ReceivedGob     CoinpaymentsTransaction_ReceivedGob_Field
 	ReceivedNumeric CoinpaymentsTransaction_ReceivedNumeric_Field
 	Status          CoinpaymentsTransaction_Status_Field
 }
@@ -2410,63 +2392,14 @@ func (f CoinpaymentsTransaction_Address_Field) value() interface{} {
 
 func (CoinpaymentsTransaction_Address_Field) _Column() string { return "address" }
 
-type CoinpaymentsTransaction_AmountGob_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func CoinpaymentsTransaction_AmountGob(v []byte) CoinpaymentsTransaction_AmountGob_Field {
-	return CoinpaymentsTransaction_AmountGob_Field{_set: true, _value: v}
-}
-
-func CoinpaymentsTransaction_AmountGob_Raw(v []byte) CoinpaymentsTransaction_AmountGob_Field {
-	if v == nil {
-		return CoinpaymentsTransaction_AmountGob_Null()
-	}
-	return CoinpaymentsTransaction_AmountGob(v)
-}
-
-func CoinpaymentsTransaction_AmountGob_Null() CoinpaymentsTransaction_AmountGob_Field {
-	return CoinpaymentsTransaction_AmountGob_Field{_set: true, _null: true}
-}
-
-func (f CoinpaymentsTransaction_AmountGob_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f CoinpaymentsTransaction_AmountGob_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CoinpaymentsTransaction_AmountGob_Field) _Column() string { return "amount_gob" }
-
 type CoinpaymentsTransaction_AmountNumeric_Field struct {
 	_set   bool
 	_null  bool
-	_value *int64
+	_value int64
 }
 
 func CoinpaymentsTransaction_AmountNumeric(v int64) CoinpaymentsTransaction_AmountNumeric_Field {
-	return CoinpaymentsTransaction_AmountNumeric_Field{_set: true, _value: &v}
-}
-
-func CoinpaymentsTransaction_AmountNumeric_Raw(v *int64) CoinpaymentsTransaction_AmountNumeric_Field {
-	if v == nil {
-		return CoinpaymentsTransaction_AmountNumeric_Null()
-	}
-	return CoinpaymentsTransaction_AmountNumeric(*v)
-}
-
-func CoinpaymentsTransaction_AmountNumeric_Null() CoinpaymentsTransaction_AmountNumeric_Field {
-	return CoinpaymentsTransaction_AmountNumeric_Field{_set: true, _null: true}
-}
-
-func (f CoinpaymentsTransaction_AmountNumeric_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
+	return CoinpaymentsTransaction_AmountNumeric_Field{_set: true, _value: v}
 }
 
 func (f CoinpaymentsTransaction_AmountNumeric_Field) value() interface{} {
@@ -2478,63 +2411,14 @@ func (f CoinpaymentsTransaction_AmountNumeric_Field) value() interface{} {
 
 func (CoinpaymentsTransaction_AmountNumeric_Field) _Column() string { return "amount_numeric" }
 
-type CoinpaymentsTransaction_ReceivedGob_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func CoinpaymentsTransaction_ReceivedGob(v []byte) CoinpaymentsTransaction_ReceivedGob_Field {
-	return CoinpaymentsTransaction_ReceivedGob_Field{_set: true, _value: v}
-}
-
-func CoinpaymentsTransaction_ReceivedGob_Raw(v []byte) CoinpaymentsTransaction_ReceivedGob_Field {
-	if v == nil {
-		return CoinpaymentsTransaction_ReceivedGob_Null()
-	}
-	return CoinpaymentsTransaction_ReceivedGob(v)
-}
-
-func CoinpaymentsTransaction_ReceivedGob_Null() CoinpaymentsTransaction_ReceivedGob_Field {
-	return CoinpaymentsTransaction_ReceivedGob_Field{_set: true, _null: true}
-}
-
-func (f CoinpaymentsTransaction_ReceivedGob_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f CoinpaymentsTransaction_ReceivedGob_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CoinpaymentsTransaction_ReceivedGob_Field) _Column() string { return "received_gob" }
-
 type CoinpaymentsTransaction_ReceivedNumeric_Field struct {
 	_set   bool
 	_null  bool
-	_value *int64
+	_value int64
 }
 
 func CoinpaymentsTransaction_ReceivedNumeric(v int64) CoinpaymentsTransaction_ReceivedNumeric_Field {
-	return CoinpaymentsTransaction_ReceivedNumeric_Field{_set: true, _value: &v}
-}
-
-func CoinpaymentsTransaction_ReceivedNumeric_Raw(v *int64) CoinpaymentsTransaction_ReceivedNumeric_Field {
-	if v == nil {
-		return CoinpaymentsTransaction_ReceivedNumeric_Null()
-	}
-	return CoinpaymentsTransaction_ReceivedNumeric(*v)
-}
-
-func CoinpaymentsTransaction_ReceivedNumeric_Null() CoinpaymentsTransaction_ReceivedNumeric_Field {
-	return CoinpaymentsTransaction_ReceivedNumeric_Field{_set: true, _null: true}
-}
-
-func (f CoinpaymentsTransaction_ReceivedNumeric_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
+	return CoinpaymentsTransaction_ReceivedNumeric_Field{_set: true, _value: v}
 }
 
 func (f CoinpaymentsTransaction_ReceivedNumeric_Field) value() interface{} {
@@ -8491,18 +8375,12 @@ func (StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field) _Column() string {
 
 type StripecoinpaymentsTxConversionRate struct {
 	TxId        string
-	RateGob     []byte
-	RateNumeric *float64
+	RateNumeric float64
 	CreatedAt   time.Time
 }
 
 func (StripecoinpaymentsTxConversionRate) _Table() string {
 	return "stripecoinpayments_tx_conversion_rates"
-}
-
-type StripecoinpaymentsTxConversionRate_Create_Fields struct {
-	RateGob     StripecoinpaymentsTxConversionRate_RateGob_Field
-	RateNumeric StripecoinpaymentsTxConversionRate_RateNumeric_Field
 }
 
 type StripecoinpaymentsTxConversionRate_Update_Fields struct {
@@ -8527,63 +8405,14 @@ func (f StripecoinpaymentsTxConversionRate_TxId_Field) value() interface{} {
 
 func (StripecoinpaymentsTxConversionRate_TxId_Field) _Column() string { return "tx_id" }
 
-type StripecoinpaymentsTxConversionRate_RateGob_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func StripecoinpaymentsTxConversionRate_RateGob(v []byte) StripecoinpaymentsTxConversionRate_RateGob_Field {
-	return StripecoinpaymentsTxConversionRate_RateGob_Field{_set: true, _value: v}
-}
-
-func StripecoinpaymentsTxConversionRate_RateGob_Raw(v []byte) StripecoinpaymentsTxConversionRate_RateGob_Field {
-	if v == nil {
-		return StripecoinpaymentsTxConversionRate_RateGob_Null()
-	}
-	return StripecoinpaymentsTxConversionRate_RateGob(v)
-}
-
-func StripecoinpaymentsTxConversionRate_RateGob_Null() StripecoinpaymentsTxConversionRate_RateGob_Field {
-	return StripecoinpaymentsTxConversionRate_RateGob_Field{_set: true, _null: true}
-}
-
-func (f StripecoinpaymentsTxConversionRate_RateGob_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f StripecoinpaymentsTxConversionRate_RateGob_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (StripecoinpaymentsTxConversionRate_RateGob_Field) _Column() string { return "rate_gob" }
-
 type StripecoinpaymentsTxConversionRate_RateNumeric_Field struct {
 	_set   bool
 	_null  bool
-	_value *float64
+	_value float64
 }
 
 func StripecoinpaymentsTxConversionRate_RateNumeric(v float64) StripecoinpaymentsTxConversionRate_RateNumeric_Field {
-	return StripecoinpaymentsTxConversionRate_RateNumeric_Field{_set: true, _value: &v}
-}
-
-func StripecoinpaymentsTxConversionRate_RateNumeric_Raw(v *float64) StripecoinpaymentsTxConversionRate_RateNumeric_Field {
-	if v == nil {
-		return StripecoinpaymentsTxConversionRate_RateNumeric_Null()
-	}
-	return StripecoinpaymentsTxConversionRate_RateNumeric(*v)
-}
-
-func StripecoinpaymentsTxConversionRate_RateNumeric_Null() StripecoinpaymentsTxConversionRate_RateNumeric_Field {
-	return StripecoinpaymentsTxConversionRate_RateNumeric_Field{_set: true, _null: true}
-}
-
-func (f StripecoinpaymentsTxConversionRate_RateNumeric_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
+	return StripecoinpaymentsTxConversionRate_RateNumeric_Field{_set: true, _value: v}
 }
 
 func (f StripecoinpaymentsTxConversionRate_RateNumeric_Field) value() interface{} {
@@ -11720,10 +11549,11 @@ func (obj *pgxImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
 	coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+	coinpayments_transaction_amount_numeric CoinpaymentsTransaction_AmountNumeric_Field,
+	coinpayments_transaction_received_numeric CoinpaymentsTransaction_ReceivedNumeric_Field,
 	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
 	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field,
-	coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field,
-	optional CoinpaymentsTransaction_Create_Fields) (
+	coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -11731,25 +11561,23 @@ func (obj *pgxImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	__id_val := coinpayments_transaction_id.value()
 	__user_id_val := coinpayments_transaction_user_id.value()
 	__address_val := coinpayments_transaction_address.value()
-	__amount_gob_val := optional.AmountGob.value()
-	__amount_numeric_val := optional.AmountNumeric.value()
-	__received_gob_val := optional.ReceivedGob.value()
-	__received_numeric_val := optional.ReceivedNumeric.value()
+	__amount_numeric_val := coinpayments_transaction_amount_numeric.value()
+	__received_numeric_val := coinpayments_transaction_received_numeric.value()
 	__status_val := coinpayments_transaction_status.value()
 	__key_val := coinpayments_transaction_key.value()
 	__timeout_val := coinpayments_transaction_timeout.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount_gob, amount_numeric, received_gob, received_numeric, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_gob, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_gob, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount_numeric, received_numeric, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __address_val, __amount_gob_val, __amount_numeric_val, __received_gob_val, __received_numeric_val, __status_val, __key_val, __timeout_val, __created_at_val)
+	__values = append(__values, __id_val, __user_id_val, __address_val, __amount_numeric_val, __received_numeric_val, __status_val, __key_val, __timeout_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountGob, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedGob, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11800,26 +11628,25 @@ func (obj *pgxImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Co
 
 func (obj *pgxImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
 	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
-	optional StripecoinpaymentsTxConversionRate_Create_Fields) (
+	stripecoinpayments_tx_conversion_rate_rate_numeric StripecoinpaymentsTxConversionRate_RateNumeric_Field) (
 	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	__now := obj.db.Hooks.Now().UTC()
 	__tx_id_val := stripecoinpayments_tx_conversion_rate_tx_id.value()
-	__rate_gob_val := optional.RateGob.value()
-	__rate_numeric_val := optional.RateNumeric.value()
+	__rate_numeric_val := stripecoinpayments_tx_conversion_rate_rate_numeric.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate_gob, rate_numeric, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_gob, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate_numeric, created_at ) VALUES ( ?, ?, ? ) RETURNING stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __tx_id_val, __rate_gob_val, __rate_numeric_val, __created_at_val)
+	__values = append(__values, __tx_id_val, __rate_numeric_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateGob, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -14289,7 +14116,7 @@ func (obj *pgxImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt
 	rows []*CoinpaymentsTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_gob, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_gob, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coinpayments_transaction_user_id.value())
@@ -14307,7 +14134,7 @@ func (obj *pgxImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt
 
 			for __rows.Next() {
 				coinpayments_transaction := &CoinpaymentsTransaction{}
-				err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountGob, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedGob, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+				err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -14409,7 +14236,7 @@ func (obj *pgxImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.C
 	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_gob, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, stripecoinpayments_tx_conversion_rate_tx_id.value())
@@ -14418,7 +14245,7 @@ func (obj *pgxImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.C
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateGob, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsTxConversionRate)(nil), obj.makeErr(err)
 	}
@@ -16209,26 +16036,11 @@ func (obj *pgxImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_gob, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_gob, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
-
-	if update.AmountGob._set {
-		__values = append(__values, update.AmountGob.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("amount_gob = ?"))
-	}
-
-	if update.AmountNumeric._set {
-		__values = append(__values, update.AmountNumeric.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("amount_numeric = ?"))
-	}
-
-	if update.ReceivedGob._set {
-		__values = append(__values, update.ReceivedGob.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("received_gob = ?"))
-	}
 
 	if update.ReceivedNumeric._set {
 		__values = append(__values, update.ReceivedNumeric.value())
@@ -16253,7 +16065,7 @@ func (obj *pgxImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountGob, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedGob, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -18113,10 +17925,11 @@ func (obj *pgxcockroachImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
 	coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+	coinpayments_transaction_amount_numeric CoinpaymentsTransaction_AmountNumeric_Field,
+	coinpayments_transaction_received_numeric CoinpaymentsTransaction_ReceivedNumeric_Field,
 	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
 	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field,
-	coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field,
-	optional CoinpaymentsTransaction_Create_Fields) (
+	coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -18124,25 +17937,23 @@ func (obj *pgxcockroachImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	__id_val := coinpayments_transaction_id.value()
 	__user_id_val := coinpayments_transaction_user_id.value()
 	__address_val := coinpayments_transaction_address.value()
-	__amount_gob_val := optional.AmountGob.value()
-	__amount_numeric_val := optional.AmountNumeric.value()
-	__received_gob_val := optional.ReceivedGob.value()
-	__received_numeric_val := optional.ReceivedNumeric.value()
+	__amount_numeric_val := coinpayments_transaction_amount_numeric.value()
+	__received_numeric_val := coinpayments_transaction_received_numeric.value()
 	__status_val := coinpayments_transaction_status.value()
 	__key_val := coinpayments_transaction_key.value()
 	__timeout_val := coinpayments_transaction_timeout.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount_gob, amount_numeric, received_gob, received_numeric, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_gob, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_gob, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coinpayments_transactions ( id, user_id, address, amount_numeric, received_numeric, status, key, timeout, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __address_val, __amount_gob_val, __amount_numeric_val, __received_gob_val, __received_numeric_val, __status_val, __key_val, __timeout_val, __created_at_val)
+	__values = append(__values, __id_val, __user_id_val, __address_val, __amount_numeric_val, __received_numeric_val, __status_val, __key_val, __timeout_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountGob, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedGob, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -18193,26 +18004,25 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx c
 
 func (obj *pgxcockroachImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
 	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
-	optional StripecoinpaymentsTxConversionRate_Create_Fields) (
+	stripecoinpayments_tx_conversion_rate_rate_numeric StripecoinpaymentsTxConversionRate_RateNumeric_Field) (
 	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	__now := obj.db.Hooks.Now().UTC()
 	__tx_id_val := stripecoinpayments_tx_conversion_rate_tx_id.value()
-	__rate_gob_val := optional.RateGob.value()
-	__rate_numeric_val := optional.RateNumeric.value()
+	__rate_numeric_val := stripecoinpayments_tx_conversion_rate_rate_numeric.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate_gob, rate_numeric, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_gob, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_tx_conversion_rates ( tx_id, rate_numeric, created_at ) VALUES ( ?, ?, ? ) RETURNING stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __tx_id_val, __rate_gob_val, __rate_numeric_val, __created_at_val)
+	__values = append(__values, __tx_id_val, __rate_numeric_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateGob, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -20682,7 +20492,7 @@ func (obj *pgxcockroachImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_
 	rows []*CoinpaymentsTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_gob, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_gob, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at FROM coinpayments_transactions WHERE coinpayments_transactions.user_id = ? ORDER BY coinpayments_transactions.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coinpayments_transaction_user_id.value())
@@ -20700,7 +20510,7 @@ func (obj *pgxcockroachImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_
 
 			for __rows.Next() {
 				coinpayments_transaction := &CoinpaymentsTransaction{}
-				err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountGob, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedGob, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+				err = __rows.Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -20802,7 +20612,7 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx 
 	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_gob, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_tx_conversion_rates.tx_id, stripecoinpayments_tx_conversion_rates.rate_numeric, stripecoinpayments_tx_conversion_rates.created_at FROM stripecoinpayments_tx_conversion_rates WHERE stripecoinpayments_tx_conversion_rates.tx_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, stripecoinpayments_tx_conversion_rate_tx_id.value())
@@ -20811,7 +20621,7 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx 
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateGob, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.RateNumeric, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsTxConversionRate)(nil), obj.makeErr(err)
 	}
@@ -22602,26 +22412,11 @@ func (obj *pgxcockroachImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Co
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_gob, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_gob, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coinpayments_transactions SET "), __sets, __sqlbundle_Literal(" WHERE coinpayments_transactions.id = ? RETURNING coinpayments_transactions.id, coinpayments_transactions.user_id, coinpayments_transactions.address, coinpayments_transactions.amount_numeric, coinpayments_transactions.received_numeric, coinpayments_transactions.status, coinpayments_transactions.key, coinpayments_transactions.timeout, coinpayments_transactions.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
-
-	if update.AmountGob._set {
-		__values = append(__values, update.AmountGob.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("amount_gob = ?"))
-	}
-
-	if update.AmountNumeric._set {
-		__values = append(__values, update.AmountNumeric.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("amount_numeric = ?"))
-	}
-
-	if update.ReceivedGob._set {
-		__values = append(__values, update.ReceivedGob.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("received_gob = ?"))
-	}
 
 	if update.ReceivedNumeric._set {
 		__values = append(__values, update.ReceivedNumeric.value())
@@ -22646,7 +22441,7 @@ func (obj *pgxcockroachImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountGob, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedGob, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -24126,16 +23921,17 @@ func (rx *Rx) Create_CoinpaymentsTransaction(ctx context.Context,
 	coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 	coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
 	coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+	coinpayments_transaction_amount_numeric CoinpaymentsTransaction_AmountNumeric_Field,
+	coinpayments_transaction_received_numeric CoinpaymentsTransaction_ReceivedNumeric_Field,
 	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
 	coinpayments_transaction_key CoinpaymentsTransaction_Key_Field,
-	coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field,
-	optional CoinpaymentsTransaction_Create_Fields) (
+	coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 	coinpayments_transaction *CoinpaymentsTransaction, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_CoinpaymentsTransaction(ctx, coinpayments_transaction_id, coinpayments_transaction_user_id, coinpayments_transaction_address, coinpayments_transaction_status, coinpayments_transaction_key, coinpayments_transaction_timeout, optional)
+	return tx.Create_CoinpaymentsTransaction(ctx, coinpayments_transaction_id, coinpayments_transaction_user_id, coinpayments_transaction_address, coinpayments_transaction_amount_numeric, coinpayments_transaction_received_numeric, coinpayments_transaction_status, coinpayments_transaction_key, coinpayments_transaction_timeout)
 
 }
 
@@ -24353,13 +24149,13 @@ func (rx *Rx) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Context,
 
 func (rx *Rx) Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
 	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
-	optional StripecoinpaymentsTxConversionRate_Create_Fields) (
+	stripecoinpayments_tx_conversion_rate_rate_numeric StripecoinpaymentsTxConversionRate_RateNumeric_Field) (
 	stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_StripecoinpaymentsTxConversionRate(ctx, stripecoinpayments_tx_conversion_rate_tx_id, optional)
+	return tx.Create_StripecoinpaymentsTxConversionRate(ctx, stripecoinpayments_tx_conversion_rate_tx_id, stripecoinpayments_tx_conversion_rate_rate_numeric)
 
 }
 
@@ -25580,10 +25376,11 @@ type Methods interface {
 		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
 		coinpayments_transaction_address CoinpaymentsTransaction_Address_Field,
+		coinpayments_transaction_amount_numeric CoinpaymentsTransaction_AmountNumeric_Field,
+		coinpayments_transaction_received_numeric CoinpaymentsTransaction_ReceivedNumeric_Field,
 		coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
 		coinpayments_transaction_key CoinpaymentsTransaction_Key_Field,
-		coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field,
-		optional CoinpaymentsTransaction_Create_Fields) (
+		coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
 	Create_Coupon(ctx context.Context,
@@ -25702,7 +25499,7 @@ type Methods interface {
 
 	Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
 		stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
-		optional StripecoinpaymentsTxConversionRate_Create_Fields) (
+		stripecoinpayments_tx_conversion_rate_rate_numeric StripecoinpaymentsTxConversionRate_RateNumeric_Field) (
 		stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error)
 
 	Create_User(ctx context.Context,

@@ -69,7 +69,7 @@ export default class PayoutHistoryTable extends Vue {
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 }

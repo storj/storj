@@ -76,7 +76,7 @@ export default class SatelliteSelectionDropdown extends Vue {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
             this.fetchPayoutInfo(id);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
@@ -93,7 +93,7 @@ export default class SatelliteSelectionDropdown extends Vue {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
             this.fetchPayoutInfo();
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
@@ -117,7 +117,7 @@ export default class SatelliteSelectionDropdown extends Vue {
             try {
                 await this.$store.dispatch(PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(null, new PayoutPeriod()));
             } catch (error) {
-                console.error(error.message);
+                console.error(error);
             }
         }
 
@@ -130,13 +130,13 @@ export default class SatelliteSelectionDropdown extends Vue {
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_PERIODS, id);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 }

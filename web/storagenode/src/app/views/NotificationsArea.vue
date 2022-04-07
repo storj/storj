@@ -95,7 +95,7 @@ export default class NotificationsArea extends Vue {
         try {
             await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, index);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 
@@ -106,7 +106,7 @@ export default class NotificationsArea extends Vue {
         try {
             await this.$store.dispatch(NOTIFICATIONS_ACTIONS.READ_ALL);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 }

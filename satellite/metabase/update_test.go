@@ -397,14 +397,6 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			diff = cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
 			require.Zero(t, diff)
 
-			segment, err = db.GetSegmentByOffset(ctx, metabase.GetSegmentByOffset{
-				ObjectLocation: object.Location(),
-				PlainOffset:    0,
-			})
-			require.NoError(t, err)
-			diff = cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
-			require.Zero(t, diff)
-
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{

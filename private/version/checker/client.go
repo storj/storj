@@ -15,6 +15,8 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"storj.io/private/version"
 )
@@ -124,6 +126,7 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	return process, nil
 }
 
+// kebabToPascal converts `alpha-beta` to `AlphaBeta`.
 func kebabToPascal(str string) string {
-	return strings.ReplaceAll(strings.Title(str), "-", "")
+	return strings.ReplaceAll(cases.Title(language.Und, cases.NoLower).String(str), "-", "")
 }

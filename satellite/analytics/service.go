@@ -113,6 +113,7 @@ type TrackCreateUserFields struct {
 	HaveSalesContact bool
 	OriginHeader     string
 	Referrer         string
+	HubspotUTK       string
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -219,6 +220,7 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, proj
 	props := segment.NewProperties()
 	props.Set("project_count", currentProjectCount)
 	props.Set("project_id", projectID.String())
+	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
@@ -239,9 +241,13 @@ func (service *Service) TrackAccessGrantCreated(userID uuid.UUID, email string) 
 		return
 	}
 
+	props := segment.NewProperties()
+	props.Set("email", email)
+
 	service.enqueueMessage(segment.Track{
-		UserId: userID.String(),
-		Event:  service.satelliteName + " " + eventAccessGrantCreated,
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventAccessGrantCreated,
+		Properties: props,
 	})
 
 	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventAccessGrantCreated, map[string]interface{}{
@@ -289,9 +295,14 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 		service.log.Error("Invalid client-triggered event", zap.String("eventName", eventName))
 		return
 	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
 	service.enqueueMessage(segment.Track{
-		UserId: userID.String(),
-		Event:  service.satelliteName + " " + eventName,
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventName,
+		Properties: props,
 	})
 
 	service.hubspot.EnqueueEvent(email, service.satelliteName+"_"+eventName, map[string]interface{}{
@@ -314,6 +325,7 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email
 
 	props := segment.NewProperties()
 	props.Set("link", link)
+	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),

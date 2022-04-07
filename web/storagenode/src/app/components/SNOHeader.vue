@@ -103,7 +103,7 @@ export default class SNOHeader extends Vue {
             await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
             await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
@@ -172,13 +172,13 @@ export default class SNOHeader extends Vue {
             await this.$store.dispatch(GET_NODE_INFO);
             await this.$store.dispatch(SELECT_SATELLITE, selectedSatelliteId);
         } catch (error) {
-            console.error(`${error.message} satellite data.`);
+            console.error("fetching satellite data", error);
         }
 
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         try {
@@ -193,19 +193,19 @@ export default class SNOHeader extends Vue {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatelliteId);
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, selectedSatelliteId);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         try {
             await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 }

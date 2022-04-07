@@ -1487,20 +1487,9 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		}
 	}
 
-	// we are verifying existence of target bucket only because source bucket
-	// will be checked while quering source object
-	// TODO this needs to be optimized to avoid DB call on each request
-	newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
-	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
-		}
-		endpoint.log.Error("unable to check bucket", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
 	// if source and target buckets are different, we need to check their geofencing configs
 	if !bytes.Equal(req.Bucket, req.NewBucket) {
+		// TODO we may try to combine those two DB calls into single one
 		oldBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 		if err != nil {
 			if storj.ErrBucketNotFound.Has(err) {
@@ -1509,8 +1498,16 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
+		newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
+		if err != nil {
+			if storj.ErrBucketNotFound.Has(err) {
+				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
+			}
+			endpoint.log.Error("unable to check bucket", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
 		if oldBucketPlacement != newBucketPlacement {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "moving object to bucket with different placement policy is not (yet) supported")
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "copying object to bucket with different placement policy is not (yet) supported")
 		}
 	}
 
@@ -1541,7 +1538,6 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
 			BlockSize:   int64(result.EncryptionParameters.BlockSize),
 		},
-		Placement: int32(newBucketPlacement),
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -1723,24 +1719,21 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		}
 	}
 
-	// we are verifying existence of target bucket only because source bucket
-	// will be checked while quering source object
-	// TODO this needs to be optimized to avoid DB call on each request
-	newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
-	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
-		}
-		endpoint.log.Error("unable to check bucket", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
 	// if source and target buckets are different, we need to check their geofencing configs
 	if !bytes.Equal(req.Bucket, req.NewBucket) {
+		// TODO we may try to combine those two DB calls into single one
 		oldBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 		if err != nil {
 			if storj.ErrBucketNotFound.Has(err) {
 				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
+			}
+			endpoint.log.Error("unable to check bucket", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+		newBucketPlacement, err := endpoint.buckets.GetBucketPlacement(ctx, req.NewBucket, keyInfo.ProjectID)
+		if err != nil {
+			if storj.ErrBucketNotFound.Has(err) {
+				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
 			}
 			endpoint.log.Error("unable to check bucket", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1777,7 +1770,6 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
 			BlockSize:   int64(result.EncryptionParameters.BlockSize),
 		},
-		Placement: int32(newBucketPlacement),
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))

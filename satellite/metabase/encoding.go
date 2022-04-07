@@ -56,7 +56,7 @@ func (params *SegmentPosition) Scan(value interface{}) error {
 		*params = SegmentPositionFromEncoded(uint64(value))
 		return nil
 	default:
-		return Error.New("unable to scan %T into EncryptionParameters", value)
+		return Error.New("unable to scan %T into SegmentPosition", value)
 	}
 }
 

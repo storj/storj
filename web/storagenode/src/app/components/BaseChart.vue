@@ -20,8 +20,8 @@ export default class BaseChart extends Vue {
     @Prop({default: false})
     public isDarkMode: boolean;
 
-    public chartWidth: number = this.width;
-    public chartHeight: number = this.height;
+    public chartWidth = 0;
+    public chartHeight = 0;
     /**
      * Used for chart re rendering.
      */

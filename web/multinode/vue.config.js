@@ -6,7 +6,7 @@ const path = require('path');
 module.exports = {
     productionSourceMap: false,
     parallel: true,
-    lintOnSave: false, // disables eslint for builds
+    lintOnSave: process.env.NODE_ENV !== 'production', // disables eslint for builds
     assetsDir: "static",
     configureWebpack: {
         plugins: [],
@@ -14,6 +14,11 @@ module.exports = {
     chainWebpack: config => {
         config.resolve.alias
             .set('@', path.resolve('src'));
+
+        // Disable node_modules/.cache directory usage due to permissions.
+        // This is enabled by default in https://cli.vuejs.org/core-plugins/babel.html#caching.
+        config.module.rule('js').use('babel-loader')
+            .tap(options => Object.assign(options, {cacheDirectory: false}));
 
         config
             .plugin('html')
@@ -23,12 +28,11 @@ module.exports = {
             });
 
         const svgRule = config.module.rule('svg');
-
         svgRule.uses.clear();
-
+        svgRule.type(); // Disable webpack 5 asset management.
         svgRule
-            .use('babel-loader')
-            .loader('babel-loader')
+            .use('vue-loader')
+            .loader('vue-loader')
             .end()
             .use('vue-svg-loader')
             .loader('vue-svg-loader');

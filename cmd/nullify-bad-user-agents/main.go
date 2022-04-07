@@ -14,22 +14,20 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/uuid"
 	"storj.io/private/process"
-	"storj.io/storj/satellite/rewards"
 )
 
 var mon = monkit.Package()
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "partnerid-to-useragent-migration",
-		Short: "partnerid-to-useragent-migration",
+		Use:   "nullify-bad-user-agents",
+		Short: "nullify-bad-user-agents",
 	}
 
 	runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "run partnerid-to-useragent-migration",
+		Short: "run nullify-bad-user-agents",
 		RunE:  run,
 	}
 
@@ -79,16 +77,8 @@ func main() {
 	process.Exec(rootCmd)
 }
 
-// Partners holds slices of partner UUIDs and Names for easy insertion into SQL UNNEST().
-type Partners struct {
-	UUIDs []uuid.UUID
-	Names [][]byte
-}
-
-// Migrate updates the user_agent column if partner_id != NULL AND user_agent IS NULL.
-// If the partner_id matches a PartnerInfo.UUID in the partnerDB, user_agent will be
-// set to PartnerInfo.Name. Otherwise, user_agent will be set to partner_id. If
-// Config.MaxUpdates > 0, only that number of rows will be updated.
+// Migrate updates the user_agent column if user_agent = '\x00000000000000000000000000000000' and sets
+// it to NULL.
 // Affected tables:
 //
 // users
@@ -107,18 +97,6 @@ func Migrate(ctx context.Context, log *zap.Logger, config Config) (err error) {
 		err = errs.Combine(err, conn.Close(ctx))
 	}()
 
-	partnerDB := rewards.DefaultPartnersDB
-	partnerInfo, err := partnerDB.All(ctx)
-	if err != nil {
-		return errs.New("could not get partners list: %w", err)
-	}
-
-	var p Partners
-	for _, info := range partnerInfo {
-		p.UUIDs = append(p.UUIDs, info.UUID)
-		p.Names = append(p.Names, []byte(info.Name))
-	}
-
 	// The original migrations are already somewhat complex and in my opinion,
 	// trying to edit them to be able to handle conditionally limiting updates increased the
 	// complexity. While I think splitting out the limited update migrations isn't the
@@ -128,8 +106,8 @@ func Migrate(ctx context.Context, log *zap.Logger, config Config) (err error) {
 		return errs.New("When running limited migration, set --max-updates to something less than 1000")
 	}
 	if config.MaxUpdates > 0 {
-		return MigrateTablesLimited(ctx, log, conn, &p, config)
+		return MigrateTablesLimited(ctx, log, conn, config)
 	}
 
-	return MigrateTables(ctx, log, conn, &p, config)
+	return MigrateTables(ctx, log, conn, config)
 }

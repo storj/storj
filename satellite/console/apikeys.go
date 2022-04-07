@@ -33,7 +33,7 @@ type APIKeys interface {
 // AccountManagementAPIKeys is an interface for account management api key operations.
 type AccountManagementAPIKeys interface {
 	Create(ctx context.Context, userID uuid.UUID, expiration time.Duration) (apiKey string, expiresAt time.Time, err error)
-	GetUserFromKey(ctx context.Context, apiKey string) (userID uuid.UUID, err error)
+	GetUserAndExpirationFromKey(ctx context.Context, apiKey string) (userID uuid.UUID, exp time.Time, err error)
 	Revoke(ctx context.Context, apiKey string) (err error)
 }
 

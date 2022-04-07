@@ -132,6 +132,100 @@ func TestGarbageCollection(t *testing.T) {
 	})
 }
 
+// TestGarbageCollectionWithCopies checkes that server-side copy elements are not
+// affecting GC and nothing unexpected was deleted from storage nodes.
+func TestGarbageCollectionWithCopies(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		gcService := satellite.GarbageCollection.Service
+		gcService.Loop.Pause()
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, satellite)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		allSpaceUsedForPieces := func() (all int64) {
+			for _, node := range planet.StorageNodes {
+				total, _, _, err := node.Storage2.Store.SpaceUsedTotalAndBySatellite(ctx)
+				require.NoError(t, err)
+				all += total
+			}
+			return all
+		}
+
+		expectedRemoteData := testrand.Bytes(8 * memory.KiB)
+		expectedInlineData := testrand.Bytes(1 * memory.KiB)
+
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "remote", expectedRemoteData))
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "inline", expectedInlineData))
+
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		// how much used space we should have after deleting objects
+		expectedUsedAfterDeleteAndGC := allSpaceUsedForPieces()
+		require.NotZero(t, expectedUsedAfterDeleteAndGC)
+
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "remote-no-copy", expectedRemoteData))
+
+		_, err = project.CopyObject(ctx, "testbucket", "remote", "testbucket", "remote-copy", nil)
+		require.NoError(t, err)
+		_, err = project.CopyObject(ctx, "testbucket", "inline", "testbucket", "inline-copy", nil)
+		require.NoError(t, err)
+
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		totalUsedByNodes := allSpaceUsedForPieces()
+
+		// run GC
+		gcService.Loop.TriggerWait()
+		for _, node := range planet.StorageNodes {
+			node.Storage2.RetainService.TestWaitUntilEmpty()
+		}
+
+		// we should see all space used by all objects
+		afterTotalUsedByNodes := allSpaceUsedForPieces()
+		require.Equal(t, totalUsedByNodes, afterTotalUsedByNodes)
+
+		// delete ancestors, no change in used space
+		_, err = project.DeleteObject(ctx, "testbucket", "remote")
+		require.NoError(t, err)
+
+		_, err = project.DeleteObject(ctx, "testbucket", "inline")
+		require.NoError(t, err)
+
+		// delete object without copy, used space should be decreased
+		_, err = project.DeleteObject(ctx, "testbucket", "remote-no-copy")
+		require.NoError(t, err)
+
+		planet.WaitForStorageNodeDeleters(ctx)
+
+		// run GC
+		gcService.Loop.TriggerWait()
+		for _, node := range planet.StorageNodes {
+			node.Storage2.RetainService.TestWaitUntilEmpty()
+		}
+
+		// verify that we deleted only pieces for "remote-no-copy" object
+		afterTotalUsedByNodes = allSpaceUsedForPieces()
+		require.Equal(t, expectedUsedAfterDeleteAndGC, afterTotalUsedByNodes)
+
+		// run GC
+		gcService.Loop.TriggerWait()
+		for _, node := range planet.StorageNodes {
+			node.Storage2.RetainService.TestWaitUntilEmpty()
+		}
+
+		// verify that nothing more was deleted from storage nodes after GC
+		afterTotalUsedByNodes = allSpaceUsedForPieces()
+		require.Equal(t, expectedUsedAfterDeleteAndGC, afterTotalUsedByNodes)
+	})
+}
+
 func getSegment(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Satellite, upl *testplanet.Uplink, bucket, path string) (_ metabase.ObjectLocation, _ metabase.Segment) {
 	access := upl.Access[satellite.ID()]
 

@@ -6,12 +6,15 @@ package apigen
 import (
 	"fmt"
 	"go/format"
+	"net/http"
 	"os"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
@@ -111,7 +114,7 @@ func (a *API) generateGo() ([]byte, error) {
 		p(")")
 		p("")
 
-		p("var Err%sAPI = errs.Class(\"%s %s api\")", strings.Title(group.Prefix), a.PackageName, group.Prefix)
+		p("var Err%sAPI = errs.Class(\"%s %s api\")", cases.Title(language.Und).String(group.Prefix), a.PackageName, group.Prefix)
 		p("")
 
 		p("type %sService interface {", group.Name)
@@ -154,7 +157,7 @@ func (a *API) generateGo() ([]byte, error) {
 		p("return handler")
 		p("}")
 
-		for _, endpoint := range group.Endpoints {
+		for pathMethod, endpoint := range group.Endpoints {
 			p("")
 			handlerName := "handle" + endpoint.MethodName
 			p("func (h *Handler) %s(w http.ResponseWriter, r *http.Request) {", handlerName)
@@ -166,8 +169,16 @@ func (a *API) generateGo() ([]byte, error) {
 			p("w.Header().Set(\"Content-Type\", \"application/json\")")
 			p("")
 
-			if !endpoint.NoCookieAuth {
-				p("ctx, err = h.auth.IsAuthenticated(ctx, r)")
+			if !endpoint.NoCookieAuth || !endpoint.NoAPIAuth {
+				if !endpoint.NoCookieAuth && !endpoint.NoAPIAuth {
+					p("ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)")
+				}
+				if endpoint.NoCookieAuth && !endpoint.NoAPIAuth {
+					p("ctx, err = h.auth.IsAuthenticated(ctx, r, false, true)")
+				}
+				if !endpoint.NoCookieAuth && endpoint.NoAPIAuth {
+					p("ctx, err = h.auth.IsAuthenticated(ctx, r, true, false)")
+				}
 				p("if err != nil {")
 				p("api.ServeError(h.log, w, http.StatusUnauthorized, err)")
 				p("return")
@@ -175,44 +186,61 @@ func (a *API) generateGo() ([]byte, error) {
 				p("")
 			}
 
-			// TODO to be implemented
-			// if !endpoint.NoAPIAuth {}
-
-			for _, param := range endpoint.Params {
-				switch param.Type {
-				case reflect.TypeOf(uuid.UUID{}):
-					p("%s, err := uuid.FromString(r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
-					p("if err != nil {")
+			switch pathMethod.Method {
+			case http.MethodGet:
+				for _, param := range endpoint.Params {
+					switch param.Type {
+					case reflect.TypeOf(uuid.UUID{}):
+						p("%s, err := uuid.FromString(r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
+						p("if err != nil {")
+						p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+						p("return")
+						p("}")
+						p("")
+						continue
+					case reflect.TypeOf(time.Time{}):
+						p("%sStamp, err := strconv.ParseInt(r.URL.Query().Get(\"%s\"), 10, 64)", param.Name, param.Name)
+						p("if err != nil {")
+						p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+						p("return")
+						p("}")
+						p("")
+						p("%s := time.Unix(%sStamp, 0).UTC()", param.Name, param.Name)
+						p("")
+						continue
+					case reflect.TypeOf(""):
+						p("%s := r.URL.Query().Get(\"%s\")", param.Name, param.Name)
+						p("if %s == \"\" {", param.Name)
+						p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"parameter '%s' can't be empty\"))", param.Name)
+						p("return")
+						p("}")
+						p("")
+						continue
+					}
+				}
+			case http.MethodPut:
+				for _, param := range endpoint.Params {
+					p("%s := &%s{}", param.Name, param.Type)
+					p("if err = json.NewDecoder(r.Body).Decode(&%s); err != nil {", param.Name)
 					p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
 					p("return")
 					p("}")
 					p("")
-					continue
-				case reflect.TypeOf(time.Time{}):
-					p("%sStamp, err := strconv.ParseInt(r.URL.Query().Get(\"%s\"), 10, 64)", param.Name, param.Name)
-					p("if err != nil {")
-					p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-					p("return")
-					p("}")
-					p("")
-					p("%s := time.Unix(%sStamp, 0).UTC()", param.Name, param.Name)
-					p("")
-					continue
-				case reflect.TypeOf(""):
-					p("%s := r.URL.Query().Get(\"%s\")", param.Name, param.Name)
-					p("if %s == \"\" {", param.Name)
-					p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"parameter '%s' can't be empty\"))", param.Name)
-					p("return")
-					p("}")
-					p("")
-					continue
 				}
 			}
 
 			methodFormat := "retVal, httpErr := h.service.%s(ctx, "
-			for _, methodParam := range endpoint.Params {
-				methodFormat += methodParam.Name + ", "
+			switch pathMethod.Method {
+			case http.MethodGet:
+				for _, methodParam := range endpoint.Params {
+					methodFormat += methodParam.Name + ", "
+				}
+			case http.MethodPut:
+				for _, methodParam := range endpoint.Params {
+					methodFormat += "*" + methodParam.Name + ", "
+				}
 			}
+
 			methodFormat += ")"
 			p(methodFormat, endpoint.MethodName)
 			p("if httpErr.Err != nil {")
@@ -223,7 +251,7 @@ func (a *API) generateGo() ([]byte, error) {
 
 			p("err = json.NewEncoder(w).Encode(retVal)")
 			p("if err != nil {")
-			p("h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))", endpoint.MethodName, strings.Title(group.Prefix))
+			p("h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))", endpoint.MethodName, cases.Title(language.Und).String(group.Prefix))
 			p("}")
 			p("}")
 			p("")

@@ -65,8 +65,9 @@
                             <h3 class="payouts-by-node__content-area__main-info__totals-area__information__title">Minimal threshold & distributed payout system</h3>
                             <p class="payouts-by-node__content-area__main-info__totals-area__information__description">Short description how minimal threshold system works.</p>
                             <!--                            TODO: consider moving link to config-->
-                            <a href="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064"
-                               class="payouts-by-node__content-area__main-info__totals-area__information__link"
+                            <a
+                                href="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064"
+                                class="payouts-by-node__content-area__main-info__totals-area__information__link"
                             >
                                 Learn more
                             </a>

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ ! -f $HOME/.local/share/storj/versioncontrol/config.yaml ]; then
 	/app/versioncontrol setup

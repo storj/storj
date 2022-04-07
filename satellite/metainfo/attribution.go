@@ -27,7 +27,9 @@ const MaxUserAgentLength = 500
 // PartnerID from keyInfo is a value associated with registered user and prevails over header user agent.
 //
 // Assumes that the user has permissions sufficient for authenticating.
-func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName []byte) error {
+func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if header == nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
 	}
@@ -56,7 +58,7 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		}
 	}
 
-	userAgent, err := TrimUserAgent(userAgent)
+	userAgent, err = TrimUserAgent(userAgent)
 	if err != nil {
 		return err
 	}
@@ -109,13 +111,15 @@ func TrimUserAgent(userAgent []byte) ([]byte, error) {
 	return userAgent, nil
 }
 
-func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, partnerID uuid.UUID, userAgent []byte) error {
+func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, partnerID uuid.UUID, userAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if header == nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
 	}
 
 	// check if attribution is set for given bucket
-	_, err := endpoint.attributions.Get(ctx, projectID, bucketName)
+	_, err = endpoint.attributions.Get(ctx, projectID, bucketName)
 	if err == nil {
 		// bucket has already an attribution, no need to update
 		return nil

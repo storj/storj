@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "esnext",
+    "target": "es5",
     "module": "esnext",
     "strict": true,
     "noImplicitAny": false,
@@ -15,8 +15,7 @@
     "strictPropertyInitialization": false,
     "types": [
       "webpack-env",
-      "jest",
-      "segment-analytics"
+      "jest"
     ],
     "paths": {
       "@/*": [
@@ -32,9 +31,7 @@
   },
   "include": [
     "src/**/*.ts",
-    "src/**/*.tsx",
     "src/**/*.vue",
-    "src/app/types/svg.d.ts",
     "tests/**/*.ts",
     "tests/**/*.tsx"
   ],
