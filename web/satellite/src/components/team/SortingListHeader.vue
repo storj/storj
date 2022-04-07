@@ -42,7 +42,7 @@ import { OnHeaderClickCallback, ProjectMemberOrderBy } from '@/types/projectMemb
     },
 })
 export default class SortingListHeader extends Vue {
-    @Prop({default: () => new Promise(() => false)})
+    @Prop({default: () => () => new Promise(() => false)})
     private readonly onHeaderClickCallback: OnHeaderClickCallback;
 
     public ProjectMemberOrderBy = ProjectMemberOrderBy;

@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
+import {StoreModule} from "@/types/store";
 
 export const BUCKET_ACTIONS = {
     FETCH: 'setBuckets',

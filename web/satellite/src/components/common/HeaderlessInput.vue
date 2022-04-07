@@ -79,7 +79,7 @@ export default class HeaderlessInput extends Vue {
     private isPasswordShown = false;
 
     @Prop({default: ''})
-    protected value = '';
+    protected value: string;
 
     @Prop({default: ''})
     protected readonly label: string;
@@ -109,9 +109,7 @@ export default class HeaderlessInput extends Vue {
     @Prop({default: 'input-container'})
     private readonly roleDescription: boolean;
 
-    public constructor() {
-        super();
-
+    public created() {
         this.type = this.isPassword ? this.passwordType : this.textType;
     }
 

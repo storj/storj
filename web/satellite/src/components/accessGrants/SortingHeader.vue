@@ -35,7 +35,7 @@ import { SortDirection } from '@/types/common';
     },
 })
 export default class SortAccessGrantsHeader extends Vue {
-    @Prop({default: () => new Promise(() => false)})
+    @Prop({default: () => () => new Promise(() => false)})
     private readonly onHeaderClickCallback: OnHeaderClickCallback;
 
     public AccessGrantsOrderBy = AccessGrantsOrderBy;

@@ -66,7 +66,7 @@ interface ClearInput {
     },
 })
 export default class DisableMFAPopup extends Vue {
-    @Prop({default: () => false})
+    @Prop({default: () => () => {}})
     public readonly toggleModal: () => void;
 
     public isError = false;

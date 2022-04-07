@@ -29,7 +29,9 @@ declare interface SearchStyle {
 export default class VSearch extends Vue {
     @Prop({default: ''})
     private readonly placeholder: string;
-    @Prop({default: () => ''})
+    @Prop({default: function(): searchCallback {
+        return async function(_: string) {};
+    }})
     private readonly search: searchCallback;
 
     private inputWidth = '56px';

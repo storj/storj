@@ -39,9 +39,9 @@ import VButton from "@/components/common/VButton.vue";
     },
 })
 export default class CLIFlowContainer extends Vue {
-    @Prop({ default: () => false})
+    @Prop({ default: () => () => {}})
     public readonly onNextClick: () => unknown;
-    @Prop({ default: () => false})
+    @Prop({ default: () => () => {}})
     public readonly onBackClick: () => unknown;
     @Prop({ default: ''})
     public readonly title: string;

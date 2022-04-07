@@ -421,7 +421,7 @@ import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { BrowserFile } from "@/types/browser.ts";
+import { BrowserFile } from "@/types/browser";
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from "@/router";
 

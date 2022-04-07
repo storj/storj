@@ -203,7 +203,7 @@ interface StripeForm {
     },
 })
 export default class AddPaymentMethodModal extends Vue {
-    @Prop({default: () => false})
+    @Prop({default: () => () => {}})
     public readonly onClose: () => void;
 
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 50; // in dollars.

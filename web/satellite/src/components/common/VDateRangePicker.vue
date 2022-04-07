@@ -16,7 +16,6 @@
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
 import DatePicker from 'vue2-datepicker';
-import 'vue2-datepicker/index.css';
 
 // @vue/component
 @Component({
@@ -35,6 +34,8 @@ export default class VDateRangePicker extends Vue {
 </script>
 
 <style lang="scss">
+    @import '~vue2-datepicker/scss/index.scss';
+
     .picker,
     .mx-datepicker,
     .mx-range-wrapper {

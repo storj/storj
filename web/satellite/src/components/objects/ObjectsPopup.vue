@@ -51,7 +51,7 @@ import WarningIcon from '@/../static/images/objects/warning.svg';
     },
 })
 export default class ObjectsPopup extends Vue {
-    @Prop({ default: () => ''})
+    @Prop({ default: () => () => {}})
     public readonly onClick: () => void;
     @Prop({ default: ''})
     public readonly title: string;

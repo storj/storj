@@ -39,7 +39,7 @@ export default class VInfo extends Vue {
     private readonly title: string;
     @Prop({default: ''})
     private readonly buttonLabel: string;
-    @Prop({default: () => false})
+    @Prop({default: () => () => false})
     private readonly onButtonClick: () => unknown;
 
     public isVisible = false;

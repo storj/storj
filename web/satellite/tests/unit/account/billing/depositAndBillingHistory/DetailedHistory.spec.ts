@@ -1,7 +1,6 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import sinon from 'sinon';
 import Vuex from 'vuex';
 
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
@@ -13,7 +12,7 @@ import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { Project } from '@/types/projects';
-import { Notificator } from '@/utils/plugins/notificator';
+import {NotificatorPlugin} from '@/utils/plugins/notificator';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../../../mock/api/projects';
@@ -36,14 +35,7 @@ const store = new Vuex.Store({ modules: { paymentsModule, projectsModule, notifi
 store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
 store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
 
-class NotificatorPlugin {
-    public install() {
-        localVue.prototype.$notify = new Notificator(store);
-    }
-}
-
-const notificationsPlugin = new NotificatorPlugin();
-localVue.use(notificationsPlugin);
+localVue.use(new NotificatorPlugin(store));
 
 describe('DetailedHistory', (): void => {
     it('renders correctly without items', async (): Promise<void> => {
@@ -73,17 +65,14 @@ describe('DetailedHistory', (): void => {
     });
 
     it('click on back works correctly', async (): Promise<void> => {
-        const clickSpy = sinon.spy();
+        const clickSpy = jest.spyOn(router, "push");
         const wrapper = mount(DetailedHistory, {
             localVue,
             store,
             router,
         });
 
-        wrapper.vm.onBackToBillingClick = clickSpy;
-
         await wrapper.find('.history-area__back-area').trigger('click');
-
-        expect(clickSpy.callCount).toBe(1);
+        expect(clickSpy).toHaveBeenCalled();
     });
 });

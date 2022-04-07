@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import sinon from 'sinon';
 import Vuex from 'vuex';
 
 import NotificationItem from '@/components/notifications/NotificationItem.vue';
@@ -15,9 +14,9 @@ import { createLocalVue, mount } from '@vue/test-utils';
 const localVue = createLocalVue();
 
 localVue.use(Vuex);
-const pauseSpy = sinon.spy();
-const resumeSpy = sinon.spy();
-const deleteSpy = sinon.spy();
+const pauseSpy = jest.fn();
+const resumeSpy = jest.fn();
+const deleteSpy = jest.fn();
 const notificationModule = makeNotificationsModule();
 notificationModule.actions[NOTIFICATION_ACTIONS.PAUSE] = pauseSpy;
 notificationModule.actions[NOTIFICATION_ACTIONS.RESUME] = resumeSpy;
@@ -126,7 +125,7 @@ describe('NotificationItem', () => {
 
         wrapper.find('.notification-wrap').trigger('mouseover');
 
-        expect(pauseSpy.callCount).toBe(1);
+        expect(pauseSpy).toHaveBeenCalledTimes(1);
     });
 
     it('trigger resume correctly', () => {
@@ -135,7 +134,7 @@ describe('NotificationItem', () => {
         wrapper.find('.notification-wrap').trigger('mouseover');
         wrapper.find('.notification-wrap').trigger('mouseleave');
 
-        expect(resumeSpy.callCount).toBe(1);
+        expect(resumeSpy).toHaveBeenCalledTimes(1);
     });
 
     it('trigger delete correctly', () => {
@@ -143,6 +142,6 @@ describe('NotificationItem', () => {
 
         wrapper.find('.notification-wrap__buttons-group').trigger('click');
 
-        expect(deleteSpy.callCount).toBe(1);
+        expect(deleteSpy).toHaveBeenCalledTimes(1);
     });
 });

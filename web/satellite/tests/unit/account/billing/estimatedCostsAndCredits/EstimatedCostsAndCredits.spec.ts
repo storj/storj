@@ -31,6 +31,10 @@ const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
 const store = new Vuex.Store({ modules: { usersModule, projectsModule, paymentsModule }});
 
+const now = new Date(2020, 4, 1, 12 /* avoid timezone issues */, 1, 1, 1);
+paymentsModule.state.startDate = now; // TODO: we shouldn't need to do this
+paymentsModule.state.endDate = now;
+
 const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);
 const project1 = new Project('id1', 'projectName1', 'projectDescription1', 'test', 'testOwnerId1', false);
 const user = new User('testOwnerId');
@@ -44,8 +48,11 @@ const {
 
 describe('EstimatedCostsAndCredits', (): void => {
     beforeEach(() => {
-        spyOn(Date.prototype, 'getUTCMonth').and.returnValue(4);
-        spyOn(Date.prototype, 'getUTCFullYear').and.returnValue(2020);
+        jest.useFakeTimers("modern");
+        jest.setSystemTime(now);
+    });
+    afterAll(() => {
+        jest.useRealTimers();
     });
 
     it('renders correctly with project and no project usage and charges', async (): Promise<void> => {

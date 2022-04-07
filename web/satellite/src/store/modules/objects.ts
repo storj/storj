@@ -3,10 +3,10 @@
 
 import S3, { Bucket } from 'aws-sdk/clients/s3';
 
-import { StoreModule } from '@/store';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FilesState } from '@/store/modules/files';
+import {StoreModule} from "@/types/store";
 
 export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',

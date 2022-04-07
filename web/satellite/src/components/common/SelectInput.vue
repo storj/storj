@@ -53,9 +53,7 @@ export default class SelectInput extends Vue {
     @Prop({default: false})
     private readonly isWhite: boolean;
 
-    public constructor() {
-        super();
-
+    public created() {
         this.value = this.optionsList ? this.optionsList[0] : '';
         this.$emit('setData', this.value);
     }

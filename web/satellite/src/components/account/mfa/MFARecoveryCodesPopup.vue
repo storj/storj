@@ -45,7 +45,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
     },
 })
 export default class MFARecoveryCodesPopup extends Vue {
-    @Prop({default: () => false})
+    @Prop({default: () => () => false})
     public readonly toggleModal: () => void;
 
     /**

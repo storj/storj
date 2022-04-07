@@ -97,7 +97,7 @@ import { USER_ACTIONS } from '@/store/modules/users';
     },
 })
 export default class EnableMFAPopup extends Vue {
-    @Prop({default: () => false})
+    @Prop({default: () => () => false})
     public readonly toggleModal: () => void;
 
     public readonly qrLink =

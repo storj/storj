@@ -7,18 +7,14 @@ import { PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/paym
 import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
-localVue.filter('leadingZero', function (value: number): string {
-    if (value <= 9) {
-        return `0${value}`;
-    }
-
-    return `${value}`;
-});
 
 describe('PaymentsHistoryItemDate', (): void => {
     it('renders correctly if invoice', (): void => {
         const startDate = new Date(2019, 1, 1, 1, 1, 1, 1);
         const expirationDate = new Date(0, 1, 1, 1, 1, 1, 1);
+
+        jest.useFakeTimers("modern");
+        jest.setSystemTime(startDate);
 
         const wrapper = mount(PaymentsHistoryItemDate, {
             localVue,
@@ -29,14 +25,15 @@ describe('PaymentsHistoryItemDate', (): void => {
             },
         });
 
-        spyOn(Date.prototype, 'toLocaleString').and.returnValue(startDate.toLocaleString());
-
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly if charge', (): void => {
         const startDate = new Date(2019, 5, 5, 5, 5, 5, 5);
         const expirationDate = new Date(0, 1, 1, 1, 1, 1, 1);
+
+        jest.useFakeTimers("modern");
+        jest.setSystemTime(startDate);
 
         const wrapper = mount(PaymentsHistoryItemDate, {
             localVue,
@@ -47,8 +44,6 @@ describe('PaymentsHistoryItemDate', (): void => {
             },
         });
 
-        spyOn(Date.prototype, 'toLocaleString').and.returnValue(startDate.toLocaleString());
-
         expect(wrapper).toMatchSnapshot();
     });
 
@@ -57,7 +52,8 @@ describe('PaymentsHistoryItemDate', (): void => {
         const expirationDate = new Date(2019, 5, 5, 6, 5, 5, 5);
         const testTimeNow = expirationDate.getTime();
 
-        spyOn(Date.prototype, 'getTime').and.returnValue(testTimeNow);
+        jest.useFakeTimers("modern");
+        jest.setSystemTime(testTimeNow);
 
         const wrapper = mount(PaymentsHistoryItemDate, {
             localVue,

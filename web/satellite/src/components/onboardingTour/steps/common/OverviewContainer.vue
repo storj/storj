@@ -67,7 +67,7 @@ export default class OverviewContainer extends Vue {
     public readonly isDisabled: boolean;
     @Prop({ default: ''})
     public readonly buttonLabel: string;
-    @Prop({ default: () => false})
+    @Prop({ default: () => () => {}})
     public readonly onClick: () => void;
 }
 </script>

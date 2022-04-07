@@ -122,11 +122,11 @@ import InfoIcon from "@/../static/images/common/smallGreyInfo.svg";
     },
 })
 export default class GeneratePassphrase extends Vue {
-    @Prop({ default: () => null })
+    @Prop({ default: () => () => null })
     public readonly onNextClick: () => unknown;
-    @Prop({ default: () => null })
+    @Prop({ default: () => () => null })
     public readonly onBackClick: () => unknown;
-    @Prop({ default: () => null })
+    @Prop({ default: () => () => null })
     public readonly setParentPassphrase: (passphrase: string) => void;
     @Prop({ default: false })
     public readonly isLoading: boolean;

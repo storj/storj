@@ -16,9 +16,10 @@
                         <p class="add-user__form-container__label__error">{{ formError }}</p>
                     </div>
                     <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': isInputsGroupScrollable }">
-                        <div v-for="(input, index) in inputs"
-                             :key="index"
-                             class="add-user__form-container__inputs-group__item"
+                        <div
+                            v-for="(input, index) in inputs"
+                            :key="index"
+                            class="add-user__form-container__inputs-group__item"
                         >
                             <input
                                 v-model="input.value"

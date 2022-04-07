@@ -40,9 +40,9 @@ export default class DateRangeSelection extends Vue {
     public readonly since: Date;
     @Prop({ default: new Date() })
     public readonly before: Date;
-    @Prop({ default: () => false })
+    @Prop({ default: () => () => {} })
     public readonly onDatePick: (dateRange: Date[]) => void;
-    @Prop({ default: () => false })
+    @Prop({ default: () => () => {} })
     public readonly toggle: () => void;
     @Prop({ default: false })
     public readonly isOpen: boolean;

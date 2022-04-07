@@ -4,7 +4,6 @@
 const path = require('path');
 const webpack = require('webpack');
 const CompressionWebpackPlugin = require('compression-webpack-plugin');
-const WorkerPlugin = require('worker-plugin');
 const productionBrotliExtensions = ['js', 'css', 'ttf', 'woff', 'woff2'];
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
@@ -16,13 +15,13 @@ let plugins = [
         threshold: 1024,
         minRatio: 0.8
     }),
-    new WorkerPlugin({
-        globalObject: 'self',
-    }),
     new webpack.optimize.MinChunkSizePlugin({
         minChunkSize: 50*1024,
     }),
-    new webpack.IgnorePlugin(/^\.\/wordlists\/(?!english)/, /bip39[\\/]src$/),
+    new webpack.IgnorePlugin({
+        contextRegExp: /bip39[\\/]src$/,
+        resourceRegExp: /^\.\/wordlists\/(?!english)/,
+    }),
 ];
 
 if(process.env["STORJ_DEBUG_BUNDLE_SIZE"]) {
@@ -33,33 +32,44 @@ module.exports = {
     publicPath: "/static/dist",
     productionSourceMap: false,
     parallel: true,
-    lintOnSave: false, // disables eslint for builds
+    lintOnSave: process.env.NODE_ENV !== 'production', // disables eslint for builds
     configureWebpack: {
         plugins: plugins,
+        resolve: {
+            fallback: {
+                "util": require.resolve("util/"),
+                "stream": require.resolve("stream-browserify"),
+            },
+        }
     },
     chainWebpack: config => {
+        // Avoid breaking browser UI cache.
         config.output.chunkFilename(`js/vendors_[name]_[hash].js`);
-        config.output.filename(`js/app_[hash].js`);
+        config.output.filename(`js/app_[name]_[hash].js`);
 
         config.resolve.alias
             .set('@', path.resolve('src'));
+
+        // Disable node_modules/.cache directory usage due to permissions.
+        // This is enabled by default in https://cli.vuejs.org/core-plugins/babel.html#caching.
+        config.module.rule('js').use('babel-loader')
+            .tap(options => Object.assign(options, {cacheDirectory: false}));
 
         config
             .plugin('html')
             .tap(args => {
                 args[0].template = './index.html';
-                return args
+                return args;
             });
 
         const svgRule = config.module.rule('svg');
-
         svgRule.uses.clear();
-
+        svgRule.type(); // Disable webpack 5 asset management.
         svgRule
-            .use('babel-loader')
-            .loader('babel-loader')
+            .use('vue-loader')
+            .loader('vue-loader')
             .end()
             .use('vue-svg-loader')
             .loader('vue-svg-loader');
-    }
+    },
 };

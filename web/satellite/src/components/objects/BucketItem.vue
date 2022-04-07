@@ -39,9 +39,9 @@ import DotsIcon from '@/../static/images/objects/dots.svg';
 export default class BucketItem extends Vue {
     @Prop({ default: null })
     public readonly itemData: Bucket;
-    @Prop({ default: () => '' })
+    @Prop({ default: () => () => {} })
     public readonly showDeleteBucketPopup: () => void;
-    @Prop({ default: () => '' })
+    @Prop({ default: () => () => {} })
     public readonly openDropdown;
     @Prop({ default: false })
     public readonly isDropdownOpen: boolean;

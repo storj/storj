@@ -74,12 +74,8 @@ export default class HeaderedInput extends HeaderlessInput {
     @Prop({default: false})
     private readonly isLoading: boolean;
 
-    public value: string;
-
-    public constructor() {
-        super();
-
-        this.value = this.initValue;
+    public created() {
+        this.setValue(this.initValue);
     }
 }
 </script>

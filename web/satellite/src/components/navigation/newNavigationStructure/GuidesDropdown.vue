@@ -17,7 +17,7 @@ export default class GuidesDropdown extends Vue {
     private readonly yPosition: number;
     @Prop({default: 0})
     private readonly xPosition: number;
-    @Prop({default: () => []})
+    @Prop({default: () => () => {}})
     private readonly close: () => void;
 
     private dropdownMiddle = 0;

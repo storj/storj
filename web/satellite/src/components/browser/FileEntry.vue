@@ -368,7 +368,7 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
-import type { BrowserFile } from "@/types/browser.ts";
+import type { BrowserFile } from "@/types/browser";
 import prettyBytes from "pretty-bytes";
 
 // @vue/component

@@ -24,7 +24,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 // @vue/component
 @Component
 export default class ConfirmMFAInput extends Vue {
-    @Prop({default: () => false})
+    @Prop({default: () => () => {}})
     public readonly onInput: (value: string) => void;
     @Prop({default: false})
     public readonly isRecovery: boolean;

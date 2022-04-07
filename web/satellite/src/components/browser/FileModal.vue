@@ -196,7 +196,7 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator';
-import { BrowserFile } from '@/types/browser.ts';
+import { BrowserFile } from '@/types/browser';
 import prettyBytes from 'pretty-bytes';
 
 import PlaceholderImage from '@/../static/images/browser/placeholder.svg'

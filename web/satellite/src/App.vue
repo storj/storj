@@ -14,7 +14,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
-import { PartneredSatellite } from '@/types/common.ts';
+import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 
