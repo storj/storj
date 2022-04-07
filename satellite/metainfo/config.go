@@ -9,9 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vivint/infectious"
+
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
+	"storj.io/uplink/private/eestream"
 )
 
 const (
@@ -88,6 +91,16 @@ func (rs *RSConfig) Set(s string) error {
 	rs.Total = values[3]
 
 	return nil
+}
+
+// RedundancyStrategy creates eestream.RedundancyStrategy from config values.
+func (rs *RSConfig) RedundancyStrategy() (eestream.RedundancyStrategy, error) {
+	fec, err := infectious.NewFEC(rs.Min, rs.Total)
+	if err != nil {
+		return eestream.RedundancyStrategy{}, err
+	}
+	erasureScheme := eestream.NewRSScheme(fec, rs.ErasureShareSize.Int())
+	return eestream.NewRedundancyStrategy(erasureScheme, rs.Repair, rs.Success)
 }
 
 // RateLimiterConfig is a configuration struct for endpoint rate limiting.
