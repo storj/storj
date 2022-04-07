@@ -1388,6 +1388,117 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 	return project, nil
 }
 
+// GenUpdateProject is a method for updating project name and description by id for generated api.
+func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo ProjectInfo) (p *Project, httpError api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+	project := isMember.project
+	project.Name = projectInfo.Name
+	project.Description = projectInfo.Description
+
+	if auth.User.PaidTier {
+		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.New("current bandwidth limit for project is set to 0 (updating disabled)"),
+			}
+		}
+		if project.StorageLimit != nil && *project.StorageLimit == 0 {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.New("current storage limit for project is set to 0 (updating disabled)"),
+			}
+		}
+		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("project limits must be greater than 0"),
+			}
+		}
+
+		if projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("specified storage limit exceeds allowed maximum for current tier"),
+			}
+		}
+
+		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("specified bandwidth limit exceeds allowed maximum for current tier"),
+			}
+		}
+
+		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+		if projectInfo.StorageLimit.Int64() < storageUsed {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("cannot set storage limit below current usage"),
+			}
+		}
+
+		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+		if projectInfo.BandwidthLimit.Int64() < bandwidthUsed {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("cannot set bandwidth limit below current usage"),
+			}
+		}
+
+		project.StorageLimit = new(memory.Size)
+		*project.StorageLimit = projectInfo.StorageLimit
+		project.BandwidthLimit = new(memory.Size)
+		*project.BandwidthLimit = projectInfo.BandwidthLimit
+	}
+
+	err = s.store.Projects().Update(ctx, project)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return project, httpError
+}
+
 // AddProjectMembers adds users by email to given project.
 func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)

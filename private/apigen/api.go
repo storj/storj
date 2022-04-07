@@ -227,6 +227,24 @@ func (a *API) generateGo() ([]byte, error) {
 					p("}")
 					p("")
 				}
+			case http.MethodPatch:
+				for _, param := range endpoint.Params {
+					if param.Type == reflect.TypeOf(uuid.UUID{}) {
+						p("%s, err := uuid.FromString(r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
+						p("if err != nil {")
+						p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+						p("return")
+						p("}")
+						p("")
+					} else {
+						p("%s := &%s{}", param.Name, param.Type)
+						p("if err = json.NewDecoder(r.Body).Decode(&%s); err != nil {", param.Name)
+						p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+						p("return")
+						p("}")
+						p("")
+					}
+				}
 			}
 
 			methodFormat := "retVal, httpErr := h.service.%s(ctx, "
@@ -238,6 +256,14 @@ func (a *API) generateGo() ([]byte, error) {
 			case http.MethodPut:
 				for _, methodParam := range endpoint.Params {
 					methodFormat += "*" + methodParam.Name + ", "
+				}
+			case http.MethodPatch:
+				for _, methodParam := range endpoint.Params {
+					if methodParam.Type == reflect.TypeOf(uuid.UUID{}) {
+						methodFormat += methodParam.Name + ", "
+					} else {
+						methodFormat += "*" + methodParam.Name + ", "
+					}
 				}
 			}
 

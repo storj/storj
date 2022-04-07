@@ -65,6 +65,17 @@ func main() {
 				apigen.NewParam("projectInfo", console.ProjectInfo{}),
 			},
 		})
+
+		g.Patch("/update", &apigen.Endpoint{
+			Name:        "Update Project",
+			Description: "Updates project with given info",
+			MethodName:  "GenUpdateProject",
+			Response:    &console.Project{},
+			Params: []apigen.Param{
+				apigen.NewParam("id", uuid.UUID{}),
+				apigen.NewParam("projectInfo", console.ProjectInfo{}),
+			},
+		})
 	}
 
 	a.MustWrite("satellite/console/consoleweb/consoleapi/api.gen.go")
