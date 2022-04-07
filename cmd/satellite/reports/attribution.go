@@ -25,8 +25,11 @@ var headers = []string{
 	"userAgent",
 	"projectID",
 	"bucketName",
-	"byte-hours:Total",
-	"bytes:BWEgress",
+	"gbHours",
+	"segmentHours",
+	"objectHours",
+	"hours",
+	"gbEgress",
 }
 
 // GenerateAttributionCSV creates a report with.
@@ -81,13 +84,16 @@ func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {
 	if err != nil {
 		return nil, errs.New("Invalid Project ID")
 	}
-	totalGBPerHour := memory.Size(p.TotalBytesPerHour).GB()
+	gbHours := memory.Size(p.ByteHours).GB()
 	egressGBData := memory.Size(p.EgressData).GB()
 	record := []string{
 		string(p.UserAgent),
 		projectID.String(),
 		string(p.BucketName),
-		strconv.FormatFloat(totalGBPerHour, 'f', 4, 64),
+		strconv.FormatFloat(gbHours, 'f', 4, 64),
+		strconv.FormatFloat(p.SegmentHours, 'f', 4, 64),
+		strconv.FormatFloat(p.ObjectHours, 'f', 4, 64),
+		strconv.FormatFloat(float64(p.Hours), 'f', 4, 64),
 		strconv.FormatFloat(egressGBData, 'f', 4, 64),
 	}
 	return record, nil

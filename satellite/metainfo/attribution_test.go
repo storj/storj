@@ -4,6 +4,7 @@
 package metainfo_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"strconv"
@@ -216,7 +217,14 @@ func TestQueryAttribution(t *testing.T) {
 
 			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
 			require.NoError(t, err)
-			require.NotZero(t, rows[0].TotalBytesPerHour)
+			require.NotZero(t, rows[0].ByteHours)
+			require.Equal(t, rows[0].EgressData, usage.Egress)
+
+			// also test QueryAllAttribution
+			rows, err = planet.Satellites[0].DB.Attribution().QueryAllAttribution(ctx, before, after)
+			require.NoError(t, err)
+			require.Equal(t, rows[0].UserAgent, userAgent)
+			require.NotZero(t, rows[0].ByteHours)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
 		}
 	})
@@ -237,7 +245,8 @@ func TestAttributionReport(t *testing.T) {
 		tomorrow := now.Add(24 * time.Hour)
 
 		up := planet.Uplinks[0]
-		up.Config.UserAgent = "Zenko/1.0"
+		zenkoStr := "Zenko/1.0"
+		up.Config.UserAgent = zenkoStr
 
 		err := up.CreateBucket(ctx, planet.Satellites[0], bucketName)
 		require.NoError(t, err)
@@ -249,8 +258,8 @@ func TestAttributionReport(t *testing.T) {
 			_, err = up.Download(ctx, planet.Satellites[0], bucketName, filePath)
 			require.NoError(t, err)
 		}
-
-		up.Config.UserAgent = "Minio/1.0"
+		minioStr := "Minio/1.0"
+		up.Config.UserAgent = minioStr
 		{ // upload and download as Minio
 			err = up.Upload(ctx, planet.Satellites[0], bucketName, filePath, testrand.Bytes(5*memory.KiB))
 			require.NoError(t, err)
@@ -286,20 +295,38 @@ func TestAttributionReport(t *testing.T) {
 			require.NotZero(t, usage.Egress)
 
 			partner, _ := planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "")
-			userAgent := []byte("Zenko/1.0")
 
-			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
+			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, []byte(zenkoStr), before, after)
 			require.NoError(t, err)
-			require.NotZero(t, rows[0].TotalBytesPerHour)
+			require.NotZero(t, rows[0].ByteHours)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
 
 			// Minio should have no attribution because bucket was created by Zenko
 			partner, _ = planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "")
-			userAgent = []byte("Minio/1.0")
 
-			rows, err = planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
+			rows, err = planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, []byte(minioStr), before, after)
 			require.NoError(t, err)
 			require.Empty(t, rows)
+
+			// also test QueryAllAttribution
+			rows, err = planet.Satellites[0].DB.Attribution().QueryAllAttribution(ctx, before, after)
+			require.NoError(t, err)
+
+			var zenkoFound, minioFound bool
+			for _, r := range rows {
+				if bytes.Equal(r.UserAgent, []byte(zenkoStr)) {
+					require.NotZero(t, rows[0].ByteHours)
+					require.Equal(t, rows[0].EgressData, usage.Egress)
+					zenkoFound = true
+				} else if bytes.Equal(r.UserAgent, []byte(minioStr)) {
+					minioFound = true
+				}
+			}
+
+			require.True(t, zenkoFound)
+
+			// Minio should have no attribution because bucket was created by Zenko
+			require.False(t, minioFound)
 		}
 	})
 }

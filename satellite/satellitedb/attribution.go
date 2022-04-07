@@ -17,6 +17,8 @@ import (
 )
 
 const (
+	// I can see how keeping around the query to only get attribution for one partner might be good,
+	// but that means we need to maintain both queries. Maybe we should get rid of this one.
 	valueAttrQuery = `
 	-- A union of both the storage tally and bandwidth rollups.
 	-- Should be 1 row per project/bucket by partner within the timeframe specified
@@ -25,10 +27,13 @@ const (
 		o.user_agent as user_agent, 
 		o.project_id as project_id, 
 		o.bucket_name as bucket_name, 
-		SUM(o.total)  / SUM(o.hours) as total,
-		SUM(o.remote) / SUM(o.hours) as remote,
-		SUM(o.inline) / SUM(o.hours) as inline,
-		SUM(o.settled) as settled 
+		SUM(o.total) as total_byte_hours,
+		SUM(o.remote) as remote_byte_hours,
+		SUM(o.inline) as inline_byte_hours,
+		SUM(o.segments) as segment_hours,
+		SUM(o.objects) as object_hours,
+		SUM(o.settled) as settled, 
+		COALESCE(SUM(o.hours),0) as hours
 	FROM 
 		(
 			-- SUM the storage and hours
@@ -41,6 +46,8 @@ const (
 				SUM(bsto.total_bytes) as total,
 				SUM(bsto.remote) as remote, 
 				SUM(bsto.inline) as inline, 
+				SUM(bsto.total_segments_count) as segments,
+				SUM(bsto.object_count) as objects,
 				0 as settled, 
 				count(1) as hours 
 			FROM 
@@ -56,7 +63,7 @@ const (
 						MAX(bst.interval_start) as max_interval 
 					FROM 
 						bucket_storage_tallies bst 
-						LEFT OUTER JOIN value_attributions va ON (
+						RIGHT JOIN value_attributions va ON (
 							bst.project_id = va.project_id 
 							AND bst.bucket_name = va.bucket_name
 						) 
@@ -74,7 +81,7 @@ const (
 					ORDER BY 
 						max_interval DESC
 				) bsti 
-				LEFT JOIN bucket_storage_tallies bsto ON (
+				INNER JOIN bucket_storage_tallies bsto ON (
 					bsto.project_id = bsti.project_id 
 					AND bsto.bucket_name = bsti.bucket_name 
 					AND bsto.interval_start = bsti.max_interval
@@ -94,11 +101,13 @@ const (
 				0 as total,
 				0 as remote, 
 				0 as inline, 
+				0 as segments,
+				0 as objects,
 				SUM(settled)::integer as settled, 
 				NULL as hours 
 			FROM 
 				bucket_bandwidth_rollups bbr 
-				LEFT OUTER JOIN value_attributions va ON (
+				INNER JOIN value_attributions va ON (
 					bbr.project_id = va.project_id 
 					AND bbr.bucket_name = va.bucket_name
 				) 
@@ -129,10 +138,13 @@ const (
 		o.user_agent as user_agent,
 		o.project_id as project_id,
 		o.bucket_name as bucket_name,
-		SUM(o.total)  / SUM(o.hours) as total,
-		SUM(o.remote) / SUM(o.hours) as remote,
-		SUM(o.inline) / SUM(o.hours) as inline,
-		SUM(o.settled) as settled
+		SUM(o.total) as total_byte_hours,
+		SUM(o.remote) as remote_byte_hours,
+		SUM(o.inline) as inline_byte_hours,
+		SUM(o.segments) as segment_hours,
+		SUM(o.objects) as object_hours,
+		SUM(o.settled) as settled,
+		COALESCE(SUM(o.hours),0) as hours
 	FROM
 		(
 			-- SUM the storage and hours
@@ -145,6 +157,8 @@ const (
 				SUM(bsto.total_bytes) as total,
 				SUM(bsto.remote) as remote,
 				SUM(bsto.inline) as inline,
+				SUM(bsto.total_segments_count) as segments,
+				SUM(bsto.object_count) as objects,
 				0 as settled,
 				count(1) as hours
 			FROM
@@ -160,7 +174,7 @@ const (
 						MAX(bst.interval_start) as max_interval
 					FROM
 						bucket_storage_tallies bst
-						LEFT OUTER JOIN value_attributions va ON (
+						INNER JOIN value_attributions va ON (
 							bst.project_id = va.project_id
 							AND bst.bucket_name = va.bucket_name
 						)
@@ -176,7 +190,7 @@ const (
 					ORDER BY
 						max_interval DESC
 				) bsti
-				LEFT JOIN bucket_storage_tallies bsto ON (
+				INNER JOIN bucket_storage_tallies bsto ON (
 					bsto.project_id = bsti.project_id
 					AND bsto.bucket_name = bsti.bucket_name
 					AND bsto.interval_start = bsti.max_interval
@@ -196,11 +210,13 @@ const (
 				0 as total,
 				0 as remote,
 				0 as inline,
+				0 as segments,
+				0 as objects,
 				SUM(settled)::integer as settled,
-				NULL as hours
+				null as hours
 			FROM
 				bucket_bandwidth_rollups bbr
-				LEFT OUTER JOIN value_attributions va ON (
+				INNER JOIN value_attributions va ON (
 					bbr.project_id = va.project_id
 					AND bbr.bucket_name = va.bucket_name
 				)
@@ -280,13 +296,13 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 	for rows.Next() {
 		r := &attribution.CSVRow{}
 		var inline, remote float64
-		err := rows.Scan(&r.PartnerID, &r.UserAgent, &r.ProjectID, &r.BucketName, &r.TotalBytesPerHour, &inline, &remote, &r.EgressData)
+		err := rows.Scan(&r.PartnerID, &r.UserAgent, &r.ProjectID, &r.BucketName, &r.ByteHours, &inline, &remote, &r.SegmentHours, &r.ObjectHours, &r.EgressData, &r.Hours)
 		if err != nil {
 			return results, Error.Wrap(err)
 		}
 
-		if r.TotalBytesPerHour == 0 {
-			r.TotalBytesPerHour = inline + remote
+		if r.ByteHours == 0 {
+			r.ByteHours = inline + remote
 		}
 
 		results = append(results, r)
@@ -308,15 +324,14 @@ func (keys *attributionDB) QueryAllAttribution(ctx context.Context, start time.T
 	for rows.Next() {
 		r := &attribution.CSVRow{}
 		var inline, remote float64
-		err := rows.Scan(&r.PartnerID, &r.UserAgent, &r.ProjectID, &r.BucketName, &r.TotalBytesPerHour, &inline, &remote, &r.EgressData)
+		err := rows.Scan(&r.PartnerID, &r.UserAgent, &r.ProjectID, &r.BucketName, &r.ByteHours, &inline, &remote, &r.SegmentHours, &r.ObjectHours, &r.EgressData, &r.Hours)
 		if err != nil {
 			return results, Error.Wrap(err)
 		}
 
-		if r.TotalBytesPerHour == 0 {
-			r.TotalBytesPerHour = inline + remote
+		if r.ByteHours == 0 {
+			r.ByteHours = inline + remote
 		}
-
 		results = append(results, r)
 	}
 	return results, Error.Wrap(rows.Err())
