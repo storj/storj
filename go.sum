@@ -920,8 +920,8 @@ sourcegraph.com/sourcegraph/go-diff v0.5.0/go.mod h1:kuch7UrkMzY0X+p9CRK03kfuPQ2
 sourcegraph.com/sqs/pbtypes v0.0.0-20180604144634-d3ebe8f20ae4/go.mod h1:ketZ/q3QxT9HOBeFhu6RdvsftgpsbFHBF5Cas6cDKZ0=
 storj.io/common v0.0.0-20220131120956-e74f624a3d55/go.mod h1:m0489td5+rKDdoiYOzCkh3CfGW/cLyntZiYfso+QfMs=
 storj.io/common v0.0.0-20220216094301-b27f3c9d69e1/go.mod h1:xW3PPPGBo4bdMtEP9GREnmxQptmJNuDg1tEHcA4zqog=
-storj.io/common v0.0.0-20220328200721-dd5c8642e8cf h1:8105m+PjFjYwIHasuRDTp+4A6BUg6KlcmGLtwewHtos=
-storj.io/common v0.0.0-20220328200721-dd5c8642e8cf/go.mod h1:LBJrpAqL4MNSrhGEwc8SJ+tIVtgfCtFEZqDy6/0j67A=
+storj.io/common v0.0.0-20220405183405-ffdc3ab808c6 h1:vbGPpXHQsc3doPyTwhWWvo/2MWrmspvF9O6wX8Jw0ME=
+storj.io/common v0.0.0-20220405183405-ffdc3ab808c6/go.mod h1:LBJrpAqL4MNSrhGEwc8SJ+tIVtgfCtFEZqDy6/0j67A=
 storj.io/drpc v0.0.29/go.mod h1:6rcOyR/QQkSTX/9L5ZGtlZaE2PtXTTZl8d+ulSeeYEg=
 storj.io/drpc v0.0.30 h1:jqPe4T9KEu3CDBI05A2hCMgMSHLtd/E0N0yTF9QreIE=
 storj.io/drpc v0.0.30/go.mod h1:6rcOyR/QQkSTX/9L5ZGtlZaE2PtXTTZl8d+ulSeeYEg=
@@ -929,5 +929,5 @@ storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a h1:qads+aZlFKm5gUxobfF
 storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a/go.mod h1:DGEycSjvzE0JqcD3+6IjwPEK6x30oOus6AApXzl7t0s=
 storj.io/private v0.0.0-20220323114243-08c4b5e752f4 h1:szxLYr9Rdmx19unt47kafB3816JFI5esPlrzdMyZhvk=
 storj.io/private v0.0.0-20220323114243-08c4b5e752f4/go.mod h1:fZ7FSXv/adIc79sF/5qm7zn0PI5+PWa5p+dbqrZQARM=
-storj.io/uplink v1.8.2-0.20220401124330-4a78b8e6431f h1:1LpQus+WTmF0/Gno1xTEPc78ABy1gT66AXjCRUwJm/g=
-storj.io/uplink v1.8.2-0.20220401124330-4a78b8e6431f/go.mod h1:wGaBfQPOAu55YwGOoe5D5jb0k+hyS/S1SPUxHCQpLE0=
+storj.io/uplink v1.8.2-0.20220406151905-7305e5b6da85 h1:UBsmsfbXLHUL8NNtUGd+cnhITbVB/cSJeckE3+xUIbk=
+storj.io/uplink v1.8.2-0.20220406151905-7305e5b6da85/go.mod h1:RtbTI2i9JjfWTCaSNM2bVUNP1hjAvfv9VH6D35jFh18=

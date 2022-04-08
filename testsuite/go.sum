@@ -1454,8 +1454,8 @@ storj.io/common v0.0.0-20210916151047-6aaeb34bb916/go.mod h1:objobGrIWQwhmTSpSm6
 storj.io/common v0.0.0-20211102144601-401a79f0706a/go.mod h1:a2Kw7Uipu929OFANfWKLHRoD0JfhgssikEvimd6hbSQ=
 storj.io/common v0.0.0-20220131120956-e74f624a3d55/go.mod h1:m0489td5+rKDdoiYOzCkh3CfGW/cLyntZiYfso+QfMs=
 storj.io/common v0.0.0-20220216094301-b27f3c9d69e1/go.mod h1:xW3PPPGBo4bdMtEP9GREnmxQptmJNuDg1tEHcA4zqog=
-storj.io/common v0.0.0-20220328200721-dd5c8642e8cf h1:8105m+PjFjYwIHasuRDTp+4A6BUg6KlcmGLtwewHtos=
-storj.io/common v0.0.0-20220328200721-dd5c8642e8cf/go.mod h1:LBJrpAqL4MNSrhGEwc8SJ+tIVtgfCtFEZqDy6/0j67A=
+storj.io/common v0.0.0-20220405183405-ffdc3ab808c6 h1:vbGPpXHQsc3doPyTwhWWvo/2MWrmspvF9O6wX8Jw0ME=
+storj.io/common v0.0.0-20220405183405-ffdc3ab808c6/go.mod h1:LBJrpAqL4MNSrhGEwc8SJ+tIVtgfCtFEZqDy6/0j67A=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.24/go.mod h1:ofQUDPQbbIymRDKE0tms48k8bLP5Y+dsI9CbXGv3gko=
@@ -1477,5 +1477,5 @@ storj.io/private v0.0.0-20220323114243-08c4b5e752f4 h1:szxLYr9Rdmx19unt47kafB381
 storj.io/private v0.0.0-20220323114243-08c4b5e752f4/go.mod h1:fZ7FSXv/adIc79sF/5qm7zn0PI5+PWa5p+dbqrZQARM=
 storj.io/uplink v1.7.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
 storj.io/uplink v1.7.1-0.20211103104100-a785482780d8/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
-storj.io/uplink v1.8.2-0.20220401124330-4a78b8e6431f h1:1LpQus+WTmF0/Gno1xTEPc78ABy1gT66AXjCRUwJm/g=
-storj.io/uplink v1.8.2-0.20220401124330-4a78b8e6431f/go.mod h1:wGaBfQPOAu55YwGOoe5D5jb0k+hyS/S1SPUxHCQpLE0=
+storj.io/uplink v1.8.2-0.20220406151905-7305e5b6da85 h1:UBsmsfbXLHUL8NNtUGd+cnhITbVB/cSJeckE3+xUIbk=
+storj.io/uplink v1.8.2-0.20220406151905-7305e5b6da85/go.mod h1:RtbTI2i9JjfWTCaSNM2bVUNP1hjAvfv9VH6D35jFh18=
