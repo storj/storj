@@ -280,3 +280,86 @@ func TestEmptyProjectUpdatesLiveAccounting(t *testing.T) {
 		require.Zero(t, p1Total)
 	})
 }
+
+func TestTallyOnCopiedObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
+		testCases := []struct {
+			name                     string
+			size                     memory.Size
+			expectedTallyAfterCopy   accounting.BucketTally
+			expectedTallyAfterDelete accounting.BucketTally
+		}{
+			{"inline", memory.KiB,
+				accounting.BucketTally{
+					ObjectCount:   2,
+					TotalBytes:    2080,
+					TotalSegments: 2,
+				}, accounting.BucketTally{
+					ObjectCount:   1,
+					TotalBytes:    1040,
+					TotalSegments: 1,
+				},
+			},
+			{"remote", 8 * memory.KiB,
+				accounting.BucketTally{
+					ObjectCount:   2,
+					TotalBytes:    29696,
+					TotalSegments: 2,
+				},
+				accounting.BucketTally{
+					ObjectCount:   1,
+					TotalBytes:    14848,
+					TotalSegments: 1,
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], tc.name)
+				require.NoError(t, err)
+
+				data := testrand.Bytes(tc.size)
+
+				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], tc.name, "ancestor", data)
+				require.NoError(t, err)
+
+				project, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+				require.NoError(t, err)
+				defer ctx.Check(project.Close)
+
+				_, err = project.CopyObject(ctx, tc.name, "ancestor", tc.name, "copy", nil)
+				require.NoError(t, err)
+
+				planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
+				planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
+				tallies, err := planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
+				require.NoError(t, err)
+				lastTally := tallies[len(tallies)-1]
+				require.Equal(t, tc.name, lastTally.BucketName)
+				require.Equal(t, tc.expectedTallyAfterCopy.ObjectCount, lastTally.ObjectCount)
+				require.Equal(t, tc.expectedTallyAfterCopy.TotalBytes, lastTally.TotalBytes)
+				require.Equal(t, tc.expectedTallyAfterCopy.TotalSegments, lastTally.TotalSegments)
+
+				_, err = project.DeleteObject(ctx, tc.name, "ancestor")
+				require.NoError(t, err)
+
+				planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
+				planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
+				tallies, err = planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
+				require.NoError(t, err)
+				lastTally = tallies[len(tallies)-1]
+				require.Equal(t, tc.name, lastTally.BucketName)
+				require.Equal(t, tc.expectedTallyAfterDelete.ObjectCount, lastTally.ObjectCount)
+				require.Equal(t, tc.expectedTallyAfterDelete.TotalBytes, lastTally.TotalBytes)
+				require.Equal(t, tc.expectedTallyAfterDelete.TotalSegments, lastTally.TotalSegments)
+			})
+		}
+	})
+}
