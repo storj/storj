@@ -152,6 +152,6 @@ func openLog(logPath string) error {
 		return err
 	}
 
-	zap.ReplaceGlobals(logger)
+	zap.ReplaceGlobals(logger.With(zap.String("Process", updaterServiceName)))
 	return nil
 }
