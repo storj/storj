@@ -64,7 +64,7 @@ type Repairer struct {
 	}
 
 	Audit struct {
-		Reporter *audit.Reporter
+		Reporter audit.Reporter
 	}
 
 	EcRepairer      *repairer.ECRepairer
