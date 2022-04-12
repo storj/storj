@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console/accountmanagementapikeys"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -65,8 +65,8 @@ type Admin struct {
 		Service *buckets.Service
 	}
 
-	AccountManagementAPIKeys struct {
-		Service *accountmanagementapikeys.Service
+	REST struct {
+		Keys *restkeys.Service
 	}
 }
 
@@ -87,8 +87,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
 	}
 
-	{ // setup account management api keys
-		peer.AccountManagementAPIKeys.Service = accountmanagementapikeys.NewService(db.OIDC().OAuthTokens(), config.AccountManagementAPIKeys)
+	{ // setup rest keys
+		peer.REST.Keys = restkeys.NewService(db.OIDC().OAuthTokens(), config.RESTKeys)
 	}
 
 	{ // setup debug
@@ -173,7 +173,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.AccountManagementAPIKeys.Service, peer.Payments.Accounts, adminConfig)
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.REST.Keys, peer.Payments.Accounts, adminConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,

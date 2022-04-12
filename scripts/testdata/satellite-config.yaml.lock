@@ -1,6 +1,3 @@
-# expiration to use if user does not specify an account management api key expiration
-# account-management-api-keys.default-expiration: 720h0m0s
-
 # admin peer http listening address
 # admin.address: ""
 
@@ -780,6 +777,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the time period that must pass before suspended nodes will be disqualified
 # reputation.suspension-grace-period: 168h0m0s
+
+# expiration to use if user does not specify an rest key expiration
+# rest-keys.default-expiration: 720h0m0s
 
 # age at which a rollup is archived
 # rollup-archive.archive-age: 2160h0m0s

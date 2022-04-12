@@ -15,7 +15,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func (server *Server) addAccountManagementAPIKey(w http.ResponseWriter, r *http.Request) {
+func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
@@ -66,7 +66,7 @@ func (server *Server) addAccountManagementAPIKey(w http.ResponseWriter, r *http.
 		}
 	}
 
-	apiKey, expiresAt, err := server.accountManagementAPIKeys.Create(ctx, user.ID, expiration)
+	apiKey, expiresAt, err := server.restKeys.Create(ctx, user.ID, expiration)
 	if err != nil {
 		sendJSONError(w, "api key creation failed",
 			err.Error(), http.StatusInternalServerError)
@@ -91,7 +91,7 @@ func (server *Server) addAccountManagementAPIKey(w http.ResponseWriter, r *http.
 	sendJSONData(w, http.StatusOK, data)
 }
 
-func (server *Server) revokeAccountManagementAPIKey(w http.ResponseWriter, r *http.Request) {
+func (server *Server) revokeRESTKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
@@ -102,7 +102,7 @@ func (server *Server) revokeAccountManagementAPIKey(w http.ResponseWriter, r *ht
 		return
 	}
 
-	err := server.accountManagementAPIKeys.Revoke(ctx, apiKey)
+	err := server.restKeys.Revoke(ctx, apiKey)
 	if err != nil {
 		sendJSONError(w, "failed to revoke api key",
 			err.Error(), http.StatusNotFound)

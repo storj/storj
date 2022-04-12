@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+	// definition for REST API
 	a := &apigen.API{
 		Version:     "v0",
 		Description: "",
