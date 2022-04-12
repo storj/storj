@@ -64,3 +64,75 @@ func TestExpiredDeletion(t *testing.T) {
 		require.Len(t, objects, 2)
 	})
 }
+
+func TestExpiredDeletionForCopiedObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		gcService := satellite.GarbageCollection.Service
+		gcService.Loop.Pause()
+		upl := planet.Uplinks[0]
+		expiredChore := satellite.Core.ExpiredDeletion.Chore
+
+		allSpaceUsedForPieces := func() (all int64) {
+			for _, node := range planet.StorageNodes {
+				total, _, _, err := node.Storage2.Store.SpaceUsedTotalAndBySatellite(ctx)
+				require.NoError(t, err)
+				all += total
+			}
+			return all
+		}
+
+		expiredChore.Loop.Pause()
+
+		// upload inline object with expiration time
+		err := upl.UploadWithExpiration(ctx, satellite, "testbucket", "inline_expire", testrand.Bytes(memory.KiB), time.Now().Add(1*time.Hour))
+		require.NoError(t, err)
+
+		// upload remote object with expiration time
+		err = upl.UploadWithExpiration(ctx, satellite, "testbucket", "remote_expire", testrand.Bytes(8*memory.KiB), time.Now().Add(1*time.Hour))
+		require.NoError(t, err)
+
+		project, err := upl.GetProject(ctx, satellite)
+		require.NoError(t, err)
+		ctx.Check(project.Close)
+
+		// copy inline object
+		_, err = project.CopyObject(ctx, "testbucket", "inline_expire", "testbucket", "new_inline_expire", nil)
+		require.NoError(t, err)
+
+		// copy remote object
+		_, err = project.CopyObject(ctx, "testbucket", "remote_expire", "testbucket", "new_remote_expire", nil)
+		require.NoError(t, err)
+
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		objects, err := satellite.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 4)
+
+		// Trigger the next iteration of expired cleanup and wait to finish
+		expiredChore.SetNow(func() time.Time {
+			// Set the Now function to return time after the objects expiration time
+			return time.Now().Add(2 * time.Hour)
+		})
+		expiredChore.Loop.TriggerWait()
+
+		// Verify that 0 objects remain in the metabase
+		objects, err = satellite.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 0)
+
+		for _, node := range planet.StorageNodes {
+			err = node.Collector.Collect(ctx, time.Now().Add(2*24*time.Hour))
+			require.NoError(t, err)
+		}
+
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+		require.Equal(t, int64(0), allSpaceUsedForPieces())
+	})
+}
