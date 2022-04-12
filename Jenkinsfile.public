@@ -308,12 +308,6 @@ pipeline {
                 }
 
                 stage('Cockroach Backwards Compatibility') {
-                    // skip this stage until next release because of
-                    // https://www.cockroachlabs.com/docs/releases/v21.2.html#v21-2-3-sql-language-changes
-                    when {
-                        expression { false }
-                    }
-
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.5'
                         STORJ_NETWORK_HOST6 = '127.0.0.5'
