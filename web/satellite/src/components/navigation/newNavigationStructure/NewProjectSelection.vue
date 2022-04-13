@@ -64,7 +64,9 @@ import { OBJECTS_ACTIONS } from "@/store/modules/objects";
 import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
 import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 import { Project } from "@/types/projects";
+import { User } from "@/types/users";
 
 import ProjectIcon from '@/../static/images/navigation/project.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
@@ -223,7 +225,15 @@ export default class NewProjectSelection extends Vue {
     public onCreateLinkClick(): void {
         if (this.$route.name !== RouteConfig.CreateProject.name) {
             this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Create New Project");
-            this.$router.push(RouteConfig.CreateProject.path);
+
+            const user: User = this.$store.getters.user;
+            const ownProjectsCount: number = this.$store.getters.projectsCount;
+
+            if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+            } else {
+                this.$router.push(RouteConfig.CreateProject.path);
+            }
         }
 
         this.closeDropdown();
