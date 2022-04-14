@@ -89,6 +89,7 @@ func TestIterateLoopObjects(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream:                  committed,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,

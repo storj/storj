@@ -240,6 +240,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	// we need to fix it on uplink side but that part will be
 	// needed for backward compatibility
 	if len(req.EncryptedMetadata) != 0 {
+		request.OverrideEncryptedMetadata = true
 		request.EncryptedMetadata = req.EncryptedMetadata
 		request.EncryptedMetadataNonce = req.EncryptedMetadataNonce[:]
 		request.EncryptedMetadataEncryptedKey = req.EncryptedMetadataEncryptedKey

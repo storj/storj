@@ -2193,7 +2193,8 @@ func TestCommitObject(t *testing.T) {
 						Version:    metabase.DefaultVersion,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadata: testrand.BytesInt(32),
+					OverrideEncryptedMetadata: true,
+					EncryptedMetadata:         testrand.BytesInt(32),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
@@ -2208,6 +2209,7 @@ func TestCommitObject(t *testing.T) {
 						Version:    metabase.DefaultVersion,
 						StreamID:   obj.StreamID,
 					},
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -2267,6 +2269,7 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
@@ -2660,7 +2663,7 @@ func TestCommitObject(t *testing.T) {
 					EncryptedMetadataEncryptedKey: expectedMetadataKey,
 					EncryptedMetadataNonce:        expectedMetadataNonce,
 				},
-				Version: 1,
+				Version: metabase.DefaultVersion,
 			}.Check(ctx, t, db)
 
 			metabasetest.CommitObject{
@@ -2713,6 +2716,7 @@ func TestCommitObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadata:             expectedMetadata,
 					EncryptedMetadataEncryptedKey: expecedMetadataKey,
 					EncryptedMetadataNonce:        expecedMetadataNonce,
@@ -2731,6 +2735,48 @@ func TestCommitObject(t *testing.T) {
 						EncryptedMetadata:             expectedMetadata,
 						EncryptedMetadataEncryptedKey: expecedMetadataKey,
 						EncryptedMetadataNonce:        expecedMetadataNonce,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit with empty metadata (overwrite)", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             testrand.Bytes(memory.KiB),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					OverrideEncryptedMetadata:     true,
+					EncryptedMetadata:             nil,
+					EncryptedMetadataEncryptedKey: nil,
+					EncryptedMetadataNonce:        nil,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)

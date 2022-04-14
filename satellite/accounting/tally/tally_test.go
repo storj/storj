@@ -65,7 +65,7 @@ func TestOnlyInline(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Accounting.Tally.Loop.Pause()
-		uplink := planet.Uplinks[0]
+		up := planet.Uplinks[0]
 
 		// Setup: create data for the uplink to upload
 		expectedData := testrand.Bytes(1 * memory.KiB)
@@ -81,7 +81,7 @@ func TestOnlyInline(t *testing.T) {
 		expectedBucketName := "testbucket"
 		expectedTally := &accounting.BucketTally{
 			BucketLocation: metabase.BucketLocation{
-				ProjectID:  uplink.Projects[0].ID,
+				ProjectID:  up.Projects[0].ID,
 				BucketName: expectedBucketName,
 			},
 			ObjectCount:   1,
@@ -91,7 +91,7 @@ func TestOnlyInline(t *testing.T) {
 		}
 
 		// Execute test: upload a file, then calculate at rest data
-		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		err := up.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		assert.NoError(t, err)
 
 		// run multiple times to ensure we add tallies
