@@ -760,6 +760,15 @@ CREATE TABLE value_attributions (
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
+CREATE TABLE webapp_sessions (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	ip_address text NOT NULL,
+	user_agent text NOT NULL,
+	status integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -842,6 +851,7 @@ CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON stora
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
+CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id ) ;`
 }
 
@@ -1382,6 +1392,15 @@ CREATE TABLE value_attributions (
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
+CREATE TABLE webapp_sessions (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	ip_address text NOT NULL,
+	user_agent text NOT NULL,
+	status integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -1464,6 +1483,7 @@ CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON stora
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
+CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id ) ;`
 }
 
@@ -9396,6 +9416,136 @@ func (f ValueAttribution_LastUpdated_Field) value() interface{} {
 
 func (ValueAttribution_LastUpdated_Field) _Column() string { return "last_updated" }
 
+type WebappSession struct {
+	Id        []byte
+	UserId    []byte
+	IpAddress string
+	UserAgent string
+	Status    int
+	ExpiresAt time.Time
+}
+
+func (WebappSession) _Table() string { return "webapp_sessions" }
+
+type WebappSession_Update_Fields struct {
+	Status    WebappSession_Status_Field
+	ExpiresAt WebappSession_ExpiresAt_Field
+}
+
+type WebappSession_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func WebappSession_Id(v []byte) WebappSession_Id_Field {
+	return WebappSession_Id_Field{_set: true, _value: v}
+}
+
+func (f WebappSession_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSession_Id_Field) _Column() string { return "id" }
+
+type WebappSession_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func WebappSession_UserId(v []byte) WebappSession_UserId_Field {
+	return WebappSession_UserId_Field{_set: true, _value: v}
+}
+
+func (f WebappSession_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSession_UserId_Field) _Column() string { return "user_id" }
+
+type WebappSession_IpAddress_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func WebappSession_IpAddress(v string) WebappSession_IpAddress_Field {
+	return WebappSession_IpAddress_Field{_set: true, _value: v}
+}
+
+func (f WebappSession_IpAddress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSession_IpAddress_Field) _Column() string { return "ip_address" }
+
+type WebappSession_UserAgent_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func WebappSession_UserAgent(v string) WebappSession_UserAgent_Field {
+	return WebappSession_UserAgent_Field{_set: true, _value: v}
+}
+
+func (f WebappSession_UserAgent_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSession_UserAgent_Field) _Column() string { return "user_agent" }
+
+type WebappSession_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func WebappSession_Status(v int) WebappSession_Status_Field {
+	return WebappSession_Status_Field{_set: true, _value: v}
+}
+
+func (f WebappSession_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSession_Status_Field) _Column() string { return "status" }
+
+type WebappSession_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func WebappSession_ExpiresAt(v time.Time) WebappSession_ExpiresAt_Field {
+	return WebappSession_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f WebappSession_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (WebappSession_ExpiresAt_Field) _Column() string { return "expires_at" }
+
 type ApiKey struct {
 	Id        []byte
 	ProjectId []byte
@@ -11154,6 +11304,38 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_WebappSession(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field,
+	webapp_session_user_id WebappSession_UserId_Field,
+	webapp_session_ip_address WebappSession_IpAddress_Field,
+	webapp_session_user_agent WebappSession_UserAgent_Field,
+	webapp_session_expires_at WebappSession_ExpiresAt_Field) (
+	webapp_session *WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := webapp_session_id.value()
+	__user_id_val := webapp_session_user_id.value()
+	__ip_address_val := webapp_session_ip_address.value()
+	__user_agent_val := webapp_session_user_agent.value()
+	__status_val := int(0)
+	__expires_at_val := webapp_session_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session = &WebappSession{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session, nil
+
+}
+
 func (obj *pgxImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -12422,6 +12604,73 @@ func (obj *pgxImpl) Get_User_ProjectStorageLimit_User_ProjectBandwidthLimit_User
 		return (*ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *pgxImpl) All_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	rows []*WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*WebappSession, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				webapp_session := &WebappSession{}
+				err = __rows.Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, webapp_session)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field) (
+	webapp_session *WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session = &WebappSession{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	if err != nil {
+		return (*WebappSession)(nil), obj.makeErr(err)
+	}
+	return webapp_session, nil
 
 }
 
@@ -15753,6 +16002,52 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	return user, nil
 }
 
+func (obj *pgxImpl) Update_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field,
+	update WebappSession_Update_Fields) (
+	webapp_session *WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, webapp_session_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session = &WebappSession{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session, nil
+}
+
 func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -16534,6 +16829,33 @@ func (obj *pgxImpl) Delete_User_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -16891,6 +17213,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_sessions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17539,6 +17871,38 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return user, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_WebappSession(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field,
+	webapp_session_user_id WebappSession_UserId_Field,
+	webapp_session_ip_address WebappSession_IpAddress_Field,
+	webapp_session_user_agent WebappSession_UserAgent_Field,
+	webapp_session_expires_at WebappSession_ExpiresAt_Field) (
+	webapp_session *WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := webapp_session_id.value()
+	__user_id_val := webapp_session_user_id.value()
+	__ip_address_val := webapp_session_ip_address.value()
+	__user_agent_val := webapp_session_user_agent.value()
+	__status_val := int(0)
+	__expires_at_val := webapp_session_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO webapp_sessions ( id, user_id, ip_address, user_agent, status, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __user_id_val, __ip_address_val, __user_agent_val, __status_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session = &WebappSession{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session, nil
 
 }
 
@@ -18810,6 +19174,73 @@ func (obj *pgxcockroachImpl) Get_User_ProjectStorageLimit_User_ProjectBandwidthL
 		return (*ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	rows []*WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*WebappSession, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				webapp_session := &WebappSession{}
+				err = __rows.Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, webapp_session)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field) (
+	webapp_session *WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at FROM webapp_sessions WHERE webapp_sessions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session = &WebappSession{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	if err != nil {
+		return (*WebappSession)(nil), obj.makeErr(err)
+	}
+	return webapp_session, nil
 
 }
 
@@ -22141,6 +22572,52 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	return user, nil
 }
 
+func (obj *pgxcockroachImpl) Update_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field,
+	update WebappSession_Update_Fields) (
+	webapp_session *WebappSession, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE webapp_sessions SET "), __sets, __sqlbundle_Literal(" WHERE webapp_sessions.id = ? RETURNING webapp_sessions.id, webapp_sessions.user_id, webapp_sessions.ip_address, webapp_sessions.user_agent, webapp_sessions.status, webapp_sessions.expires_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, webapp_session_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	webapp_session = &WebappSession{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return webapp_session, nil
+}
+
 func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -22922,6 +23399,33 @@ func (obj *pgxcockroachImpl) Delete_User_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Delete_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -23279,6 +23783,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_sessions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -23916,6 +24430,16 @@ func (rx *Rx) All_User_By_NormalizedEmail(ctx context.Context,
 	return tx.All_User_By_NormalizedEmail(ctx, user_normalized_email)
 }
 
+func (rx *Rx) All_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	rows []*WebappSession, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_WebappSession_By_UserId(ctx, webapp_session_user_id)
+}
+
 func (rx *Rx) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
 	count int64, err error) {
@@ -24289,6 +24813,21 @@ func (rx *Rx) Create_ValueAttribution(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_WebappSession(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field,
+	webapp_session_user_id WebappSession_UserId_Field,
+	webapp_session_ip_address WebappSession_IpAddress_Field,
+	webapp_session_user_agent WebappSession_UserAgent_Field,
+	webapp_session_expires_at WebappSession_ExpiresAt_Field) (
+	webapp_session *WebappSession, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_WebappSession(ctx, webapp_session_id, webapp_session_user_id, webapp_session_ip_address, webapp_session_user_agent, webapp_session_expires_at)
+
+}
+
 func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -24435,6 +24974,16 @@ func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_User_By_Id(ctx, user_id)
+}
+
+func (rx *Rx) Delete_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_WebappSession_By_Id(ctx, webapp_session_id)
 }
 
 func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
@@ -24848,6 +25397,16 @@ func (rx *Rx) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Conte
 		return
 	}
 	return tx.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx, value_attribution_project_id, value_attribution_bucket_name)
+}
+
+func (rx *Rx) Get_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field) (
+	webapp_session *WebappSession, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_WebappSession_By_Id(ctx, webapp_session_id)
 }
 
 func (rx *Rx) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -25337,6 +25896,17 @@ func (rx *Rx) Update_User_By_Id(ctx context.Context,
 	return tx.Update_User_By_Id(ctx, user_id, update)
 }
 
+func (rx *Rx) Update_WebappSession_By_Id(ctx context.Context,
+	webapp_session_id WebappSession_Id_Field,
+	update WebappSession_Update_Fields) (
+	webapp_session *WebappSession, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_WebappSession_By_Id(ctx, webapp_session_id, update)
+}
+
 type Methods interface {
 	All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
@@ -25418,6 +25988,10 @@ type Methods interface {
 	All_User_By_NormalizedEmail(ctx context.Context,
 		user_normalized_email User_NormalizedEmail_Field) (
 		rows []*User, err error)
+
+	All_WebappSession_By_UserId(ctx context.Context,
+		webapp_session_user_id WebappSession_UserId_Field) (
+		rows []*WebappSession, err error)
 
 	Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
@@ -25618,6 +26192,14 @@ type Methods interface {
 		optional ValueAttribution_Create_Fields) (
 		value_attribution *ValueAttribution, err error)
 
+	Create_WebappSession(ctx context.Context,
+		webapp_session_id WebappSession_Id_Field,
+		webapp_session_user_id WebappSession_UserId_Field,
+		webapp_session_ip_address WebappSession_IpAddress_Field,
+		webapp_session_user_agent WebappSession_UserAgent_Field,
+		webapp_session_expires_at WebappSession_ExpiresAt_Field) (
+		webapp_session *WebappSession, err error)
+
 	Delete_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
@@ -25677,6 +26259,10 @@ type Methods interface {
 
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
+		deleted bool, err error)
+
+	Delete_WebappSession_By_Id(ctx context.Context,
+		webapp_session_id WebappSession_Id_Field) (
 		deleted bool, err error)
 
 	Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
@@ -25851,6 +26437,10 @@ type Methods interface {
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
 		value_attribution_bucket_name ValueAttribution_BucketName_Field) (
 		value_attribution *ValueAttribution, err error)
+
+	Get_WebappSession_By_Id(ctx context.Context,
+		webapp_session_id WebappSession_Id_Field) (
+		webapp_session *WebappSession, err error)
 
 	Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
@@ -26090,6 +26680,11 @@ type Methods interface {
 		user_id User_Id_Field,
 		update User_Update_Fields) (
 		user *User, err error)
+
+	Update_WebappSession_By_Id(ctx context.Context,
+		webapp_session_id WebappSession_Id_Field,
+		update WebappSession_Update_Fields) (
+		webapp_session *WebappSession, err error)
 }
 
 type TxMethods interface {
