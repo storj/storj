@@ -139,6 +139,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		expiresAt = &req.ExpiresAt
 	}
 
+	var nonce []byte
+	if !req.EncryptedMetadataNonce.IsZero() {
+		nonce = req.EncryptedMetadataNonce[:]
+	}
+
 	object, err := endpoint.metabase.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -149,6 +154,10 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		},
 		ExpiresAt:  expiresAt,
 		Encryption: encryptionParameters,
+
+		EncryptedMetadata:             req.EncryptedMetadata,
+		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+		EncryptedMetadataNonce:        nonce,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
