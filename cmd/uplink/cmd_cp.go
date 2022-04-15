@@ -18,6 +18,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/sync2"
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/storj/cmd/uplink/ulfs"
@@ -99,7 +100,11 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdCp) Execute(ctx clingy.Context) error {
-	fs, err := c.ex.OpenFilesystem(ctx, c.access)
+	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.ConnectionPoolOptions(rpcpool.Options{
+		Capacity:       100 * c.parallelism,
+		KeyCapacity:    5,
+		IdleExpiration: 2 * time.Minute,
+	}))
 	if err != nil {
 		return err
 	}

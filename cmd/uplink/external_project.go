@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/storj/cmd/uplink/ulfs"
 	"storj.io/uplink"
@@ -44,6 +45,12 @@ func (ex *external) OpenProject(ctx context.Context, accessName string, options 
 
 	if ex.quic {
 		transport.SetConnector(&config, rpc.NewHybridConnector())
+	}
+
+	if opts.ConnectionPoolOptions != (rpcpool.Options{}) {
+		if err := transport.SetConnectionPool(ctx, &config, rpcpool.New(opts.ConnectionPoolOptions)); err != nil {
+			return nil, err
+		}
 	}
 
 	return config.OpenProject(ctx, access)
