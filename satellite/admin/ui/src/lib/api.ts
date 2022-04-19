@@ -330,7 +330,19 @@ Blank fields will not be updated.`,
 					['full name', new InputText('text', false)],
 					['short name', new InputText('text', false)],
 					['partner ID', new InputText('text', false)],
-					['password hash', new InputText('text', false)]
+					['password hash', new InputText('text', false)],
+					['project limit (max number)', new InputText('number', false)],
+					['project storage limit (in bytes)', new InputText('number', false)],
+					['project bandwidth limit (in bytes)', new InputText('number', false)],
+					['project segment limit (max number)', new InputText('number', false)],
+					[
+						'paid tier',
+						new Select(false, false, [
+							{ text: '', value: '' },
+							{ text: 'true', value: 'true' },
+							{ text: 'false', value: 'false' }
+						])
+					]
 				],
 				func: async (
 					currentEmail: string,
@@ -338,14 +350,24 @@ Blank fields will not be updated.`,
 					fullName?: string,
 					shortName?: string,
 					partnerID?: string,
-					passwordHash?: string
+					passwordHash?: string,
+					projectLimit?: number,
+					projectStorageLimit?: number,
+					projectBandwidthLimit?: number,
+					projectSegmentLimit?: number,
+					paidTierStr?: boolean
 				): Promise<null> => {
 					return this.fetch('PUT', `users/${currentEmail}`, null, {
 						email,
 						fullName,
 						shortName,
 						partnerID,
-						passwordHash
+						passwordHash,
+						projectLimit,
+						projectStorageLimit,
+						projectBandwidthLimit,
+						projectSegmentLimit,
+						paidTierStr
 					}) as Promise<null>;
 				}
 			}
