@@ -143,9 +143,10 @@ type API struct {
 	}
 
 	Console struct {
-		Listener net.Listener
-		Service  *console.Service
-		Endpoint *consoleweb.Server
+		Listener   net.Listener
+		Service    *console.Service
+		Endpoint   *consoleweb.Server
+		AuthTokens *consoleauth.Service
 	}
 
 	Marketing struct {
@@ -592,9 +593,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
+		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.REST.Keys,
 			peer.DB.ProjectAccounting(),
@@ -603,6 +605,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			peer.Analytics.Service,
+			peer.Console.AuthTokens,
 			consoleConfig.Config,
 		)
 		if err != nil {

@@ -37,9 +37,6 @@
 # reCAPTCHA site key
 # admin.console-config.recaptcha.site-key: ""
 
-# expiration time for auth tokens, account recovery tokens, and activation tokens
-# admin.console-config.token-expiration-time: 24h0m0s
-
 # the default free-tier bandwidth usage limit
 # admin.console-config.usage-limits.bandwidth.free: 150.00 GB
 
@@ -147,6 +144,9 @@ compensation.rates.put-tb: "0"
 
 # comma separated monthly withheld percentage rates
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
+
+# expiration time for auth tokens, account recovery tokens, and activation tokens
+# console-auth.token-expiration-time: 24h0m0s
 
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
@@ -306,9 +306,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
-
-# expiration time for auth tokens, account recovery tokens, and activation tokens
-# console.token-expiration-time: 24h0m0s
 
 # the default free-tier bandwidth usage limit
 # console.usage-limits.bandwidth.free: 150.00 GB

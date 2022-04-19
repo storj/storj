@@ -112,8 +112,6 @@ var (
 //
 // architecture: Service
 type Service struct {
-	Signer
-
 	log, auditLogger  *zap.Logger
 	store             DB
 	restKeys          RESTKeys
@@ -124,6 +122,7 @@ type Service struct {
 	accounts          payments.Accounts
 	captchaHandler    CaptchaHandler
 	analytics         *analytics.Service
+	tokens            *consoleauth.Service
 
 	config Config
 }
@@ -145,7 +144,6 @@ type Config struct {
 	PasswordCost                int           `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
 	OpenRegistrationEnabled     bool          `help:"enable open registration" default:"false" testDefault:"true"`
 	DefaultProjectLimit         int           `help:"default project limits for users" default:"1" testDefault:"5"`
-	TokenExpirationTime         time.Duration `help:"expiration time for auth tokens, account recovery tokens, and activation tokens" default:"24h"`
 	AsOfSystemTimeDuration      time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
 	LoginAttemptsWithoutPenalty int           `help:"number of times user can try to login without penalty" default:"3"`
 	FailedLoginPenalty          float64       `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
@@ -174,10 +172,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, config Config) (*Service, error) {
-	if signer == nil {
-		return nil, errs.New("signer can't be nil")
-	}
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, tokens *consoleauth.Service, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -198,7 +193,6 @@ func NewService(log *zap.Logger, signer Signer, store DB, restKeys RESTKeys, pro
 	return &Service{
 		log:               log,
 		auditLogger:       log.Named("auditlog"),
-		Signer:            signer,
 		store:             store,
 		restKeys:          restKeys,
 		projectAccounting: projectAccounting,
@@ -208,6 +202,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, restKeys RESTKeys, pro
 		accounts:          accounts,
 		captchaHandler:    captchaHandler,
 		analytics:         analytics,
+		tokens:            tokens,
 		config:            config,
 	}, nil
 }
@@ -719,14 +714,7 @@ func (s *Service) TestSwapCaptchaHandler(h CaptchaHandler) {
 func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: activation token should differ from auth token
-	claims := &consoleauth.Claims{
-		ID:         id,
-		Email:      email,
-		Expiration: time.Now().Add(s.config.TokenExpirationTime),
-	}
-
-	return s.createToken(ctx, claims)
+	return s.tokens.CreateToken(ctx, id, email)
 }
 
 // GeneratePasswordRecoveryToken - is a method for generating password recovery token.
@@ -789,12 +777,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
 
 	// now that the account is activated, create a token to be stored in a cookie to log the user in.
-	claims = &consoleauth.Claims{
-		ID:         user.ID,
-		Expiration: time.Now().Add(s.config.TokenExpirationTime),
-	}
-
-	token, err = s.createToken(ctx, claims)
+	token, err = s.tokens.CreateToken(ctx, user.ID, "")
 	if err != nil {
 		return "", err
 	}
@@ -852,7 +835,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return ErrValidation.Wrap(err)
 	}
 
-	if t.Sub(token.CreatedAt) > s.config.TokenExpirationTime {
+	if s.tokens.IsExpired(t, token.CreatedAt) {
 		return ErrRecoveryToken.Wrap(ErrTokenExpiration.New(passwordRecoveryTokenIsExpiredErrMsg))
 	}
 
@@ -997,12 +980,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 		}
 	}
 
-	claims := consoleauth.Claims{
-		ID:         user.ID,
-		Expiration: time.Now().Add(s.config.TokenExpirationTime),
-	}
-
-	token, err = s.createToken(ctx, &claims)
+	token, err = s.tokens.CreateToken(ctx, user.ID, "")
 	if err != nil {
 		return "", err
 	}
@@ -2418,30 +2396,12 @@ func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (_ *Registr
 	return result, nil
 }
 
-// createToken creates string representation.
-func (s *Service) createToken(ctx context.Context, claims *consoleauth.Claims) (_ string, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	json, err := claims.JSON()
-	if err != nil {
-		return "", Error.Wrap(err)
-	}
-
-	token := consoleauth.Token{Payload: json}
-	err = signToken(&token, s.Signer)
-	if err != nil {
-		return "", Error.Wrap(err)
-	}
-
-	return token.String(), nil
-}
-
 // authenticate validates token signature and returns authenticated *satelliteauth.Authorization.
 func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ *consoleauth.Claims, err error) {
 	defer mon.Task()(&ctx)(&err)
 	signature := token.Signature
 
-	err = signToken(&token, s.Signer)
+	err = s.tokens.SignToken(&token)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
