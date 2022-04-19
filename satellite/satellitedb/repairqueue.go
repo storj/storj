@@ -87,6 +87,10 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 	return alreadyInserted, rows.Err()
 }
 
+func (r *repairQueue) InsertBatch(ctx context.Context, segments []*queue.InjuredSegment) (newlyInsertedSegments []*queue.InjuredSegment, err error) {
+	return nil, err
+}
+
 func (r *repairQueue) Select(ctx context.Context) (seg *queue.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
