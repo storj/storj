@@ -15,7 +15,7 @@ import (
 
 // DB is an interface for storing reputation data.
 type DB interface {
-	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *overlay.ReputationUpdate, err error)
+	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *Info, err error)
 	Get(ctx context.Context, nodeID storj.NodeID) (*Info, error)
 
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
@@ -93,7 +93,14 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
 	// for the VettedAt status is done using time values that are truncated to second precision.
 	if hasReputationChanged(*statusUpdate, reputation, now) {
-		err = service.overlay.UpdateReputation(ctx, nodeID, *statusUpdate)
+		reputationUpdate := &overlay.ReputationUpdate{
+			Disqualified:           statusUpdate.Disqualified,
+			DisqualificationReason: statusUpdate.DisqualificationReason,
+			UnknownAuditSuspended:  statusUpdate.UnknownAuditSuspended,
+			OfflineSuspended:       statusUpdate.OfflineSuspended,
+			VettedAt:               statusUpdate.VettedAt,
+		}
+		err = service.overlay.UpdateReputation(ctx, nodeID, *reputationUpdate)
 		if err != nil {
 			return err
 		}
@@ -164,7 +171,7 @@ func (service *Service) Close() error { return nil }
 
 // hasReputationChanged determines if the current node reputation is different from the newly updated reputation. This
 // function will only consider the Disqualified, UnknownAudiSuspended and OfflineSuspended statuses for changes.
-func hasReputationChanged(updated overlay.ReputationUpdate, current overlay.ReputationStatus, now time.Time) bool {
+func hasReputationChanged(updated Info, current overlay.ReputationStatus, now time.Time) bool {
 	if statusChanged(current.Disqualified, updated.Disqualified) ||
 		statusChanged(current.UnknownAuditSuspended, updated.UnknownAuditSuspended) ||
 		statusChanged(current.OfflineSuspended, updated.OfflineSuspended) {
