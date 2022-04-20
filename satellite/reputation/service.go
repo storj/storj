@@ -21,7 +21,7 @@ type DB interface {
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time) (err error)
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (err error)
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// UpdateAuditHistory updates a node's audit history
@@ -37,6 +37,7 @@ type Info struct {
 	OfflineSuspended            *time.Time
 	UnderReview                 *time.Time
 	Disqualified                *time.Time
+	DisqualificationReason      overlay.DisqualificationReason
 	OnlineScore                 float64
 	AuditHistory                AuditHistory
 	AuditReputationAlpha        float64
@@ -140,7 +141,7 @@ func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID 
 func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason overlay.DisqualificationReason) (err error) {
 	disqualifiedAt := time.Now()
 
-	err = service.db.DisqualifyNode(ctx, nodeID, disqualifiedAt)
+	err = service.db.DisqualifyNode(ctx, nodeID, disqualifiedAt, reason)
 	if err != nil {
 		return err
 	}
