@@ -318,6 +318,16 @@ func TestTallyOnCopiedObject(t *testing.T) {
 			},
 		}
 
+		findTally := func(bucket string, tallies []accounting.BucketTally) accounting.BucketTally {
+			for _, v := range tallies {
+				if v.BucketName == bucket {
+					return v
+				}
+			}
+			t.Fatalf("unable to find tally for %s", bucket)
+			return accounting.BucketTally{}
+		}
+
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], tc.name)
@@ -340,7 +350,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 
 				tallies, err := planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)
-				lastTally := tallies[len(tallies)-1]
+				lastTally := findTally(tc.name, tallies)
 				require.Equal(t, tc.name, lastTally.BucketName)
 				require.Equal(t, tc.expectedTallyAfterCopy.ObjectCount, lastTally.ObjectCount)
 				require.Equal(t, tc.expectedTallyAfterCopy.TotalBytes, lastTally.TotalBytes)
@@ -354,7 +364,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 
 				tallies, err = planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)
-				lastTally = tallies[len(tallies)-1]
+				lastTally = findTally(tc.name, tallies)
 				require.Equal(t, tc.name, lastTally.BucketName)
 				require.Equal(t, tc.expectedTallyAfterDelete.ObjectCount, lastTally.ObjectCount)
 				require.Equal(t, tc.expectedTallyAfterDelete.TotalBytes, lastTally.TotalBytes)

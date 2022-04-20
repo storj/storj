@@ -585,6 +585,7 @@ model bucket_storage_tally (
 
 read all (
     select bucket_storage_tally
+    orderby desc bucket_storage_tally.interval_start
 )
 
 read all (

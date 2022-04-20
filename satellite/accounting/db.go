@@ -197,7 +197,7 @@ type StoragenodeAccounting interface {
 type ProjectAccounting interface {
 	// SaveTallies saves the latest project info
 	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[metabase.BucketLocation]*BucketTally) error
-	// GetTallies retrieves all tallies
+	// GetTallies retrieves all tallies ordered by interval start desc
 	GetTallies(ctx context.Context) ([]BucketTally, error)
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
