@@ -1878,6 +1878,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop suspended column on reputations and nodes",
+				Version:     194,
+				Action: migrate.SQL{
+					`ALTER TABLE reputations DROP COLUMN suspended;`,
+					`ALTER TABLE nodes DROP COLUMN suspended;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
