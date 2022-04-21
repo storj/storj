@@ -88,5 +88,10 @@ else
   "s#^command=/app/storagenode\$#command=/app/storagenode run ${SNO_RUN_PARAMS} ${*}#" \
   /etc/supervisor/supervisord.conf
 
+  # remove explicit user flag when container is run as non-root
+  if [ $EUID != "0" ]; then
+     sed -i "s#^user=root##" /etc/supervisor/supervisord.conf
+  fi
+
   exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
 fi
