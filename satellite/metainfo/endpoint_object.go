@@ -30,10 +30,7 @@ import (
 func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
 
@@ -195,10 +192,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -275,10 +269,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
@@ -356,10 +347,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.Canceled, "client has closed the connection")
 	}
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
@@ -691,6 +679,8 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
@@ -791,10 +781,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.ObjectListPendingStreamsRequest) (resp *pb.ObjectListPendingStreamsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
@@ -878,10 +865,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
 
@@ -988,10 +972,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPsRequest) (resp *pb.ObjectGetIPsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
@@ -1066,10 +1047,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.ObjectUpdateMetadataRequest) (resp *pb.ObjectUpdateMetadataResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
@@ -1454,10 +1432,7 @@ func groupPiecesByNodeID(segments []metabase.DeletedSegmentInfo) map[storj.NodeI
 func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeginMoveRequest) (resp *pb.ObjectBeginMoveResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
 	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
@@ -1617,10 +1592,7 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFinishMoveRequest) (resp *pb.ObjectFinishMoveResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -1686,10 +1658,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
 	}
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
 	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
@@ -1853,10 +1822,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
 	}
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
