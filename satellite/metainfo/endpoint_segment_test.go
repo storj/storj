@@ -153,7 +153,7 @@ func TestInlineSegment(t *testing.T) {
 			StreamID:                      beginObjectResp.StreamID,
 			EncryptedMetadata:             metadata,
 			EncryptedMetadataNonce:        testrand.Nonce(),
-			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+			EncryptedMetadataEncryptedKey: randomEncryptedKey,
 		})
 		require.NoError(t, err)
 

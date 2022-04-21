@@ -228,7 +228,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 				StreamID:                      beginObjectResponse.StreamID,
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 			})
 			require.Error(t, err)
 			assertInvalidArgument(t, err, true)
@@ -243,7 +243,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 				StreamID:                      beginObjectResponse.StreamID,
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 			})
 			require.NoError(t, err)
 		})
@@ -271,7 +271,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 			require.NoError(t, err)
 
 			testEncryptedMetadata := testrand.BytesInt(64)
-			testEncryptedMetadataEncryptedKey := testrand.BytesInt(32)
+			testEncryptedMetadataEncryptedKey := randomEncryptedKey
 			testEncryptedMetadataNonce := testrand.Nonce()
 
 			// update the object metadata
@@ -618,7 +618,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				StreamID:                      beginObjectResponse.StreamID,
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 			})
 			require.NoError(t, err)
 
@@ -1290,6 +1290,38 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			EncryptedKey:      []byte("newencryptedkey"),
 		}
 
+		{
+			// metadata too large
+			_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                     getResp.Object.StreamId,
+				NewBucket:                    []byte("testbucket"),
+				NewEncryptedObjectKey:        []byte("newobjectkey"),
+				NewEncryptedMetadata:         testrand.Bytes(satelliteSys.Config.Metainfo.MaxMetadataSize + 1),
+				NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
+				NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
+				NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+			// invalid encrypted metadata key
+			_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                     getResp.Object.StreamId,
+				NewBucket:                    []byte("testbucket"),
+				NewEncryptedObjectKey:        []byte("newobjectkey"),
+				NewEncryptedMetadata:         testrand.Bytes(satelliteSys.Config.Metainfo.MaxMetadataSize),
+				NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
+				NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
+				NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		}
+
 		_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
@@ -1555,5 +1587,71 @@ func TestEndpoint_ParallelDeletesSameAncestor(t *testing.T) {
 
 		_, err = project.DeleteBucket(ctx, "bucket")
 		require.NoError(t, err)
+	})
+}
+
+func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()
+		err := planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "object", testrand.Bytes(256))
+		require.NoError(t, err)
+
+		objects, err := satellite.API.Metainfo.Metabase.TestingAllObjects(ctx)
+		require.NoError(t, err)
+
+		validMetadata := testrand.Bytes(satellite.Config.Metainfo.MaxMetadataSize)
+		validKey := randomEncryptedKey
+
+		getObjectResponse, err := satellite.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
+			Header:        &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: []byte(objects[0].ObjectKey),
+			Version:       int32(objects[0].Version),
+		})
+		require.NoError(t, err)
+
+		_, err = satellite.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{
+			Header:                        &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:                        []byte("testbucket"),
+			EncryptedObjectKey:            []byte(objects[0].ObjectKey),
+			Version:                       int32(objects[0].Version),
+			StreamId:                      getObjectResponse.Object.StreamId,
+			EncryptedMetadata:             validMetadata,
+			EncryptedMetadataEncryptedKey: validKey,
+		})
+		require.NoError(t, err)
+
+		// too large metadata
+		_, err = satellite.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{
+			Header:             &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			Version:            int32(objects[0].Version),
+
+			EncryptedMetadata:             testrand.Bytes(satellite.Config.Metainfo.MaxMetadataSize + 1),
+			EncryptedMetadataEncryptedKey: validKey,
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// invalid encrypted metadata key
+		_, err = satellite.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{
+			Header:             &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			Version:            int32(objects[0].Version),
+
+			EncryptedMetadata:             validMetadata,
+			EncryptedMetadataEncryptedKey: testrand.Bytes(16),
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// verify that metadata didn't change with rejected requests
+		objects, err = satellite.API.Metainfo.Metabase.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Equal(t, validMetadata, objects[0].EncryptedMetadata)
+		require.Equal(t, validKey, objects[0].EncryptedMetadataEncryptedKey)
 	})
 }

@@ -18,6 +18,7 @@ import (
 	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
@@ -28,7 +29,11 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
-var ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
+const encryptedKeySize = 48
+
+var (
+	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
+)
 
 func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -435,5 +440,20 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, projectI
 		)
 	}
 
+	return nil
+}
+
+// checkEncryptedMetadata checks encrypted metadata and it's encrypted key sizes. Metadata encrypted key nonce
+// is serialized to storj.Nonce automatically.
+func (endpoint *Endpoint) checkEncryptedMetadataSize(encryptedMetadata, encryptedKey []byte) error {
+	metadataSize := memory.Size(len(encryptedMetadata))
+	if metadataSize > endpoint.config.MaxMetadataSize {
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize)
+	}
+
+	// verify key only if any metadata was set
+	if metadataSize > 0 && len(encryptedKey) != encryptedKeySize {
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata key size is invalid, got %v, expected %v", len(encryptedKey), encryptedKeySize)
+	}
 	return nil
 }

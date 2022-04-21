@@ -15,7 +15,6 @@ import (
 	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
-	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
@@ -209,9 +208,8 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, err
 	}
 
-	metadataSize := memory.Size(len(req.EncryptedMetadata))
-	if metadataSize > endpoint.config.MaxMetadataSize {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("Metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize))
+	if err := endpoint.checkEncryptedMetadataSize(req.EncryptedMetadata, req.EncryptedMetadataEncryptedKey); err != nil {
+		return nil, err
 	}
 
 	id, err := uuid.FromBytes(streamID.StreamId)
@@ -1081,6 +1079,10 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
+	if err := endpoint.checkEncryptedMetadataSize(req.EncryptedMetadata, req.EncryptedMetadataEncryptedKey); err != nil {
+		return nil, err
+	}
+
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -1863,6 +1865,10 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	err = endpoint.validateBucket(ctx, req.NewBucket)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	if err := endpoint.checkEncryptedMetadataSize(req.NewEncryptedMetadata, req.NewEncryptedMetadataKey); err != nil {
+		return nil, err
 	}
 
 	exists, err := endpoint.buckets.HasBucket(ctx, req.NewBucket, keyInfo.ProjectID)
