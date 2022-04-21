@@ -26,7 +26,7 @@ Example:
 ## Project Management API Endpoints
 
 Example of request
-```json
+```bash
 curl  -i -L \
     -H "Accept: application/json" \
     -H 'Authorization: <key>' \
