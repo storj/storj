@@ -58,9 +58,8 @@ import HeaderlessInput from './HeaderlessInput.vue';
         ErrorIcon,
     },
 })
+// TODO: merge these two components to have one single source of truth.
 export default class HeaderedInput extends HeaderlessInput {
-    @Prop({default: ''})
-    private readonly initValue: string;
     @Prop({default: ''})
     private readonly additionalLabel: string;
     @Prop({default: 0})
@@ -73,10 +72,6 @@ export default class HeaderedInput extends HeaderlessInput {
     private readonly isMultiline: boolean;
     @Prop({default: false})
     private readonly isLoading: boolean;
-
-    public created() {
-        this.setValue(this.initValue);
-    }
 }
 </script>
 

@@ -29,25 +29,26 @@ func TestOnboarding_WizardBrowser(t *testing.T) {
 
 		// Buckets Page
 		bucketsTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, bucketsTitle, "Buckets")
-		page.Race().ElementR("p", "demo-bucket").MustHandle(func(el *rod.Element) {
-			el.MustClick()
-			waitVueTick(page)
-		}).MustDo()
-
-		// Passphrase screen
-		encryptionTitle := page.MustElement("[aria-roledescription=objects-title]").MustText()
-		require.Contains(t, encryptionTitle, "The object browser uses server side encryption.")
-		customPassphrase := page.MustElement("[aria-roledescription=enter-passphrase-label]")
-		customPassphraseLabel := customPassphrase.MustText()
-		require.Contains(t, customPassphraseLabel, "Enter your own passphrase")
-		customPassphrase.MustClick()
+		require.Contains(t, bucketsTitle, "Create a bucket")
+		page.MustElementR("[aria-roledescription=title]", "Create a bucket")
+		page.MustElementR("span", "Continue").MustClick()
 		waitVueTick(page)
-		page.MustElement("[aria-roledescription=passphrase] input").MustInput("password123")
-		page.MustElement(".checkmark").MustClick()
+		page.MustElementR("[aria-roledescription=title]", "Encrypt your bucket")
+		page.MustElementR("span", "Continue").MustClick()
 		waitVueTick(page)
-		page.MustElementX("(//span[text()=\"Next >\"])").MustClick()
+		page.MustElementR("[aria-roledescription=title]", "Generate a passphrase")
+		mnemonic := page.MustElement("[aria-roledescription=mnemonic]").MustText()
+		require.NotEmpty(t, mnemonic)
+		page.MustElementR("span", "Back").MustClick()
 		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Encrypt your bucket")
+		page.MustElement("[aria-roledescription=manual]").MustClick()
+		page.MustElementR("span", "Continue").MustClick()
+		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Enter a passphrase")
+		page.MustElement("[aria-roledescription=passphrase] input").MustInput("1")
+		page.MustElementR("label", "I understand, and I have saved the passphrase.").MustClick()
+		page.MustElementR("span", "Continue").MustClick()
 
 		// Verify that browser component has loaded and that the dropzone is present
 		page.MustElementR("p", "Drop Files Here to Upload")

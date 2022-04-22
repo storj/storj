@@ -78,8 +78,10 @@ export default class HeaderlessInput extends Vue {
     private type: string = this.textType;
     private isPasswordShown = false;
 
+    public value: string;
+
     @Prop({default: ''})
-    protected value: string;
+    protected readonly initValue: string;
 
     @Prop({default: ''})
     protected readonly label: string;
@@ -111,6 +113,7 @@ export default class HeaderlessInput extends Vue {
 
     public created() {
         this.type = this.isPassword ? this.passwordType : this.textType;
+        this.value = this.initValue;
     }
 
     /**
