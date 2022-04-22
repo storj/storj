@@ -84,8 +84,14 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 			return n, nil
 		}),
 	).(int)
-	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Set the size of the chunks for parallelism, 0 means automatic adjustment", memory.B*0,
+	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Set the size of the chunks for parallelism, 0 means automatic adjustment", memory.Size(0),
 		clingy.Transform(memory.ParseString),
+		clingy.Transform(func(n int64) (memory.Size, error) {
+			if n < 0 {
+				return 0, errs.New("parallelism-chunk-size cannot be below 0")
+			}
+			return memory.Size(n), nil
+		}),
 	).(memory.Size)
 
 	c.expires = params.Flag("expires",
