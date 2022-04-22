@@ -90,6 +90,7 @@ import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
+import { MetaUtils } from '@/utils/meta';
 
 // @vue/component
 @Component({
@@ -231,10 +232,11 @@ export default class ResetPassword extends Vue {
     }
 
     /**
-     * Reloads the page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 
     /**

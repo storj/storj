@@ -379,10 +379,11 @@ export default class RegisterArea extends Vue {
     }
 
     /**
-     * Reloads page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 
     /**

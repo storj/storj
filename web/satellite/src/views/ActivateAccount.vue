@@ -40,6 +40,7 @@ import LogoIcon from '@/../static/images/logo.svg';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { Validator } from '@/utils/validation';
+import { MetaUtils } from '@/utils/meta';
 
 // @vue/component
 @Component({
@@ -84,10 +85,11 @@ export default class ActivateAccount extends Vue {
     }
 
     /**
-     * onLogoClick reloads the page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 }
 </script>

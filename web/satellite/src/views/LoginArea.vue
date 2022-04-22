@@ -119,6 +119,7 @@ import { AppState } from '@/utils/constants/appStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from "@/api/errors/ErrorBadRequest";
+import { MetaUtils } from '@/utils/meta';
 
 interface ClearInput {
     clearInput(): void;
@@ -185,10 +186,11 @@ export default class Login extends Vue {
     }
 
     /**
-     * Reloads page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 
     /**

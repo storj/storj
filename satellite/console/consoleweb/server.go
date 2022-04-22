@@ -100,6 +100,7 @@ type Config struct {
 	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
 	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`
 	OptionalSignupSuccessURL        string  `help:"optional url to external registration success page" default:""`
+	HomepageURL                     string  `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -419,6 +420,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		InactivityTimerEnabled          bool
 		InactivityTimerDelay            int
 		OptionalSignupSuccessURL        string
+		HomepageURL                     string
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -455,6 +457,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
 	data.InactivityTimerDelay = server.config.InactivityTimerDelay
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
+	data.HomepageURL = server.config.HomepageURL
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {
