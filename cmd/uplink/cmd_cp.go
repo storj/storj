@@ -372,7 +372,10 @@ func parallelCopy(
 			es.Add(err)
 		})
 		if !ok {
-			break
+			mu.Lock()
+			fmt.Fprintln(clctx.Stderr(), "Failed to start part copy", i)
+			mu.Unlock()
+			return ctx.Err()
 		}
 	}
 
