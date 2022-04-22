@@ -64,7 +64,7 @@ interface ObjectsContext {
     state: ObjectsState
     commit: (string, ...unknown) => void
     dispatch: (string, ...unknown) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
-	rootState: {
+    rootState: {
         files: FilesState
     }
 }

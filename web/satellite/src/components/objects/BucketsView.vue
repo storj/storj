@@ -141,6 +141,12 @@ export default class BucketsView extends Vue {
                 return;
             }
 
+            if (!this.bucketsList.length && wasDemoBucketCreated) {
+                await this.removeTemporaryAccessGrant();
+
+                return;
+            }
+
             if (!wasDemoBucketCreated) await this.createDemoBucket();
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
@@ -229,6 +235,9 @@ export default class BucketsView extends Vue {
         this.isRequestProcessing = true;
 
         try {
+            if (!this.edgeCredentials.accessKeyId) {
+                await this.setAccess();
+            }
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
             if (this.isNewObjectsFlow) {
                 await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
@@ -301,6 +310,9 @@ export default class BucketsView extends Vue {
         this.isRequestProcessing = true;
 
         try {
+            if (!this.edgeCredentials.accessKeyId) {
+                await this.setAccess();
+            }
             await this.$store.dispatch(OBJECTS_ACTIONS.DELETE_BUCKET, this.deleteBucketName);
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
@@ -383,6 +395,7 @@ export default class BucketsView extends Vue {
     public async removeTemporaryAccessGrant(): Promise<void> {
         try {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
+            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -429,6 +442,13 @@ export default class BucketsView extends Vue {
      */
     private get selectedProjectID(): string {
         return this.$store.getters.selectedProject.id;
+    }
+
+    /**
+     * Returns edge credentials from store.
+     */
+    private get edgeCredentials(): EdgeCredentials {
+        return this.$store.state.objectsModule.gatewayCredentials;
     }
 
     /**
