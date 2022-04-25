@@ -16,7 +16,7 @@ import (
 func TestSumAttributionByUserAgent(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	// test empty user agents
-	attributions := []*attribution.BucketAttribution{
+	attributions := []*attribution.BucketUsage{
 		{
 			UserAgent:    []byte{},
 			ByteHours:    1,
@@ -38,7 +38,7 @@ func TestSumAttributionByUserAgent(t *testing.T) {
 
 	// test user agent with additional entries and uppercase letters is summed with
 	// the first one
-	attributions = []*attribution.BucketAttribution{
+	attributions = []*attribution.BucketUsage{
 		{
 			UserAgent:    []byte("teststorj"),
 			ByteHours:    1,
@@ -65,7 +65,7 @@ func TestSumAttributionByUserAgent(t *testing.T) {
 	require.Equal(t, int64(2), totals["teststorj"].BytesEgress)
 
 	// test two user agents are summed separately
-	attributions = []*attribution.BucketAttribution{
+	attributions = []*attribution.BucketUsage{
 		{
 			UserAgent:    []byte("teststorj1"),
 			ByteHours:    1,
