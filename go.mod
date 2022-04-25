@@ -16,13 +16,13 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
 	github.com/graphql-go/graphql v0.7.9
-	github.com/jackc/pgconn v1.10.0
+	github.com/jackc/pgconn v1.11.0
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
-	github.com/jackc/pgtype v1.8.1
-	github.com/jackc/pgx/v4 v4.13.0
+	github.com/jackc/pgtype v1.10.0
+	github.com/jackc/pgx/v4 v4.15.0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/loov/hrtime v1.0.3
-	github.com/mattn/go-sqlite3 v1.14.8
+	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
 	github.com/oschwald/maxminddb-golang v1.8.0
@@ -54,7 +54,7 @@ require (
 	storj.io/common v0.0.0-20220414110316-a5cb7172d6bf
 	storj.io/drpc v0.0.30
 	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a
-	storj.io/private v0.0.0-20220411161553-f73cd1a48d5f
+	storj.io/private v0.0.0-20220414134013-c00f978a1757
 	storj.io/uplink v1.8.2-0.20220406151905-7305e5b6da85
 )
 
@@ -83,7 +83,7 @@ require (
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.1.1 // indirect
+	github.com/jackc/pgproto3/v2 v2.2.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
 	github.com/lucas-clemente/quic-go v0.25.0 // indirect
