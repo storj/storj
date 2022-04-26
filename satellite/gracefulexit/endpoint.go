@@ -174,6 +174,9 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	var geSuccess bool
+	var geSuccessMutex sync.Mutex
+
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
 
@@ -195,6 +198,9 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 
 				if len(incomplete) == 0 {
 					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("Node ID", nodeID))
+					geSuccessMutex.Lock()
+					geSuccess = true
+					geSuccessMutex.Unlock()
 					cancel()
 					return pending.DoneSending(nil)
 				}
@@ -222,6 +228,16 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 
 		// if there is no more work to receive send complete
 		if finished {
+			// This point is reached both when an exit is entirely successful and
+			// when the satellite is being shut down. geSuccess
+			// differentiates these cases.
+			geSuccessMutex.Lock()
+			wasSuccessful := geSuccess
+			geSuccessMutex.Unlock()
+
+			if !wasSuccessful {
+				return rpcstatus.Error(rpcstatus.Canceled, "graceful exit processing interrupted (node should reconnect and continue)")
+			}
 			isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -698,7 +714,7 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.N
 		message = &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitFailed{
 			ExitFailed: signed,
 		}}
-		err = endpoint.overlay.DisqualifyNode(ctx, nodeID)
+		err = endpoint.overlay.DisqualifyNode(ctx, nodeID, overlay.DisqualificationReasonUnknown)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

@@ -9,6 +9,7 @@ export class LocalData {
     private static selectedProjectId = 'selectedProjectId';
     private static userIdPassSalt = 'userIdPassSalt';
     private static serverSideEncryptionAcknowledge = 'serverSideEncryptionAcknowledge';
+    private static demoBucketCreated = 'demoBucketCreated';
 
     public static getUserId(): string | null {
         return localStorage.getItem(LocalData.userId);
@@ -49,6 +50,17 @@ export class LocalData {
         const data = new UserIDPassSalt(id, passwordHash, salt);
 
         localStorage.setItem(LocalData.userIdPassSalt, JSON.stringify(data));
+    }
+
+    public static getDemoBucketCreatedStatus(): string | null {
+        const status = localStorage.getItem(LocalData.demoBucketCreated);
+        if (!status) return null;
+
+        return JSON.parse(status)
+    }
+
+    public static setDemoBucketCreatedStatus(): void {
+        localStorage.setItem(LocalData.demoBucketCreated, "true");
     }
 }
 

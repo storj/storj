@@ -636,15 +636,19 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// UpdateReputation updates the DB columns for any of the reputation fields in UpdateReputationRequest.
-func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request *overlay.ReputationStatus) (err error) {
+// UpdateReputation updates the DB columns for any of the reputation fields in ReputationUpdate.
+func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request overlay.ReputationUpdate) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
-	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
 	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
 	updateFields.VettedAt = dbx.Node_VettedAt_Raw(request.VettedAt)
+
+	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
+	if request.Disqualified != nil {
+		updateFields.DisqualificationReason = dbx.Node_DisqualificationReason(int(request.DisqualificationReason))
+	}
 
 	err = cache.db.UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx, dbx.Node_Id(id.Bytes()), updateFields)
 	return Error.Wrap(err)
@@ -696,10 +700,11 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
-	updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+	updateFields.Disqualified = dbx.Node_Disqualified(disqualifiedAt.UTC())
+	updateFields.DisqualificationReason = dbx.Node_DisqualificationReason(int(reason))
 
 	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
@@ -1062,14 +1067,15 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Timestamp:  info.Timestamp,
 			Release:    info.Release,
 		},
-		Disqualified:          info.Disqualified,
-		UnknownAuditSuspended: info.UnknownAuditSuspended,
-		OfflineSuspended:      info.OfflineSuspended,
-		OfflineUnderReview:    info.UnderReview,
-		PieceCount:            info.PieceCount,
-		ExitStatus:            exitStatus,
-		CreatedAt:             info.CreatedAt,
-		LastNet:               info.LastNet,
+		Disqualified:           info.Disqualified,
+		DisqualificationReason: (*overlay.DisqualificationReason)(info.DisqualificationReason),
+		UnknownAuditSuspended:  info.UnknownAuditSuspended,
+		OfflineSuspended:       info.OfflineSuspended,
+		OfflineUnderReview:     info.UnderReview,
+		PieceCount:             info.PieceCount,
+		ExitStatus:             exitStatus,
+		CreatedAt:              info.CreatedAt,
+		LastNet:                info.LastNet,
 	}
 	if info.LastIpPort != nil {
 		node.LastIPPort = *info.LastIpPort

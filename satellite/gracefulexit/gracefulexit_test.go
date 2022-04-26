@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -225,6 +226,70 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 		nodes, err = gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime.Add(time.Minute), asOfSystemTime)
 		require.NoError(t, err)
 		require.Len(t, nodes, 0, "invalid number of exited nodes with items")
+	})
+}
+
+func TestGracefulExit_CopiedObjects(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		testGETransferQueue := func(node storj.NodeID) {
+			_, err = planet.Satellites[0].Overlay.DB.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+				NodeID:          node,
+				ExitInitiatedAt: time.Now().UTC(),
+			})
+
+			// trigger segments loop with GE
+			planet.Satellites[0].GracefulExit.Chore.Loop.TriggerWait()
+			require.NoError(t, err)
+
+			// we should get only one item from GE queue as we have only one remote segments
+			items, err := planet.Satellites[0].DB.GracefulExit().GetIncomplete(ctx, node, 100, 0)
+			require.NoError(t, err)
+			require.Len(t, items, 1)
+
+			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+			require.NoError(t, err)
+
+			// find non copy remote segment
+			segment := metabase.Segment{}
+			for _, s := range segments {
+				if len(s.Pieces) > 0 {
+					if !segment.StreamID.IsZero() {
+						t.Fatal("we should have only one remote non copy segment")
+					}
+					segment = s
+				}
+			}
+			require.True(t, !segment.StreamID.IsZero())
+			require.Equal(t, segment.StreamID, items[0].StreamID)
+		}
+
+		// upload inline and remote and make copies
+		for _, size := range []memory.Size{memory.KiB, 10 * memory.KiB} {
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "my-bucket", "my-object-"+size.String(), testrand.Bytes(size))
+			require.NoError(t, err)
+
+			_, err = project.CopyObject(ctx, "my-bucket", "my-object-"+size.String(), "my-bucket", "my-object-"+size.String()+"-copy", nil)
+			require.NoError(t, err)
+		}
+
+		testGETransferQueue(planet.StorageNodes[0].ID())
+
+		// delete original objects to promote copies as new ancestors
+		for _, size := range []memory.Size{memory.KiB, 10 * memory.KiB} {
+			_, err = project.DeleteObject(ctx, "my-bucket", "my-object-"+size.String())
+			require.NoError(t, err)
+		}
+
+		testGETransferQueue(planet.StorageNodes[1].ID())
 	})
 }
 

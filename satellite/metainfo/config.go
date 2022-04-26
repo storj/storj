@@ -9,9 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vivint/infectious"
+
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
+	"storj.io/uplink/private/eestream"
 )
 
 const (
@@ -90,6 +93,16 @@ func (rs *RSConfig) Set(s string) error {
 	return nil
 }
 
+// RedundancyStrategy creates eestream.RedundancyStrategy from config values.
+func (rs *RSConfig) RedundancyStrategy() (eestream.RedundancyStrategy, error) {
+	fec, err := infectious.NewFEC(rs.Min, rs.Total)
+	if err != nil {
+		return eestream.RedundancyStrategy{}, err
+	}
+	erasureScheme := eestream.NewRSScheme(fec, rs.ErasureShareSize.Int())
+	return eestream.NewRedundancyStrategy(erasureScheme, rs.Repair, rs.Success)
+}
+
 // RateLimiterConfig is a configuration struct for endpoint rate limiting.
 type RateLimiterConfig struct {
 	Enabled         bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
@@ -101,7 +114,7 @@ type RateLimiterConfig struct {
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
 	MaxBuckets           int  `help:"max bucket count for a project." default:"100" testDefault:"10"`
-	ValidateSegmentLimit bool `help:"whether segment limit validation is enabled." default:"false"`
+	ValidateSegmentLimit bool `help:"whether segment limit validation is enabled." default:"true"`
 }
 
 // Config is a configuration struct that is everything you need to start a metainfo.

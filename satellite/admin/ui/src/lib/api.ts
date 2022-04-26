@@ -330,7 +330,19 @@ Blank fields will not be updated.`,
 					['full name', new InputText('text', false)],
 					['short name', new InputText('text', false)],
 					['partner ID', new InputText('text', false)],
-					['password hash', new InputText('text', false)]
+					['password hash', new InputText('text', false)],
+					['project limit (max number)', new InputText('number', false)],
+					['project storage limit (in bytes)', new InputText('number', false)],
+					['project bandwidth limit (in bytes)', new InputText('number', false)],
+					['project segment limit (max number)', new InputText('number', false)],
+					[
+						'paid tier',
+						new Select(false, false, [
+							{ text: '', value: '' },
+							{ text: 'true', value: 'true' },
+							{ text: 'false', value: 'false' }
+						])
+					]
 				],
 				func: async (
 					currentEmail: string,
@@ -338,40 +350,50 @@ Blank fields will not be updated.`,
 					fullName?: string,
 					shortName?: string,
 					partnerID?: string,
-					passwordHash?: string
+					passwordHash?: string,
+					projectLimit?: number,
+					projectStorageLimit?: number,
+					projectBandwidthLimit?: number,
+					projectSegmentLimit?: number,
+					paidTierStr?: boolean
 				): Promise<null> => {
 					return this.fetch('PUT', `users/${currentEmail}`, null, {
 						email,
 						fullName,
 						shortName,
 						partnerID,
-						passwordHash
+						passwordHash,
+						projectLimit,
+						projectStorageLimit,
+						projectBandwidthLimit,
+						projectSegmentLimit,
+						paidTierStr
 					}) as Promise<null>;
 				}
 			}
 		],
-		account_management_api_keys: [
+		rest_api_keys: [
 			{
 				name: 'create',
-				desc: 'Create an account management API key',
+				desc: 'Create a REST key',
 				//params: [['API key', new InputText('text', true)]],
 				params: [
 					["user's email", new InputText('text', true)],
 					['expiration', new InputText('text', false)]
 				],
 				func: async (useremail: string, expiration?: string): Promise<Record<string, unknown>> => {
-					return this.fetch('POST', `accountmanagementapikeys/${useremail}`, null, {
+					return this.fetch('POST', `restkeys/${useremail}`, null, {
 						expiration
 					});
 				}
 			},
 			{
 				name: 'revoke',
-				desc: 'Revoke an account management API key',
+				desc: 'Revoke a REST key',
 				//params: [['API key', new InputText('text', true)]],
 				params: [['api key', new InputText('text', true)]],
 				func: async (apikey: string): Promise<Record<string, unknown>> => {
-					return this.fetch('PUT', `accountmanagementapikeys/${apikey}/revoke`);
+					return this.fetch('PUT', `restkeys/${apikey}/revoke`);
 				}
 			}
 		]

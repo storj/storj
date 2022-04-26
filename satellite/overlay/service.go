@@ -67,7 +67,7 @@ type DB interface {
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
-	UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) error
+	UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
@@ -93,7 +93,7 @@ type DB interface {
 	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (err error)
 
 	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
@@ -118,6 +118,22 @@ type DB interface {
 	// IterateAllNodes will call cb on all known nodes (used for invoice generation).
 	IterateAllNodeDossiers(context.Context, func(context.Context, *NodeDossier) error) error
 }
+
+// DisqualificationReason is disqualification reason enum type.
+type DisqualificationReason int
+
+const (
+	// DisqualificationReasonUnknown denotes undetermined disqualification reason.
+	DisqualificationReasonUnknown DisqualificationReason = 0
+	// DisqualificationReasonAuditFailure denotes disqualification due to audit score falling below threshold.
+	DisqualificationReasonAuditFailure DisqualificationReason = 1
+	// DisqualificationReasonSuspension denotes disqualification due to unknown audit failure after grace period for unknown audits
+	// has elapsed.
+	DisqualificationReasonSuspension DisqualificationReason = 2
+	// DisqualificationReasonNodeOffline denotes disqualification due to node's online score falling below threshold after tracking
+	// period has elapsed.
+	DisqualificationReasonNodeOffline DisqualificationReason = 3
+)
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
 type NodeCheckInInfo struct {
@@ -163,52 +179,20 @@ type NodeCriteria struct {
 
 // ReputationStatus indicates current reputation status for a node.
 type ReputationStatus struct {
-	Contained             bool // TODO: check to see if this column is still used.
-	Disqualified          *time.Time
-	UnknownAuditSuspended *time.Time
-	OfflineSuspended      *time.Time
-	VettedAt              *time.Time
+	Disqualified           *time.Time
+	DisqualificationReason *DisqualificationReason
+	UnknownAuditSuspended  *time.Time
+	OfflineSuspended       *time.Time
+	VettedAt               *time.Time
 }
 
-// Equal checks if two ReputationStatus contains the same value.
-func (status ReputationStatus) Equal(value ReputationStatus) bool {
-	if status.Contained != value.Contained {
-		return false
-	}
-
-	if status.Disqualified != nil && value.Disqualified != nil {
-		if !status.Disqualified.Equal(*value.Disqualified) {
-			return false
-		}
-	} else if !(status.Disqualified == nil && value.Disqualified == nil) {
-		return false
-	}
-
-	if status.UnknownAuditSuspended != nil && value.UnknownAuditSuspended != nil {
-		if !status.UnknownAuditSuspended.Equal(*value.UnknownAuditSuspended) {
-			return false
-		}
-	} else if !(status.UnknownAuditSuspended == nil && value.UnknownAuditSuspended == nil) {
-		return false
-	}
-
-	if status.OfflineSuspended != nil && value.OfflineSuspended != nil {
-		if !status.OfflineSuspended.Equal(*value.OfflineSuspended) {
-			return false
-		}
-	} else if !(status.OfflineSuspended == nil && value.OfflineSuspended == nil) {
-		return false
-	}
-
-	if status.VettedAt != nil && value.VettedAt != nil {
-		if !status.VettedAt.Equal(*value.VettedAt) {
-			return false
-		}
-	} else if !(status.VettedAt == nil && value.VettedAt == nil) {
-		return false
-	}
-
-	return true
+// ReputationUpdate contains reputation update data for a node.
+type ReputationUpdate struct {
+	Disqualified           *time.Time
+	DisqualificationReason DisqualificationReason
+	UnknownAuditSuspended  *time.Time
+	OfflineSuspended       *time.Time
+	VettedAt               *time.Time
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -232,22 +216,23 @@ type ExitStatusRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node.
 type NodeDossier struct {
 	pb.Node
-	Type                  pb.NodeType
-	Operator              pb.NodeOperator
-	Capacity              pb.NodeCapacity
-	Reputation            NodeStats
-	Version               pb.NodeVersion
-	Contained             bool
-	Disqualified          *time.Time
-	UnknownAuditSuspended *time.Time
-	OfflineSuspended      *time.Time
-	OfflineUnderReview    *time.Time
-	PieceCount            int64
-	ExitStatus            ExitStatus
-	CreatedAt             time.Time
-	LastNet               string
-	LastIPPort            string
-	CountryCode           location.CountryCode
+	Type                   pb.NodeType
+	Operator               pb.NodeOperator
+	Capacity               pb.NodeCapacity
+	Reputation             NodeStats
+	Version                pb.NodeVersion
+	Contained              bool
+	Disqualified           *time.Time
+	DisqualificationReason *DisqualificationReason
+	UnknownAuditSuspended  *time.Time
+	OfflineSuspended       *time.Time
+	OfflineUnderReview     *time.Time
+	PieceCount             int64
+	ExitStatus             ExitStatus
+	CreatedAt              time.Time
+	LastNet                string
+	LastIPPort             string
+	CountryCode            location.CountryCode
 }
 
 // NodeStats contains statistics about a node.
@@ -520,7 +505,7 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields.
-func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) (err error) {
+func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateReputation(ctx, id, request)
 }
@@ -657,9 +642,9 @@ func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.DisqualifyNode(ctx, nodeID)
+	return service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.

@@ -104,16 +104,16 @@ var (
 type Service struct {
 	Signer
 
-	log, auditLogger         *zap.Logger
-	store                    DB
-	accountManagementAPIKeys AccountManagementAPIKeys
-	projectAccounting        accounting.ProjectAccounting
-	projectUsage             *accounting.Service
-	buckets                  Buckets
-	partners                 *rewards.PartnersService
-	accounts                 payments.Accounts
-	recaptchaHandler         RecaptchaHandler
-	analytics                *analytics.Service
+	log, auditLogger  *zap.Logger
+	store             DB
+	restKeys          RESTKeys
+	projectAccounting accounting.ProjectAccounting
+	projectUsage      *accounting.Service
+	buckets           Buckets
+	partners          *rewards.PartnersService
+	accounts          payments.Accounts
+	recaptchaHandler  RecaptchaHandler
+	analytics         *analytics.Service
 
 	config Config
 }
@@ -154,7 +154,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, accountManagementAPIKeys AccountManagementAPIKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, config Config) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, config Config) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -169,19 +169,19 @@ func NewService(log *zap.Logger, signer Signer, store DB, accountManagementAPIKe
 	}
 
 	return &Service{
-		log:                      log,
-		auditLogger:              log.Named("auditlog"),
-		Signer:                   signer,
-		store:                    store,
-		accountManagementAPIKeys: accountManagementAPIKeys,
-		projectAccounting:        projectAccounting,
-		projectUsage:             projectUsage,
-		buckets:                  buckets,
-		partners:                 partners,
-		accounts:                 accounts,
-		recaptchaHandler:         NewDefaultRecaptcha(config.Recaptcha.SecretKey),
-		analytics:                analytics,
-		config:                   config,
+		log:               log,
+		auditLogger:       log.Named("auditlog"),
+		Signer:            signer,
+		store:             store,
+		restKeys:          restKeys,
+		projectAccounting: projectAccounting,
+		projectUsage:      projectUsage,
+		buckets:           buckets,
+		partners:          partners,
+		accounts:          accounts,
+		recaptchaHandler:  NewDefaultRecaptcha(config.Recaptcha.SecretKey),
+		analytics:         analytics,
+		config:            config,
 	}, nil
 }
 
@@ -1388,6 +1388,117 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 	return project, nil
 }
 
+// GenUpdateProject is a method for updating project name and description by id for generated api.
+func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo ProjectInfo) (p *Project, httpError api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+	project := isMember.project
+	project.Name = projectInfo.Name
+	project.Description = projectInfo.Description
+
+	if auth.User.PaidTier {
+		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.New("current bandwidth limit for project is set to 0 (updating disabled)"),
+			}
+		}
+		if project.StorageLimit != nil && *project.StorageLimit == 0 {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.New("current storage limit for project is set to 0 (updating disabled)"),
+			}
+		}
+		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("project limits must be greater than 0"),
+			}
+		}
+
+		if projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("specified storage limit exceeds allowed maximum for current tier"),
+			}
+		}
+
+		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("specified bandwidth limit exceeds allowed maximum for current tier"),
+			}
+		}
+
+		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+		if projectInfo.StorageLimit.Int64() < storageUsed {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("cannot set storage limit below current usage"),
+			}
+		}
+
+		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+		if projectInfo.BandwidthLimit.Int64() < bandwidthUsed {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("cannot set bandwidth limit below current usage"),
+			}
+		}
+
+		project.StorageLimit = new(memory.Size)
+		*project.StorageLimit = projectInfo.StorageLimit
+		project.BandwidthLimit = new(memory.Size)
+		*project.BandwidthLimit = projectInfo.BandwidthLimit
+	}
+
+	err = s.store.Projects().Update(ctx, project)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return project, httpError
+}
+
 // AddProjectMembers adds users by email to given project.
 func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1704,32 +1815,32 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 	return
 }
 
-// CreateAccountManagementAPIKey creates an account management api key.
-func (s *Service) CreateAccountManagementAPIKey(ctx context.Context, expiration time.Duration) (apiKey string, expiresAt time.Time, err error) {
+// CreateRESTKey creates a satellite rest key.
+func (s *Service) CreateRESTKey(ctx context.Context, expiration time.Duration) (apiKey string, expiresAt time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := s.getAuthAndAuditLog(ctx, "create account management api key")
+	auth, err := s.getAuthAndAuditLog(ctx, "create rest key")
 	if err != nil {
 		return "", time.Time{}, Error.Wrap(err)
 	}
 
-	apiKey, expiresAt, err = s.accountManagementAPIKeys.Create(ctx, auth.User.ID, expiration)
+	apiKey, expiresAt, err = s.restKeys.Create(ctx, auth.User.ID, expiration)
 	if err != nil {
 		return "", time.Time{}, Error.Wrap(err)
 	}
 	return apiKey, expiresAt, nil
 }
 
-// RevokeAccountManagementAPIKey revokes an account management api key.
-func (s *Service) RevokeAccountManagementAPIKey(ctx context.Context, apiKey string) (err error) {
+// RevokeRESTKey revokes a satellite REST key.
+func (s *Service) RevokeRESTKey(ctx context.Context, apiKey string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.getAuthAndAuditLog(ctx, "revoke account management api key")
+	_, err = s.getAuthAndAuditLog(ctx, "revoke rest key")
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = s.accountManagementAPIKeys.Revoke(ctx, apiKey)
+	err = s.restKeys.Revoke(ctx, apiKey)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -2108,7 +2219,7 @@ func (s *Service) keyAuth(ctx context.Context, r *http.Request) (context.Context
 
 	ctx = consoleauth.WithAPIKey(ctx, []byte(apikey))
 
-	userID, exp, err := s.accountManagementAPIKeys.GetUserAndExpirationFromKey(ctx, apikey)
+	userID, exp, err := s.restKeys.GetUserAndExpirationFromKey(ctx, apikey)
 	if err != nil {
 		return nil, err
 	}

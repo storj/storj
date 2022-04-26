@@ -6,8 +6,16 @@
 
 package main
 
-import "storj.io/private/process"
+import (
+	"go.uber.org/zap"
+
+	"storj.io/private/process"
+)
 
 func main() {
-	process.Exec(rootCmd)
+	loggerFunc := func(logger *zap.Logger) *zap.Logger {
+		return logger.With(zap.String("Process", updaterServiceName))
+	}
+
+	process.ExecWithCustomConfigAndLogger(rootCmd, true, process.LoadConfig, loggerFunc)
 }

@@ -21,7 +21,7 @@ import (
 	adminui "storj.io/storj/satellite/admin/ui"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/accountmanagementapikeys"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -56,10 +56,10 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 
-	db                       DB
-	payments                 payments.Accounts
-	buckets                  *buckets.Service
-	accountManagementAPIKeys *accountmanagementapikeys.Service
+	db       DB
+	payments payments.Accounts
+	buckets  *buckets.Service
+	restKeys *restkeys.Service
 
 	nowFn func() time.Time
 
@@ -67,16 +67,16 @@ type Server struct {
 }
 
 // NewServer returns a new administration Server.
-func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, accountManagementAPIKeys *accountmanagementapikeys.Service, accounts payments.Accounts, config Config) *Server {
+func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, restKeys *restkeys.Service, accounts payments.Accounts, config Config) *Server {
 	server := &Server{
 		log: log,
 
 		listener: listener,
 
-		db:                       db,
-		payments:                 accounts,
-		buckets:                  buckets,
-		accountManagementAPIKeys: accountManagementAPIKeys,
+		db:       db,
+		payments: accounts,
+		buckets:  buckets,
+		restKeys: restKeys,
 
 		nowFn: time.Now,
 
@@ -110,8 +110,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.createGeofenceForBucket).Methods("POST")
 	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.deleteGeofenceForBucket).Methods("DELETE")
 	api.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
-	api.HandleFunc("/accountmanagementapikeys/{useremail}", server.addAccountManagementAPIKey).Methods("POST")
-	api.HandleFunc("/accountmanagementapikeys/{apikey}/revoke", server.revokeAccountManagementAPIKey).Methods("PUT")
+	api.HandleFunc("/restkeys/{useremail}", server.addRESTKey).Methods("POST")
+	api.HandleFunc("/restkeys/{apikey}/revoke", server.revokeRESTKey).Methods("PUT")
 
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.

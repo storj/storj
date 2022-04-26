@@ -74,6 +74,7 @@ import { DEMO_BUCKET_NAME, OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
+import { LocalData } from "@/utils/localData";
 
 // @vue/component
 @Component({
@@ -132,12 +133,20 @@ export default class BucketsView extends Vue {
             await this.setAccess();
             await this.fetchBuckets();
 
-            if (!this.bucketsList.length) await this.createDemoBucket();
+            const wasDemoBucketCreated = LocalData.getDemoBucketCreatedStatus();
+
+            if (this.bucketsList.length && !wasDemoBucketCreated) {
+                LocalData.setDemoBucketCreatedStatus();
+
+                return;
+            }
+
+            if (!wasDemoBucketCreated) await this.createDemoBucket();
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
+        } finally {
+            this.isLoading = false;
         }
-
-        this.isLoading = false;
     }
 
     /**
@@ -262,6 +271,8 @@ export default class BucketsView extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_DEMO_BUCKET);
             if (this.isNewObjectsFlow) {
                 await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+
+                LocalData.setDemoBucketCreatedStatus();
                 this.isRequestProcessing = false;
 
                 return;
@@ -273,6 +284,7 @@ export default class BucketsView extends Vue {
             return;
         }
 
+        LocalData.setDemoBucketCreatedStatus();
         this.isRequestProcessing = false;
 
         this.openBucket(DEMO_BUCKET_NAME);

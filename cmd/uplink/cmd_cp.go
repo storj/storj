@@ -17,7 +17,9 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/context2"
 	"storj.io/common/memory"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/sync2"
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/storj/cmd/uplink/ulfs"
@@ -80,7 +82,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 			return n, nil
 		}),
 	).(int)
-	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Controls the size of the chunks for parallelism", 64*memory.MB,
+	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Controls the size of the chunks for parallelism", 64*memory.MiB,
 		clingy.Transform(memory.ParseString),
 		clingy.Transform(func(n int64) (memory.Size, error) {
 			if memory.Size(n) < 1*memory.MB {
@@ -99,7 +101,11 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdCp) Execute(ctx clingy.Context) error {
-	fs, err := c.ex.OpenFilesystem(ctx, c.access)
+	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.ConnectionPoolOptions(rpcpool.Options{
+		Capacity:       100 * c.parallelism,
+		KeyCapacity:    5,
+		IdleExpiration: 2 * time.Minute,
+	}))
 	if err != nil {
 		return err
 	}
@@ -294,7 +300,12 @@ func parallelCopy(
 
 	defer limiter.Wait()
 	defer func() { _ = src.Close() }()
-	defer func() { _ = dst.Abort(ctx) }()
+	defer func() {
+		nocancel := context2.WithoutCancellation(ctx)
+		timedctx, cancel := context.WithTimeout(nocancel, 5*time.Second)
+		defer cancel()
+		_ = dst.Abort(timedctx)
+	}()
 	defer cancel()
 
 	for i := 0; length != 0; i++ {
@@ -338,9 +349,21 @@ func parallelCopy(
 				w = bar.NewProxyWriter(w)
 			}
 
-			_, err := io.Copy(w, rh)
+			_, err := sync2.Copy(ctx, w, rh)
 			if err == nil {
 				err = wh.Commit()
+			}
+
+			if err != nil {
+				// abort all other concurrenty copies
+				cancel()
+				// TODO: it would be also nice to use wh.Abort and rh.Close directly
+				// to avoid some of the waiting that's caused by sync2.Copy.
+				//
+				// However, some of the source / destination implementations don't seem
+				// to have concurrent safe API with that regards.
+				//
+				// Also, we may want to check that it actually helps, before implementing it.
 			}
 
 			mu.Lock()
@@ -349,7 +372,10 @@ func parallelCopy(
 			es.Add(err)
 		})
 		if !ok {
-			break
+			mu.Lock()
+			fmt.Fprintln(clctx.Stderr(), "Failed to start part copy", i)
+			mu.Unlock()
+			return ctx.Err()
 		}
 	}
 

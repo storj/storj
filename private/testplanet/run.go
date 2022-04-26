@@ -46,7 +46,11 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				defer pprof.SetGoroutineLabels(parent)
 				parent = pprof.WithLabels(parent, pprof.Labels("test", t.Name()))
 
-				ctx := testcontext.NewWithContext(parent, t)
+				timeout := config.Timeout
+				if timeout == 0 {
+					timeout = testcontext.DefaultTimeout
+				}
+				ctx := testcontext.NewWithContextAndTimeout(parent, t, timeout)
 				defer ctx.Cleanup()
 
 				planet, err := NewCustom(ctx, log, planetConfig, satelliteDB)

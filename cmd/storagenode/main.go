@@ -471,5 +471,10 @@ func main() {
 	if startAsService() {
 		return
 	}
-	process.ExecCustomDebug(rootCmd)
+
+	loggerFunc := func(logger *zap.Logger) *zap.Logger {
+		return logger.With(zap.String("Process", rootCmd.Use))
+	}
+
+	process.ExecWithCustomConfigAndLogger(rootCmd, false, process.LoadConfig, loggerFunc)
 }

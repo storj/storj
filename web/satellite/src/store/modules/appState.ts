@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { PartneredSatellite } from '@/types/common';
+import { OnboardingOS, PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 
@@ -37,6 +37,7 @@ class ViewsState {
         public onbApiKey = "",
         public setDefaultPaymentMethodID = "",
         public deletePaymentMethodID = "",
+        public onbSelectedOs: OnboardingOS | null = null,
     ) {}
 }
 
@@ -179,6 +180,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS](state: State, couponCodeSignupUIEnabled: boolean): void {
             state.couponCodeSignupUIEnabled = couponCodeSignupUIEnabled;
+        },
+        [APP_STATE_MUTATIONS.SET_ONB_OS](state: State, os: OnboardingOS): void {
+            state.appState.onbSelectedOs = os;
         },
     },
     actions: {

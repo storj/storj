@@ -15,13 +15,13 @@ import (
 
 // DB is an interface for storing reputation data.
 type DB interface {
-	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, err error)
+	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *overlay.ReputationUpdate, err error)
 	Get(ctx context.Context, nodeID storj.NodeID) (*Info, error)
 
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time) (err error)
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// UpdateAuditHistory updates a node's audit history
@@ -33,10 +33,10 @@ type Info struct {
 	AuditSuccessCount           int64
 	TotalAuditCount             int64
 	VettedAt                    *time.Time
-	Disqualified                *time.Time
 	UnknownAuditSuspended       *time.Time
 	OfflineSuspended            *time.Time
 	UnderReview                 *time.Time
+	Disqualified                *time.Time
 	OnlineScore                 float64
 	AuditHistory                AuditHistory
 	AuditReputationAlpha        float64
@@ -92,7 +92,7 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
 	// for the VettedAt status is done using time values that are truncated to second precision.
 	if hasReputationChanged(*statusUpdate, reputation, now) {
-		err = service.overlay.UpdateReputation(ctx, nodeID, statusUpdate)
+		err = service.overlay.UpdateReputation(ctx, nodeID, *statusUpdate)
 		if err != nil {
 			return err
 		}
@@ -137,13 +137,15 @@ func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID 
 }
 
 // TestDisqualifyNode disqualifies a storage node.
-func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
-	err = service.db.DisqualifyNode(ctx, nodeID)
+func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason overlay.DisqualificationReason) (err error) {
+	disqualifiedAt := time.Now()
+
+	err = service.db.DisqualifyNode(ctx, nodeID, disqualifiedAt)
 	if err != nil {
 		return err
 	}
 
-	return service.overlay.DisqualifyNode(ctx, nodeID)
+	return service.overlay.DisqualifyNode(ctx, nodeID, disqualifiedAt, reason)
 }
 
 // TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
@@ -161,7 +163,7 @@ func (service *Service) Close() error { return nil }
 
 // hasReputationChanged determines if the current node reputation is different from the newly updated reputation. This
 // function will only consider the Disqualified, UnknownAudiSuspended and OfflineSuspended statuses for changes.
-func hasReputationChanged(updated, current overlay.ReputationStatus, now time.Time) bool {
+func hasReputationChanged(updated overlay.ReputationUpdate, current overlay.ReputationStatus, now time.Time) bool {
 	if statusChanged(current.Disqualified, updated.Disqualified) ||
 		statusChanged(current.UnknownAuditSuspended, updated.UnknownAuditSuspended) ||
 		statusChanged(current.OfflineSuspended, updated.OfflineSuspended) {

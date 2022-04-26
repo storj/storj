@@ -1850,6 +1850,43 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE stripecoinpayments_tx_conversion_rates ALTER COLUMN rate_numeric SET NOT NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to users table to control failed login attempts (disallow brute forcing)",
+				Version:     192,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN failed_login_count integer;`,
+					`ALTER TABLE users ADD COLUMN login_lockout_expiration timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "make zero project related columns to have default values",
+				Version:     193,
+				Action: migrate.SQL{
+					`UPDATE users SET
+						project_bandwidth_limit = 150000000000,
+						project_storage_limit = 150000000000,
+						project_segment_limit = 150000,
+						project_limit = 1
+					WHERE (
+						project_bandwidth_limit = 0 AND
+						project_storage_limit = 0 AND
+						project_limit = 0 AND
+						paid_tier = false
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop suspended column on reputations and nodes",
+				Version:     194,
+				Action: migrate.SQL{
+					`ALTER TABLE reputations DROP COLUMN suspended;`,
+					`ALTER TABLE nodes DROP COLUMN suspended;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -6,6 +6,12 @@ export enum SortDirection {
     DESCENDING,
 }
 
+export enum OnboardingOS {
+    WINDOWS = "windows",
+    MAC = "macos",
+    LINUX = "linux",
+}
+
 export class PartneredSatellite {
     constructor(
         public name: string = '',

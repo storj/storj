@@ -8,13 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/teststorj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storagenode"
 )
 
@@ -161,6 +166,75 @@ func TestOperatorConfig(t *testing.T) {
 			require.Equal(t, node.Config.Operator.Email, nodeInfo.Operator.Email)
 			require.Equal(t, node.Config.Operator.Wallet, nodeInfo.Operator.Wallet)
 			require.Equal(t, []string(node.Config.Operator.WalletFeatures), nodeInfo.Operator.WalletFeatures)
+		}
+	})
+}
+
+func TestDBDisqualifyNode(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		overlayDB := db.OverlayCache()
+		now := time.Now().Truncate(time.Second).UTC()
+
+		cases := []struct {
+			Name           string
+			NodeID         storj.NodeID
+			DisqualifiedAt time.Time
+			Reason         overlay.DisqualificationReason
+		}{
+			{
+				Name:           "Unknown",
+				NodeID:         testrand.NodeID(),
+				DisqualifiedAt: now,
+				Reason:         overlay.DisqualificationReasonUnknown,
+			},
+			{
+				Name:           "Audit Failure",
+				NodeID:         testrand.NodeID(),
+				DisqualifiedAt: now,
+				Reason:         overlay.DisqualificationReasonAuditFailure,
+			},
+			{
+				Name:           "Suspension",
+				NodeID:         testrand.NodeID(),
+				DisqualifiedAt: now,
+				Reason:         overlay.DisqualificationReasonSuspension,
+			},
+			{
+				Name:           "Node Offline",
+				NodeID:         testrand.NodeID(),
+				DisqualifiedAt: now,
+				Reason:         overlay.DisqualificationReasonNodeOffline,
+			},
+		}
+
+		for _, testcase := range cases {
+			t.Run(testcase.Name, func(t *testing.T) {
+				checkIn := overlay.NodeCheckInInfo{
+					NodeID: testcase.NodeID,
+					Address: &pb.NodeAddress{
+						Transport: 1,
+						Address:   "127.0.0.1:0",
+					},
+					IsUp: true,
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  now,
+					},
+				}
+
+				err := overlayDB.UpdateCheckIn(ctx, checkIn, now, overlay.NodeSelectionConfig{})
+				require.NoError(t, err)
+
+				err = overlayDB.DisqualifyNode(ctx, testcase.NodeID, testcase.DisqualifiedAt, testcase.Reason)
+				require.NoError(t, err)
+
+				info, err := overlayDB.Get(ctx, testcase.NodeID)
+				require.NoError(t, err)
+				require.NotNil(t, info.Disqualified)
+				assert.Equal(t, testcase.DisqualifiedAt, info.Disqualified.UTC())
+				assert.Equal(t, testcase.Reason, *info.DisqualificationReason)
+			})
 		}
 	})
 }

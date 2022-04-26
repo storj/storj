@@ -58,6 +58,7 @@ func TestBeginCopyObject(t *testing.T) {
 			expectedObject, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadata:             testrand.Bytes(64),
 					EncryptedMetadataNonce:        expectedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: expectedMetadataKey,
@@ -534,6 +535,7 @@ func TestFinishCopyObject(t *testing.T) {
 			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadata:             originalMetadata,
 					EncryptedMetadataNonce:        originalMetadataNonce,
 					EncryptedMetadataEncryptedKey: originalMetadataEncryptedKey,

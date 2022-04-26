@@ -307,6 +307,9 @@ model user (
     field signup_promo_code  text      ( updatable, nullable )
 
     field last_verification_reminder timestamp ( updatable, nullable )
+
+    field failed_login_count int ( updatable, nullable )
+    field login_lockout_expiration timestamp ( updatable, nullable )
 )
 
 create user ( )
@@ -582,6 +585,7 @@ model bucket_storage_tally (
 
 read all (
     select bucket_storage_tally
+    orderby desc bucket_storage_tally.interval_start
 )
 
 read all (

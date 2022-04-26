@@ -29,11 +29,6 @@ pipeline {
 
                 sh 'mkdir -p .build'
 
-                // make a backup of the mod file, because sometimes they get modified by tools
-                // this allows to lint the unmodified files
-                sh 'cp go.mod .build/go.mod.orig'
-                sh 'cp testsuite/go.mod .build/testsuite.go.mod.orig'
-
                 // download dependencies
                 sh 'go mod download'
                 sh 'cd testsuite && go mod download'
@@ -134,10 +129,7 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'check-mod-tidy -mod .build/go.mod.orig'
-                        dir("testsuite") {
-                            sh 'check-mod-tidy -mod ../.build/testsuite.go.mod.orig'
-                        }
+                        sh 'check-mod-tidy'
                         sh 'check-copyright'
                         sh 'check-imports -race ./...'
                         sh 'check-peer-constraints -race'
@@ -308,12 +300,6 @@ pipeline {
                 }
 
                 stage('Cockroach Backwards Compatibility') {
-                    // skip this stage until next release because of
-                    // https://www.cockroachlabs.com/docs/releases/v21.2.html#v21-2-3-sql-language-changes
-                    when {
-                        expression { false }
-                    }
-
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.5'
                         STORJ_NETWORK_HOST6 = '127.0.0.5'

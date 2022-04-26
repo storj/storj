@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
@@ -225,7 +226,12 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input console.User
+	type UserWithPaidTier struct {
+		console.User
+		PaidTierStr string `json:"paidTierStr"`
+	}
+
+	var input UserWithPaidTier
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
@@ -251,6 +257,25 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if input.ProjectLimit > 0 {
 		user.ProjectLimit = input.ProjectLimit
+	}
+	if input.ProjectStorageLimit > 0 {
+		user.ProjectStorageLimit = input.ProjectStorageLimit
+	}
+	if input.ProjectBandwidthLimit > 0 {
+		user.ProjectBandwidthLimit = input.ProjectBandwidthLimit
+	}
+	if input.ProjectSegmentLimit > 0 {
+		user.ProjectSegmentLimit = input.ProjectSegmentLimit
+	}
+	if input.PaidTierStr != "" {
+		status, err := strconv.ParseBool(input.PaidTierStr)
+		if err != nil {
+			sendJSONError(w, "failed to parse paid tier status",
+				err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		user.PaidTier = status
 	}
 
 	err = server.db.Console().Users().Update(ctx, user)

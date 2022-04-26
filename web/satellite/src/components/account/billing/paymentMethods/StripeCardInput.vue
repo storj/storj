@@ -101,7 +101,7 @@ export default class StripeCardInput extends Vue {
      */
     public async onStripeResponse(result: StripeResponse): Promise<void> {
         if (result.error) {
-            return;
+            throw result.error;
         }
 
         if (result.token.card.funding === 'prepaid') {
@@ -129,7 +129,11 @@ export default class StripeCardInput extends Vue {
 
         this.isLoading = true;
 
-        await this.stripe.createToken(this.cardElement).then(this.onStripeResponse);
+        try {
+            await this.stripe.createToken(this.cardElement).then(this.onStripeResponse);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
 
         this.isLoading = false;
     }

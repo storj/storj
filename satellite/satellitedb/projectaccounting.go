@@ -74,11 +74,11 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 	return Error.Wrap(err)
 }
 
-// GetTallies saves the latest bucket info.
+// GetTallies retrieves all tallies ordered by interval start (descending).
 func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounting.BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxTallies, err := db.db.All_BucketStorageTally(ctx)
+	dbxTallies, err := db.db.All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

@@ -41,15 +41,21 @@
                         <h1 class="cli-install__linux__title">AMD64</h1>
                         <h2 class="cli-install__linux__sub-title">Curl Download</h2>
                         <div class="cli-install__linux__commands">
-                            <p class="cli-install__linux__commands__item">
-                                curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip -o uplink_linux_amd64.zip
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                unzip -o uplink_linux_amd64.zip
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                sudo install uplink /usr/local/bin/uplink
-                            </p>
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip -o uplink_linux_amd64.zip"
+                                aria-role-description="linux-amd64-curl"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="unzip -o uplink_linux_amd64.zip"
+                                aria-role-description="linux-amd64-unzip"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="sudo install uplink /usr/local/bin/uplink"
+                                aria-role-description="linux-amd64-install"
+                            />
                         </div>
                         <a
                             class="cli-install__linux__link"
@@ -60,15 +66,21 @@
                         <h1 class="cli-install__linux__title margin-top">ARM</h1>
                         <h2 class="cli-install__linux__sub-title">Curl Download</h2>
                         <div class="cli-install__linux__commands">
-                            <p class="cli-install__linux__commands__item">
-                                curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip -o uplink_linux_arm.zip
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                unzip -o uplink_linux_arm.zip
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                sudo install uplink /usr/local/bin/uplink
-                            </p>
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip -o uplink_linux_arm.zip"
+                                aria-role-description="linux-arm-curl"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="unzip -o uplink_linux_arm.zip"
+                                aria-role-description="linux-arm-unzip"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="sudo install uplink /usr/local/bin/uplink"
+                                aria-role-description="linux-arm-install"
+                            />
                         </div>
                         <a
                             class="cli-install__linux__link"
@@ -82,15 +94,21 @@
                     <div class="cli-install__macos">
                         <h2 class="cli-install__macos__sub-title">Curl Download</h2>
                         <div class="cli-install__macos__commands">
-                            <p class="cli-install__macos__commands__item">
-                                curl -L https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip -o uplink_darwin_amd64.zip
-                            </p>
-                            <p class="cli-install__macos__commands__item">
-                                unzip -o uplink_darwin_amd64.zip
-                            </p>
-                            <p class="cli-install__macos__commands__item">
-                                sudo install uplink /usr/local/bin/uplink
-                            </p>
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="curl -L https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip -o uplink_darwin_amd64.zip"
+                                aria-role-description="macos-curl"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="unzip -o uplink_darwin_amd64.zip"
+                                aria-role-description="macos-unzip"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="sudo install uplink /usr/local/bin/uplink"
+                                aria-role-description="macos-install"
+                            />
                         </div>
                         <a
                             class="cli-install__macos__link"
@@ -112,6 +130,7 @@ import { RouteConfig } from "@/router";
 
 import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
 import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
+import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vue";
 
 import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
 
@@ -121,6 +140,7 @@ import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
         CLIFlowContainer,
         Icon,
         OSContainer,
+        TabWithCopy,
     }
 })
 export default class CLIInstall extends Vue {
@@ -185,6 +205,10 @@ export default class CLIInstall extends Vue {
 
                 &__item {
                     white-space: nowrap;
+
+                    &:nth-child(2) {
+                        margin: 10px 0;
+                    }
                 }
             }
 
@@ -206,5 +230,15 @@ export default class CLIInstall extends Vue {
 
     .margin-top {
         margin-top: 24px;
+    }
+
+    ::v-deep .tab-copy {
+        display: inline-flex;
+        padding: 0;
+
+        &__value {
+            overflow: unset;
+            text-overflow: unset;
+        }
     }
 </style>

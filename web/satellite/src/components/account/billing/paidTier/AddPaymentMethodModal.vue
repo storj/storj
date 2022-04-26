@@ -241,7 +241,7 @@ export default class AddPaymentMethodModal extends Vue {
         try {
             await this.$refs.stripeCardInput.onSubmit();
         } catch (error) {
-            await this.$notify.error(error.message)
+            await this.$notify.error(error.message);
         }
 
         this.isLoading = false;
@@ -567,15 +567,12 @@ export default class AddPaymentMethodModal extends Vue {
                 bottom: 0;
                 left: 0;
                 right: 0;
-                border-radius: 8px;
+                border-radius: 32px;
                 z-index: 1;
                 background-color: rgba(245, 246, 250, 0.5);
-
-                &__loader {
-                    position: absolute;
-                    top: 45px;
-                    left: calc(-50% + 55px);
-                }
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
         }
 
