@@ -566,7 +566,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.segment-loop.suspicious-processed-ratio: 0.03
 
 # enable code for server-side copy
-# metainfo.server-side-copy: false
+# metainfo.server-side-copy: true
 
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
