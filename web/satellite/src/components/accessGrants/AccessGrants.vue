@@ -3,7 +3,7 @@
 
 <template>
     <div class="access-grants">
-        <div class="access-grants__title-area">
+        <div v-if="!isNewAccessGrantFlow" class="access-grants__title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Grants</h2>
             <div v-if="accessGrantsList.length" class="access-grants__title-area__right">
                 <VButton
