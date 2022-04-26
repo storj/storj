@@ -17,6 +17,7 @@ import (
 
 func main() {
 	ex := newExternal()
+	raiseUlimits()
 	ok, err := clingy.Environment{
 		Name:    "uplink",
 		Args:    os.Args[1:],
