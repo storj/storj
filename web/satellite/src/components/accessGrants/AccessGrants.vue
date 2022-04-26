@@ -34,12 +34,9 @@
                 <div class="access-grants__flows-area__icon-container">
                     <AccessGrantsIcon />
                 </div>
-                <!-- <div style="height: 40px; width: 40px; border: 2px solid black; margin-top: -5px">Icon</div> -->
                 <div class="access-grants__flows-area__title">Access Grant</div>
                 <div class="access-grants__flows-area__summary">Gives access through native clients such as uplink, libuplink, associate libraries, and bindings. </div>
                 <div class="access-grants__flows-area__button-container">
-                    <!-- <button class="access-grants__flows-area__learn-button">Learn More</button> -->
-                    <!-- <button class="access-grants__flows-area__create-button">Create Access Grant</button> -->
                     <VButton
                         label="Learn More"
                         width="auto"
@@ -61,13 +58,10 @@
                 <div class="access-grants__flows-area__icon-container">
                     <S3Icon />
                 </div>
-                <!-- <div style="height: 40px; width: 40px; border: 2px solid black; margin-top: -5px">Icon</div> -->
                 <div class="access-grants__flows-area__title">S3 Credentials</div>
                 <div class="access-grants__flows-area__summary">Gives access through S3 compatible tools and services via our hosted Gateway MT.</div>
                 <br/>
                 <div class="access-grants__flows-area__button-container">
-                    <!-- <button class="access-grants__flows-area__learn-button">Learn More</button> -->
-                    <!-- <button class="access-grants__flows-area__create-button">Create Access Grant</button> -->
                     <VButton
                         label="Learn More"
                         width="auto"
@@ -89,13 +83,10 @@
                 <div class="access-grants__flows-area__icon-container">
                     <CLIIcon />
                 </div>
-                <!-- <div style="height: 40px; width: 40px; border: 2px solid black; margin-top: -5px">Icon</div> -->
                 <div class="access-grants__flows-area__title">CLI Access</div>
                 <div class="access-grants__flows-area__summary">Creates Satellite Adress and API Key to run the “setup” in Command Line Interface. </div>
                 <br/>
                 <div class="access-grants__flows-area__button-container">
-                    <!-- <button class="access-grants__flows-area__learn-button">Learn More</button> -->
-                    <!-- <button class="access-grants__flows-area__create-button">Create Access Grant</button> -->
                     <VButton
                         label="Learn More"
                         width="auto"
