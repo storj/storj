@@ -283,6 +283,8 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 			return Error.Wrap(err)
 		}
 
+		paymentService.service.analytics.TrackCreditCardAdded(auth.User.ID, auth.User.Email)
+
 		projects, err := paymentService.service.store.Projects().GetOwn(ctx, auth.User.ID)
 		if err != nil {
 			return Error.Wrap(err)
