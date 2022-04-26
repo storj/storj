@@ -336,6 +336,17 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE billing_transactions (
+	tx_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	currency text NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	timestamp timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
+);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -975,6 +986,17 @@ CREATE TABLE accounting_timestamps (
 	name text NOT NULL,
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
+);
+CREATE TABLE billing_transactions (
+	tx_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	currency text NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	timestamp timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
 );
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
@@ -1780,6 +1802,174 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
+
+type BillingTransaction struct {
+	TxId        []byte
+	UserId      []byte
+	Amount      int64
+	Currency    string
+	Description string
+	Type        int
+	Timestamp   time.Time
+	CreatedAt   time.Time
+}
+
+func (BillingTransaction) _Table() string { return "billing_transactions" }
+
+type BillingTransaction_Update_Fields struct {
+}
+
+type BillingTransaction_TxId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BillingTransaction_TxId(v []byte) BillingTransaction_TxId_Field {
+	return BillingTransaction_TxId_Field{_set: true, _value: v}
+}
+
+func (f BillingTransaction_TxId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BillingTransaction_TxId_Field) _Column() string { return "tx_id" }
+
+type BillingTransaction_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BillingTransaction_UserId(v []byte) BillingTransaction_UserId_Field {
+	return BillingTransaction_UserId_Field{_set: true, _value: v}
+}
+
+func (f BillingTransaction_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BillingTransaction_UserId_Field) _Column() string { return "user_id" }
+
+type BillingTransaction_Amount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func BillingTransaction_Amount(v int64) BillingTransaction_Amount_Field {
+	return BillingTransaction_Amount_Field{_set: true, _value: v}
+}
+
+func (f BillingTransaction_Amount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BillingTransaction_Amount_Field) _Column() string { return "amount" }
+
+type BillingTransaction_Currency_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BillingTransaction_Currency(v string) BillingTransaction_Currency_Field {
+	return BillingTransaction_Currency_Field{_set: true, _value: v}
+}
+
+func (f BillingTransaction_Currency_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BillingTransaction_Currency_Field) _Column() string { return "currency" }
+
+type BillingTransaction_Description_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BillingTransaction_Description(v string) BillingTransaction_Description_Field {
+	return BillingTransaction_Description_Field{_set: true, _value: v}
+}
+
+func (f BillingTransaction_Description_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BillingTransaction_Description_Field) _Column() string { return "description" }
+
+type BillingTransaction_Type_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BillingTransaction_Type(v int) BillingTransaction_Type_Field {
+	return BillingTransaction_Type_Field{_set: true, _value: v}
+}
+
+func (f BillingTransaction_Type_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BillingTransaction_Type_Field) _Column() string { return "type" }
+
+type BillingTransaction_Timestamp_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BillingTransaction_Timestamp(v time.Time) BillingTransaction_Timestamp_Field {
+	return BillingTransaction_Timestamp_Field{_set: true, _value: v}
+}
+
+func (f BillingTransaction_Timestamp_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BillingTransaction_Timestamp_Field) _Column() string { return "timestamp" }
+
+type BillingTransaction_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BillingTransaction_CreatedAt(v time.Time) BillingTransaction_CreatedAt_Field {
+	return BillingTransaction_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f BillingTransaction_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BillingTransaction_CreatedAt_Field) _Column() string { return "created_at" }
 
 type BucketBandwidthRollup struct {
 	BucketName      []byte
@@ -11963,6 +12153,43 @@ func (obj *pgxImpl) Create_StripeCustomer(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) CreateNoReturn_BillingTransaction(ctx context.Context,
+	billing_transaction_tx_id BillingTransaction_TxId_Field,
+	billing_transaction_user_id BillingTransaction_UserId_Field,
+	billing_transaction_amount BillingTransaction_Amount_Field,
+	billing_transaction_currency BillingTransaction_Currency_Field,
+	billing_transaction_description BillingTransaction_Description_Field,
+	billing_transaction_type BillingTransaction_Type_Field,
+	billing_transaction_timestamp BillingTransaction_Timestamp_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__tx_id_val := billing_transaction_tx_id.value()
+	__user_id_val := billing_transaction_user_id.value()
+	__amount_val := billing_transaction_amount.value()
+	__currency_val := billing_transaction_currency.value()
+	__description_val := billing_transaction_description.value()
+	__type_val := billing_transaction_type.value()
+	__timestamp_val := billing_transaction_timestamp.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( tx_id, user_id, amount, currency, description, type, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __tx_id_val, __user_id_val, __amount_val, __currency_val, __description_val, __type_val, __timestamp_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxImpl) CreateNoReturn_StorjscanWallet(ctx context.Context,
 	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
 	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
@@ -14605,6 +14832,97 @@ func (obj *pgxImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc
 			}
 			err = __rows.Err()
 			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
+	billing_transaction_user_id BillingTransaction_UserId_Field) (
+	rows []*BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.tx_id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.type, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.timestamp DESC")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BillingTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				billing_transaction := &BillingTransaction{}
+				err = __rows.Scan(&billing_transaction.TxId, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Type, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, billing_transaction)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_BillingTransaction_By_UserId_And_Type_OrderBy_Desc_Timestamp(ctx context.Context,
+	billing_transaction_user_id BillingTransaction_UserId_Field,
+	billing_transaction_type BillingTransaction_Type_Field) (
+	rows []*BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.tx_id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.type, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.type = ? ORDER BY billing_transactions.timestamp DESC")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_user_id.value(), billing_transaction_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BillingTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				billing_transaction := &BillingTransaction{}
+				err = __rows.Scan(&billing_transaction.TxId, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Type, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, billing_transaction)
+			}
+			if err := __rows.Err(); err != nil {
 				return nil, err
 			}
 			return rows, nil
@@ -17932,6 +18250,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM billing_transactions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -18719,6 +19047,43 @@ func (obj *pgxcockroachImpl) Create_StripeCustomer(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return stripe_customer, nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_BillingTransaction(ctx context.Context,
+	billing_transaction_tx_id BillingTransaction_TxId_Field,
+	billing_transaction_user_id BillingTransaction_UserId_Field,
+	billing_transaction_amount BillingTransaction_Amount_Field,
+	billing_transaction_currency BillingTransaction_Currency_Field,
+	billing_transaction_description BillingTransaction_Description_Field,
+	billing_transaction_type BillingTransaction_Type_Field,
+	billing_transaction_timestamp BillingTransaction_Timestamp_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__tx_id_val := billing_transaction_tx_id.value()
+	__user_id_val := billing_transaction_user_id.value()
+	__amount_val := billing_transaction_amount.value()
+	__currency_val := billing_transaction_currency.value()
+	__description_val := billing_transaction_description.value()
+	__type_val := billing_transaction_type.value()
+	__timestamp_val := billing_transaction_timestamp.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO billing_transactions ( tx_id, user_id, amount, currency, description, type, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __tx_id_val, __user_id_val, __amount_val, __currency_val, __description_val, __type_val, __timestamp_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -21364,6 +21729,97 @@ func (obj *pgxcockroachImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_Ord
 			}
 			err = __rows.Err()
 			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
+	billing_transaction_user_id BillingTransaction_UserId_Field) (
+	rows []*BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.tx_id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.type, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? ORDER BY billing_transactions.timestamp DESC")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BillingTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				billing_transaction := &BillingTransaction{}
+				err = __rows.Scan(&billing_transaction.TxId, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Type, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, billing_transaction)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_And_Type_OrderBy_Desc_Timestamp(ctx context.Context,
+	billing_transaction_user_id BillingTransaction_UserId_Field,
+	billing_transaction_type BillingTransaction_Type_Field) (
+	rows []*BillingTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.tx_id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.type, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.user_id = ? AND billing_transactions.type = ? ORDER BY billing_transactions.timestamp DESC")
+
+	var __values []interface{}
+	__values = append(__values, billing_transaction_user_id.value(), billing_transaction_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BillingTransaction, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				billing_transaction := &BillingTransaction{}
+				err = __rows.Scan(&billing_transaction.TxId, &billing_transaction.UserId, &billing_transaction.Amount, &billing_transaction.Currency, &billing_transaction.Description, &billing_transaction.Type, &billing_transaction.Timestamp, &billing_transaction.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, billing_transaction)
+			}
+			if err := __rows.Err(); err != nil {
 				return nil, err
 			}
 			return rows, nil
@@ -24691,6 +25147,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM billing_transactions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -24756,6 +25222,27 @@ func (rx *Rx) Rollback() (err error) {
 		rx.tx = nil
 	}
 	return err
+}
+
+func (rx *Rx) All_BillingTransaction_By_UserId_And_Type_OrderBy_Desc_Timestamp(ctx context.Context,
+	billing_transaction_user_id BillingTransaction_UserId_Field,
+	billing_transaction_type BillingTransaction_Type_Field) (
+	rows []*BillingTransaction, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_BillingTransaction_By_UserId_And_Type_OrderBy_Desc_Timestamp(ctx, billing_transaction_user_id, billing_transaction_type)
+}
+
+func (rx *Rx) All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
+	billing_transaction_user_id BillingTransaction_UserId_Field) (
+	rows []*BillingTransaction, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx, billing_transaction_user_id)
 }
 
 func (rx *Rx) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
@@ -24997,6 +25484,23 @@ func (rx *Rx) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 		return
 	}
 	return tx.CreateNoReturn_AccountingTimestamps(ctx, accounting_timestamps_name, accounting_timestamps_value)
+
+}
+
+func (rx *Rx) CreateNoReturn_BillingTransaction(ctx context.Context,
+	billing_transaction_tx_id BillingTransaction_TxId_Field,
+	billing_transaction_user_id BillingTransaction_UserId_Field,
+	billing_transaction_amount BillingTransaction_Amount_Field,
+	billing_transaction_currency BillingTransaction_Currency_Field,
+	billing_transaction_description BillingTransaction_Description_Field,
+	billing_transaction_type BillingTransaction_Type_Field,
+	billing_transaction_timestamp BillingTransaction_Timestamp_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_BillingTransaction(ctx, billing_transaction_tx_id, billing_transaction_user_id, billing_transaction_amount, billing_transaction_currency, billing_transaction_description, billing_transaction_type, billing_transaction_timestamp)
 
 }
 
@@ -26479,6 +26983,15 @@ func (rx *Rx) Update_WebappSession_By_Id(ctx context.Context,
 }
 
 type Methods interface {
+	All_BillingTransaction_By_UserId_And_Type_OrderBy_Desc_Timestamp(ctx context.Context,
+		billing_transaction_user_id BillingTransaction_UserId_Field,
+		billing_transaction_type BillingTransaction_Type_Field) (
+		rows []*BillingTransaction, err error)
+
+	All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
+		billing_transaction_user_id BillingTransaction_UserId_Field) (
+		rows []*BillingTransaction, err error)
+
 	All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
@@ -26574,6 +27087,16 @@ type Methods interface {
 	CreateNoReturn_AccountingTimestamps(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
+		err error)
+
+	CreateNoReturn_BillingTransaction(ctx context.Context,
+		billing_transaction_tx_id BillingTransaction_TxId_Field,
+		billing_transaction_user_id BillingTransaction_UserId_Field,
+		billing_transaction_amount BillingTransaction_Amount_Field,
+		billing_transaction_currency BillingTransaction_Currency_Field,
+		billing_transaction_description BillingTransaction_Description_Field,
+		billing_transaction_type BillingTransaction_Type_Field,
+		billing_transaction_timestamp BillingTransaction_Timestamp_Field) (
 		err error)
 
 	CreateNoReturn_OauthClient(ctx context.Context,
