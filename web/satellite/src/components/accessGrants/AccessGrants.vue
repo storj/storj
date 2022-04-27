@@ -27,7 +27,6 @@
         <div v-if="isNewAccessGrantFlow" class="access-grants__new-title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Management</h2>
             <div class="access-grants__title-area__title-subtext" aria-roledescription="title">Create encryption keys to setup permissions to access your objects.</div>
-           
         </div>
         <div v-if="isNewAccessGrantFlow" class="access-grants__flows-area">
             <div class="access-grants__flows-area__access-grant">
@@ -60,7 +59,7 @@
                 </div>
                 <div class="access-grants__flows-area__title">S3 Credentials</div>
                 <div class="access-grants__flows-area__summary">Gives access through S3 compatible tools and services via our hosted Gateway MT.</div>
-                <br/>
+                <br>
                 <div class="access-grants__flows-area__button-container">
                     <VButton
                         label="Learn More"
@@ -85,7 +84,7 @@
                 </div>
                 <div class="access-grants__flows-area__title">CLI Access</div>
                 <div class="access-grants__flows-area__summary">Creates Satellite Adress and API Key to run the “setup” in Command Line Interface. </div>
-                <br/>
+                <br>
                 <div class="access-grants__flows-area__button-container">
                     <VButton
                         label="Learn More"
@@ -103,7 +102,6 @@
                         class="access-grants__flows-area__create-button"
                     />
                 </div>
-                
             </div>
         </div>
         <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
