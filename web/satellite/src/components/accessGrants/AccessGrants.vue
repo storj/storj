@@ -41,13 +41,13 @@
                         label="Learn More"
                         width="auto"
                         height="30px"
-                        isTransparent="true"
-                        fontSize="13px"
+                        is-transparent="true"
+                        font-size="13px"
                         class="access-grants__flows-area__learn-button"
                     />
                     <VButton
                         label="Create Access Grant"
-                        fontSize="13px"
+                        font-size="13px"
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
@@ -66,13 +66,13 @@
                         label="Learn More"
                         width="auto"
                         height="30px"
-                        isTransparent="true"
-                        fontSize="13px"
+                        is-transparent="true"
+                        font-size="13px"
                         class="access-grants__flows-area__learn-button"
                     />
                     <VButton
                         label="Create Access Grant"
-                        fontSize="13px"
+                        font-size="13px"
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
@@ -91,13 +91,13 @@
                         label="Learn More"
                         width="auto"
                         height="30px"
-                        isTransparent="true"
-                        fontSize="13px"
+                        is-transparent="true"
+                        font-size="13px"
                         class="access-grants__flows-area__learn-button"
                     />
                     <VButton
                         label="Create Access Grant"
-                        fontSize="13px"
+                        font-size="13px"
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
@@ -379,12 +379,8 @@ export default class AccessGrants extends Vue {
             justify-content: space-between;
             margin-top: 20px;
             
-            &__access-grant {
-                @include grantFlowCard;
-            }
-             &__s3-credentials {
-                @include grantFlowCard;
-            }
+            &__access-grant,
+            &__s3-credentials,
             &__cli-credentials {
                 @include grantFlowCard;
             }
