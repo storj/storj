@@ -104,8 +104,8 @@ type Project struct {
 type ProjectInfo struct {
 	Name           string      `json:"name"`
 	Description    string      `json:"description"`
-	StorageLimit   memory.Size `json:"project specific storage limit"`
-	BandwidthLimit memory.Size `json:"project specific bandwidth limit"`
+	StorageLimit   memory.Size `json:"storageLimit"`
+	BandwidthLimit memory.Size `json:"bandwidthLimit"`
 	CreatedAt      time.Time   `json:"createdAt"`
 }
 
