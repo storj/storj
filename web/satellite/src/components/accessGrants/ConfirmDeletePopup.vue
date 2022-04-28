@@ -180,6 +180,7 @@ export default class ConfirmDeletePopup extends Vue {
         justify-content: center;
         font-family: 'font_regular', sans-serif;
         font-style: normal;
+
         &__trash-icon {
             position: absolute;
             left: 57%;

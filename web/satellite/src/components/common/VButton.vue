@@ -86,13 +86,13 @@ export default class VButton extends Vue {
     }
 
     .solid-red {
-        background-color: #BA0000 !important;
-        border: 1px solid #BA0000 !important;
+        background-color: #ba0000 !important;
+        border: 1px solid #ba0000 !important;
 
         .label {
             color: #fff !important;
         }
-        
+
         &:hover {
             background-color: #790000 !important;
             border: 1px solid #790000 !important;

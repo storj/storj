@@ -335,8 +335,8 @@ export default class AccessGrants extends Vue {
         padding: 28px;
         width: 26%;
         height: 167px;
-        background: #FFFFFF;
-        box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
+        background: #fff;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.04);
         border-radius: 10px;
     }
 
@@ -376,7 +376,7 @@ export default class AccessGrants extends Vue {
             -webkit-box-pack: justify;
             justify-content: space-between;
             margin-top: 20px;
-            
+
             &__access-grant,
             &__s3-credentials,
             &__cli-credentials {
@@ -387,8 +387,9 @@ export default class AccessGrants extends Vue {
                 margin-right: 2%;
                 padding: 0 10px;
             }
+
             &__create-button {
-               padding: 0 10px;
+                padding: 0 10px;
             }
 
             &__button-container {
@@ -417,7 +418,6 @@ export default class AccessGrants extends Vue {
                 height: 38px;
                 margin-top: -10px;
             }
-            
         }
 
         .access-grants-items {
