@@ -38,14 +38,11 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import CheckboxIcon from '@/../static/images/accessGrants/vector.svg';
-
 import { AccessGrant } from '@/types/accessGrants';
 
 // @vue/component
 @Component({
     components: {
-        CheckboxIcon,
     },
 })
 export default class AccessGrantsItem extends Vue {
@@ -81,13 +78,7 @@ export default class AccessGrantsItem extends Vue {
         background-color: #fff;
         border: 1px solid #E5E7EB;
         border-bottom: 0;
-        // cursor: pointer;
         width: 100%;
-
-        // &:hover {
-        //     background-color: rgba(242, 244, 247, 0.6);
-        // }
-
         &__common-info {
             display: flex;
             align-items: center;
@@ -118,7 +109,7 @@ export default class AccessGrantsItem extends Vue {
         font-size: 16px;
         line-height: 21px;
         color: #354049;
-        margin-left: 17px;
+        margin-left: 38px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -135,7 +126,10 @@ export default class AccessGrantsItem extends Vue {
     .ellipses {
         margin: 0 auto 20px auto;
         font-size: 30px;
+        font-weight: 1000;
+        color: #7C8794;
         cursor: pointer;
+        
     }
 
     .popup-menu {
@@ -172,25 +166,8 @@ export default class AccessGrantsItem extends Vue {
         }
     }
 
-
-
-    .grants-item-container.selected {
-        background-color: rgba(242, 244, 247, 0.6);
-
-        .grants-item-container__common-info {
-
-            .checkbox-container {
-                border: none;
-
-                &__image {
-                    display: block;
-                }
-            }
-        }
-    }
-
     .date-item-container {
-        width: 40%;
+        width: 50%;
     }
 
     .menu-item-container {

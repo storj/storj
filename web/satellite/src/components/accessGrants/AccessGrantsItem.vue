@@ -44,8 +44,6 @@ export default class AccessGrantsItem extends Vue {
         justify-content: flex-start;
         height: 83px;
         background-color: #fff;
-        border: 1px solid #E5E7EB;
-        border-bottom: 0;
         cursor: pointer;
         width: 100%;
 

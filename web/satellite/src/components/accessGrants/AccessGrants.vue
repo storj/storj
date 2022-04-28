@@ -21,6 +21,9 @@
                     :on-press="onCreateClick"
                     :is-disabled="areGrantsFetching"
                 />
+                <!-- /**
+                * Using this for testing purposes delete before pushing.
+                */ -->
                 <button @click="testClick">Test</button>
             </div>
         </div>
@@ -35,22 +38,22 @@
                 />
             </div>
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
-            <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
-                <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
-                <div class="access-grants-items__content">
+            <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items2">
+                <SortAccessGrantsHeader2 :on-header-click-callback="onHeaderSectionClickCallback" />
+                <div class="access-grants-items2__content">
                     <VList
                         :data-set="accessGrantsList"
                         :item-component="itemComponent2"
                     />
                 </div>
-                <div class="access-grants-items__footer">
-                    <span class="access-grants-items__footer__total-accesses">
+                <div class="access-grants-items2__footer">
+                    <span class="access-grants-items2__footer__total-accesses">
                         {{accessGrantsList.length}} Access Grants
                     </span>
                     <VPagination
                         v-if="totalPageCount > 1"
                         ref="pagination"
-                        class="access-grants-items__footer__pagination-area"
+                        class="access-grants-items2__footer__pagination-area"
                         :total-page-count="totalPageCount"
                         :on-page-click-callback="onPageClick"
                     />
@@ -99,6 +102,7 @@ import AccessGrantsItem2 from '@/components/accessGrants/AccessGrantsItem2.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
+import SortAccessGrantsHeader2 from '@/components/accessGrants/SortingHeader2.vue';
 import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -131,6 +135,7 @@ declare interface ResetPagination {
         EmptyState,
         S3Icon,
         SortAccessGrantsHeader,
+        SortAccessGrantsHeader2,
         VList,
         VPagination,
         VButton,
@@ -150,7 +155,9 @@ export default class AccessGrants extends Vue {
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
     };
-
+    /**
+     * Using this for testing purposes delete before pushing.
+     */
     public testClick(): void {
         if (this.test === "new") {
             this.test="old"
@@ -298,15 +305,7 @@ export default class AccessGrants extends Vue {
 }
 </script>
 <style scoped lang="scss">
-    @mixin grantFlowCard {
-        display: inline-block;
-        padding: 28px;
-        width: 26%;
-        height: 167px;
-        background: #FFFFFF;
-        box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
-        border-radius: 10px;
-    }
+
     .access-grants {
         position: relative;
         height: calc(100% - 95px);
@@ -331,66 +330,25 @@ export default class AccessGrants extends Vue {
                 line-height: 24px;
             }
         }
-        .access-grants__flows-area {
-            text-align: center;
-            display: flex;
-            -webkit-box-align: center;
-            align-items: center;
-            -webkit-box-pack: justify;
-            justify-content: space-between;
-            margin-top: 20px;
-            
-            &__access-grant {
-                @include grantFlowCard;
-            }
-             &__s3-credentials {
-                @include grantFlowCard;
-            }
-            &__cli-credentials {
-                @include grantFlowCard;
-            }
-            &__learn-button {
-                margin-right: 2%;
-                padding: 0 10px;
-            }
-            &__create-button {
-               padding: 0 10px;
-            }
-            &__button-container {
-                display: flex;
-                margin-top: 10px;
-            }
-            &__summary {
-                font-style: normal;
-                font-weight: 400;
-                font-size: 14px;
-                line-height: 20px;
-                overflow-wrap: break-word;
-                text-align: left;
-                margin-top: 5px;
-            }
-            &__title {
-                text-align: left;
-                margin-top: 15px;
-                font-family: 'font_bold', sans-serif;
-            }
-            &__icon-container {
-                text-align: left;
-                height: 38px;
-                margin-top: -10px;
-            }
-            
-        }
         .access-grants-items {
             position: relative;
             &__content {
                 background-color: #fff;
                 display: flex;
                 flex-direction: column;
-                // width: calc(100% - 32px);
+                width: calc(100% - 32px);
                 justify-content: flex-start;
-                // padding: 16px;
-                // border-radius: 0 0 8px 8px;
+                padding: 16px;
+                border-radius: 0 0 8px 8px;
+            }
+        }
+        .access-grants-items2 {
+            position: relative;
+            &__content {
+                background-color: #fff;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
             }
             &__footer {
                 background-color: #fff;
@@ -405,6 +363,7 @@ export default class AccessGrants extends Vue {
                 &__total-accesses {
                     height: 20px;
                     padding-left: 20px;
+                    margin-left: 18px;
                     color: #2C353A;
                 }
                 &__pagination-area {
