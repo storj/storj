@@ -271,6 +271,8 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return Error.Wrap(err)
 	}
 
+	paymentService.service.analytics.TrackCreditCardAdded(auth.User.ID, auth.User.Email)
+
 	if !auth.User.PaidTier {
 		// put this user into the paid tier and convert projects to upgraded limits.
 		err = paymentService.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true,
