@@ -1,6 +1,5 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
-
 <template>
     <div class="access-grants">
         <div class="access-grants__title-area">
@@ -22,48 +21,92 @@
                     :on-press="onCreateClick"
                     :is-disabled="areGrantsFetching"
                 />
+                <button @click="testClick">Test</button>
             </div>
         </div>
-        <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
-        <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
-            <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
-            <div class="access-grants-items__content">
-                <VList
-                    :data-set="accessGrantsList"
-                    :item-component="itemComponent"
-                    :on-item-click="toggleSelection"
+        <div v-if="this.test === 'new'">
+            <div class="access-grants__access-table__header-container">
+                <h3 class="access-grants__access-table__title">My Accesses</h3>
+                <div class="access-grants__access-table__divider"></div>
+                <VHeader
+                    class="access-grants__access-table__buckets-header-component"
+                    :search="fetch"
+                    style-type="access"
                 />
             </div>
-            <VPagination
-                v-if="totalPageCount > 1"
-                ref="pagination"
-                class="pagination-area"
-                :total-page-count="totalPageCount"
-                :on-page-click-callback="onPageClick"
+            <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
+            <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
+                <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
+                <div class="access-grants-items__content">
+                    <VList
+                        :data-set="accessGrantsList"
+                        :item-component="itemComponent2"
+                    />
+                </div>
+                <div class="access-grants-items__footer">
+                    <span class="access-grants-items__footer__total-accesses">
+                        {{accessGrantsList.length}} Access Grants
+                    </span>
+                    <VPagination
+                        v-if="totalPageCount > 1"
+                        ref="pagination"
+                        class="access-grants-items__footer__pagination-area"
+                        :total-page-count="totalPageCount"
+                        :on-page-click-callback="onPageClick"
+                    />
+                </div>
+            </div>
+            <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
+            <ConfirmDeletePopup
+                v-if="isDeleteClicked"
+                @close="onClearSelection"
+                @reset-pagination="resetPagination"
             />
         </div>
-        <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
-        <ConfirmDeletePopup
-            v-if="isDeleteClicked"
-            @close="onClearSelection"
-            @reset-pagination="resetPagination"
-        />
+        <div v-if="this.test === 'old'">
+            <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
+            <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
+                <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
+                <div class="access-grants-items__content">
+                    <VList
+                        :data-set="accessGrantsList"
+                        :item-component="itemComponent"
+                        :on-item-click="toggleSelection"
+                    />
+                </div>
+                <VPagination
+                    v-if="totalPageCount > 1"
+                    ref="pagination"
+                    class="pagination-area"
+                    :total-page-count="totalPageCount"
+                    :on-page-click-callback="onPageClick"
+                />
+            </div>
+            <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
+            <ConfirmDeletePopup
+                v-if="isDeleteClicked"
+                @close="onClearSelection"
+                @reset-pagination="resetPagination"
+            />
+        </div>
         <router-view />
     </div>
 </template>
-
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
+import AccessGrantsItem2 from '@/components/accessGrants/AccessGrantsItem2.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
 import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VLoader from '@/components/common/VLoader.vue';
+import VHeader from '@/components/common/VHeader.vue';
 import VPagination from '@/components/common/VPagination.vue';
-
+import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
+import CLIIcon from '@/../static/images/accessGrants/cli.svg';
+import S3Icon from '@/../static/images/accessGrants/s3.svg';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
@@ -75,37 +118,46 @@ const {
     CLEAR_SELECTION,
     SET_SORT_BY,
     SET_SORT_DIRECTION,
+    SET_SEARCH_QUERY,
 } = ACCESS_GRANTS_ACTIONS;
-
 declare interface ResetPagination {
     resetPageIndex(): void;
 }
-
 // @vue/component
 @Component({
     components: {
+        AccessGrantsIcon,
+        CLIIcon,
         EmptyState,
+        S3Icon,
         SortAccessGrantsHeader,
         VList,
         VPagination,
         VButton,
         ConfirmDeletePopup,
         VLoader,
+        VHeader,
     },
 })
 export default class AccessGrants extends Vue {
     private FIRST_PAGE = 1;
-
     /**
      * Indicates if delete confirmation state should appear.
      */
     private isDeleteClicked = false;
-
+    private test = "old";
     public areGrantsFetching = true;
-
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
     };
+
+    public testClick(): void {
+        if (this.test === "new") {
+            this.test="old"
+        } else {
+            this.test="new"
+        }
+    }
 
     /**
      * Lifecycle hook after initial render where list of existing access grants is fetched.
@@ -113,13 +165,11 @@ export default class AccessGrants extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
-
             this.areGrantsFetching = false;
         } catch (error) {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
         }
     }
-
     /**
      * Lifecycle hook before component destruction.
      * Clears existing access grants selection.
@@ -127,7 +177,6 @@ export default class AccessGrants extends Vue {
     public beforeDestroy(): void {
         this.onClearSelection();
     }
-
     /**
      * Toggles access grant selection.
      * @param accessGrant
@@ -135,7 +184,6 @@ export default class AccessGrants extends Vue {
     public async toggleSelection(accessGrant: AccessGrant): Promise<void> {
         await this.$store.dispatch(TOGGLE_SELECTION, accessGrant);
     }
-
     /**
      * Fetches access grants page by clicked index.
      * @param index
@@ -147,7 +195,6 @@ export default class AccessGrants extends Vue {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
         }
     }
-
     /**
      * Used for sorting.
      * @param sortBy
@@ -161,12 +208,10 @@ export default class AccessGrants extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
         }
-
         if (this.totalPageCount > 1) {
             this.resetPagination();
         }
     }
-
     /**
      * Resets pagination to default state.
      */
@@ -175,21 +220,18 @@ export default class AccessGrants extends Vue {
             this.$refs.pagination.resetPageIndex();
         }
     }
-
     /**
      * Starts create access grant flow.
      */
     public onCreateClick(): void {
         this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
     }
-
     /**
      * Holds on button click login for deleting access grant process.
      */
     public onDeleteClick(): void {
         this.isDeleteClicked = true;
     }
-
     /**
      * Clears access grants selection.
      */
@@ -197,28 +239,48 @@ export default class AccessGrants extends Vue {
         await this.$store.dispatch(CLEAR_SELECTION);
         this.isDeleteClicked = false;
     }
+    /**
+     * Fetches Access records by name depending on search query.
+     */
+    public async fetch(searchQuery: string): Promise<void> {
+        await this.$store.dispatch(SET_SEARCH_QUERY, searchQuery);
 
+        try {
+            await this.$store.dispatch(FETCH, 1);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch accesses: ${error.message}`);
+        }
+    }
+    /**
+     * Lifecycle hook before component destruction where Access search query is cleared.
+     */
+    public async beforeSearchDestroy(): Promise<void> {
+        await this.$store.dispatch(SET_SEARCH_QUERY, '');
+    }
     /**
      * Returns delete access grants button label.
      */
     public get deleteButtonLabel(): string {
         return `Remove Selected (${this.selectedAccessGrantsAmount})`;
     }
-
     /**
      * Returns access grants pages count from store.
      */
     public get totalPageCount(): number {
         return this.$store.state.accessGrantsModule.page.pageCount;
     }
-
     /**
      * Returns AccessGrant item component.
      */
     public get itemComponent(): typeof AccessGrantsItem {
         return AccessGrantsItem;
     }
-
+    /**
+     * Returns AccessGrant2 item component.
+     */
+    public get itemComponent2(): typeof AccessGrantsItem2 {
+        return AccessGrantsItem2;
+    }
     /**
      * Returns access grants from store.
      */
@@ -232,21 +294,28 @@ export default class AccessGrants extends Vue {
     public get selectedAccessGrantsAmount(): number {
         return this.$store.state.accessGrantsModule.selectedAccessGrantsIds.length;
     }
+
 }
 </script>
-
 <style scoped lang="scss">
+    @mixin grantFlowCard {
+        display: inline-block;
+        padding: 28px;
+        width: 26%;
+        height: 167px;
+        background: #FFFFFF;
+        box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
+        border-radius: 10px;
+    }
     .access-grants {
         position: relative;
         height: calc(100% - 95px);
         padding: 40px 30px 55px 30px;
         font-family: 'font_regular', sans-serif;
-
         &__title-area {
             display: flex;
             align-items: center;
             justify-content: space-between;
-
             &__title {
                 font-family: 'font_bold', sans-serif;
                 font-size: 22px;
@@ -254,23 +323,117 @@ export default class AccessGrants extends Vue {
                 color: #263549;
                 margin: 0;
             }
+            &__title-subtext {
+                margin-top: 10px;
+                font-style: normal;
+                font-weight: 400;
+                font-size: 16px;
+                line-height: 24px;
+            }
         }
-
+        .access-grants__flows-area {
+            text-align: center;
+            display: flex;
+            -webkit-box-align: center;
+            align-items: center;
+            -webkit-box-pack: justify;
+            justify-content: space-between;
+            margin-top: 20px;
+            
+            &__access-grant {
+                @include grantFlowCard;
+            }
+             &__s3-credentials {
+                @include grantFlowCard;
+            }
+            &__cli-credentials {
+                @include grantFlowCard;
+            }
+            &__learn-button {
+                margin-right: 2%;
+                padding: 0 10px;
+            }
+            &__create-button {
+               padding: 0 10px;
+            }
+            &__button-container {
+                display: flex;
+                margin-top: 10px;
+            }
+            &__summary {
+                font-style: normal;
+                font-weight: 400;
+                font-size: 14px;
+                line-height: 20px;
+                overflow-wrap: break-word;
+                text-align: left;
+                margin-top: 5px;
+            }
+            &__title {
+                text-align: left;
+                margin-top: 15px;
+                font-family: 'font_bold', sans-serif;
+            }
+            &__icon-container {
+                text-align: left;
+                height: 38px;
+                margin-top: -10px;
+            }
+            
+        }
         .access-grants-items {
             position: relative;
-
             &__content {
                 background-color: #fff;
                 display: flex;
                 flex-direction: column;
-                width: calc(100% - 32px);
+                // width: calc(100% - 32px);
                 justify-content: flex-start;
-                padding: 16px;
+                // padding: 16px;
+                // border-radius: 0 0 8px 8px;
+            }
+            &__footer {
+                background-color: #fff;
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                height: 80px;
+                width: 100%;
+                border: 1px solid #E5E7EB;
                 border-radius: 0 0 8px 8px;
+                &__total-accesses {
+                    height: 20px;
+                    padding-left: 20px;
+                    color: #2C353A;
+                }
+                &__pagination-area {
+                    padding-right: 20px;
+                    margin-bottom: 25px;
+                }
             }
         }
-    }
+        .access-grants__access-table {
+             &__header-container {
+                height: 90px;
+            }
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                margin-top: 20px;
+            }
+            &__divider {
+                height: 1px;
+                width: auto;
+                background-color: #DADFE7;
+                margin-top: 10px;
+            }
+            &__buckets-header-component {
+                height: 55px !important;
+                margin-top: 15px;
+            }
 
+        }
+    }
     .grants-loader {
         margin-top: 50px;
     }

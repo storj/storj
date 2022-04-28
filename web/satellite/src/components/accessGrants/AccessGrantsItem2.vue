@@ -4,15 +4,33 @@
 <template>
     <div class="grants-item-container">
         <div class="grants-item-container__common-info">
-            <div class="checkbox-container">
+            <!-- <div class="checkbox-container">
                 <CheckboxIcon class="checkbox-container__image" />
-            </div>
+            </div> -->
             <div class="name-container" :title="itemData.name">
                 <p class="name">{{ itemData.name }}</p>
             </div>
         </div>
         <div class="grants-item-container__common-info date-item-container">
             <p class="date">{{ itemData.localDate() }}</p>
+        </div>
+
+        <div class="grants-item-container__common-info menu-item-container"     >
+            <p class="ellipses" @click="togglePopupVisibility">...</p>
+            <div 
+                class="popup-menu"
+                v-if="popupVisible" 
+                v-click-outside="popupVisible"
+            >
+                <div class="popup-menu__popup-details">
+                    See Details
+                </div>
+                <div class="popup-menu__popup-divider"></div>
+                <div class="popup-menu__popup-delete">
+                    Delete Access
+            </div>
+            
+        </div>
         </div>
     </div>
 </template>
@@ -33,11 +51,28 @@ import { AccessGrant } from '@/types/accessGrants';
 export default class AccessGrantsItem extends Vue {
     @Prop({ default: new AccessGrant('', '', new Date(), '') })
     private readonly itemData: AccessGrant;
+    private popupVisible = false;
 
+    public togglePopupVisibility(): void {
+        if (!this.popupVisible) {
+            this.popupVisible = true;
+        } else {
+            this.popupVisible = false
+        }
+    }
 }
 </script>
 
 <style scoped lang="scss">
+    @mixin popup-menu-button {
+        padding: 0 15px;
+        height: 50%;
+        line-height: 55px;
+        text-align: left;
+        font-family: 'font_regular', sans-serif;
+        color: #1b2533;
+        transition: 100ms;
+    }
     .grants-item-container {
         display: flex;
         align-items: center;
@@ -46,12 +81,12 @@ export default class AccessGrantsItem extends Vue {
         background-color: #fff;
         border: 1px solid #E5E7EB;
         border-bottom: 0;
-        cursor: pointer;
+        // cursor: pointer;
         width: 100%;
 
-        &:hover {
-            background-color: rgba(242, 244, 247, 0.6);
-        }
+        // &:hover {
+        //     background-color: rgba(242, 244, 247, 0.6);
+        // }
 
         &__common-info {
             display: flex;
@@ -97,6 +132,48 @@ export default class AccessGrantsItem extends Vue {
         margin: 0;
     }
 
+    .ellipses {
+        margin: 0 auto 20px auto;
+        font-size: 30px;
+        cursor: pointer;
+    }
+
+    .popup-menu {
+        width: 160px;
+        height: 100px;
+        position: absolute;
+        right: 70px;
+        bottom: -90px;
+        z-index: 1;
+        background: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0px 20px 34px rgba(10, 27, 44, 0.28);
+        &__popup-details {
+            @include popup-menu-button;
+            border-radius: 10px 10px 0 0;
+            &:hover {
+                background-color: #354049;
+                cursor: pointer;
+                color: #ffffff;
+            }
+        }
+        &__popup-divider {
+            height: 1px;
+            background-color: #E5E7EB;
+        }
+        &__popup-delete {
+            @include popup-menu-button;
+            border-radius: 0 0 10px 10px;
+            &:hover {
+                background-color: #B53737;
+                cursor: pointer;
+                color: #ffffff;
+            }
+        }
+    }
+
+
+
     .grants-item-container.selected {
         background-color: rgba(242, 244, 247, 0.6);
 
@@ -116,4 +193,8 @@ export default class AccessGrantsItem extends Vue {
         width: 40%;
     }
 
+    .menu-item-container {
+        width: 10%;
+        position: relative;
+    }
 </style>

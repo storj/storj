@@ -87,6 +87,8 @@ export default class SortAccessGrantsHeader extends Vue {
         margin-top: 31px;
         padding: 16px 16px 0 16px;
         border-radius: 8px 8px 0 0;
+        border: 1px solid #E5E7EB;
+        border-bottom: 0;
 
         &__name-item,
         &__date-item {

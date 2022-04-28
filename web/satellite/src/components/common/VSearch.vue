@@ -5,7 +5,7 @@
     <input
         ref="input"
         v-model="searchQuery"
-        class="common-search-input"
+        v-bind:class="`${styleType}-search-input`"
         :placeholder="`Search ${placeholder}`"
         :style="style"
         type="text"
@@ -27,6 +27,9 @@ declare interface SearchStyle {
 // @vue/component
 @Component
 export default class VSearch extends Vue {
+    // determines class
+    @Prop({default: 'common'})
+    private readonly styleType: string;
     @Prop({default: ''})
     private readonly placeholder: string;
     @Prop({default: () => ''})
@@ -40,6 +43,9 @@ export default class VSearch extends Vue {
     };
 
     public get style(): SearchStyle {
+        if (this.styleType === "access") {
+            this.inputWidth = '250px';
+        }
         return { width: this.inputWidth };
     }
 
@@ -51,16 +57,19 @@ export default class VSearch extends Vue {
      * Expands search input.
      */
     public onMouseEnter(): void {
-        this.inputWidth = '540px';
+        if(this.styleType === "common") {
+            this.inputWidth = '540px';
 
-        this.$refs.input.focus();
+            this.$refs.input.focus();
+        }
+
     }
 
     /**
      * Collapses search input if no search query.
      */
     public onMouseLeave(): void {
-        if (!this.searchQuery) {
+        if (!this.searchQuery && this.styleType === "common") {
             this.inputWidth = '56px';
             this.$refs.input.blur();
         }
@@ -100,6 +109,25 @@ export default class VSearch extends Vue {
         background-repeat: no-repeat;
         background-size: 22px 22px;
         background-position: top 16px right 16px;
+    }
+
+    .access-search-input {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        padding: 0 10px 0 50px;
+        box-sizing: border-box;
+        outline: none;
+        border: 1px solid #D8DEE3;
+        border-radius: 10px;
+        height: 56px;
+        font-family: 'font_regular', sans-serif;
+        font-size: 16px;
+        background-color: #FFFFFF;
+        background-image: url('../../../static/images/common/search-gray.png');
+        background-repeat: no-repeat;
+        background-size: 22px 22px;
+        background-position: top 16px left 16px;
     }
 
     ::-webkit-input-placeholder {

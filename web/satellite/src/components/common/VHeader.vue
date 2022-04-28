@@ -10,6 +10,7 @@
             ref="search"
             :placeholder="placeholder"
             :search="search"
+            :style-type="styleType"
         />
     </div>
 </template>
@@ -31,6 +32,8 @@ declare interface ClearSearch {
     },
 })
 export default class VHeader extends Vue {
+    @Prop({default: 'common'})
+    private readonly styleType: string;
     @Prop({default: ''})
     private readonly placeholder: string;
     @Prop({default: () => ''})
