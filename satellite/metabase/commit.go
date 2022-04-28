@@ -466,6 +466,11 @@ type CommitObject struct {
 
 	Encryption storj.EncryptionParameters
 
+	// this flag controls if we want to set metadata fields with CommitObject
+	// it's possible to set metadata with BeginObject request so we need to
+	// be explicit if we would like to set it with CommitObject which will
+	// override any existing metadata.
+	OverrideEncryptedMetadata     bool
 	EncryptedMetadata             []byte // optional
 	EncryptedMetadataNonce        []byte // optional
 	EncryptedMetadataEncryptedKey []byte // optional
@@ -481,10 +486,12 @@ func (c *CommitObject) Verify() error {
 		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 
-	if c.EncryptedMetadata == nil && (c.EncryptedMetadataNonce != nil || c.EncryptedMetadataEncryptedKey != nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-	} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+	if c.OverrideEncryptedMetadata {
+		if c.EncryptedMetadata == nil && (c.EncryptedMetadataNonce != nil || c.EncryptedMetadataEncryptedKey != nil) {
+			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
+		} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
+			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+		}
 	}
 	return nil
 }
@@ -543,7 +550,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			encryptionParameters{&opts.Encryption}}
 
 		metadataColumns := ""
-		if len(opts.EncryptedMetadata) != 0 {
+		if opts.OverrideEncryptedMetadata {
 			args = append(args,
 				opts.EncryptedMetadataNonce,
 				opts.EncryptedMetadata,
@@ -582,9 +589,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				status       = `+pendingStatus+`
 			RETURNING
 				created_at, expires_at,
+				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
 				encryption;
 		`, args...).Scan(
 			&object.CreatedAt, &object.ExpiresAt,
+			&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
 			encryptionParameters{&object.Encryption},
 		)
 		if err != nil {
@@ -604,9 +613,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		object.Version = opts.Version
 		object.Status = Committed
 		object.SegmentCount = int32(len(segments))
-		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
-		object.EncryptedMetadata = opts.EncryptedMetadata
-		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
 		object.TotalPlainSize = totalPlainSize
 		object.TotalEncryptedSize = totalEncryptedSize
 		object.FixedSegmentSize = fixedSegmentSize

@@ -20,15 +20,7 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, projectID st
 		return "", err
 	}
 
-	id, err := uuid.FromString(projectID)
-	if err != nil {
-		return "", err
-	}
-
-	const concurrency = 8
-	salt := sha256.Sum256(id[:])
-
-	key, err := encryption.DeriveRootKey([]byte(encryptionPassphrase), salt[:], "", concurrency)
+	key, err := DeriveRootKey(encryptionPassphrase, projectID)
 	if err != nil {
 		return "", err
 	}
@@ -46,4 +38,17 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, projectID st
 		return "", err
 	}
 	return accessString, nil
+}
+
+// DeriveRootKey derives the root key portion of the access grant.
+func DeriveRootKey(encryptionPassphrase, projectID string) (*storj.Key, error) {
+	id, err := uuid.FromString(projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	const concurrency = 8
+	salt := sha256.Sum256(id[:])
+
+	return encryption.DeriveRootKey([]byte(encryptionPassphrase), salt[:], "", concurrency)
 }

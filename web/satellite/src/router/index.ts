@@ -52,6 +52,7 @@ import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from "@/utils/meta";
 
 const ActivateAccount = () => import('@/views/ActivateAccount.vue');
+const AuthorizeArea = () => import('@/views/AuthorizeArea.vue');
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
@@ -72,6 +73,7 @@ export abstract class RouteConfig {
     public static Activate = new NavigationLink('/activate', 'Activate');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
+    public static Authorize = new NavigationLink('/oauth/v2/authorize', 'Authorize')
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', 'Dashboard ');
@@ -135,6 +137,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Activate.name,
     RouteConfig.ForgotPassword.name,
     RouteConfig.ResetPassword.name,
+    RouteConfig.Authorize.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
     RouteConfig.DepositHistory.name,
@@ -174,6 +177,11 @@ export const router = new Router({
             path: RouteConfig.ResetPassword.path,
             name: RouteConfig.ResetPassword.name,
             component: ResetPassword,
+        },
+        {
+            path: RouteConfig.Authorize.path,
+            name: RouteConfig.Authorize.name,
+            component: AuthorizeArea,
         },
         {
             path: RouteConfig.Root.path,

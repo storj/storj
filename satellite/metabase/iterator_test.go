@@ -107,6 +107,7 @@ func TestIterateObjects(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream:                  committed,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
@@ -568,6 +569,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream:                  committed,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
@@ -1153,6 +1155,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj1,
 					Encryption:                    metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
 					EncryptedMetadataNonce:        []byte{5},
@@ -1219,6 +1222,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj1,
 					Encryption:                    metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
 					EncryptedMetadataNonce:        []byte{5},

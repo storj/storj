@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -57,14 +58,20 @@ func (ex *external) loadAccesses() error {
 }
 
 func parseAccessDataOrPossiblyFile(accessDataOrFile string) (*uplink.Access, error) {
-	if access, err := uplink.ParseAccess(accessDataOrFile); err == nil {
+	access, parseErr := uplink.ParseAccess(accessDataOrFile)
+	if parseErr == nil {
 		return access, nil
 	}
 
-	accessData, err := ioutil.ReadFile(accessDataOrFile)
-	if err != nil {
-		return nil, errs.Wrap(err)
+	accessData, readErr := ioutil.ReadFile(accessDataOrFile)
+	if readErr != nil {
+		var pathErr *os.PathError
+		if errors.As(readErr, &pathErr) {
+			readErr = pathErr.Err
+		}
+		return nil, errs.New("unable to open or parse access: %w", errs.Combine(parseErr, readErr))
 	}
+
 	return uplink.ParseAccess(string(bytes.TrimSpace(accessData)))
 }
 

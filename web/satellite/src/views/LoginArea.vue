@@ -147,6 +147,7 @@ export default class Login extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
+    public returnURL: string = RouteConfig.ProjectDashboard.path;
     public isActivatedBannerShown = false;
     public isActivatedError = false;
     public isMFARequired = false;
@@ -178,6 +179,8 @@ export default class Login extends Vue {
     public mounted(): void {
         this.isActivatedBannerShown = !!this.$route.query.activated;
         this.isActivatedError = this.$route.query.activated === 'false';
+
+        this.returnURL = this.$route.query.return_url as string || this.returnURL;
     }
 
     /**
@@ -310,7 +313,7 @@ export default class Login extends Vue {
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
 
-        await this.$router.push(RouteConfig.ProjectDashboard.path);
+        await this.$router.push(this.returnURL);
     }
 
     /**

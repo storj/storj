@@ -96,8 +96,8 @@ func Test_GetSingleBucketRollup(t *testing.T) {
 
 			var (
 				satelliteSys = planet.Satellites[0]
-				uplink       = planet.Uplinks[0]
-				projectID    = uplink.Projects[0].ID
+				upl          = planet.Uplinks[0]
+				projectID    = upl.Projects[0].ID
 			)
 
 			newUser := console.CreateUser{
@@ -136,12 +136,13 @@ func Test_GetSingleBucketRollup(t *testing.T) {
 			firstSegment := testrand.Bytes(100 * memory.KiB)
 			secondSegment := testrand.Bytes(200 * memory.KiB)
 
-			err = uplink.Upload(ctx, satelliteSys, bucketName, firstPath, firstSegment)
-			require.NoError(t, err)
-			err = uplink.Upload(ctx, satelliteSys, bucketName, secondPath, secondSegment)
+			err = upl.Upload(ctx, satelliteSys, bucketName, firstPath, firstSegment)
 			require.NoError(t, err)
 
-			_, err = uplink.Download(ctx, satelliteSys, bucketName, firstPath)
+			err = upl.Upload(ctx, satelliteSys, bucketName, secondPath, secondSegment)
+			require.NoError(t, err)
+
+			_, err = upl.Download(ctx, satelliteSys, bucketName, firstPath)
 			require.NoError(t, err)
 
 			require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))

@@ -5,6 +5,7 @@ package metabase_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -58,6 +59,7 @@ func TestBeginCopyObject(t *testing.T) {
 			expectedObject, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadata:             testrand.Bytes(64),
 					EncryptedMetadataNonce:        expectedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: expectedMetadataKey,
@@ -534,6 +536,7 @@ func TestFinishCopyObject(t *testing.T) {
 			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadata:             originalMetadata,
 					EncryptedMetadataNonce:        originalMetadataNonce,
 					EncryptedMetadataEncryptedKey: originalMetadataEncryptedKey,
@@ -719,6 +722,87 @@ func TestFinishCopyObject(t *testing.T) {
 				Copies: []metabase.RawCopy{{
 					StreamID:         objCprime.StreamID,
 					AncestorStreamID: objC.StreamID,
+				}},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("copied segments has same expires_at as original", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			expiresAt := time.Now().Add(2 * time.Hour)
+
+			objStream := metabasetest.RandObjectStream()
+			copyStream := metabasetest.RandObjectStream()
+			copyStream.ProjectID = objStream.ProjectID
+			copyStream.BucketName = objStream.BucketName
+
+			originalObj := metabasetest.CreateExpiredObject(ctx, t, db, objStream, 10, expiresAt)
+
+			metadataNonce := testrand.Nonce()
+			expectedCopyObject := originalObj
+			expectedCopyObject.ObjectKey = copyStream.ObjectKey
+			expectedCopyObject.StreamID = copyStream.StreamID
+			expectedCopyObject.EncryptedMetadataEncryptedKey = testrand.Bytes(32)
+			expectedCopyObject.EncryptedMetadataNonce = metadataNonce.Bytes()
+
+			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, originalObj.SegmentCount)
+			expectedSegments := make([]metabase.RawSegment, originalObj.SegmentCount)
+
+			for i := 0; i < int(originalObj.SegmentCount); i++ {
+				newEncryptedKeysNonces[i] = metabase.EncryptedKeyAndNonce{
+					Position:          metabase.SegmentPosition{Index: uint32(i)},
+					EncryptedKeyNonce: testrand.Nonce().Bytes(),
+					EncryptedKey:      testrand.Bytes(32),
+				}
+
+				expectedSegments[i] = metabasetest.DefaultRawSegment(originalObj.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+				expectedSegments[i].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
+				expectedSegments[i].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
+				expectedSegments[i].PlainOffset = int64(int32(i) * expectedSegments[i].PlainSize)
+				expectedSegments[i].EncryptedSize = int32(0)
+			}
+
+			copyObj := metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					ObjectStream:                 objStream,
+					NewBucket:                    copyStream.BucketName,
+					NewStreamID:                  copyStream.StreamID,
+					NewEncryptedObjectKey:        copyStream.ObjectKey,
+					NewEncryptedMetadataKey:      expectedCopyObject.EncryptedMetadataEncryptedKey,
+					NewEncryptedMetadataKeyNonce: metadataNonce,
+					NewSegmentKeys:               newEncryptedKeysNonces,
+				},
+				Result: expectedCopyObject,
+			}.Check(ctx, t, db)
+
+			var listSegments []metabase.Segment
+
+			copiedSegments, err := db.ListSegments(ctx, metabase.ListSegments{
+				StreamID: copyObj.StreamID,
+			})
+			require.NoError(t, err)
+
+			originalSegments, err := db.ListSegments(ctx, metabase.ListSegments{
+				StreamID: originalObj.StreamID,
+			})
+			require.NoError(t, err)
+
+			listSegments = append(listSegments, originalSegments.Segments...)
+			listSegments = append(listSegments, copiedSegments.Segments...)
+
+			for _, v := range listSegments {
+				require.Equal(t, expiresAt.Unix(), v.ExpiresAt.Unix())
+			}
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(originalObj),
+					metabase.RawObject(copyObj),
+				},
+				Segments: metabasetest.SegmentsToRaw(listSegments),
+				Copies: []metabase.RawCopy{{
+					StreamID:         copyObj.StreamID,
+					AncestorStreamID: originalObj.StreamID,
 				}},
 			}.Check(ctx, t, db)
 		})
