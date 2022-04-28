@@ -664,6 +664,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"
 
+# payments.storjscan.credentials.private-key: ""
+
+# payments.storjscan.credentials.public-key: ""
+
+# payments.storjscan.endpoint: ""
+
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 2m0s
 

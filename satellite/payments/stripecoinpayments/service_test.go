@@ -54,10 +54,10 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		satellite.API.Payments.Service.SetNow(func() time.Time {
+		satellite.API.Payments.StripeService.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
-		err := satellite.API.Payments.Service.PrepareInvoiceProjectRecords(ctx, period)
+		err := satellite.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
 		require.NoError(t, err)
 
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -68,7 +68,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, numberOfProjects, len(recordsPage.Records))
 
-		err = satellite.API.Payments.Service.InvoiceApplyProjectRecords(ctx, period)
+		err = satellite.API.Payments.StripeService.InvoiceApplyProjectRecords(ctx, period)
 		require.NoError(t, err)
 
 		// verify that we applied all unapplied project records
@@ -94,7 +94,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		// keep month + 1 because user needs to be created before calculation
 		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
 
-		payments.Service.SetNow(func() time.Time {
+		payments.StripeService.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -148,7 +148,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			require.Nil(t, projectRecord)
 		}
 
-		err = payments.Service.PrepareInvoiceProjectRecords(ctx, period)
+		err = payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
 		require.NoError(t, err)
 
 		for i := 0; i < len(projects); i++ {
@@ -166,10 +166,10 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		}
 
 		// run all parts of invoice generation to see if there are no unexpected errors
-		err = payments.Service.InvoiceApplyProjectRecords(ctx, period)
+		err = payments.StripeService.InvoiceApplyProjectRecords(ctx, period)
 		require.NoError(t, err)
 
-		err = payments.Service.CreateInvoices(ctx, period)
+		err = payments.StripeService.CreateInvoices(ctx, period)
 		require.NoError(t, err)
 	})
 }
@@ -215,10 +215,10 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 			}
 		}
 
-		satellite.API.Payments.Service.SetNow(func() time.Time {
+		satellite.API.Payments.StripeService.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
-		err := satellite.API.Payments.Service.PrepareInvoiceProjectRecords(ctx, period)
+		err := satellite.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
 		require.NoError(t, err)
 
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -281,7 +281,7 @@ func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
 				Segments: tc.Segments,
 			}
 
-			items := satellite.API.Payments.Service.InvoiceItemsFromProjectRecord("project name", record)
+			items := satellite.API.Payments.StripeService.InvoiceItemsFromProjectRecord("project name", record)
 
 			require.Equal(t, tc.StorageQuantity, *items[0].Quantity)
 			require.Equal(t, expectedStoragePrice, *items[0].UnitAmountDecimal)

@@ -412,7 +412,7 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that the CoinPayments deposit is reflected in the Stripe customer balance.
-		it := satellite.API.Payments.Stripe.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{Customer: stripe.String(cusID)})
+		it := satellite.API.Payments.StripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{Customer: stripe.String(cusID)})
 		require.NoError(t, it.Err())
 		require.True(t, it.Next())
 		cbt := it.CustomerBalanceTransaction()
