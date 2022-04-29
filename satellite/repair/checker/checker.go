@@ -35,15 +35,16 @@ var (
 //
 // architecture: Chore
 type Checker struct {
-	logger          *zap.Logger
-	repairQueue     queue.RepairQueue
-	metabase        *metabase.DB
-	segmentLoop     *segmentloop.Service
-	nodestate       *ReliabilityCache
-	statsCollector  *statsCollector
-	repairOverrides RepairOverridesMap
-	nodeFailureRate float64
-	Loop            *sync2.Cycle
+	logger               *zap.Logger
+	repairQueue          queue.RepairQueue
+	metabase             *metabase.DB
+	segmentLoop          *segmentloop.Service
+	nodestate            *ReliabilityCache
+	statsCollector       *statsCollector
+	repairOverrides      RepairOverridesMap
+	nodeFailureRate      float64
+	repairQueueBatchSize int
+	Loop                 *sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker.
@@ -51,13 +52,14 @@ func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, metabase *met
 	return &Checker{
 		logger: logger,
 
-		repairQueue:     repairQueue,
-		metabase:        metabase,
-		segmentLoop:     segmentLoop,
-		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
-		statsCollector:  newStatsCollector(),
-		repairOverrides: config.RepairOverrides.GetMap(),
-		nodeFailureRate: config.NodeFailureRate,
+		repairQueue:          repairQueue,
+		metabase:             metabase,
+		segmentLoop:          segmentLoop,
+		nodestate:            NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+		statsCollector:       newStatsCollector(),
+		repairOverrides:      config.RepairOverrides.GetMap(),
+		nodeFailureRate:      config.NodeFailureRate,
+		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
 
 		Loop: sync2.NewCycle(config.Interval),
 	}
@@ -92,6 +94,10 @@ func (checker *Checker) getNodesEstimate(ctx context.Context) (int, error) {
 	return totalNumNodes, nil
 }
 
+func (checker *Checker) createInsertBuffer() *queue.InsertBuffer {
+	return queue.NewInsertBuffer(checker.repairQueue, checker.repairQueueBatchSize)
+}
+
 // RefreshReliabilityCache forces refreshing node online status cache.
 func (checker *Checker) RefreshReliabilityCache(ctx context.Context) error {
 	return checker.nodestate.Refresh(ctx)
@@ -110,7 +116,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	startTime := time.Now()
 
 	observer := &checkerObserver{
-		repairQueue:      checker.repairQueue,
+		repairQueue:      checker.createInsertBuffer(),
 		nodestate:        checker.nodestate,
 		statsCollector:   checker.statsCollector,
 		monStats:         aggregateStats{},
@@ -125,6 +131,11 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 			checker.logger.Error("IdentifyInjuredSegments error", zap.Error(err))
 		}
 		return nil
+	}
+
+	err = observer.repairQueue.Flush(ctx)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	// remove all segments which were not seen as unhealthy by this checker iteration
@@ -163,7 +174,7 @@ var _ segmentloop.Observer = (*checkerObserver)(nil)
 //
 // architecture: Observer
 type checkerObserver struct {
-	repairQueue      queue.RepairQueue
+	repairQueue      *queue.InsertBuffer
 	nodestate        *ReliabilityCache
 	statsCollector   *statsCollector
 	monStats         aggregateStats // TODO(cam): once we verify statsCollector reports data correctly, remove this
@@ -282,20 +293,20 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentl
 		stats.injuredSegmentHealth.Observe(segmentHealth)
 		obs.monStats.remoteSegmentsNeedingRepair++
 		stats.iterationAggregates.remoteSegmentsNeedingRepair++
-		alreadyInserted, err := obs.repairQueue.Insert(ctx, &queue.InjuredSegment{
+		err := obs.repairQueue.Insert(ctx, &queue.InjuredSegment{
 			StreamID:      segment.StreamID,
 			Position:      segment.Position,
 			UpdatedAt:     time.Now().UTC(),
 			SegmentHealth: segmentHealth,
+		}, func() {
+			// Counters are increased after the queue has determined
+			// that the segment wasn't already queued for repair.
+			obs.monStats.newRemoteSegmentsNeedingRepair++
+			stats.iterationAggregates.newRemoteSegmentsNeedingRepair++
 		})
 		if err != nil {
 			obs.log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil
-		}
-
-		if !alreadyInserted {
-			obs.monStats.newRemoteSegmentsNeedingRepair++
-			stats.iterationAggregates.newRemoteSegmentsNeedingRepair++
 		}
 
 		// monitor irreperable segments
