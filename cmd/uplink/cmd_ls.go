@@ -4,10 +4,12 @@
 package main
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/storj/cmd/uplink/ulfs"
@@ -24,6 +26,7 @@ type cmdLs struct {
 	expanded  bool
 	pending   bool
 	utc       bool
+	output    string
 
 	prefix *ulloc.Location
 }
@@ -51,6 +54,9 @@ func (c *cmdLs) Setup(params clingy.Parameters) {
 	c.utc = params.Flag("utc", "Show all timestamps in UTC instead of local time", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
+	c.output = params.Flag("output", "Output Format (tabbed, json)", "tabbed",
+		clingy.Short('o'),
+	).(string)
 
 	c.prefix = params.Arg("prefix", "Prefix to list (sj://BUCKET[/KEY])", clingy.Optional,
 		clingy.Transform(ulloc.Parse),
@@ -71,15 +77,16 @@ func (c *cmdLs) listBuckets(ctx clingy.Context) error {
 	}
 	defer func() { _ = project.Close() }()
 
-	tw := newTabbedWriter(ctx.Stdout(), "CREATED", "NAME")
-	defer tw.Done()
-
 	iter := project.ListBuckets(ctx, nil)
-	for iter.Next() {
-		item := iter.Item()
-		tw.WriteLine(formatTime(c.utc, item.Created), item.Name)
+
+	switch c.output {
+	case "tabbed":
+		return c.printTabbedBucket(ctx, iter)
+	case "json":
+		return c.printJSONBucket(ctx, iter)
+	default:
+		return errs.New("unknown output format, got %s", c.output)
 	}
-	return iter.Err()
 }
 
 func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
@@ -93,14 +100,6 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 		prefix = prefix.AsDirectoryish()
 	}
 
-	headers := []string{"KIND", "CREATED", "SIZE", "KEY"}
-	if c.expanded {
-		headers = append(headers, "EXPIRES", "META")
-	}
-
-	tw := newTabbedWriter(ctx.Stdout(), headers...)
-	defer tw.Done()
-
 	// create the object iterator of either existing objects or pending multipart uploads
 	iter, err := fs.List(ctx, prefix, &ulfs.ListOptions{
 		Recursive: c.recursive,
@@ -110,6 +109,50 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 	if err != nil {
 		return err
 	}
+
+	switch c.output {
+	case "tabbed":
+		return c.printTabbedLocation(ctx, iter)
+	case "json":
+		return c.printJSONLocation(ctx, iter)
+	default:
+		return errs.New("unknown output format, got %s", c.output)
+	}
+}
+
+func (c *cmdLs) printTabbedBucket(ctx clingy.Context, iter *uplink.BucketIterator) (err error) {
+	tw := newTabbedWriter(ctx.Stdout(), "CREATED", "NAME")
+	defer tw.Done()
+
+	for iter.Next() {
+		item := iter.Item()
+		tw.WriteLine(formatTime(c.utc, item.Created), item.Name)
+	}
+	return iter.Err()
+}
+
+func (c *cmdLs) printJSONBucket(ctx clingy.Context, iter *uplink.BucketIterator) (err error) {
+	jw := json.NewEncoder(ctx.Stdout())
+
+	for iter.Next() {
+		obj := iter.Item()
+
+		err = jw.Encode(obj)
+		if err != nil {
+			return err
+		}
+	}
+	return iter.Err()
+}
+
+func (c *cmdLs) printTabbedLocation(ctx clingy.Context, iter ulfs.ObjectIterator) (err error) {
+	headers := []string{"KIND", "CREATED", "SIZE", "KEY"}
+	if c.expanded {
+		headers = append(headers, "EXPIRES", "META")
+	}
+
+	tw := newTabbedWriter(ctx.Stdout(), headers...)
+	defer tw.Done()
 
 	// iterate and print the results
 	for iter.Next() {
@@ -129,6 +172,34 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 		}
 
 		tw.WriteLine(parts...)
+	}
+	return iter.Err()
+}
+
+func (c *cmdLs) printJSONLocation(ctx clingy.Context, iter ulfs.ObjectIterator) (err error) {
+	jw := json.NewEncoder(ctx.Stdout())
+
+	for iter.Next() {
+		obj := iter.Item()
+
+		if obj.IsPrefix {
+			err = jw.Encode(struct {
+				Kind string `json:"kind"`
+				Key  string `json:"key"`
+			}{"PRE", obj.Loc.Loc()})
+		} else {
+			err = jw.Encode(struct {
+				Kind     string `json:"kind"`
+				Created  string `json:"created"`
+				Size     int64  `json:"size"`
+				Key      string `json:"key"`
+				Expires  string `json:"expires,omitempty"`
+				Metadata int    `json:"meta,omitempty"`
+			}{"OBJ", formatTime(c.utc, obj.Created), obj.ContentLength, obj.Loc.Loc(), formatTime(c.utc, obj.Expires), sumMetadataSize(obj.Metadata)})
+		}
+		if err != nil {
+			return err
+		}
 	}
 	return iter.Err()
 }

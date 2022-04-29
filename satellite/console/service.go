@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/mail"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -270,6 +271,8 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	paymentService.service.analytics.TrackCreditCardAdded(auth.User.ID, auth.User.Email)
 
 	if !auth.User.PaidTier {
 		// put this user into the paid tier and convert projects to upgraded limits.
@@ -2212,10 +2215,13 @@ func (s *Service) cookieAuth(ctx context.Context, r *http.Request) (context.Cont
 
 // keyAuth checks if request has an authorization api key.
 func (s *Service) keyAuth(ctx context.Context, r *http.Request) (context.Context, error) {
-	apikey := r.Header.Get("Authorization")
-	if apikey == "" {
-		return nil, errs.New("no authorization key was provided")
+	authToken := r.Header.Get("Authorization")
+	split := strings.Split(authToken, "Bearer ")
+	if len(split) != 2 {
+		return nil, errs.New("authorization key format is incorrect. Should be 'Bearer <key>'")
 	}
+
+	apikey := split[1]
 
 	ctx = consoleauth.WithAPIKey(ctx, []byte(apikey))
 
