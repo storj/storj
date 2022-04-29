@@ -77,9 +77,7 @@ export default class HeaderedInput extends HeaderlessInput {
 
     public value: string;
 
-    public constructor() {
-        super();
-
+    public created() {
         this.value = this.initValue;
     }
 }

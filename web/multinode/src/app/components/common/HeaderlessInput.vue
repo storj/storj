@@ -97,9 +97,7 @@ export default class HeaderlessInput extends Vue {
     @Prop({ default: false })
     private readonly isWhite: boolean;
 
-    public constructor() {
-        super();
-
+    public created() {
         this.type = this.isPassword ? this.passwordType : this.textType;
     }
 
