@@ -21,10 +21,6 @@
                     :on-press="onCreateClick"
                     :is-disabled="areGrantsFetching"
                 />
-                <!-- /**
-                * Using this for testing purposes delete before pushing.
-                */ -->
-                <button @click="testClick">Test</button>
             </div>
         </div>
         <div v-if="isNewAccessGrantFlow" class="access-grants__new-title-area">
@@ -107,15 +103,15 @@
                 </div>
             </div>
         </div>
-        <div v-if="this.test === 'new'"> 
+        <div v-if="isNewAccessGrantFlow"> 
             <div class="access-grants__header-container">
                 <h3 class="access-grants__header-container__title">My Accesses</h3>
-                <div class="access-grants__header-container__divider"></div>
+                <div class="access-grants__header-container__divider" />
                 <VHeader 
                     class="access-header-component"
                     placeholder="Accesses"
                     :search="fetch"
-                    style-type='access'
+                    style-type="access"
                 />
             </div>
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
@@ -129,7 +125,7 @@
                 </div>
                 <div class="access-grants-items2__footer">
                     <span class="access-grants-items2__footer__total-accesses">
-                        {{accessGrantsList.length}} Access Grants
+                        {{ accessGrantsList.length }} Access Grants
                     </span>
                     <VPagination
                         v-if="totalPageCount > 1"
@@ -147,7 +143,7 @@
                 @reset-pagination="resetPagination"
             />
         </div>
-        <div v-if="this.test === 'old'">
+        <div v-if="!isNewAccessGrantFlow">
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
             <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
                 <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
@@ -229,27 +225,11 @@ declare interface ResetPagination {
 })
 export default class AccessGrants extends Vue {
     private FIRST_PAGE = 1;
-    /**
-     * Indicates if delete confirmation state should appear.
-     */
     private isDeleteClicked = false;
-    private test = "old";
     public areGrantsFetching = true;
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
     };
-    /**
-     * Using this for testing purposes delete before pushing.
-     */
-    public testClick(): void {
-        if (this.test === "new") {
-            this.test="old"
-            console.log(this.test)
-        } else {
-            this.test="new"
-            console.log(this.test)
-        }
-    }
 
     /**
      * Indicates if navigation side bar is hidden.
@@ -412,10 +392,12 @@ export default class AccessGrants extends Vue {
         height: calc(100% - 95px);
         padding: 40px 30px 55px 30px;
         font-family: 'font_regular', sans-serif;
+
         &__title-area {
             display: flex;
             align-items: center;
             justify-content: space-between;
+
             &__title {
                 font-family: 'font_bold', sans-serif;
                 font-size: 22px;
@@ -423,6 +405,7 @@ export default class AccessGrants extends Vue {
                 color: #263549;
                 margin: 0;
             }
+
             &__title-subtext {
                 margin-top: 10px;
                 font-style: normal;
@@ -483,8 +466,10 @@ export default class AccessGrants extends Vue {
                 margin-top: -10px;
             }
         }
+
         .access-grants-items {
             position: relative;
+
             &__content {
                 background-color: #fff;
                 display: flex;
@@ -495,14 +480,17 @@ export default class AccessGrants extends Vue {
                 border-radius: 0 0 8px 8px;
             }
         }
+
         .access-grants-items2 {
             position: relative;
+
             &__content {
                 background-color: #fff;
                 display: flex;
                 flex-direction: column;
                 justify-content: flex-start;
             }
+
             &__footer {
                 background-color: #fff;
                 display: flex;
@@ -511,41 +499,48 @@ export default class AccessGrants extends Vue {
                 align-items: center;
                 height: 80px;
                 width: 100%;
-                border: 1px solid #E5E7EB;
+                border: 1px solid #e5e7eb;
                 border-radius: 0 0 8px 8px;
+
                 &__total-accesses {
                     height: 20px;
                     padding-left: 20px;
                     margin-left: 18px;
-                    color: #2C353A;
+                    color: #2c353a;
                 }
+
                 &__pagination-area {
                     padding-right: 20px;
                     margin-bottom: 25px;
                 }
             }
         }
+
         .access-grants__header-container {
-             &__header-container {
+
+            &__header-container {
                 height: 90px;
             }
+
             &__title {
                 font-family: 'font_bold', sans-serif;
                 margin-top: 20px;
             }
+
             &__divider {
                 height: 1px;
                 width: auto;
-                background-color: #DADFE7;
+                background-color: #dadfe7;
                 margin-top: 10px;
             }
+
             &__access-header-component {
                 height: 55px !important;
                 margin-top: 15px;
             }
-
         }
     }
+
     .grants-loader {
         margin-top: 50px;
     }

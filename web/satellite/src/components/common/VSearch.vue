@@ -5,7 +5,7 @@
     <input
         ref="input"
         v-model="searchQuery"
-        v-bind:class="`${styleType}-search-input`"
+        :class="`${styleType}-search-input`"
         :placeholder="`Search ${placeholder}`"
         :style="style"
         type="text"
@@ -118,12 +118,12 @@ export default class VSearch extends Vue {
         padding: 0 10px 0 50px;
         box-sizing: border-box;
         outline: none;
-        border: 1px solid #D8DEE3;
+        border: 1px solid #d8dee3;
         border-radius: 10px;
         height: 56px;
         font-family: 'font_regular', sans-serif;
         font-size: 16px;
-        background-color: #FFFFFF;
+        background-color: #fff;
         background-image: url('../../../static/images/common/search-gray.png');
         background-repeat: no-repeat;
         background-size: 22px 22px;
