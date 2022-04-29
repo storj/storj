@@ -107,14 +107,15 @@
                 </div>
             </div>
         </div>
-        <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
-        <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
-            <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
-            <div class="access-grants-items__content">
-                <VList
-                    :data-set="accessGrantsList"
-                    :item-component="itemComponent"
-                    :on-item-click="toggleSelection"
+        <div v-if="this.test === 'new'"> 
+            <div class="access-grants__header-container">
+                <h3 class="access-grants__header-container__title">My Accesses</h3>
+                <div class="access-grants__header-container__divider"></div>
+                <VHeader 
+                    class="access-header-component"
+                    placeholder="Accesses"
+                    :search="fetch"
+                    style-type='access'
                 />
             </div>
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
@@ -243,8 +244,10 @@ export default class AccessGrants extends Vue {
     public testClick(): void {
         if (this.test === "new") {
             this.test="old"
+            console.log(this.test)
         } else {
             this.test="new"
+            console.log(this.test)
         }
     }
 
@@ -522,7 +525,7 @@ export default class AccessGrants extends Vue {
                 }
             }
         }
-        .access-grants__access-table {
+        .access-grants__header-container {
              &__header-container {
                 height: 90px;
             }
@@ -536,7 +539,7 @@ export default class AccessGrants extends Vue {
                 background-color: #DADFE7;
                 margin-top: 10px;
             }
-            &__buckets-header-component {
+            &__access-header-component {
                 height: 55px !important;
                 margin-top: 15px;
             }
