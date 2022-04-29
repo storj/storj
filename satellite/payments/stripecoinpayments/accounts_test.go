@@ -18,8 +18,8 @@ import (
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/accountmanagementapikeys"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -78,7 +78,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			log.Named("console"),
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
-			accountmanagementapikeys.NewService(db.OIDC().OAuthTokens(), planet.Satellites[0].Config.AccountManagementAPIKeys),
+			restkeys.NewService(db.OIDC().OAuthTokens(), planet.Satellites[0].Config.RESTKeys),
 			db.ProjectAccounting(),
 			projectUsage,
 			sat.API.Buckets.Service,

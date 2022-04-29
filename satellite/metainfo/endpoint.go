@@ -141,10 +141,7 @@ func (endpoint *Endpoint) Close() error { return nil }
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:   macaroon.ActionProjectInfo,
@@ -165,10 +162,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKeyRequest) (resp *pb.RevokeAPIKeyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	macToRevoke, err := macaroon.ParseMacaroon(req.GetApiKey())
 	if err != nil {

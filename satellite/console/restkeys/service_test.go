@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package accountmanagementapikeys_test
+package restkeys_test
 
 import (
 	"database/sql"
@@ -13,16 +13,16 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/console/accountmanagementapikeys"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/oidc"
 )
 
-func TestAccountManagementAPIKeys(t *testing.T) {
+func TestRESTKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		service := sat.API.AccountManagementAPIKeys.Service
+		service := sat.API.REST.Keys
 
 		id := testrand.UUID()
 		now := time.Now()
@@ -42,14 +42,14 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 		require.NoError(t, err)
 		_, err = service.InsertIntoDB(ctx, oidc.OAuthToken{
 			UserID: id,
-			Kind:   oidc.KindAccountManagementTokenV0,
+			Kind:   oidc.KindRESTTokenV0,
 			Token:  hash,
 		}, now, expires)
-		require.True(t, accountmanagementapikeys.ErrDuplicateKey.Has(err))
+		require.True(t, restkeys.ErrDuplicateKey.Has(err))
 
 		// test revocation
 		require.NoError(t, service.Revoke(ctx, apiKey))
-		token, err := sat.DB.OIDC().OAuthTokens().Get(ctx, oidc.KindAccountManagementTokenV0, hash)
+		token, err := sat.DB.OIDC().OAuthTokens().Get(ctx, oidc.KindRESTTokenV0, hash)
 		require.Equal(t, sql.ErrNoRows, err)
 		require.True(t, token.ExpiresAt.IsZero())
 
@@ -60,41 +60,41 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 
 		// test GetUserFromKey non existent key
 		_, _, err = service.GetUserAndExpirationFromKey(ctx, nonexistent)
-		require.True(t, accountmanagementapikeys.ErrInvalidKey.Has(err))
+		require.True(t, restkeys.ErrInvalidKey.Has(err))
 	})
 }
 
-func TestAccountManagementAPIKeysExpiration(t *testing.T) {
+func TestRESTKeysExpiration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		service := sat.API.AccountManagementAPIKeys.Service
+		service := sat.API.REST.Keys
 		now := time.Now()
 
 		// test no expiration uses default
 		expiresAt, err := service.InsertIntoDB(ctx, oidc.OAuthToken{
 			UserID: testrand.UUID(),
-			Kind:   oidc.KindAccountManagementTokenV0,
+			Kind:   oidc.KindRESTTokenV0,
 			Token:  "testhash0",
 		}, now, 0)
 		require.NoError(t, err)
-		require.Equal(t, now.Add(sat.Config.AccountManagementAPIKeys.DefaultExpiration), expiresAt)
+		require.Equal(t, now.Add(sat.Config.RESTKeys.DefaultExpiration), expiresAt)
 
 		// test negative expiration uses default
 		expiresAt, err = service.InsertIntoDB(ctx, oidc.OAuthToken{
 			UserID: testrand.UUID(),
-			Kind:   oidc.KindAccountManagementTokenV0,
+			Kind:   oidc.KindRESTTokenV0,
 			Token:  "testhash1",
 		}, now, -10000)
 		require.NoError(t, err)
-		require.Equal(t, now.Add(sat.Config.AccountManagementAPIKeys.DefaultExpiration), expiresAt)
+		require.Equal(t, now.Add(sat.Config.RESTKeys.DefaultExpiration), expiresAt)
 
 		// test regular expiration
 		expiration := 14 * time.Hour
 		expiresAt, err = service.InsertIntoDB(ctx, oidc.OAuthToken{
 			UserID: testrand.UUID(),
-			Kind:   oidc.KindAccountManagementTokenV0,
+			Kind:   oidc.KindRESTTokenV0,
 			Token:  "testhash2",
 		}, now, expiration)
 		require.NoError(t, err)

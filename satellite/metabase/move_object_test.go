@@ -56,6 +56,7 @@ func TestBeginMoveObject(t *testing.T) {
 			expectedObject, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadata:             testrand.Bytes(64),
 					EncryptedMetadataNonce:        expectedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: expectedMetadataKey,

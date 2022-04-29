@@ -22,7 +22,7 @@ import (
 	"storj.io/storj/satellite/oidc"
 )
 
-func TestAccountManagementAPIKeys(t *testing.T) {
+func TestRESTKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -35,14 +35,14 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
 		satellite := planet.Satellites[0]
-		keyService := satellite.API.AccountManagementAPIKeys.Service
+		keyService := satellite.API.REST.Keys
 
 		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
 		require.NoError(t, err)
 
 		t.Run("create with default expiration", func(t *testing.T) {
 			body := strings.NewReader(`{"expiration":""}`)
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://"+address.String()+"/api/accountmanagementapikeys/%s", user.Email), body)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://"+address.String()+"/api/restkeys/%s", user.Email), body)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", satellite.Config.Console.AuthToken)
 
@@ -73,7 +73,7 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 			require.False(t, exp.Before(now))
 
 			// check the expiration is around the time we expect
-			defaultExpiration := satellite.Config.AccountManagementAPIKeys.DefaultExpiration
+			defaultExpiration := satellite.Config.RESTKeys.DefaultExpiration
 			require.True(t, output.ExpiresAt.After(now.Add(defaultExpiration)))
 			require.True(t, output.ExpiresAt.Before(now.Add(defaultExpiration+time.Hour)))
 		})
@@ -81,7 +81,7 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 		t.Run("create with custom expiration", func(t *testing.T) {
 			durationString := "3h"
 			body := strings.NewReader(fmt.Sprintf(`{"expiration":"%s"}`, durationString))
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://"+address.String()+"/api/accountmanagementapikeys/%s", user.Email), body)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://"+address.String()+"/api/restkeys/%s", user.Email), body)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", satellite.Config.Console.AuthToken)
 
@@ -125,13 +125,13 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 
 			expiresAt, err := keyService.InsertIntoDB(ctx, oidc.OAuthToken{
 				UserID: user.ID,
-				Kind:   oidc.KindAccountManagementTokenV0,
+				Kind:   oidc.KindRESTTokenV0,
 				Token:  hash,
 			}, time.Now(), time.Hour)
 			require.NoError(t, err)
 			require.False(t, expiresAt.IsZero())
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/accountmanagementapikeys/%s/revoke", apiKey), nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/restkeys/%s/revoke", apiKey), nil)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", satellite.Config.Console.AuthToken)
 

@@ -78,6 +78,7 @@ export default class HeaderlessInput extends Vue {
     private type: string = this.textType;
     private isPasswordShown = false;
 
+    @Prop({default: ''})
     protected value = '';
 
     @Prop({default: ''})

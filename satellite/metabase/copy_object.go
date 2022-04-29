@@ -9,6 +9,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgtype"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil"
@@ -354,22 +356,43 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		if err != nil {
 			return Error.New("unable to copy object: %w", err)
 		}
+
+		expiresAtElements := make([]pgtype.Timestamptz, len(expiresAts))
+		for i, v := range expiresAts {
+			if v == nil {
+				expiresAtElements[i] = pgtype.Timestamptz{
+					Status: pgtype.Null,
+				}
+			} else {
+				expiresAtElements[i] = pgtype.Timestamptz{
+					Time:   *v,
+					Status: pgtype.Present,
+				}
+			}
+		}
+
+		expiresAtArray := &pgtype.TimestamptzArray{
+			Elements:   expiresAtElements,
+			Dimensions: []pgtype.ArrayDimension{{Length: int32(len(expiresAtElements)), LowerBound: 1}},
+			Status:     pgtype.Present,
+		}
+
 		_, err = db.db.ExecContext(ctx, `
 			INSERT INTO segments (
-				stream_id, position,
+				stream_id, position, expires_at,
 				encrypted_key_nonce, encrypted_key,
 				root_piece_id,
 				redundancy,
 				encrypted_size, plain_offset, plain_size,
 				inline_data
 			) SELECT
-				$1, UNNEST($2::INT8[]),
-				UNNEST($3::BYTEA[]), UNNEST($4::BYTEA[]),
-				UNNEST($5::BYTEA[]),
-				UNNEST($6::INT8[]),
-				UNNEST($7::INT4[]), UNNEST($8::INT8[]),	UNNEST($9::INT4[]),
-				UNNEST($10::BYTEA[])
-		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions),
+				$1, UNNEST($2::INT8[]), UNNEST($3::timestamptz[]),
+				UNNEST($4::BYTEA[]), UNNEST($5::BYTEA[]),
+				UNNEST($6::BYTEA[]),
+				UNNEST($7::INT8[]),
+				UNNEST($8::INT4[]), UNNEST($9::INT8[]),	UNNEST($10::INT4[]),
+				UNNEST($11::BYTEA[])
+		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions), expiresAtArray,
 			pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
 			pgutil.ByteaArray(rootPieceIDs),
 			pgutil.Int8Array(redundancySchemes),

@@ -283,7 +283,7 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 }
 
 // QueryAttribution queries partner bucket attribution data.
-func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.UUID, userAgent []byte, start time.Time, end time.Time) (_ []*attribution.BucketAttribution, err error) {
+func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.UUID, userAgent []byte, start time.Time, end time.Time) (_ []*attribution.BucketUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(valueAttrQuery), partnerID[:], userAgent, start.UTC(), end.UTC(), partnerID[:], userAgent, start.UTC(), end.UTC())
@@ -292,9 +292,9 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	results := []*attribution.BucketAttribution{}
+	results := []*attribution.BucketUsage{}
 	for rows.Next() {
-		r := &attribution.BucketAttribution{}
+		r := &attribution.BucketUsage{}
 		var inline, remote float64
 		err := rows.Scan(&r.PartnerID, &r.UserAgent, &r.ProjectID, &r.BucketName, &r.ByteHours, &inline, &remote, &r.SegmentHours, &r.ObjectHours, &r.EgressData, &r.Hours)
 		if err != nil {
@@ -311,7 +311,7 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 }
 
 // QueryAllAttribution queries all partner bucket attribution data.
-func (keys *attributionDB) QueryAllAttribution(ctx context.Context, start time.Time, end time.Time) (_ []*attribution.BucketAttribution, err error) {
+func (keys *attributionDB) QueryAllAttribution(ctx context.Context, start time.Time, end time.Time) (_ []*attribution.BucketUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(allValueAttrQuery), start.UTC(), end.UTC())
@@ -320,9 +320,9 @@ func (keys *attributionDB) QueryAllAttribution(ctx context.Context, start time.T
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	results := []*attribution.BucketAttribution{}
+	results := []*attribution.BucketUsage{}
 	for rows.Next() {
-		r := &attribution.BucketAttribution{}
+		r := &attribution.BucketUsage{}
 		var inline, remote float64
 		err := rows.Scan(&r.PartnerID, &r.UserAgent, &r.ProjectID, &r.BucketName, &r.ByteHours, &inline, &remote, &r.SegmentHours, &r.ObjectHours, &r.EgressData, &r.Hours)
 		if err != nil {

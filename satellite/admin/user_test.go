@@ -157,7 +157,7 @@ func TestUserUpdate(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("OK", func(t *testing.T) {
-			// Updat user data.
+			// Update user data.
 			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s", user.Email)
 			body := `{"email":"alice+2@mail.test", "shortName":"Newbie"}`
 			responseBody := assertReq(ctx, t, link, http.MethodPut, body, http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
@@ -173,19 +173,36 @@ func TestUserUpdate(t *testing.T) {
 			require.Equal(t, user.Status, updatedUser.Status)
 			require.Equal(t, user.ProjectLimit, updatedUser.ProjectLimit)
 
-			// Update rate limit.
+			// Update project limit.
 			link = "http://" + address.String() + "/api/users/alice+2@mail.test"
 			newLimit := 50
 			body = fmt.Sprintf(`{"projectLimit":%d}`, newLimit)
 			responseBody = assertReq(ctx, t, link, http.MethodPut, body, http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 			require.Len(t, responseBody, 0)
 
-			updatedUserRate, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+			updatedUserProjectLimit, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
 			require.NoError(t, err)
-			require.Equal(t, updatedUser.Email, updatedUserRate.Email)
-			require.Equal(t, updatedUser.ID, updatedUserRate.ID)
-			require.Equal(t, updatedUser.Status, updatedUserRate.Status)
-			require.Equal(t, newLimit, updatedUserRate.ProjectLimit)
+			require.Equal(t, updatedUser.Email, updatedUserProjectLimit.Email)
+			require.Equal(t, updatedUser.ID, updatedUserProjectLimit.ID)
+			require.Equal(t, updatedUser.Status, updatedUserProjectLimit.Status)
+			require.Equal(t, newLimit, updatedUserProjectLimit.ProjectLimit)
+
+			// Update paid tier status and usage.
+			link = "http://" + address.String() + "/api/users/alice+2@mail.test"
+			newUsageLimit := int64(1000)
+			body1 := fmt.Sprintf(`{"projectStorageLimit":%d, "projectBandwidthLimit":%d, "projectSegmentLimit":%d, "paidTierStr":"true"}`, newUsageLimit, newUsageLimit, newUsageLimit)
+			responseBody = assertReq(ctx, t, link, http.MethodPut, body1, http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
+
+			updatedUserStatusAndUsageLimits, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, updatedUser.Email, updatedUserStatusAndUsageLimits.Email)
+			require.Equal(t, updatedUser.ID, updatedUserStatusAndUsageLimits.ID)
+			require.Equal(t, updatedUser.Status, updatedUserStatusAndUsageLimits.Status)
+			require.True(t, updatedUserStatusAndUsageLimits.PaidTier)
+			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectStorageLimit)
+			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectBandwidthLimit)
+			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectSegmentLimit)
 		})
 
 		t.Run("Not found", func(t *testing.T) {

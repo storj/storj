@@ -10,7 +10,6 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/useragent"
@@ -39,14 +38,16 @@ func newVersionCollector(log *zap.Logger) *versionCollector {
 	}
 }
 
-func (vc *versionCollector) collect(useragentRaw []byte, method string) error {
+func (vc *versionCollector) collect(useragentRaw []byte, method string) {
 	if len(useragentRaw) == 0 {
-		return nil
+		return
 	}
 
 	entries, err := useragent.ParseEntries(useragentRaw)
 	if err != nil {
-		return errs.New("invalid user agent %q: %v", string(useragentRaw), err)
+		vc.log.Warn("unable to collect uplink version", zap.Error(err))
+		mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", "unparseable")).Mark(1)
+		return
 	}
 
 	// foundProducts tracks potentially multiple noteworthy products names from the user-agent
@@ -68,8 +69,6 @@ func (vc *versionCollector) collect(useragentRaw []byte, method string) error {
 	} else { // lets keep also general value for user agents with no known product
 		mon.Meter("user_agents", monkit.NewSeriesTag("user_agent", "other")).Mark(1)
 	}
-
-	return nil
 }
 
 func (vc *versionCollector) sendUplinkMetric(vo versionOccurrence) {

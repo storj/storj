@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -20,14 +19,16 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
+const dateLayout = "2006-01-02T15:04:05.000Z"
+
 var ErrProjectsAPI = errs.Class("consoleapi projects api")
 
 type ProjectManagementService interface {
-	GenCreateProject(context.Context, console.ProjectInfo) (*console.Project, api.HTTPError)
-	GenUpdateProject(context.Context, uuid.UUID, console.ProjectInfo) (*console.Project, api.HTTPError)
 	GenGetUsersProjects(context.Context) ([]console.Project, api.HTTPError)
 	GenGetSingleBucketUsageRollup(context.Context, uuid.UUID, string, time.Time, time.Time) (*accounting.BucketUsageRollup, api.HTTPError)
 	GenGetBucketUsageRollups(context.Context, uuid.UUID, time.Time, time.Time) ([]accounting.BucketUsageRollup, api.HTTPError)
+	GenCreateProject(context.Context, console.ProjectInfo) (*console.Project, api.HTTPError)
+	GenUpdateProject(context.Context, uuid.UUID, console.ProjectInfo) (*console.Project, api.HTTPError)
 }
 
 // Handler is an api handler that exposes all projects related functionality.
@@ -48,8 +49,8 @@ func NewProjectManagement(log *zap.Logger, service ProjectManagementService, rou
 	projectsRouter.HandleFunc("/", handler.handleGenGetUsersProjects).Methods("GET")
 	projectsRouter.HandleFunc("/bucket-rollup", handler.handleGenGetSingleBucketUsageRollup).Methods("GET")
 	projectsRouter.HandleFunc("/bucket-rollups", handler.handleGenGetBucketUsageRollups).Methods("GET")
-	projectsRouter.HandleFunc("/create", handler.handleGenCreateProject).Methods("PUT")
-	projectsRouter.HandleFunc("/update", handler.handleGenUpdateProject).Methods("PATCH")
+	projectsRouter.HandleFunc("/create", handler.handleGenCreateProject).Methods("POST")
+	projectsRouter.HandleFunc("/update/{id}", handler.handleGenUpdateProject).Methods("PATCH")
 
 	return handler
 }
@@ -73,21 +74,17 @@ func (h *Handler) handleGenGetBucketUsageRollups(w http.ResponseWriter, r *http.
 		return
 	}
 
-	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
+	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	since := time.Unix(sinceStamp, 0).UTC()
-
-	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
+	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
-
-	before := time.Unix(beforeStamp, 0).UTC()
 
 	retVal, httpErr := h.service.GenGetBucketUsageRollups(ctx, projectID, since, before)
 	if httpErr.Err != nil {
@@ -145,7 +142,13 @@ func (h *Handler) handleGenUpdateProject(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	id, err := uuid.FromString(r.URL.Query().Get("id"))
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -219,21 +222,17 @@ func (h *Handler) handleGenGetSingleBucketUsageRollup(w http.ResponseWriter, r *
 		return
 	}
 
-	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
+	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	since := time.Unix(sinceStamp, 0).UTC()
-
-	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
+	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
-
-	before := time.Unix(beforeStamp, 0).UTC()
 
 	retVal, httpErr := h.service.GenGetSingleBucketUsageRollup(ctx, projectID, bucket, since, before)
 	if httpErr.Err != nil {

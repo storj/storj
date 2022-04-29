@@ -30,8 +30,8 @@ type APIKeys interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-// AccountManagementAPIKeys is an interface for account management api key operations.
-type AccountManagementAPIKeys interface {
+// RESTKeys is an interface for rest key operations.
+type RESTKeys interface {
 	Create(ctx context.Context, userID uuid.UUID, expiration time.Duration) (apiKey string, expiresAt time.Time, err error)
 	GetUserAndExpirationFromKey(ctx context.Context, apiKey string) (userID uuid.UUID, exp time.Time, err error)
 	Revoke(ctx context.Context, apiKey string) (err error)

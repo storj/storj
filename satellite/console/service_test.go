@@ -692,7 +692,7 @@ func TestActivateAccountToken(t *testing.T) {
 	})
 }
 
-func TestAccountManagementAPIKeys(t *testing.T) {
+func TestRESTKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -710,18 +710,18 @@ func TestAccountManagementAPIKeys(t *testing.T) {
 
 		now := time.Now()
 		expires := 5 * time.Hour
-		apiKey, expiresAt, err := service.CreateAccountManagementAPIKey(authCtx, expires)
+		apiKey, expiresAt, err := service.CreateRESTKey(authCtx, expires)
 		require.NoError(t, err)
 		require.NotEmpty(t, apiKey)
 		require.True(t, expiresAt.After(now))
 		require.True(t, expiresAt.Before(now.Add(expires+time.Hour)))
 
 		// test revocation
-		require.NoError(t, service.RevokeAccountManagementAPIKey(authCtx, apiKey))
+		require.NoError(t, service.RevokeRESTKey(authCtx, apiKey))
 
 		// test revoke non existent key
 		nonexistent := testrand.UUID()
-		err = service.RevokeAccountManagementAPIKey(authCtx, nonexistent.String())
+		err = service.RevokeRESTKey(authCtx, nonexistent.String())
 		require.Error(t, err)
 	})
 }
