@@ -3,7 +3,7 @@
 
 <template>
     <div class="access-grants">
-        <div class="access-grants__title-area">
+        <div v-if="!isNewAccessGrantFlow" class="access-grants__title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Grants</h2>
             <div v-if="accessGrantsList.length" class="access-grants__title-area__right">
                 <VButton
@@ -22,6 +22,86 @@
                     :on-press="onCreateClick"
                     :is-disabled="areGrantsFetching"
                 />
+            </div>
+        </div>
+        <div v-if="isNewAccessGrantFlow" class="access-grants__new-title-area">
+            <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Management</h2>
+            <div class="access-grants__title-area__title-subtext" aria-roledescription="title">Create encryption keys to setup permissions to access your objects.</div>
+        </div>
+        <div v-if="isNewAccessGrantFlow" class="access-grants__flows-area">
+            <div class="access-grants__flows-area__access-grant">
+                <div class="access-grants__flows-area__icon-container">
+                    <AccessGrantsIcon />
+                </div>
+                <div class="access-grants__flows-area__title">Access Grant</div>
+                <div class="access-grants__flows-area__summary">Gives access through native clients such as uplink, libuplink, associate libraries, and bindings. </div>
+                <div class="access-grants__flows-area__button-container">
+                    <VButton
+                        label="Learn More"
+                        width="auto"
+                        height="30px"
+                        is-transparent="true"
+                        font-size="13px"
+                        class="access-grants__flows-area__learn-button"
+                    />
+                    <VButton
+                        label="Create Access Grant"
+                        font-size="13px"
+                        width="auto"
+                        height="30px"
+                        class="access-grants__flows-area__create-button"
+                    />
+                </div>
+            </div>
+            <div class="access-grants__flows-area__s3-credentials">
+                <div class="access-grants__flows-area__icon-container">
+                    <S3Icon />
+                </div>
+                <div class="access-grants__flows-area__title">S3 Credentials</div>
+                <div class="access-grants__flows-area__summary">Gives access through S3 compatible tools and services via our hosted Gateway MT.</div>
+                <br>
+                <div class="access-grants__flows-area__button-container">
+                    <VButton
+                        label="Learn More"
+                        width="auto"
+                        height="30px"
+                        is-transparent="true"
+                        font-size="13px"
+                        class="access-grants__flows-area__learn-button"
+                    />
+                    <VButton
+                        label="Create Access Grant"
+                        font-size="13px"
+                        width="auto"
+                        height="30px"
+                        class="access-grants__flows-area__create-button"
+                    />
+                </div>
+            </div>
+            <div class="access-grants__flows-area__cli-credentials">
+                <div class="access-grants__flows-area__icon-container">
+                    <CLIIcon />
+                </div>
+                <div class="access-grants__flows-area__title">CLI Access</div>
+                <div class="access-grants__flows-area__summary">Creates Satellite Adress and API Key to run the “setup” in Command Line Interface. </div>
+                <br>
+                <div class="access-grants__flows-area__button-container">
+                    <VButton
+                        label="Learn More"
+                        width="auto"
+                        height="30px"
+                        is-transparent="true"
+                        font-size="13px"
+                        class="access-grants__flows-area__learn-button"
+                    />
+                    <VButton
+                        label="Create Access Grant"
+                        font-size="13px"
+                        width="auto"
+                        height="30px"
+                        class="access-grants__flows-area__create-button"
+                    />
+                </div>
             </div>
         </div>
         <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
@@ -54,6 +134,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { MetaUtils } from '@/utils/meta';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
@@ -63,6 +144,9 @@ import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VPagination from '@/components/common/VPagination.vue';
+import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
+import CLIIcon from '@/../static/images/accessGrants/cli.svg';
+import S3Icon from '@/../static/images/accessGrants/s3.svg';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -84,7 +168,10 @@ declare interface ResetPagination {
 // @vue/component
 @Component({
     components: {
+        AccessGrantsIcon,
+        CLIIcon,
         EmptyState,
+        S3Icon,
         SortAccessGrantsHeader,
         VList,
         VPagination,
@@ -107,6 +194,13 @@ export default class AccessGrants extends Vue {
         pagination: HTMLElement & ResetPagination;
     };
 
+    /**
+     * Indicates if navigation side bar is hidden.
+     */
+    public get isNewAccessGrantFlow(): boolean {
+        const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
+        return isNewAccessGrantFlow === "true";
+    }
     /**
      * Lifecycle hook after initial render where list of existing access grants is fetched.
      */
@@ -236,6 +330,16 @@ export default class AccessGrants extends Vue {
 </script>
 
 <style scoped lang="scss">
+    @mixin grantFlowCard {
+        display: inline-block;
+        padding: 28px;
+        width: 26%;
+        height: 167px;
+        background: #fff;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.04);
+        border-radius: 10px;
+    }
+
     .access-grants {
         position: relative;
         height: calc(100% - 95px);
@@ -253,6 +357,66 @@ export default class AccessGrants extends Vue {
                 line-height: 27px;
                 color: #263549;
                 margin: 0;
+            }
+
+            &__title-subtext {
+                margin-top: 10px;
+                font-style: normal;
+                font-weight: 400;
+                font-size: 16px;
+                line-height: 24px;
+            }
+        }
+
+        .access-grants__flows-area {
+            text-align: center;
+            display: flex;
+            -webkit-box-align: center;
+            align-items: center;
+            -webkit-box-pack: justify;
+            justify-content: space-between;
+            margin-top: 20px;
+
+            &__access-grant,
+            &__s3-credentials,
+            &__cli-credentials {
+                @include grantFlowCard;
+            }
+
+            &__learn-button {
+                margin-right: 2%;
+                padding: 0 10px;
+            }
+
+            &__create-button {
+                padding: 0 10px;
+            }
+
+            &__button-container {
+                display: flex;
+                margin-top: 10px;
+            }
+
+            &__summary {
+                font-style: normal;
+                font-weight: 400;
+                font-size: 14px;
+                line-height: 20px;
+                overflow-wrap: break-word;
+                text-align: left;
+                margin-top: 5px;
+            }
+
+            &__title {
+                text-align: left;
+                margin-top: 15px;
+                font-family: 'font_bold', sans-serif;
+            }
+
+            &__icon-container {
+                text-align: left;
+                height: 38px;
+                margin-top: -10px;
             }
         }
 
