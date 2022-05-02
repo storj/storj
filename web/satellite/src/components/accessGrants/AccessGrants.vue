@@ -3,7 +3,7 @@
 
 <template>
     <div class="access-grants">
-        <div v-if="!isNewAccessGrantFlow" class="access-grants__title-area">
+        <div v-if="isNewAccessGrantFlow" class="access-grants__title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Grants</h2>
             <div v-if="accessGrantsList.length" class="access-grants__title-area__right">
                 <VButton
@@ -24,11 +24,11 @@
                 />
             </div>
         </div>
-        <div v-if="isNewAccessGrantFlow" class="access-grants__new-title-area">
+        <div v-if="!isNewAccessGrantFlow" class="access-grants__new-title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Management</h2>
             <div class="access-grants__title-area__title-subtext" aria-roledescription="title">Create encryption keys to setup permissions to access your objects.</div>
         </div>
-        <div v-if="isNewAccessGrantFlow" class="access-grants__flows-area">
+        <div v-if="!isNewAccessGrantFlow" class="access-grants__flows-area">
             <div class="access-grants__flows-area__access-grant">
                 <div class="access-grants__flows-area__icon-container">
                     <AccessGrantsIcon />
