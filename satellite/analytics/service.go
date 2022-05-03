@@ -28,6 +28,9 @@ const (
 	eventObjectUploaded            = "Object Uploaded"
 	eventAPIKeyGenerated           = "API Key Generated"
 	eventCreditCardAdded           = "Credit Card Added"
+	eventUpgradeBannerClicked      = "Upgrade Banner Clicked"
+	eventBannerAddCard             = "Credit Card Added Through Banner"
+	eventBannerAddTokens           = "Storj Token Added Through Banner"
 )
 
 var (
@@ -37,8 +40,8 @@ var (
 
 // Config is a configuration struct for analytics Service.
 type Config struct {
-	SegmentWriteKey string `help:"segment write key" default:""`
-	Enabled         bool   `help:"enable analytics reporting" default:"false"`
+	SegmentWriteKey string `help:"segment write key" default:"PJHKQ467MAAuyQztrvkmLFFvodczjd2u"`
+	Enabled         bool   `help:"enable analytics reporting" default:"true"`
 	HubSpot         HubSpotConfig
 }
 
@@ -68,7 +71,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		service.segment = segment.New(config.SegmentWriteKey)
 	}
 	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked,
-		eventPathSelected, eventLinkShared, eventObjectUploaded, eventAPIKeyGenerated} {
+		eventPathSelected, eventLinkShared, eventObjectUploaded, eventAPIKeyGenerated, eventUpgradeBannerClicked,
+		eventBannerAddCard, eventBannerAddTokens} {
 		service.clientEvents[name] = true
 	}
 
