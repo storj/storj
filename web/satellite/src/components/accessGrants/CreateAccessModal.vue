@@ -17,27 +17,30 @@
                     <p>Type</p>
                     <div>
                         <input 
-                        type="checkbox" 
-                        id="acess-grant-check" 
-                        :checked="this.checkedTypes.access"
-                        @click="typeValidation('access')"/>
+                        type="radio" 
+                        id="acess-grant-check"
+                        name="type" 
+                        :checked="this.checkedType === 'access'"
+                        @click="this.checkedType = 'access'"/>
                         <label for="acess-grant-check">Access Grant</label>
                     </div>
                     <div>
                         <input 
-                        type="checkbox" 
+                        type="radio" 
                         id="s3-check"
-                        :checked="this.checkedTypes.s3"
-                        @click="typeValidation('s3')"/>
+                        name="type" 
+                        :checked="this.checkedType === 's3'"
+                        @click="this.checkedType = 's3'"/>
                         <label for="s3-check">S3 Credentials</label>
                     </div>
                     <div>
                         <input 
-                        type="checkbox" 
-                        id="cli-check"
-                        :checked="this.checkedTypes.cli"
-                        @click="typeValidation('cli')"/>
-                        <label for="cli-check">CLI Access</label>
+                        type="radio" 
+                        id="api-check"
+                        name="type" 
+                        :checked="this.checkedType === 'api'"
+                        @click="this.checkedType = 'api'"/>
+                        <label for="api-check">API Access</label>
                     </div>
                 </div>
                 <NameIcon class="create-access__modal-container__body-container__name-icon"/>
@@ -52,7 +55,10 @@
                 <div class="create-access__modal-container__body-container__permissions">
                     <p>Permissions</p>
                     <div>
-                        <input type="checkbox" id="permissions__all-check"/>
+                        <input 
+                        type="checkbox" 
+                        id="permissions__all-check"
+                        />
                         <label for="permissions__all-check">All</label>
                         <Chevron @click="togglePermissions" :class="`permissions-chevron-${this.showAllPermissions.position}`"/>
                     </div>
@@ -67,11 +73,14 @@
                 <div class="create-access__modal-container__body-container__buckets">
                     <p>Buckets</p>
                     <div>
-                        <input type="checkbox" id="buckets__all-check"/>
+                        <!-- <input type="checkbox" id="buckets__all-check"/>
                         <label for="buckets__all-check">All</label>
                         <Chevron 
                         @click="toggleBuckets" 
-                        :class="`buckets-chevron-${this.showAllBuckets.position}`"/>
+                        :class="`buckets-chevron-${this.showAllBuckets.position}`"/> -->
+                        <BucketsSelection 
+                        container-style="access-bucket-container"
+                        text-style="access-bucket-text"/>
                     </div>
                     <div v-if="this.showAllBuckets.show">
                         <div v-for="(item, key) in bucketsList" v-bind:key="key">
@@ -81,15 +90,22 @@
                     </div>
                 </div>
                 <DateIcon class="create-access__modal-container__body-container__date-icon"/>
-                <div class="create-access__modal-container__body-container__end-date">
-                    <p>End Date</p>
-                    <div>--End Date Picker Here--</div>
+                <div class="create-access__modal-container__body-container__duration">
+                    <p>Duration</p>
+                    <div>
+                        <DurationSelection
+                        container-style="access-date-container"
+                        text-style="access-date-text"/>
+                    </div>
                 </div>
-                <NotesIcon class="create-access__modal-container__body-container__notes-icon"/>
+
+                <!-- for future use -->
+                <!-- <NotesIcon class="create-access__modal-container__body-container__notes-icon"/>
                 <div class="create-access__modal-container__body-container__notes">
                     <p>Notes</p>
                     <div>--Notes Section Here--</div>
-                </div>
+                </div> -->
+
             </div>
             <div class="create-access__modal-container__divider"></div>
             <div class="create-access__modal-container__footer-container">
@@ -116,6 +132,8 @@
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
+import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
+import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import VCheckbox from '@/components/common/VCheckbox.vue';
 import TypesIcon from '@/../static/images/accessGrants/create-access_type.svg';
@@ -133,9 +151,11 @@ import { RouteConfig } from '@/router';
 // @vue/component
 @Component({
     components: {
-        CloseCrossIcon,
         VCheckbox,
         VButton,
+        DurationSelection,
+        BucketsSelection,
+        CloseCrossIcon,
         TypesIcon,
         PermissionsIcon,
         NameIcon,
@@ -157,32 +177,31 @@ export default class CreateAccessModal extends Vue {
     private permissionsList = ["Read","Write","List","Delete"];
     private showAllBuckets = {show: false, position: "up"};
     private bucketsList = [];
-    private checkedTypes = {access: false, s3: false, cli: false}
+    private checkedType = '';
     private checkedPermissions = {read: false, write: false, list: false, delete: false}
 
     /**
      * Checks which type was selected on mount.
      */
     public mounted(): void {
-        this.checkedTypes[this.defaultType] = true;
+        this.checkedType = this.defaultType;
     }
 
     /**
      * Validates types checked can be selected together.
      */
-    public typeValidation(type): void {
-
-        if (type !== "cli" && this.checkedTypes[type] === false) {
-            this.checkedTypes[type] = true;
-            this.checkedTypes.cli = false;
-        } else if (type !== "cli" && this.checkedTypes[type] === true) {
-            this.checkedTypes[type] = false;
-        } else if (type === "cli" && this.checkedTypes.cli === false) {
-            this.checkedTypes = {access: false, s3: false, cli: true}
-        } else {
-            this.checkedTypes.cli = false;
-        }
-    }
+    // public permissionValidation(type): void {
+    //     if (type !== "cli" && this.checkedTypes[type] === false) {
+    //         this.checkedTypes[type] = true;
+    //         this.checkedTypes.cli = false;
+    //     } else if (type !== "cli" && this.checkedTypes[type] === true) {
+    //         this.checkedTypes[type] = false;
+    //     } else if (type === "cli" && this.checkedTypes.cli === false) {
+    //         this.checkedTypes = {access: false, s3: false, cli: true}
+    //     } else {
+    //         this.checkedTypes.cli = false;
+    //     }
+    // }
 
     /**
      * Closes modal.
@@ -360,7 +379,7 @@ export default class CreateAccessModal extends Vue {
                     grid-column: 1;
                     grid-row: 5;
                 } 
-                &__end-date {
+                &__duration {
                     grid-column: 2;
                     grid-row: 5;
                     display: flex;

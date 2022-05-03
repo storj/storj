@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="buckets-selection">
+    <div :class="`buckets-selection ${containerStyle}`">
         <div
-            class="buckets-selection__toggle-container"
+            :class="`buckets-selection__toggle-container ${textStyle}`"
             @click.stop="toggleDropdown"
         >
             <h1 class="buckets-selection__toggle-container__name">{{ selectionLabel }}</h1>
@@ -18,7 +18,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
@@ -33,6 +33,10 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
     },
 })
 export default class BucketsSelection extends Vue {
+    @Prop({default: ''})
+    private readonly containerStyle: string;
+    @Prop({default: ''})
+    private readonly textStyle: string;
     /**
      * Toggles dropdown visibility.
      */
@@ -97,5 +101,13 @@ export default class BucketsSelection extends Vue {
                 margin: 0;
             }
         }
+    }
+    .access-bucket-container {
+        margin-left: 0;
+        height: 30px;
+        border: 1px solid #c8d3de;
+    }
+    .access-bucket-text{
+        padding: 10px 20px;
     }
 </style>

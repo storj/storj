@@ -84,8 +84,8 @@
                 <div class="access-grants__flows-area__icon-container">
                     <CLIIcon />
                 </div>
-                <div class="access-grants__flows-area__title">CLI Access</div>
-                <div class="access-grants__flows-area__summary">Creates Satellite Adress and API Key to run the “setup” in Command Line Interface. </div>
+                <div class="access-grants__flows-area__title">API Key</div>
+                <div class="access-grants__flows-area__summary">Use it for generating S3 credentials and access grants programatically. </div>
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <VButton
@@ -361,7 +361,7 @@ export default class AccessGrants extends Vue {
      * CLI Access button click.
      */
     public cliClick(): void {
-        this.modalPropType = 'cli'
+        this.modalPropType = 'api'
         this.toggleAccessModal()
     }
 
