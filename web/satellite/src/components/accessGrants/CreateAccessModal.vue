@@ -16,22 +16,37 @@
                 <div class="create-access__modal-container__body-container__type">
                     <p>Type</p>
                     <div>
-                        <input type="checkbox" id="acess-grant-check"/>
+                        <input 
+                        type="checkbox" 
+                        id="acess-grant-check" 
+                        :checked="this.checkedTypes.access"
+                        @click="typeValidation('access')"/>
                         <label for="acess-grant-check">Access Grant</label>
                     </div>
                     <div>
-                        <input type="checkbox" id="s3-check"/>
+                        <input 
+                        type="checkbox" 
+                        id="s3-check"
+                        :checked="this.checkedTypes.s3"
+                        @click="typeValidation('s3')"/>
                         <label for="s3-check">S3 Credentials</label>
                     </div>
                     <div>
-                        <input type="checkbox" id="cli-check"/>
+                        <input 
+                        type="checkbox" 
+                        id="cli-check"
+                        :checked="this.checkedTypes.cli"
+                        @click="typeValidation('cli')"/>
                         <label for="cli-check">CLI Access</label>
                     </div>
                 </div>
                 <NameIcon class="create-access__modal-container__body-container__name-icon"/>
                 <div class="create-access__modal-container__body-container__name">
                     <p>Name</p>
-                    <input type="text" placeholder="Input Access Name" class="create-access__modal-container__body-container__name__input">
+                    <input 
+                    type="text" 
+                    placeholder="Input Access Name" class="create-access__modal-container__body-container__name__input"
+                    >
                 </div>
                 <PermissionsIcon class="create-access__modal-container__body-container__permissions-icon"/>
                 <div class="create-access__modal-container__body-container__permissions">
@@ -133,6 +148,8 @@ import { RouteConfig } from '@/router';
 export default class CreateAccessModal extends Vue {
     @Prop({default: 'Default'})
     private readonly label: string;
+    @Prop({default: 'Default'})
+    private readonly defaultType: string;
     @Prop({default: () => { return; }})
     private readonly onClose: () => void;
 
@@ -140,13 +157,38 @@ export default class CreateAccessModal extends Vue {
     private permissionsList = ["Read","Write","List","Delete"];
     private showAllBuckets = {show: false, position: "up"};
     private bucketsList = [];
+    private checkedTypes = {access: false, s3: false, cli: false}
+    private checkedPermissions = {read: false, write: false, list: false, delete: false}
+
+    /**
+     * Checks which type was selected on mount.
+     */
+    public mounted(): void {
+        this.checkedTypes[this.defaultType] = true;
+    }
+
+    /**
+     * Validates types checked can be selected together.
+     */
+    public typeValidation(type): void {
+
+        if (type !== "cli" && this.checkedTypes[type] === false) {
+            this.checkedTypes[type] = true;
+            this.checkedTypes.cli = false;
+        } else if (type !== "cli" && this.checkedTypes[type] === true) {
+            this.checkedTypes[type] = false;
+        } else if (type === "cli" && this.checkedTypes.cli === false) {
+            this.checkedTypes = {access: false, s3: false, cli: true}
+        } else {
+            this.checkedTypes.cli = false;
+        }
+    }
 
     /**
      * Closes modal.
      */
     public onCloseClick(): void {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
-        this.$router.push(RouteConfig.AccessGrants.path);
         this.onClose();
     }
 
@@ -218,6 +260,9 @@ export default class CreateAccessModal extends Vue {
         display: flex;
         align-items: flex-start;
         justify-content: center;
+        & > * {
+            font-family: sans-serif;
+        }
         
         &__modal-container {
             background: #ffffff;

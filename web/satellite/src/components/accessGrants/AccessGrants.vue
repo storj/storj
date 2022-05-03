@@ -50,7 +50,7 @@
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
-                        :on-press="toggleAccessModal"
+                        :on-press="accessGrantClick"
                     />
                 </div>
             </div>
@@ -76,7 +76,7 @@
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
-                        :on-press="toggleAccessModal"
+                        :on-press="s3Click"
                     />
                 </div>
             </div>
@@ -102,7 +102,7 @@
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
-                        :on-press="toggleAccessModal"
+                        :on-press="cliClick"
                     />
                 </div>
             </div>
@@ -134,6 +134,7 @@
         <CreateAccessModal 
         v-if="showModal"
         :on-close="toggleAccessModal"
+        :default-type="modalPropType"
         />
         <router-view />
     </div>
@@ -198,6 +199,8 @@ export default class AccessGrants extends Vue {
     private isDeleteClicked = false;
 
     private showModal = false;
+    private modalClickType = 'Access Grant';
+    private modalPropType = '';
 
     public areGrantsFetching = true;
 
@@ -336,6 +339,30 @@ export default class AccessGrants extends Vue {
      */
     public get selectedAccessGrantsAmount(): number {
         return this.$store.state.accessGrantsModule.selectedAccessGrantsIds.length;
+    }
+
+    /**
+     * Access grant button click.
+     */
+    public accessGrantClick(): void {
+        this.modalPropType = 'access'
+        this.toggleAccessModal()
+    }
+
+    /**
+     * S3 Access button click..
+     */
+    public s3Click(): void {
+        this.modalPropType = 's3'
+        this.toggleAccessModal()
+    }
+
+    /**
+     * CLI Access button click.
+     */
+    public cliClick(): void {
+        this.modalPropType = 'cli'
+        this.toggleAccessModal()
     }
 
     /**
