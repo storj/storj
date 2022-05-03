@@ -71,7 +71,7 @@
                         class="access-grants__flows-area__learn-button"
                     />
                     <VButton
-                        label="Create Access Grant"
+                        label="Create S3 Credentials"
                         font-size="13px"
                         width="auto"
                         height="30px"
@@ -97,7 +97,7 @@
                         class="access-grants__flows-area__learn-button"
                     />
                     <VButton
-                        label="Create Access Grant"
+                        label="Create Keys for CLI"
                         font-size="13px"
                         width="auto"
                         height="30px"
