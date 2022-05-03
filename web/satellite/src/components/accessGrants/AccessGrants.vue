@@ -50,6 +50,7 @@
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
+                        :on-press="toggleAccessModal"
                     />
                 </div>
             </div>
@@ -75,6 +76,7 @@
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
+                        :on-press="toggleAccessModal"
                     />
                 </div>
             </div>
@@ -100,6 +102,7 @@
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
+                        :on-press="toggleAccessModal"
                     />
                 </div>
             </div>
@@ -128,6 +131,10 @@
             @close="onClearSelection"
             @reset-pagination="resetPagination"
         />
+        <CreateAccessModal 
+        v-if="showModal"
+        :on-close="toggleAccessModal"
+        />
         <router-view />
     </div>
 </template>
@@ -140,6 +147,7 @@ import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
+import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -178,6 +186,7 @@ declare interface ResetPagination {
         VButton,
         ConfirmDeletePopup,
         VLoader,
+        CreateAccessModal,
     },
 })
 export default class AccessGrants extends Vue {
@@ -187,6 +196,8 @@ export default class AccessGrants extends Vue {
      * Indicates if delete confirmation state should appear.
      */
     private isDeleteClicked = false;
+
+    private showModal = false;
 
     public areGrantsFetching = true;
 
@@ -325,6 +336,17 @@ export default class AccessGrants extends Vue {
      */
     public get selectedAccessGrantsAmount(): number {
         return this.$store.state.accessGrantsModule.selectedAccessGrantsIds.length;
+    }
+
+    /**
+     * toggles Create Access Modal visibility.
+     */
+    public toggleAccessModal(): void {
+        if (this.showModal === false) {
+            this.showModal = true;
+        } else {
+            this.showModal = false;
+        }
     }
 }
 </script>
