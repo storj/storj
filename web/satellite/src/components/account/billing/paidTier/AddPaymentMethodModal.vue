@@ -317,7 +317,6 @@ export default class AddPaymentMethodModal extends Vue {
         }
 
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-
         this.isLoading = false;
     }
 
