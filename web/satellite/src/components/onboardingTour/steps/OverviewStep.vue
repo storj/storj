@@ -3,27 +3,21 @@
 
 <template>
     <div class="overview-area">
-        <div class="overview-area__header">
-            <WelcomeLeft />
-            <h1 class="overview-area__header__title" aria-roledescription="title">Welcome</h1>
-            <WelcomeRight />
-        </div>
-        <p class="overview-area__subtitle">Let's get you started using Storj</p>
-        <p class="overview-area__question">Do you want to use web browser or command-line interface?</p>
+        <h1 class="overview-area__title" aria-roledescription="title">Welcome to Storj {{ titleLabel }}</h1>
+        <p class="overview-area__subtitle">Get started using the web browser, or the command line.</p>
         <div class="overview-area__routes">
             <OverviewContainer
-                class="overview-area__routes__left-cont"
                 is-web="true"
-                title="Web browser"
+                title="Start with web browser"
                 info="Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world."
-                button-label="Continue in web"
+                button-label="Continue in web ->"
                 :on-click="onUploadInBrowserClick"
                 :is-disabled="isLoading"
             />
             <OverviewContainer
-                title="Command line"
-                info="The Uplink CLI is a command-line interface which allows you to upload and download files from the network, manage permissions and sharing."
-                button-label="Continue in cli"
+                title="Start with Uplink CLI"
+                info="The Uplink CLI is a command-line interface tool which allows you to upload and download files from the network, manage permissions and share files."
+                button-label="Continue in cli ->"
                 :on-click="onUplinkCLIClick"
                 :is-disabled="isLoading"
             />
@@ -41,26 +35,47 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
-import WelcomeLeft from '@/../static/images/onboardingTour/welcome-left.svg';
-import WelcomeRight from '@/../static/images/onboardingTour/welcome-right.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { MetaUtils } from "@/utils/meta";
 
 // @vue/component
 @Component({
     components: {
         OverviewContainer,
-        WelcomeLeft,
-        WelcomeRight
     },
 })
 export default class OverviewStep extends Vue {
     public isLoading = false;
     public projectDashboardPath = RouteConfig.ProjectDashboard.path;
+    public titleLabel = '';
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+    /**
+     * Mounted hook after initial render.
+     * Sets correct title label.
+     */
+    public mounted(): void {
+        const partneredSatellites = MetaUtils.getMetaContent('partnered-satellites');
+        if (!partneredSatellites) {
+            this.titleLabel = 'OSP';
+            return;
+        }
+
+        const partneredSatellitesJSON = JSON.parse(partneredSatellites);
+        const isPartnered = partneredSatellitesJSON.find(el => {
+            return el[0] === this.satelliteName;
+        })
+        if (isPartnered) {
+            this.titleLabel = 'DCS';
+            return;
+        }
+
+        this.titleLabel = 'OSP';
+    }
 
     /**
      * Holds button click logic.
@@ -78,7 +93,7 @@ export default class OverviewStep extends Vue {
     }
 
     /**
-     * Redirects to objects page.
+     * Redirects to buckets page.
      */
     public async onUploadInBrowserClick(): Promise<void> {
         if (this.isLoading) return;
@@ -90,6 +105,10 @@ export default class OverviewStep extends Vue {
 
         this.isLoading = false;
     }
+
+    private get satelliteName(): string {
+        return this.$store.state.appStateModule.satelliteName;
+    }
 }
 </script>
 
@@ -100,45 +119,35 @@ export default class OverviewStep extends Vue {
         align-items: center;
         font-family: 'font_regular', sans-serif;
 
-        &__header {
-            display: flex;
-
-            &__title {
-                font-family: 'font_bold', sans-serif;
-                font-size: 48px;
-                line-height: 48px;
-                letter-spacing: 1px;
-                color: #14142b;
-                margin: 0 20px 20px;
-            }
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            color: #14142b;
+            font-size: 32px;
+            line-height: 39px;
+            margin-bottom: 12.5px;
         }
 
-        &__subtitle,
-        &__question {
-            font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            line-height: 32px;
-            text-align: center;
-            letter-spacing: 0.75px;
-            color: #14142a;
-        }
-
-        &__question {
+        &__subtitle {
             font-family: 'font_regular', sans-serif;
+            font-weight: 400;
+            text-align: center;
+            color: #354049;
+            font-size: 16px;
+            line-height: 21px;
         }
 
         &__routes {
-            margin-top: 70px;
+            margin-top: 35px;
             display: flex;
             align-items: center;
-
-            &__left-cont {
-                margin-right: 45px;
-            }
+            justify-content: center;
+            flex-wrap: wrap;
+            column-gap: 38px;
+            row-gap: 38px;
         }
 
         &__skip-button {
-            margin-top: 50px;
+            margin-top: 58px;
             color: #b7c1ca;
             cursor: pointer;
             text-decoration: underline !important;

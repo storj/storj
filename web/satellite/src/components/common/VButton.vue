@@ -149,7 +149,7 @@ export default class VButton extends Vue {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #2683ff;
+        background-color: #0149ff;
         cursor: pointer;
 
         .label {
