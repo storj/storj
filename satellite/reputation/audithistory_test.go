@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/internalpb"
+	"storj.io/common/pb"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -27,7 +27,7 @@ func TestAddAuditToHistory(t *testing.T) {
 	windowsInTrackingPeriod := int(config.TrackingPeriod.Seconds() / config.WindowSize.Seconds())
 	currentWindow := startingWindow
 
-	history := &internalpb.AuditHistory{}
+	history := &pb.AuditHistory{}
 
 	// online score should be 1 until the first window is finished
 	err := reputation.AddAuditToHistory(history, false, currentWindow.Add(2*time.Minute), config)

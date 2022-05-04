@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -46,7 +45,7 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 
 		// if this is a new node, we will insert a new entry into the table
 		if dbNode == nil {
-			historyBytes, err := pb.Marshal(&internalpb.AuditHistory{})
+			historyBytes, err := pb.Marshal(&pb.AuditHistory{})
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
@@ -126,8 +125,8 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 		return nil, Error.Wrap(err)
 	}
 
-	history, err := reputation.AuditHistoryFromBytes(res.AuditHistory)
-	if err != nil {
+	history := &pb.AuditHistory{}
+	if err := pb.Unmarshal(res.AuditHistory, history); err != nil {
 		return nil, Error.Wrap(err)
 	}
 	var dqReason overlay.DisqualificationReason
@@ -165,7 +164,7 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 
 		_, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
 		if errors.Is(err, sql.ErrNoRows) {
-			historyBytes, err := pb.Marshal(&internalpb.AuditHistory{})
+			historyBytes, err := pb.Marshal(&pb.AuditHistory{})
 			if err != nil {
 				return err
 			}
@@ -204,7 +203,7 @@ func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nod
 
 		_, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
 		if errors.Is(err, sql.ErrNoRows) {
-			historyBytes, err := pb.Marshal(&internalpb.AuditHistory{})
+			historyBytes, err := pb.Marshal(&pb.AuditHistory{})
 			if err != nil {
 				return err
 			}
@@ -242,7 +241,7 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 
 		_, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
 		if errors.Is(err, sql.ErrNoRows) {
-			historyBytes, err := pb.Marshal(&internalpb.AuditHistory{})
+			historyBytes, err := pb.Marshal(&pb.AuditHistory{})
 			if err != nil {
 				return err
 			}
@@ -327,6 +326,7 @@ func (reputations *reputations) populateCreateFields(update updateNodeStats) dbx
 
 	return createFields
 }
+
 func (reputations *reputations) populateUpdateFields(update updateNodeStats, history []byte) dbx.Reputation_Update_Fields {
 	updateFields := dbx.Reputation_Update_Fields{
 		AuditHistory: dbx.Reputation_AuditHistory(history),
@@ -643,11 +643,10 @@ func dbxToReputationInfo(dbNode *dbx.Reputation) (reputation.Info, error) {
 		info.DisqualificationReason = overlay.DisqualificationReason(*dbNode.DisqualificationReason)
 	}
 	if dbNode.AuditHistory != nil {
-		auditHistory, err := reputation.AuditHistoryFromBytes(dbNode.AuditHistory)
-		if err != nil {
+		info.AuditHistory = &pb.AuditHistory{}
+		if err := pb.Unmarshal(dbNode.AuditHistory, info.AuditHistory); err != nil {
 			return info, err
 		}
-		info.AuditHistory = auditHistory
 	}
 	return info, nil
 }

@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
 )
@@ -37,7 +38,7 @@ type Info struct {
 	Disqualified                *time.Time
 	DisqualificationReason      overlay.DisqualificationReason
 	OnlineScore                 float64
-	AuditHistory                AuditHistory
+	AuditHistory                *pb.AuditHistory
 	AuditReputationAlpha        float64
 	AuditReputationBeta         float64
 	UnknownAuditReputationAlpha float64

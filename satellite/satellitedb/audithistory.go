@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"storj.io/common/pb"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -21,7 +20,7 @@ func updateAuditHistory(ctx context.Context, oldHistory []byte, config reputatio
 	}
 
 	// deserialize node audit history
-	history := &internalpb.AuditHistory{}
+	history := &pb.AuditHistory{}
 	err = pb.Unmarshal(oldHistory, history)
 	if err != nil {
 		return res, err
