@@ -776,30 +776,30 @@ func TestUsageRollups(t *testing.T) {
 				Page:  1,
 			}
 
-			totals1, err := usageRollups.GetBucketTotals(ctx, project1, cursor, start, now)
+			totals1, err := usageRollups.GetBucketTotals(ctx, project1, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals1)
 
-			totals2, err := usageRollups.GetBucketTotals(ctx, project2, cursor, start, now)
+			totals2, err := usageRollups.GetBucketTotals(ctx, project2, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals2)
 
-			totals3, err := usageRollups.GetBucketTotals(ctx, project3, cursor, start, now)
+			totals3, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals3)
 
-			totals3Prev2Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*2), now.Add(-time.Hour*1))
+			totals3Prev2Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*2))
 			require.NoError(t, err)
 			require.NotNil(t, totals3Prev2Hours)
 
-			totals3Prev3Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*3), now.Add(-time.Hour*2))
+			totals3Prev3Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*3))
 			require.NoError(t, err)
 			require.NotNil(t, totals3Prev3Hours)
 		})
 
 		t.Run("Get paged", func(t *testing.T) {
 			// sql injection test. F.E '%SomeText%' = > ''%SomeText%' OR 'x' != '%'' will be true
-			bucketsPage, err := usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck%' OR 'x' != '", Page: 1}, start, now)
+			bucketsPage, err := usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck%' OR 'x' != '", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(0), bucketsPage.TotalCount)
@@ -807,7 +807,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(0), bucketsPage.PageCount)
 			assert.Equal(t, 0, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 3, Search: "", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 3, Search: "", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(5), bucketsPage.TotalCount)
@@ -815,7 +815,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(2), bucketsPage.PageCount)
 			assert.Equal(t, 3, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(5), bucketsPage.TotalCount)
@@ -823,7 +823,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(1), bucketsPage.PageCount)
 			assert.Equal(t, 5, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "bucket-0", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "bucket-0", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(1), bucketsPage.TotalCount)
@@ -831,7 +831,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(1), bucketsPage.PageCount)
 			assert.Equal(t, 1, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck\xff", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck\xff", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(0), bucketsPage.TotalCount)

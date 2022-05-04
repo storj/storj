@@ -1959,12 +1959,12 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 		return nil, Error.Wrap(err)
 	}
 
-	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	usage, err := s.projectAccounting.GetBucketTotals(ctx, projectID, cursor, isMember.project.CreatedAt, before)
+	usage, err := s.projectAccounting.GetBucketTotals(ctx, projectID, cursor, before)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
