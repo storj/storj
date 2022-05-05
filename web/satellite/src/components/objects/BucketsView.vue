@@ -531,7 +531,7 @@ export default class BucketsView extends Vue {
             text-align: center;
             font-size: 30px;
             line-height: 42px;
-            margin: 100px 0 0 0;
+            margin: 100px 0 0;
         }
 
         &__list {
@@ -545,13 +545,13 @@ export default class BucketsView extends Vue {
             &__sorting-header {
                 display: flex;
                 align-items: center;
-                padding: 0 20px 5px 20px;
+                padding: 0 20px 5px;
                 width: calc(100% - 40px);
                 font-weight: bold;
                 font-size: 14px;
                 line-height: 20px;
                 color: #768394;
-                border-bottom: 1px solid rgba(169, 181, 193, 0.4);
+                border-bottom: 1px solid rgb(169 181 193 / 40%);
 
                 &__name {
                     width: calc(70% - 16px);

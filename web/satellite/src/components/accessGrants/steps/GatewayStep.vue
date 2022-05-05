@@ -278,7 +278,7 @@ export default class GatewayStep extends Vue {
             background: #f5f6fa;
             border-radius: 6px;
             padding: 50px;
-            margin: 55px 0 40px 0;
+            margin: 55px 0 40px;
             width: calc(100% - 100px);
 
             &__title {
@@ -286,7 +286,7 @@ export default class GatewayStep extends Vue {
                 font-size: 22px;
                 line-height: 27px;
                 color: #000;
-                margin: 0 0 25px 0;
+                margin: 0 0 25px;
                 text-align: center;
             }
 
@@ -294,7 +294,7 @@ export default class GatewayStep extends Vue {
                 font-size: 16px;
                 line-height: 28px;
                 color: #000;
-                margin: 0 0 25px 0;
+                margin: 0 0 25px;
                 text-align: center;
             }
 
@@ -306,7 +306,7 @@ export default class GatewayStep extends Vue {
                 &__label-area {
                     display: flex;
                     align-items: center;
-                    margin: 20px 0 10px 0;
+                    margin: 20px 0 10px;
 
                     &__label {
                         font-family: 'font_bold', sans-serif;
@@ -349,7 +349,7 @@ export default class GatewayStep extends Vue {
                     padding: 10px;
                     width: calc(100% - 20px);
                     max-width: calc(100% - 20px);
-                    border: 1px solid rgba(56, 75, 101, 0.4);
+                    border: 1px solid rgb(56 75 101 / 40%);
                     background-color: #fff;
 
                     &__value {

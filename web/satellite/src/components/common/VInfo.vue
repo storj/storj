@@ -80,7 +80,7 @@ export default class VInfo extends Vue {
                 background-color: white;
                 width: 40px;
                 height: 40px;
-                border-radius: 4px 0 0 0;
+                border-radius: 4px 0 0;
                 transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
                 margin-bottom: -15px;
             }

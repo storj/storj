@@ -48,7 +48,7 @@ export default class GuidesDropdown extends Vue {
         position: absolute;
         background: #fff;
         border: 1px solid #f4f5f7;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
         border-radius: 8px;
         padding: 14px 0;
         width: 390px;

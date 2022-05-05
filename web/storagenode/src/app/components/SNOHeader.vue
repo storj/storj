@@ -305,7 +305,7 @@ export default class SNOHeader extends Vue {
                 &__node-id-container {
                     color: var(--node-id-text-color);
                     height: 44px;
-                    padding: 0 14px 0 14px;
+                    padding: 0 14px;
                     display: flex;
                     align-items: center;
                     border: 1px solid var(--node-id-border-color);

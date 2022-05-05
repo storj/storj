@@ -344,7 +344,7 @@ export default class ResetPassword extends Vue {
                 &__title {
                     font-size: 24px;
                     margin: 10px 0;
-                    letter-spacing: -0.100741px;
+                    letter-spacing: -0.1007px;
                     color: #252525;
                     font-family: 'font_bold', sans-serif;
                     font-weight: 800;
@@ -463,7 +463,7 @@ export default class ResetPassword extends Vue {
                 padding: 0;
 
                 &__container {
-                    padding: 60px 60px;
+                    padding: 60px;
                     border-radius: 0;
                 }
             }

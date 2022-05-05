@@ -159,7 +159,7 @@ export default class Projects extends Vue {
 
 <style lang="scss">
     .projects-list {
-        padding: 40px 30px 55px 30px;
+        padding: 40px 30px 55px;
         height: calc(100% - 95px);
         font-family: 'font_regular', sans-serif;
 

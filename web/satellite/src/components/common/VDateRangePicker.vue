@@ -34,7 +34,7 @@ export default class VDateRangePicker extends Vue {
 </script>
 
 <style lang="scss">
-    @import '~vue2-datepicker/scss/index.scss';
+    @import '~vue2-datepicker/scss/index';
 
     .picker,
     .mx-datepicker,

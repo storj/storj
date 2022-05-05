@@ -35,7 +35,6 @@ export default class ValidationMessage extends Vue {
 </script>
 
 <style scoped lang="scss">
-
     .validation-message {
 
         &__wrapper {

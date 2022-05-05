@@ -80,7 +80,7 @@ export default class ConfirmMFAInput extends Vue {
 
             &::-webkit-outer-spin-button,
             &::-webkit-inner-spin-button {
-                -webkit-appearance: none;
+                appearance: none;
                 margin: 0;
             }
         }
@@ -88,7 +88,7 @@ export default class ConfirmMFAInput extends Vue {
 
     /* Firefox */
 
-    input[type=number] {
-        -moz-appearance: textfield;
+    input[type='number'] {
+        appearance: textfield;
     }
 </style>

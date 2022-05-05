@@ -813,10 +813,6 @@ export default class FileBrowser extends Vue {
 
 .no-selection {
     user-select: none;
-    -moz-user-select: none;
-    -khtml-user-select: none;
-    -webkit-user-select: none;
-    -o-user-select: none;
 }
 
 tbody {
@@ -858,7 +854,7 @@ tbody {
 
 .folder-input:focus {
     color: #fe5d5d;
-    box-shadow: 0 0 0 0.2rem rgba(254, 93, 93, 0.5) !important;
+    box-shadow: 0 0 0 0.2rem rgb(254 93 93 / 50%) !important;
     border-color: #fe5d5d !important;
     outline: none !important;
 }
@@ -919,7 +915,7 @@ tbody {
     top: 45px;
     left: 0;
     border-radius: 8px;
-    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -2px 16px rgb(0 0 0 / 10%);
     width: 240px;
     height: auto;
     overflow: hidden;

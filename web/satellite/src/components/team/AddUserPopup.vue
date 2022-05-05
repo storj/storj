@@ -35,7 +35,7 @@
                         </div>
                     </div>
                     <div class="add-user-row">
-                        <div id="addUserButton" class="add-user-row__item" @click="addInput">
+                        <div id="add-user-button" class="add-user-row__item" @click="addInput">
                             <div :class="{ 'inactive-image': isMaxInputsCount }">
                                 <AddFieldIcon class="add-user-row__item__image" />
                             </div>
@@ -290,7 +290,7 @@ export default class AddUserPopup extends Vue {
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgba(134, 134, 148, 0.4);
+        background-color: rgb(134 134 148 / 40%);
         z-index: 1121;
         display: flex;
         justify-content: center;
@@ -396,7 +396,7 @@ export default class AddUserPopup extends Vue {
                 font-size: 32px;
                 line-height: 29px;
                 color: #384b65;
-                margin: 0 0 90px 0;
+                margin: 0 0 90px;
                 width: 130%;
                 text-align: end;
             }
@@ -427,7 +427,7 @@ export default class AddUserPopup extends Vue {
             &__inputs-group {
                 max-height: 35vh;
                 overflow-y: hidden;
-                padding: 3px 50px 0 50px;
+                padding: 3px 50px 0;
 
                 &__item {
                     display: flex;
@@ -441,7 +441,7 @@ export default class AddUserPopup extends Vue {
                         height: 48px;
                         width: 100%;
                         text-indent: 20px;
-                        border-color: rgba(56, 75, 101, 0.4);
+                        border-color: rgb(56 75 101 / 40%);
                         border-radius: 6px;
 
                         &:last-child {
@@ -470,7 +470,7 @@ export default class AddUserPopup extends Vue {
             }
 
             &__common-label {
-                margin: 0 0 10px 0;
+                margin: 0 0 10px;
                 font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 line-height: 25px;
@@ -505,7 +505,7 @@ export default class AddUserPopup extends Vue {
     }
 
     .notification-wrap {
-        background-color: rgba(194, 214, 241, 1);
+        background-color: rgb(194 214 241 / 100%);
         height: 98px;
         display: flex;
         justify-content: flex-start;
@@ -559,7 +559,7 @@ export default class AddUserPopup extends Vue {
             }
         }
 
-        #addUserButton {
+        #add-user-button {
             justify-content: flex-start;
 
             .add-user-row__item__image {

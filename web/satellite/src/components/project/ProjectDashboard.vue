@@ -85,14 +85,14 @@ export default class ProjectDashboard extends Vue {
 
 <style scoped lang="scss">
     .dashboard-area {
-        padding: 30px 30px 60px 30px;
+        padding: 30px 30px 60px;
         height: calc(100% - 90px);
         font-family: 'font_regular', sans-serif;
 
         &__header-wrapper {
             display: flex;
             flex-direction: column;
-            margin: 10px 0 30px 0;
+            margin: 10px 0 30px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;
@@ -106,7 +106,7 @@ export default class ProjectDashboard extends Vue {
                 font-size: 16px;
                 line-height: 20px;
                 color: #384b65;
-                margin: 10px 0 0 0;
+                margin: 10px 0 0;
             }
         }
 
@@ -117,7 +117,7 @@ export default class ProjectDashboard extends Vue {
             margin-top: 30px;
 
             &__title {
-                margin: 0 0 20px 0;
+                margin: 0 0 20px;
                 font-family: 'font_bold', sans-serif;
                 font-size: 16px;
                 line-height: 16px;

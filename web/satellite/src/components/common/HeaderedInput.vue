@@ -124,7 +124,7 @@ export default class HeaderedInput extends HeaderlessInput {
         &__limit {
             font-size: 16px;
             line-height: 21px;
-            color: rgba(56, 75, 101, 0.4);
+            color: rgb(56 75 101 / 40%);
         }
     }
 
@@ -151,12 +151,10 @@ export default class HeaderedInput extends HeaderlessInput {
         width: 100%;
         padding: 0;
         text-indent: 20px;
-        border-color: rgba(56, 75, 101, 0.4);
+        border-color: rgb(56 75 101 / 40%);
         border-radius: 6px;
         outline: none;
         box-shadow: none;
-        -webkit-box-sizing: border-box;
-        -moz-box-sizing: border-box;
         box-sizing: border-box;
 
         &::placeholder {
@@ -172,7 +170,7 @@ export default class HeaderedInput extends HeaderlessInput {
 
     .add-label {
         margin-left: 5px;
-        color: rgba(56, 75, 101, 0.4);
+        color: rgb(56 75 101 / 40%);
     }
 
     .loader {

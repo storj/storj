@@ -433,7 +433,6 @@ export default class FileModal extends Vue {
 </script>
 
 <style scoped>
-
 .modal-header {
     border-bottom-color: #eee;
     background-color: #fafafa;
@@ -491,7 +490,7 @@ export default class FileModal extends Vue {
 
 .storage-nodes {
     padding: 5px;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgb(0 0 0 / 80%);
     font-weight: normal;
     color: white;
     font-size: 0.8rem;

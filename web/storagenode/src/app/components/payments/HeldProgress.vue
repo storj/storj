@@ -135,7 +135,7 @@ export default class HeldProgress extends Vue {
             mix-blend-mode: normal;
             opacity: 0.4;
             border-radius: 4px;
-            margin: 16px 0 8px 0;
+            margin: 16px 0 8px;
 
             @if $active {
                 opacity: 1;
@@ -169,7 +169,7 @@ export default class HeldProgress extends Vue {
             grid-column-gap: 2px;
 
             &__step {
-                @include step();
+                @include step;
 
                 &--active {
                     @include step(true);
@@ -186,7 +186,7 @@ export default class HeldProgress extends Vue {
             height: 1px;
             background: #a9b5c1;
             opacity: 0.3;
-            margin: 24px 0 20px 0;
+            margin: 24px 0 20px;
         }
 
         &__main-text {

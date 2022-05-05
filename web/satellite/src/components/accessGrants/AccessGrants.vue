@@ -330,20 +330,20 @@ export default class AccessGrants extends Vue {
 </script>
 
 <style scoped lang="scss">
-    @mixin grantFlowCard {
+    @mixin grant-flow-card {
         display: inline-block;
         padding: 28px;
         width: 26%;
         height: 167px;
         background: #fff;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         border-radius: 10px;
     }
 
     .access-grants {
         position: relative;
         height: calc(100% - 95px);
-        padding: 40px 30px 55px 30px;
+        padding: 40px 30px 55px;
         font-family: 'font_regular', sans-serif;
 
         &__title-area {
@@ -380,7 +380,7 @@ export default class AccessGrants extends Vue {
             &__access-grant,
             &__s3-credentials,
             &__cli-credentials {
-                @include grantFlowCard;
+                @include grant-flow-card;
             }
 
             &__learn-button {

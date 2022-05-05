@@ -201,7 +201,7 @@ export default class EnableMFAPopup extends Vue {
         display: flex;
         justify-content: center;
         z-index: 1000;
-        background: rgba(27, 37, 51, 0.75);
+        background: rgb(27 37 51 / 75%);
 
         &__container {
             padding: 60px;
@@ -221,7 +221,7 @@ export default class EnableMFAPopup extends Vue {
                 line-height: 34px;
                 text-align: center;
                 color: #000;
-                margin: 0 0 30px 0;
+                margin: 0 0 30px;
             }
 
             &__subtitle {
@@ -229,7 +229,7 @@ export default class EnableMFAPopup extends Vue {
                 line-height: 21px;
                 text-align: center;
                 color: #000;
-                margin: 0 0 45px 0;
+                margin: 0 0 45px;
             }
 
             &__scan {
@@ -247,7 +247,7 @@ export default class EnableMFAPopup extends Vue {
                     line-height: 19px;
                     text-align: center;
                     color: #000;
-                    margin: 0 0 30px 0;
+                    margin: 0 0 30px;
                 }
 
                 &__subtitle {
@@ -270,7 +270,7 @@ export default class EnableMFAPopup extends Vue {
                 }
 
                 &__secret {
-                    margin: 5px 0 0 0;
+                    margin: 5px 0 0;
                     font-family: 'font_medium', sans-serif;
                     font-size: 14px;
                     line-height: 25px;

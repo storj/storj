@@ -54,7 +54,7 @@ export default class CLIFlowContainer extends Vue {
     .flow-container {
         font-family: 'font_regular', sans-serif;
         background: #fff;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
         border-radius: 20px;
         padding: 48px;
         max-width: 500px;

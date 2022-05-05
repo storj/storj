@@ -67,7 +67,7 @@ export default class WelcomeScreen extends Vue {
 
             &__info {
                 font-family: 'font_regular', sans-serif;
-                margin: 16px 0 24px 0;
+                margin: 16px 0 24px;
                 font-size: 16px;
                 line-height: 29px;
                 color: var(--c-label);

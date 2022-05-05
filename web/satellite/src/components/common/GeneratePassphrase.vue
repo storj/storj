@@ -243,12 +243,12 @@ export default class GeneratePassphrase extends Vue {
 <style scoped lang="scss">
     .encrypt-container {
         font-family: 'font_regular', sans-serif;
-        padding: 40px 60px 60px 60px;
+        padding: 40px 60px 60px;
         max-width: 500px;
         background: #fcfcfc;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
         border-radius: 20px;
-        margin: 30px auto 0 auto;
+        margin: 30px auto 0;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -333,7 +333,7 @@ export default class GeneratePassphrase extends Vue {
                 padding: 16px 22px;
                 background: #eff0f7;
                 border-radius: 10px;
-                margin: 25px 25px 0 25px;
+                margin: 25px 25px 0;
 
                 &__value {
                     font-size: 14px;
@@ -348,7 +348,7 @@ export default class GeneratePassphrase extends Vue {
             }
 
             &__enter {
-                margin: 25px 25px 0 25px;
+                margin: 25px 25px 0;
             }
 
             &__download {
@@ -366,7 +366,7 @@ export default class GeneratePassphrase extends Vue {
                 font-size: 16px;
                 line-height: 19px;
                 color: #1b2533;
-                margin: 25px 25px 10px 25px;
+                margin: 25px 25px 10px;
             }
 
             &__warning-msg {

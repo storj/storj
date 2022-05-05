@@ -244,7 +244,7 @@ export default class SettingsArea extends Vue {
             font-size: 32px;
             line-height: 39px;
             color: #263549;
-            margin: 40px 0 25px 0;
+            margin: 40px 0 25px;
         }
 
         &__edit-profile {

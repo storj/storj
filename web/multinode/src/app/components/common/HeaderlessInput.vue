@@ -188,7 +188,6 @@ export default class HeaderlessInput extends Vue {
 </script>
 
 <style scoped lang="scss">
-
     .input-wrap {
         position: relative;
         width: 100%;
@@ -227,7 +226,7 @@ export default class HeaderlessInput extends Vue {
             margin-left: 5px;
             font-size: 16px;
             line-height: 21px;
-            color: rgba(56, 75, 101, 0.4);
+            color: rgb(56 75 101 / 40%);
         }
 
         &__error {
@@ -250,7 +249,7 @@ export default class HeaderlessInput extends Vue {
         width: 100%;
         height: 100%;
         text-indent: 20px;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         border-radius: 6px;
     }
 

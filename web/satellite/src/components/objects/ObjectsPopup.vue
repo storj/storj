@@ -87,7 +87,7 @@ export default class ObjectsPopup extends Vue {
         bottom: 0;
         left: 0;
         right: 0;
-        background: rgba(27, 37, 51, 0.75);
+        background: rgb(27 37 51 / 75%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -109,7 +109,7 @@ export default class ObjectsPopup extends Vue {
                 font-size: 22px;
                 line-height: 27px;
                 color: #000;
-                margin: 0 0 18px 0;
+                margin: 0 0 18px;
             }
 
             &__sub-title {
@@ -117,8 +117,8 @@ export default class ObjectsPopup extends Vue {
                 font-size: 18px;
                 line-height: 30px;
                 text-align: center;
-                letter-spacing: -0.100741px;
-                color: rgba(37, 37, 37, 0.7);
+                letter-spacing: -0.1007px;
+                color: rgb(37 37 37 / 70%);
                 margin: 0;
             }
 

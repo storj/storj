@@ -30,7 +30,7 @@ export default class SortProjectsListHeader extends Vue {}
         height: 40px;
         background-color: #fff;
         margin-top: 31px;
-        padding: 16px 16px 0 16px;
+        padding: 16px 16px 0;
         border-radius: 8px 8px 0 0;
 
         &__name-item,

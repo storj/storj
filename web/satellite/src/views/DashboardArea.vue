@@ -386,12 +386,9 @@ export default class DashboardArea extends Vue {
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgba(134, 134, 148, 0.3);
+        background-color: rgb(134 134 148 / 30%);
         visibility: hidden;
         opacity: 0;
-        -webkit-transition: all 0.5s linear;
-        -moz-transition: all 0.5s linear;
-        -o-transition: all 0.5s linear;
         transition: all 0.5s linear;
     }
 

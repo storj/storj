@@ -102,7 +102,7 @@ export default class DetailedHistory extends Vue {
 
     .history-area {
         margin-top: 27px;
-        padding: 0 0 80px 0;
+        padding: 0 0 80px;
         background-color: #f5f6fa;
         font-family: 'font_regular', sans-serif;
 
@@ -145,7 +145,7 @@ export default class DetailedHistory extends Vue {
 
         &__content {
             background-color: #fff;
-            padding: 30px 40px 0 40px;
+            padding: 30px 40px 0;
             border-radius: 8px;
         }
 

@@ -149,7 +149,7 @@ export default class ProjectDropdown extends Vue {
         z-index: 1120;
         left: 0;
         top: 50px;
-        box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+        box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
         border-radius: 6px;
         background-color: #fff;
         padding-top: 6px;

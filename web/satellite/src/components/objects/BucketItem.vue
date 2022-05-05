@@ -114,7 +114,7 @@ export default class BucketItem extends Vue {
                 top: 25px;
                 right: 15px;
                 background: #fff;
-                box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+                box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
                 border-radius: 6px;
                 width: 255px;
                 padding: 10px 0;

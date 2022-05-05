@@ -67,7 +67,7 @@ export default class MFARecoveryCodesPopup extends Vue {
         display: flex;
         justify-content: center;
         z-index: 1000;
-        background: rgba(27, 37, 51, 0.75);
+        background: rgb(27 37 51 / 75%);
 
         &__container {
             padding: 60px;
@@ -87,7 +87,7 @@ export default class MFARecoveryCodesPopup extends Vue {
                 line-height: 34px;
                 text-align: center;
                 color: #000;
-                margin: 0 0 30px 0;
+                margin: 0 0 30px;
             }
 
             &__codes {
@@ -104,7 +104,7 @@ export default class MFARecoveryCodesPopup extends Vue {
                     line-height: 21px;
                     text-align: center;
                     color: #000;
-                    margin: 0 0 30px 0;
+                    margin: 0 0 30px;
                     max-width: 485px;
                 }
             }

@@ -153,7 +153,7 @@ export default class App extends Vue {
     input,
     textarea {
         font-family: inherit;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         color: #354049;
         caret-color: #2683ff;
     }

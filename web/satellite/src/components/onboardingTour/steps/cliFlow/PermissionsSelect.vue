@@ -148,7 +148,7 @@ export default class PermissionsSelect extends Vue {
         background-color: #fff;
         cursor: pointer;
         border-radius: 6px;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         font-family: 'font_regular', sans-serif;
         width: 235px;
         position: relative;
@@ -176,11 +176,11 @@ export default class PermissionsSelect extends Vue {
             left: 0;
             z-index: 1;
             border-radius: 6px;
-            border: 1px solid rgba(56, 75, 101, 0.4);
+            border: 1px solid rgb(56 75 101 / 40%);
             background-color: #fff;
             padding: 10px 20px;
             width: calc(100% - 40px);
-            box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+            box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
 
             &__item {
                 display: flex;

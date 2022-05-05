@@ -96,13 +96,9 @@ export default class SelectInput extends Vue {
             height: 46px;
             padding: 0 30px 0 0;
             text-indent: 20px;
-            border: 1px solid rgba(56, 75, 101, 0.4);
+            border: 1px solid rgb(56 75 101 / 40%);
             border-radius: 6px;
-            -webkit-box-sizing: border-box;
-            -moz-box-sizing: border-box;
             box-sizing: border-box;
-            -webkit-appearance: none;
-            -moz-appearance: none;
             appearance: none;
 
             &__caret {

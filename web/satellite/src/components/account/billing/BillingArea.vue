@@ -234,7 +234,7 @@ export default class BillingArea extends Vue {
                 font-weight: bold;
                 font-size: 16px;
                 line-height: 148.31%;
-                margin: 30px 0 10px 0;
+                margin: 30px 0 10px;
                 display: inline-block;
             }
 
@@ -333,7 +333,7 @@ export default class BillingArea extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: flex-start;
-                padding: 20px 20px 20px 20px;
+                padding: 20px;
                 border-radius: 12px;
 
                 &__text {
@@ -356,7 +356,7 @@ export default class BillingArea extends Vue {
     }
 
     .custom-position {
-        margin: 30px 0 20px 0;
+        margin: 30px 0 20px;
     }
 
     .icon {

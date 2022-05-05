@@ -127,7 +127,7 @@ export default class EditProfilePopup extends Vue {
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgba(134, 134, 148, 0.4);
+        background-color: rgb(134 134 148 / 40%);
         z-index: 1000;
         display: flex;
         justify-content: center;

@@ -75,7 +75,7 @@ export default class OverviewContainer extends Vue {
 <style scoped lang="scss">
     .overview-container {
         background: #fcfcfc;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
         border-radius: 20px;
         font-family: 'font_regular', sans-serif;
         padding: 48px;
@@ -91,7 +91,7 @@ export default class OverviewContainer extends Vue {
             line-height: 36px;
             letter-spacing: 1px;
             color: #14142b;
-            margin: 5px 0 10px 0;
+            margin: 5px 0 10px;
         }
 
         &__enc {
@@ -101,7 +101,7 @@ export default class OverviewContainer extends Vue {
             letter-spacing: 1px;
             color: #14142b;
             font-weight: 300;
-            margin: 0 0 10px 0;
+            margin: 0 0 10px;
             text-transform: uppercase;
         }
 
