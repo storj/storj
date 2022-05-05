@@ -364,7 +364,7 @@ pipeline {
                 }
             }
         }
-/*
+
         stage('UI') {
             when {
                 anyOf {
@@ -398,7 +398,7 @@ pipeline {
                 }
             }
         }
-*/
+
         stage('Post') {
             parallel {
                 stage('Lint') {
