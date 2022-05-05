@@ -5,7 +5,7 @@ go 1.17
 replace storj.io/storj => ../
 
 require (
-	github.com/go-rod/rod v0.101.8
+	github.com/go-rod/rod v0.106.5
 	github.com/spacemonkeygo/monkit/v3 v3.0.17
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
@@ -177,8 +177,8 @@ require (
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
-	github.com/ysmood/goob v0.3.0 // indirect
-	github.com/ysmood/gson v0.6.4 // indirect
+	github.com/ysmood/goob v0.4.0 // indirect
+	github.com/ysmood/gson v0.7.1 // indirect
 	github.com/ysmood/leakless v0.7.0 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	github.com/zeebo/errs v1.3.0 // indirect

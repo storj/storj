@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/cdp"
-	"github.com/go-rod/rod/lib/defaults"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/go-rod/rod/lib/utils"
@@ -27,7 +26,7 @@ import (
 // Our testing suite heavily uses randomly selected ports, which may collide
 // with the launcher lock port. We'll disable the lock port entirely for
 // the time being.
-func init() { defaults.LockPort = 0 }
+// func init() { defaults.LockPort = 0 }
 
 // Browser starts a browser for testing using environment variables for configuration.
 func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, fn func(*rod.Browser)) {
@@ -60,7 +59,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 
 	defer func() {
 		launch.Kill()
-		avoidStall(3*time.Second, launch.Cleanup)
+		avoidStall(10*time.Second, launch.Cleanup)
 	}()
 
 	url, err := launch.Launch()
@@ -75,7 +74,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 
 	browser := rod.New().
 		Timeout(time.Minute).
-		Sleeper(MaxDuration(5 * time.Second)).
+		Sleeper(MaxDuration(88888888 * time.Second)).
 		Client(client).
 		Logger(utils.Log(func(msg ...interface{}) {
 			logBrowser.Info(fmt.Sprintln(msg...))
@@ -84,7 +83,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 		WithPanic(func(v interface{}) { require.Fail(t, "check failed", v) })
 
 	if slowBrowser {
-		browser = browser.SlowMotion(100 * time.Millisecond).Trace(true)
+		browser = browser.SlowMotion(1000 * time.Millisecond).Trace(true)
 	}
 
 	defer ctx.Check(func() error {
@@ -117,15 +116,15 @@ func browserTimeoutDetector(duration time.Duration) context.CancelFunc {
 // MaxDuration returns a sleeper constructor with the max duration.
 func MaxDuration(max time.Duration) func() utils.Sleeper {
 	return func() utils.Sleeper {
-		singleSleep := 100 * time.Millisecond
+		singleSleep := 1500 * time.Millisecond
 		totalSlept := time.Duration(0)
 		return func(ctx context.Context) error {
 			if totalSlept > max {
 				return errMaxSleepDuration(max)
 			}
-			if singleSleep > 500*time.Millisecond {
-				singleSleep = 500 * time.Millisecond
-			}
+			// if singleSleep > 500*time.Millisecond {
+			//	singleSleep = 500 * time.Millisecond
+			//  }
 
 			totalSlept += singleSleep
 			t := time.NewTimer(singleSleep)
