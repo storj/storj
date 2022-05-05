@@ -22,6 +22,9 @@ let plugins = [
         contextRegExp: /bip39[\\/]src$/,
         resourceRegExp: /^\.\/wordlists\/(?!english)/,
     }),
+    new webpack.ProvidePlugin({
+        Buffer: ['buffer', 'Buffer'],
+    }),
 ];
 
 if(process.env["STORJ_DEBUG_BUNDLE_SIZE"]) {
@@ -39,6 +42,7 @@ module.exports = {
             fallback: {
                 "util": require.resolve("util/"),
                 "stream": require.resolve("stream-browserify"),
+                "buffer": require.resolve("buffer"),
             },
         }
     },
