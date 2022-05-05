@@ -212,17 +212,6 @@ pipeline {
         }
 
         stage('UI') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch pattern: "release-.*", comparator: "REGEXP"
-                    changeset "testsuite/ui/**"
-                    changeset "web/**"
-                    changeset "satellite/console/**"
-                    changeset "storagenode/console/**"
-                    changeset "multinode/console/**"
-                }
-            }
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
