@@ -4,127 +4,140 @@
 <template>
     <div class="create-access">
         <div class="create-access__modal-container">
-            <div class="create-access__modal-container__header-container">
-                <h2 class="create-access__modal-container__header-container__title">Create Access</h2>
-                <div
-                class="create-access__modal-container__header-container__close-cross-container" @click="onCloseClick">
-                    <CloseCrossIcon />
-                </div>
-            </div>
-            <div class="create-access__modal-container__body-container">
-                <TypesIcon class="create-access__modal-container__body-container__type-icon"/>
-                <div class="create-access__modal-container__body-container__type">
-                    <p>Type</p>
-                    <div>
-                        <input 
-                        type="radio" 
-                        id="acess-grant-check"
-                        name="type" 
-                        :checked="this.checkedType === 'access'"
-                        @click="this.checkedType = 'access'"/>
-                        <label for="acess-grant-check">Access Grant</label>
-                    </div>
-                    <div>
-                        <input 
-                        type="radio" 
-                        id="s3-check"
-                        name="type" 
-                        :checked="this.checkedType === 's3'"
-                        @click="this.checkedType = 's3'"/>
-                        <label for="s3-check">S3 Credentials</label>
-                    </div>
-                    <div>
-                        <input 
-                        type="radio" 
-                        id="api-check"
-                        name="type" 
-                        :checked="this.checkedType === 'api'"
-                        @click="this.checkedType = 'api'"/>
-                        <label for="api-check">API Access</label>
+            <form>
+                <div class="create-access__modal-container__header-container">
+                    <h2 class="create-access__modal-container__header-container__title">Create Access</h2>
+                    <div
+                    class="create-access__modal-container__header-container__close-cross-container" @click="onCloseClick">
+                        <CloseCrossIcon />
                     </div>
                 </div>
-                <NameIcon class="create-access__modal-container__body-container__name-icon"/>
-                <div class="create-access__modal-container__body-container__name">
-                    <p>Name</p>
-                    <input 
-                    type="text" 
-                    placeholder="Input Access Name" class="create-access__modal-container__body-container__name__input"
-                    >
-                </div>
-                <PermissionsIcon class="create-access__modal-container__body-container__permissions-icon"/>
-                <div class="create-access__modal-container__body-container__permissions">
-                    <p>Permissions</p>
-                    <div>
-                        <input 
-                        type="checkbox" 
-                        id="permissions__all-check"
-                        />
-                        <label for="permissions__all-check">All</label>
-                        <Chevron @click="togglePermissions" :class="`permissions-chevron-${this.showAllPermissions.position}`"/>
-                    </div>
-                    <div v-if="this.showAllPermissions.show">
-                        <div v-for="(item, key) in permissionsList" v-bind:key="key">
-                            <input type="checkbox" :id="`permissions__${item}-check`"/>
-                            <label :for="`permissions__${item}-check`">{{item}}</label>
+                <div class="create-access__modal-container__body-container">
+                    <TypesIcon class="create-access__modal-container__body-container__type-icon"/>
+                    <div class="create-access__modal-container__body-container__type">
+                        <p>Type</p>
+                        <div>
+                            <input 
+                            v-model="checkedType"
+                            value="access"
+                            type="radio" 
+                            id="acess-grant-check"
+                            name="type" 
+                            :checked="this.checkedType === 'access'"/>
+                            <label for="acess-grant-check">Access Grant</label>
+                        </div>
+                        <div>
+                            <input 
+                            v-model="checkedType"
+                            value="s3"
+                            type="radio" 
+                            id="s3-check"
+                            name="type" 
+                            :checked="this.checkedType === 's3'"/>
+                            <label for="s3-check">S3 Credentials</label>
+                        </div>
+                        <div>
+                            <input
+                            v-model="checkedType"
+                            value="api"
+                            type="radio" 
+                            id="api-check"
+                            name="type" 
+                            :checked="this.checkedType === 'api'"
+                            @click="this.checkedType = 'api'"/>
+                            <label for="api-check">API Access</label>
                         </div>
                     </div>
-                </div>
-                <BucketsIcon class="create-access__modal-container__body-container__buckets-icon"/>
-                <div class="create-access__modal-container__body-container__buckets">
-                    <p>Buckets</p>
-                    <div>
-                        <!-- <input type="checkbox" id="buckets__all-check"/>
-                        <label for="buckets__all-check">All</label>
-                        <Chevron 
-                        @click="toggleBuckets" 
-                        :class="`buckets-chevron-${this.showAllBuckets.position}`"/> -->
-                        <BucketsSelection 
-                        container-style="access-bucket-container"
-                        text-style="access-bucket-text"/>
+                    <NameIcon class="create-access__modal-container__body-container__name-icon"/>
+                    <div class="create-access__modal-container__body-container__name">
+                        <p>Name</p>
+                        <input
+                        v-model="accessName"
+                        type="text" 
+                        placeholder="Input Access Name" class="create-access__modal-container__body-container__name__input"
+                        >
                     </div>
-                    <div v-if="this.showAllBuckets.show">
-                        <div v-for="(item, key) in bucketsList" v-bind:key="key">
-                            <input type="checkbox" :id="`buckets__${item}-check`"/>
-                            <label :for="`buckets__${item}-check`">{{item}}</label>
+                    <PermissionsIcon class="create-access__modal-container__body-container__permissions-icon"/>
+                    <div class="create-access__modal-container__body-container__permissions">
+                        <p>Permissions</p>
+                        <div>
+                            <input
+                            type="checkbox" 
+                            id="permissions__all-check"
+                            @click="toggleAllPermission('all')"
+                            :checked="allPermissionsClicked"
+                            />
+                            <label for="permissions__all-check">All</label>
+                            <Chevron @click="togglePermissions" :class="`permissions-chevron-${this.showAllPermissions.position}`"/>
+                        </div>
+                        <div v-if="this.showAllPermissions.show">
+                            <div v-for="(item, key) in permissionsList" v-bind:key="key">
+                                <input 
+                                v-model="selectedPermissions"
+                                :value="item"
+                                type="checkbox" 
+                                :id="`permissions__${item}-check`"
+                                :checked="checkedPermissions.item"
+                                @click="toggleAllPermission(item)"/>
+                                <label :for="`permissions__${item}-check`">{{item}}</label>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <DateIcon class="create-access__modal-container__body-container__date-icon"/>
-                <div class="create-access__modal-container__body-container__duration">
-                    <p>Duration</p>
-                    <div>
-                        <DurationSelection
-                        container-style="access-date-container"
-                        text-style="access-date-text"/>
+                    <BucketsIcon class="create-access__modal-container__body-container__buckets-icon"/>
+                    <div class="create-access__modal-container__body-container__buckets">
+                        <p>Buckets</p>
+                        <div>
+                            <BucketsSelection 
+                            container-style="access-bucket-container"
+                            text-style="access-bucket-text"/>
+                        </div>
+                        <div class="create-access__modal-container__body-container__buckets__bucket-bullets">
+                            <div
+                                v-for="(name, index) in selectedBucketNames"
+                                :key="index"
+                                class="create-access__modal-container__body-container__buckets__bucket-bullets__container"
+                            >
+                                <BucketNameBullet :name="name" />
+                            </div>
+                        </div>
                     </div>
+                    <DateIcon class="create-access__modal-container__body-container__date-icon"/>
+                    <div class="create-access__modal-container__body-container__duration">
+                        <p>Duration</p>
+                        <div>
+                            <DurationSelection
+                            container-style="access-date-container"
+                            text-style="access-date-text"/>
+                        </div>
+                    </div>
+
+                    <!-- for future use -->
+                    <!-- <NotesIcon class="create-access__modal-container__body-container__notes-icon"/>
+                    <div class="create-access__modal-container__body-container__notes">
+                        <p>Notes</p>
+                        <div>--Notes Section Here--</div>
+                    </div> -->
+
                 </div>
-
-                <!-- for future use -->
-                <!-- <NotesIcon class="create-access__modal-container__body-container__notes-icon"/>
-                <div class="create-access__modal-container__body-container__notes">
-                    <p>Notes</p>
-                    <div>--Notes Section Here--</div>
-                </div> -->
-
-            </div>
-            <div class="create-access__modal-container__divider"></div>
-            <div class="create-access__modal-container__footer-container">
-                <VButton
-                    label="Learn More"
-                    width="auto"
-                    height="50px"
-                    is-transparent="true"
-                    font-size="16px"
-                    class="create-access__modal-container__footer-container__learn-more-button"
-                />
-                <VButton
-                    label="Encrypt My Access  ⟶"
-                    font-size="16px"
-                    width="auto"
-                    height="50px"
-                    class="create-access__modal-container__footer-container__encrypt-button"
-                />
-            </div>
+                <div class="create-access__modal-container__divider"></div>
+                <div class="create-access__modal-container__footer-container">
+                    <VButton
+                        label="Learn More"
+                        width="auto"
+                        height="50px"
+                        is-transparent="true"
+                        font-size="16px"
+                        class="create-access__modal-container__footer-container__learn-more-button"
+                    />
+                    <VButton
+                        label="Encrypt My Access  ⟶"
+                        font-size="16px"
+                        width="auto"
+                        height="50px"
+                        class="create-access__modal-container__footer-container__encrypt-button"
+                    />
+                </div>
+            </form>
         </div>
     </div>
 </template>
@@ -134,6 +147,7 @@ import { Component, Vue, Prop } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
 import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
+import BucketNameBullet from "@/components/accessGrants/permissions/BucketNameBullet.vue";
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import VCheckbox from '@/components/common/VCheckbox.vue';
 import TypesIcon from '@/../static/images/accessGrants/create-access_type.svg';
@@ -145,6 +159,8 @@ import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import { RouteConfig } from '@/router';
 
@@ -155,6 +171,7 @@ import { RouteConfig } from '@/router';
         VButton,
         DurationSelection,
         BucketsSelection,
+        BucketNameBullet,
         CloseCrossIcon,
         TypesIcon,
         PermissionsIcon,
@@ -173,35 +190,27 @@ export default class CreateAccessModal extends Vue {
     @Prop({default: () => { return; }})
     private readonly onClose: () => void;
 
-    private showAllPermissions = {show: false, position: "up"};
-    private permissionsList = ["Read","Write","List","Delete"];
-    private showAllBuckets = {show: false, position: "up"};
-    private bucketsList = [];
     private checkedType = '';
-    private checkedPermissions = {read: false, write: false, list: false, delete: false}
+    private showAllPermissions = {show: false, position: "up"};
+    private permissionsList = ["read","write","list","delete"];
+    private accessName = '';
+    private checkedPermissions = {read: false, write: false, list: false, delete: false};
+    private selectedPermissions : string[] = [];
+    private allPermissionsClicked = false;
+    public areBucketNamesFetching = true;
 
     /**
      * Checks which type was selected on mount.
      */
-    public mounted(): void {
+    public async mounted(): Promise<void> {
         this.checkedType = this.defaultType;
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+            this.areBucketNamesFetching = false;
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
+        }
     }
-
-    /**
-     * Validates types checked can be selected together.
-     */
-    // public permissionValidation(type): void {
-    //     if (type !== "cli" && this.checkedTypes[type] === false) {
-    //         this.checkedTypes[type] = true;
-    //         this.checkedTypes.cli = false;
-    //     } else if (type !== "cli" && this.checkedTypes[type] === true) {
-    //         this.checkedTypes[type] = false;
-    //     } else if (type === "cli" && this.checkedTypes.cli === false) {
-    //         this.checkedTypes = {access: false, s3: false, cli: true}
-    //     } else {
-    //         this.checkedTypes.cli = false;
-    //     }
-    // }
 
     /**
      * Closes modal.
@@ -225,17 +234,53 @@ export default class CreateAccessModal extends Vue {
     }
 
     /**
-     * Toggles buckets list visibility.
+     * Handles permissions All.
      */
-    public toggleBuckets(): void {
-        if (this.showAllBuckets.show === false) {
-            this.showAllBuckets.show = true;
-            this.showAllBuckets.position = "down";
+    public toggleAllPermission(permission): void {
+        if (permission === 'all' && this.allPermissionsClicked === false) {
+            this.allPermissionsClicked = true;
+            this.selectedPermissions = this.permissionsList;
+            this.checkedPermissions = {read: true, write: true, list: true, delete: true}
+            return
+        } else if(permission === 'all' && this.allPermissionsClicked === true) {
+            this.allPermissionsClicked = false;
+            this.selectedPermissions = []
+            this.checkedPermissions = {read: false, write: false, list: false, delete: false}
+            return
+        } else if(this.checkedPermissions[permission] === true) {
+            this.checkedPermissions[permission] = false
+            this.allPermissionsClicked = false
+            return
         } else {
-            this.showAllBuckets.show = false;
-            this.showAllBuckets.position = "up";
+            this.checkedPermissions[permission] = true
+            if(this.checkedPermissions.read === true && this.checkedPermissions.write === true && this.checkedPermissions.list === true && this.checkedPermissions.delete === true) {
+                this.allPermissionsClicked = true
+                return
+            }
         }
     }
+
+    /**
+     * retrieves selected buckets for bucket bullets.
+     */
+    public get selectedBucketNames(): string[] {
+        return this.$store.state.accessGrantsModule.selectedBucketNames;
+    }
+
+    /**
+     * Returns not before date permission from store.
+     */
+    private get notBeforePermission(): Date | null {
+        return this.$store.state.accessGrantsModule.permissionNotBefore;
+    }
+
+    /**
+     * Returns not after date permission from store.
+     */
+    private get notAfterPermission(): Date | null {
+        return this.$store.state.accessGrantsModule.permissionNotAfter;
+    }
+
 
 }
 </script>
@@ -266,6 +311,10 @@ export default class CreateAccessModal extends Vue {
     h2{
         font-weight: 800;
         font-size: 28px;
+    }
+
+    form {
+        width: 100%;
     }
 
     .create-access {
@@ -374,6 +423,16 @@ export default class CreateAccessModal extends Vue {
                     grid-row: 4;
                     display: flex;
                     flex-direction: column;
+                    &__bucket-bullets {
+                        display: flex;
+                        align-items: center;
+                        max-width: 100%;
+                        flex-wrap: wrap;
+                        &__container {
+                            display: flex;
+                            margin-top: 5px;                           
+                        }
+                    }
                 }
                 &__date-icon {
                     grid-column: 1;
