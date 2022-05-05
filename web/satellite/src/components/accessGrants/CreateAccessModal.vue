@@ -3,6 +3,30 @@
 
 <template>
     <div class="create-access">
+        <div 
+            v-if="this.tooltipHover === 'access'" 
+            class="access-tooltip"
+            @mouseover="toggleTooltipHover('access','over')"
+            @mouseleave="toggleTooltipHover('access','leave')"
+        >
+            <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+        </div>
+        <div 
+            v-if="this.tooltipHover === 's3'" 
+            class="s3-tooltip"
+            @mouseover="toggleTooltipHover('s3','over')"
+            @mouseleave="toggleTooltipHover('s3','leave')"
+        >
+            <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+        </div>
+        <div 
+            v-if="this.tooltipHover === 'api'" 
+            class="api-tooltip"
+            @mouseover="toggleTooltipHover('api','over')"
+            @mouseleave="toggleTooltipHover('api','leave')"
+        >
+            <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+        </div>
         <div class="create-access__modal-container">
             <form>
                 <div class="create-access__modal-container__header-container">
@@ -16,7 +40,7 @@
                     <TypesIcon class="create-access__modal-container__body-container__type-icon"/>
                     <div class="create-access__modal-container__body-container__type">
                         <p>Type</p>
-                        <div>
+                        <div class="create-access__modal-container__body-container__type__type-container">
                             <input 
                             v-model="checkedType"
                             value="access"
@@ -24,9 +48,18 @@
                             id="acess-grant-check"
                             name="type" 
                             :checked="this.checkedType === 'access'"/>
-                            <label for="acess-grant-check">Access Grant</label>
+                            <label for="acess-grant-check">
+                                Access Grant
+                            </label>
+                            <img
+                                class="tooltip-icon"
+                                src="../../../static/images/accessGrants/create-access_information.png"
+                                @mouseover="toggleTooltipHover('access','over')"
+                                @mouseleave="toggleTooltipHover('access','leave')"
+
+                            />
                         </div>
-                        <div>
+                        <div class="create-access__modal-container__body-container__type__type-container">
                             <input 
                             v-model="checkedType"
                             value="s3"
@@ -35,8 +68,14 @@
                             name="type" 
                             :checked="this.checkedType === 's3'"/>
                             <label for="s3-check">S3 Credentials</label>
+                            <img
+                                class="tooltip-icon"
+                                src="../../../static/images/accessGrants/create-access_information.png"
+                                @mouseover="toggleTooltipHover('s3','over')"
+                                @mouseleave="toggleTooltipHover('s3','leave')"
+                            />
                         </div>
-                        <div>
+                        <div class="create-access__modal-container__body-container__type__type-container">
                             <input
                             v-model="checkedType"
                             value="api"
@@ -46,6 +85,12 @@
                             :checked="this.checkedType === 'api'"
                             @click="this.checkedType = 'api'"/>
                             <label for="api-check">API Access</label>
+                            <img
+                                class="tooltip-icon"
+                                src="../../../static/images/accessGrants/create-access_information.png"
+                                @mouseover="toggleTooltipHover('api','over')"
+                                @mouseleave="toggleTooltipHover('api','leave')"
+                            />
                         </div>
                     </div>
                     <NameIcon class="create-access__modal-container__body-container__name-icon"/>
@@ -157,6 +202,7 @@ import BucketsIcon from '@/../static/images/accessGrants/create-access_buckets.s
 import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
 import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
+// import InformationIcon from '@/../static/images/accessGrants/create-access_information.png';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
@@ -180,6 +226,7 @@ import { RouteConfig } from '@/router';
         DateIcon,
         NotesIcon,
         Chevron,
+        // InformationIcon,
     },
 })
 export default class CreateAccessModal extends Vue {
@@ -198,6 +245,8 @@ export default class CreateAccessModal extends Vue {
     private selectedPermissions : string[] = [];
     private allPermissionsClicked = false;
     public areBucketNamesFetching = true;
+    public tooltipHover = '';
+    public tooltipVisibilityTimer;
 
     /**
      * Checks which type was selected on mount.
@@ -230,6 +279,27 @@ export default class CreateAccessModal extends Vue {
         } else {
             this.showAllPermissions.show = false;
             this.showAllPermissions.position = "up";
+        }
+    }
+
+    /**
+     * Toggles tooltip visibility.
+     */
+    public toggleTooltipHover(type,action): void {
+        if (this.tooltipHover === '' && action === 'over') {
+            this.tooltipHover = type;
+            return;
+        } else if (this.tooltipHover === type && action === 'leave') {
+            this.tooltipVisibilityTimer = setTimeout(() => {
+                this.tooltipHover = '';
+            },750);
+            return;
+        } else if (this.tooltipHover === type && action === 'over') {
+            clearTimeout(this.tooltipVisibilityTimer);
+            return;
+        } else if(this.tooltipHover !== type) {
+            clearTimeout(this.tooltipVisibilityTimer)
+            this.tooltipHover = type;
         }
     }
 
@@ -296,6 +366,33 @@ export default class CreateAccessModal extends Vue {
     @mixin chevron {
         padding-left: 4px;
         transition: transform 0.3s;
+    }
+
+    @mixin tooltip-container {
+        position: absolute;
+        background: #56606D;
+        border-radius: 6px;
+        width: 253px;
+        color: #ffffff;
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        padding: 8px;
+        z-index: 1;
+        transition: 250ms;
+    }
+
+    @mixin tooltip-arrow {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        width: 0;
+        height: 0;
+        border: 6px solid transparent;
+        border-top-color: #56606d;
+        border-bottom: 0;
+        margin-left: -20px;
+        margin-bottom: -20px;
     }
 
     p {
@@ -384,6 +481,11 @@ export default class CreateAccessModal extends Vue {
                     grid-row: 1;
                     display: flex;
                     flex-direction: column;
+                    &__type-container {
+                        display: flex;
+                        flex-direction: row;
+                        align-items: center;
+                    }
                 }
                 &__name-icon {
                     grid-column: 1;
@@ -455,7 +557,7 @@ export default class CreateAccessModal extends Vue {
                     flex-direction: column;
                 }
                 & div {
-                        padding-bottom: 10px;
+                    padding-bottom: 10px;
                 }
             }
             &__divider {
@@ -495,6 +597,58 @@ export default class CreateAccessModal extends Vue {
 
     .permissions-chevron-down {
         @include chevron;
+    }
+
+    .tooltip-icon {
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+    }
+
+    .tooltip-text {
+        text-align: center;
+        font-weight: 500;
+    }
+
+    a {
+        color: #FFFFFF;
+        text-decoration: underline !important;
+        cursor: pointer;
+    }
+
+    .access-tooltip {
+        top: 7%;
+        left: 36.68%;
+        @include tooltip-container;
+        &::after {
+            left: 50%;
+            top: 100%;
+            @include tooltip-arrow;
+        }
+    }
+
+    .s3-tooltip {
+        top: 15%;
+        left: 37.55%;
+        @include tooltip-container;
+        &::after {            
+            left: 50%;
+            top: -8%;
+            transform: rotate(180deg);
+            @include tooltip-arrow;
+        }
+    }
+
+    .api-tooltip {
+        top: 17.1%;
+        left: 35.1%;
+        @include tooltip-container;
+        &::after {
+            left: 50%;
+            top: -11%;
+            transform: rotate(180deg);
+            @include tooltip-arrow;
+        }
     }
 
 
