@@ -11,6 +11,6 @@ export enum AnalyticsEvent {
     OBJECT_UPLOADED = 'Object Uploaded',
     API_KEY_GENERATED = 'API Key Generated',
     UPGRADE_BANNER_CLICKED = 'Upgrade Banner Clicked',
-    BANNER_ADD_CARD = 'Credit Card Added Through Banner',
-    BANNER_ADD_TOKENS = 'Storj Token Added Through Banner',
+    MODAL_ADD_CARD = 'Credit Card Added In Modal',
+    MODAL_ADD_TOKENS = 'Storj Token Added In Modal',
 }

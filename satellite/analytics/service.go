@@ -29,8 +29,8 @@ const (
 	eventAPIKeyGenerated           = "API Key Generated"
 	eventCreditCardAdded           = "Credit Card Added"
 	eventUpgradeBannerClicked      = "Upgrade Banner Clicked"
-	eventBannerAddCard             = "Credit Card Added Through Banner"
-	eventBannerAddTokens           = "Storj Token Added Through Banner"
+	eventModalAddCard              = "Credit Card Added In Modal"
+	eventModalAddTokens            = "Storj Token Added In Modal"
 )
 
 var (
@@ -72,7 +72,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 	}
 	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked,
 		eventPathSelected, eventLinkShared, eventObjectUploaded, eventAPIKeyGenerated, eventUpgradeBannerClicked,
-		eventBannerAddCard, eventBannerAddTokens} {
+		eventModalAddCard, eventModalAddTokens} {
 		service.clientEvents[name] = true
 	}
 
