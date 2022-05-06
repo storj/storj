@@ -15,10 +15,8 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-var (
-	// ErrAnalyticsAPI - console analytics api error type.
-	ErrAnalyticsAPI = errs.Class("consoleapi analytics")
-)
+// ErrAnalyticsAPI - console analytics api error type.
+var ErrAnalyticsAPI = errs.Class("consoleapi analytics")
 
 // Analytics is an api controller that exposes analytics related functionality.
 type Analytics struct {
@@ -59,7 +57,7 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 
 	auth, err := console.GetAuth(ctx)
 	if err != nil {
-		a.serveJSONError(w, http.StatusInternalServerError, err)
+		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
 	if et.Link != "" {
