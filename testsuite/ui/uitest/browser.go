@@ -30,8 +30,8 @@ import (
 
 // Browser starts a browser for testing using environment variables for configuration.
 func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, fn func(*rod.Browser)) {
-	showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
-	slowBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") == "slow"
+	showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") == FALSE
+	slowBrowser := os.Getenv("STORJ_TEST_SLOW_BROWSER") == FALSE
 
 	logLauncher := planet.Log().Named("launcher")
 

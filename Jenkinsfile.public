@@ -218,6 +218,8 @@ pipeline {
                 STORJ_TEST_BROWSER  = '/usr/bin/chromium'
                 STORJ_TEST_SATELLITE_WEB = "${pwd()}/web/satellite"
                 STORJ_TEST_EDGE_HOST = '127.0.0.10'
+                STORJ_TEST_SHOW_BROWSER = 'false'
+                STORJ_TEST_SLOW_BROWSER = 'FALSE'
             }
             steps {
                 sh 'psql -U postgres -c \'create database testui;\''
