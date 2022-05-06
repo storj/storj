@@ -39,7 +39,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 	defer browserLoaded()
 
 	launch := launcher.New().
-		Headless(!showBrowser).
+		Headless(showBrowser).
 		Leakless(true).
 		Devtools(false).
 		NoSandbox(true).
