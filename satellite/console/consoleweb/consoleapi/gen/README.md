@@ -2,6 +2,15 @@
 
 Requires setting 'Authorization' header for requests.
 
+Example of request
+```bash
+curl  -i -L \
+    -H "Accept: application/json" \
+    -H 'Authorization: Bearer <key>' \
+    -X GET \
+    "https://satellite.qa.storj.io/api/v0/projects/"
+```
+
 ## Successful responses
 All the requests a non-empty body for the resource that we're interacting with.
 
@@ -28,15 +37,7 @@ Example:
 ```
 
 ### Project Management API Endpoints
-Example of request
-```bash
-curl  -i -L \
-    -H "Accept: application/json" \
-    -H 'Authorization: Bearer <key>' \
-    -X GET \
-    "https://satellite.qa.storj.io/api/v0/projects/"
-```
-#### GET projects/
+#### GET /api/v0/projects/
 Gets users projects.
 
 !!!WARNING!!! Project ID is used as encryption salt. Please don't send it to anyone. We're going to fix it soon. 
@@ -64,7 +65,7 @@ A successful response body:
 ]
 ```
 
-#### GET /bucket-rollup/projectID={uuid string}&bucket={string}&since={Date Timestamp like '2006-01-02T15:00:00Z'}&before={Date Timestamp like '2006-01-02T15:00:00Z'}
+#### GET /api/v0/projects/bucket-rollup/projectID={uuid string}&bucket={string}&since={Date Timestamp like '2006-01-02T15:00:00Z'}&before={Date Timestamp like '2006-01-02T15:00:00Z'}
 Gets project's single bucket usage by bucket ID.
 
 !!!WARNING!!! Project ID is used as encryption salt. Please don't send it to anyone. We're going to fix it soon.
@@ -87,7 +88,7 @@ A successful response body:
 }
 ```
 
-#### GET /bucket-rollups/projectID={uuid string}&since={Date Timestamp like '2006-01-02T15:00:00Z'}&before={Date Timestamp like '2006-01-02T15:00:00Z'}
+#### GET /api/v0/projects/bucket-rollups/projectID={uuid string}&since={Date Timestamp like '2006-01-02T15:00:00Z'}&before={Date Timestamp like '2006-01-02T15:00:00Z'}
 Gets project's all buckets usage.
 
 !!!WARNING!!! Project ID is used as encryption salt. Please don't send it to anyone. We're going to fix it soon.
@@ -112,7 +113,7 @@ A successful response body:
 ]
 ```
 
-#### POST /create
+#### POST /api/v0/projects/create
 Creates new Project with given info.
 
 !!!WARNING!!! Project ID is used as encryption salt. Please don't send it to anyone. We're going to fix it soon.
@@ -146,7 +147,7 @@ A successful response body:
 }
 ```
 
-#### PATCH /update/{uuid string}
+#### PATCH /api/v0/projects/update/{uuid string}
 Updates project with given info.
 
 !!!WARNING!!! Project ID is used as encryption salt. Please don't send it to anyone. We're going to fix it soon.
@@ -180,5 +181,36 @@ A successful response body:
   "storageLimit":"1 GB",
   "bandwidthLimit":"1 GB",
   "segmentLimit":15000
+}
+```
+
+### Macaroon API key API Endpoints
+#### POST /api/v0/apikeys/create
+Creates new macaroon API key.
+
+!!!WARNING!!! Project ID is used as encryption salt. Please don't send it to anyone. We're going to fix it soon.
+
+Request body example:
+
+```json
+{
+  "name": "new api key",
+  "projectID": "229193d4-0d71-49e8-b9a1-b367b74ed3e3"
+}
+```
+
+A successful response body:
+
+```json
+{
+  "key": "13YqdodV5HKad2anjvy6ibtxRtHuD5hUJdsLRpRdQrT4vZ9C2wPJjsQ42L8SeTqMHeW97cwYgxT2FnDjEf3b7Mg5dfUcxm8N157Esq9",
+  "keyInfo": {
+    "id": "d7a60196-688a-4edc-a561-fd859d04e5a1",
+    "projectId": "229193d4-0d71-49e8-b9a1-b367b74ed3e3",
+    "partnerId": "00000000-0000-0000-0000-000000000000",
+    "userAgent": null,
+    "name": "new api key",
+    "createdAt": "2022-05-06T14:14:30.076498+03:00"
+  }
 }
 ```

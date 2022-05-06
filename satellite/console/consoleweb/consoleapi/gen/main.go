@@ -79,5 +79,19 @@ func main() {
 		})
 	}
 
+	{
+		g := a.Group("APIKeyManagement", "apikeys")
+
+		g.Post("/create", &apigen.Endpoint{
+			Name:        "Create new macaroon API key",
+			Description: "Creates new macaroon API key with given info",
+			MethodName:  "GenCreateAPIKey",
+			Response:    &console.CreateAPIKeyResponse{},
+			Params: []apigen.Param{
+				apigen.NewParam("apikeyInfo", console.CreateAPIKeyRequest{}),
+			},
+		})
+	}
+
 	a.MustWriteGo("satellite/console/consoleweb/consoleapi/api.gen.go")
 }

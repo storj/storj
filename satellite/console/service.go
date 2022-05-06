@@ -1759,6 +1759,83 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	return info, key, nil
 }
 
+// GenCreateAPIKey creates new api key for generated api.
+func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyRequest) (*CreateAPIKeyResponse, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "create api key", zap.String("projectID", requestInfo.ProjectID))
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	projectID, err := uuid.FromString(requestInfo.ProjectID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, requestInfo.Name, projectID)
+	if err == nil {
+		return nil, api.HTTPError{
+			Status: http.StatusConflict,
+			Err:    ErrValidation.New(apiKeyWithNameExistsErrMsg),
+		}
+	}
+
+	secret, err := macaroon.NewSecret()
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	key, err := macaroon.NewAPIKey(secret)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	apikey := APIKeyInfo{
+		Name:      requestInfo.Name,
+		ProjectID: projectID,
+		Secret:    secret,
+		PartnerID: auth.User.PartnerID,
+		UserAgent: auth.User.UserAgent,
+	}
+
+	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	s.analytics.TrackAccessGrantCreated(auth.User.ID, auth.User.Email)
+
+	return &CreateAPIKeyResponse{
+		Key:     key.Serialize(),
+		KeyInfo: info,
+	}, api.HTTPError{}
+}
+
 // GetAPIKeyInfoByName retrieves an api key by its name and project id.
 func (s *Service) GetAPIKeyInfoByName(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)

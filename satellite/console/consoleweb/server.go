@@ -220,6 +220,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	if server.config.GeneratedAPIEnabled {
 		consoleapi.NewProjectManagement(logger, server.service, router, server.service)
+		consoleapi.NewAPIKeyManagement(logger, server.service, router, server.service)
 	}
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
