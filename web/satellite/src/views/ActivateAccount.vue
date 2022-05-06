@@ -11,7 +11,7 @@
             <div v-else class="activate-area__content-area__container">
                 <h1 class="activate-area__content-area__container__title">Activate Account</h1>
                 <div class="activate-area__content-area__container__input-wrapper">
-                    <HeaderlessInput
+                    <VInput
                         label="Email Address"
                         placeholder="user@example.com"
                         :error="emailError"
@@ -32,7 +32,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
@@ -46,7 +46,7 @@ import { MetaUtils } from '@/utils/meta';
 @Component({
     components: {
         LogoIcon,
-        HeaderlessInput,
+        VInput,
         RegistrationSuccess,
     },
 })

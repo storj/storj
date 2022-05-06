@@ -6,7 +6,7 @@
         <BackIcon class="enter-passphrase__back-icon" @click="onBackClick" />
         <h1 class="enter-passphrase__title">Enter Encryption Passphrase</h1>
         <p class="enter-passphrase__sub-title">Enter the passphrase you most recently generated for Access Grants</p>
-        <HeaderedInput
+        <VInput
             label="Encryption Passphrase"
             placeholder="Enter your passphrase here"
             :error="errorMessage"
@@ -26,7 +26,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
@@ -37,7 +37,7 @@ import { MetaUtils } from '@/utils/meta';
 // @vue/component
 @Component({
     components: {
-        HeaderedInput,
+        VInput,
         VButton,
         BackIcon,
     },

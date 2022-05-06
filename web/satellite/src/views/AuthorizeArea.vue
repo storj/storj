@@ -30,7 +30,7 @@
                         <p>Automatically send updates to:</p>
 
                         <div class="authorize-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Project"
                                 role-description="project"
                                 :error="projectErr"
@@ -40,7 +40,7 @@
                         </div>
 
                         <div class="authorize-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Bucket"
                                 role-description="bucket"
                                 :error="bucketErr"
@@ -56,7 +56,7 @@
                         </div>
 
                         <div class="authorize-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Passphrase"
                                 role-description="passphrase"
                                 placeholder="Passphrase"
@@ -89,7 +89,7 @@
 
 <script lang="ts">
 import {Component, Vue} from 'vue-property-decorator';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import LogoIcon from '@/../static/images/logo.svg';
 import {Validator} from '@/utils/validation';
 import {RouteConfig} from '@/router';
@@ -109,7 +109,7 @@ const oauthClientsAPI = new OAuthClientsAPI();
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
+        VInput,
         LogoIcon,
     },
 })
