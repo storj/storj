@@ -101,8 +101,8 @@ var (
 	// ErrRegToken describes registration token errors.
 	ErrRegToken = errs.Class("registration token")
 
-	// ErrRecaptcha describes reCAPTCHA validation errors.
-	ErrRecaptcha = errs.Class("recaptcha validation")
+	// ErrCaptcha describes captcha validation errors.
+	ErrCaptcha = errs.Class("captcha validation")
 
 	// ErrRecoveryToken describes account recovery token errors.
 	ErrRecoveryToken = errs.Class("recovery token")
@@ -122,7 +122,7 @@ type Service struct {
 	buckets           Buckets
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
-	recaptchaHandler  RecaptchaHandler
+	captchaHandler    CaptchaHandler
 	analytics         *analytics.Service
 
 	config Config
@@ -151,6 +151,7 @@ type Config struct {
 	FailedLoginPenalty          float64       `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
 	UsageLimits                 UsageLimitsConfig
 	Recaptcha                   RecaptchaConfig
+	Hcaptcha                    HcaptchaConfig
 }
 
 // RecaptchaConfig contains configurations for the reCAPTCHA system.
@@ -158,6 +159,13 @@ type RecaptchaConfig struct {
 	Enabled   bool   `help:"whether or not reCAPTCHA is enabled for user registration" default:"false"`
 	SiteKey   string `help:"reCAPTCHA site key"`
 	SecretKey string `help:"reCAPTCHA secret key"`
+}
+
+// HcaptchaConfig contains configurations for the hCaptcha system.
+type HcaptchaConfig struct {
+	Enabled   bool   `help:"whether or not hCaptcha is enabled for user registration" default:"false"`
+	SiteKey   string `help:"hCaptcha site key" default:""`
+	SecretKey string `help:"hCaptcha secret key"`
 }
 
 // PaymentsService separates all payment related functionality.
@@ -180,6 +188,13 @@ func NewService(log *zap.Logger, signer Signer, store DB, restKeys RESTKeys, pro
 		config.PasswordCost = bcrypt.DefaultCost
 	}
 
+	var captchaHandler CaptchaHandler
+	if config.Recaptcha.Enabled {
+		captchaHandler = NewDefaultCaptcha(Recaptcha, config.Recaptcha.SecretKey)
+	} else if config.Hcaptcha.Enabled {
+		captchaHandler = NewDefaultCaptcha(Hcaptcha, config.Hcaptcha.SecretKey)
+	}
+
 	return &Service{
 		log:               log,
 		auditLogger:       log.Named("auditlog"),
@@ -191,7 +206,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, restKeys RESTKeys, pro
 		buckets:           buckets,
 		partners:          partners,
 		accounts:          accounts,
-		recaptchaHandler:  NewDefaultRecaptcha(config.Recaptcha.SecretKey),
+		captchaHandler:    captchaHandler,
 		analytics:         analytics,
 		config:            config,
 	}, nil
@@ -597,14 +612,14 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if s.config.Recaptcha.Enabled {
-		valid, err := s.recaptchaHandler.Verify(ctx, user.RecaptchaResponse, user.IP)
+	if s.config.Recaptcha.Enabled || s.config.Hcaptcha.Enabled {
+		valid, err := s.captchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
 		if err != nil {
-			s.log.Error("reCAPTCHA authorization failed", zap.Error(err))
-			return nil, ErrRecaptcha.Wrap(err)
+			s.log.Error("captcha authorization failed", zap.Error(err))
+			return nil, ErrCaptcha.Wrap(err)
 		}
 		if !valid {
-			return nil, ErrRecaptcha.New("reCAPTCHA validation unsuccessful")
+			return nil, ErrCaptcha.New("captcha validation unsuccessful")
 		}
 	}
 
@@ -694,10 +709,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
-// TestSwapRecaptchaHandler replaces the existing handler for reCAPTCHAs with
+// TestSwapCaptchaHandler replaces the existing handler for captchas with
 // the one specified for use in testing.
-func (s *Service) TestSwapRecaptchaHandler(h RecaptchaHandler) {
-	s.recaptchaHandler = h
+func (s *Service) TestSwapCaptchaHandler(h CaptchaHandler) {
+	s.captchaHandler = h
 }
 
 // GenerateActivationToken - is a method for generating activation token.

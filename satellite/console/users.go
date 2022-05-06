@@ -59,21 +59,21 @@ func (user *UserInfo) IsValid() error {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	FullName          string `json:"fullName"`
-	ShortName         string `json:"shortName"`
-	Email             string `json:"email"`
-	PartnerID         string `json:"partnerId"`
-	UserAgent         []byte `json:"userAgent"`
-	Password          string `json:"password"`
-	IsProfessional    bool   `json:"isProfessional"`
-	Position          string `json:"position"`
-	CompanyName       string `json:"companyName"`
-	WorkingOn         string `json:"workingOn"`
-	EmployeeCount     string `json:"employeeCount"`
-	HaveSalesContact  bool   `json:"haveSalesContact"`
-	RecaptchaResponse string `json:"recaptchaResponse"`
-	IP                string `json:"ip"`
-	SignupPromoCode   string `json:"signupPromoCode"`
+	FullName         string `json:"fullName"`
+	ShortName        string `json:"shortName"`
+	Email            string `json:"email"`
+	PartnerID        string `json:"partnerId"`
+	UserAgent        []byte `json:"userAgent"`
+	Password         string `json:"password"`
+	IsProfessional   bool   `json:"isProfessional"`
+	Position         string `json:"position"`
+	CompanyName      string `json:"companyName"`
+	WorkingOn        string `json:"workingOn"`
+	EmployeeCount    string `json:"employeeCount"`
+	HaveSalesContact bool   `json:"haveSalesContact"`
+	CaptchaResponse  string `json:"captchaResponse"`
+	IP               string `json:"ip"`
+	SignupPromoCode  string `json:"signupPromoCode"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.

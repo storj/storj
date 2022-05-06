@@ -364,14 +364,14 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	if server.config.CSPEnabled {
 		cspValues := []string{
 			"default-src 'self'",
-			"connect-src 'self' *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
+			"connect-src 'self' *.tardigradeshare.io *.storjshare.io https://hcaptcha.com, https://*.hcaptcha.com " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
-			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
+			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com https://*.hcaptcha.com",
 			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io",
 			// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
-			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'self'",
+			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'self' https://hcaptcha.com, https://*.hcaptcha.com",
 			"media-src 'self' blob: *.tardigradeshare.io *.storjshare.io",
-			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
+			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://hcaptcha.com https://*.hcaptcha.com",
 		}
 
 		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
@@ -405,6 +405,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		SegmentPrice                    string
 		RecaptchaEnabled                bool
 		RecaptchaSiteKey                string
+		HcaptchaEnabled                 bool
+		HcaptchaSiteKey                 string
 		NewProjectDashboard             bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
@@ -441,6 +443,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.SegmentPrice = server.pricing.SegmentPrice
 	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
 	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
+	data.HcaptchaEnabled = server.config.Hcaptcha.Enabled
+	data.HcaptchaSiteKey = server.config.Hcaptcha.SiteKey
 	data.NewProjectDashboard = server.config.NewProjectDashboard
 	data.NewNavigation = server.config.NewNavigation
 	data.NewObjectsFlow = server.config.NewObjectsFlow

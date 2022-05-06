@@ -10,6 +10,15 @@
 # incremental duration of penalty for failed login attempts in minutes
 # admin.console-config.failed-login-penalty: 2
 
+# whether or not hCaptcha is enabled for user registration
+# admin.console-config.hcaptcha.enabled: false
+
+# hCaptcha secret key
+# admin.console-config.hcaptcha.secret-key: ""
+
+# hCaptcha site key
+# admin.console-config.hcaptcha.site-key: ""
+
 # number of times user can try to login without penalty
 # admin.console-config.login-attempts-without-penalty: 3
 
@@ -198,6 +207,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates if generated console api should be used
 # console.generated-api-enabled: false
+
+# whether or not hCaptcha is enabled for user registration
+# console.hcaptcha.enabled: false
+
+# hCaptcha secret key
+# console.hcaptcha.secret-key: ""
+
+# hCaptcha site key
+# console.hcaptcha.site-key: ""
 
 # inactivity timer delay in seconds
 # console.inactivity-timer-delay: 600

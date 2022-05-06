@@ -185,19 +185,33 @@
                             </p>
                         </label>
                     </div>
-                    <div v-if="recaptchaEnabled" class="register-area__input-area__container__recaptcha-wrapper">
-                        <div v-if="recaptchaError" class="register-area__input-area__container__recaptcha-wrapper__label-container">
+                    <div v-if="recaptchaEnabled" class="register-area__input-area__container__captcha-wrapper">
+                        <div v-if="captchaError" class="register-area__input-area__container__captcha-wrapper__label-container">
                             <ErrorIcon />
-                            <p class="register-area__input-area__container__recaptcha-wrapper__label-container__error">reCAPTCHA is required</p>
+                            <p class="register-area__input-area__container__captcha-wrapper__label-container__error">reCAPTCHA is required</p>
                         </div>
                         <VueRecaptcha
                             ref="recaptcha"
                             :sitekey="recaptchaSiteKey"
                             load-recaptcha-script="true"
                             size="invisible"
-                            @verify="onRecaptchaVerified"
-                            @expired="onRecaptchaError"
-                            @error="onRecaptchaError"
+                            @verify="onCaptchaVerified"
+                            @expired="onCaptchaError"
+                            @error="onCaptchaError"
+                        />
+                    </div>
+                    <div v-else-if="hcaptchaEnabled" class="register-area__input-area__container__captcha-wrapper">
+                        <div v-if="captchaError" class="register-area__input-area__container__captcha-wrapper__label-container">
+                            <ErrorIcon />
+                            <p class="register-area__input-area__container__captcha-wrapper__label-container__error">HCaptcha is required</p>
+                        </div>
+                        <VueHcaptcha
+                            ref="hcaptcha"
+                            :sitekey="hcaptchaSiteKey"
+                            size="invisible"
+                            @verify="onCaptchaVerified"
+                            @expired="onCaptchaError"
+                            @error="onCaptchaError"
                         />
                     </div>
                     <p class="register-area__input-area__container__button" @click.prevent="onCreateClick">Sign Up</p>
@@ -213,6 +227,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import VueRecaptcha from 'vue-recaptcha';
+import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
@@ -247,6 +262,7 @@ import { Validator } from '@/utils/validation';
         RegisterGlobe,
         RegisterGlobeSmall,
         VueRecaptcha,
+        VueHcaptcha,
     },
 })
 export default class RegisterArea extends Vue {
@@ -275,13 +291,15 @@ export default class RegisterArea extends Vue {
     private isProfessional = false;
     private haveSalesContact = false;
 
-    private recaptchaError = false;
-    private recaptchaResponseToken = '';
+    private captchaError = false;
+    private captchaResponseToken = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('recaptcha-enabled') === 'true';
     private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('recaptcha-site-key');
+    private readonly hcaptchaEnabled: boolean = MetaUtils.getMetaContent('hcaptcha-enabled') === 'true';
+    private readonly hcaptchaSiteKey: string = MetaUtils.getMetaContent('hcaptcha-site-key');
 
     public isPasswordStrengthShown = false;
 
@@ -296,6 +314,7 @@ export default class RegisterArea extends Vue {
 
     public $refs!: {
         recaptcha: VueRecaptcha;
+        hcaptcha: VueHcaptcha;
     }
 
     /**
@@ -348,8 +367,11 @@ export default class RegisterArea extends Vue {
      * Validates input fields and proceeds user creation.
      */
     public async onCreateClick(): Promise<void> {
-        if (this.$refs.recaptcha && !this.recaptchaResponseToken) {
+        if (this.$refs.recaptcha && !this.captchaResponseToken) {
             this.$refs.recaptcha.execute();
+            return;
+        } if (this.$refs.hcaptcha && !this.captchaResponseToken) {
+            this.$refs.hcaptcha.execute();
             return;
         }
 
@@ -463,20 +485,20 @@ export default class RegisterArea extends Vue {
     }
 
     /**
-     * Handles reCAPTCHA verification response.
+     * Handles captcha verification response.
      */
-    public onRecaptchaVerified(response: string): void {
-        this.recaptchaResponseToken = response;
-        this.recaptchaError = false;
+    public onCaptchaVerified(response: string): void {
+        this.captchaResponseToken = response;
+        this.captchaError = false;
         this.createUser();
     }
 
     /**
-     * Handles reCAPTCHA error and expiry.
+     * Handles captcha error and expiry.
      */
-    public onRecaptchaError(): void {
-        this.recaptchaResponseToken = '';
-        this.recaptchaError = true;
+    public onCaptchaError(): void {
+        this.captchaResponseToken = '';
+        this.captchaError = true;
     }
 
     /**
@@ -578,7 +600,7 @@ export default class RegisterArea extends Vue {
         this.user.haveSalesContact = this.haveSalesContact;
 
         try {
-            await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
+            await this.auth.register(this.user, this.secret, this.captchaResponseToken);
 
             // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
             // signups outside of the brave browser may use a configured URL to track conversions
@@ -593,7 +615,11 @@ export default class RegisterArea extends Vue {
         } catch (error) {
             if (this.$refs.recaptcha) {
                 this.$refs.recaptcha.reset();
-                this.recaptchaResponseToken = '';
+                this.captchaResponseToken = '';
+            }
+            if (this.$refs.hcaptcha) {
+                this.$refs.hcaptcha.reset();
+                this.captchaResponseToken = '';
             }
             await this.$notify.error(error.message);
         }
@@ -885,7 +911,7 @@ export default class RegisterArea extends Vue {
                     }
                 }
 
-                &__recaptcha-wrapper {
+                &__captcha-wrapper {
                     margin-top: 30px;
 
                     &__label-container {
