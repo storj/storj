@@ -157,6 +157,14 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup reputation
+		if config.Reputation.FlushInterval > 0 {
+			cachingDB := reputation.NewCachingDB(log.Named("reputation:writecache"), peer.Identity.ID, reputationdb, config.Reputation)
+			peer.Services.Add(lifecycle.Item{
+				Name: "reputation:writecache",
+				Run:  cachingDB.Manage,
+			})
+			reputationdb = cachingDB
+		}
 		peer.Reputation = reputation.NewService(log.Named("reputation:service"),
 			overlayCache,
 			reputationdb,
