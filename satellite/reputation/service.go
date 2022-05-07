@@ -18,6 +18,9 @@ import (
 type DB interface {
 	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *Info, err error)
 	Get(ctx context.Context, nodeID storj.NodeID) (*Info, error)
+	// ApplyUpdates applies multiple updates (defined by the updates
+	// parameter) to a node's reputations record.
+	ApplyUpdates(ctx context.Context, nodeID storj.NodeID, updates Mutations, reputationConfig Config, now time.Time) (_ *Info, err error)
 
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
@@ -43,6 +46,18 @@ type Info struct {
 	AuditReputationBeta         float64
 	UnknownAuditReputationAlpha float64
 	UnknownAuditReputationBeta  float64
+}
+
+// Mutations represents changes which should be made to a particular node's
+// reputation, in terms of counts and/or timestamps of events which have
+// occurred. A Mutations record can be applied to a reputations row without
+// prior knowledge of that row's contents.
+type Mutations struct {
+	PositiveResults int
+	FailureResults  int
+	UnknownResults  int
+	OfflineResults  int
+	OnlineHistory   *pb.AuditHistory
 }
 
 // Service handles storing node reputation data and updating
@@ -81,7 +96,7 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 	// only update node if its health status has changed, or it's a newly vetted
 	// node.
 	// this prevents the need to require caller of ApplyAudit() to always know
-	// the VettedAt time for a node.
+	// the previous VettedAt time for a node.
 	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
 	// for the VettedAt status is done using time values that are truncated to second precision.
 	if hasReputationChanged(*statusUpdate, reputation, now) {
@@ -186,4 +201,23 @@ func statusChanged(s1, s2 *time.Time) bool {
 		return !s1.Equal(*s1)
 	}
 	return true
+}
+
+// UpdateRequestToMutations transforms an UpdateRequest into the equivalent
+// Mutations structure, which can be used with ApplyUpdates.
+func UpdateRequestToMutations(updateReq UpdateRequest, now time.Time) (Mutations, error) {
+	updates := Mutations{}
+	switch updateReq.AuditOutcome {
+	case AuditSuccess:
+		updates.PositiveResults = 1
+	case AuditFailure:
+		updates.FailureResults = 1
+	case AuditUnknown:
+		updates.UnknownResults = 1
+	case AuditOffline:
+		updates.OfflineResults = 1
+	}
+	updates.OnlineHistory = &pb.AuditHistory{}
+	err := AddAuditToHistory(updates.OnlineHistory, updateReq.AuditOutcome != AuditOffline, now, updateReq.Config.AuditHistory)
+	return updates, err
 }
