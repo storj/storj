@@ -36,10 +36,12 @@ func TestUpdate(t *testing.T) {
 
 		// 1 audit -> unvetted
 		updateReq := reputation.UpdateRequest{
-			NodeID:                   node.ID(),
-			AuditOutcome:             reputation.AuditOffline,
-			AuditsRequiredForVetting: planet.Satellites[0].Config.Reputation.AuditCount,
-			AuditHistory:             testAuditHistoryConfig(),
+			NodeID:       node.ID(),
+			AuditOutcome: reputation.AuditOffline,
+			Config: reputation.Config{
+				AuditCount:   planet.Satellites[0].Config.Reputation.AuditCount,
+				AuditHistory: testAuditHistoryConfig(),
+			},
 		}
 		nodeStats, err := db.Update(ctx, updateReq, time.Now())
 		require.NoError(t, err)
@@ -87,16 +89,17 @@ func TestDBDisqualificationAuditFailure(t *testing.T) {
 		now := time.Now()
 
 		updateReq := reputation.UpdateRequest{
-			NodeID:                   nodeID,
-			AuditOutcome:             reputation.AuditFailure,
-			AuditCount:               0,
-			AuditLambda:              1,
-			AuditWeight:              1,
-			AuditDQ:                  0.99,
-			SuspensionGracePeriod:    0,
-			SuspensionDQEnabled:      false,
-			AuditsRequiredForVetting: 0,
-			AuditHistory:             reputation.AuditHistoryConfig{},
+			NodeID:       nodeID,
+			AuditOutcome: reputation.AuditFailure,
+			Config: reputation.Config{
+				AuditLambda:           1,
+				AuditWeight:           1,
+				AuditDQ:               0.99,
+				SuspensionGracePeriod: 0,
+				SuspensionDQEnabled:   false,
+				AuditCount:            0,
+				AuditHistory:          reputation.AuditHistoryConfig{},
+			},
 		}
 
 		status, err := reputationDB.Update(ctx, updateReq, now)
@@ -114,16 +117,17 @@ func TestDBDisqualificationSuspension(t *testing.T) {
 		now := time.Now().Truncate(time.Second).UTC()
 
 		updateReq := reputation.UpdateRequest{
-			NodeID:                   nodeID,
-			AuditOutcome:             reputation.AuditUnknown,
-			AuditCount:               0,
-			AuditLambda:              1,
-			AuditWeight:              1,
-			AuditDQ:                  0.99,
-			SuspensionGracePeriod:    0,
-			SuspensionDQEnabled:      true,
-			AuditsRequiredForVetting: 0,
-			AuditHistory:             reputation.AuditHistoryConfig{},
+			NodeID:       nodeID,
+			AuditOutcome: reputation.AuditUnknown,
+			Config: reputation.Config{
+				AuditLambda:           1,
+				AuditWeight:           1,
+				AuditDQ:               0.99,
+				SuspensionGracePeriod: 0,
+				SuspensionDQEnabled:   true,
+				AuditCount:            0,
+				AuditHistory:          reputation.AuditHistoryConfig{},
+			},
 		}
 
 		// suspend node due to failed unknown audit
@@ -147,22 +151,23 @@ func TestDBDisqualificationNodeOffline(t *testing.T) {
 		now := time.Now().Truncate(time.Second).UTC()
 
 		updateReq := reputation.UpdateRequest{
-			NodeID:                   nodeID,
-			AuditOutcome:             reputation.AuditOffline,
-			AuditCount:               0,
-			AuditLambda:              0,
-			AuditWeight:              0,
-			AuditDQ:                  0,
-			SuspensionGracePeriod:    0,
-			SuspensionDQEnabled:      false,
-			AuditsRequiredForVetting: 0,
-			AuditHistory: reputation.AuditHistoryConfig{
-				WindowSize:               0,
-				TrackingPeriod:           1 * time.Second,
-				GracePeriod:              0,
-				OfflineThreshold:         1,
-				OfflineDQEnabled:         true,
-				OfflineSuspensionEnabled: true,
+			NodeID:       nodeID,
+			AuditOutcome: reputation.AuditOffline,
+			Config: reputation.Config{
+				AuditLambda:           0,
+				AuditWeight:           0,
+				AuditDQ:               0,
+				SuspensionGracePeriod: 0,
+				SuspensionDQEnabled:   false,
+				AuditCount:            0,
+				AuditHistory: reputation.AuditHistoryConfig{
+					WindowSize:               0,
+					TrackingPeriod:           1 * time.Second,
+					GracePeriod:              0,
+					OfflineThreshold:         1,
+					OfflineDQEnabled:         true,
+					OfflineSuspensionEnabled: true,
+				},
 			},
 		}
 

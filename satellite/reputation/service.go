@@ -72,14 +72,7 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 	statusUpdate, err := service.db.Update(ctx, UpdateRequest{
 		NodeID:       nodeID,
 		AuditOutcome: result,
-
-		AuditLambda:              service.config.AuditLambda,
-		AuditWeight:              service.config.AuditWeight,
-		AuditDQ:                  service.config.AuditDQ,
-		SuspensionGracePeriod:    service.config.SuspensionGracePeriod,
-		SuspensionDQEnabled:      service.config.SuspensionDQEnabled,
-		AuditsRequiredForVetting: service.config.AuditCount,
-		AuditHistory:             service.config.AuditHistory,
+		Config:       service.config,
 	}, now)
 	if err != nil {
 		return err

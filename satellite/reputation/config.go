@@ -38,17 +38,10 @@ type Config struct {
 type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditOutcome AuditType
-	// n.b. these are set values from the satellite.
-	// They are part of the UpdateRequest struct in order to be
-	// more easily accessible in satellite/satellitedb/reputation.go.
-	AuditCount               int64
-	AuditLambda              float64
-	AuditWeight              float64
-	AuditDQ                  float64
-	SuspensionGracePeriod    time.Duration
-	SuspensionDQEnabled      bool
-	AuditsRequiredForVetting int64
-	AuditHistory             AuditHistoryConfig
+	// Config is a copy of the Config struct from the satellite.
+	// It is part of the UpdateRequest struct in order to be more easily
+	// accessible from satellitedb code.
+	Config
 }
 
 // AuditHistoryConfig is a configuration struct defining time periods and thresholds for penalizing nodes for being offline.

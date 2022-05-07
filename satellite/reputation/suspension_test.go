@@ -302,7 +302,9 @@ func TestOfflineAuditSuspensionDisabled(t *testing.T) {
 		req := reputation.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: reputation.AuditOffline,
-			AuditHistory: config,
+			Config: reputation.Config{
+				AuditHistory: config,
+			},
 		}
 
 		// check that unsuspended node does not get suspended
@@ -369,21 +371,23 @@ func TestOfflineSuspend(t *testing.T) {
 		updateReq := reputation.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: reputation.AuditOffline,
-			AuditHistory: reputation.AuditHistoryConfig{
-				WindowSize:               time.Hour,
-				TrackingPeriod:           2 * time.Hour,
-				GracePeriod:              time.Hour,
-				OfflineThreshold:         0.6,
-				OfflineDQEnabled:         true,
-				OfflineSuspensionEnabled: true,
-			},
+			Config: reputation.Config{
+				AuditHistory: reputation.AuditHistoryConfig{
+					WindowSize:               time.Hour,
+					TrackingPeriod:           2 * time.Hour,
+					GracePeriod:              time.Hour,
+					OfflineThreshold:         0.6,
+					OfflineDQEnabled:         true,
+					OfflineSuspensionEnabled: true,
+				},
 
-			AuditLambda:              0.95,
-			AuditWeight:              1,
-			AuditDQ:                  0.6,
-			SuspensionGracePeriod:    time.Hour,
-			SuspensionDQEnabled:      true,
-			AuditsRequiredForVetting: 0,
+				AuditLambda:           0.95,
+				AuditWeight:           1,
+				AuditDQ:               0.6,
+				SuspensionGracePeriod: time.Hour,
+				SuspensionDQEnabled:   true,
+				AuditCount:            0,
+			},
 		}
 
 		// give node an offline audit

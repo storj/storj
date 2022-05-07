@@ -467,7 +467,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		OnlineScore: float64Field{set: true, value: auditHistoryResponse.NewScore},
 	}
 
-	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditsRequiredForVetting {
+	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditCount {
 		updateFields.VettedAt = timeField{set: true, value: now}
 	}
 
