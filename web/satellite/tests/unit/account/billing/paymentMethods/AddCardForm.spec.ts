@@ -5,10 +5,17 @@ import AddCardForm from '@/components/account/billing/paymentMethods/AddCardForm
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, mount } from '@vue/test-utils';
+import {makeNotificationsModule} from "@/store/modules/notifications";
+import Vuex from "vuex";
+import {appStateModule} from "@/store/modules/appState";
 
 const localVue = createLocalVue();
-const notificationsPlugin = new NotificatorPlugin();
-localVue.use(notificationsPlugin);
+localVue.use(Vuex);
+
+const notificationsModule = makeNotificationsModule();
+const store = new Vuex.Store({ modules: { appStateModule, notificationsModule }});
+
+localVue.use(new NotificatorPlugin(store));
 
 describe('AddCardForm', () => {
     it('renders correctly', () => {

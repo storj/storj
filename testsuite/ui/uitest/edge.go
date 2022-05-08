@@ -61,7 +61,7 @@ type EdgeTest func(t *testing.T, ctx *testcontext.Context, planet *EdgePlanet, b
 func Edge(t *testing.T, test EdgeTest) {
 	edgehost := os.Getenv("STORJ_TEST_EDGE_HOST")
 	if edgehost == "" {
-		edgehost = "localhost"
+		edgehost = "127.0.0.1"
 	}
 
 	// TODO: make address not hardcoded the address selection here may
@@ -107,7 +107,7 @@ func Edge(t *testing.T, test EdgeTest) {
 			KVBackend:         "memory://",
 			ListenAddr:        authSvcAddr,
 			ListenAddrTLS:     authSvcAddrTLS,
-			DRPCListenAddr:    ":0",
+			DRPCListenAddr:    net.JoinHostPort(edgehost, "0"),
 			DRPCListenAddrTLS: authSvcDrpcAddrTLS,
 			CertFile:          certFile.Name(),
 			KeyFile:           keyFile.Name(),

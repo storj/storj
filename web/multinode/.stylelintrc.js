@@ -10,7 +10,8 @@ module.exports = {
     "plugins": [
         "stylelint-scss"
     ],
-    "extends": "stylelint-config-standard",
+    "extends": "stylelint-config-standard-vue/scss",
+    "customSyntax": "postcss-html",
     "rules": {
         "indentation": 4,
         "string-quotes": "single",
@@ -45,6 +46,8 @@ module.exports = {
             {
                 "ignorePseudoElements": ["v-deep"]
             }
-        ]
+        ],
+        "selector-class-pattern": ".*",
+        "custom-property-pattern": ".*",
     }
 }

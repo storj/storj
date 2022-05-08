@@ -208,7 +208,7 @@ export default class ResultStep extends Vue {
             font-size: 22px;
             line-height: 27px;
             color: #000;
-            margin: 0 0 30px 0;
+            margin: 0 0 30px;
         }
 
         &__warning {
@@ -236,7 +236,7 @@ export default class ResultStep extends Vue {
                 font-size: 16px;
                 line-height: 22px;
                 color: #1b2533;
-                margin: 8px 0 0 0;
+                margin: 8px 0 0;
             }
         }
 
@@ -249,7 +249,7 @@ export default class ResultStep extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: #354049;
-                margin: 0 0 10px 0;
+                margin: 0 0 10px;
             }
 
             &__container {
@@ -258,7 +258,7 @@ export default class ResultStep extends Vue {
                 border-radius: 9px;
                 padding: 10px;
                 width: calc(100% - 22px);
-                border: 1px solid rgba(56, 75, 101, 0.4);
+                border: 1px solid rgb(56 75 101 / 40%);
 
                 &__value {
                     text-overflow: ellipsis;
@@ -285,7 +285,7 @@ export default class ResultStep extends Vue {
             line-height: 23px;
             text-align: center;
             color: #0068dc;
-            margin: 30px 0 0 0;
+            margin: 30px 0 0;
             cursor: pointer;
 
             &:hover {

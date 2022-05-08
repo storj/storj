@@ -109,7 +109,7 @@ export default class OverviewStep extends Vue {
                 line-height: 48px;
                 letter-spacing: 1px;
                 color: #14142b;
-                margin: 0 20px 20px 20px;
+                margin: 0 20px 20px;
             }
         }
 

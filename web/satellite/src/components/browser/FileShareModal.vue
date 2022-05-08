@@ -4,7 +4,7 @@
 <template>
     <div @click="stopClickPropagation">
         <div
-            id="shareModal"
+            id="share-modal"
             class="modal fade show modal-open"
             tabindex="-1"
             aria-labelledby="shareModalLabel"
@@ -490,11 +490,11 @@ export default class FileShareModal extends Vue {
     }
 
     /**
-     * Stop the propagation of a click event only if the target is an element without shareModal as the id.
+     * Stop the propagation of a click event only if the target is an element without share-modal as the id.
      */
     public stopClickPropagation(e: Event): void {
         const target = e.target as HTMLElement;
-        if (target.id !== "shareModal") {
+        if (target.id !== "share-modal") {
             e.stopPropagation();
         }
     }
@@ -515,7 +515,7 @@ export default class FileShareModal extends Vue {
     cursor: pointer;
 }
 
-#shareModal {
+#share-modal {
     z-index: 1070;
 }
 

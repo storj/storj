@@ -4,7 +4,7 @@ exports[`PayoutHistoryBlock renders correctly 1`] = `
 <info-block-stub>
   <div class="payouts-history-block">
     <h3 class="payouts-history-block__title">Payout History</h3>
-    <v-button-stub label="Download" width="100%" height="48px" iswhite="true" class="payouts-history-block__button"></v-button-stub>
+    <v-button-stub label="Download" width="100%" height="48px" iswhite="true" onpress="[Function]" class="payouts-history-block__button"></v-button-stub>
   </div>
 </info-block-stub>
 `;

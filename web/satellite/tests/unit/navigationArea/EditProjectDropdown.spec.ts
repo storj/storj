@@ -14,12 +14,19 @@ import { Project } from '@/types/projects';
 import { createLocalVue, mount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../mock/api/projects';
+import { makeNotificationsModule } from "@/store/modules/notifications";
+import { NotificatorPlugin } from "@/utils/plugins/notificator";
 
 const localVue = createLocalVue();
+localVue.use(Vuex);
+
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
-const store = new Vuex.Store({ modules: { projectsModule, appStateModule }});
+const notificationsModule = makeNotificationsModule();
+const store = new Vuex.Store({ modules: { projectsModule, appStateModule, notificationsModule }});
 const project = new Project('id', 'test', 'test', 'test', 'ownedId', false);
+
+localVue.use(new NotificatorPlugin(store));
 
 let clickOutsideEvent: EventListener;
 
@@ -31,7 +38,7 @@ localVue.directive('cli' +
                 return;
             }
 
-            if (vnode.context) {
+            if (vnode.context && binding.expression) {
                 vnode.context[binding.expression](event);
             }
         };
@@ -43,7 +50,6 @@ localVue.directive('cli' +
     },
 });
 
-localVue.use(Vuex);
 
 store.commit(PROJECTS_MUTATIONS.ADD, project);
 store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);

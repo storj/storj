@@ -35,6 +35,8 @@ export default class VButton extends Vue {
     @Prop({default: false})
     private readonly isWhite: boolean;
     @Prop({default: false})
+    private readonly isSolidDelete: boolean;
+    @Prop({default: false})
     private readonly isTransparent: boolean;
     @Prop({default: false})
     private readonly isDeletion: boolean;
@@ -46,7 +48,7 @@ export default class VButton extends Vue {
     private isDisabled: boolean;
     @Prop({default: false})
     private readonly isUppercase: boolean;
-    @Prop({default: () => { return; }})
+    @Prop({default: () => () => {}})
     private readonly onPress: () => void;
 
     public get style(): Record<string, unknown> {
@@ -57,6 +59,8 @@ export default class VButton extends Vue {
         if (this.isDisabled) return 'container disabled';
 
         if (this.isWhite) return 'container white';
+
+        if (this.isSolidDelete) return 'container solid-red';
 
         if (this.isTransparent) return 'container transparent';
 
@@ -78,6 +82,20 @@ export default class VButton extends Vue {
 
         .label {
             color: #354049 !important;
+        }
+    }
+
+    .solid-red {
+        background-color: #ba0000 !important;
+        border: 1px solid #ba0000 !important;
+
+        .label {
+            color: #fff !important;
+        }
+
+        &:hover {
+            background-color: #790000 !important;
+            border: 1px solid #790000 !important;
         }
     }
 

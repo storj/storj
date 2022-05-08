@@ -65,6 +65,58 @@ func TestExpiredDeletion(t *testing.T) {
 	})
 }
 
+func TestExpiresAtForSegmentsAfterCopy(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+
+		expiredChore := satellite.Core.ExpiredDeletion.Chore
+		expiredChore.Loop.Pause()
+
+		now := time.Now()
+		expiresAt := now.Add(1 * time.Hour)
+
+		// upload inline object with expiration time
+		err := upl.UploadWithExpiration(ctx, satellite, "testbucket", "inline_expire", testrand.Bytes(memory.KiB), expiresAt)
+		require.NoError(t, err)
+
+		// upload remote object with expiration time
+		err = upl.UploadWithExpiration(ctx, satellite, "testbucket", "remote_expire", testrand.Bytes(8*memory.KiB), expiresAt)
+		require.NoError(t, err)
+
+		project, err := upl.GetProject(ctx, satellite)
+		require.NoError(t, err)
+		ctx.Check(project.Close)
+
+		// copy inline object
+		_, err = project.CopyObject(ctx, "testbucket", "inline_expire", "testbucket", "new_inline_expire", nil)
+		require.NoError(t, err)
+
+		// copy remote object
+		_, err = project.CopyObject(ctx, "testbucket", "remote_expire", "testbucket", "new_remote_expire", nil)
+		require.NoError(t, err)
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		objects, err := satellite.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 4)
+
+		for _, v := range objects {
+			segments, err := satellite.Metabase.DB.TestingAllObjectSegments(ctx, v.Location())
+			require.NoError(t, err)
+
+			for _, k := range segments {
+				require.Equal(t, expiresAt.Unix(), k.ExpiresAt.Unix())
+			}
+		}
+	})
+}
+
 func TestExpiredDeletionForCopiedObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,

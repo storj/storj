@@ -465,7 +465,7 @@ export default class NewProjectDashboard extends Vue {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin: 65px 0 16px 0;
+            margin: 65px 0 16px;
 
             &__title {
                 font-family: 'font_Bold', sans-serif;
@@ -492,7 +492,7 @@ export default class NewProjectDashboard extends Vue {
             &__container {
                 width: 100%;
                 background-color: #fff;
-                box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+                box-shadow: 0 0 32px rgb(0 0 0 / 4%);
                 border-radius: 10px;
 
                 &__header {

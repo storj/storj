@@ -410,10 +410,6 @@ export default class FileBrowserHeader extends Vue {
 <style scoped>
 th {
     user-select: none;
-    -moz-user-select: none;
-    -khtml-user-select: none;
-    -webkit-user-select: none;
-    -o-user-select: none;
 }
 
 .arrow {

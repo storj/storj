@@ -132,17 +132,23 @@ func TestGetAllProjectTotals(t *testing.T) {
 				projectIDs[i] = testrand.UUID()
 				err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i))
 				require.NoError(t, err)
+				err = cache.UpdateProjectSegmentUsage(ctx, projectIDs[i], int64(i), time.Hour)
+				require.NoError(t, err)
 			}
 
-			projectTotals, err := cache.GetAllProjectTotals(ctx)
+			usage, err := cache.GetAllProjectTotals(ctx)
 			require.NoError(t, err)
-			require.Len(t, projectTotals, len(projectIDs))
+			require.Len(t, usage, len(projectIDs))
 
 			// make sure each project ID and total was received
 			for _, projID := range projectIDs {
-				total, err := cache.GetProjectStorageUsage(ctx, projID)
+				totalStorage, err := cache.GetProjectStorageUsage(ctx, projID)
 				require.NoError(t, err)
-				assert.Equal(t, total, projectTotals[projID])
+				assert.Equal(t, totalStorage, usage[projID].Storage)
+
+				totalSegments, err := cache.GetProjectSegmentUsage(ctx, projID)
+				require.NoError(t, err)
+				assert.Equal(t, totalSegments, usage[projID].Segments)
 			}
 		})
 	}

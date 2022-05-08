@@ -78,7 +78,8 @@ export default class HeaderlessInput extends Vue {
     private type: string = this.textType;
     private isPasswordShown = false;
 
-    protected value = '';
+    @Prop({default: ''})
+    protected value: string;
 
     @Prop({default: ''})
     protected readonly label: string;
@@ -108,9 +109,7 @@ export default class HeaderlessInput extends Vue {
     @Prop({default: 'input-container'})
     private readonly roleDescription: boolean;
 
-    public constructor() {
-        super();
-
+    public created() {
         this.type = this.isPassword ? this.passwordType : this.textType;
     }
 
@@ -241,10 +240,8 @@ export default class HeaderlessInput extends Vue {
             height: 46px;
             padding: 0 30px 0 0;
             text-indent: 20px;
-            border: 1px solid rgba(56, 75, 101, 0.4);
+            border: 1px solid rgb(56 75 101 / 40%);
             border-radius: 6px;
-            -webkit-box-sizing: border-box;
-            -moz-box-sizing: border-box;
             box-sizing: border-box;
 
             &__caret {
@@ -254,7 +251,7 @@ export default class HeaderlessInput extends Vue {
             }
 
             &__options-wrapper {
-                border: 1px solid rgba(56, 75, 101, 0.4);
+                border: 1px solid rgb(56 75 101 / 40%);
                 position: absolute;
                 width: calc(100% - 5px);
                 top: 70px;
@@ -319,7 +316,7 @@ export default class HeaderlessInput extends Vue {
             margin-left: 5px;
             font-size: 16px;
             line-height: 21px;
-            color: rgba(56, 75, 101, 0.4);
+            color: rgb(56 75 101 / 40%);
         }
 
         &__error {

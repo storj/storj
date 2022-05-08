@@ -382,7 +382,7 @@ export default class PayoutHistoryTableItem extends Vue {
     @media screen and (max-width: 800px) {
 
         .payout-history-item {
-            padding: 17px 10px 12px 10px;
+            padding: 17px 10px 12px;
             width: calc(100% - 20px);
 
             &__header {

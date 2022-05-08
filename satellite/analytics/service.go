@@ -27,6 +27,7 @@ const (
 	eventLinkShared                = "Link Shared"
 	eventObjectUploaded            = "Object Uploaded"
 	eventAPIKeyGenerated           = "API Key Generated"
+	eventCreditCardAdded           = "Credit Card Added"
 )
 
 var (
@@ -337,4 +338,21 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email
 		"userid": userID.String(),
 		"link":   link,
 	})
+}
+
+// TrackCreditCardAdded sends an "Credit Card Added" event to Segment.
+func (service *Service) TrackCreditCardAdded(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventCreditCardAdded,
+		Properties: props,
+	})
+
 }

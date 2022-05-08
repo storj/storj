@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import Vue from 'vue';
-import Router, { RouteRecord } from 'vue-router';
+import Router from 'vue-router';
 
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
 import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
@@ -46,12 +46,11 @@ import SuccessScreen from "@/components/onboardingTour/steps/cliFlow/SuccessScre
 import AGName from "@/components/onboardingTour/steps/cliFlow/AGName.vue";
 import AGPermissions from "@/components/onboardingTour/steps/cliFlow/AGPermissions.vue";
 
-import store from '@/store';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from "@/utils/meta";
 
 const ActivateAccount = () => import('@/views/ActivateAccount.vue');
+const AuthorizeArea = () => import('@/views/AuthorizeArea.vue');
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
@@ -72,6 +71,7 @@ export abstract class RouteConfig {
     public static Activate = new NavigationLink('/activate', 'Activate');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
+    public static Authorize = new NavigationLink('/oauth/v2/authorize', 'Authorize')
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', 'Dashboard ');
@@ -135,6 +135,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Activate.name,
     RouteConfig.ForgotPassword.name,
     RouteConfig.ResetPassword.name,
+    RouteConfig.Authorize.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
     RouteConfig.DepositHistory.name,
@@ -174,6 +175,11 @@ export const router = new Router({
             path: RouteConfig.ResetPassword.path,
             name: RouteConfig.ResetPassword.name,
             component: ResetPassword,
+        },
+        {
+            path: RouteConfig.Authorize.path,
+            name: RouteConfig.Authorize.name,
+            component: AuthorizeArea,
         },
         {
             path: RouteConfig.Root.path,
@@ -424,82 +430,3 @@ export const router = new Router({
         },
     ],
 });
-
-router.beforeEach(async (to, _, next) => {
-    if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
-        const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
-        if (areUploadsInProgress) return;
-    }
-
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
-        next(RouteConfig.Account.with(RouteConfig.Billing).path);
-
-        return;
-    }
-
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant))) {
-        next(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
-
-        return;
-    }
-
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep))) {
-        next(RouteConfig.OnboardingTour.path);
-
-        return;
-    }
-
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
-        next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-
-        return;
-    }
-
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.Buckets)) {
-        if (store.state.appStateModule.isNewObjectsFlow) {
-            next(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-
-            return;
-        }
-
-        next(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
-
-        return;
-    }
-
-    if (to.name === 'default') {
-        next(RouteConfig.ProjectDashboard.path);
-
-        return;
-    }
-
-    next();
-});
-
-router.afterEach(({ name }, _from) => {
-    if (!name) {
-        return;
-    }
-
-    if (notProjectRelatedRoutes.includes(name)) {
-        document.title = `${router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
-
-        return;
-    }
-
-    const selectedProjectName = store.state.projectsModule.selectedProject.name ?
-        `${store.state.projectsModule.selectedProject.name} | ` : '';
-
-    document.title = `${selectedProjectName + router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
-});
-
-/**
- * if our route is a tab and has no sub tab route - we will navigate to default subtab.
- * F.E. /account/ -> /account/billing/;
- * @param routes - array of RouteRecord from vue-router
- * @param tabRoute - tabNavigator route
- */
-function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
-    return (routes.length === 2 && (routes[1].name as string) === tabRoute.name) ||
-        (routes.length === 3 && (routes[2].name as string) === tabRoute.name);
-}

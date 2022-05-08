@@ -72,7 +72,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	).(bool)
 	c.byteRange = params.Flag("range", "Downloads the specified range bytes of an object. For more information about the HTTP Range header, see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35", "").(string)
 
-	c.parallelism = params.Flag("parallelism", "Controls how many parallel chunks to upload/download from a file", 4,
+	c.parallelism = params.Flag("parallelism", "Controls how many parallel chunks to upload/download from a file", 1,
 		clingy.Short('p'),
 		clingy.Transform(strconv.Atoi),
 		clingy.Transform(func(n int) (int, error) {

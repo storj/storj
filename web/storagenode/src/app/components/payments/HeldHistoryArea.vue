@@ -75,7 +75,7 @@ export default class HeldHistoryArea extends Vue {
     .held-history-container {
         display: flex;
         flex-direction: column;
-        padding: 28px 40px 10px 40px;
+        padding: 28px 40px 10px;
         background: var(--block-background-color);
         border: 1px solid var(--block-border-color);
         box-sizing: border-box;
@@ -166,7 +166,7 @@ export default class HeldHistoryArea extends Vue {
     @media screen and (max-width: 600px) {
 
         .held-history-container {
-            padding: 28px 20px 10px 20px;
+            padding: 28px 20px 10px;
         }
     }
 </style>

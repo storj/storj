@@ -72,7 +72,7 @@ export default class NotificationsPopup extends Vue {
         max-height: 376px;
         background-color: var(--block-background-color);
         border-radius: 12px;
-        padding: 27px 0 10px 0;
+        padding: 27px 0 10px;
         box-shadow: 0 7px 17px var(--block-background-color);
         z-index: 104;
 

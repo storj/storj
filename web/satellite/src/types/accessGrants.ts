@@ -6,6 +6,14 @@ import { SortDirection } from '@/types/common';
 export type OnHeaderClickCallback = (sortBy: AccessGrantsOrderBy, sortDirection: SortDirection) => Promise<void>;
 
 /**
+ * AccessGrantsWorker provides access to the WASM module.
+ */
+export interface AccessGrantsWorkerFactory {
+    // TODO: this should be converted to a proper interface.
+    create(): Worker;
+}
+
+/**
  * Exposes all access grants-related functionality.
  */
 export interface AccessGrantsApi {

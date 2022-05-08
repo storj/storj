@@ -10,6 +10,11 @@ import (
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
+var (
+	remoteSegmentFunc = mon.Func()
+	inlineSegmentFunc = mon.Func()
+)
+
 // Counter implements the segment loop observer interface for data science metrics collection.
 //
 // architecture: Observer
@@ -44,8 +49,8 @@ func (counter *Counter) LoopStarted(context.Context, segmentloop.LoopInfo) (err 
 }
 
 // RemoteSegment increments the count for objects with remote segments.
-func (counter *Counter) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (counter *Counter) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
+	defer remoteSegmentFunc.Task(&ctx)(nil) // method always returns nil
 
 	counter.onlyInline = false
 
@@ -62,8 +67,8 @@ func (counter *Counter) RemoteSegment(ctx context.Context, segment *segmentloop.
 }
 
 // InlineSegment increments the count for inline objects.
-func (counter *Counter) InlineSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (counter *Counter) InlineSegment(ctx context.Context, segment *segmentloop.Segment) error {
+	defer inlineSegmentFunc.Task(&ctx)(nil) // method always returns nil
 
 	counter.TotalInlineBytes += int64(segment.EncryptedSize)
 	counter.TotalInlineSegments++

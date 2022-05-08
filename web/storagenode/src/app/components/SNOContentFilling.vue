@@ -432,7 +432,7 @@ export default class SNOContentFilling extends Vue {
 
     .info-area {
         width: 100%;
-        padding: 0 0 30px 0;
+        padding: 0 0 30px;
 
         &__disqualified-info {
             display: flex;

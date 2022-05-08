@@ -120,9 +120,9 @@ export default class OSContainer extends Vue {
             display: inline-flex;
             align-items: center;
             border-radius: 0 6px 6px 0;
-            border-top: 1px solid rgb(230, 236, 241);
-            border-left: 1px solid rgb(230, 236, 241);
-            border-right: 1px solid rgb(230, 236, 241);
+            border-top: 1px solid rgb(230 236 241);
+            border-left: 1px solid rgb(230 236 241);
+            border-right: 1px solid rgb(230 236 241);
             margin-bottom: -1px;
 
             &__choice {
@@ -134,17 +134,17 @@ export default class OSContainer extends Vue {
             }
 
             &__choice:first-child {
-                border-right: 1px solid rgb(230, 236, 241);
+                border-right: 1px solid rgb(230 236 241);
             }
 
             &__choice:last-child {
-                border-left: 1px solid rgb(230, 236, 241);
+                border-left: 1px solid rgb(230 236 241);
             }
         }
     }
 
     .active {
-        background: rgb(24, 48, 85);
+        background: rgb(24 48 85);
         color: #e6ecf1;
     }
 

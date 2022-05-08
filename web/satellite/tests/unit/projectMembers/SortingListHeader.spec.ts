@@ -1,8 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import sinon from 'sinon';
-
 import SortingListHeader from '@/components/team/SortingListHeader.vue';
 
 import { SortDirection } from '@/types/common';
@@ -17,7 +15,7 @@ describe('SortingListHeader.vue', () => {
     });
 
     it('should retrieve callback', function () {
-        const onPressSpy = sinon.spy();
+        const onPressSpy = jest.fn();
 
         const wrapper = mount(SortingListHeader, {
             propsData: {
@@ -25,11 +23,11 @@ describe('SortingListHeader.vue', () => {
             },
         });
         wrapper.find('.sort-header-container__name-container').trigger('click');
-        expect(onPressSpy.callCount).toBe(1);
+        expect(onPressSpy).toHaveBeenCalledTimes(1);
     });
 
     it('should change sort direction', function () {
-        const onPressSpy = sinon.spy();
+        const onPressSpy = jest.fn();
 
         const wrapper = mount(SortingListHeader, {
             propsData: {
@@ -37,18 +35,18 @@ describe('SortingListHeader.vue', () => {
             },
         });
 
-        expect(wrapper.vm.sortBy).toBe(ProjectMemberOrderBy.NAME);
-        expect(wrapper.vm.sortDirection).toBe(SortDirection.ASCENDING);
+        expect(wrapper.vm.$data.sortBy).toBe(ProjectMemberOrderBy.NAME);
+        expect(wrapper.vm.$data.sortDirection).toBe(SortDirection.ASCENDING);
 
         wrapper.find('.sort-header-container__name-container').trigger('click');
-        expect(onPressSpy.callCount).toBe(1);
+        expect(onPressSpy).toHaveBeenCalledTimes(1);
 
-        expect(wrapper.vm.sortBy).toBe(ProjectMemberOrderBy.NAME);
-        expect(wrapper.vm.sortDirection).toBe(SortDirection.DESCENDING);
+        expect(wrapper.vm.$data.sortBy).toBe(ProjectMemberOrderBy.NAME);
+        expect(wrapper.vm.$data.sortDirection).toBe(SortDirection.DESCENDING);
     });
 
     it('should change sort by value', function () {
-        const onPressSpy = sinon.spy();
+        const onPressSpy = jest.fn();
 
         const wrapper = mount(SortingListHeader, {
             propsData: {
@@ -56,13 +54,13 @@ describe('SortingListHeader.vue', () => {
             },
         });
 
-        expect(wrapper.vm.sortBy).toBe(ProjectMemberOrderBy.NAME);
-        expect(wrapper.vm.sortDirection).toBe(SortDirection.ASCENDING);
+        expect(wrapper.vm.$data.sortBy).toBe(ProjectMemberOrderBy.NAME);
+        expect(wrapper.vm.$data.sortDirection).toBe(SortDirection.ASCENDING);
 
         wrapper.find('.sort-header-container__added-container').trigger('click');
-        expect(onPressSpy.callCount).toBe(1);
+        expect(onPressSpy).toHaveBeenCalledTimes(1);
 
-        expect(wrapper.vm.sortBy).toBe(ProjectMemberOrderBy.CREATED_AT);
-        expect(wrapper.vm.sortDirection).toBe(SortDirection.ASCENDING);
+        expect(wrapper.vm.$data.sortBy).toBe(ProjectMemberOrderBy.CREATED_AT);
+        expect(wrapper.vm.$data.sortDirection).toBe(SortDirection.ASCENDING);
     });
 });

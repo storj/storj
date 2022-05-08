@@ -297,9 +297,6 @@ export default class PaymentMethods extends Vue {
         line-height: 23px;
         color: #fff;
         user-select: none;
-        -webkit-transition: top 0.5s ease-in-out;
-        -moz-transition: top 0.5s ease-in-out;
-        -o-transition: top 0.5s ease-in-out;
         transition: top 0.5s ease-in-out;
 
         &:hover {
@@ -322,9 +319,6 @@ export default class PaymentMethods extends Vue {
         &__functional-area {
             position: relative;
             height: 192px;
-            -webkit-transition: all 0.3s ease-in-out;
-            -moz-transition: all 0.3s ease-in-out;
-            -o-transition: all 0.3s ease-in-out;
             transition: all 0.3s ease-in-out;
 
             &__top-container {
@@ -406,7 +400,7 @@ export default class PaymentMethods extends Vue {
             height: 100%;
             width: 100%;
             border-radius: 8px;
-            background-color: rgba(229, 229, 229, 0.2);
+            background-color: rgb(229 229 229 / 20%);
             z-index: 100;
         }
     }

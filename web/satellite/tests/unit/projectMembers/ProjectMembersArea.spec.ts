@@ -40,7 +40,7 @@ describe('ProjectMembersArea.vue', () => {
     pmApi.setMockPage(testProjectMembersPage);
 
     it('renders correctly', async (): Promise<void> => {
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -53,7 +53,7 @@ describe('ProjectMembersArea.vue', () => {
     it('function fetchProjectMembers works correctly', () => {
         store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -64,7 +64,7 @@ describe('ProjectMembersArea.vue', () => {
     it('team area renders correctly', async (): Promise<void> => {
         store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -89,7 +89,7 @@ describe('ProjectMembersArea.vue', () => {
     it('action on toggle works correctly', () => {
         store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -109,7 +109,7 @@ describe('ProjectMembersArea.vue', () => {
         testProjectMembersPage.pageCount = 1;
         store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -128,7 +128,7 @@ describe('ProjectMembersArea.vue', () => {
 
         store.commit(FETCH, testPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -152,7 +152,7 @@ describe('ProjectMembersArea.vue', () => {
 
         store.commit(FETCH, testPage1);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });

@@ -311,7 +311,6 @@ type CreateObjectCopy struct {
 
 // Run creates the copy.
 func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metabase.DB) (copyObj metabase.Object, expectedOriginalSegments []metabase.RawSegment, expectedCopySegments []metabase.RawSegment) {
-
 	var copyStream metabase.ObjectStream
 	if cc.CopyObjectStream != nil {
 		copyStream = *cc.CopyObjectStream

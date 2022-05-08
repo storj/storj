@@ -207,7 +207,7 @@ export default class AccountArea extends Vue {
             cursor: default;
             border: 1px solid #ebeef1;
             box-sizing: border-box;
-            box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 -2px 16px rgb(0 0 0 / 10%);
             border-radius: 8px;
 
             &__header {

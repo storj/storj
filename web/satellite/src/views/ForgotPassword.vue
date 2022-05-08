@@ -208,7 +208,7 @@ export default class ForgotPassword extends Vue {
                 background-color: #fff;
                 z-index: 1000;
                 border: 1px solid #c5cbdb;
-                box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
+                box-shadow: 0 8px 34px rgb(161 173 185 / 41%);
                 border-radius: 6px;
                 min-width: 250px;
 
@@ -264,7 +264,7 @@ export default class ForgotPassword extends Vue {
                     &__title {
                         font-size: 24px;
                         margin: 10px 0;
-                        letter-spacing: -0.100741px;
+                        letter-spacing: -0.1007px;
                         color: #252525;
                         font-family: 'font_bold', sans-serif;
                         font-weight: 800;
@@ -346,7 +346,7 @@ export default class ForgotPassword extends Vue {
                 padding: 0;
 
                 &__container {
-                    padding: 60px 60px;
+                    padding: 60px;
                     border-radius: 0;
                 }
             }

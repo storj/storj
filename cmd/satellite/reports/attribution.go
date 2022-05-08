@@ -31,9 +31,11 @@ var headers = []string{
 	"gbEgress",
 }
 
-// UserAgentAttributions is a map of attribution totals per user agent.
-type UserAgentAttributions map[string]attributionTotal
-type attributionTotal struct {
+// AttributionTotals is a map of attribution totals per user agent.
+type AttributionTotals map[string]Total
+
+// Total is the total attributable usage for a user agent over a period of time.
+type Total struct {
 	ByteHours    float64
 	SegmentHours float64
 	ObjectHours  float64
@@ -96,8 +98,8 @@ func GenerateAttributionCSV(ctx context.Context, database string, start time.Tim
 }
 
 // SumAttributionByUserAgent sums all bucket attribution by the first entry in the user agent.
-func SumAttributionByUserAgent(rows []*attribution.BucketAttribution, log *zap.Logger) UserAgentAttributions {
-	partnerAttributionTotals := make(map[string]attributionTotal)
+func SumAttributionByUserAgent(rows []*attribution.BucketUsage, log *zap.Logger) AttributionTotals {
+	attributionTotals := make(map[string]Total)
 	userAgentParseFailures := make(map[string]bool)
 
 	for _, row := range rows {
@@ -114,8 +116,8 @@ func SumAttributionByUserAgent(rows []*attribution.BucketAttribution, log *zap.L
 
 		userAgent := strings.ToLower(userAgentEntries[0].Product)
 
-		if _, ok := partnerAttributionTotals[userAgent]; !ok {
-			partnerAttributionTotals[userAgent] = attributionTotal{
+		if _, ok := attributionTotals[userAgent]; !ok {
+			attributionTotals[userAgent] = Total{
 				ByteHours:    row.ByteHours,
 				SegmentHours: row.SegmentHours,
 				ObjectHours:  row.ObjectHours,
@@ -123,7 +125,7 @@ func SumAttributionByUserAgent(rows []*attribution.BucketAttribution, log *zap.L
 				BytesEgress:  row.EgressData,
 			}
 		} else {
-			partnerTotal := partnerAttributionTotals[userAgent]
+			partnerTotal := attributionTotals[userAgent]
 
 			partnerTotal.ByteHours += row.ByteHours
 			partnerTotal.SegmentHours += row.SegmentHours
@@ -131,8 +133,8 @@ func SumAttributionByUserAgent(rows []*attribution.BucketAttribution, log *zap.L
 			partnerTotal.BucketHours += float64(row.Hours)
 			partnerTotal.BytesEgress += row.EgressData
 
-			partnerAttributionTotals[userAgent] = partnerTotal
+			attributionTotals[userAgent] = partnerTotal
 		}
 	}
-	return partnerAttributionTotals
+	return attributionTotals
 }

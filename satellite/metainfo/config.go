@@ -137,5 +137,5 @@ type Config struct {
 	ProjectLimits               ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion               piecedeletion.Config `help:"piece deletion configuration"`
 	// TODO remove this flag when server-side copy implementation will be finished
-	ServerSideCopy bool `help:"enable code for server-side copy" releaseDefault:"false" devDefault:"true"`
+	ServerSideCopy bool `help:"enable code for server-side copy" default:"true"`
 }

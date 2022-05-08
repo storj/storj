@@ -90,17 +90,17 @@ func Schema() map[string]*dbschema.Schema {
 						},
 						{
 							Name:       "notes",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: true,
 						},
 						{
 							Name:       "period",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: true,
 						},
 						{
 							Name:       "receipt",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: true,
 						},
 						{
@@ -116,7 +116,7 @@ func Schema() map[string]*dbschema.Schema {
 					Columns: []*dbschema.Column{
 						{
 							Name:       "codes",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: false,
 						},
 						{
@@ -181,7 +181,7 @@ func Schema() map[string]*dbschema.Schema {
 						},
 						{
 							Name:       "period",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: false,
 						},
 						{
