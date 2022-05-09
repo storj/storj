@@ -5,11 +5,7 @@ exports[`BucketArea.vue renders correctly with bucket 1`] = `
   <div class="buckets-overflow">
     <div class="buckets-header">
       <p class="buckets-header__title">Usage per bucket</p>
-<<<<<<< HEAD
-      <vheader-stub styletype="common" placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
-=======
       <vheader-stub placeholder="Buckets" search="[Function]" class="buckets-header-component"></vheader-stub>
->>>>>>> 26f495f717a842a6049243d22c5d33c9310d27ff
     </div>
     <div class="buckets-container">
       <sortingheader-stub></sortingheader-stub>
@@ -26,11 +22,7 @@ exports[`BucketArea.vue renders correctly with pagination 1`] = `
   <div class="buckets-overflow">
     <div class="buckets-header">
       <p class="buckets-header__title">Usage per bucket</p>
-<<<<<<< HEAD
-      <vheader-stub styletype="common" placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
-=======
       <vheader-stub placeholder="Buckets" search="[Function]" class="buckets-header-component"></vheader-stub>
->>>>>>> 26f495f717a842a6049243d22c5d33c9310d27ff
     </div>
     <div class="buckets-container">
       <sortingheader-stub></sortingheader-stub>
@@ -56,11 +48,7 @@ exports[`BucketArea.vue renders correctly without search results 1`] = `
   <div class="buckets-overflow">
     <div class="buckets-header">
       <p class="buckets-header__title">Usage per bucket</p>
-<<<<<<< HEAD
-      <vheader-stub styletype="common" placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
-=======
       <vheader-stub placeholder="Buckets" search="[Function]" class="buckets-header-component"></vheader-stub>
->>>>>>> 26f495f717a842a6049243d22c5d33c9310d27ff
     </div>
     <!---->
     <div class="empty-search-result-area">
