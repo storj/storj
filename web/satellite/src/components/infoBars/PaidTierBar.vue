@@ -6,7 +6,7 @@
         <p>
             Upload up to 75TB by upgrading to a Storj Pro Account.
         </p>
-        <p class="pt-bar__functional" @click.stop="openAddPMModal" @click="openBanner">
+        <p class="pt-bar__functional" @click="openBanner">
             Upgrade now.
         </p>
     </div>
@@ -26,7 +26,7 @@ export default class PaidTierBar extends Vue {
 
     // Send analytics event to segment when Upgrade Account banner is clicked.
     public async openBanner(): Promise<void> {
- 
+        this.openAddPMModal()
         await this.analytics.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
 
     }
