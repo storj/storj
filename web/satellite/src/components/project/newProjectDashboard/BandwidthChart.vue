@@ -179,7 +179,7 @@ export default class BandwidthChart extends BaseChart {
 
         &__arrow {
             margin-bottom: -4px;
-            border-radius: 8px 0 0 0;
+            border-radius: 8px 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
             background-color: #ee86ad;
         }

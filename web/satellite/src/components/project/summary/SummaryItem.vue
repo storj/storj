@@ -40,7 +40,7 @@ export default class SummaryItem extends Vue {
             font-family: 'font_medium', sans-serif;
             font-size: 14px;
             line-height: 14px;
-            margin: 0 0 12px 0;
+            margin: 0 0 12px;
         }
 
         &__value {

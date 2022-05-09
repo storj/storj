@@ -667,7 +667,7 @@ export default class EditProjectDetails extends Vue {
                 font-size: 16px;
                 line-height: 23px;
                 color: #2582ff;
-                margin: 0 0 20px 0;
+                margin: 0 0 20px;
             }
 
             &__container {
@@ -681,7 +681,7 @@ export default class EditProjectDetails extends Vue {
                     font-size: 22px;
                     line-height: 27px;
                     color: #384b65;
-                    margin: 0 0 35px 0;
+                    margin: 0 0 35px;
                 }
 
                 &__label {
@@ -689,7 +689,7 @@ export default class EditProjectDetails extends Vue {
                     font-size: 16px;
                     line-height: 16px;
                     color: #384b65;
-                    margin: 0 0 15px 0;
+                    margin: 0 0 15px;
                 }
 
                 &__name-area,
@@ -758,7 +758,7 @@ export default class EditProjectDetails extends Vue {
                     &__limit {
                         font-size: 14px;
                         line-height: 21px;
-                        color: rgba(0, 0, 0, 0.3);
+                        color: rgb(0 0 0 / 30%);
                         margin: 0 0 0 15px;
                         min-width: 53px;
                         text-align: right;
@@ -810,11 +810,11 @@ export default class EditProjectDetails extends Vue {
 
                         &__input {
                             width: 95%;
-                            -webkit-appearance: none;
+                            appearance: none;
                             height: 8px;
                             background: #f5f6fa;
                             outline: none;
-                            -webkit-transition: 0.2s;
+                            transition: 0.2s;
                             transition: opacity 0.2s;
                             border: none;
                             border-radius: 6px;
@@ -825,7 +825,6 @@ export default class EditProjectDetails extends Vue {
                         }
 
                         &__input::-webkit-slider-thumb {
-                            -webkit-appearance: none;
                             appearance: none;
                             width: 30px;
                             height: 30px;

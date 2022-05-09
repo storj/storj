@@ -43,7 +43,7 @@ export default class TabWithCopy extends Vue {
         justify-content: space-between;
         padding: 24px 30px;
         background: #183055;
-        border-radius: 0 6px 6px 6px;
+        border-radius: 0 6px 6px;
 
         &__value {
             font-size: 14px;

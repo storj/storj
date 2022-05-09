@@ -163,42 +163,76 @@ func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, pr
 	return nil
 }
 
-// GetAllProjectTotals iterates through the live accounting DB and returns a map of project IDs and totals.
+// GetAllProjectTotals iterates through the live accounting DB and returns a map of project IDs and totals, amount of segments.
 //
 // TODO (https://storjlabs.atlassian.net/browse/IN-173): see if it possible to
 // get key/value pairs with one single call.
-func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ map[uuid.UUID]int64, err error) {
+func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ map[uuid.UUID]accounting.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	projects := make(map[uuid.UUID]int64)
+	projects := make(map[uuid.UUID]accounting.Usage)
 	it := cache.client.Scan(ctx, 0, "*", 0).Iterator()
 	for it.Next(ctx) {
 		key := it.Val()
 
-		// skip bandwidth and segment keys
-		if strings.HasSuffix(key, "bandwidth") || strings.HasSuffix(key, "segment") {
+		// skip bandwidth keys
+		if strings.HasSuffix(key, "bandwidth") {
 			continue
 		}
 
-		projectID, err := uuid.FromBytes([]byte(key))
-		if err != nil {
-			return nil, accounting.ErrUnexpectedValue.New("cannot parse the key as UUID; key=%q", key)
-		}
-
-		if _, seen := projects[projectID]; seen {
-			continue
-		}
-
-		val, err := cache.getInt64(ctx, key)
-		if err != nil {
-			if accounting.ErrKeyNotFound.Has(err) {
-				continue
+		if strings.HasSuffix(key, "segment") {
+			projectID, err := uuid.FromBytes([]byte(strings.TrimSuffix(key, ":segment")))
+			if err != nil {
+				return nil, accounting.ErrUnexpectedValue.New("cannot parse the key as UUID; key=%q", key)
 			}
 
-			return nil, err
-		}
+			usage := accounting.Usage{}
+			if seenUsage, seen := projects[projectID]; seen {
+				if seenUsage.Segments != 0 {
+					continue
+				}
 
-		projects[projectID] = val
+				usage = seenUsage
+			}
+
+			segmentUsage, err := cache.GetProjectSegmentUsage(ctx, projectID)
+			if err != nil {
+				if accounting.ErrKeyNotFound.Has(err) {
+					continue
+				}
+
+				return nil, err
+			}
+
+			usage.Segments = segmentUsage
+			projects[projectID] = usage
+		} else {
+			projectID, err := uuid.FromBytes([]byte(key))
+			if err != nil {
+				return nil, accounting.ErrUnexpectedValue.New("cannot parse the key as UUID; key=%q", key)
+			}
+
+			usage := accounting.Usage{}
+			if seenUsage, seen := projects[projectID]; seen {
+				if seenUsage.Storage != 0 {
+					continue
+				}
+
+				usage = seenUsage
+			}
+
+			storageUsage, err := cache.getInt64(ctx, key)
+			if err != nil {
+				if accounting.ErrKeyNotFound.Has(err) {
+					continue
+				}
+
+				return nil, err
+			}
+
+			usage.Storage = storageUsage
+			projects[projectID] = usage
+		}
 	}
 
 	return projects, nil

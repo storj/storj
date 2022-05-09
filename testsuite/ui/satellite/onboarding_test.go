@@ -313,7 +313,7 @@ func TestOnboarding_WizardCLIFlow(t *testing.T) {
 		page.MustElementX("(//span[text()=\"Finish\"])").MustClick()
 		waitVueTick(page)
 		dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, dashboardTitle, "My First Project Dashboard")
+		require.Contains(t, dashboardTitle, "Dashboard")
 		page.MustNavigateBack()
 		successTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, successTitle1, "Wonderful")
@@ -326,7 +326,7 @@ func TestOnboarding_WizardCLIFlow(t *testing.T) {
 
 		// Dashboard screen
 		dashboardTitle1 := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, dashboardTitle1, "My First Project Dashboard")
+		require.Contains(t, dashboardTitle1, "Dashboard")
 	})
 }
 

@@ -318,7 +318,7 @@ export default class CreatePassphraseStep extends Vue {
                 font-size: 22px;
                 line-height: 27px;
                 color: #000;
-                margin: 0 0 30px 0;
+                margin: 0 0 30px;
             }
 
             &__enter-passphrase-box {
@@ -373,7 +373,7 @@ export default class CreatePassphraseStep extends Vue {
                     font-size: 16px;
                     line-height: 19px;
                     color: #1b2533;
-                    margin: 10px 0 0 0;
+                    margin: 10px 0 0;
                     text-align: center;
                 }
 
@@ -453,7 +453,7 @@ export default class CreatePassphraseStep extends Vue {
 
                 &__password {
                     width: 100%;
-                    margin: 10px 0 20px 0;
+                    margin: 10px 0 20px;
                 }
             }
         }

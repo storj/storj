@@ -39,7 +39,7 @@ export default class VInfo extends Vue {
     private readonly title: string;
     @Prop({default: ''})
     private readonly buttonLabel: string;
-    @Prop({default: () => false})
+    @Prop({default: () => () => false})
     private readonly onButtonClick: () => unknown;
 
     public isVisible = false;
@@ -80,7 +80,7 @@ export default class VInfo extends Vue {
                 background-color: white;
                 width: 40px;
                 height: 40px;
-                border-radius: 4px 0 0 0;
+                border-radius: 4px 0 0;
                 transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
                 margin-bottom: -15px;
             }

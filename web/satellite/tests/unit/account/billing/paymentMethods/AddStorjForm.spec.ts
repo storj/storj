@@ -14,7 +14,7 @@ import { NOTIFICATION_MUTATIONS } from '@/store/mutationConstants';
 import { PaymentsHistoryItem, PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
-import { Notificator } from '@/utils/plugins/notificator';
+import {NotificatorPlugin} from '@/utils/plugins/notificator';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 import { PaymentsMock } from '../../../mock/api/payments';
@@ -42,18 +42,11 @@ const store = new Vuex.Store<{
 }>({ modules: { usersModule, paymentsModule, projectsModule, appStateModule, notificationsModule }});
 store.commit(USER_MUTATIONS.SET_USER, new User('id', 'name', 'short', 'test@test.test', 'partner', 'pass'));
 
-class NotificatorPlugin {
-    public install() {
-        localVue.prototype.$notify = new Notificator(store);
-    }
-}
-
-const notificationsPlugin = new NotificatorPlugin();
-localVue.use(notificationsPlugin);
+localVue.use(new NotificatorPlugin(store));
 
 describe('AddStorjForm', () => {
     it('renders correctly', () => {
-        const wrapper = mount(AddStorjForm, {
+        const wrapper = mount<AddStorjForm>(AddStorjForm, {
             store,
             localVue,
         });
@@ -62,7 +55,7 @@ describe('AddStorjForm', () => {
     });
 
     it('user is unable to add less than 10$ or more than 999999$ for the first time', async () => {
-        const wrapper = mount(AddStorjForm, {
+        const wrapper = mount<AddStorjForm>(AddStorjForm, {
             store,
             localVue,
         });
@@ -86,7 +79,7 @@ describe('AddStorjForm', () => {
         store.commit(NOTIFICATION_MUTATIONS.CLEAR);
         store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [billingTransactionItem]);
         store.commit(PROJECTS_MUTATIONS.ADD, project);
-        const wrapper = mount(AddStorjForm, {
+        const wrapper = mount<AddStorjForm>(AddStorjForm, {
             store,
             localVue,
         });
@@ -99,7 +92,7 @@ describe('AddStorjForm', () => {
 
     it('renders correctly after continue To Coin Payments click', () => {
         window.open = jest.fn();
-        const wrapper = shallowMount(AddStorjForm, {
+        const wrapper = shallowMount<AddStorjForm>(AddStorjForm, {
             store,
             localVue,
             propsData: {

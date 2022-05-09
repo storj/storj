@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`should render correctly 1`] = `
+exports[` should render correctly 1`] = `
 <div class="user-container owner">
   <div class="user-container__base-info">
     <!---->
@@ -17,7 +17,7 @@ exports[`should render correctly 1`] = `
 </div>
 `;
 
-exports[`should render correctly with item row highlighted 1`] = `
+exports[` should render correctly with item row highlighted 1`] = `
 <div class="user-container owner">
   <div class="user-container__base-info">
     <!---->

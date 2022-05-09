@@ -390,7 +390,7 @@ export default class Login extends Vue {
                 background-color: #fff;
                 z-index: 1000;
                 border: 1px solid #c5cbdb;
-                box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
+                box-shadow: 0 8px 34px rgb(161 173 185 / 41%);
                 border-radius: 6px;
                 min-width: 250px;
 
@@ -432,7 +432,7 @@ export default class Login extends Vue {
 
             &__activation-banner {
                 padding: 20px;
-                background-color: rgba(39, 174, 96, 0.1);
+                background-color: rgb(39 174 96 / 10%);
                 border: 1px solid #27ae60;
                 color: #27ae60;
                 border-radius: 6px;
@@ -470,7 +470,7 @@ export default class Login extends Vue {
                     &__title {
                         font-size: 24px;
                         line-height: 49px;
-                        letter-spacing: -0.100741px;
+                        letter-spacing: -0.1007px;
                         color: #252525;
                         font-family: 'font_bold', sans-serif;
                         font-weight: 800;
@@ -615,7 +615,7 @@ export default class Login extends Vue {
                 padding: 0;
 
                 &__container {
-                    padding: 0 20px 20px 20px;
+                    padding: 0 20px 20px;
                     background: transparent;
                 }
             }

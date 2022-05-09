@@ -83,7 +83,7 @@ export default class StorageChart extends BaseChart {
     .tooltip {
         margin: 8px;
         position: relative;
-        box-shadow: 0 5px 14px rgba(9, 87, 203, 0.26);
+        box-shadow: 0 5px 14px rgb(9 87 203 / 26%);
         border-radius: 100px;
         padding-top: 8px;
         width: 145px;
@@ -108,7 +108,7 @@ export default class StorageChart extends BaseChart {
         &__arrow {
             width: 12px;
             height: 12px;
-            border-radius: 8px 0 0 0;
+            border-radius: 8px 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
             margin-bottom: -4px;
             background-color: #003dc1;

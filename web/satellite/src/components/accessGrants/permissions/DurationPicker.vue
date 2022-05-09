@@ -147,19 +147,15 @@ export default class DurationPicker extends Vue {
         border: 1px solid #384b65;
         border-radius: 6px;
         margin: 0 auto;
-        -webkit-box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-        -moz-box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+        box-shadow: 0 4px 8px 0 rgb(0 0 0 / 20%), 0 6px 20px 0 rgb(0 0 0 / 19%);
         position: absolute;
         z-index: 1;
         right: 0;
         top: 100%;
 
         &__list {
-            -moz-column-count: 2;
-            -moz-column-gap: 48px;
-            -webkit-column-count: 2;
             column-count: 2;
+            column-gap: 48px;
             padding: 10px 24px 0;
 
             &__column {

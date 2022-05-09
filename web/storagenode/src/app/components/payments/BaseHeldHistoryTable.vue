@@ -38,7 +38,7 @@ export default class BaseHeldHistoryTable extends Vue {}
             justify-content: space-between;
             min-height: 34px;
             height: auto;
-            border-bottom: 1px solid rgba(169, 181, 193, 0.3);
+            border-bottom: 1px solid rgb(169 181 193 / 30%);
 
             &:last-of-type {
                 border-bottom: none;

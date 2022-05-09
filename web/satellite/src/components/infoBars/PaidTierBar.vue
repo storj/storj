@@ -18,7 +18,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 // @vue/component
 @Component
 export default class PaidTierBar extends Vue {
-    @Prop({default: () => false})
+    @Prop({default: () => () => false})
     public readonly openAddPMModal: () => void;
 }
 </script>

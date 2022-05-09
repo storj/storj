@@ -86,7 +86,7 @@ export default class ResourcesDropdown extends Vue {
         z-index: 1120;
         font-family: 'font_regular', sans-serif;
         min-width: 255px;
-        box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+        box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
         border-radius: 6px;
 
         &__item-container {

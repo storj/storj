@@ -47,7 +47,7 @@ export default class AccessGrantsItem extends Vue {
         width: 100%;
 
         &:hover {
-            background-color: rgba(242, 244, 247, 0.6);
+            background-color: rgb(242 244 247 / 60%);
         }
 
         &__common-info {
@@ -95,7 +95,7 @@ export default class AccessGrantsItem extends Vue {
     }
 
     .grants-item-container.selected {
-        background-color: rgba(242, 244, 247, 0.6);
+        background-color: rgb(242 244 247 / 60%);
 
         .grants-item-container__common-info {
 

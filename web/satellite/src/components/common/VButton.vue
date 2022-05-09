@@ -48,7 +48,7 @@ export default class VButton extends Vue {
     private isDisabled: boolean;
     @Prop({default: false})
     private readonly isUppercase: boolean;
-    @Prop({default: () => { return; }})
+    @Prop({default: () => () => {}})
     private readonly onPress: () => void;
 
     public get style(): Record<string, unknown> {

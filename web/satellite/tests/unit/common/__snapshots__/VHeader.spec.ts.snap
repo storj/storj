@@ -3,6 +3,10 @@
 exports[`HeaderComponent.vue renders correctly 1`] = `
 <div class="header-container">
   <div class="header-container__buttons-area"></div>
+<<<<<<< HEAD
   <vsearch-stub styletype="common" placeholder="" search=""></vsearch-stub>
+=======
+  <vsearch-stub placeholder="" search="[Function]"></vsearch-stub>
+>>>>>>> 26f495f717a842a6049243d22c5d33c9310d27ff
 </div>
 `;

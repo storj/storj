@@ -103,7 +103,7 @@ export default class SettingsDropdown extends Vue {
         left: 0;
         top: 50px;
         z-index: 1120;
-        box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+        box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
         border-radius: 6px;
         background-color: #f5f6fa;
         padding: 6px 0;

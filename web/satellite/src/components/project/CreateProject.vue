@@ -175,7 +175,7 @@ export default class NewProjectPopup extends Vue {
         &__container {
             margin: 0 auto;
             max-width: 440px;
-            padding: 70px 50px 55px 50px;
+            padding: 70px 50px 55px;
             background-color: #fff;
             border-radius: 8px;
             position: relative;
@@ -197,7 +197,7 @@ export default class NewProjectPopup extends Vue {
                 color: #384b65;
                 font-family: 'font_bold', sans-serif;
                 text-align: center;
-                margin: 15px 0 30px 0;
+                margin: 15px 0 30px;
             }
 
             &__button-container {
@@ -218,7 +218,7 @@ export default class NewProjectPopup extends Vue {
                 left: 0;
                 height: 100%;
                 width: 100%;
-                background-color: rgba(229, 229, 229, 0.2);
+                background-color: rgb(229 229 229 / 20%);
                 border-radius: 8px;
                 z-index: 100;
 

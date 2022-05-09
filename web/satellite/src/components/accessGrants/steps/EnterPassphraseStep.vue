@@ -180,7 +180,7 @@ export default class EnterPassphraseStep extends Vue {
             font-size: 22px;
             line-height: 27px;
             color: #000;
-            margin: 0 0 30px 0;
+            margin: 0 0 30px;
         }
 
         &__sub-title {
@@ -189,7 +189,7 @@ export default class EnterPassphraseStep extends Vue {
             line-height: 21px;
             color: #000;
             text-align: center;
-            margin: 0 0 75px 0;
+            margin: 0 0 75px;
             max-width: 340px;
         }
 

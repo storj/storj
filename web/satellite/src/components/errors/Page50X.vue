@@ -34,10 +34,6 @@ export default class Page50X extends Vue {}
         align-items: center;
         justify-content: center;
         -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -khtml-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
         user-select: none;
 
         &__title {

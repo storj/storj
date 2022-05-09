@@ -34,7 +34,7 @@ const store = new Vuex.Store({ modules: { appStateModule, projectMembersModule, 
 
 describe('Team HeaderArea', () => {
     it('renders correctly', () => {
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
         });
@@ -52,7 +52,7 @@ describe('Team HeaderArea', () => {
     it('renders correctly with opened Add team member popup', () => {
         store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
 
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
         });
@@ -74,7 +74,7 @@ describe('Team HeaderArea', () => {
 
         const selectedUsersCount = 2;
 
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
             propsData: {
@@ -97,7 +97,7 @@ describe('Team HeaderArea', () => {
 
         const selectedUsersCount = 2;
 
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
             propsData: {
@@ -124,7 +124,7 @@ describe('Team HeaderArea', () => {
 
         const selectedUsersCount = 1;
 
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
             propsData: {
