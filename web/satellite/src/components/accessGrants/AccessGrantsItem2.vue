@@ -125,7 +125,7 @@ export default class AccessGrantsItem extends Vue {
     }
 
     .ellipses {
-        margin: 0 auto 20px auto;
+        margin: 0 auto 20px;
         font-size: 30px;
         font-weight: 1000;
         color: #7c8794;
@@ -141,7 +141,7 @@ export default class AccessGrantsItem extends Vue {
         z-index: 1;
         background: #fff;
         border-radius: 10px;
-        box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+        box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
 
         &__popup-details {
             @include popup-menu-button;

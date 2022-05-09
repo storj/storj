@@ -132,7 +132,7 @@ export default class VSearch extends Vue {
         background-position: top 16px left 16px;
     }
 
-    ::-webkit-input-placeholder {
+    ::placeholder {
         color: #afb7c1;
     }
 </style>
