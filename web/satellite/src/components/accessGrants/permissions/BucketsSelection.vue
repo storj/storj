@@ -102,12 +102,14 @@ export default class BucketsSelection extends Vue {
             }
         }
     }
+
     .access-bucket-container {
         margin-left: 0;
         height: 30px;
         border: 1px solid #c8d3de;
     }
-    .access-bucket-text{
+
+    .access-bucket-text {
         padding: 10px 20px;
     }
 </style>

@@ -3,10 +3,9 @@
 
 <template>
     <div class="create-access">
-        
         <div class="create-access__modal-container">
             <div 
-                v-if="this.tooltipHover === 'access'" 
+                v-if="tooltipHover === 'access'" 
                 class="access-tooltip"
                 @mouseover="toggleTooltipHover('access','over')"
                 @mouseleave="toggleTooltipHover('access','leave')"
@@ -14,7 +13,7 @@
                 <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
             </div>
             <div 
-                v-if="this.tooltipHover === 's3'" 
+                v-if="tooltipHover === 's3'" 
                 class="s3-tooltip"
                 @mouseover="toggleTooltipHover('s3','over')"
                 @mouseleave="toggleTooltipHover('s3','leave')"
@@ -22,7 +21,7 @@
                 <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener">Learn More</a></span>
             </div>
             <div 
-                v-if="this.tooltipHover === 'api'" 
+                v-if="tooltipHover === 'api'" 
                 class="api-tooltip"
                 @mouseover="toggleTooltipHover('api','over')"
                 @mouseleave="toggleTooltipHover('api','leave')"
@@ -33,22 +32,24 @@
                 <div class="create-access__modal-container__header-container">
                     <h2 class="create-access__modal-container__header-container__title">Create Access</h2>
                     <div
-                    class="create-access__modal-container__header-container__close-cross-container" @click="onCloseClick">
+                        class="create-access__modal-container__header-container__close-cross-container" @click="onCloseClick"
+                    >
                         <CloseCrossIcon />
                     </div>
                 </div>
                 <div class="create-access__modal-container__body-container">
-                    <TypesIcon class="create-access__modal-container__body-container__type-icon"/>
+                    <TypesIcon class="create-access__modal-container__body-container__type-icon" />
                     <div class="create-access__modal-container__body-container__type">
                         <p>Type</p>
                         <div class="create-access__modal-container__body-container__type__type-container">
                             <input 
-                            v-model="checkedType"
-                            value="access"
-                            type="radio" 
-                            id="acess-grant-check"
-                            name="type" 
-                            :checked="this.checkedType === 'access'"/>
+                                id="acess-grant-check"
+                                v-model="checkedType"
+                                value="access" 
+                                type="radio"
+                                name="type" 
+                                :checked="checkedType === 'access'"
+                            >
                             <label for="acess-grant-check">
                                 Access Grant
                             </label>
@@ -57,84 +58,88 @@
                                 src="../../../static/images/accessGrants/create-access_information.png"
                                 @mouseover="toggleTooltipHover('access','over')"
                                 @mouseleave="toggleTooltipHover('access','leave')"
-                            />
+                            >
                         </div>
                         <div class="create-access__modal-container__body-container__type__type-container">
                             <input 
-                            v-model="checkedType"
-                            value="s3"
-                            type="radio" 
-                            id="s3-check"
-                            name="type" 
-                            :checked="this.checkedType === 's3'"/>
+                                id="s3-check"
+                                v-model="checkedType"
+                                value="s3" 
+                                type="radio"
+                                name="type" 
+                                :checked="checkedType === 's3'"
+                            >
                             <label for="s3-check">S3 Credentials</label>
                             <img
                                 class="tooltip-icon"
                                 src="../../../static/images/accessGrants/create-access_information.png"
                                 @mouseover="toggleTooltipHover('s3','over')"
                                 @mouseleave="toggleTooltipHover('s3','leave')"
-                            />
+                            >
                         </div>
                         <div class="create-access__modal-container__body-container__type__type-container">
                             <input
-                            v-model="checkedType"
-                            value="api"
-                            type="radio" 
-                            id="api-check"
-                            name="type" 
-                            :checked="this.checkedType === 'api'"
-                            @click="this.checkedType = 'api'"/>
+                                id="api-check"
+                                v-model="checkedType"
+                                value="api" 
+                                type="radio"
+                                name="type" 
+                                :checked="checkedType === 'api'"
+                                @click="checkedType = 'api'"
+                            >
                             <label for="api-check">API Access</label>
                             <img
                                 class="tooltip-icon"
                                 src="../../../static/images/accessGrants/create-access_information.png"
                                 @mouseover="toggleTooltipHover('api','over')"
                                 @mouseleave="toggleTooltipHover('api','leave')"
-                            />
+                            >
                         </div>
                     </div>
-                    <NameIcon class="create-access__modal-container__body-container__name-icon"/>
+                    <NameIcon class="create-access__modal-container__body-container__name-icon" />
                     <div class="create-access__modal-container__body-container__name">
                         <p>Name</p>
                         <input
-                        v-model="accessName"
-                        type="text" 
-                        placeholder="Input Access Name" class="create-access__modal-container__body-container__name__input"
+                            v-model="accessName"
+                            type="text" 
+                            placeholder="Input Access Name" class="create-access__modal-container__body-container__name__input"
                         >
                     </div>
-                    <PermissionsIcon class="create-access__modal-container__body-container__permissions-icon"/>
+                    <PermissionsIcon class="create-access__modal-container__body-container__permissions-icon" />
                     <div class="create-access__modal-container__body-container__permissions">
                         <p>Permissions</p>
                         <div>
                             <input
-                            type="checkbox" 
-                            id="permissions__all-check"
-                            @click="toggleAllPermission('all')"
-                            :checked="allPermissionsClicked"
-                            />
+                                id="permissions__all-check" 
+                                type="checkbox"
+                                :checked="allPermissionsClicked"
+                                @click="toggleAllPermission('all')"
+                            >
                             <label for="permissions__all-check">All</label>
-                            <Chevron @click="togglePermissions" :class="`permissions-chevron-${this.showAllPermissions.position}`"/>
+                            <Chevron :class="`permissions-chevron-${showAllPermissions.position}`" @click="togglePermissions" />
                         </div>
-                        <div v-if="this.showAllPermissions.show">
-                            <div v-for="(item, key) in permissionsList" v-bind:key="key">
+                        <div v-if="showAllPermissions.show">
+                            <div v-for="(item, key) in permissionsList" :key="key">
                                 <input 
-                                v-model="selectedPermissions"
-                                :value="item"
-                                type="checkbox" 
-                                :id="`permissions__${item}-check`"
-                                :checked="checkedPermissions.item"
-                                @click="toggleAllPermission(item)"/>
-                                <label :for="`permissions__${item}-check`">{{item}}</label>
+                                    :id="`permissions__${item}-check`"
+                                    v-model="selectedPermissions"
+                                    :value="item" 
+                                    type="checkbox"
+                                    :checked="checkedPermissions.item"
+                                    @click="toggleAllPermission(item)"
+                                >
+                                <label :for="`permissions__${item}-check`">{{ item }}</label>
                             </div>
                         </div>
                     </div>
-                    <BucketsIcon class="create-access__modal-container__body-container__buckets-icon"/>
+                    <BucketsIcon class="create-access__modal-container__body-container__buckets-icon" />
                     <div class="create-access__modal-container__body-container__buckets">
                         <p>Buckets</p>
                         <div>
                             <BucketsSelection 
-                            container-style="access-bucket-container"
-                            text-style="access-bucket-text"/>
+                                container-style="access-bucket-container"
+                                text-style="access-bucket-text"
+                            />
                         </div>
                         <div class="create-access__modal-container__body-container__buckets__bucket-bullets">
                             <div
@@ -146,13 +151,14 @@
                             </div>
                         </div>
                     </div>
-                    <DateIcon class="create-access__modal-container__body-container__date-icon"/>
+                    <DateIcon class="create-access__modal-container__body-container__date-icon" />
                     <div class="create-access__modal-container__body-container__duration">
                         <p>Duration</p>
                         <div>
                             <DurationSelection
-                            container-style="access-date-container"
-                            text-style="access-date-text"/>
+                                container-style="access-date-container"
+                                text-style="access-date-text"
+                            />
                         </div>
                     </div>
 
@@ -162,9 +168,8 @@
                         <p>Notes</p>
                         <div>--Notes Section Here--</div>
                     </div> -->
-
                 </div>
-                <div class="create-access__modal-container__divider"></div>
+                <div class="create-access__modal-container__divider" />
                 <div class="create-access__modal-container__footer-container">
                     <VButton
                         label="Learn More"
@@ -194,26 +199,23 @@ import DurationSelection from '@/components/accessGrants/permissions/DurationSel
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
 import BucketNameBullet from "@/components/accessGrants/permissions/BucketNameBullet.vue";
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-import VCheckbox from '@/components/common/VCheckbox.vue';
+// import VCheckbox from '@/components/common/VCheckbox.vue';
 import TypesIcon from '@/../static/images/accessGrants/create-access_type.svg';
 import PermissionsIcon from '@/../static/images/accessGrants/create-access_permissions.svg';
 import NameIcon from '@/../static/images/accessGrants/create-access_name.svg';
 import BucketsIcon from '@/../static/images/accessGrants/create-access_buckets.svg';
 import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
-import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
+// import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
 // import InformationIcon from '@/../static/images/accessGrants/create-access_information.png';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-
-import { RouteConfig } from '@/router';
 
 // @vue/component
 @Component({
     components: {
-        VCheckbox,
+        // VCheckbox,
         VButton,
         DurationSelection,
         BucketsSelection,
@@ -224,7 +226,7 @@ import { RouteConfig } from '@/router';
         NameIcon,
         BucketsIcon,
         DateIcon,
-        NotesIcon,
+        // NotesIcon,
         Chevron,
         // InformationIcon,
     },
@@ -370,10 +372,10 @@ export default class CreateAccessModal extends Vue {
 
     @mixin tooltip-container {
         position: absolute;
-        background: #56606D;
+        background: #56606d;
         border-radius: 6px;
         width: 253px;
-        color: #ffffff;
+        color: #fff;
         display: flex;
         flex-direction: row;
         align-items: flex-start;
@@ -383,7 +385,7 @@ export default class CreateAccessModal extends Vue {
     }
 
     @mixin tooltip-arrow {
-        content: "";
+        content: '';
         position: absolute;
         bottom: 0;
         width: 0;
@@ -396,8 +398,8 @@ export default class CreateAccessModal extends Vue {
     }
 
     p {
-      font-weight: bold;
-      padding-bottom: 5px;
+        font-weight: bold;
+        padding-bottom: 5px;
     }
 
     label {
@@ -405,7 +407,7 @@ export default class CreateAccessModal extends Vue {
         padding-right: 10px;
     }
 
-    h2{
+    h2 {
         font-weight: 800;
         font-size: 28px;
     }
@@ -421,16 +423,17 @@ export default class CreateAccessModal extends Vue {
         left: 0;
         right: 0;
         z-index: 100;
-        background: rgba(27, 37, 51, 0.75);
+        background: rgb(27 37 51 / 75%);
         display: flex;
         align-items: flex-start;
         justify-content: center;
+
         & > * {
             font-family: sans-serif;
         }
-        
+
         &__modal-container {
-            background: #ffffff;
+            background: #fff;
             border-radius: 6px;
             display: flex;
             flex-direction: column;
@@ -440,15 +443,18 @@ export default class CreateAccessModal extends Vue {
             margin-top: 40px;
             width: 410px;
             height: auto;
+
             &__header-container {
                 text-align: left;
                 display: grid;
                 grid-template-columns: 2fr 1fr;
                 width: 100%;
                 padding-top: 10px;
+
                 &__title {
                     grid-column: 1;
                 }
+
                 &__close-cross-container {
                     grid-column: 2;
                     margin: auto 0 auto auto;
@@ -466,39 +472,46 @@ export default class CreateAccessModal extends Vue {
                     }
                 }
             }
+
             &__body-container {
                 display: grid;
                 grid-template-columns: 1fr 6fr;
                 grid-template-rows: auto auto auto auto auto auto;
                 width: 100%;
                 padding-top: 10px;
+
                 &__type-icon {
                     grid-column: 1;
                     grid-row: 1;
                 }
+
                 &__type {
                     grid-column: 2;
                     grid-row: 1;
                     display: flex;
                     flex-direction: column;
+
                     &__type-container {
                         display: flex;
                         flex-direction: row;
                         align-items: center;
                     }
                 }
+
                 &__name-icon {
                     grid-column: 1;
                     grid-row: 2;
                 }
+
                 &__name {
                     grid-column: 2;
                     grid-row: 2;
                     display: flex;
                     flex-direction: column;
+
                     &__input {
-                        background: #FFFFFF;
-                        border: 1px solid #C8D3DE;
+                        background: #fff;
+                        border: 1px solid #c8d3de;
                         box-sizing: border-box;
                         border-radius: 4px;
                         height: 40px;
@@ -506,74 +519,89 @@ export default class CreateAccessModal extends Vue {
                         padding: 10px;
                     }
                 }
+
                 &__permissions-icon {
                     grid-column: 1;
                     grid-row: 3;
                 }
+
                 &__permissions {
                     grid-column: 2;
                     grid-row: 3;
                     display: flex;
                     flex-direction: column;
                 }
+
                 &__buckets-icon {
                     grid-column: 1;
                     grid-row: 4;
-                }                
+                }
+
                 &__buckets {
                     grid-column: 2;
                     grid-row: 4;
                     display: flex;
                     flex-direction: column;
+
                     &__bucket-bullets {
                         display: flex;
                         align-items: center;
                         max-width: 100%;
                         flex-wrap: wrap;
+
                         &__container {
                             display: flex;
-                            margin-top: 5px;                           
+                            margin-top: 5px;
                         }
                     }
                 }
+
                 &__date-icon {
                     grid-column: 1;
                     grid-row: 5;
-                } 
+                }
+
                 &__duration {
                     grid-column: 2;
                     grid-row: 5;
                     display: flex;
                     flex-direction: column;
                 }
+
                 &__notes-icon {
                     grid-column: 1;
                     grid-row: 6;
-                } 
+                }
+
                 &__notes {
                     grid-column: 2;
                     grid-row: 6;
                     display: flex;
                     flex-direction: column;
                 }
+
                 & div {
                     padding-bottom: 10px;
                 }
             }
+
             &__divider {
                 height: 1px;
                 background-color: #dadfe7;
-                margin: 10px auto 0 auto;
+                margin: 10px auto 0;
                 width: 90%;
             }
+
             &__footer-container {
                 display: flex;
                 width: 100%;
                 justify-content: space-evenly;
                 padding-top: 25px;
+
                 &__learn-more-button {
                     padding: 0 15px;
                 }
+
                 &__encrypt-button {
                     padding: 0 15px;
                 }
@@ -583,6 +611,7 @@ export default class CreateAccessModal extends Vue {
 
     .permissions-chevron-up {
         @include chevron;
+
         transform: rotate(-90deg);
     }
 
@@ -602,7 +631,7 @@ export default class CreateAccessModal extends Vue {
     }
 
     a {
-        color: #FFFFFF;
+        color: #fff;
         text-decoration: underline !important;
         cursor: pointer;
     }
@@ -610,10 +639,13 @@ export default class CreateAccessModal extends Vue {
     .access-tooltip {
         top: 52px;
         left: 94px;
+
         @include tooltip-container;
-        &::after {
+
+        &:after {
             left: 50%;
             top: 100%;
+
             @include tooltip-arrow;
         }
     }
@@ -621,11 +653,14 @@ export default class CreateAccessModal extends Vue {
     .s3-tooltip {
         top: 158px;
         left: 103px;
+
         @include tooltip-container;
-        &::after {            
+
+        &:after {
             left: 50%;
             top: -8%;
             transform: rotate(180deg);
+
             @include tooltip-arrow;
         }
     }
@@ -633,20 +668,22 @@ export default class CreateAccessModal extends Vue {
     .api-tooltip {
         top: 186px;
         left: 78px;
+
         @include tooltip-container;
-        &::after {
+
+        &:after {
             left: 50%;
             top: -11%;
             transform: rotate(180deg);
+
             @include tooltip-arrow;
         }
     }
 
-
     @media screen and (max-height: 800px) {
 
         .create-access {
-            padding: 50px 0 20px 0;
+            padding: 50px 0 20px;
             overflow-y: scroll;
         }
     }
@@ -654,42 +691,42 @@ export default class CreateAccessModal extends Vue {
     @media screen and (max-height: 750px) {
 
         .create-access {
-            padding: 100px 0 20px 0;
+            padding: 100px 0 20px;
         }
     }
 
     @media screen and (max-height: 700px) {
 
         .create-access {
-            padding: 150px 0 20px 0;
+            padding: 150px 0 20px;
         }
     }
 
     @media screen and (max-height: 650px) {
 
         .create-access {
-            padding: 200px 0 20px 0;
+            padding: 200px 0 20px;
         }
     }
 
     @media screen and (max-height: 600px) {
 
         .create-access {
-            padding: 250px 0 20px 0;
+            padding: 250px 0 20px;
         }
     }
 
     @media screen and (max-height: 550px) {
 
         .create-access {
-            padding: 300px 0 20px 0;
+            padding: 300px 0 20px;
         }
     }
 
     @media screen and (max-height: 500px) {
 
         .create-access {
-            padding: 350px 0 20px 0;
+            padding: 350px 0 20px;
         }
     }
 </style>

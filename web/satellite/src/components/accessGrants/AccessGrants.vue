@@ -132,9 +132,9 @@
             @reset-pagination="resetPagination"
         />
         <CreateAccessModal 
-        v-if="showModal"
-        :on-close="toggleAccessModal"
-        :default-type="modalPropType"
+            v-if="showModal"
+            :on-close="toggleAccessModal"
+            :default-type="modalPropType"
         />
         <router-view />
     </div>
