@@ -247,7 +247,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&value)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Error.New("pending object missing")
+			return ErrPendingObjectMissing.New("")
 		}
 		return Error.New("unable to query object status: %w", err)
 	}
@@ -363,7 +363,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-			return Error.New("pending object missing")
+			return ErrPendingObjectMissing.New("")
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
@@ -449,7 +449,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-			return Error.New("pending object missing")
+			return ErrPendingObjectMissing.New("")
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
@@ -542,12 +542,14 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
-		args := []interface{}{opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		args := []interface{}{
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 			len(segments),
 			totalPlainSize,
 			totalEncryptedSize,
 			fixedSegmentSize,
-			encryptionParameters{&opts.Encryption}}
+			encryptionParameters{&opts.Encryption},
+		}
 
 		metadataColumns := ""
 		if opts.OverrideEncryptedMetadata {
