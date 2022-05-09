@@ -191,7 +191,7 @@ export default class RegistrationSuccess extends Vue {
         width: 75%;
         height: 50vh;
         margin-top: 50px;
-        padding: 70px 90px 30px 90px;
+        padding: 70px 90px 30px;
         max-width: 1200px;
 
         &__form-container {
@@ -233,7 +233,7 @@ export default class RegistrationSuccess extends Vue {
                 font-family: 'font_medium', sans-serif;
                 font-size: 12px;
                 line-height: 16px;
-                padding: 27px 0 0 0;
+                padding: 27px 0 0;
                 margin: 0;
 
                 &__bold-text {

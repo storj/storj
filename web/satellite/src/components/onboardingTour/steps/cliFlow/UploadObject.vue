@@ -83,7 +83,7 @@ export default class UploadObject extends Vue {
         }
 
         &__icon {
-            margin: 20px 0 40px 0;
+            margin: 20px 0 40px;
             width: 100%;
         }
     }

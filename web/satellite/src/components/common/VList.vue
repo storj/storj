@@ -25,7 +25,7 @@ declare type listItemClickCallback = (item: unknown) => Promise<void>;
 export default class VList extends Vue {
     @Prop({default: ''})
     private readonly itemComponent: string;
-    @Prop({default: () => new Promise(() => false)})
+    @Prop({default: () => () => new Promise(() => false)})
     private readonly onItemClick: listItemClickCallback;
     @Prop({default: []})
     private readonly dataSet: unknown[];

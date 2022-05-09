@@ -1,17 +1,18 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import {
     AccessGrant,
     AccessGrantCursor,
     AccessGrantsApi,
     AccessGrantsOrderBy,
     AccessGrantsPage,
+    AccessGrantsWorkerFactory,
     DurationPermission,
     EdgeCredentials,
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
+import {StoreModule} from "@/types/store";
 
 export const ACCESS_GRANTS_ACTIONS = {
     FETCH: 'fetchAccessGrants',
@@ -102,7 +103,7 @@ interface AccessGrantsContext {
  *
  * @param api - accessGrants api
  */
-export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<AccessGrantsState, AccessGrantsContext> {
+export function makeAccessGrantsModule(api: AccessGrantsApi, workerFactory?: AccessGrantsWorkerFactory): StoreModule<AccessGrantsState, AccessGrantsContext> {
     return {
         state: new AccessGrantsState(),
         mutations: {
@@ -209,7 +210,11 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
         },
         actions: {
             setAccessGrantsWebWorker: async function ({commit}: AccessGrantsContext): Promise<void> {
-                const worker = new Worker('@/../static/wasm/accessGrant.worker.js', { type: 'module' });
+                if(!workerFactory) {
+                    throw new Error("Worker not supported");
+                }
+
+                const worker = workerFactory.create();
                 worker.postMessage({'type': 'Setup'})
 
                 const event: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);

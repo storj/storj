@@ -1,9 +1,8 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-/* eslint-disable */
-
-importScripts('/static/static/wasm/wasm_exec.js')
+// eslint-disable-next-line no-undef
+importScripts('/static/static/wasm/wasm_exec.js');
 
 if (!WebAssembly.instantiate) {
     self.postMessage(new Error('web assembly is not supported'));
@@ -14,33 +13,34 @@ self.onmessage = async function (event) {
     let result;
     let apiKey;
     switch (data.type) {
-        case 'Setup':
-            try {
-                const go = new Go();
-                const response = await fetch('/static/static/wasm/access.wasm')
-                const buffer = await response.arrayBuffer();
-                const module = await WebAssembly.compile(buffer);
-                const instance = await WebAssembly.instantiate(module, go.importObject);
+    case 'Setup':
+        try {
+            const go = new global.Go();
+            const response = await fetch('/static/static/wasm/access.wasm')
+            const buffer = await response.arrayBuffer();
+            const module = await WebAssembly.compile(buffer);
+            const instance = await WebAssembly.instantiate(module, go.importObject);
 
-                go.run(instance)
+            go.run(instance)
 
-                self.postMessage('configured');
-            } catch (e) {
-                self.postMessage(new Error(e.message))
-            }
+            self.postMessage('configured');
+        } catch (e) {
+            self.postMessage(new Error(e.message))
+        }
 
-            break;
-        case 'DeriveAndEncryptRootKey':
-            {
-                const passphrase = data.passphrase;
-                const projectID = data.projectID;
-                const aesKey = data.aesKey;
+        break;
+    case 'DeriveAndEncryptRootKey':
+        {
+            const passphrase = data.passphrase;
+            const projectID = data.projectID;
+            const aesKey = data.aesKey;
 
-                result = self.deriveAndEncryptRootKey(passphrase, projectID, aesKey);
-                self.postMessage(result);
-            }
-            break;
-        case 'GenerateAccess':
+            result = self.deriveAndEncryptRootKey(passphrase, projectID, aesKey);
+            self.postMessage(result);
+        }
+        break;
+    case 'GenerateAccess':
+        {
             apiKey = data.apiKey;
             const passphrase = data.passphrase;
             const projectID = data.projectID;
@@ -49,9 +49,11 @@ self.onmessage = async function (event) {
             result = self.generateAccessGrant(nodeURL, apiKey, passphrase, projectID);
 
             self.postMessage(result);
-            break;
-        case 'SetPermission': // fallthrough
-        case 'RestrictGrant':
+        }
+        break;
+    case 'SetPermission': // fallthrough
+    case 'RestrictGrant':
+        {
             const isDownload = data.isDownload;
             const isUpload = data.isUpload;
             const isList = data.isList;
@@ -80,8 +82,9 @@ self.onmessage = async function (event) {
             }
 
             self.postMessage(result);
-            break;
-        default:
-            self.postMessage(new Error('provided message event type is not supported'));
+        }
+        break;
+    default:
+        self.postMessage(new Error('provided message event type is not supported'));
     }
 };

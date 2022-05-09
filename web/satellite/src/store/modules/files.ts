@@ -1,9 +1,8 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from "@/store";
-
 import S3, { CommonPrefix } from "aws-sdk/clients/s3";
+import {StoreModule} from "@/types/store";
 
 const listCache = new Map();
 
@@ -80,21 +79,7 @@ declare global {
           successCallback: (arg0: File) => void,
           errorCallback?: (arg0: Error) => void
         ) => void;
-      
         createReader: () => FileSystemDirectoryReader;
-    }
-
-    interface File {
-        // https://developer.mozilla.org/en-US/docs/Web/API/File/webkitRelativePath
-        webkitRelativePath: string;
-    }
-
-    interface FileSystemDirectoryReader {
-        // https://developer.mozilla.org/en-US/docs/Web/API/FileSystemDirectoryReader/readEntries
-        readEntries: (
-            successCallback: (arg0: FileSystemEntry[]) => void,
-            errorCallback?: (arg0: Error) => void
-        ) => void;
     }
 }
 

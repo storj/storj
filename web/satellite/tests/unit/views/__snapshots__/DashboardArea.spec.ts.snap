@@ -5,7 +5,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
   <!---->
   <div class="dashboard__wrap">
     <!---->
-    <paidtierbar-stub openaddpmmodal="function () { [native code] }"></paidtierbar-stub>
+    <paidtierbar-stub openaddpmmodal="[Function]"></paidtierbar-stub>
     <!---->
     <!---->
     <dashboardheader-stub></dashboardheader-stub>

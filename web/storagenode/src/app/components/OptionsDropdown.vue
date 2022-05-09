@@ -92,8 +92,6 @@ export default class OptionsDropdown extends Vue {
         background-color: var(--block-background-color);
         border-bottom-left-radius: 12px;
         border-bottom-right-radius: 12px;
-        -webkit-border-bottom-left-radius: 12px;
-        -webkit-border-bottom-right-radius: 12px;
         font-family: 'font_regular', sans-serif;
         font-size: 14px;
         color: var(--regular-text-color);

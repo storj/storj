@@ -19,15 +19,8 @@ import { PaymentsMock } from '../../mock/api/payments';
 import { ProjectMembersApiMock } from '../../mock/api/projectMembers';
 import { ProjectsApiMock } from '../../mock/api/projects';
 
-const notificationPlugin = new NotificatorPlugin();
 const localVue = createLocalVue();
-
 localVue.use(Vuex);
-localVue.use(notificationPlugin);
-
-localVue.filter('centsToDollars', (cents: number): string => {
-    return `$${(cents / 100).toFixed(2)}`;
-});
 
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
@@ -41,6 +34,13 @@ const projectMembersApi = new ProjectMembersApiMock();
 const projectMembersModule = makeProjectMembersModule(projectMembersApi);
 
 const store = new Vuex.Store({ modules: { projectsModule, paymentsModule, bucketUsageModule, projectMembersModule, accessGrantsModule }});
+
+localVue.use(new NotificatorPlugin(store));
+
+localVue.filter('centsToDollars', (cents: number): string => {
+    return `$${(cents / 100).toFixed(2)}`;
+});
+
 
 describe('ProjectSummary.vue', (): void => {
     it('renders correctly', (): void => {

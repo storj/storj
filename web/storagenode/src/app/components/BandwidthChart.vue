@@ -209,7 +209,7 @@ export default class BandwidthChart extends BaseChart {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 10px 0 16px 0;
+        padding: 10px 0 16px;
         color: var(--regular-text-color);
     }
 </style>

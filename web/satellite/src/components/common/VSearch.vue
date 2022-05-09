@@ -32,7 +32,9 @@ export default class VSearch extends Vue {
     private readonly styleType: string;
     @Prop({default: ''})
     private readonly placeholder: string;
-    @Prop({default: () => ''})
+    @Prop({default: function(): searchCallback {
+        return async function(_: string) {};
+    }})
     private readonly search: searchCallback;
 
     private inputWidth = '56px';
@@ -98,7 +100,7 @@ export default class VSearch extends Vue {
         padding: 0 38px 0 18px;
         border: 1px solid #f2f2f2;
         box-sizing: border-box;
-        box-shadow: 0 4px 4px rgba(231, 232, 238, 0.6);
+        box-shadow: 0 4px 4px rgb(231 232 238 / 60%);
         outline: none;
         border-radius: 36px;
         height: 56px;

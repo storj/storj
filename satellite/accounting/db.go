@@ -159,6 +159,12 @@ type BucketUsageRollup struct {
 	Before time.Time `json:"before"`
 }
 
+// Usage contains project's usage split on segments and storage.
+type Usage struct {
+	Storage  int64
+	Segments int64
+}
+
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes.
 //
 // architecture: Database
@@ -283,8 +289,8 @@ type Cache interface {
 	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
 	// this method will never return ErrKeyNotFound.
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
-	// GetAllProjectTotals return the total projects' storage used space.
-	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]int64, error)
+	// GetAllProjectTotals return the total projects' storage and segments used space.
+	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]Usage, error)
 	// Close the client, releasing any open resources. Once it's called any other
 	// method must be called.
 	Close() error

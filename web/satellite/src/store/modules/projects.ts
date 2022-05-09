@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import {
     DataStamp,
     Project,
@@ -13,6 +12,7 @@ import {
     ProjectsStorageBandwidthDaily,
     ProjectUsageDateRange,
 } from '@/types/projects';
+import {StoreModule} from "@/types/store";
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',

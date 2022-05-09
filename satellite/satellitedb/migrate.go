@@ -1887,6 +1887,23 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes DROP COLUMN suspended;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create webapp_sessions table",
+				Version:     195,
+				Action: migrate.SQL{
+					`CREATE TABLE webapp_sessions (
+						id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						ip_address text NOT NULL,
+						user_agent text NOT NULL,
+						status integer NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

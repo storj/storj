@@ -18,9 +18,7 @@ Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
 
-const notificator = new NotificatorPlugin();
-
-Vue.use(notificator);
+Vue.use(new NotificatorPlugin(store));
 Vue.use(VueClipboard);
 
 /**
@@ -67,17 +65,6 @@ Vue.directive('number', {
             e.preventDefault();
         });
     },
-});
-
-/**
- * leadingZero adds zero to the start of single digit number.
- */
-Vue.filter('leadingZero', function (value: number): string {
-    if (value <= 9) {
-        return `0${value}`;
-    }
-
-    return `${value}`;
 });
 
 /**

@@ -9,8 +9,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgtype"
-
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil"
@@ -357,26 +355,6 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return Error.New("unable to copy object: %w", err)
 		}
 
-		expiresAtElements := make([]pgtype.Timestamptz, len(expiresAts))
-		for i, v := range expiresAts {
-			if v == nil {
-				expiresAtElements[i] = pgtype.Timestamptz{
-					Status: pgtype.Null,
-				}
-			} else {
-				expiresAtElements[i] = pgtype.Timestamptz{
-					Time:   *v,
-					Status: pgtype.Present,
-				}
-			}
-		}
-
-		expiresAtArray := &pgtype.TimestamptzArray{
-			Elements:   expiresAtElements,
-			Dimensions: []pgtype.ArrayDimension{{Length: int32(len(expiresAtElements)), LowerBound: 1}},
-			Status:     pgtype.Present,
-		}
-
 		_, err = db.db.ExecContext(ctx, `
 			INSERT INTO segments (
 				stream_id, position, expires_at,
@@ -392,7 +370,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 				UNNEST($7::INT8[]),
 				UNNEST($8::INT4[]), UNNEST($9::INT8[]),	UNNEST($10::INT4[]),
 				UNNEST($11::BYTEA[])
-		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions), expiresAtArray,
+		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions), pgutil.NullTimestampTZArray(expiresAts),
 			pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
 			pgutil.ByteaArray(rootPieceIDs),
 			pgutil.Int8Array(redundancySchemes),

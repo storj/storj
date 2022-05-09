@@ -635,7 +635,7 @@ export default class RegisterArea extends Vue {
             border-radius: 20px;
             width: 75%;
             margin-top: 50px;
-            padding: 70px 90px 30px 90px;
+            padding: 70px 90px 30px;
             max-width: 1200px;
         }
 
@@ -663,7 +663,7 @@ export default class RegisterArea extends Vue {
                 font-style: normal;
                 font-weight: 400;
                 line-height: 30px;
-                letter-spacing: -0.1007407009601593px;
+                letter-spacing: -0.1007px;
                 text-align: left;
             }
 
@@ -710,7 +710,7 @@ export default class RegisterArea extends Vue {
                     background-color: #fff;
                     z-index: 1000;
                     border: 1px solid #c5cbdb;
-                    box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
+                    box-shadow: 0 8px 34px rgb(161 173 185 / 41%);
                     border-radius: 6px;
                     min-width: 250px;
 
@@ -745,7 +745,7 @@ export default class RegisterArea extends Vue {
                 &__wrapper {
                     display: flex;
                     justify-content: space-between;
-                    margin: 20px 0 15px 0;
+                    margin: 20px 0 15px;
                     list-style: none;
                     padding: 0;
                 }
@@ -793,7 +793,7 @@ export default class RegisterArea extends Vue {
                     &__title {
                         font-size: 24px;
                         line-height: 49px;
-                        letter-spacing: -0.100741px;
+                        letter-spacing: -0.1007px;
                         color: #252525;
                         font-family: 'font_regular', sans-serif;
                         font-weight: 800;
@@ -833,7 +833,7 @@ export default class RegisterArea extends Vue {
                         font-size: 16px;
                         line-height: 22px;
                         color: #1b2533;
-                        margin: 8px 0 0 0;
+                        margin: 8px 0 0;
                     }
                 }
 
@@ -965,9 +965,6 @@ export default class RegisterArea extends Vue {
         width: 21px;
         cursor: pointer;
         font-size: 22px;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
         user-select: none;
         outline: none;
     }
@@ -1016,8 +1013,6 @@ export default class RegisterArea extends Vue {
         height: 10px;
         border: solid #354049;
         border-width: 0 3px 3px 0;
-        -webkit-transform: rotate(45deg);
-        -ms-transform: rotate(45deg);
         transform: rotate(45deg);
     }
 
@@ -1100,7 +1095,7 @@ export default class RegisterArea extends Vue {
             }
 
             &__intro-area {
-                margin: 0 auto 130px auto;
+                margin: 0 auto 130px;
                 overflow: visible;
 
                 &__wrapper {
@@ -1167,7 +1162,7 @@ export default class RegisterArea extends Vue {
 
             &__input-area {
                 width: 100%;
-                padding: 55px 0 0 0;
+                padding: 55px 0 0;
 
                 &__container {
                     padding: 40px;
@@ -1219,7 +1214,7 @@ export default class RegisterArea extends Vue {
             }
 
             &__intro-area {
-                margin: 0 auto 30px auto;
+                margin: 0 auto 30px;
 
                 &__title {
                     font-size: 34px;
@@ -1231,7 +1226,7 @@ export default class RegisterArea extends Vue {
             }
 
             &__input-area {
-                padding: 30px 0 0 0;
+                padding: 30px 0 0;
 
                 &__container {
                     padding: 40px 20px;

@@ -258,7 +258,7 @@ export default class EncryptData extends Vue {
         padding-bottom: 30px;
 
         &__msg-container {
-            margin: -20px auto 40px auto;
+            margin: -20px auto 40px;
             max-width: 620px;
             background-color: #ffd78a;
             display: flex;
@@ -304,6 +304,7 @@ export default class EncryptData extends Vue {
 
         &__faq {
             max-width: 620px;
+
             // display: flex; revert this when FAQ content will be confirmed
             display: none;
             flex-direction: column;
@@ -316,7 +317,7 @@ export default class EncryptData extends Vue {
                 line-height: 56px;
                 letter-spacing: 1px;
                 color: #14142b;
-                margin: 75px 0 30px 0;
+                margin: 75px 0 30px;
             }
         }
     }

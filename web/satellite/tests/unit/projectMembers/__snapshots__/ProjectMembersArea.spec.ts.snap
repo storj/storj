@@ -20,11 +20,9 @@ exports[`ProjectMembersArea.vue renders correctly 1`] = `
     <headerarea-stub headerstate="0" selectedprojectmemberscount="0"></headerarea-stub>
   </div>
   <div id="team-container" class="team-area__container">
-    <sortinglistheader-stub onheaderclickcallback="function () { [native code] }"></sortinglistheader-stub>
+    <sortinglistheader-stub onheaderclickcallback="[Function]"></sortinglistheader-stub>
     <div class="team-area__container__content">
-      <vlist-stub itemcomponent="function VueComponent (options) {
-      this._init(options);
-    }" onitemclick="function () { [native code] }" dataset="[object Object]"></vlist-stub>
+      <vlist-stub itemcomponent="[Function]" onitemclick="[Function]" dataset="[object Object]"></vlist-stub>
     </div>
   </div>
   <!---->
@@ -38,11 +36,9 @@ exports[`ProjectMembersArea.vue team area renders correctly 1`] = `
     <headerarea-stub headerstate="0" selectedprojectmemberscount="0"></headerarea-stub>
   </div>
   <div id="team-container" class="team-area__container">
-    <sortinglistheader-stub onheaderclickcallback="function () { [native code] }"></sortinglistheader-stub>
+    <sortinglistheader-stub onheaderclickcallback="[Function]"></sortinglistheader-stub>
     <div class="team-area__container__content">
-      <vlist-stub itemcomponent="function VueComponent (options) {
-      this._init(options);
-    }" onitemclick="function () { [native code] }" dataset="[object Object]"></vlist-stub>
+      <vlist-stub itemcomponent="[Function]" onitemclick="[Function]" dataset="[object Object]"></vlist-stub>
     </div>
   </div>
   <!---->

@@ -24,7 +24,7 @@ import TestListItem from './TestListItem.vue';
 })
 export default class TestList extends Vue {
     @Prop({
-        default: () => {
+        default: () => () => {
             console.error('onItemClick is not initialized');
         },
     })

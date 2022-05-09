@@ -181,7 +181,7 @@ export default class CLIStep extends Vue {
             font-size: 22px;
             line-height: 27px;
             color: #000;
-            margin: 0 0 10px 0;
+            margin: 0 0 10px;
         }
 
         &__sub-title {
@@ -190,7 +190,7 @@ export default class CLIStep extends Vue {
             line-height: 21px;
             color: #000;
             text-align: center;
-            margin: 0 0 50px 0;
+            margin: 0 0 50px;
         }
 
         &__token-area {
@@ -205,7 +205,7 @@ export default class CLIStep extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: #354049;
-                margin: 0 0 5px 0;
+                margin: 0 0 5px;
             }
 
             &__container {
@@ -213,7 +213,7 @@ export default class CLIStep extends Vue {
                 align-items: center;
                 padding: 10px 10px 10px 20px;
                 width: calc(100% - 30px);
-                border: 1px solid rgba(56, 75, 101, 0.4);
+                border: 1px solid rgb(56 75 101 / 40%);
                 border-radius: 6px;
                 margin-bottom: 20px;
 

@@ -343,6 +343,31 @@ read one (
     where user.id = ?
 )
 
+model webapp_session (
+    key id
+	index ( fields user_id )
+
+    field id         blob
+    field user_id    blob
+    field ip_address text
+    field user_agent text
+    field status     int       ( updatable, autoinsert )
+    field expires_at timestamp ( updatable )
+)
+
+create webapp_session ( )
+update webapp_session ( where webapp_session.id = ? )
+delete webapp_session ( where webapp_session.id = ? )
+
+read all (
+    select webapp_session
+    where webapp_session.user_id = ?
+)
+read one (
+    select webapp_session
+    where webapp_session.id = ?
+)
+
 model project (
     key id
 

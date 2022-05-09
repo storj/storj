@@ -168,12 +168,12 @@ export default class TokenDepositSelection extends Vue {
         font-size: 16px;
         line-height: 19px;
         color: #354049;
-        -moz-appearance: textfield;
+        appearance: textfield;
     }
 
     .custom-input::-webkit-inner-spin-button,
     .custom-input::-webkit-outer-spin-button {
-        -webkit-appearance: none;
+        appearance: none;
         margin: 0;
     }
 
@@ -256,7 +256,7 @@ export default class TokenDepositSelection extends Vue {
         z-index: 102;
         border-radius: 12px;
         top: 50px;
-        box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 4px 4px rgb(0 0 0 / 25%);
 
         &__custom-container {
             display: flex;

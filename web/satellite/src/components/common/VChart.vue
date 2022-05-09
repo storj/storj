@@ -34,7 +34,7 @@ class DayShowingConditions {
     extends: Line,
 })
 export default class VChart extends Vue {
-    @Prop({ default: () => { console.error('Tooltip constructor is undefined'); } })
+    @Prop({ default: () => () => { console.error('Tooltip constructor is undefined'); } })
     private tooltipConstructor: (tooltipModel) => void;
     @Prop({ default: {} })
     private readonly chartData: ChartData;

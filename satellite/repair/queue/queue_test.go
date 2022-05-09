@@ -69,6 +69,107 @@ func TestInsertDuplicate(t *testing.T) {
 	})
 }
 
+func TestInsertBatchOfOne(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		q := db.RepairQueue()
+
+		writeSegments := []*queue.InjuredSegment{
+			{
+				StreamID: testrand.UUID(),
+				Position: metabase.SegmentPosition{
+					Part:  uint32(testrand.Intn(1000)),
+					Index: uint32(testrand.Intn(1000)),
+				},
+				SegmentHealth: 10,
+			},
+		}
+		newlyInserted, err := q.InsertBatch(ctx, writeSegments)
+		require.NoError(t, err)
+		require.Len(t, newlyInserted, 1)
+
+		writeSegments[0].SegmentHealth = 5
+		newlyInserted, err = q.InsertBatch(ctx, writeSegments)
+		require.NoError(t, err)
+		require.Len(t, newlyInserted, 0)
+
+		readSegments, err := q.SelectN(ctx, 1000)
+		require.NoError(t, err)
+		require.Len(t, readSegments, 1)
+		require.Equal(t, writeSegments[0].StreamID, readSegments[0].StreamID)
+		require.Equal(t, writeSegments[0].Position, readSegments[0].Position)
+		require.Equal(t, writeSegments[0].SegmentHealth, readSegments[0].SegmentHealth)
+	})
+}
+
+func TestInsertOverlappingBatches(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		q := db.RepairQueue()
+
+		requireDbState := func(expectedSegments []queue.InjuredSegment) {
+			sort := func(segments []queue.InjuredSegment) {
+				sort.Slice(segments, func(i, j int) bool {
+					return segments[i].StreamID.Less(segments[j].StreamID)
+				})
+			}
+
+			dbSegments, err := q.SelectN(ctx, 1000)
+			require.NoError(t, err)
+
+			sort(dbSegments)
+			sort(expectedSegments)
+
+			require.Equal(t, len(expectedSegments), len(dbSegments))
+
+			for i := range expectedSegments {
+				require.Equal(t, expectedSegments[i].StreamID, dbSegments[i].StreamID)
+			}
+		}
+
+		writeSegment1 := queue.InjuredSegment{
+			StreamID: testrand.UUID(),
+			Position: metabase.SegmentPosition{
+				Part:  uint32(testrand.Intn(1000)),
+				Index: uint32(testrand.Intn(1000)),
+			},
+			SegmentHealth: 10,
+		}
+		writeSegment2 := queue.InjuredSegment{
+			StreamID: testrand.UUID(),
+			Position: metabase.SegmentPosition{
+				Part:  uint32(testrand.Intn(1000)),
+				Index: uint32(testrand.Intn(1000)),
+			},
+			SegmentHealth: 10,
+		}
+		writeSegment3 := queue.InjuredSegment{
+			StreamID: testrand.UUID(),
+			Position: metabase.SegmentPosition{
+				Part:  uint32(testrand.Intn(1000)),
+				Index: uint32(testrand.Intn(1000)),
+			},
+			SegmentHealth: 10,
+		}
+
+		newlyInserted, err := q.InsertBatch(ctx, []*queue.InjuredSegment{&writeSegment1, &writeSegment2})
+		require.NoError(t, err)
+		require.Len(t, newlyInserted, 2)
+		require.Equal(t, newlyInserted[0], &writeSegment1)
+		require.Equal(t, newlyInserted[1], &writeSegment2)
+		requireDbState([]queue.InjuredSegment{writeSegment1, writeSegment2})
+
+		newlyInserted, err = q.InsertBatch(ctx, []*queue.InjuredSegment{&writeSegment2, &writeSegment3})
+		require.NoError(t, err)
+		require.Len(t, newlyInserted, 1)
+		require.Equal(t, newlyInserted[0], &writeSegment3)
+		requireDbState([]queue.InjuredSegment{writeSegment1, writeSegment2, writeSegment3})
+
+		newlyInserted, err = q.InsertBatch(ctx, []*queue.InjuredSegment{&writeSegment1, &writeSegment3})
+		require.NoError(t, err)
+		require.Len(t, newlyInserted, 0)
+		requireDbState([]queue.InjuredSegment{writeSegment1, writeSegment2, writeSegment3})
+	})
+}
+
 func TestDequeueEmptyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()

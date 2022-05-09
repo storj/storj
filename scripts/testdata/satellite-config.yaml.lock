@@ -608,7 +608,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.geo-ip.db: ""
 
 # a mock list of countries the satellite will attribute to nodes (useful for testing)
-# overlay.geo-ip.mock-countries: '[]'
+# overlay.geo-ip.mock-countries: []
 
 # the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
 # overlay.node-check-in-wait-period: 2h0m0s
@@ -641,10 +641,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.online-window: 4h0m0s
 
 # list of country codes to exclude from node selection for uploads
-# overlay.node.upload-excluded-country-codes: '[]'
+# overlay.node.upload-excluded-country-codes: []
 
 # list of country codes to exclude nodes from target repair selection
-# overlay.repair-excluded-country-codes: '[]'
+# overlay.repair-excluded-country-codes: []
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100

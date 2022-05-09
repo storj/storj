@@ -33,9 +33,6 @@ export default class Page404 extends Vue {
         align-items: center;
         justify-content: center;
         -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
         user-select: none;
         text-align: center;
 
@@ -59,7 +56,7 @@ export default class Page404 extends Vue {
             margin-block-start: 0;
             margin-block-end: 0;
             font-family: 'font_regular', sans-serif;
-            margin: 25px 0 36px 0;
+            margin: 25px 0 36px;
             font-size: 16px;
             line-height: 16px;
         }
@@ -95,7 +92,7 @@ export default class Page404 extends Vue {
             }
 
             &__text {
-                margin: 12px 0 20px 0;
+                margin: 12px 0 20px;
                 line-height: 24px;
             }
         }

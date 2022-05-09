@@ -152,8 +152,6 @@ export default class SettingsSelection extends Vue {
 
     .navigation {
         background: none;
-        -webkit-box-flex: 0;
-        -ms-flex: 0 0 auto;
         flex: 0 0 auto;
         padding: 10px;
         width: calc(100% - 20px);

@@ -174,7 +174,7 @@ export default class ConfirmDeletePopup extends Vue {
         right: 0;
         bottom: 0;
         z-index: 100;
-        background: rgba(27, 37, 51, 0.75);
+        background: rgb(27 37 51 / 75%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -249,7 +249,7 @@ export default class ConfirmDeletePopup extends Vue {
                         padding: 25px;
                         width: calc(100% - 50px);
                         max-width: calc(100% - 50px);
-                        background: rgba(245, 246, 250, 0.6);
+                        background: rgb(245 246 250 / 60%);
 
                         &__name {
                             font-family: 'font_medium', sans-serif;
