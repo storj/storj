@@ -371,7 +371,7 @@ export default class AccessGrants extends Vue {
      * toggles Create Access Modal visibility.
      */
     public toggleAccessModal(): void {
-        if (this.showAccessModal = !this.showAccessModal) {
+        if (this.showAccessModal === false) {
             this.showAccessModal = true;
         } else {
             this.showAccessModal = false;

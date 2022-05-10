@@ -171,7 +171,7 @@
                 </div>
                 <div class="create-access__modal-container__divider" />
                 <div class="create-access__modal-container__footer-container">
-                    <VButton
+                    <v-button
                         label="Learn More"
                         width="auto"
                         height="50px"
@@ -179,7 +179,7 @@
                         font-size="16px"
                         class="create-access__modal-container__footer-container__learn-more-button"
                     />
-                    <VButton
+                    <v-button
                         label="Encrypt My Access  ⟶"
                         font-size="16px"
                         width="auto"
@@ -239,19 +239,32 @@ export default class CreateAccessModal extends Vue {
     @Prop({default: () => { return; }})
     private readonly onClose: () => void;
 
+    /**
+     * Stores access type that is selected.
+     */
     private checkedType = '';
-    private showAllPermissions = {show: false, position: "up"};
-    private permissionsList = ["read","write","list","delete"];
-    private accessName = '';
-    private checkedPermissions = {read: false, write: false, list: false, delete: false};
-    private selectedPermissions : string[] = [];
-    private allPermissionsClicked = false;
-    public areBucketNamesFetching = true;
+
+    /**
+     * Handles which tooltip is hovered over and set/clear timeout when leaving hover.
+     */
     public tooltipHover = '';
     public tooltipVisibilityTimer;
 
     /**
-     * Checks which type was selected on mount.
+     * Handles permission types, which have been selected, and determining if all have been selected.
+     */
+    private showAllPermissions = {show: false, position: "up"};
+    private permissionsList = ["read","write","list","delete"];
+    private checkedPermissions = {read: false, write: false, list: false, delete: false};
+    private allPermissionsClicked = false;
+    private selectedPermissions : string[] = [];
+
+    private accessName = '';
+    public areBucketNamesFetching = true;
+
+
+    /**
+     * Checks which type was selected and retrieves buckets on mount.
      */
     public async mounted(): Promise<void> {
         this.checkedType = this.defaultType;
@@ -272,19 +285,6 @@ export default class CreateAccessModal extends Vue {
     }
 
     /**
-     * Toggles permissions list visibility.
-     */
-    public togglePermissions(): void {
-        if (this.showAllPermissions.show === false) {
-            this.showAllPermissions.show = true;
-            this.showAllPermissions.position = "down";
-        } else {
-            this.showAllPermissions.show = false;
-            this.showAllPermissions.position = "up";
-        }
-    }
-
-    /**
      * Toggles tooltip visibility.
      */
     public toggleTooltipHover(type,action): void {
@@ -302,6 +302,19 @@ export default class CreateAccessModal extends Vue {
         } else if(this.tooltipHover !== type) {
             clearTimeout(this.tooltipVisibilityTimer)
             this.tooltipHover = type;
+        }
+    }
+
+    /**
+     * Toggles permissions list visibility.
+     */
+    public togglePermissions(): void {
+        if (this.showAllPermissions.show === false) {
+            this.showAllPermissions.show = true;
+            this.showAllPermissions.position = "down";
+        } else {
+            this.showAllPermissions.show = false;
+            this.showAllPermissions.position = "up";
         }
     }
 
@@ -333,7 +346,7 @@ export default class CreateAccessModal extends Vue {
     }
 
     /**
-     * retrieves selected buckets for bucket bullets.
+     * Retrieves selected buckets for bucket bullets.
      */
     public get selectedBucketNames(): string[] {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
@@ -639,10 +652,13 @@ export default class CreateAccessModal extends Vue {
     .access-tooltip {
         top: 52px;
         left: 94px;
+
         @include tooltip-container;
+
         &:after {
             left: 50%;
             top: 100%;
+
             @include tooltip-arrow;
         }
     }
@@ -650,11 +666,14 @@ export default class CreateAccessModal extends Vue {
     .s3-tooltip {
         top: 158px;
         left: 103px;
+
         @include tooltip-container;
+
         &:after {
             left: 50%;
             top: -8%;
             transform: rotate(180deg);
+
             @include tooltip-arrow;
         }
     }
