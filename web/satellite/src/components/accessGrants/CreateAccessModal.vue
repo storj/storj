@@ -267,7 +267,39 @@
                             width="auto"
                             height="50px"
                             class="access-grant__modal-container__footer-container__download-button"
+                            :is-green-white="isPassphraseDownloaded ? true : false"
                             :on-press="downloadText"
+                            :is-disabled="passphrase.length < 1"
+                        />
+                    </div>
+                    <div v-if="isPassphraseDownloaded || isPassphraseCopied" class="access-grant__modal-container__acknowledgement-container">
+                        <input
+                            v-model="acknowledgementCheck"
+                            type="checkbox"
+                            class="access-grant__modal-container__acknowledgement-container__check"
+                        >
+                        <div class="access-grant__modal-container__acknowledgement-container__text">I understand that Storj does not know or store my encryption passphrase. If I lose it, I won't be able to recover files.</div>
+                    </div>
+                    <div
+                        v-if="isPassphraseDownloaded || isPassphraseCopied"
+                        class="access-grant__modal-container__acknowledgement-buttons"
+                    >
+                        <v-button
+                            label="Back"
+                            width="auto"
+                            height="50px"
+                            :is-transparent="true"
+                            class="access-grant__modal-container__footer-container__copy-button"
+                            font-size="16px"
+                            :on-press="backAction"
+                        />
+                        <v-button
+                            label="Create my Access ⟶"
+                            font-size="16px"
+                            width="auto"
+                            height="50px"
+                            class="access-grant__modal-container__footer-container__download-button"
+                            :is-disabled="!acknowledgementCheck"
                         />
                     </div>
                 </div>
@@ -348,6 +380,7 @@ export default class CreateAccessModal extends Vue {
     private checkedPermissions = {read: false, write: false, list: false, delete: false};
     private selectedPermissions : string[] = [];
     private allPermissionsClicked = false;
+    private acknowledgementCheck = false;
 
     /**
      * Handles business logic for options on each step after create access.
@@ -379,6 +412,7 @@ export default class CreateAccessModal extends Vue {
      * Downloads passphrase to .txt file
      */
     public downloadText(): void {
+        this.isPassphraseDownloaded = true;
         var blob = new Blob([ this.passphrase ], { "type" : "text/plain" });
         let link = document.createElement('a');
         link.href = window.URL.createObjectURL(blob);
@@ -388,6 +422,7 @@ export default class CreateAccessModal extends Vue {
 
     public onRadioInput(): void {
         this.isPassphraseCopied = false;
+        this.isPassphraseDownloaded = false;
         if (this.encryptSelect === "generate") {
             this.passphrase = generateMnemonic();
         }
@@ -406,6 +441,10 @@ export default class CreateAccessModal extends Vue {
         this.$copyText(this.passphrase);
         this.isPassphraseCopied = true;
         this.$notify.success('Passphrase was copied successfully');
+    }
+
+    public backAction(): void {
+        this.accessGrantStep = 'create'
     }
 
     /**
@@ -632,6 +671,33 @@ export default class CreateAccessModal extends Vue {
                 }
             }
 
+            &__acknowledgement-container {
+                border: 1px solid #c8d3de;
+                border-radius: 6px;
+                display: grid;
+                grid-template-columns: 1fr 6fr;
+                padding: 10px;
+                margin-top: 25px;
+                height: 80px;
+                align-content: center;
+
+                &__check {
+                    margin: 0 auto auto;
+                    border-radius: 4px;
+                    height: 16px;
+                    width: 16px;
+                }
+
+                &__text {
+                    font-family: sans-serif;
+                }
+            }
+
+            &__acknowledgement-buttons {
+                display: flex;
+                padding-top: 25px;
+            }
+
             &__body-container {
                 display: grid;
                 grid-template-columns: 1fr 6fr;
@@ -649,7 +715,6 @@ export default class CreateAccessModal extends Vue {
                     width: 100%;
                     background: #fff;
                     border: 1px solid #c8d3de;
-                    box-sizing: border-box;
                     box-sizing: border-box;
                     border-radius: 4px;
                     height: 40px;
