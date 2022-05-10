@@ -53,8 +53,8 @@ export default class VSearch extends Vue {
      * Expands search input.
      */
     public onMouseEnter(): void {
-            this.inputWidth = '540px';
-            this.$refs.input.focus();
+        this.inputWidth = '540px';
+        this.$refs.input.focus();
     }
 
     /**

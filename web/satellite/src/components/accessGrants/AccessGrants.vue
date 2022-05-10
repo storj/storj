@@ -117,7 +117,8 @@
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
             <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items2">
                 <SortAccessGrantsHeader2
-                :on-header-click-callback="onHeaderSectionClickCallback" />
+                    :on-header-click-callback="onHeaderSectionClickCallback"
+                />
                 <div class="access-grants-items2__content">
                     <VList
                         :data-set="accessGrantsList"

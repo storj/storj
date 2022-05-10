@@ -3,7 +3,6 @@
 
 <template>
     <input
-        ref="input"
         v-model="searchQuery"
         class="access-search-input"
         :placeholder="`Search ${placeholder}`"
@@ -52,7 +51,6 @@ export default class VSearch extends Vue {
 </script>
 
 <style scoped lang="scss">
-
     .access-search-input {
         position: absolute;
         left: 0;
