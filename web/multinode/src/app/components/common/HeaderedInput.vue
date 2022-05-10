@@ -77,9 +77,7 @@ export default class HeaderedInput extends HeaderlessInput {
 
     public value: string;
 
-    public constructor() {
-        super();
-
+    public created() {
         this.value = this.initValue;
     }
 }
@@ -132,7 +130,7 @@ export default class HeaderedInput extends HeaderlessInput {
         &__limit {
             font-size: 16px;
             line-height: 21px;
-            color: rgba(56, 75, 101, 0.4);
+            color: rgb(56 75 101 / 40%);
         }
     }
 
@@ -181,6 +179,6 @@ export default class HeaderedInput extends HeaderlessInput {
 
     .add-label {
         margin-left: 5px;
-        color: rgba(56, 75, 101, 0.4);
+        color: rgb(56 75 101 / 40%);
     }
 </style>

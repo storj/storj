@@ -1,11 +1,11 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import sinon from 'sinon';
 import Vuex from 'vuex';
 
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
 
+import { router } from '@/router';
 import { PaymentsHttpApi } from '@/api/payments';
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
@@ -22,7 +22,6 @@ const itemTransaction = new PaymentsHistoryItem('testId2', 'Transaction', 500, 5
 const itemTransaction1 = new PaymentsHistoryItem('testId3', 'Transaction', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
 const itemTransaction2 = new PaymentsHistoryItem('testId4', 'Transaction', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
 const itemTransaction3 = new PaymentsHistoryItem('testId5', 'Transaction', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
-const clickSpy = sinon.spy();
 
 const store = new Vuex.Store({ modules: { paymentsModule }});
 
@@ -31,6 +30,7 @@ describe('SmallDepositHistory', (): void => {
         const wrapper = shallowMount(SmallDepositHistory, {
             localVue,
             store,
+            router,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -42,21 +42,22 @@ describe('SmallDepositHistory', (): void => {
         const wrapper = shallowMount(SmallDepositHistory, {
             localVue,
             store,
+            router,
         });
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('click on view all works correctly', async (): Promise<void> => {
+        const spyPush = jest.spyOn(router, "push");
+
         const wrapper = shallowMount(SmallDepositHistory, {
             localVue,
             store,
+            router,
         });
 
-        wrapper.vm.onViewAllClick = clickSpy;
-
         await wrapper.find('.deposit-area__header__button').trigger('click');
-
-        expect(clickSpy.callCount).toBe(1);
+        expect(spyPush).toHaveBeenCalled();
     });
 });

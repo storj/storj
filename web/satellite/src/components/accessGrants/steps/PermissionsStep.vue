@@ -328,7 +328,7 @@ export default class PermissionsStep extends Vue {
             font-size: 22px;
             line-height: 27px;
             color: #000;
-            margin: 0 0 10px 0;
+            margin: 0 0 10px;
         }
 
         &__sub-title {
@@ -337,7 +337,7 @@ export default class PermissionsStep extends Vue {
             line-height: 21px;
             color: #000;
             text-align: center;
-            margin: 0 0 70px 0;
+            margin: 0 0 70px;
         }
 
         &__content {
@@ -418,6 +418,6 @@ export default class PermissionsStep extends Vue {
 
     .disabled {
         pointer-events: none;
-        color: rgba(0, 0, 0, 0.4);
+        color: rgb(0 0 0 / 40%);
     }
 </style>

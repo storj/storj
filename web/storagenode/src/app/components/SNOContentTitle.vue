@@ -236,7 +236,7 @@ export default class SNOContentTitle extends Vue {
 
         &__title {
             font-family: 'font_bold', sans-serif;
-            margin: 0 0 21px 0;
+            margin: 0 0 21px;
             font-size: 32px;
             line-height: 57px;
             color: var(--regular-text-color);
@@ -255,7 +255,7 @@ export default class SNOContentTitle extends Vue {
                     font-size: 12px;
                     line-height: 20px;
                     color: #9ca5b6;
-                    margin: 0 0 5px 0;
+                    margin: 0 0 5px;
                 }
 
                 &__content {
@@ -287,7 +287,7 @@ export default class SNOContentTitle extends Vue {
         background-image: var(--info-image-arrow-left-path);
         bottom: 100%;
         left: 220%;
-        padding: 20px 20px 25px 20px;
+        padding: 20px 20px 25px;
 
         &__text {
             align-items: flex-start;
@@ -306,7 +306,7 @@ export default class SNOContentTitle extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                margin: 0 0 20px 0;
+                margin: 0 0 20px;
                 height: auto;
 
                 &__id {

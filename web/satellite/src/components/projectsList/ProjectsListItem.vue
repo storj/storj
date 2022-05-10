@@ -63,7 +63,7 @@ export default class ProjectsListItem extends Vue {
         }
 
         &:hover {
-            background-color: rgba(242, 244, 247, 0.6);
+            background-color: rgb(242 244 247 / 60%);
 
             .name {
                 text-decoration: underline;

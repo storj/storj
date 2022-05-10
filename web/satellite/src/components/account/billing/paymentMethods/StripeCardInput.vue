@@ -31,7 +31,7 @@ interface StripeResponse {
 // @vue/component
 @Component
 export default class StripeCardInput extends Vue {
-    @Prop({default: () => console.error('onStripeResponse is not reinitialized')})
+    @Prop({default: () => () => console.error('onStripeResponse is not reinitialized')})
     private readonly onStripeResponseCallback: (tokenId: unknown) => void;
 
     private isLoading = false;
@@ -149,7 +149,6 @@ export default class StripeCardInput extends Vue {
         border-radius: 4px;
         background-color: white;
         box-shadow: 0 1px 3px 0 #e6ebf1;
-        -webkit-transition: box-shadow 150ms ease;
         transition: box-shadow 150ms ease;
     }
 

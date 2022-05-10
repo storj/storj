@@ -141,14 +141,14 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			}
 
 			for projectID, tallyTotal := range tallyProjectTotals {
-				delta := latestLiveTotals[projectID] - initialLiveTotals[projectID]
+				delta := latestLiveTotals[projectID].Storage - initialLiveTotals[projectID].Storage
 				if delta < 0 {
 					delta = 0
 				}
 
 				// read the method documentation why the increase passed to this method
 				// is calculated in this way
-				err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
+				err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID].Storage+tallyTotal+(delta/2))
 				if err != nil {
 					if accounting.ErrSystemOrNetError.Has(err) {
 						service.log.Error(

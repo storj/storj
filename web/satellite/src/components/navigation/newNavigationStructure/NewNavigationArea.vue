@@ -376,7 +376,7 @@ export default class NewNavigationArea extends Vue {
 
 <style scoped lang="scss">
     .navigation-svg-path {
-        fill: rgb(53, 64, 73);
+        fill: rgb(53 64 73);
     }
 
     .container-wrapper {
@@ -388,7 +388,7 @@ export default class NewNavigationArea extends Vue {
         max-width: 280px;
         background-color: #fff;
         font-family: 'font_regular', sans-serif;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
 
         &__container {
             display: flex;

@@ -12,7 +12,7 @@ import { makeProjectsModule } from '@/store/modules/projects';
 import { makeUsersModule, USER_MUTATIONS } from '@/store/modules/users';
 import { CreditCard } from '@/types/payments';
 import { User } from '@/types/users';
-import { Notificator } from '@/utils/plugins/notificator';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 import { PaymentsMock } from '../../../mock/api/payments';
@@ -32,14 +32,8 @@ const projectsModule = makeProjectsModule(projectsApi);
 const notificationsModule = makeNotificationsModule();
 const store = new Vuex.Store({ modules: { usersModule, paymentsModule, projectsModule, appStateModule, notificationsModule }});
 store.commit(USER_MUTATIONS.SET_USER, new User('id', 'name', 'short', 'test@test.test', 'partner', 'pass'));
-class NotificatorPlugin {
-    public install() {
-        localVue.prototype.$notify = new Notificator(store);
-    }
-}
 
-const notificationsPlugin = new NotificatorPlugin();
-localVue.use(notificationsPlugin);
+localVue.use(new NotificatorPlugin(store));
 
 const ANIMATION_COMPLETE_TIME = 600;
 
@@ -55,7 +49,7 @@ describe('PaymentMethods', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly after add card and cancel click', async (done) => {
+    it('renders correctly after add card and cancel click', async () => {
         const wrapper = shallowMount(PaymentMethods, {
             store,
             localVue,
@@ -65,21 +59,20 @@ describe('PaymentMethods', () => {
 
         await wrapper.find('.add-card-button').trigger('click');
 
-        await new Promise(resolve => {
+        await new Promise<void>(resolve => {
             setTimeout(() => {
-                resolve();
                 expect(wrapper).toMatchSnapshot();
                 wrapper.find('.payment-methods-area__functional-area__button-area__cancel').trigger('click');
 
                 setTimeout(() => {
                     expect(wrapper).toMatchSnapshot();
-                    done();
+                    resolve();
                 }, ANIMATION_COMPLETE_TIME);
             }, ANIMATION_COMPLETE_TIME);
         });
     });
 
-    it('renders correctly after add STORJ and cancel click', async (done) => {
+    it('renders correctly after add STORJ and cancel click', async () => {
         const wrapper = mount(PaymentMethods, {
             store,
             localVue,
@@ -89,15 +82,14 @@ describe('PaymentMethods', () => {
 
         await wrapper.find('.add-storj-button').trigger('click');
 
-        await new Promise(resolve => {
+        await new Promise<void>(resolve => {
             setTimeout(() => {
-                resolve();
                 expect(wrapper).toMatchSnapshot();
                 wrapper.find('.payment-methods-area__functional-area__button-area__cancel').trigger('click');
 
                 setTimeout(() => {
                     expect(wrapper).toMatchSnapshot();
-                    done();
+                    resolve();
                 }, ANIMATION_COMPLETE_TIME);
             }, ANIMATION_COMPLETE_TIME);
         });

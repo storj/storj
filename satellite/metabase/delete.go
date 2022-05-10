@@ -10,7 +10,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
@@ -343,8 +342,7 @@ func (db *DB) promoteNewAncestors(ctx context.Context, tx tagsql.Tx, objects []d
 
 		positions := make([]int64, len(object.Segments))
 		remoteAliasesPieces := make([][]byte, len(object.Segments))
-		// special DB type to handle null 'repaired_at' values
-		repairedAtsArray := make([]pgtype.Timestamptz, len(object.Segments))
+		repairedAts := make([]*time.Time, len(object.Segments))
 
 		for i, segment := range object.Segments {
 			positions[i] = int64(segment.Position.Encode())
@@ -359,23 +357,7 @@ func (db *DB) promoteNewAncestors(ctx context.Context, tx tagsql.Tx, objects []d
 				return err
 			}
 			remoteAliasesPieces[i] = aliasesBytes
-
-			if segment.RepairedAt == nil {
-				repairedAtsArray[i] = pgtype.Timestamptz{
-					Status: pgtype.Null,
-				}
-			} else {
-				repairedAtsArray[i] = pgtype.Timestamptz{
-					Time:   *segment.RepairedAt,
-					Status: pgtype.Present,
-				}
-			}
-		}
-
-		repairedAtArray := &pgtype.TimestamptzArray{
-			Elements:   repairedAtsArray,
-			Dimensions: []pgtype.ArrayDimension{{Length: int32(len(repairedAtsArray)), LowerBound: 1}},
-			Status:     pgtype.Present,
+			repairedAts[i] = segment.RepairedAt
 		}
 
 		result, err := tx.ExecContext(ctx, deleteFromSegmentCopies, *object.PromotedAncestor)
@@ -394,7 +376,7 @@ func (db *DB) promoteNewAncestors(ctx context.Context, tx tagsql.Tx, objects []d
 
 		result, err = tx.ExecContext(ctx, updateSegmentsWithAncestor,
 			object.StreamID, *object.PromotedAncestor, pgutil.Int8Array(positions),
-			pgutil.ByteaArray(remoteAliasesPieces), repairedAtArray)
+			pgutil.ByteaArray(remoteAliasesPieces), pgutil.NullTimestampTZArray(repairedAts))
 		if err != nil {
 			return err
 		}

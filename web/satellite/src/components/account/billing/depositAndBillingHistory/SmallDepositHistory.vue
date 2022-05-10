@@ -59,7 +59,7 @@ export default class SmallDepositHistory extends Vue {
     }
 
     .deposit-area {
-        padding: 40px 40px 10px 40px;
+        padding: 40px 40px 10px;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;

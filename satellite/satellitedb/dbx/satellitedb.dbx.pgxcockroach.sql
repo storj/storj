@@ -440,6 +440,15 @@ CREATE TABLE value_attributions (
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
+CREATE TABLE webapp_sessions (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	ip_address text NOT NULL,
+	user_agent text NOT NULL,
+	status integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -522,4 +531,5 @@ CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON stora
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
+CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id ) ;

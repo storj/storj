@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import { DisableMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
+import {StoreModule} from "@/types/store";
 
 export const USER_ACTIONS = {
     UPDATE: 'updateUser',

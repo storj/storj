@@ -81,7 +81,7 @@ export default class AccountDropdown extends Vue {
         padding: 6px 0;
         background-color: #f5f6fa;
         z-index: 1120;
-        box-shadow: 0 20px 34px 0 rgba(10, 27, 44, 0.28);
+        box-shadow: 0 20px 34px 0 rgb(10 27 44 / 28%);
         border-radius: 6px;
 
         &__wrap {
@@ -103,7 +103,7 @@ export default class AccountDropdown extends Vue {
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
-                    margin: 15px 0 0 0;
+                    margin: 15px 0 0;
                 }
             }
 

@@ -11,27 +11,30 @@ import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, mount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../mock/api/projects';
+import {makeNotificationsModule} from "@/store/modules/notifications";
 
-const notificationPlugin = new NotificatorPlugin();
 const localVue = createLocalVue();
-
 localVue.use(Vuex);
-localVue.use(notificationPlugin);
 
 const projectLimits = new ProjectLimits(1000, 100, 1000, 100);
 const projectsApi = new ProjectsApiMock();
 projectsApi.setMockLimits(projectLimits);
 const projectsModule = makeProjectsModule(projectsApi);
+const notificationsModule = makeNotificationsModule();
 
 const store = new Vuex.Store({
     modules: {
         projectsModule,
+        notificationsModule,
         usersModule: {
             state: {
                 user: { paidTier: false },
             }
         }
     }});
+
+localVue.use(new NotificatorPlugin(store));
+
 const project = new Project('id', 'test', 'test', 'test', 'ownedId', false);
 
 describe('EditProjectDetails.vue', () => {
@@ -40,7 +43,7 @@ describe('EditProjectDetails.vue', () => {
         store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
         store.commit(PROJECTS_MUTATIONS.SET_LIMITS, projectLimits);
 
-        const wrapper = mount(EditProjectDetails, {
+        const wrapper = mount<EditProjectDetails>(EditProjectDetails, {
             store,
             localVue,
         });
@@ -49,7 +52,7 @@ describe('EditProjectDetails.vue', () => {
     });
 
     it('editing name works correctly', async (): Promise<void> => {
-        const wrapper = mount(EditProjectDetails, {
+        const wrapper = mount<EditProjectDetails>(EditProjectDetails, {
             store,
             localVue,
         });
@@ -68,7 +71,7 @@ describe('EditProjectDetails.vue', () => {
     });
 
     it('editing description works correctly', async (): Promise<void> => {
-        const wrapper = mount(EditProjectDetails, {
+        const wrapper = mount<EditProjectDetails>(EditProjectDetails, {
             store,
             localVue,
         });

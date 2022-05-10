@@ -52,7 +52,7 @@ export default class VPagination extends Vue {
     private readonly totalPageCount: number;
     @Prop({ default: 1 })
     private preselectedCurrentPageNumber: number;
-    @Prop({ default: () => new Promise(() => false) })
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 
     // TODO: place to config.

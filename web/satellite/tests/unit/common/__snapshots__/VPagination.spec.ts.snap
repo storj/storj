@@ -7,11 +7,11 @@ exports[`Pagination.vue renders correctly 1`] = `
       <paginationlefticon-stub class="pagination-container__button__image"></paginationlefticon-stub>
     </div>
     <div class="pagination-container__items">
-      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <pagesblock-stub pages="" isselected="[Function]"></pagesblock-stub>
       <!---->
-      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <pagesblock-stub pages="" isselected="[Function]"></pagesblock-stub>
       <!---->
-      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <pagesblock-stub pages="" isselected="[Function]"></pagesblock-stub>
     </div>
     <div class="pagination-container__button">
       <paginationrighticon-stub class="pagination-container__button__image"></paginationrighticon-stub>
@@ -27,11 +27,11 @@ exports[`Pagination.vue renders correctly with props 1`] = `
       <paginationlefticon-stub class="pagination-container__button__image"></paginationlefticon-stub>
     </div>
     <div class="pagination-container__items">
-      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <pagesblock-stub pages="" isselected="[Function]"></pagesblock-stub>
       <!---->
-      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <pagesblock-stub pages="" isselected="[Function]"></pagesblock-stub>
       <!---->
-      <pagesblock-stub pages="" isselected="function () { [native code] }"></pagesblock-stub>
+      <pagesblock-stub pages="" isselected="[Function]"></pagesblock-stub>
     </div>
     <div class="pagination-container__button">
       <paginationrighticon-stub class="pagination-container__button__image"></paginationrighticon-stub>

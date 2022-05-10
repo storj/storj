@@ -26,6 +26,8 @@ describe('VBar.vue', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.find('.bar-container__fill').element.style.width).toMatch('100%');
+
+        const el = wrapper.find('.bar-container__fill').element as HTMLElement;
+        expect(el.style.width).toMatch('100%');
     });
 });

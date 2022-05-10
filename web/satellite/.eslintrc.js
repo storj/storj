@@ -34,6 +34,7 @@ module.exports = {
         '@typescript-eslint/no-empty-function': "off",
         '@typescript-eslint/no-var-requires': "off",
 
+        "vue/multi-word-component-names": ["off"],
         "vue/max-attributes-per-line": ["off"],
         "vue/singleline-html-element-content-newline": ["off"],
 
@@ -42,6 +43,8 @@ module.exports = {
         "vue/no-unused-properties": ["warn"],
         "vue/no-unused-refs": ["warn"],
         "vue/no-useless-v-bind": ["warn"],
+
+        'vue/no-useless-template-attributes': ["off"], // TODO: fix later
 
         'vue/no-unregistered-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
 

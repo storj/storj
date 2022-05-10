@@ -163,7 +163,7 @@ export default class NameStep extends Vue {
             font-size: 22px;
             line-height: 27px;
             color: #000;
-            margin: 0 0 10px 0;
+            margin: 0 0 10px;
         }
 
         &__sub-title {
@@ -172,7 +172,7 @@ export default class NameStep extends Vue {
             line-height: 21px;
             color: #000;
             text-align: center;
-            margin: 0 0 80px 0;
+            margin: 0 0 80px;
         }
 
         &__buttons-area {

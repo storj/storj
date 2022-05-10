@@ -75,7 +75,7 @@ export default class UploadCancelPopup extends Vue {
         right: 0;
         left: 0;
         z-index: 100;
-        background: rgba(27, 37, 51, 0.75);
+        background: rgb(27 37 51 / 75%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -95,9 +95,9 @@ export default class UploadCancelPopup extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 23px;
                 line-height: 49px;
-                letter-spacing: -0.100741px;
+                letter-spacing: -0.1007px;
                 color: #252525;
-                margin: 0 0 22px 0;
+                margin: 0 0 22px;
             }
 
             &__container {
@@ -127,7 +127,7 @@ export default class UploadCancelPopup extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: #0068dc;
-                margin: 22px 0 0 0;
+                margin: 22px 0 0;
                 cursor: pointer;
             }
         }

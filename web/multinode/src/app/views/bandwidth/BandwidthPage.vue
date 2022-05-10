@@ -260,7 +260,7 @@ export default class BandwidthPage extends Vue {
             border: 1px solid var(--c-gray--light);
             border-radius: 11px;
             padding: 32px 30px;
-            margin: 20px 0 13px 0;
+            margin: 20px 0 13px;
             position: relative;
 
             &__title-area {
@@ -332,7 +332,7 @@ export default class BandwidthPage extends Vue {
     }
 
     .disk-stat-chart {
-        margin: 20px 0 13px 0;
+        margin: 20px 0 13px;
         width: auto;
     }
 </style>

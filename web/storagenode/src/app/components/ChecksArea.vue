@@ -126,7 +126,7 @@ export default class ChecksArea extends Vue {
             width: 0;
             height: 0;
             border-style: solid;
-            border-width: 11.5px 11.5px 0 11.5px;
+            border-width: 11.5px 11.5px 0;
             border-color: var(--tooltip-background-color) transparent transparent transparent;
         }
     }

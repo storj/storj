@@ -30,6 +30,8 @@ type InjuredSegment struct {
 type RepairQueue interface {
 	// Insert adds an injured segment.
 	Insert(ctx context.Context, s *InjuredSegment) (alreadyInserted bool, err error)
+	// InsertBatch adds multiple injured segments
+	InsertBatch(ctx context.Context, segments []*InjuredSegment) (newlyInsertedSegments []*InjuredSegment, err error)
 	// Select gets an injured segment.
 	Select(ctx context.Context) (*InjuredSegment, error)
 	// Delete removes an injured segment.
