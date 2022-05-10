@@ -6,6 +6,7 @@ package blockchain
 import (
 	"encoding/hex"
 	"encoding/json"
+	"reflect"
 
 	"github.com/zeebo/errs"
 )
@@ -26,11 +27,6 @@ type Hash [HashLength]byte
 
 var _ json.Marshaler = Hash{}
 
-// MarshalJSON implements json marshalling interface.
-func (h Hash) MarshalJSON() ([]byte, error) {
-	return json.Marshal(h.Hex())
-}
-
 // Bytes gets the byte representation of the underlying hash.
 func (h Hash) Bytes() []byte { return h[:] }
 
@@ -39,15 +35,20 @@ func (h Hash) Hex() string {
 	return hex.EncodeToString(h.Bytes())
 }
 
+// MarshalJSON implements json marshalling interface.
+func (h Hash) MarshalJSON() ([]byte, error) {
+	return json.Marshal(h.Hex())
+}
+
+// UnmarshalJSON unmarshal JSON into Hash.
+func (h *Hash) UnmarshalJSON(bytes []byte) error {
+	return unmarshalHexString(h[:], bytes, reflect.TypeOf(Hash{}))
+}
+
 // Address is wallet address.
 type Address [AddressLength]byte
 
 var _ json.Marshaler = Address{}
-
-// MarshalJSON implements json marshalling interface.
-func (a Address) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.Hex())
-}
 
 // Bytes gets the byte representation of the underlying address.
 func (a Address) Bytes() []byte { return a[:] }
@@ -55,4 +56,40 @@ func (a Address) Bytes() []byte { return a[:] }
 // Hex gets string representation of the underlying address.
 func (a Address) Hex() string {
 	return hex.EncodeToString(a.Bytes())
+}
+
+// MarshalJSON implements json marshalling interface.
+func (a Address) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.Hex())
+}
+
+// UnmarshalJSON unmarshal JSON into Address.
+func (a *Address) UnmarshalJSON(bytes []byte) error {
+	return unmarshalHexString(a[:], bytes, reflect.TypeOf(Address{}))
+}
+
+// unmarshalHexString decodes JSON string containing hex string into bytes.
+// Copies result into dst byte slice.
+func unmarshalHexString(dst, src []byte, typ reflect.Type) error {
+	if !isString(src) {
+		return &json.UnmarshalTypeError{Value: "non-string", Type: reflect.TypeOf(typ)}
+	}
+	src = src[1 : len(src)-1]
+
+	if bytesHave0xPrefix(src) {
+		src = src[2:]
+	}
+
+	_, err := hex.Decode(dst, src)
+	return err
+}
+
+// isString checks if JSON value is a string.
+func isString(input []byte) bool {
+	return len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"'
+}
+
+// bytesHave0xPrefix checks if string bytes representation contains 0x prefix.
+func bytesHave0xPrefix(input []byte) bool {
+	return len(input) >= 2 && input[0] == '0' && (input[1] == 'x' || input[1] == 'X')
 }
