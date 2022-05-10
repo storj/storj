@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -639,13 +639,10 @@ export default class CreateAccessModal extends Vue {
     .access-tooltip {
         top: 52px;
         left: 94px;
-
         @include tooltip-container;
-
         &:after {
             left: 50%;
             top: 100%;
-
             @include tooltip-arrow;
         }
     }
@@ -653,14 +650,11 @@ export default class CreateAccessModal extends Vue {
     .s3-tooltip {
         top: 158px;
         left: 103px;
-
         @include tooltip-container;
-
         &:after {
             left: 50%;
             top: -8%;
             transform: rotate(180deg);
-
             @include tooltip-arrow;
         }
     }

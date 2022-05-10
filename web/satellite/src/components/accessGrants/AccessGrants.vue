@@ -28,7 +28,7 @@
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Management</h2>
             <div class="access-grants__title-area__title-subtext" aria-roledescription="title">Create encryption keys to setup permissions to access your objects.</div>
         </div>
-        <div v-if="isNewAccessGrantFlow" class="access-grants__flows-area">
+        <div v-if="!isNewAccessGrantFlow" class="access-grants__flows-area">
             <div class="access-grants__flows-area__access-grant">
                 <div class="access-grants__flows-area__icon-container">
                     <AccessGrantsIcon />
@@ -132,9 +132,9 @@
             @reset-pagination="resetPagination"
         />
         <CreateAccessModal 
-            v-if="showModal"
+            v-if="showAccessModal"
             :on-close="toggleAccessModal"
-            :default-type="modalPropType"
+            :default-type="modalAccessType"
         />
         <router-view />
     </div>
@@ -198,9 +198,11 @@ export default class AccessGrants extends Vue {
      */
     private isDeleteClicked = false;
 
-    private showModal = false;
-    private modalClickType = 'Access Grant';
-    private modalPropType = '';
+    /**
+     * Indicates if the access modal should be shown and what the defaulted type of access should be defaulted.
+     */
+    private showAccessModal = false;
+    private modalAccessType = '';
 
     public areGrantsFetching = true;
 
@@ -345,34 +347,34 @@ export default class AccessGrants extends Vue {
      * Access grant button click.
      */
     public accessGrantClick(): void {
-        this.modalPropType = 'access'
-        this.toggleAccessModal()
+        this.modalAccessType = 'access';
+        this.toggleAccessModal();
     }
 
     /**
      * S3 Access button click..
      */
     public s3Click(): void {
-        this.modalPropType = 's3'
-        this.toggleAccessModal()
+        this.modalAccessType = 's3';
+        this.toggleAccessModal();
     }
 
     /**
      * CLI Access button click.
      */
     public cliClick(): void {
-        this.modalPropType = 'api'
-        this.toggleAccessModal()
+        this.modalAccessType = 'api';
+        this.toggleAccessModal();
     }
 
     /**
      * toggles Create Access Modal visibility.
      */
     public toggleAccessModal(): void {
-        if (this.showModal === false) {
-            this.showModal = true;
+        if (this.showAccessModal = !this.showAccessModal) {
+            this.showAccessModal = true;
         } else {
-            this.showModal = false;
+            this.showAccessModal = false;
         }
     }
 }
