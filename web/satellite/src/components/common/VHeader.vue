@@ -6,12 +6,20 @@
         <div class="header-container__buttons-area">
             <slot />
         </div>
-        <VSearch
-            ref="search"
-            :placeholder="placeholder"
-            :search="search"
-            :style-type="styleType"
-        />
+        <div v-if="styleType === 'common'">
+            <VSearch
+                ref="search"
+                :placeholder="placeholder"
+                :search="search"
+            />
+        </div>
+        <div v-if="styleType === 'access'">
+            <VSearchAlternateStyling
+                ref="search"
+                :placeholder="placeholder"
+                :search="search"
+            />
+        </div>
     </div>
 </template>
 
@@ -19,6 +27,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VSearch from '@/components/common/VSearch.vue';
+import VSearchAlternateStyling from '@/components/common/VSearchAlternateStyling.vue';
 
 declare type searchCallback = (search: string) => Promise<void>;
 
@@ -26,6 +35,7 @@ declare type searchCallback = (search: string) => Promise<void>;
 @Component({
     components: {
         VSearch,
+        VSearchAlternateStyling,
     },
 })
 export default class VHeader extends Vue {
