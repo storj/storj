@@ -15742,11 +15742,11 @@ func (obj *pgxImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Cont
 
 }
 
-func (obj *pgxImpl) All_StorjscanWallet_UserId(ctx context.Context) (
-	rows []*UserId_Row, err error) {
+func (obj *pgxImpl) All_StorjscanWallet(ctx context.Context) (
+	rows []*StorjscanWallet, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id FROM storjscan_wallets")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.created_at FROM storjscan_wallets")
 
 	var __values []interface{}
 
@@ -15754,7 +15754,7 @@ func (obj *pgxImpl) All_StorjscanWallet_UserId(ctx context.Context) (
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*UserId_Row, err error) {
+		rows, err = func() (rows []*StorjscanWallet, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -15762,12 +15762,12 @@ func (obj *pgxImpl) All_StorjscanWallet_UserId(ctx context.Context) (
 			defer __rows.Close()
 
 			for __rows.Next() {
-				row := &UserId_Row{}
-				err = __rows.Scan(&row.UserId)
+				storjscan_wallet := &StorjscanWallet{}
+				err = __rows.Scan(&storjscan_wallet.UserId, &storjscan_wallet.WalletAddress, &storjscan_wallet.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
-				rows = append(rows, row)
+				rows = append(rows, storjscan_wallet)
 			}
 			if err := __rows.Err(); err != nil {
 				return nil, err
@@ -23153,11 +23153,11 @@ func (obj *pgxcockroachImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx con
 
 }
 
-func (obj *pgxcockroachImpl) All_StorjscanWallet_UserId(ctx context.Context) (
-	rows []*UserId_Row, err error) {
+func (obj *pgxcockroachImpl) All_StorjscanWallet(ctx context.Context) (
+	rows []*StorjscanWallet, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id FROM storjscan_wallets")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id, storjscan_wallets.wallet_address, storjscan_wallets.created_at FROM storjscan_wallets")
 
 	var __values []interface{}
 
@@ -23165,7 +23165,7 @@ func (obj *pgxcockroachImpl) All_StorjscanWallet_UserId(ctx context.Context) (
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*UserId_Row, err error) {
+		rows, err = func() (rows []*StorjscanWallet, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -23173,12 +23173,12 @@ func (obj *pgxcockroachImpl) All_StorjscanWallet_UserId(ctx context.Context) (
 			defer __rows.Close()
 
 			for __rows.Next() {
-				row := &UserId_Row{}
-				err = __rows.Scan(&row.UserId)
+				storjscan_wallet := &StorjscanWallet{}
+				err = __rows.Scan(&storjscan_wallet.UserId, &storjscan_wallet.WalletAddress, &storjscan_wallet.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
-				rows = append(rows, row)
+				rows = append(rows, storjscan_wallet)
 			}
 			if err := __rows.Err(); err != nil {
 				return nil, err
@@ -26965,13 +26965,13 @@ func (rx *Rx) All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx cont
 	return tx.All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx)
 }
 
-func (rx *Rx) All_StorjscanWallet_UserId(ctx context.Context) (
-	rows []*UserId_Row, err error) {
+func (rx *Rx) All_StorjscanWallet(ctx context.Context) (
+	rows []*StorjscanWallet, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_StorjscanWallet_UserId(ctx)
+	return tx.All_StorjscanWallet(ctx)
 }
 
 func (rx *Rx) All_User_By_NormalizedEmail(ctx context.Context,
@@ -28736,8 +28736,8 @@ type Methods interface {
 	All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx context.Context) (
 		rows []*StorjscanPayment, err error)
 
-	All_StorjscanWallet_UserId(ctx context.Context) (
-		rows []*UserId_Row, err error)
+	All_StorjscanWallet(ctx context.Context) (
+		rows []*StorjscanWallet, err error)
 
 	All_User_By_NormalizedEmail(ctx context.Context,
 		user_normalized_email User_NormalizedEmail_Field) (

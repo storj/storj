@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/monetary"
 )
@@ -14,13 +16,16 @@ import (
 // TransactionStatus indicates transaction status.
 type TransactionStatus string
 
+// ErrInsufficientFunds represents err when a user balance is too low for some transaction.
+var ErrInsufficientFunds = errs.New("Insufficient funds for this transaction")
+
 const (
 	// TransactionStatusPending indicates that status of this transaction is pending.
 	TransactionStatusPending = "pending"
 	// TransactionStatusCancelled indicates that status of this transaction is cancelled.
 	TransactionStatusCancelled = "cancelled"
-	// TransactionStatusComplete indicates that status of this transaction is complete.
-	TransactionStatusComplete = "complete"
+	// TransactionStatusCompleted indicates that status of this transaction is complete.
+	TransactionStatusCompleted = "complete"
 )
 
 // TransactionType indicates transaction type.

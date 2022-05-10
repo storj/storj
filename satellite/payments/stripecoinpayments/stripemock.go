@@ -433,6 +433,14 @@ func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalize
 type mockInvoiceItems struct {
 }
 
+func (m *mockInvoiceItems) Update(id string, params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error) {
+	return nil, nil
+}
+
+func (m *mockInvoiceItems) Del(id string, params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error) {
+	return nil, nil
+}
+
 func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error) {
 	return nil, nil
 }

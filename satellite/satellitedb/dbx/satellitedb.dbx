@@ -1232,7 +1232,7 @@ read one (
 )
 
 read all (
-    select storjscan_wallet.user_id
+    select storjscan_wallet
 )
 
 model coinpayments_transaction (

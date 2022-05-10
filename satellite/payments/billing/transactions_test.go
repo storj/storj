@@ -20,10 +20,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestInsertBatch(t *testing.T) {
-
-}
-
 func TestTransactionsDBList(t *testing.T) {
 	const (
 		limit            = 3
@@ -38,7 +34,7 @@ func TestTransactionsDBList(t *testing.T) {
 	var txType billing.TransactionType
 	for i := 0; i < transactionCount; i++ {
 		txSource := "storjscan"
-		txStatus = billing.TransactionStatusComplete
+		txStatus = billing.TransactionStatusCompleted
 		txType = billing.TransactionTypeCredit
 		if i%2 == 0 {
 			txSource = "stripe"
@@ -115,7 +111,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 		Amount:      tenUSD,
 		Description: "credit from storjscan payment",
 		Source:      "storjscan",
-		Status:      billing.TransactionStatusComplete,
+		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    metadata,
 		Timestamp:   time.Now().Add(time.Second),
@@ -127,7 +123,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 		Amount:      thirtyUSD,
 		Description: "credit from storjscan payment",
 		Source:      "storjscan",
-		Status:      billing.TransactionStatusComplete,
+		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    metadata,
 		Timestamp:   time.Now().Add(time.Second * 2),
@@ -139,7 +135,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 		Amount:      negativeTwentyUSD,
 		Description: "charge for storage and bandwidth",
 		Source:      "storjscan",
-		Status:      billing.TransactionStatusComplete,
+		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeDebit,
 		Metadata:    metadata,
 		Timestamp:   time.Now().Add(time.Second * 3),
@@ -231,7 +227,7 @@ func TestUpdateTransactions(t *testing.T) {
 		Amount:      tenUSD,
 		Description: "credit from storjscan payment",
 		Source:      "storjscan",
-		Status:      billing.TransactionStatusComplete,
+		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    metadata,
 		Timestamp:   time.Now().Add(time.Second),

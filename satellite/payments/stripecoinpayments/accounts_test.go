@@ -65,6 +65,8 @@ func TestSignupCouponCodes(t *testing.T) {
 			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
+			db.Wallets(),
+			db.Billing(),
 			db.Console().Projects(),
 			db.ProjectAccounting(),
 			pc.StorageTBPrice,
