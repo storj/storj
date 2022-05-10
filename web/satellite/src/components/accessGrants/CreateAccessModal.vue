@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
+<<<<<<< Updated upstream
     <div class="create-access">
         <div class="create-access__modal-container">
             <div 
@@ -40,6 +41,22 @@
                 <div class="create-access__modal-container__body-container">
                     <TypesIcon class="create-access__modal-container__body-container__type-icon" />
                     <div class="create-access__modal-container__body-container__type">
+=======
+    <div class="access-grant">
+        <div class="access-grant__modal-container">
+            <!-- ********* Create Form Modal ********* -->
+            <form v-if="accessGrantStep === 'create'">
+                <div class="access-grant__modal-container__header-container">
+                    <h2 class="access-grant__modal-container__header-container__title">Create Access</h2>
+                    <div
+                    class="access-grant__modal-container__header-container__close-cross-container" @click="onCloseClick">
+                        <CloseCrossIcon />
+                    </div>
+                </div>
+                <div class="access-grant__modal-container__body-container"> 
+                    <TypesIcon class="access-grant__modal-container__body-container__type-icon"/>
+                    <div class="access-grant__modal-container__body-container__type">
+>>>>>>> Stashed changes
                         <p>Type</p>
                         <div class="create-access__modal-container__body-container__type__type-container">
                             <input 
@@ -96,6 +113,7 @@
                             >
                         </div>
                     </div>
+<<<<<<< Updated upstream
                     <NameIcon class="create-access__modal-container__body-container__name-icon" />
                     <div class="create-access__modal-container__body-container__name">
                         <p>Name</p>
@@ -107,6 +125,19 @@
                     </div>
                     <PermissionsIcon class="create-access__modal-container__body-container__permissions-icon" />
                     <div class="create-access__modal-container__body-container__permissions">
+=======
+                    <NameIcon class="access-grant__modal-container__body-container__name-icon"/>
+                    <div class="access-grant__modal-container__body-container__name">
+                        <p>Name</p>
+                        <input
+                        v-model="accessName"
+                        type="text" 
+                        placeholder="Input Access Name" class="access-grant__modal-container__body-container__name__input"
+                        >
+                    </div>
+                    <PermissionsIcon class="access-grant__modal-container__body-container__permissions-icon"/>
+                    <div class="access-grant__modal-container__body-container__permissions">
+>>>>>>> Stashed changes
                         <p>Permissions</p>
                         <div>
                             <input
@@ -132,8 +163,13 @@
                             </div>
                         </div>
                     </div>
+<<<<<<< Updated upstream
                     <BucketsIcon class="create-access__modal-container__body-container__buckets-icon" />
                     <div class="create-access__modal-container__body-container__buckets">
+=======
+                    <BucketsIcon class="access-grant__modal-container__body-container__buckets-icon"/>
+                    <div class="access-grant__modal-container__body-container__buckets">
+>>>>>>> Stashed changes
                         <p>Buckets</p>
                         <div>
                             <BucketsSelection 
@@ -142,18 +178,23 @@
                                 class="access-bucket-container"
                             />
                         </div>
-                        <div class="create-access__modal-container__body-container__buckets__bucket-bullets">
+                        <div class="access-grant__modal-container__body-container__buckets__bucket-bullets">
                             <div
                                 v-for="(name, index) in selectedBucketNames"
                                 :key="index"
-                                class="create-access__modal-container__body-container__buckets__bucket-bullets__container"
+                                class="access-grant__modal-container__body-container__buckets__bucket-bullets__container"
                             >
                                 <BucketNameBullet :name="name" />
                             </div>
                         </div>
                     </div>
+<<<<<<< Updated upstream
                     <DateIcon class="create-access__modal-container__body-container__date-icon" />
                     <div class="create-access__modal-container__body-container__duration">
+=======
+                    <DateIcon class="access-grant__modal-container__body-container__date-icon"/>
+                    <div class="access-grant__modal-container__body-container__duration">
+>>>>>>> Stashed changes
                         <p>Duration</p>
                         <div>
                             <DurationSelection
@@ -163,35 +204,129 @@
                         </div>
                     </div>
 
+<<<<<<< Updated upstream
                     <!-- for future use when notes is implemented -->
                     <!-- <NotesIcon class="create-access__modal-container__body-container__notes-icon"/>
                     <div class="create-access__modal-container__body-container__notes">
+=======
+                    <!-- for future use -->
+                    <!-- <NotesIcon class="access-grant__modal-container__body-container__notes-icon"/>
+                    <div class="access-grant__modal-container__body-container__notes">
+>>>>>>> Stashed changes
                         <p>Notes</p>
                         <div>--Notes Section Here--</div>
                     </div> -->
                 </div>
+<<<<<<< Updated upstream
                 <div class="create-access__modal-container__divider" />
                 <div class="create-access__modal-container__footer-container">
                     <v-button
+=======
+                <div class="access-grant__modal-container__divider"></div>
+                <div class="access-grant__modal-container__footer-container">
+                    <VButton
+>>>>>>> Stashed changes
                         label="Learn More"
                         width="auto"
                         height="50px"
                         is-transparent="true"
                         font-size="16px"
-                        class="create-access__modal-container__footer-container__learn-more-button"
+                        class="access-grant__modal-container__footer-container__learn-more-button"
                     />
                     <v-button
                         label="Encrypt My Access  ⟶"
                         font-size="16px"
                         width="auto"
                         height="50px"
-                        class="create-access__modal-container__footer-container__encrypt-button"
+                        class="access-grant__modal-container__footer-container__encrypt-button"
+                        :on-press="encryptClickAction"
                     />
+                </div>
+            </form>
+            <!-- *********   Encrypt Form Modal  ********* -->
+            <form v-if="accessGrantStep === 'encrypt'">
+                <div class="access-grant__modal-container__header-container">
+                    <h2 class="access-grant__modal-container__header-container__title">Select Encryption</h2>
+                    <div
+                    class="access-grant__modal-container__header-container__close-cross-container" @click="onCloseClick">
+                        <CloseCrossIcon />
+                    </div>
+                </div>
+                <div class="access-grant__modal-container__body-container-encrypt"> 
+                    <div class="access-grant__modal-container__body-container__encrypt">
+
+                        <AccessKeyIcon class="access-grant__modal-container__body-container__type-icon"/>
+                        <div class="access-grant__modal-container__body-container__subtext">
+                            <p>Generate Passphrase</p>
+                            <div>Automatically Generate Seed</div>
+                        </div>
+                        <div>
+                            <input 
+                                v-model="encryptSelect"
+                                value="generate"
+                                type="radio" 
+                                id="generate-check"
+                                name="type"
+                                @change="onRadioInput"
+                            />
+                        </div>  
+                        
+                        <ThumbPrintIcon class="access-grant__modal-container__body-container__thumb-icon"/>
+                        <div class="access-grant__modal-container__body-container__subtext-thumb">
+                            <p>Create My Own Passphrase</p>
+                            <div>Make it Personalized</div>
+                        </div>
+                        <div>
+                            <input 
+                                v-model="encryptSelect"
+                                value="create"
+                                type="radio" 
+                                id="create-check"
+                                name="type"
+                                @change="onRadioInput"
+                            />
+                        </div>
+                    </div>
+                    <div v-if="this.encryptSelect === 'generate'"
+                            class="access-grant__modal-container__generated-passphrase"
+                    > 
+                        {{ passphrase }}
+                    </div>
+                    <!-- Working Here -->
+                    <input
+                        v-if="this.encryptSelect === 'create'"
+                        v-model="passphrase"
+                        type="text" 
+                        placeholder="Input Your Passphrase" class="access-grant__modal-container__body-container__passphrase"
+                        :disabled="this.encryptSelect === 'generate'"
+                    >
+                    <div class="access-grant__modal-container__footer-container">
+                        <VButton
+                            :label="isPassphraseCopied ? 'Copied' : 'Copy to clipboard'"
+                            width="auto"
+                            height="50px"
+                            :is-transparent="isPassphraseCopied ? false : true"
+                            :is-white-green="isPassphraseCopied ? true : false"
+                            class="access-grant__modal-container__footer-container__copy-button"
+                            font-size="16px"
+                            :on-press="onCopyClick"
+                            :is-disabled="passphrase.length < 1"   
+                        />
+                        <VButton
+                            label="Download .txt"
+                            font-size="16px"
+                            width="auto"
+                            height="50px"
+                            class="access-grant__modal-container__footer-container__download-button"
+                            :on-press="downloadText"
+                        />
+                    </div>
                 </div>
             </form>
         </div>
     </div>
 </template>
+
 
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
@@ -201,6 +336,8 @@ import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelec
 import BucketNameBullet from "@/components/accessGrants/permissions/BucketNameBullet.vue";
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import TypesIcon from '@/../static/images/accessGrants/create-access_type.svg';
+import AccessKeyIcon from '@/../static/images/accessGrants/accessKeyIcon.svg';
+import ThumbPrintIcon from '@/../static/images/accessGrants/thumbPrintIcon.svg';
 import PermissionsIcon from '@/../static/images/accessGrants/create-access_permissions.svg';
 import NameIcon from '@/../static/images/accessGrants/create-access_name.svg';
 import BucketsIcon from '@/../static/images/accessGrants/create-access_buckets.svg';
@@ -209,6 +346,8 @@ import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
 
+import { generateMnemonic } from "bip39";
+import { AccessGrant } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 
@@ -216,6 +355,8 @@ import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 @Component({
     components: {
         VButton,
+        AccessKeyIcon,
+        ThumbPrintIcon,
         DurationSelection,
         BucketsSelection,
         BucketNameBullet,
@@ -236,9 +377,14 @@ export default class CreateAccessModal extends Vue {
     @Prop({default: 'Default'})
     private readonly defaultType: string;
 
+<<<<<<< Updated upstream
     /**
      * Stores access type that is selected.
      */
+=======
+    private accessGrantList = this.accessGrantsList;
+    private accessGrantStep = "create";
+>>>>>>> Stashed changes
     private checkedType = '';
 
     /**
@@ -253,6 +399,15 @@ export default class CreateAccessModal extends Vue {
     private showAllPermissions = {show: false, position: "up"};
     private permissionsList = ["read","write","list","delete"];
     private checkedPermissions = {read: false, write: false, list: false, delete: false};
+<<<<<<< Updated upstream
+=======
+    private selectedPermissions : string[] = [];
+    private encryptSelect = "create";
+    private passphrase = "";
+    private isPassphraseCopied = false;
+    private isPassphraseDownloaded = false;
+    public isGenerateState = false;
+>>>>>>> Stashed changes
     private allPermissionsClicked = false;
     private selectedPermissions : string[] = [];
 
@@ -271,6 +426,39 @@ export default class CreateAccessModal extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
         }
+    }
+
+    /**
+     * Downloads passphrase to .txt file
+     */
+   public downloadText(): void {
+      var blob = new Blob([ this.passphrase ], { "type" : "text/plain" });
+      let link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = 'sampleText.txt';
+      link.click();
+    }
+
+    public onRadioInput(): void {
+        this.isPassphraseCopied = false;
+        if (this.encryptSelect === "generate") {
+            this.passphrase = generateMnemonic();
+        }
+        else {
+             this.passphrase = "";
+        }
+    }
+
+    public encryptClickAction(): void {
+        if (this.checkedType !== "api") {
+            this.accessGrantStep = 'encrypt';
+        }  
+    }
+
+    public onCopyClick(): void {
+        this.$copyText(this.passphrase);
+        this.isPassphraseCopied = true;
+        this.$notify.success('Passphrase was copied successfully');
     }
 
     /**
@@ -363,7 +551,12 @@ export default class CreateAccessModal extends Vue {
         return this.$store.state.accessGrantsModule.permissionNotAfter;
     }
 
-
+    /**
+     * Access Grant List
+     */
+    public get accessGrantsList(): AccessGrant[] {
+        return this.$store.state.accessGrantsModule.page.accessGrants;
+    }
 }
 </script>
 
@@ -426,7 +619,8 @@ export default class CreateAccessModal extends Vue {
         width: 100%;
     }
 
-    .create-access {
+
+    .access-grant {
         position: fixed;
         top: 0;
         bottom: 0;
@@ -453,7 +647,18 @@ export default class CreateAccessModal extends Vue {
             margin-top: 40px;
             width: 410px;
             height: auto;
+<<<<<<< Updated upstream
 
+=======
+            &__generated-passphrase {
+                margin-top: 20px;
+                align-items: center;
+                padding: 10px 16px;
+                background: #EBEEF1;
+                border: 1px solid #C8D3DE;
+                border-radius: 7px;
+            }
+>>>>>>> Stashed changes
             &__header-container {
                 text-align: left;
                 display: grid;
@@ -494,7 +699,30 @@ export default class CreateAccessModal extends Vue {
                     grid-column: 1;
                     grid-row: 1;
                 }
+<<<<<<< Updated upstream
 
+=======
+                &__passphrase {
+                    margin-top: 20px;
+                    width: 100%;
+                    background: #fff;
+                    border: 1px solid #c8d3de;
+                    -webkit-box-sizing: border-box;
+                    box-sizing: border-box;
+                    border-radius: 4px;
+                    height: 40px;
+                    font-size: 17px;
+                    padding: 10px;
+                }
+                &__thumb-icon {
+                    grid-column: 1;
+                    grid-row: 2;
+                }
+                &__subtext-thumb {
+                    grid-column: 2;
+                    grid-row: 2;
+                }
+>>>>>>> Stashed changes
                 &__type {
                     grid-column: 2;
                     grid-row: 1;
@@ -507,7 +735,20 @@ export default class CreateAccessModal extends Vue {
                         align-items: center;
                     }
                 }
+<<<<<<< Updated upstream
 
+=======
+                &__encrypt {
+                    width: 100%;
+                    text-align: left;
+                    display: grid;
+                    grid-template-columns: 1fr 6fr 1fr;
+                    margin-top: 15px;
+                    row-gap: 4ch;
+                    grid-template-rows: 2fr 2fr;
+                    padding-top: 10px;
+                }
+>>>>>>> Stashed changes
                 &__name-icon {
                     grid-column: 1;
                     grid-row: 2;
@@ -611,7 +852,17 @@ export default class CreateAccessModal extends Vue {
                 &__learn-more-button {
                     padding: 0 15px;
                 }
+<<<<<<< Updated upstream
 
+=======
+                &__copy-button {
+                    width: 49% !important;
+                    margin-right: 10px;
+                }
+                &__download-button {
+                    width: 49% !important;
+                }
+>>>>>>> Stashed changes
                 &__encrypt-button {
                     padding: 0 15px;
                 }
@@ -702,51 +953,86 @@ export default class CreateAccessModal extends Vue {
 
     @media screen and (max-height: 800px) {
 
+<<<<<<< Updated upstream
         .create-access {
             padding: 50px 0 20px;
+=======
+        .access-grant {
+            padding: 50px 0 20px 0;
+>>>>>>> Stashed changes
             overflow-y: scroll;
         }
     }
 
     @media screen and (max-height: 750px) {
 
+<<<<<<< Updated upstream
         .create-access {
             padding: 100px 0 20px;
+=======
+        .access-grant {
+            padding: 100px 0 20px 0;
+>>>>>>> Stashed changes
         }
     }
 
     @media screen and (max-height: 700px) {
 
+<<<<<<< Updated upstream
         .create-access {
             padding: 150px 0 20px;
+=======
+        .access-grant {
+            padding: 150px 0 20px 0;
+>>>>>>> Stashed changes
         }
     }
 
     @media screen and (max-height: 650px) {
 
+<<<<<<< Updated upstream
         .create-access {
             padding: 200px 0 20px;
+=======
+        .access-grant {
+            padding: 200px 0 20px 0;
+>>>>>>> Stashed changes
         }
     }
 
     @media screen and (max-height: 600px) {
 
+<<<<<<< Updated upstream
         .create-access {
             padding: 250px 0 20px;
+=======
+        .access-grant {
+            padding: 250px 0 20px 0;
+>>>>>>> Stashed changes
         }
     }
 
     @media screen and (max-height: 550px) {
 
+<<<<<<< Updated upstream
         .create-access {
             padding: 300px 0 20px;
+=======
+        .access-grant {
+            padding: 300px 0 20px 0;
+>>>>>>> Stashed changes
         }
     }
 
     @media screen and (max-height: 500px) {
 
+<<<<<<< Updated upstream
         .create-access {
             padding: 350px 0 20px;
+=======
+        .access-grant {
+            padding: 350px 0 20px 0;
+>>>>>>> Stashed changes
         }
     }
 </style>

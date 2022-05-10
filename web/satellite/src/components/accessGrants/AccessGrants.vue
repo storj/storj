@@ -136,7 +136,7 @@
             :default-type="modalAccessType"
             @close-modal="toggleAccessModal"
         />
-        <router-view />
+    <router-view />
     </div>
 </template>
 
