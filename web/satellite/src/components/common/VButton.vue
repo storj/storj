@@ -123,8 +123,9 @@ export default class VButton extends Vue {
     }
 
     .white-green {
-        background-color: transparent!important;
-        border: 1px solid #afb7c1!important;
+        background-color: transparent !important;
+        border: 1px solid #afb7c1 !important;
+
         .label {
             color: #00ac26 !important;
         }
@@ -169,7 +170,7 @@ export default class VButton extends Vue {
             color: #00ac26 !important;
             margin-right: 5px;
         }
-       
+
         .label {
             font-family: 'font_medium', sans-serif;
             line-height: 23px;
