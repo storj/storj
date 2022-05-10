@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div :class="`buckets-selection ${containerStyle}`">
+    <div class="buckets-selection">
         <div
-            :class="`buckets-selection__toggle-container ${textStyle}`"
+            class="buckets-selection__toggle-container"
             @click.stop="toggleDropdown"
         >
             <h1 class="buckets-selection__toggle-container__name">{{ selectionLabel }}</h1>
@@ -101,15 +101,5 @@ export default class BucketsSelection extends Vue {
                 margin: 0;
             }
         }
-    }
-
-    .access-bucket-container {
-        margin-left: 0;
-        height: 30px;
-        border: 1px solid #c8d3de;
-    }
-
-    .access-bucket-text {
-        padding: 10px 20px;
     }
 </style>

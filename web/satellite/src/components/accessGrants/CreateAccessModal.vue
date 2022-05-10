@@ -139,6 +139,7 @@
                             <BucketsSelection 
                                 container-style="access-bucket-container"
                                 text-style="access-bucket-text"
+                                class="access-bucket-container"
                             />
                         </div>
                         <div class="create-access__modal-container__body-container__buckets__bucket-bullets">
@@ -236,8 +237,6 @@ export default class CreateAccessModal extends Vue {
     private readonly label: string;
     @Prop({default: 'Default'})
     private readonly defaultType: string;
-    @Prop({default: () => { return; }})
-    private readonly onClose: () => void;
 
     /**
      * Stores access type that is selected.
@@ -281,7 +280,7 @@ export default class CreateAccessModal extends Vue {
      */
     public onCloseClick(): void {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
-        this.onClose();
+        this.$emit('close-modal')
     }
 
     /**
@@ -321,23 +320,23 @@ export default class CreateAccessModal extends Vue {
     /**
      * Handles permissions All.
      */
-    public toggleAllPermission(permission): void {
-        if (permission === 'all' && this.allPermissionsClicked === false) {
+    public toggleAllPermission(type): void {
+        if (type === 'all' && this.allPermissionsClicked === false) {
             this.allPermissionsClicked = true;
             this.selectedPermissions = this.permissionsList;
             this.checkedPermissions = {read: true, write: true, list: true, delete: true}
             return
-        } else if(permission === 'all' && this.allPermissionsClicked === true) {
+        } else if(type === 'all' && this.allPermissionsClicked === true) {
             this.allPermissionsClicked = false;
             this.selectedPermissions = []
             this.checkedPermissions = {read: false, write: false, list: false, delete: false}
             return
-        } else if(this.checkedPermissions[permission] === true) {
-            this.checkedPermissions[permission] = false
+        } else if(this.checkedPermissions[type] === true) {
+            this.checkedPermissions[type] = false
             this.allPermissionsClicked = false
             return
         } else {
-            this.checkedPermissions[permission] = true
+            this.checkedPermissions[type] = true
             if(this.checkedPermissions.read === true && this.checkedPermissions.write === true && this.checkedPermissions.list === true && this.checkedPermissions.delete === true) {
                 this.allPermissionsClicked = true
                 return
@@ -620,6 +619,16 @@ export default class CreateAccessModal extends Vue {
                 }
             }
         }
+    }
+
+    ::v-deep .buckets-selection {
+        margin-left: 0;
+        height: 30px;
+        border: 1px solid #c8d3de;
+    }
+
+    ::v-deep .buckets-selection__toggle-container {
+        padding: 10px 20px;
     }
 
     .permissions-chevron-up {
