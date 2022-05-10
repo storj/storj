@@ -1951,6 +1951,28 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add storjscan_payments table and index on block number and log index",
+				Version:     200,
+				Action: migrate.SQL{
+					`CREATE TABLE storjscan_payments (
+						 block_hash bytea NOT NULL,
+						 block_number bigint NOT NULL,
+						 transaction bytea NOT NULL,
+						 log_index integer NOT NULL,
+						 from_address bytea NOT NULL,
+						 to_address bytea NOT NULL,
+						 token_value bigint NOT NULL,
+						 usd_value bigint NOT NULL,
+						 status text NOT NULL,
+						 timestamp timestamp with time zone NOT NULL,
+						 created_at timestamp with time zone NOT NULL,
+						 PRIMARY KEY ( block_hash, log_index )
+					); `,
+					`CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
