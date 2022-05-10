@@ -133,8 +133,8 @@
         />
         <CreateAccessModal 
             v-if="showAccessModal"
-            @close-modal="toggleAccessModal"
             :default-type="modalAccessType"
+            @close-modal="toggleAccessModal"
         />
         <router-view />
     </div>
