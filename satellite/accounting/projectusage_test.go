@@ -234,36 +234,6 @@ func TestProjectSegmentLimitInline(t *testing.T) {
 	})
 }
 
-func TestProjectSegmentLimitWithoutCache(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
-				config.Console.UsageLimits.Segment.Free = 5
-				config.Console.UsageLimits.Segment.Paid = 5
-				// this effectively disable live accounting cache
-				config.LiveAccounting.BandwidthCacheTTL = -1
-				config.LiveAccounting.AsOfSystemInterval = 0
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		data := testrand.Bytes(1 * memory.KiB)
-
-		for i := 0; i < 5; i++ {
-			// successful upload
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/"+strconv.Itoa(i), data)
-			require.NoError(t, err)
-		}
-
-		// upload fails due to segment limit
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/5", data)
-		require.Error(t, err)
-		// TODO should compare to uplink API error when exposed
-		require.Contains(t, strings.ToLower(err.Error()), "segments limit")
-	})
-}
-
 func TestProjectBandwidthLimitWithoutCache(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
