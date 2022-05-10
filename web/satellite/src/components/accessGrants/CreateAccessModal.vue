@@ -163,7 +163,7 @@
                         </div>
                     </div>
 
-                    <!-- for future use -->
+                    <!-- for future use when notes is implemented -->
                     <!-- <NotesIcon class="create-access__modal-container__body-container__notes-icon"/>
                     <div class="create-access__modal-container__body-container__notes">
                         <p>Notes</p>
@@ -200,15 +200,14 @@ import DurationSelection from '@/components/accessGrants/permissions/DurationSel
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
 import BucketNameBullet from "@/components/accessGrants/permissions/BucketNameBullet.vue";
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-// import VCheckbox from '@/components/common/VCheckbox.vue';
 import TypesIcon from '@/../static/images/accessGrants/create-access_type.svg';
 import PermissionsIcon from '@/../static/images/accessGrants/create-access_permissions.svg';
 import NameIcon from '@/../static/images/accessGrants/create-access_name.svg';
 import BucketsIcon from '@/../static/images/accessGrants/create-access_buckets.svg';
 import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
+// for future use when notes is implemented
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
-// import InformationIcon from '@/../static/images/accessGrants/create-access_information.png';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
@@ -216,7 +215,6 @@ import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 // @vue/component
 @Component({
     components: {
-        // VCheckbox,
         VButton,
         DurationSelection,
         BucketsSelection,
@@ -227,9 +225,9 @@ import { BUCKET_ACTIONS } from "@/store/modules/buckets";
         NameIcon,
         BucketsIcon,
         DateIcon,
+        // for future use when notes is implemented
         // NotesIcon,
         Chevron,
-        // InformationIcon,
     },
 })
 export default class CreateAccessModal extends Vue {
