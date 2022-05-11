@@ -135,6 +135,7 @@ export default class NewProjectSelection extends Vue {
      * @param projectID
      */
     public async onProjectSelected(projectID: string): Promise<void> {
+        await this.analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         LocalData.setSelectedProjectId(projectID);
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
@@ -210,7 +211,7 @@ export default class NewProjectSelection extends Vue {
      */
     public onProjectsLinkClick(): void {
         if (this.$route.name !== RouteConfig.ProjectsList.name) {
-            this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Manage Projects");
+            this.analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
             this.$router.push(RouteConfig.ProjectsList.path);
         }
 
@@ -222,7 +223,7 @@ export default class NewProjectSelection extends Vue {
      */
     public onCreateLinkClick(): void {
         if (this.$route.name !== RouteConfig.CreateProject.name) {
-            this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Create New Project");
+            this.analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
             this.$router.push(RouteConfig.CreateProject.path);
         }
 
