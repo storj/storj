@@ -13,6 +13,8 @@ import { PaymentsMock } from '../../../mock/api/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 
 const localVue = createLocalVue();
+localVue.use(Vuex);
+
 const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
 paymentsApi.setMockCoupon(new Coupon(

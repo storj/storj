@@ -125,10 +125,10 @@ export default class BucketsDropdown extends Vue {
         z-index: 2;
         left: 0;
         top: calc(100% + 5px);
-        box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+        box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
         border-radius: 6px;
         background-color: #fff;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         width: 100%;
         padding: 10px 0;
         cursor: default;

@@ -206,7 +206,7 @@ interface StripeForm {
     },
 })
 export default class AddPaymentMethodModal extends Vue {
-    @Prop({default: () => false})
+    @Prop({default: () => () => {}})
     public readonly onClose: () => void;
 
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 50; // in dollars.
@@ -358,7 +358,7 @@ export default class AddPaymentMethodModal extends Vue {
         left: 0;
         bottom: 0;
         z-index: 1000;
-        background: rgba(27, 37, 51, 0.75);
+        background: rgb(27 37 51 / 75%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -367,7 +367,7 @@ export default class AddPaymentMethodModal extends Vue {
         &__add-modal {
             background: #fcfcfc;
             border-radius: 32px;
-            box-shadow: 0 0 16px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 0 16px rgb(0 0 0 / 4%);
             width: 760px;
             position: relative;
             padding-top: 50px;
@@ -405,7 +405,7 @@ export default class AddPaymentMethodModal extends Vue {
                             font-size: 14px;
                             line-height: 18px;
                             color: #0149ff;
-                            padding: 0 10px 5px 10px;
+                            padding: 0 10px 5px;
                             cursor: pointer;
                             border-bottom: 3px solid #fff;
                         }
@@ -486,7 +486,7 @@ export default class AddPaymentMethodModal extends Vue {
 
             &__bullets {
                 background: #f0f0f0;
-                padding: 35px 50px 90px 50px;
+                padding: 35px 50px 90px;
                 border-radius: 0 0 32px 32px;
                 display: flex;
 
@@ -511,7 +511,7 @@ export default class AddPaymentMethodModal extends Vue {
                             margin-left: 12px;
                             font-size: 14px;
                             line-height: 20px;
-                            letter-spacing: 0.473506px;
+                            letter-spacing: 0.4735px;
                             color: #000;
                         }
                     }
@@ -531,7 +531,7 @@ export default class AddPaymentMethodModal extends Vue {
                     &__item {
                         display: flex;
                         align-items: flex-start;
-                        letter-spacing: 0.473506px;
+                        letter-spacing: 0.4735px;
 
                         &__price {
                             font-family: 'font_bold', sans-serif;
@@ -579,7 +579,7 @@ export default class AddPaymentMethodModal extends Vue {
                 right: 0;
                 border-radius: 32px;
                 z-index: 1;
-                background-color: rgba(245, 246, 250, 0.5);
+                background-color: rgb(245 246 250 / 50%);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -591,7 +591,7 @@ export default class AddPaymentMethodModal extends Vue {
             position: relative;
             padding: 50px;
             background: #fcfcfc;
-            box-shadow: 0 0 16px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 0 16px rgb(0 0 0 / 4%);
             border-radius: 32px;
 
             &__title,
@@ -611,7 +611,7 @@ export default class AddPaymentMethodModal extends Vue {
             }
 
             &__info {
-                margin: 35px 0 48px 0;
+                margin: 35px 0 48px;
                 font-size: 18px;
                 line-height: 32px;
                 color: #000;
@@ -677,7 +677,7 @@ export default class AddPaymentMethodModal extends Vue {
     @media screen and (max-height: 900px) {
 
         .pm-area {
-            padding: 200px 0 20px 0;
+            padding: 200px 0 20px;
             overflow-y: scroll;
         }
     }

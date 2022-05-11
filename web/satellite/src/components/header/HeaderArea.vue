@@ -248,7 +248,7 @@ export default class HeaderArea extends Vue {
         top: 62px;
         left: 220px;
         z-index: 99;
-        background: rgba(134, 134, 148, 0.4);
+        background: rgb(134 134 148 / 40%);
     }
 
     .project-selection,

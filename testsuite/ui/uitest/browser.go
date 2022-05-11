@@ -84,7 +84,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 		WithPanic(func(v interface{}) { require.Fail(t, "check failed", v) })
 
 	if slowBrowser {
-		browser = browser.SlowMotion(300 * time.Millisecond).Trace(true)
+		browser = browser.SlowMotion(100 * time.Millisecond).Trace(true)
 	}
 
 	defer ctx.Check(func() error {

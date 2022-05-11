@@ -20,7 +20,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 // @vue/component
 @Component
 export default class PaidTierBar extends Vue {
-    @Prop({default: () => false})
+    @Prop({default: () => () => false})
     public readonly openAddPMModal: () => void;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 

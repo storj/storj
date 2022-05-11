@@ -120,7 +120,7 @@ export default class NavigationArea extends Vue {
 
 <style scoped lang="scss">
     .navigation-svg-path {
-        fill: rgb(53, 64, 73);
+        fill: rgb(53 64 73);
     }
 
     .navigation-area {

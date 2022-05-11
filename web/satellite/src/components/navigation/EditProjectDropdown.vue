@@ -117,7 +117,7 @@ export default class EditProjectDropdown extends Vue {
             top: calc(100% + 5px);
             left: 0;
             background-color: #fff;
-            box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
+            box-shadow: 0 8px 34px rgb(161 173 185 / 41%);
             border-radius: 6px;
             padding: 5px 0;
             width: calc(100% + 5px);

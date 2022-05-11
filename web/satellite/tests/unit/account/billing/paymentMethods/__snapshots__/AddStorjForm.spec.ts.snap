@@ -32,7 +32,7 @@ exports[`AddStorjForm renders correctly after continue To Coin Payments click 1`
     <tokendepositselection-stub paymentoptions="[object Object],[object Object],[object Object],[object Object],[object Object]" class="add-storj-area__selection-container__form"></tokendepositselection-stub>
   </div>
   <div class="add-storj-area__submit-area"><img src="@/../static/images/account/billing/loading.gif" alt="loading gif" class="loading-image">
-    <vbutton-stub label="Continue to Coin Payments" width="251px" height="48px" fontsize="16px" borderradius="6px" isdisabled="true" onpress="function () { [native code] }" class="confirm-add-storj-button"></vbutton-stub>
+    <vbutton-stub label="Continue to Coin Payments" width="251px" height="48px" fontsize="16px" borderradius="6px" isdisabled="true" onpress="[Function]" class="confirm-add-storj-button"></vbutton-stub>
   </div>
 </div>
 `;

@@ -4,6 +4,7 @@
 package reputation
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -74,3 +75,17 @@ const (
 	// AuditOffline represents an audit where a node was offline.
 	AuditOffline
 )
+
+func (auditType AuditType) String() string {
+	switch auditType {
+	case AuditSuccess:
+		return "AuditSuccess"
+	case AuditFailure:
+		return "AuditFailure"
+	case AuditUnknown:
+		return "AuditUnknown"
+	case AuditOffline:
+		return "AuditOffline"
+	}
+	return fmt.Sprintf("<unregistered audittype %d>", auditType)
+}

@@ -129,7 +129,7 @@ type Satellite struct {
 		Worker   *audit.Worker
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
-		Reporter *audit.Reporter
+		Reporter audit.Reporter
 	}
 
 	Reputation struct {

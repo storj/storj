@@ -46,7 +46,7 @@ export default class VButton extends Vue {
     private withPlus: boolean;
     @Prop({ default: false })
     private inactive: boolean;
-    @Prop({ default: () => {} })
+    @Prop({ default: () => () => {} })
     private readonly onPress: () => void;
 
     public get style(): Record<string, unknown> {

@@ -161,7 +161,7 @@ export default class IngressChart extends BaseChart {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 10px 0 16px 0;
+        padding: 10px 0 16px;
         color: var(--c-title);
         font-family: 'font_bold', sans-serif;
     }

@@ -98,7 +98,7 @@ export default class ProgressBar extends Vue {
                 font-style: normal;
                 font-size: 10px;
                 line-height: 15px;
-                color: rgba(0, 0, 0, 0.4);
+                color: rgb(0 0 0 / 40%);
                 margin: 0;
                 white-space: nowrap;
             }

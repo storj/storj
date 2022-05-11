@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -22,6 +23,7 @@ import (
 // RepairQueueSelectLimit defines how many items can be selected at the same time.
 const RepairQueueSelectLimit = 1000
 
+// repairQueue implements storj.io/storj/satellite/repair/queue.RepairQueue.
 type repairQueue struct {
 	db *satelliteDB
 }
@@ -53,7 +55,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 		// TODO it's not optimal solution but crdb is not used in prod for repair queue
 		query = `
 			WITH inserted AS (
-				SELECT count(*) as alreadyInserted FROM repair_queue 
+				SELECT count(*) as alreadyInserted FROM repair_queue
 				WHERE stream_id = $1 AND position = $2
 			)
 			INSERT INTO repair_queue
@@ -85,6 +87,111 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 		}
 	}
 	return alreadyInserted, rows.Err()
+}
+
+func (r *repairQueue) InsertBatch(
+	ctx context.Context,
+	segments []*queue.InjuredSegment,
+) (newlyInsertedSegments []*queue.InjuredSegment, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if len(segments) == 0 {
+		return nil, nil
+	}
+
+	// insert if not exists, or update healthy count if does exist
+	var query string
+
+	// we want to insert the segment if it is not in the queue, but update the segment health if it already is in the queue
+	// we also want to know if the result was an insert or an update - this is the reasoning for the xmax section of the postgres query
+	// and the separate cockroach query (which the xmax trick does not work for)
+	switch r.db.impl {
+	case dbutil.Postgres:
+		query = `
+			INSERT INTO repair_queue
+			(
+				stream_id, position, segment_health
+			)
+			VALUES (
+				UNNEST($1::BYTEA[]),
+				UNNEST($2::INT8[]),
+				UNNEST($3::double precision[])
+			)
+			ON CONFLICT (stream_id, position)
+			DO UPDATE
+			SET segment_health=EXCLUDED.segment_health, updated_at=current_timestamp
+			RETURNING NOT(xmax != 0) AS newlyInserted
+		`
+	case dbutil.Cockroach:
+		// TODO it's not optimal solution but crdb is not used in prod for repair queue
+		query = `
+			WITH to_insert AS (
+				SELECT
+					UNNEST($1::BYTEA[]) AS stream_id,
+					UNNEST($2::INT8[]) AS position,
+					UNNEST($3::double precision[]) AS segment_health
+			),
+			do_insert AS (
+				INSERT INTO repair_queue (
+					stream_id, position, segment_health
+				)
+				SELECT stream_id, position, segment_health
+				FROM to_insert
+				ON CONFLICT (stream_id, position)
+				DO UPDATE
+				SET
+					segment_health=EXCLUDED.segment_health,
+					updated_at=current_timestamp
+				RETURNING false
+			)
+			SELECT
+				(repair_queue.stream_id IS NULL) AS newlyInserted
+			FROM to_insert
+			LEFT JOIN repair_queue
+				ON to_insert.stream_id = repair_queue.stream_id
+				AND to_insert.position = repair_queue.position
+		`
+	}
+
+	var insertData struct {
+		StreamIDs      []uuid.UUID
+		Positions      []int64
+		SegmentHealths []float64
+	}
+
+	for _, segment := range segments {
+		insertData.StreamIDs = append(insertData.StreamIDs, segment.StreamID)
+		insertData.Positions = append(insertData.Positions, int64(segment.Position.Encode()))
+		insertData.SegmentHealths = append(insertData.SegmentHealths, segment.SegmentHealth)
+	}
+
+	rows, err := r.db.QueryContext(
+		ctx, query,
+		pgutil.UUIDArray(insertData.StreamIDs),
+		pgutil.Int8Array(insertData.Positions),
+		pgutil.Float8Array(insertData.SegmentHealths),
+	)
+
+	if err != nil {
+		return newlyInsertedSegments, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	i := 0
+	for rows.Next() {
+		var isNewlyInserted bool
+		err = rows.Scan(&isNewlyInserted)
+		if err != nil {
+			return newlyInsertedSegments, err
+		}
+
+		if isNewlyInserted {
+			newlyInsertedSegments = append(newlyInsertedSegments, segments[i])
+		}
+
+		i++
+	}
+
+	return newlyInsertedSegments, rows.Err()
 }
 
 func (r *repairQueue) Select(ctx context.Context) (seg *queue.InjuredSegment, err error) {
@@ -141,7 +248,7 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []queue.Inju
 	}
 	// TODO: strictly enforce order-by or change tests
 	rows, err := r.db.QueryContext(ctx,
-		r.db.Rebind(`SELECT stream_id, position, attempted_at, updated_at, segment_health 
+		r.db.Rebind(`SELECT stream_id, position, attempted_at, updated_at, segment_health
 					FROM repair_queue LIMIT ?`), limit,
 	)
 	if err != nil {

@@ -174,10 +174,10 @@ export default class CLIInstall extends Vue {
         &__macos,
         &__linux,
         &__windows {
-            border: 1px solid rgb(230, 236, 241);
+            border: 1px solid rgb(230 236 241);
             display: block;
             padding: 24px;
-            background: rgb(255, 255, 255);
+            background: rgb(255 255 255);
             border-radius: 0 6px 6px;
 
             &__title {
@@ -196,12 +196,12 @@ export default class CLIInstall extends Vue {
             }
 
             &__commands {
-                color: rgb(230, 236, 241);
+                color: rgb(230 236 241);
                 margin: 32px 0;
                 padding: 24px;
                 overflow: auto;
                 font-size: 14px;
-                background: rgb(24, 48, 85);
+                background: rgb(24 48 85);
 
                 &__item {
                     white-space: nowrap;
@@ -213,7 +213,7 @@ export default class CLIInstall extends Vue {
             }
 
             &__link {
-                color: rgb(55, 111, 255);
+                color: rgb(55 111 255);
             }
 
             &__msg {

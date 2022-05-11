@@ -199,8 +199,8 @@ export default class PasswordStrength extends Vue {
         right: -3px;
         padding: 25px 20px;
         opacity: 0.97;
-        border: 1px solid rgba(193, 193, 193, 0.3);
-        box-shadow: 0 4px 20px rgba(204, 208, 214, 0.25);
+        border: 1px solid rgb(193 193 193 / 30%);
+        box-shadow: 0 4px 20px rgb(204 208 214 / 25%);
         border-radius: 6px;
         background-color: #fff;
         height: 220px;
@@ -225,7 +225,7 @@ export default class PasswordStrength extends Vue {
             width: 100%;
             border-radius: 17px;
             background-color: #afb7c1;
-            margin: 5px 0 0 0;
+            margin: 5px 0 0;
             position: relative;
 
             &__fill {
@@ -241,14 +241,14 @@ export default class PasswordStrength extends Vue {
             font-size: 12px;
             line-height: 16px;
             color: #afb7c1;
-            margin: 10px 0 0 0;
+            margin: 10px 0 0;
         }
 
         &__rule-area {
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            margin: 10px 0 0 0;
+            margin: 10px 0 0;
 
             &__checkbox {
                 height: 20px;

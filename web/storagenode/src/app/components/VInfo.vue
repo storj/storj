@@ -96,7 +96,7 @@ export default class VInfo extends Vue {
             background-image: var(--info-image-arrow-middle-path);
             background-size: 100% 100%;
             z-index: 101;
-            padding: 11px 18px 20px 18px;
+            padding: 11px 18px 20px;
 
             &__text {
                 display: flex;
@@ -130,7 +130,7 @@ export default class VInfo extends Vue {
     }
 
     .extraPadding {
-        padding: 11px 18px 31px 18px;
+        padding: 11px 18px 31px;
     }
 
     .customPosition {

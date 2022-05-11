@@ -1,19 +1,54 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import sinon from 'sinon';
 import Vuex from 'vuex';
 
 import AccountDropdown from '@/components/header/accountDropdown/AccountDropdown.vue';
 
 import { router } from '@/router';
-import { appStateModule } from '@/store/modules/appState';
 import { createLocalVue, mount } from '@vue/test-utils';
+
+import { appStateModule } from '@/store/modules/appState';
+import {makeProjectsModule} from "@/store/modules/projects";
+import {makeUsersModule} from "@/store/modules/users";
+import {makeAccessGrantsModule} from "@/store/modules/accessGrants";
+import {makeBucketsModule} from "@/store/modules/buckets";
+import {makeObjectsModule,} from "@/store/modules/objects";
+import {makeNotificationsModule} from "@/store/modules/notifications";
+import {makeProjectMembersModule} from "@/store/modules/projectMembers";
+import {makePaymentsModule} from "@/store/modules/payments";
+import {makeFilesModule} from "@/store/modules/files";
+
+import {PaymentsMock} from "../../mock/api/payments";
+import {UsersApiMock} from "../../mock/api/users";
+import {ProjectsApiMock} from "../../mock/api/projects";
+import {AccessGrantsMock} from "../../mock/api/accessGrants";
+import {ProjectMembersApiMock} from "../../mock/api/projectMembers";
+import {BucketsMock} from "../../mock/api/buckets";
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { appStateModule }});
+const paymentsApi = new PaymentsMock();
+const usersApi = new UsersApiMock();
+const projectsApi = new ProjectsApiMock();
+const accessGrantsApi = new AccessGrantsMock();
+const projectMembersApi = new ProjectMembersApiMock();
+const bucketsApi = new BucketsMock();
+
+const store = new Vuex.Store({ modules: {
+    appStateModule,
+
+    notificationsModule: makeNotificationsModule(),
+    accessGrantsModule: makeAccessGrantsModule(accessGrantsApi),
+    projectMembersModule: makeProjectMembersModule(projectMembersApi),
+    paymentsModule: makePaymentsModule(paymentsApi),
+    usersModule: makeUsersModule(usersApi),
+    projectsModule: makeProjectsModule(projectsApi),
+    bucketUsageModule: makeBucketsModule(bucketsApi),
+    objectsModule: makeObjectsModule(),
+    files: makeFilesModule(),
+}});
 
 describe('AccountDropdown', () => {
     it('renders correctly', (): void => {
@@ -27,17 +62,15 @@ describe('AccountDropdown', () => {
     });
 
     it('router works correctly', async (): Promise<void> => {
-        const routerSpy = sinon.spy();
+        const routerSpy = jest.spyOn(router, "push");
         const wrapper = mount(AccountDropdown, {
             store,
             localVue,
             router,
         });
 
-        wrapper.vm.onLogoutClick = routerSpy;
-
         await wrapper.find('.account-dropdown__wrap__item-container').trigger('click');
 
-        expect(routerSpy.callCount).toBe(1);
+        expect(routerSpy).toHaveBeenCalled();
     });
 });

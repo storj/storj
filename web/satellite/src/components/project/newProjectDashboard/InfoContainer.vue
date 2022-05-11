@@ -42,7 +42,7 @@ export default class InfoContainer extends Vue {
         width: calc(100% - 48px);
         font-family: 'font_regular', sans-serif;
         background-color: #fff;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
         border-radius: 10px;
 
         &__title {

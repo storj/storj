@@ -27,9 +27,7 @@ import { ProjectsApiMock } from '../mock/api/projects';
 import { UsersApiMock } from '../mock/api/users';
 
 const localVue = createLocalVue();
-const notificationPlugin = new NotificatorPlugin();
 localVue.use(Vuex);
-localVue.use(notificationPlugin);
 
 const usersApi = new UsersApiMock();
 const projectsApi = new ProjectsApiMock();
@@ -57,6 +55,8 @@ const store = new Vuex.Store({
         paymentsModule,
     },
 });
+
+localVue.use(new NotificatorPlugin(store));
 
 describe('Dashboard', () => {
     beforeEach(() => {

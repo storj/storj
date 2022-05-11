@@ -5,6 +5,7 @@ package console_test
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -723,5 +724,145 @@ func TestRESTKeys(t *testing.T) {
 		nonexistent := testrand.UUID()
 		err = service.RevokeRESTKey(authCtx, nonexistent.String())
 		require.Error(t, err)
+	})
+}
+
+// TestLockAccount ensures user's gets locked when incorrect credentials are provided.
+func TestLockAccount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		usersDB := sat.DB.Console().Users()
+		consoleConfig := sat.Config.Console
+
+		newUser := console.CreateUser{
+			FullName: "token test",
+			Email:    "token_test@mail.test",
+		}
+
+		user, err := sat.AddUser(ctx, newUser, 1)
+		require.NoError(t, err)
+
+		getNewAuthorization := func() (context.Context, console.Authorization) {
+			authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+			require.NoError(t, err)
+			auth, err := console.GetAuth(authCtx)
+			require.NoError(t, err)
+			return authCtx, auth
+		}
+
+		authCtx, _ := getNewAuthorization()
+		secret, err := service.ResetMFASecretKey(authCtx)
+		require.NoError(t, err)
+
+		goodCode0, err := console.NewMFAPasscode(secret, time.Time{})
+		require.NoError(t, err)
+
+		authCtx, _ = getNewAuthorization()
+		err = service.EnableUserMFA(authCtx, goodCode0, time.Time{})
+		require.NoError(t, err)
+
+		now := time.Now()
+
+		goodCode1, err := console.NewMFAPasscode(secret, now)
+		require.NoError(t, err)
+
+		authUser := console.AuthUser{
+			Email:       newUser.Email,
+			Password:    newUser.FullName,
+			MFAPasscode: goodCode1,
+		}
+
+		// successful login.
+		token, err := service.Token(ctx, authUser)
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		// check if user's account gets locked because of providing wrong password.
+		authUser.Password = "qweQWE1@"
+		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
+			token, err = service.Token(ctx, authUser)
+			require.Empty(t, token)
+			if i < consoleConfig.LoginAttemptsWithoutPenalty {
+				require.True(t, console.ErrLoginPassword.Has(err))
+			} else {
+				require.True(t, console.ErrLockedAccount.Has(err))
+			}
+		}
+
+		lockedUser, err := service.GetUser(authCtx, user.ID)
+		require.NoError(t, err)
+		require.True(t, lockedUser.FailedLoginCount == consoleConfig.LoginAttemptsWithoutPenalty)
+		require.True(t, lockedUser.LoginLockoutExpiration.After(now))
+
+		// lock account once again and check if lockout expiration time increased.
+		expDuration := time.Duration(math.Pow(consoleConfig.FailedLoginPenalty, float64(lockedUser.FailedLoginCount-1))) * time.Minute
+		lockoutExpDate := now.Add(expDuration)
+		err = service.UpdateUsersFailedLoginState(authCtx, lockedUser, lockoutExpDate)
+		require.NoError(t, err)
+
+		lockedUser, err = service.GetUser(authCtx, user.ID)
+		require.NoError(t, err)
+		require.True(t, lockedUser.FailedLoginCount == consoleConfig.LoginAttemptsWithoutPenalty+1)
+
+		diff := lockedUser.LoginLockoutExpiration.Sub(now)
+		require.Greater(t, diff, time.Duration(consoleConfig.FailedLoginPenalty)*time.Minute)
+
+		// unlock account by successful login
+		lockedUser.LoginLockoutExpiration = now.Add(-time.Second)
+		err = usersDB.Update(authCtx, lockedUser)
+		require.NoError(t, err)
+
+		authUser.Password = newUser.FullName
+		token, err = service.Token(ctx, authUser)
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		unlockedUser, err := service.GetUser(authCtx, user.ID)
+		require.NoError(t, err)
+		require.Zero(t, unlockedUser.FailedLoginCount)
+
+		// check if user's account gets locked because of providing wrong mfa passcode.
+		authUser.MFAPasscode = "000000"
+		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
+			token, err = service.Token(ctx, authUser)
+			require.Empty(t, token)
+			if i < consoleConfig.LoginAttemptsWithoutPenalty {
+				require.True(t, console.ErrMFAPasscode.Has(err))
+			} else {
+				require.True(t, console.ErrLockedAccount.Has(err))
+			}
+		}
+
+		lockedUser, err = service.GetUser(authCtx, user.ID)
+		require.NoError(t, err)
+		require.True(t, lockedUser.FailedLoginCount == consoleConfig.LoginAttemptsWithoutPenalty)
+		require.True(t, lockedUser.LoginLockoutExpiration.After(now))
+
+		// unlock account
+		lockedUser.LoginLockoutExpiration = time.Time{}
+		lockedUser.FailedLoginCount = 0
+		err = usersDB.Update(authCtx, lockedUser)
+		require.NoError(t, err)
+
+		// check if user's account gets locked because of providing wrong mfa recovery code.
+		authUser.MFAPasscode = ""
+		authUser.MFARecoveryCode = "000000"
+		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
+			token, err = service.Token(ctx, authUser)
+			require.Empty(t, token)
+			if i < consoleConfig.LoginAttemptsWithoutPenalty {
+				require.True(t, console.ErrMFARecoveryCode.Has(err))
+			} else {
+				require.True(t, console.ErrLockedAccount.Has(err))
+			}
+		}
+
+		lockedUser, err = service.GetUser(authCtx, user.ID)
+		require.NoError(t, err)
+		require.True(t, lockedUser.FailedLoginCount == consoleConfig.LoginAttemptsWithoutPenalty)
+		require.True(t, lockedUser.LoginLockoutExpiration.After(now))
 	})
 }

@@ -94,7 +94,7 @@ export default class DurationSelection extends Vue {
         cursor: pointer;
         margin-left: 15px;
         border-radius: 6px;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         font-family: 'font_regular', sans-serif;
         width: 235px;
         position: relative;

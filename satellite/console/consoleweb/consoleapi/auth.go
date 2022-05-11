@@ -93,7 +93,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	token, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
-			serveCustomJSONError(a.log, w, 200, err, a.getUserErrorMessage(err))
+			serveCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.serveJSONError(w, err)
@@ -759,7 +759,7 @@ func (a *Auth) getStatusCode(err error) int {
 	switch {
 	case console.ErrValidation.Has(err), console.ErrRecaptcha.Has(err), console.ErrMFAMissing.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err), console.ErrLockedAccount.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
@@ -791,11 +791,15 @@ func (a *Auth) getUserErrorMessage(err error) string {
 	case console.ErrMFAConflict.Has(err):
 		return "Expected either passcode or recovery code, but got both"
 	case console.ErrMFAPasscode.Has(err):
-		return "The MFA passcode is not valid or has expired"
+		return "The MFA passcode is not valid or has expired. You have just used up one of your login attempts"
 	case console.ErrMFARecoveryCode.Has(err):
-		return "The MFA recovery code is not valid or has been previously used"
+		return "The MFA recovery code is not valid or has been previously used. You have just used up one of your login attempts"
 	case console.ErrLoginCredentials.Has(err):
 		return "Your login credentials are incorrect, please try again"
+	case console.ErrLoginPassword.Has(err):
+		return "Your login credentials are incorrect. You have just used up one of your login attempts"
+	case console.ErrLockedAccount.Has(err):
+		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"
 	default:

@@ -20,9 +20,6 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import VSearch from '@/components/common/VSearch.vue';
 
 declare type searchCallback = (search: string) => Promise<void>;
-declare interface ClearSearch {
-    clearSearch(): void;
-}
 
 // @vue/component
 @Component({
@@ -33,11 +30,13 @@ declare interface ClearSearch {
 export default class VHeader extends Vue {
     @Prop({default: ''})
     private readonly placeholder: string;
-    @Prop({default: () => ''})
+    @Prop({default: function(): searchCallback {
+        return async function(_: string) {};
+    }})
     private readonly search: searchCallback;
 
     public $refs!: {
-        search: VSearch & ClearSearch;
+        search: VSearch;
     };
 
     public clearSearch(): void {

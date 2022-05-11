@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import {
     AccountBalance,
     Coupon,
@@ -14,6 +13,7 @@ import {
     ProjectUsageAndCharges,
     TokenDeposit,
 } from '@/types/payments';
+import {StoreModule} from "@/types/store";
 
 export const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',

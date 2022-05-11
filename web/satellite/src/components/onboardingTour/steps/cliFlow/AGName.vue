@@ -117,7 +117,7 @@ export default class AGName extends Vue {
             line-height: 32px;
             letter-spacing: 0.15px;
             color: #4e4b66;
-            margin: 10px 0 30px 0;
+            margin: 10px 0 30px;
         }
     }
 </style>

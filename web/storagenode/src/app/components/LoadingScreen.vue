@@ -72,7 +72,7 @@ export default class LoadingScreen extends Vue {}
 
     .background {
         fill: none;
-        stroke: rgba(206, 206, 206, 0.2);
+        stroke: rgb(206 206 206 / 20%);
         stroke-width: 20;
     }
 

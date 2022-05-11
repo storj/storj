@@ -17,33 +17,10 @@ import (
 	"golang.org/x/text/language"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/api"
 )
 
-// API represents specific API's configuration.
-type API struct {
-	Version        string
-	Description    string
-	PackageName    string
-	Auth           api.Auth
-	EndpointGroups []*EndpointGroup
-}
-
-// Group adds new endpoints group to API.
-func (a *API) Group(name, prefix string) *EndpointGroup {
-	group := &EndpointGroup{
-		Name:      name,
-		Prefix:    prefix,
-		Endpoints: make(map[PathMethod]*Endpoint),
-	}
-
-	a.EndpointGroups = append(a.EndpointGroups, group)
-
-	return group
-}
-
-// MustWrite writes generated code into a file.
-func (a *API) MustWrite(path string) {
+// MustWriteGo writes generated Go code into a file.
+func (a *API) MustWriteGo(path string) {
 	generated, err := a.generateGo()
 	if err != nil {
 		panic(errs.Wrap(err))

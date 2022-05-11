@@ -34,8 +34,10 @@ describe('HeaderedInput.vue', () => {
             propsData: {label, width, height, additionalLabel},
         });
 
-        expect(wrapper.find('input').element.style.width).toMatch(width);
-        expect(wrapper.find('input').element.style.height).toMatch(height);
+        const el = wrapper.find('input').element as HTMLElement;
+        expect(el.style.width).toMatch(width);
+        expect(el.style.height).toMatch(height);
+
         expect(wrapper.find('.label-container').text()).toMatch(label);
         expect(wrapper.find('.add-label').text()).toMatch(additionalLabel);
     });
