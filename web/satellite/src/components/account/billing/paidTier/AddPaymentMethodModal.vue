@@ -271,7 +271,7 @@ export default class AddPaymentMethodModal extends Vue {
                 await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             }
 
-            await this.analytics.eventTriggered(AnalyticsEvent.BANNER_ADD_CARD);
+            await this.analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
 
         } catch (error) {
             await this.$notify.error(error.message);
@@ -310,7 +310,7 @@ export default class AddPaymentMethodModal extends Vue {
                 await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
             }
 
-            await this.analytics.eventTriggered(AnalyticsEvent.BANNER_ADD_TOKENS);
+            await this.analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_TOKENS);
 
         } catch (error) {
             await this.$notify.error(error.message);
