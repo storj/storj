@@ -87,7 +87,7 @@ export default class OverviewStep extends Vue {
         this.isLoading = true;
 
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.APIKey).path);
+        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.AGName).path);
 
         this.isLoading = false;
     }

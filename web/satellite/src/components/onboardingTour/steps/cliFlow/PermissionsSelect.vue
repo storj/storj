@@ -150,7 +150,7 @@ export default class PermissionsSelect extends Vue {
         border-radius: 6px;
         border: 1px solid rgb(56 75 101 / 40%);
         font-family: 'font_regular', sans-serif;
-        width: 235px;
+        width: 100%;
         position: relative;
 
         &__toggle-container {
