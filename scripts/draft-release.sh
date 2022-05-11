@@ -15,7 +15,10 @@ fi
 FOLDER="${2-}"
 
 echo "Drafting release"
-github-release release --user storj --repo storj --tag "$TAG" --draft
+current_major_release_version=$(echo "$TAG"| cut -d '.' -f 1-2)
+previous_release_version=$(git describe --tags `git rev-list --exclude='*rc*' --exclude=$current_major_release_version* --tags --max-count=1`)
+changelog=$(python changelog.py "$TAG" "$previous_release_version" 2>&1)
+github-release release --user storj --repo storj --tag "$TAG" --description "$changelog" --draft
 
 echo "Sleep 10 seconds in order to wait for release propagation"
 sleep 10
