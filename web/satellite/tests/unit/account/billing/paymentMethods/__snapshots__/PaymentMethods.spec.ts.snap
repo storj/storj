@@ -33,26 +33,26 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 1`] =
                 </svg></div>
             </div>
           </div>
-          <!---->
-          <!---->
-          <!---->
+          
+          
+          
         </div>
       </div>
       <div class="add-storj-area__submit-area">
-        <!---->
+        
         <div class="confirm-add-storj-button container" style="width: 251px; height: 48px; border-radius: 6px; font-size: 16px;">
-          <!---->
-          <!----> <span class="label">Continue to Coin Payments</span>
+          
+           <span class="label">Continue to Coin Payments</span>
         </div>
       </div>
     </div>
-    <!---->
-    <!---->
+    
+    
   </div>
-  <!---->
-  <!---->
-  <!---->
-  <!---->
+  
+  
+  
+  
 </div>
 `;
 
@@ -64,8 +64,8 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 2`] =
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
           <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
-            <!---->
-            <!----> <span class="label">Add STORJ</span>
+            
+             <span class="label">Add STORJ</span>
           </div>
         </div>
       </div>
@@ -80,17 +80,17 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 2`] =
         </p>
       </div>
     </div>
-    <!---->
-    <!---->
+    
+    
     <div class="add-card-button">
-      <!---->
-      <!----> <span>Add Card</span>
+      
+       <span>Add Card</span>
     </div>
   </div>
-  <!---->
-  <!---->
-  <!---->
-  <!---->
+  
+  
+  
+  
 </div>
 `;
 
@@ -105,12 +105,12 @@ exports[`PaymentMethods renders correctly after add card and cancel click 1`] = 
         </div>
       </div>
     </div>
-    <!---->
-    <!---->
+    
+    
     <addcardform-stub></addcardform-stub>
     <div class="add-card-button button-moved">
-      <!---->
-      <!----> <span>Add Card</span>
+      
+       <span>Add Card</span>
     </div>
   </div>
   <div class="payment-methods-area__security-info-container">
@@ -118,9 +118,9 @@ exports[`PaymentMethods renders correctly after add card and cancel click 1`] = 
             Your card is secured by Stripe through TLS and AES-256 encryption. Your information is secure.
         </span>
   </div>
-  <!---->
-  <!---->
-  <!---->
+  
+  
+  
 </div>
 `;
 
@@ -136,17 +136,17 @@ exports[`PaymentMethods renders correctly after add card and cancel click 2`] = 
       </div>
     </div>
     <paymentsbonus-stub class="payment-methods-area__functional-area__bonus"></paymentsbonus-stub>
-    <!---->
-    <!---->
+    
+    
     <div class="add-card-button">
-      <!---->
-      <!----> <span>Add Card</span>
+      
+       <span>Add Card</span>
     </div>
   </div>
-  <!---->
-  <!---->
-  <!---->
-  <!---->
+  
+  
+  
+  
 </div>
 `;
 
@@ -158,8 +158,8 @@ exports[`PaymentMethods renders correctly with card 1`] = `
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
           <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
-            <!---->
-            <!----> <span class="label">Add STORJ</span>
+            
+             <span class="label">Add STORJ</span>
           </div>
         </div>
       </div>
@@ -174,15 +174,15 @@ exports[`PaymentMethods renders correctly with card 1`] = `
         </p>
       </div>
     </div>
-    <!---->
-    <!---->
+    
+    
     <div class="add-card-button">
-      <!---->
-      <!----> <span>Add Card</span>
+      
+       <span>Add Card</span>
     </div>
   </div>
-  <!---->
-  <!---->
+  
+  
   <div class="payment-methods-area__existing-cards-container">
     <div class="payment-methods-container__card-container">
       <div class="payment-methods-container__card-container__info-area">
@@ -202,7 +202,7 @@ exports[`PaymentMethods renders correctly with card 1`] = `
       </div>
     </div>
   </div>
-  <!---->
+  
 </div>
 `;
 
@@ -214,8 +214,8 @@ exports[`PaymentMethods renders correctly without card 1`] = `
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
           <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
-            <!---->
-            <!----> <span class="label">Add STORJ</span>
+            
+             <span class="label">Add STORJ</span>
           </div>
         </div>
       </div>
@@ -230,16 +230,16 @@ exports[`PaymentMethods renders correctly without card 1`] = `
         </p>
       </div>
     </div>
-    <!---->
-    <!---->
+    
+    
     <div class="add-card-button">
-      <!---->
-      <!----> <span>Add Card</span>
+      
+       <span>Add Card</span>
     </div>
   </div>
-  <!---->
-  <!---->
-  <!---->
-  <!---->
+  
+  
+  
+  
 </div>
 `;
