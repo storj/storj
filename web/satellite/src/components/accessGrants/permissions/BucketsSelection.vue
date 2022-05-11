@@ -13,7 +13,7 @@
                 alt="Arrow down (expand)"
             />
         </div>
-        <BucketsDropdown v-if="isDropdownShown" />
+        <BucketsDropdown v-if="isDropdownShown" :show-scrollbar="showScrollbar" />
     </div>
 </template>
 
@@ -33,10 +33,8 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
     },
 })
 export default class BucketsSelection extends Vue {
-    @Prop({default: ''})
-    private readonly containerStyle: string;
-    @Prop({default: ''})
-    private readonly textStyle: string;
+    @Prop({default: false})
+    private readonly showScrollbar: boolean;
     /**
      * Toggles dropdown visibility.
      */

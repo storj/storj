@@ -138,9 +138,8 @@
                         <p>Buckets</p>
                         <div>
                             <BucketsSelection 
-                                container-style="access-bucket-container"
-                                text-style="access-bucket-text"
                                 class="access-bucket-container"
+                                :show-scrollbar="true"
                             />
                         </div>
                         <div class="access-grant__modal-container__body-container__buckets__bucket-bullets">
