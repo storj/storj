@@ -156,11 +156,18 @@
                     <DateIcon class="access-grant__modal-container__body-container__date-icon" />
                     <div class="access-grant__modal-container__body-container__duration">
                         <p>Duration</p>
-                        <div>
+                        <div v-if="addDateSelected">
                             <DurationSelection
                                 container-style="access-date-container"
                                 text-style="access-date-text"
                             />
+                        </div>
+                        <div 
+                            v-else 
+                            class="access-grant__modal-container__body-container__duration__text"
+                            @click="addDateSelected = true"
+                        >
+                            Add Date (optional)
                         </div>
                     </div>
 
@@ -188,6 +195,7 @@
                         height="50px"
                         class="access-grant__modal-container__footer-container__encrypt-button"
                         :on-press="encryptClickAction"
+                        :is-disabled="selectedPermissions.length === 0 || accessName === '' || selectedBucketNames.length === 0"
                     />
                 </div>
             </form>
@@ -272,7 +280,7 @@
                             :is-disabled="passphrase.length < 1"
                         />
                     </div>
-                    <div v-if="isPassphraseDownloaded || isPassphraseCopied" class="access-grant__modal-container__acknowledgement-container">
+                    <div v-if="isPassphraseDownloaded || isPassphraseCopied" :class="`access-grant__modal-container__acknowledgement-container ${acknowledgementCheck ? 'blue-background' : ''}`">
                         <input
                             v-model="acknowledgementCheck"
                             type="checkbox"
@@ -393,6 +401,7 @@ export default class CreateAccessModal extends Vue {
 
     private accessName = '';
     public areBucketNamesFetching = true;
+    private addDateSelected = false;
 
 
     /**
@@ -605,6 +614,10 @@ export default class CreateAccessModal extends Vue {
         width: 100%;
     }
 
+    .blue-background {
+        background: #d7e8ff;
+    }
+
     .access-grant {
         position: fixed;
         top: 0;
@@ -664,10 +677,10 @@ export default class CreateAccessModal extends Vue {
                     height: 24px;
                     width: 24px;
                     cursor: pointer;
+                }
 
-                    &:hover .close-cross-svg-path {
-                        fill: #2683ff;
-                    }
+                &__close-cross-container:hover .close-cross-svg-path {
+                    fill: #2683ff;
                 }
             }
 
@@ -824,6 +837,13 @@ export default class CreateAccessModal extends Vue {
                     grid-row: 5;
                     display: flex;
                     flex-direction: column;
+
+                    &__text {
+                        color: #56606d;
+                        text-decoration: underline;
+                        font-family: sans-serif;
+                        cursor: pointer;
+                    }
                 }
 
                 &__notes-icon {
