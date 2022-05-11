@@ -8,6 +8,7 @@ import (
 	"crypto/subtle"
 	"fmt"
 	"math"
+	"math/big"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -27,10 +28,12 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/api"
+	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -2464,6 +2467,46 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	}
 
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
+}
+
+// WalletInfo contains all the information about a destination wallet assigned to a user.
+type WalletInfo struct {
+	Address blockchain.Address `json:"address"`
+	Balance *big.Int           `json:"balance"`
+}
+
+// TokenTransactions represents the list of ERC-20 token payments.
+type TokenTransactions struct {
+	Transactions []TokenTransaction `json:"transactions"`
+}
+
+// TokenTransaction contains the data of one single ERC-20 token payment.
+type TokenTransaction struct {
+	Origin  blockchain.Address `json:"origin"`
+	Address blockchain.Address `json:"address"`
+	TxHash  blockchain.Hash    `json:"tx_hash"`
+	Status  string             `json:"status"`
+	Date    time.Time          `json:"date"`
+	Amount  monetary.Amount    `json:"amount"`
+}
+
+// ErrWalletNotClaimed shows that no address is claimed by the user.
+var ErrWalletNotClaimed = errs.Class("wallet is not claimed")
+
+// ClaimWallet requests a new wallet for the users to be used for payments. If wallet is already claimed,
+// it will return with the info without error.
+func (paymentService PaymentsService) ClaimWallet(ctx context.Context) (WalletInfo, error) {
+	panic("Not yet implemented")
+}
+
+// GetWallet returns with the assigned wallet, or with ErrWalletNotClaimed if not yet claimed.
+func (paymentService PaymentsService) GetWallet(ctx context.Context) (WalletInfo, error) {
+	panic("Not yet implemented")
+}
+
+// Transactions returns with all the native blockchain transactions.
+func (paymentService PaymentsService) Transactions(ctx context.Context) (TokenTransactions, error) {
+	panic("Not yet implemented")
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {

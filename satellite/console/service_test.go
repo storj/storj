@@ -5,7 +5,9 @@ package console_test
 
 import (
 	"context"
+	"encoding/json"
 	"math"
+	"math/big"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -865,4 +868,17 @@ func TestLockAccount(t *testing.T) {
 		require.True(t, lockedUser.FailedLoginCount == consoleConfig.LoginAttemptsWithoutPenalty)
 		require.True(t, lockedUser.LoginLockoutExpiration.After(now))
 	})
+}
+
+func TestWalletJsonMarshall(t *testing.T) {
+	wi := console.WalletInfo{
+		Address: blockchain.Address{1, 2, 3},
+		Balance: big.NewInt(100),
+	}
+
+	out, err := json.Marshal(wi)
+	require.NoError(t, err)
+	require.Contains(t, string(out), "\"address\":\"0102030000000000000000000000000000000000\"")
+	require.Contains(t, string(out), "\"balance\":100")
+
 }
