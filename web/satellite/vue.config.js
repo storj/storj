@@ -48,8 +48,8 @@ module.exports = {
     },
     chainWebpack: config => {
         // Avoid breaking browser UI cache.
-        config.output.chunkFilename(`js/vendors_[name]_[hash].js`);
-        config.output.filename(`js/app_[name]_[hash].js`);
+        config.output.chunkFilename(`js/vendors_[name]_[chunkhash].js`);
+        config.output.filename(`js/app_[name]_[chunkhash].js`);
 
         config.resolve.alias
             .set('@', path.resolve('src'));
