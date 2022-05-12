@@ -102,6 +102,7 @@ import {APP_STATE_ACTIONS} from '@/utils/constants/actionNames';
 import {AppState} from '@/utils/constants/appStateEnum';
 import {ACCESS_GRANTS_ACTIONS} from '@/store/modules/accessGrants';
 import {OAuthClient, OAuthClientsAPI} from '@/api/oauthClients';
+import {URLSearchParams} from "url";
 
 const oauthClientsAPI = new OAuthClientsAPI();
 
