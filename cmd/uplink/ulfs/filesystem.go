@@ -128,6 +128,7 @@ type MultiReadHandle interface {
 	SetOffset(offset int64) error
 	NextPart(ctx context.Context, length int64) (ReadHandle, error)
 	Info(ctx context.Context) (*ObjectInfo, error)
+	Length() int64
 }
 
 // ReadHandle is something that can be read from distinct parts possibly

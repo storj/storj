@@ -240,7 +240,7 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 		defer bar.Finish()
 	}
 
-	partSize, err := c.calculatePartSize(length, c.parallelismChunkSize.Int64())
+	partSize, err := c.calculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64())
 	if err != nil {
 		return err
 	}
@@ -256,6 +256,7 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 
 // calculatePartSize returns the needed part size in order to upload the file with size of 'length'.
 // It hereby respects if the client requests/prefers a certain size and only increases if needed.
+// If length is -1 (ie. stdin input), then this will limit to 64MiB and the total file length to 640GB.
 func (c *cmdCp) calculatePartSize(length, preferredSize int64) (requiredSize int64, err error) {
 	segC := (length / maxPartCount / (memory.MiB * 64).Int64()) + 1
 	requiredSize = segC * (memory.MiB * 64).Int64()
