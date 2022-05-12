@@ -59,7 +59,7 @@
 </template>
 
 <script lang="ts">
-import { Bucket } from '@aws-sdk/client-s3';
+import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Vue, Watch } from 'vue-property-decorator';
 
 import VLoader from '@/components/common/VLoader.vue';
