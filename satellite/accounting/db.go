@@ -284,7 +284,7 @@ type Cache interface {
 	// UpdateProjectSegmentUsage updates the project's segment usage increasing
 	// it. The projectID is inserted to the increment when it doesn't exists,
 	// hence this method will never return ErrKeyNotFound error's class.
-	UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration) error
+	UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) error
 	// AddProjectStorageUsage adds to the projects storage usage the spacedUsed.
 	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
 	// this method will never return ErrKeyNotFound.

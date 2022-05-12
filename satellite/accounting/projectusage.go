@@ -141,7 +141,7 @@ func (usage *Service) ExceedsUploadLimits(ctx context.Context, projectID uuid.UU
 				}
 
 				// Create cache key with database value.
-				if err := usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, segmentGetTotal, usage.bandwidthCacheTTL); err != nil {
+				if err := usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, segmentGetTotal); err != nil {
 					return err
 				}
 
@@ -283,8 +283,7 @@ func (usage *Service) GetProjectSegmentUsage(ctx context.Context, projectID uuid
 // It can return one of the following errors returned by
 // storj.io/storj/satellite/accounting.Cache.UpdatProjectSegmentUsage.
 func (usage *Service) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
-	// TODO rename bandwidthCacheTTL to cacheTTL
-	return usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment, usage.bandwidthCacheTTL)
+	return usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment)
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
