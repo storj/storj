@@ -44,6 +44,8 @@ type cmdCp struct {
 	dest   ulloc.Location
 }
 
+const maxPartCount int64 = 10000
+
 func newCmdCp(ex ulext.External) *cmdCp {
 	return &cmdCp{ex: ex}
 }
@@ -82,14 +84,8 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 			return n, nil
 		}),
 	).(int)
-	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Controls the size of the chunks for parallelism", 64*memory.MiB,
+	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Set the size of the chunks for parallelism, 0 means automatic adjustment", memory.B*0,
 		clingy.Transform(memory.ParseString),
-		clingy.Transform(func(n int64) (memory.Size, error) {
-			if memory.Size(n) < 1*memory.MB {
-				return 0, errs.New("file chunk size must be at least 1 MB")
-			}
-			return memory.Size(n), nil
-		}),
 	).(memory.Size)
 
 	c.expires = params.Flag("expires",
@@ -244,13 +240,34 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 		defer bar.Finish()
 	}
 
+	partSize, err := c.calculatePartSize(length, c.parallelismChunkSize.Int64())
+	if err != nil {
+		return err
+	}
+
 	return errs.Wrap(parallelCopy(
 		ctx,
 		mwh, mrh,
-		c.parallelism, c.parallelismChunkSize.Int64(),
+		c.parallelism, partSize,
 		offset, length,
 		bar,
 	))
+}
+
+// calculatePartSize returns the needed part size in order to upload the file with size of 'length'.
+// It hereby respects if the client requests/prefers a certain size and only increases if needed.
+func (c *cmdCp) calculatePartSize(length, preferredSize int64) (requiredSize int64, err error) {
+	segC := (length / maxPartCount / (memory.MiB * 64).Int64()) + 1
+	requiredSize = segC * (memory.MiB * 64).Int64()
+	switch {
+	case preferredSize == 0:
+		return requiredSize, nil
+	case requiredSize <= preferredSize:
+		return preferredSize, nil
+	default:
+		return 0, errs.New(fmt.Sprintf("the specified chunk size %s is too small, requires %s or larger",
+			memory.FormatBytes(preferredSize), memory.FormatBytes(requiredSize)))
+	}
 }
 
 func copyVerb(source, dest ulloc.Location) string {
