@@ -7,6 +7,12 @@
 # default project limits for users
 # admin.console-config.default-project-limit: 1
 
+# incremental duration of penalty for failed login attempts in minutes
+# admin.console-config.failed-login-penalty: 2
+
+# number of times user can try to login without penalty
+# admin.console-config.login-attempts-without-penalty: 3
+
 # enable open registration
 # admin.console-config.open-registration-enabled: false
 
@@ -172,6 +178,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# incremental duration of penalty for failed login attempts in minutes
+# console.failed-login-penalty: 2
+
 # indicates if file browser flow is disabled
 # console.file-browser-flow-disabled: false
 
@@ -201,6 +210,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link for linksharing requests
 # console.linksharing-url: https://link.us1.storjshare.io
+
+# number of times user can try to login without penalty
+# console.login-attempts-without-penalty: 3
 
 # indicates if new access grant flow should be used
 # console.new-access-grant-flow: false

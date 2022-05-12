@@ -1,12 +1,19 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import S3, { Bucket } from 'aws-sdk/clients/s3';
+import {
+    S3Client,
+    Bucket,
+    ListBucketsCommand,
+    CreateBucketCommand,
+    DeleteBucketCommand
+} from '@aws-sdk/client-s3';
 
 import { EdgeCredentials } from '@/types/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FilesState } from '@/store/modules/files';
 import {StoreModule} from "@/types/store";
+import {SignatureV4} from "@aws-sdk/signature-v4";
 
 export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',
@@ -49,10 +56,10 @@ const {
 export class ObjectsState {
     public apiKey = '';
     public gatewayCredentials: EdgeCredentials = new EdgeCredentials();
-    public s3Client: S3 = new S3({
-        s3ForcePathStyle: true,
-        signatureVersion: "v4",
-        httpOptions: { timeout: 0 },
+    public s3Client: S3Client = new S3Client({
+        forcePathStyle: true,
+        signerConstructor: SignatureV4,
+        // TODO: httpOptions: { timeout: 0 },
     });
     public bucketsList: Bucket[] = [];
     public passphrase = '';
@@ -83,16 +90,16 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 state.gatewayCredentials = credentials;
             },
             [SET_S3_CLIENT](state: ObjectsState) {
-                const s3Config = {
-                    accessKeyId: state.gatewayCredentials.accessKeyId,
-                    secretAccessKey: state.gatewayCredentials.secretKey,
+                state.s3Client = new S3Client({
+                    credentials: {
+                        accessKeyId: state.gatewayCredentials.accessKeyId,
+                        secretAccessKey: state.gatewayCredentials.secretKey,
+                    },
                     endpoint: state.gatewayCredentials.endpoint,
-                    s3ForcePathStyle: true,
-                    signatureVersion: "v4",
-                    httpOptions: { timeout: 0 },
-                };
-
-                state.s3Client = new S3(s3Config);
+                    forcePathStyle: true,
+                    signerConstructor: SignatureV4,
+                    // TODO: httpOptions: { timeout: 0 },
+                });
             },
             [SET_BUCKETS](state: ObjectsState, buckets: Bucket[]) {
                 state.bucketsList = buckets;
@@ -110,10 +117,10 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 state.apiKey = '';
                 state.passphrase = '';
                 state.gatewayCredentials = new EdgeCredentials();
-                state.s3Client = new S3({
-                    s3ForcePathStyle: true,
-                    signatureVersion: "v4",
-                    httpOptions: { timeout: 0 },
+                state.s3Client = new S3Client({
+                    forcePathStyle: true,
+                    signerConstructor: SignatureV4,
+                    // TODO: httpOptions: { timeout: 0 },
                 });
                 state.bucketsList = [];
                 state.fileComponentBucketName = '';
@@ -136,24 +143,24 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 commit(SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
             },
             fetchBuckets: async function(ctx): Promise<void> {
-                const result = await ctx.state.s3Client.listBuckets().promise();
-
+                const result = await ctx.state.s3Client.send(new ListBucketsCommand({}));
                 ctx.commit(SET_BUCKETS, result.Buckets);
             },
             createBucket: async function(ctx, name: string): Promise<void> {
-                await ctx.state.s3Client.createBucket({
+                await ctx.state.s3Client.send(new CreateBucketCommand({
                     Bucket: name,
-                }).promise();
+                }))
             },
             createDemoBucket: async function(ctx): Promise<void> {
-                await ctx.state.s3Client.createBucket({
+                await ctx.state.s3Client.send(new CreateBucketCommand({
                     Bucket: DEMO_BUCKET_NAME,
-                }).promise();
+                }))
             },
             deleteBucket: async function(ctx, name: string): Promise<void> {
-                await ctx.state.s3Client.deleteBucket({
-                    Bucket: name,
-                }).promise();
+                await ctx.state.s3Client.send(
+                    new DeleteBucketCommand({
+                        Bucket: name,
+                    }));
             },
             clearObjects: function({commit}: ObjectsContext): void {
                 commit(CLEAR);

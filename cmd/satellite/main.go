@@ -122,7 +122,7 @@ var (
 	}
 	qdiagCmd = &cobra.Command{
 		Use:   "qdiag",
-		Short: "Repair Queue Diagnostic Tool support",
+		Short: "Repair queue Diagnostic Tool support",
 		RunE:  cmdQDiag,
 	}
 	reportsCmd = &cobra.Command{

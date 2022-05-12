@@ -1351,7 +1351,9 @@ model oauth_client (
     field app_logo_url      text ( updatable )
 )
 
-create oauth_client ()
+create oauth_client (
+	noreturn
+)
 
 read one (
     select oauth_client
@@ -1390,7 +1392,9 @@ model oauth_code (
     field claimed_at        timestamp ( nullable, updatable )
 )
 
-create oauth_code ()
+create oauth_code (
+	noreturn
+)
 
 read one (
     select oauth_code
@@ -1421,7 +1425,9 @@ model oauth_token (
     field expires_at    timestamp ( updatable )
 )
 
-create oauth_token ()
+create oauth_token (
+	noreturn
+)
 
 read one (
     select oauth_token

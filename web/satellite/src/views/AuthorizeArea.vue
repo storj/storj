@@ -12,7 +12,7 @@
                 <p>{{ requestErr }}</p>
             </div>
             <div v-else class="authorize-area__content-area__container">
-                <p class="authorize-area__content-area__client-app-logo">
+                <p v-if="client.appLogoURL" class="authorize-area__content-area__client-app-logo">
                     <img :alt="client.appName" :src="client.appLogoURL">
                 </p>
 
@@ -73,10 +73,10 @@
                 </div>
 
                 <form method="post">
-                    <input v-model="oauthData['client_id']" type="hidden" name="client_id">
-                    <input v-model="oauthData['redirect_uri']" type="hidden" name="redirect_uri">
-                    <input v-model="oauthData['response_type']" type="hidden" name="response_type">
-                    <input v-model="oauthData['state']" type="hidden" name="state">
+                    <input v-model="oauthData.client_id" type="hidden" name="client_id">
+                    <input v-model="oauthData.redirect_uri" type="hidden" name="redirect_uri">
+                    <input v-model="oauthData.response_type" type="hidden" name="response_type">
+                    <input v-model="oauthData.state" type="hidden" name="state">
                     <input v-model="scope" type="hidden" name="scope">
 
                     <input class="authorize-area__content-area__container__button" :class="{ 'disabled-button': !valid }" type="submit" :disabled="!valid" value="Authorize">
@@ -93,7 +93,6 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import LogoIcon from '@/../static/images/logo.svg';
 import {Validator} from '@/utils/validation';
 import {RouteConfig} from '@/router';
-import querystring, {ParsedUrlQueryInput} from 'querystring';
 import {BUCKET_ACTIONS} from '@/store/modules/buckets';
 import {PROJECTS_ACTIONS} from '@/store/modules/projects';
 import {USER_ACTIONS} from '@/store/modules/users';
@@ -116,7 +115,13 @@ const oauthClientsAPI = new OAuthClientsAPI();
 export default class Authorize extends Vue {
     private requestErr = '';
 
-    private oauthData: ParsedUrlQueryInput = {};
+    private oauthData: {
+      client_id?: string;
+      redirect_uri?: string;
+      state?: string;
+      response_type?: string;
+      scope?: string;
+    } = {};
     private clientKey = '';
 
     private client: OAuthClient = {
@@ -153,7 +158,7 @@ export default class Authorize extends Vue {
                 await this.$notify.error(error.message);
             }
 
-            const query = querystring.stringify(this.oauthData) as string;
+            const query = new URLSearchParams(this.oauthData).toString();
             const path = `${RouteConfig.Authorize.path}?${query}#${this.clientKey}`;
 
             await this.$router.push(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
@@ -175,11 +180,11 @@ export default class Authorize extends Vue {
     }
 
     private async verifyClientConfiguration(): Promise<void> {
-        const clientID = 'client_id' in this.oauthData ? `${this.oauthData['client_id']}` : '';
-        const redirectURL = 'redirect_uri' in this.oauthData ? `${this.oauthData['redirect_uri']}` : '';
-        const state = 'state' in this.oauthData ? `${this.oauthData['state']}` : '';
-        const responseType = 'response_type' in this.oauthData ? `${this.oauthData['response_type']}` : '';
-        const scope = 'scope' in this.oauthData ? `${this.oauthData['scope']}` : '';
+        const clientID: string = this.oauthData.client_id ?? "";
+        const redirectURL: string = this.oauthData.redirect_uri ?? "";
+        const state: string = this.oauthData.state ?? "";
+        const responseType: string = this.oauthData.response_type ?? "";
+        const scope: string = this.oauthData.scope ?? "";
 
         if (!clientID || !redirectURL) {
             this.requestErr = 'Both client_id and redirect_uri must be provided.';
@@ -211,7 +216,7 @@ export default class Authorize extends Vue {
         }
 
         if (err) {
-            location.href = `${redirectURL}?${querystring.stringify(err)}`;
+            location.href = `${redirectURL}?${(new URLSearchParams(err)).toString()}`;
             return
         }
 
@@ -239,8 +244,8 @@ export default class Authorize extends Vue {
      * Makes activated banner visible on successful account activation.
      */
     public async mounted(): Promise<void> {
-        this.oauthData = this.$route.query as ParsedUrlQueryInput;
-        this.clientKey = this.$route.hash ? this.$route.hash.substr(1) : "";
+        this.oauthData = this.$route.query;
+        this.clientKey = this.$route.hash ? this.$route.hash.substring(1) : "";
 
         await this.ensureLogin();
         await this.ensureWorker();
@@ -300,7 +305,7 @@ export default class Authorize extends Vue {
             return;
         }
 
-        const scope = this.oauthData['scope'],
+        const scope = this.oauthData.scope,
             project = this.selectedProjectID,
             bucket = this.selectedBucketName,
             cubbyhole = event.data.value;
@@ -309,9 +314,9 @@ export default class Authorize extends Vue {
     }
 
     public async onDeny(): Promise<void> {
-        location.href = `${this.oauthData['redirect_uri']}?${querystring.stringify({
+        location.href = `${this.oauthData.redirect_uri}?${new URLSearchParams({
             error_description: 'The resource owner or authorization server denied the request',
-        })}`;
+        }).toString()}`;
     }
 
     private validate(): boolean {
@@ -358,7 +363,7 @@ function formatObjectPermissions(scope: string): string {
 
     for (const scope of scopes) {
         if (scope.startsWith("object:")) {
-            const perm = scope.substr("object:".length);
+            const perm = scope.substring("object:".length);
             if (validPerms[perm]) {
                 perms.push(perm);
             }

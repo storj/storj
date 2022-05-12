@@ -118,6 +118,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { ErrorBadRequest } from "@/api/errors/ErrorBadRequest";
 
 interface ClearInput {
     clearInput(): void;
@@ -289,17 +290,21 @@ export default class Login extends Vue {
 
                 this.isMFARequired = true;
                 this.isLoading = false;
-
                 return;
             }
 
             if (this.isMFARequired) {
+                if (error instanceof ErrorBadRequest || error instanceof ErrorUnauthorized) {
+                    await this.$notify.error(error.message);
+                }
+
                 this.isMFAError = true;
                 this.isLoading = false;
                 return;
             }
 
             if (error instanceof ErrorUnauthorized) {
+                await this.$notify.error(error.message);
                 this.isBadLoginMessageShown = true;
                 this.isLoading = false;
                 return;

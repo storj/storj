@@ -19,7 +19,7 @@ const uplinkProduct = "uplink"
 
 var knownUserAgents = []string{
 	"rclone", "gateway-st", "gateway-mt", "linksharing", "uplink-cli", "transfer-sh", "filezilla", "duplicati",
-	"comet", "orbiter", "uplink-php", "nextcloud",
+	"comet", "orbiter", "uplink-php", "nextcloud", "aws-cli",
 }
 
 type versionOccurrence struct {

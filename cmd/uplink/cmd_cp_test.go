@@ -177,12 +177,12 @@ func TestCpRecursiveDifficult(t *testing.T) {
 
 	t.Run("DirectoryConflict", func(t *testing.T) {
 		state := ultest.Setup(commands,
-			ultest.WithFile("sj://user/fileder"),
-			ultest.WithFile("sj://user/fileder/file"),
+			ultest.WithFile("sj://user/filedir"),
+			ultest.WithFile("sj://user/filedir/file"),
 		)
 
 		state.Fail(t, "cp", "sj://user", "root", "--recursive").RequireLocalFiles(t,
-			ultest.File{Loc: "root/fileder", Contents: "sj://user/fileder"},
+			ultest.File{Loc: "root/filedir", Contents: "sj://user/filedir"},
 		)
 	})
 
@@ -196,8 +196,8 @@ func TestCpRecursiveDifficult(t *testing.T) {
 
 	t.Run("ExistingDirectory", func(t *testing.T) {
 		state := ultest.Setup(commands,
-			ultest.WithFile("sj://user/fileder"),
-			ultest.WithFile("/home/user/fileder/file"),
+			ultest.WithFile("sj://user/filedir"),
+			ultest.WithFile("/home/user/filedir/file"),
 		)
 
 		state.Fail(t, "cp", "sj://user", "/home/user", "--recursive")
@@ -351,8 +351,8 @@ func TestCpLocalToLocal(t *testing.T) {
 		)
 	})
 
-	t.Run("EmptyToFolder", func(t *testing.T) {
-		state.Succeed(t, "cp", "", "/pre", "--recursive").RequireFiles(t,
+	t.Run("RootToFolder", func(t *testing.T) {
+		state.Succeed(t, "cp", "/", "/pre", "--recursive").RequireFiles(t,
 			ultest.File{Loc: "/home/user1/folder1/file1.txt", Contents: "data1"},
 			ultest.File{Loc: "/home/user1/folder1/file2.txt", Contents: "data2"},
 			ultest.File{Loc: "/home/user1/folder2/file3.txt", Contents: "data3"},
@@ -414,6 +414,7 @@ func TestCpStandard(t *testing.T) {
 	state := ultest.Setup(commands,
 		ultest.WithFile("sj://user/foo"),
 		ultest.WithFile("/home/user/foo"),
+		ultest.WithStdin("-"),
 	)
 
 	t.Run("StdinToRemote", func(t *testing.T) {

@@ -36,13 +36,13 @@ type Worker struct {
 	log      *zap.Logger
 	queues   *Queues
 	verifier *Verifier
-	reporter *Reporter
+	reporter Reporter
 	Loop     *sync2.Cycle
 	limiter  *sync2.Limiter
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, queues *Queues, verifier *Verifier, reporter *Reporter, config Config) (*Worker, error) {
+func NewWorker(log *zap.Logger, queues *Queues, verifier *Verifier, reporter Reporter, config Config) (*Worker, error) {
 	return &Worker{
 		log: log,
 

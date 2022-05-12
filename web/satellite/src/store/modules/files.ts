@@ -1,8 +1,20 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import S3, { CommonPrefix } from "aws-sdk/clients/s3";
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+
+import {
+    S3Client,
+    CommonPrefix,
+    ListObjectsCommand,
+    DeleteObjectCommand,
+    PutObjectCommand,
+    GetObjectCommand, PutObjectCommandInput
+} from '@aws-sdk/client-s3';
+import { Upload } from "@aws-sdk/lib-storage";
+
 import {StoreModule} from "@/types/store";
+import {SignatureV4} from "@aws-sdk/signature-v4";
 
 const listCache = new Map();
 
@@ -21,7 +33,7 @@ type BrowserObject = {
 };
 
 export type FilesState = {
-  s3: S3 | null;
+  s3: S3Client | null;
   accessKey: null | string;
 
   path: string;
@@ -50,7 +62,7 @@ export type FilesState = {
 };
 
 type InitializedFilesState = FilesState & {
-  s3: S3;
+  s3: S3Client;
 };
 
 function assertIsInitialized(
@@ -172,17 +184,17 @@ export const makeFilesModule = (): FilesModule => ({
         fetchObjectMap: (arg0) => Promisable<string>;
       }
         ) {
-            const s3Config = {
-                accessKeyId: accessKey,
-                secretAccessKey: secretKey,
-                endpoint,
-                s3ForcePathStyle: true,
-                signatureVersion: "v4",
-                connectTimeout: 0,
-                httpOptions: { timeout: 0 },
-            };
-
-            state.s3 = new S3(s3Config);
+            state.s3 = new S3Client({
+                credentials: {
+                    accessKeyId: accessKey,
+                    secretAccessKey: secretKey,
+                },
+                endpoint: endpoint,
+                forcePathStyle: true,
+                signerConstructor: SignatureV4,
+                // TODO: connectTimeout: 0,
+                // TODO: httpOptions: { timeout: 0 },
+            });
             state.accessKey = accessKey;
             state.bucket = bucket;
             state.browserRoot = browserRoot;
@@ -300,13 +312,13 @@ export const makeFilesModule = (): FilesModule => ({
 
             assertIsInitialized(state);
 
-            const response = await state.s3
-                .listObjects({
+            const response = await state.s3.send(
+                new ListObjectsCommand({
                     Bucket: state.bucket,
                     Delimiter: "/",
                     Prefix: path,
                 })
-                .promise();
+            );
 
             const { Contents, CommonPrefixes } = response;
 
@@ -467,21 +479,25 @@ export const makeFilesModule = (): FilesModule => ({
 
           const fileName = getUniqueFileName(directories.join("/") + file.name);
 
-          const params = {
+          const params: PutObjectCommandInput = {
               Bucket: state.bucket,
               Key: state.path + fileName,
               Body: file,
           };
-
-          const upload = state.s3.upload(
-              { ...params },
-              { partSize: 64 * 1024 * 1024 }
-          );
+          const upload = new Upload({
+              client: state.s3,
+              partSize: 64 * 1024 * 1024,
+              params: params,
+          })
 
           upload.on("httpUploadProgress", (progress) => {
+              let p = 0;
+              if(progress.loaded && progress.total) {
+                  p = Math.round((progress.loaded / progress.total) * 100);
+              }
               commit("setProgress", {
-                  Key: params.Key,
-                  progress: Math.round((progress.loaded / progress.total) * 100),
+                  Key: progress.Key,
+                  progress: p,
               });
           });
 
@@ -500,7 +516,7 @@ export const makeFilesModule = (): FilesModule => ({
               }
 
               try {
-                  await upload.promise();
+                  await upload;
               } catch (e) {
                   // An error is raised if the upload is aborted by the user
                   console.log(e);
@@ -526,12 +542,11 @@ export const makeFilesModule = (): FilesModule => ({
         async createFolder({ state, dispatch }, name) {
             assertIsInitialized(state);
 
-            await state.s3
-                .putObject({
-                    Bucket: state.bucket,
-                    Key: state.path + name + "/.file_placeholder",
-                })
-                .promise();
+            await state.s3.send(new PutObjectCommand({
+                Bucket: state.bucket,
+                Key: state.path + name + "/.file_placeholder",
+                Body: "",
+            }));
 
             dispatch("list");
         },
@@ -542,12 +557,10 @@ export const makeFilesModule = (): FilesModule => ({
         ) {
             assertIsInitialized(state);
 
-            await state.s3
-                .deleteObject({
-                    Bucket: state.bucket,
-                    Key: path + file.Key,
-                })
-                .promise();
+            await state.s3.send(new DeleteObjectCommand({
+                Bucket: state.bucket,
+                Key: path + file.Key,
+            }))
 
             if (!folder) {
                 await dispatch("list");
@@ -561,13 +574,12 @@ export const makeFilesModule = (): FilesModule => ({
             async function recurse(filePath) {
                 assertIsInitialized(state);
 
-                const { Contents, CommonPrefixes } = await state.s3
-                    .listObjects({
+                const { Contents, CommonPrefixes } = await state.s3.send(
+                    new ListObjectsCommand({
                         Bucket: state.bucket,
                         Delimiter: "/",
                         Prefix: filePath,
-                    })
-                    .promise();
+                    }));
 
                 if (Contents === undefined) {
                     throw new Error(
@@ -645,10 +657,11 @@ export const makeFilesModule = (): FilesModule => ({
         async download({ state }, file) {
             assertIsInitialized(state);
 
-            const url = state.s3.getSignedUrl("getObject", {
-                Bucket: state.bucket,
-                Key: state.path + file.Key,
-            });
+            const url = await getSignedUrl(this.s3,
+                new GetObjectCommand({
+                    Bucket: state.bucket,
+                    Key: state.path + file.Key,
+                }));
             const downloadURL = function(data, fileName) {
                 const a = document.createElement("a");
                 a.href = data;

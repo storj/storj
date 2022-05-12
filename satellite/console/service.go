@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"math"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -50,6 +51,8 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	lockedAccountErrMsg                  = "Your account is locked, please try again later"
+	lockedAccountWithResultErrMsg        = "Your login credentials are incorrect, your account is locked again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
@@ -79,6 +82,12 @@ var (
 
 	// ErrLoginCredentials occurs when provided invalid login credentials.
 	ErrLoginCredentials = errs.Class("login credentials")
+
+	// ErrLoginPassword occurs when provided invalid login password.
+	ErrLoginPassword = errs.Class("login password")
+
+	// ErrLockedAccount occurs when user's account is locked.
+	ErrLockedAccount = errs.Class("locked")
 
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
@@ -133,13 +142,15 @@ func init() {
 
 // Config keeps track of core console service configuration parameters.
 type Config struct {
-	PasswordCost            int           `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
-	OpenRegistrationEnabled bool          `help:"enable open registration" default:"false" testDefault:"true"`
-	DefaultProjectLimit     int           `help:"default project limits for users" default:"1" testDefault:"5"`
-	TokenExpirationTime     time.Duration `help:"expiration time for auth tokens, account recovery tokens, and activation tokens" default:"24h"`
-	AsOfSystemTimeDuration  time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
-	UsageLimits             UsageLimitsConfig
-	Recaptcha               RecaptchaConfig
+	PasswordCost                int           `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
+	OpenRegistrationEnabled     bool          `help:"enable open registration" default:"false" testDefault:"true"`
+	DefaultProjectLimit         int           `help:"default project limits for users" default:"1" testDefault:"5"`
+	TokenExpirationTime         time.Duration `help:"expiration time for auth tokens, account recovery tokens, and activation tokens" default:"24h"`
+	AsOfSystemTimeDuration      time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
+	LoginAttemptsWithoutPenalty int           `help:"number of times user can try to login without penalty" default:"3"`
+	FailedLoginPenalty          float64       `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
+	UsageLimits                 UsageLimitsConfig
+	Recaptcha                   RecaptchaConfig
 }
 
 // RecaptchaConfig contains configurations for the reCAPTCHA system.
@@ -836,6 +847,10 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	user.PasswordHash = hash
+	if user.FailedLoginCount != 0 {
+		user.FailedLoginCount = 0
+		user.LoginLockoutExpiration = time.Time{}
+	}
 
 	err = s.store.Users().Update(ctx, user)
 	if err != nil {
@@ -871,9 +886,38 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 		return "", ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
+	now := time.Now()
+
+	if user.LoginLockoutExpiration.After(now) {
+		return "", ErrLockedAccount.New(lockedAccountErrMsg)
+	}
+
+	lockoutExpDate := now.Add(time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute)
+	handleLockAccount := func() error {
+		err = s.UpdateUsersFailedLoginState(ctx, user, lockoutExpDate)
+		if err != nil {
+			return err
+		}
+
+		if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+			return ErrLockedAccount.New(lockedAccountErrMsg)
+		}
+
+		if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+			return ErrLockedAccount.New(lockedAccountWithResultErrMsg)
+		}
+
+		return nil
+	}
+
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
-		return "", ErrLoginCredentials.New(credentialsErrMsg)
+		err = handleLockAccount()
+		if err != nil {
+			return "", err
+		}
+
+		return "", ErrLoginPassword.New(credentialsErrMsg)
 	}
 
 	if user.MFAEnabled {
@@ -892,6 +936,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 				}
 			}
 			if !found {
+				err = handleLockAccount()
+				if err != nil {
+					return "", err
+				}
+
 				return "", ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
 			}
 
@@ -904,13 +953,32 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 		} else if request.MFAPasscode != "" {
 			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, time.Now())
 			if err != nil {
+				err = handleLockAccount()
+				if err != nil {
+					return "", err
+				}
+
 				return "", ErrMFAPasscode.Wrap(err)
 			}
 			if !valid {
+				err = handleLockAccount()
+				if err != nil {
+					return "", err
+				}
+
 				return "", ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 			}
 		} else {
 			return "", ErrMFAMissing.New(mfaRequiredErrMsg)
+		}
+	}
+
+	if user.FailedLoginCount != 0 {
+		user.FailedLoginCount = 0
+		user.LoginLockoutExpiration = time.Time{}
+		err = s.store.Users().Update(ctx, user)
+		if err != nil {
+			return "", err
 		}
 	}
 
@@ -928,6 +996,16 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 	s.analytics.TrackSignedIn(user.ID, user.Email)
 
 	return token, nil
+}
+
+// UpdateUsersFailedLoginState updates User's failed login state.
+func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User, lockoutExpDate time.Time) error {
+	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
+		user.LoginLockoutExpiration = lockoutExpDate
+	}
+	user.FailedLoginCount++
+
+	return s.store.Users().Update(ctx, user)
 }
 
 // GetUser returns User by id.

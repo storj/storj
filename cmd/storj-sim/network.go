@@ -353,6 +353,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 
 				"--admin.address", net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
+				"--admin.static-dir", filepath.Join(storjRoot, "web/satellite/admin/ui/build"),
 			},
 			"run": {"api"},
 		})
