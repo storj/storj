@@ -440,7 +440,11 @@ export default class CreateAccessModal extends Vue {
     }
 
     public encryptClickAction(): void {
-        if (this.checkedType !== "api") {
+        let mappedList = this.accessGrantList.map((key) => (key.name))
+        if (mappedList.includes(this.accessName)) {
+            alert("that name is already in use")
+            return
+        } else if (this.checkedType !== "api") {
             this.accessGrantStep = 'encrypt';
         }  
     }
