@@ -16853,6 +16853,33 @@ func (obj *pgxImpl) Delete_WebappSession_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -23420,6 +23447,33 @@ func (obj *pgxcockroachImpl) Delete_WebappSession_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Delete_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -24980,6 +25034,17 @@ func (rx *Rx) Delete_WebappSession_By_Id(ctx context.Context,
 	return tx.Delete_WebappSession_By_Id(ctx, webapp_session_id)
 }
 
+func (rx *Rx) Delete_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_WebappSession_By_UserId(ctx, webapp_session_user_id)
+
+}
+
 func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field) (
 	row *Value_Row, err error) {
@@ -26258,6 +26323,10 @@ type Methods interface {
 	Delete_WebappSession_By_Id(ctx context.Context,
 		webapp_session_id WebappSession_Id_Field) (
 		deleted bool, err error)
+
+	Delete_WebappSession_By_UserId(ctx context.Context,
+		webapp_session_user_id WebappSession_UserId_Field) (
+		count int64, err error)
 
 	Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
