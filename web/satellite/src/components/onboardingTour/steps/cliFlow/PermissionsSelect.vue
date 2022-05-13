@@ -5,6 +5,7 @@
     <div class="permissions-select">
         <div
             class="permissions-select__toggle-container"
+            aria-roledescription="select-permissions"
             @click.stop="toggleDropdown"
         >
             <p class="permissions-select__toggle-container__name">
