@@ -16,7 +16,8 @@ import (
 
 // CreateOptions contains extra options to create an object.
 type CreateOptions struct {
-	Expires time.Time
+	Expires  time.Time
+	Metadata map[string]string
 }
 
 // ListOptions describes options to the List command.

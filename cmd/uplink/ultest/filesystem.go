@@ -42,6 +42,7 @@ type memFileData struct {
 	contents string
 	created  int64
 	expires  time.Time
+	metadata map[string]string
 }
 
 func (mf memFileData) expired() bool {
@@ -60,6 +61,7 @@ func (rfs *remoteFilesystem) Files() (files []File) {
 		files = append(files, File{
 			Loc:      loc.String(),
 			Contents: mf.contents,
+			Metadata: mf.metadata,
 		})
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].less(files[j]) })
@@ -72,6 +74,7 @@ func (rfs *remoteFilesystem) Pending() (files []File) {
 			files = append(files, File{
 				Loc:      loc.String(),
 				Contents: string(h.buf),
+				Metadata: h.metadata,
 			})
 		}
 	}
@@ -119,17 +122,20 @@ func (rfs *remoteFilesystem) Create(ctx context.Context, bucket, key string, opt
 		return nil, errs.New("bucket %q does not exist", bucket)
 	}
 
+	var metadata map[string]string
 	expires := time.Time{}
 	if opts != nil {
 		expires = opts.Expires
+		metadata = opts.Metadata
 	}
 
 	rfs.created++
 	wh := &memWriteHandle{
-		loc:     loc,
-		rfs:     rfs,
-		cre:     rfs.created,
-		expires: expires,
+		loc:      loc,
+		rfs:      rfs,
+		cre:      rfs.created,
+		expires:  expires,
+		metadata: metadata,
 	}
 
 	rfs.pending[loc] = append(rfs.pending[loc], wh)
@@ -267,12 +273,13 @@ func (rfs *remoteFilesystem) Stat(ctx context.Context, bucket, key string) (*ulf
 //
 
 type memWriteHandle struct {
-	buf     []byte
-	loc     ulloc.Location
-	rfs     *remoteFilesystem
-	cre     int64
-	expires time.Time
-	done    bool
+	buf      []byte
+	loc      ulloc.Location
+	rfs      *remoteFilesystem
+	cre      int64
+	expires  time.Time
+	metadata map[string]string
+	done     bool
 }
 
 func (b *memWriteHandle) WriteAt(p []byte, off int64) (int, error) {
@@ -298,6 +305,7 @@ func (b *memWriteHandle) Commit() error {
 		contents: string(b.buf),
 		created:  b.cre,
 		expires:  b.expires,
+		metadata: b.metadata,
 	}
 
 	return nil
