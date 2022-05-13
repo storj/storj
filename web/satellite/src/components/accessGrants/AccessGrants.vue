@@ -103,7 +103,7 @@
                 </div>
             </div>
         </div>
-        <div v-if="!isNewAccessGrantFlow"> 
+        <div v-if="isNewAccessGrantFlow"> 
             <div class="access-grants__header-container">
                 <h3 class="access-grants__header-container__title">My Accesses</h3>
                 <div class="access-grants__header-container__divider" />
@@ -145,7 +145,7 @@
                 @reset-pagination="resetPagination"
             />
         </div>
-        <div v-if="isNewAccessGrantFlow">
+        <div v-if="!isNewAccessGrantFlow">
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
             <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
                 <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
