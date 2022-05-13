@@ -326,6 +326,18 @@
                 <div class="access-grant__modal-container__body-container__created"> 
                     <p>Now copy and save the Satellite Address and API Key as they will only appear once.</p>
                 </div>
+                <div v-if="checkedType === 'access'">
+                    <p>Access Grant: {{ access }}</p>
+                </div>
+                <div v-if="checkedType === 's3'">
+                    <p>Access Key: {{ gatewayCredentials.accessKeyId }}</p>
+                    <p>Secret Key: {{ gatewayCredentials.secretKey }}</p>
+                    <p>End Point: {{ gatewayCredentials.endpoint }}</p>
+                </div>
+                <div v-if="checkedType === 'api'">
+                    <p>Satellite Address: {{ satelliteAddress }}</p>
+                    <p>API Key: {{ restrictedKey }}</p>
+                </div>
             </form>
         </div>
     </div>
@@ -354,13 +366,15 @@ import S3Icon from '@/../static/images/accessGrants/s3.svg';
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { generateMnemonic } from "bip39";
 import { AccessGrant } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { promises } from 'fs';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
+import { EdgeCredentials } from '@/types/accessGrants';
 
 
 // @vue/component
@@ -394,6 +408,8 @@ export default class CreateAccessModal extends Vue {
 
     private accessGrantList = this.accessGrantsList;
     private accessGrantStep = "create";
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+    public areKeysVisible = false;
 
     /**
      * Stores access type that is selected.
@@ -444,6 +460,7 @@ export default class CreateAccessModal extends Vue {
 
     private worker: Worker;
     private restrictedKey = '';
+    public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
 
     /**
@@ -471,23 +488,51 @@ export default class CreateAccessModal extends Vue {
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
+        console.log('worker block hit')
     }
+
+    // creates restricted key
+
     /**
      * Creates Access Grant 
      */
     public async createAccessGrant(): Promise<void> {
-
 
         if (this.$store.getters.projects.length === 0) {
             try {
                 await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
             } catch (error) {
                 this.isLoading = false;
-
                 return;
             }
         }
 
+        // creates restricted key
+        const date = new Date().toISOString()
+        const onbAGName = `Onboarding Grant ${date}`
+        const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, onbAGName);
+        let permissionsMsg = {
+            'type': 'SetPermission',
+            'buckets': this.selectedBucketNames,
+            'apiKey': cleanAPIKey.secret,
+            'isDownload': true,
+            'isUpload': true,
+            'isList': true,
+            'isDelete': true,
+        }
+
+        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
+        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
+
+        await this.worker.postMessage(permissionsMsg);
+
+        const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        if (grantEvent.data.error) {
+            throw new Error(grantEvent.data.error)
+        }
+        this.restrictedKey = grantEvent.data.value;
+
+        // creates access credentials
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
 
         this.worker.postMessage({
@@ -497,49 +542,35 @@ export default class CreateAccessModal extends Vue {
             'projectID': this.$store.getters.selectedProject.id,
             'satelliteNodeURL': satelliteNodeURL,
         });
-         
-        try {
-            this.createdAccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.accessName);
-            this.createdAccessGrantName = this.createdAccessGrant.name;
-            this.createdAccessGrantSecret = this.createdAccessGrant.secret;
-            console.log(this.createdAccessGrant, 'createdAccessGrant');
-            this.accessGrantStep = 'grantCreated';
-
-            //
-            //Adding logic to access data for final modal
-            //
-            // figure out why code below isnt running
-            const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-            console.log(accessEvent, 'accessEvent');
-            if (accessEvent.data.error) {
-                console.log('hitting if block');
-                await this.$notify.error(accessEvent.data.error);
-                this.isLoading = false;
-
-                return;
-            }
-            this.access = accessEvent.data.value;
-            console.log(this.access, 'this.access');
-            await this.$notify.success('Access Grant was generated successfully');
-
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
-
-            return;
-        }
 
         const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        console.log('Passphrase: ', accessEvent)
         if (accessEvent.data.error) {
             await this.$notify.error(accessEvent.data.error);
             this.isLoading = false;
 
             return;
         }
-        //here
+
         this.access = accessEvent.data.value;
-        console.log(this.access, 'this.access');
         await this.$notify.success('Access Grant was generated successfully');
+
+
+        if (this.checkedType === 's3') {
+            try {
+                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
+
+                await this.$notify.success('Gateway credentials were generated successfully');
+
+                await this.analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
+
+                this.areKeysVisible = true;
+            } catch (error) {
+                await this.$notify.error(error.message);
+            }
+        }
+
+        this.accessGrantStep = 'grantCreated';
     }
 
     /**
@@ -572,7 +603,7 @@ export default class CreateAccessModal extends Vue {
             return
         } else if (this.checkedType !== "api") {
             this.accessGrantStep = 'encrypt';
-        }  
+        } 
     }
 
     public onCopyClick(): void {
@@ -680,6 +711,13 @@ export default class CreateAccessModal extends Vue {
      */
     public get accessGrantsList(): AccessGrant[] {
         return this.$store.state.accessGrantsModule.page.accessGrants;
+    }
+
+    /**
+     * Returns generated gateway credentials from store.
+     */
+    public get gatewayCredentials(): EdgeCredentials {
+        return this.$store.state.accessGrantsModule.gatewayCredentials;
     }
 }
 </script>
@@ -794,6 +832,7 @@ export default class CreateAccessModal extends Vue {
                 &__title {
                     grid-column: 1;
                 }
+
                 &__title-complete {
                     grid-column: 1;
                     margin-top: 10px;
@@ -906,9 +945,11 @@ export default class CreateAccessModal extends Vue {
                     width: 100%;
                     text-align: left;
                     display: grid;
+
                     // grid-template-columns: 1fr 6fr 1fr;
                     margin-top: 15px;
                     row-gap: 4ch;
+
                     // grid-template-rows: 2fr 2fr;
                     padding-top: 10px;
 
