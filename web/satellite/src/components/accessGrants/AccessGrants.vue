@@ -103,7 +103,7 @@
                 </div>
             </div>
         </div>
-        <div v-if="isNewAccessGrantFlow"> 
+        <div v-if="!isNewAccessGrantFlow"> 
             <div class="access-grants__header-container">
                 <h3 class="access-grants__header-container__title">My Accesses</h3>
                 <div class="access-grants__header-container__divider" />
@@ -145,7 +145,7 @@
                 @reset-pagination="resetPagination"
             />
         </div>
-        <div v-if="!isNewAccessGrantFlow">
+        <div v-if="isNewAccessGrantFlow">
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
             <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
                 <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
@@ -332,15 +332,6 @@ export default class AccessGrants extends Vue {
             await this.$notify.error(`Unable to fetch accesses: ${error.message}`);
         }
     }
-    /**
-     * Lifecycle hook before component destruction where Access search query is cleared.
-     */
-    public async beforeSearchDestroy(): Promise<void> {
-        await this.$store.dispatch(SET_SEARCH_QUERY, '');
-    }
-    /**
-     * Returns delete access grants button label.
-     */
     public get deleteButtonLabel(): string {
         return `Remove Selected (${this.selectedAccessGrantsAmount})`;
     }
@@ -496,7 +487,6 @@ export default class AccessGrants extends Vue {
             &__footer {
                 background-color: #fff;
                 display: flex;
-                flex-direction: row;
                 justify-content: space-between;
                 align-items: center;
                 height: 80px;

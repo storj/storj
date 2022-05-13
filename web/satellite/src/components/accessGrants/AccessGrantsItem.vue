@@ -33,7 +33,6 @@ import { AccessGrant } from '@/types/accessGrants';
 export default class AccessGrantsItem extends Vue {
     @Prop({ default: new AccessGrant('', '', new Date(), '') })
     private readonly itemData: AccessGrant;
-
 }
 </script>
 

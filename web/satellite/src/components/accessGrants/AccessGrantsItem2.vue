@@ -4,9 +4,6 @@
 <template>
     <div class="grants-item-container">
         <div class="grants-item-container__common-info">
-            <!-- <div class="checkbox-container">
-                <CheckboxIcon class="checkbox-container__image" />
-            </div> -->
             <div class="name-container" :title="itemData.name">
                 <p class="name">{{ itemData.name }}</p>
             </div>
@@ -22,13 +19,13 @@
                 v-click-outside="popupVisible" 
                 class="popup-menu"
             >
-                <div class="popup-menu__popup-details">
+                <p class="popup-menu__popup-details">
                     See Details
-                </div>
+                </p>
                 <div class="popup-menu__popup-divider" />
-                <div class="popup-menu__popup-delete">
+                <p class="popup-menu__popup-delete">
                     Delete Access
-                </div>
+                </p>
             </div>
         </div>
     </div>
@@ -50,11 +47,7 @@ export default class AccessGrantsItem extends Vue {
     private popupVisible = false;
 
     public togglePopupVisibility(): void {
-        if (!this.popupVisible) {
-            this.popupVisible = true;
-        } else {
-            this.popupVisible = false
-        }
+        this.popupVisible = !this.popupVisible;
     }
 }
 </script>
