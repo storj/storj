@@ -188,14 +188,15 @@
                         class="access-grant__modal-container__footer-container__learn-more-button"
                     />
                     <v-button
-                        label="Encrypt My Access  ⟶"
+                        :label="checkedType === 'api' ? 'Create Keys  ⟶' : 'Encrypt My Access  ⟶'"
                         font-size="16px"
                         width="auto"
                         height="50px"
                         class="access-grant__modal-container__footer-container__encrypt-button"
-                        :on-press="encryptClickAction"
-                        :is-disabled="selectedPermissions.length === 0 || accessName === '' || selectedBucketNames.length === 0"
+                        :on-press="checkedType === 'api' ? createAccessGrant : encryptClickAction"
                     />
+                    <!-- Add back later -->
+                    <!-- :is-disabled="selectedPermissions.length === 0 || accessName === '' || selectedBucketNames.length === 0" -->
                 </div>
             </form>
             <!-- *********   Encrypt Form Modal  ********* -->
@@ -248,7 +249,6 @@
                     > 
                         {{ passphrase }}
                     </div>
-                    <!-- Working Here -->
                     <input
                         v-if="encryptSelect === 'create'"
                         v-model="passphrase"
@@ -307,8 +307,24 @@
                             height="50px"
                             class="access-grant__modal-container__footer-container__download-button"
                             :is-disabled="!acknowledgementCheck"
+                            :on-press="createAccessGrant"
                         />
                     </div>
+                </div>
+            </form>
+            <!-- *********   Grant Created Modal  ********* -->
+            <form v-if="accessGrantStep === 'grantCreated'">
+                <div class="access-grant__modal-container__header-container">
+                    <AccessGrantsIcon v-if="checkedType === 'access'" />
+                    <S3Icon v-if="checkedType === 's3'" />
+                    <CLIIcon v-if="checkedType === 'api'" />
+                    <div class="access-grant__modal-container__header-container__close-cross-container" @click="onCloseClick">
+                        <CloseCrossIcon />
+                    </div>
+                    <h2 class="access-grant__modal-container__header-container__title-complete">{{ createdAccessGrantName }} Created</h2>
+                </div>
+                <div class="access-grant__modal-container__body-container__created"> 
+                    <p>Now copy and save the Satellite Address and API Key as they will only appear once.</p>
                 </div>
             </form>
         </div>
@@ -330,6 +346,10 @@ import PermissionsIcon from '@/../static/images/accessGrants/create-access_permi
 import NameIcon from '@/../static/images/accessGrants/create-access_name.svg';
 import BucketsIcon from '@/../static/images/accessGrants/create-access_buckets.svg';
 import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
+import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
+import CLIIcon from '@/../static/images/accessGrants/cli.svg';
+import S3Icon from '@/../static/images/accessGrants/s3.svg';
+
 // for future use when notes is implemented
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
@@ -338,11 +358,18 @@ import { generateMnemonic } from "bip39";
 import { AccessGrant } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { promises } from 'fs';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { MetaUtils } from '@/utils/meta';
+
 
 // @vue/component
 @Component({
     components: {
         VButton,
+        AccessGrantsIcon,
+        CLIIcon,
+        S3Icon,
         AccessKeyIcon,
         ThumbPrintIcon,
         DurationSelection,
@@ -374,6 +401,11 @@ export default class CreateAccessModal extends Vue {
     private checkedType = '';
 
     /**
+     * Global isLoading Variable
+     **/    
+    private isLoading = false;
+
+    /**
      * Handles which tooltip is hovered over and set/clear timeout when leaving hover.
      */
     public tooltipHover = '';
@@ -402,18 +434,112 @@ export default class CreateAccessModal extends Vue {
     public areBucketNamesFetching = true;
     private addDateSelected = false;
 
+    /**
+     * Created Access Grant
+     */
+    private createdAccessGrant; 
+    private createdAccessGrantName = "";
+    private createdAccessGrantSecret = "";
+    private access = "";
+
+    private worker: Worker;
+    private restrictedKey = '';
+
 
     /**
      * Checks which type was selected and retrieves buckets on mount.
      */
     public async mounted(): Promise<void> {
         this.checkedType = this.defaultType;
+        this.setWorker();
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
             this.areBucketNamesFetching = false;
         } catch (error) {
             await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
         }
+    }
+
+    
+
+    /**
+     * Sets local worker with worker instantiated in store.
+     * Also sets worker's onmessage and onerror logic.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
+        this.worker.onerror = (error: ErrorEvent) => {
+            this.$notify.error(error.message);
+        };
+    }
+    /**
+     * Creates Access Grant 
+     */
+    public async createAccessGrant(): Promise<void> {
+
+
+        if (this.$store.getters.projects.length === 0) {
+            try {
+                await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+            } catch (error) {
+                this.isLoading = false;
+
+                return;
+            }
+        }
+
+        const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+
+        this.worker.postMessage({
+            'type': 'GenerateAccess',
+            'apiKey': this.restrictedKey,
+            'passphrase': this.passphrase,
+            'projectID': this.$store.getters.selectedProject.id,
+            'satelliteNodeURL': satelliteNodeURL,
+        });
+         
+        try {
+            this.createdAccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.accessName);
+            this.createdAccessGrantName = this.createdAccessGrant.name;
+            this.createdAccessGrantSecret = this.createdAccessGrant.secret;
+            console.log(this.createdAccessGrant, 'createdAccessGrant');
+            this.accessGrantStep = 'grantCreated';
+
+            //
+            //Adding logic to access data for final modal
+            //
+            // figure out why code below isnt running
+            const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+            console.log(accessEvent, 'accessEvent');
+            if (accessEvent.data.error) {
+                console.log('hitting if block');
+                await this.$notify.error(accessEvent.data.error);
+                this.isLoading = false;
+
+                return;
+            }
+            this.access = accessEvent.data.value;
+            console.log(this.access, 'this.access');
+            await this.$notify.success('Access Grant was generated successfully');
+
+        } catch (error) {
+            await this.$notify.error(error.message);
+            this.isLoading = false;
+
+            return;
+        }
+
+        const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        if (accessEvent.data.error) {
+            await this.$notify.error(accessEvent.data.error);
+            this.isLoading = false;
+
+            return;
+        }
+        //here
+        this.access = accessEvent.data.value;
+        console.log(this.access, 'this.access');
+        await this.$notify.success('Access Grant was generated successfully');
     }
 
     /**
@@ -668,6 +794,10 @@ export default class CreateAccessModal extends Vue {
                 &__title {
                     grid-column: 1;
                 }
+                &__title-complete {
+                    grid-column: 1;
+                    margin-top: 10px;
+                }
 
                 &__close-cross-container {
                     grid-column: 2;
@@ -770,6 +900,26 @@ export default class CreateAccessModal extends Vue {
                     row-gap: 4ch;
                     grid-template-rows: 2fr 2fr;
                     padding-top: 10px;
+                }
+
+                &__created {
+                    width: 100%;
+                    text-align: left;
+                    display: grid;
+                    // grid-template-columns: 1fr 6fr 1fr;
+                    margin-top: 15px;
+                    row-gap: 4ch;
+                    // grid-template-rows: 2fr 2fr;
+                    padding-top: 10px;
+
+                    p {
+                        font-style: normal;
+                        font-weight: 400;
+                        font-size: 14px;
+                        line-height: 20px;
+                        overflow-wrap: break-word;
+                        text-align: left;
+                    }
                 }
 
                 &__name-icon {
