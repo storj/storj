@@ -205,8 +205,8 @@ func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, proje
 func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time, crdbInterval time.Duration) (_ *accounting.ProjectDailyUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// use end of the day for 'to' caveat.
-	endOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, time.UTC)
+	fromBeginningOfDay := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
+	toEndOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, time.UTC)
 
 	allocatedBandwidth := make([]accounting.ProjectUsageByDay, 0)
 	settledBandwidth := make([]accounting.ProjectUsageByDay, 0)
@@ -219,7 +219,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			SELECT interval_day, egress_allocated, egress_settled
 			FROM project_bandwidth_daily_rollups
 			WHERE project_id = $1 AND (interval_day BETWEEN $2 AND $3)
-		`), projectID, from, endOfDay)
+		`), projectID, fromBeginningOfDay, toEndOfDay)
 
 		storageQuery := db.db.Rebind(`
 			WITH project_usage AS (
@@ -251,7 +251,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			` + db.db.impl.AsOfSystemInterval(crdbInterval) + `
 			GROUP BY project_id, bucket_name, interval_day
 		`)
-		batch.Queue(storageQuery, projectID, from, endOfDay)
+		batch.Queue(storageQuery, projectID, fromBeginningOfDay, toEndOfDay)
 
 		results := conn.SendBatch(ctx, &batch)
 		defer func() { err = errs.Combine(err, results.Close()) }()
@@ -293,6 +293,9 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			return err
 		}
 
+		var current time.Time
+		var index int
+
 		for storageRows.Next() {
 			var day time.Time
 			var amount int64
@@ -301,6 +304,23 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			if err != nil {
 				return err
 			}
+
+			if len(storage) == 0 {
+				current = day
+				storage = append(storage, accounting.ProjectUsageByDay{
+					Date:  day.UTC(),
+					Value: amount,
+				})
+				continue
+			}
+
+			if current == day {
+				storage[index].Value += amount
+				continue
+			}
+
+			current = day
+			index++
 
 			storage = append(storage, accounting.ProjectUsageByDay{
 				Date:  day.UTC(),
