@@ -81,7 +81,7 @@ type Config struct {
 	PartneredSatellites             SatList `help:"names and addresses of partnered satellites in JSON list format" default:"[[\"US1\",\"https://us1.storj.io\"],[\"EU1\",\"https://eu1.storj.io\"],[\"AP1\",\"https://ap1.storj.io\"]]"`
 	GeneralRequestURL               string  `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string  `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string  `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io" devDefault:""`
+	GatewayCredentialsRequestURL    string  `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:""`
 	IsBetaSatellite                 bool    `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string  `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string  `help:"url link for for beta satellite support" default:""`
@@ -90,7 +90,7 @@ type Config struct {
 	CouponCodeSignupUIEnabled       bool    `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool    `help:"indicates if file browser flow is disabled" default:"false"`
 	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
-	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io" devDefault:""`
+	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:""`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
