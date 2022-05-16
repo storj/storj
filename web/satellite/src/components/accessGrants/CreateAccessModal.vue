@@ -265,7 +265,7 @@
                             :is-white-green="isPassphraseCopied ? true : false"
                             class="access-grant__modal-container__footer-container__copy-button"
                             font-size="16px"
-                            :on-press="onCopyClick"
+                            :on-press="onCopyPassphraseClick"
                             :is-disabled="passphrase.length < 1"   
                         />
                         <v-button
@@ -275,7 +275,7 @@
                             height="50px"
                             class="access-grant__modal-container__footer-container__download-button"
                             :is-green-white="isPassphraseDownloaded ? true : false"
-                            :on-press="downloadText"
+                            :on-press="downloadPassphrase"
                             :is-disabled="passphrase.length < 1"
                         />
                     </div>
@@ -324,7 +324,7 @@
                     <h2 class="access-grant__modal-container__header-container__title-complete">{{ createdAccessGrantName }} Created</h2>
                 </div>
                 <div class="access-grant__modal-container__body-container__created"> 
-                    <p>Now copy and save the Satellite Address and API Key as they will only appear once.</p>
+                    <p>Now copy and save the {{ checkedText[checkedType] }} as they will only appear once.</p>
                 </div>
                 <div v-if="checkedType === 'access'">
                     <div class="access-grant__modal-container__generated-credentials__label">
@@ -342,7 +342,11 @@
                         <span class="access-grant__modal-container__generated-credentials__text">
                             {{ access }}
                         </span>
-                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(access)"
+                        >
                     </div>
                 </div>
                 <div v-if="checkedType === 's3'">
@@ -361,7 +365,11 @@
                         <span class="access-grant__modal-container__generated-credentials__text">
                             {{ gatewayCredentials.accessKeyId }}
                         </span>
-                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(gatewayCredentials.accessKeyId)"
+                        >
                     </div>
                     <div class="access-grant__modal-container__generated-credentials__label">
                         <span class="access-grant__modal-container__generated-credentials__label__text">
@@ -378,7 +386,11 @@
                         <span class="access-grant__modal-container__generated-credentials__text"> 
                             {{ gatewayCredentials.secretKey }}
                         </span>
-                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(gatewayCredentials.secretKey)"
+                        >
                     </div>
                     <div class="access-grant__modal-container__generated-credentials__label">
                         <span class="access-grant__modal-container__generated-credentials__label__text">
@@ -395,7 +407,11 @@
                         <span class="access-grant__modal-container__generated-credentials__text">
                             {{ gatewayCredentials.endpoint }}
                         </span>
-                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(gatewayCredentials.endpoint)"
+                        >
                     </div>
                 </div>
                 <div v-if="checkedType === 'api'">
@@ -414,7 +430,11 @@
                         <span class="access-grant__modal-container__generated-credentials__text">
                             {{ satelliteAddress }}
                         </span>
-                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(satelliteAddress)"
+                        >
                     </div>
                     <div class="access-grant__modal-container__generated-credentials__label">
                         <span class="access-grant__modal-container__generated-credentials__label__text">
@@ -431,8 +451,23 @@
                         <span class="access-grant__modal-container__generated-credentials__text">
                             {{ restrictedKey }}
                         </span>
-                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(restrictedKey)"
+                        >
                     </div>
+                </div>
+                <div class="access-grant__modal-container__download-credentials__container">
+                    <v-button
+                        label="Download .txt"
+                        font-size="16px"
+                        width="150px"
+                        height="50px"
+                        class="access-grant__modal-container__download-credentials__button"
+                        :is-green-white="areCredentialsDownloaded ? true : false"
+                        :on-press="downloadCredentials"
+                    />
                 </div>
             </form>
         </div>
@@ -508,9 +543,11 @@ export default class CreateAccessModal extends Vue {
     public areKeysVisible = false;
 
     /**
-     * Stores access type that is selected.
+     * Stores access type that is selected and text changes based on type.
      */
     private checkedType = '';
+    private checkedText = {access: 'Access Grant', s3: 'S3 credentials',api: 'Satellite Address and API Key'};
+    private areCredentialsDownloaded = false;
 
     /**
      * Global isLoading Variable
@@ -554,6 +591,7 @@ export default class CreateAccessModal extends Vue {
     private createdAccessGrantSecret = "";
     private access = "";
 
+    public currentDate = new Date().toISOString();
     private worker: Worker;
     private restrictedKey = '';
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
@@ -584,7 +622,6 @@ export default class CreateAccessModal extends Vue {
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
-        console.log('worker block hit')
     }
 
     // creates restricted key
@@ -672,12 +709,29 @@ export default class CreateAccessModal extends Vue {
     /**
      * Downloads passphrase to .txt file
      */
-    public downloadText(): void {
+    public downloadPassphrase(): void {
         this.isPassphraseDownloaded = true;
         var blob = new Blob([ this.passphrase ], { "type" : "text/plain" });
         let link = document.createElement('a');
         link.href = window.URL.createObjectURL(blob);
-        link.download = 'sampleText.txt';
+        link.download = `passphrase-${this.currentDate}.txt`;
+        link.click();
+    }
+
+    /**
+     * Downloads credentials to .txt file
+     */
+    public downloadCredentials(): void {
+        let credentialMap = {
+            access: [`access grant: ${this.access}`], 
+            s3: [`access key: ${this.gatewayCredentials.accessKeyId}`,'\n', `secret key: ${this.gatewayCredentials.secretKey}`,'\n', `endpoint: ${this.gatewayCredentials.endpoint}`], 
+            api: [`satellite address: ${this.satelliteAddress}`,'\n',`restricted key: ${this.restrictedKey}`]
+        }
+        this.areCredentialsDownloaded = true;
+        var blob = new Blob( credentialMap[this.checkedType] , { "type" : "text/plain" });
+        let link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = `${this.checkedType}-credentials-${this.currentDate}.txt`;
         link.click();
     }
 
@@ -702,10 +756,16 @@ export default class CreateAccessModal extends Vue {
         } 
     }
 
-    public onCopyClick(): void {
+    public onCopyClick(item): void {
+        this.$copyText(item);
+        this.$notify.success(`credential was copied successfully`);
+    }
+
+    public onCopyPassphraseClick(): void {
         this.$copyText(this.passphrase);
         this.isPassphraseCopied = true;
-        this.$notify.success('Passphrase was copied successfully');
+        this.$notify.success(`Passphrase was copied successfully`);
+        return;
     }
 
     public backAction(): void {
@@ -890,6 +950,10 @@ export default class CreateAccessModal extends Vue {
         background: #d7e8ff;
     }
 
+    .clickable-image {
+        cursor: pointer;
+    }
+
     .access-grant {
         position: fixed;
         top: 0;
@@ -950,6 +1014,15 @@ export default class CreateAccessModal extends Vue {
                         text-align: left;
                         padding: 0 6px 0 0;
                     }
+                }
+            }
+
+            &__download-credentials {
+
+                &__container {
+                    display: flex;
+                    justify-content: center;
+                    margin: 15px;
                 }
             }
 
