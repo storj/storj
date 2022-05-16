@@ -189,6 +189,7 @@ export default class PermissionsStep extends Vue {
 
         try {
             await this.setPermissions();
+            console.log('restricted key: ', this.restrictedKey)
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;

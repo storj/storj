@@ -327,16 +327,112 @@
                     <p>Now copy and save the Satellite Address and API Key as they will only appear once.</p>
                 </div>
                 <div v-if="checkedType === 'access'">
-                    <p>Access Grant: {{ access }}</p>
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Access Grant
+                        </span>
+                        <img
+                            class="tooltip-icon"
+                            src="../../../static/images/accessGrants/create-access_information.png"
+                        >
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    > 
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ access }}
+                        </span>
+                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                    </div>
                 </div>
                 <div v-if="checkedType === 's3'">
-                    <p>Access Key: {{ gatewayCredentials.accessKeyId }}</p>
-                    <p>Secret Key: {{ gatewayCredentials.secretKey }}</p>
-                    <p>End Point: {{ gatewayCredentials.endpoint }}</p>
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Access Key
+                        </span>
+                        <img
+                            class="tooltip-icon"
+                            src="../../../static/images/accessGrants/create-access_information.png"
+                        >
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    > 
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ gatewayCredentials.accessKeyId }}
+                        </span>
+                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                    </div>
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Secret Key
+                        </span>
+                        <img
+                            class="tooltip-icon"
+                            src="../../../static/images/accessGrants/create-access_information.png"
+                        >
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    >
+                        <span class="access-grant__modal-container__generated-credentials__text"> 
+                            {{ gatewayCredentials.secretKey }}
+                        </span>
+                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                    </div>
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Endpoint
+                        </span>
+                        <img
+                            class="tooltip-icon"
+                            src="../../../static/images/accessGrants/create-access_information.png"
+                        >
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    >
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ gatewayCredentials.endpoint }}
+                        </span>
+                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                    </div>
                 </div>
                 <div v-if="checkedType === 'api'">
-                    <p>Satellite Address: {{ satelliteAddress }}</p>
-                    <p>API Key: {{ restrictedKey }}</p>
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Satellite Address
+                        </span>
+                        <img
+                            class="tooltip-icon"
+                            src="../../../static/images/accessGrants/create-access_information.png"
+                        >
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    >
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ satelliteAddress }}
+                        </span>
+                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                    </div>
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            API Key 
+                        </span>
+                        <img
+                            class="tooltip-icon"
+                            src="../../../static/images/accessGrants/create-access_information.png"
+                        >
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    >
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ restrictedKey }}
+                        </span>
+                        <img src="../../../static/images/accessGrants/create-access_copy-icon.png" alt="">
+                    </div>
                 </div>
             </form>
         </div>
@@ -762,6 +858,15 @@ export default class CreateAccessModal extends Vue {
         margin-bottom: -20px;
     }
 
+    @mixin generated-text {
+        margin-top: 20px;
+        align-items: center;
+        padding: 10px 16px;
+        background: #ebeef1;
+        border: 1px solid #c8d3de;
+        border-radius: 7px;
+    }
+
     p {
         font-weight: bold;
         padding-bottom: 5px;
@@ -814,12 +919,38 @@ export default class CreateAccessModal extends Vue {
             height: auto;
 
             &__generated-passphrase {
-                margin-top: 20px;
-                align-items: center;
-                padding: 10px 16px;
-                background: #ebeef1;
-                border: 1px solid #c8d3de;
-                border-radius: 7px;
+                @include generated-text;
+            }
+
+            &__generated-credentials {
+                @include generated-text;
+
+                margin: 0 0 4px;
+                display: flex;
+                justify-content: space-between;
+
+                &__text {
+                    width: 90%;
+                    text-overflow: ellipsis;
+                    overflow-x: hidden;
+                    white-space: nowrap;
+                }
+
+                &__label {
+                    display: flex;
+                    margin: 8px 0;
+                    align-items: center;
+
+                    &__text {
+                        font-family: sans-serif;
+                        font-size: 14px;
+                        font-weight: 700;
+                        line-height: 20px;
+                        letter-spacing: 0;
+                        text-align: left;
+                        padding: 0 6px 0 0;
+                    }
+                }
             }
 
             &__header-container {
