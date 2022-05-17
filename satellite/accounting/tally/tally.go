@@ -112,7 +112,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 	// No-op unless that there isn't an error getting the
 	// liveAccounting.GetAllProjectTotals
-	updateLiveAccountingTotals := func(_ map[uuid.UUID]int64) {}
+	updateLiveAccountingTotals := func(_ map[uuid.UUID]accounting.Usage) {}
 
 	initialLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
 	if err != nil {
@@ -121,7 +121,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			zap.Error(err),
 		)
 	} else {
-		updateLiveAccountingTotals = func(tallyProjectTotals map[uuid.UUID]int64) {
+		updateLiveAccountingTotals = func(tallyProjectTotals map[uuid.UUID]accounting.Usage) {
 			latestLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
 			if err != nil {
 				service.log.Error(
@@ -136,7 +136,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			// Thus, we add them and set the total to 0.
 			for projectID := range latestLiveTotals {
 				if _, ok := tallyProjectTotals[projectID]; !ok {
-					tallyProjectTotals[projectID] = 0
+					tallyProjectTotals[projectID] = accounting.Usage{}
 				}
 			}
 
@@ -148,7 +148,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 				// read the method documentation why the increase passed to this method
 				// is calculated in this way
-				err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID].Storage+tallyTotal+(delta/2))
+				err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID].Storage+tallyTotal.Storage+(delta/2))
 				if err != nil {
 					if accounting.ErrSystemOrNetError.Has(err) {
 						service.log.Error(
@@ -160,8 +160,28 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 					service.log.Error(
 						"tally isn't updating the live accounting storage usage of the project in this cycle",
-						zap.Error(err),
 						zap.String("projectID", projectID.String()),
+						zap.Error(err),
+					)
+				}
+
+				// difference between cached project totals and latest tally collector
+				increment := tallyTotal.Segments - latestLiveTotals[projectID].Segments
+
+				err = service.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment)
+				if err != nil {
+					if accounting.ErrSystemOrNetError.Has(err) {
+						service.log.Error(
+							"tally isn't updating the live accounting segment usages of the projects in this cycle",
+							zap.Error(err),
+						)
+						return
+					}
+
+					service.log.Error(
+						"tally isn't updating the live accounting segment usage of the project in this cycle",
+						zap.String("projectID", projectID.String()),
+						zap.Error(err),
 					)
 				}
 			}
@@ -263,7 +283,7 @@ func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 }
 
 // ensureBucket returns bucket corresponding to the passed in path.
-func (observer *BucketTallyCollector) ensureBucket(ctx context.Context, location metabase.ObjectLocation) *accounting.BucketTally {
+func (observer *BucketTallyCollector) ensureBucket(location metabase.ObjectLocation) *accounting.BucketTally {
 	bucketLocation := location.Bucket()
 	bucket, exists := observer.Bucket[bucketLocation]
 	if !exists {
@@ -283,7 +303,7 @@ func (observer *BucketTallyCollector) object(ctx context.Context, object metabas
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, object.ObjectStream.Location())
+	bucket := observer.ensureBucket(object.ObjectStream.Location())
 	bucket.TotalSegments += int64(object.SegmentCount)
 	bucket.TotalBytes += object.TotalEncryptedSize
 	bucket.MetadataSize += int64(object.EncryptedMetadataSize)
@@ -292,10 +312,13 @@ func (observer *BucketTallyCollector) object(ctx context.Context, object metabas
 	return nil
 }
 
-func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.BucketTally) map[uuid.UUID]int64 {
-	projectTallyTotals := make(map[uuid.UUID]int64)
+func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.BucketTally) map[uuid.UUID]accounting.Usage {
+	projectTallyTotals := make(map[uuid.UUID]accounting.Usage)
 	for _, bucket := range buckets {
-		projectTallyTotals[bucket.ProjectID] += bucket.TotalBytes
+		projectUsage := projectTallyTotals[bucket.ProjectID]
+		projectUsage.Storage += bucket.TotalBytes
+		projectUsage.Segments += bucket.TotalSegments
+		projectTallyTotals[bucket.ProjectID] = projectUsage
 	}
 	return projectTallyTotals
 }

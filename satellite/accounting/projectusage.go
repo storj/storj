@@ -132,20 +132,9 @@ func (usage *Service) ExceedsUploadLimits(ctx context.Context, projectID uuid.UU
 		})
 		group.Go(func() error {
 			var err error
-			segmentUsage, err = usage.GetProjectSegmentUsage(ctx, projectID)
+			segmentUsage, err = usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
 			// Verify If the cache key was not found
 			if err != nil && ErrKeyNotFound.Has(err) {
-				segmentGetTotal, err := usage.GetProjectSegments(ctx, projectID)
-				if err != nil {
-					return err
-				}
-
-				// Create cache key with database value.
-				if err := usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, segmentGetTotal); err != nil {
-					return err
-				}
-
-				segmentUsage = segmentGetTotal
 				return nil
 			}
 			return err
