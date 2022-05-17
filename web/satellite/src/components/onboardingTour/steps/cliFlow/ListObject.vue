@@ -71,10 +71,9 @@ export default class ListObject extends Vue {
         font-family: 'font_regular', sans-serif;
 
         &__msg {
-            font-size: 18px;
-            line-height: 32px;
-            letter-spacing: 0.15px;
-            color: #4e4b66;
+            font-size: 16px;
+            line-height: 24px;
+            color: #1b2533;
         }
     }
 </style>

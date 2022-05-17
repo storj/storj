@@ -5,6 +5,7 @@
     <div class="duration-selection">
         <div
             class="duration-selection__toggle-container"
+            aria-roledescription="select-duration"
             @click.stop="togglePicker"
         >
             <h1 class="duration-selection__toggle-container__name">{{ dateRangeLabel }}</h1>

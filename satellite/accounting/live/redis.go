@@ -122,30 +122,14 @@ func (cache *redisLiveAccounting) GetProjectSegmentUsage(ctx context.Context, pr
 }
 
 // UpdateProjectSegmentUsage increment the segment cache key value.
-func (cache *redisLiveAccounting) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration) (err error) {
-	mon.Task()(&ctx, projectID, increment, ttl)(&err)
-
-	// The following script will increment the cache key
-	// by a specific value. If the key does not exist, it is
-	// set to 0 before performing the operation.
-	// The key expiration will be set only in the first iteration.
-	// To achieve this we compare the increment and key value,
-	// if they are equal its the first iteration.
-	// More details on rate limiter section: https://redis.io/commands/incr
-	script := fmt.Sprintf(`local current
-	current = redis.call("incrby", KEYS[1], "%d")
-	if tonumber(current) == %d then
-		redis.call("expire",KEYS[1], %d)
-	end
-	return current
-	`, increment, increment, int(ttl.Seconds()))
+func (cache *redisLiveAccounting) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
+	mon.Task()(&ctx, projectID, increment)(&err)
 
 	key := createSegmentProjectIDKey(projectID)
-	err = cache.client.Eval(ctx, script, []string{key}).Err()
+	_, err = cache.client.IncrBy(ctx, key, increment).Result()
 	if err != nil {
-		return accounting.ErrSystemOrNetError.New("Redis eval failed: %w", err)
+		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
 	}
-
 	return nil
 }
 

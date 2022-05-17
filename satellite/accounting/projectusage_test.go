@@ -776,30 +776,30 @@ func TestUsageRollups(t *testing.T) {
 				Page:  1,
 			}
 
-			totals1, err := usageRollups.GetBucketTotals(ctx, project1, cursor, start, now)
+			totals1, err := usageRollups.GetBucketTotals(ctx, project1, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals1)
 
-			totals2, err := usageRollups.GetBucketTotals(ctx, project2, cursor, start, now)
+			totals2, err := usageRollups.GetBucketTotals(ctx, project2, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals2)
 
-			totals3, err := usageRollups.GetBucketTotals(ctx, project3, cursor, start, now)
+			totals3, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals3)
 
-			totals3Prev2Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*2), now.Add(-time.Hour*1))
+			totals3Prev2Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*2))
 			require.NoError(t, err)
 			require.NotNil(t, totals3Prev2Hours)
 
-			totals3Prev3Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*3), now.Add(-time.Hour*2))
+			totals3Prev3Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*3))
 			require.NoError(t, err)
 			require.NotNil(t, totals3Prev3Hours)
 		})
 
 		t.Run("Get paged", func(t *testing.T) {
 			// sql injection test. F.E '%SomeText%' = > ''%SomeText%' OR 'x' != '%'' will be true
-			bucketsPage, err := usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck%' OR 'x' != '", Page: 1}, start, now)
+			bucketsPage, err := usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck%' OR 'x' != '", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(0), bucketsPage.TotalCount)
@@ -807,7 +807,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(0), bucketsPage.PageCount)
 			assert.Equal(t, 0, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 3, Search: "", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 3, Search: "", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(5), bucketsPage.TotalCount)
@@ -815,7 +815,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(2), bucketsPage.PageCount)
 			assert.Equal(t, 3, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(5), bucketsPage.TotalCount)
@@ -823,7 +823,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(1), bucketsPage.PageCount)
 			assert.Equal(t, 5, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "bucket-0", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "bucket-0", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(1), bucketsPage.TotalCount)
@@ -831,7 +831,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(1), bucketsPage.PageCount)
 			assert.Equal(t, 1, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck\xff", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck\xff", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(0), bucketsPage.TotalCount)
@@ -1207,5 +1207,91 @@ func TestProjectUsage_BandwidthDeadAllocation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotZero(t, dead)
 		require.Equal(t, initialBandwidthUsage, updatedBandwidthUsage+dead)
+	})
+}
+
+// Check if doing a copy is not affecting monthly bandwidth usage. Doing
+// server-side copy should not reduce users monthly bandwidth limit.
+func TestProjectBandwidthUsageWithCopies(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// this effectively disable live accounting cache
+				config.LiveAccounting.BandwidthCacheTTL = -1
+				config.LiveAccounting.AsOfSystemInterval = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		testObjects := map[string]memory.Size{
+			"inline": 1 * memory.KiB,
+			"remote": 10 * memory.KiB,
+		}
+
+		for name, size := range testObjects {
+			expectedData := testrand.Bytes(size)
+
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", name, expectedData)
+			require.NoError(t, err)
+
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", name)
+			require.NoError(t, err)
+			require.Equal(t, data, expectedData)
+		}
+
+		// flush allocated bandwidth to DB as we will use DB directly without cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		projectID := planet.Uplinks[0].Projects[0].ID
+		now := time.Now()
+		expectedBandwidth, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day(), 0)
+		require.NoError(t, err)
+		require.NotZero(t, expectedBandwidth)
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		// make copies
+		for name := range testObjects {
+			_, err = project.CopyObject(ctx, "testbucket", name, "testbucket", name+"copy", nil)
+			require.NoError(t, err)
+		}
+
+		// flush allocated bandwidth to DB as we will use DB directly without cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		bandwidth, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day(), 0)
+		require.NoError(t, err)
+		require.Equal(t, expectedBandwidth, bandwidth)
+
+		// download copies to verify that used bandwidth will be increased
+		for name := range testObjects {
+			_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", name+"copy")
+			require.NoError(t, err)
+		}
+
+		// flush allocated bandwidth to DB as we will use DB directly without cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		bandwidth, err = planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day(), 0)
+		require.NoError(t, err)
+		require.Less(t, expectedBandwidth, bandwidth)
+
+		// last bandwidth read becomes new expectedBandwidth
+		expectedBandwidth = bandwidth
+
+		// delete ancestors
+		for name := range testObjects {
+			_, err = project.DeleteObject(ctx, "testbucket", name)
+			require.NoError(t, err)
+		}
+
+		// flush allocated bandwidth to DB as we will use DB directly without cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		bandwidth, err = planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day(), 0)
+		require.NoError(t, err)
+		require.Equal(t, expectedBandwidth, bandwidth)
 	})
 }

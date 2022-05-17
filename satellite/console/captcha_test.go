@@ -38,16 +38,16 @@ func TestRecaptcha(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		service := planet.Satellites[0].API.Console.Service
 		require.NotNil(t, service)
-		service.TestSwapRecaptchaHandler(mockRecaptcha{})
+		service.TestSwapCaptchaHandler(mockRecaptcha{})
 
 		regToken1, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
 		user, err := service.CreateUser(ctx, console.CreateUser{
-			FullName:          "User",
-			Email:             "u@mail.test",
-			Password:          "password",
-			RecaptchaResponse: validResponseToken,
+			FullName:        "User",
+			Email:           "u@mail.test",
+			Password:        "password",
+			CaptchaResponse: validResponseToken,
 		}, regToken1.Secret)
 
 		require.NotNil(t, user)
@@ -57,13 +57,13 @@ func TestRecaptcha(t *testing.T) {
 		require.NoError(t, err)
 
 		user, err = service.CreateUser(ctx, console.CreateUser{
-			FullName:          "User2",
-			Email:             "u2@mail.test",
-			Password:          "password",
-			RecaptchaResponse: "wrong",
+			FullName:        "User2",
+			Email:           "u2@mail.test",
+			Password:        "password",
+			CaptchaResponse: "wrong",
 		}, regToken2.Secret)
 
 		require.Nil(t, user)
-		require.True(t, console.ErrRecaptcha.Has(err))
+		require.True(t, console.ErrCaptcha.Has(err))
 	})
 }

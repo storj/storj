@@ -69,13 +69,14 @@ func TestDBDisqualifyNode(t *testing.T) {
 		nodeID := testrand.NodeID()
 		now := time.Now().Truncate(time.Second).UTC()
 
-		err := reputationDB.DisqualifyNode(ctx, nodeID, now)
+		err := reputationDB.DisqualifyNode(ctx, nodeID, now, overlay.DisqualificationReasonAuditFailure)
 		require.NoError(t, err)
 
 		info, err := reputationDB.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.NotNil(t, info.Disqualified)
 		require.Equal(t, now, info.Disqualified.UTC())
+		require.Equal(t, overlay.DisqualificationReasonAuditFailure, info.DisqualificationReason)
 	})
 }
 

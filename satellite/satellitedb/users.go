@@ -277,6 +277,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		IsProfessional:        user.IsProfessional,
 		HaveSalesContact:      user.HaveSalesContact,
 		MFAEnabled:            user.MfaEnabled,
+		VerificationReminders: user.VerificationReminders,
 	}
 
 	if user.PartnerId != nil {

@@ -30,6 +30,7 @@ class ViewsState {
         public isPaymentSelectionShown = false,
         public isUploadCancelPopupVisible = false,
         public isSuccessfulPasswordResetShown = false,
+        public isCreateProjectPromptModalShown = false,
 
         public onbAGStepBackRoute = "",
         public onbAPIKeyStepBackRoute = "",
@@ -116,6 +117,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_UPLOAD_CANCEL_POPUP](state: State): void {
             state.appState.isUploadCancelPopupVisible = !state.appState.isUploadCancelPopupVisible;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP](state: State): void {
+            state.appState.isCreateProjectPromptModalShown = !state.appState.isCreateProjectPromptModalShown;
         },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;

@@ -141,6 +141,17 @@ func (u *uplinkMultiReadHandle) Info(ctx context.Context) (*ObjectInfo, error) {
 	return &info, nil
 }
 
+// Length returns the size of the object.
+func (u *uplinkMultiReadHandle) Length() int64 {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	// if we have not fetched the info yet, return unknown length
+	if u.info == nil {
+		return -1
+	}
+	return u.info.ContentLength
+}
+
 // uplinkReadHandle implements readHandle for *uplink.Downloads.
 type uplinkReadHandle struct {
 	info *ObjectInfo
