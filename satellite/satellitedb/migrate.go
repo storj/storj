@@ -1912,7 +1912,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN verification_reminders INTEGER NOT NULL DEFAULT 0;`,
 				},
 			},
-
+			{
+				DB:          &db.migrationDB,
+				Description: "add disqualification_reason to reputations",
+				Version:     197,
+				Action: migrate.SQL{
+					`ALTER TABLE reputations ADD COLUMN disqualification_reason integer`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

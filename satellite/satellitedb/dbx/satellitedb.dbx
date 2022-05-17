@@ -208,6 +208,7 @@ model reputation (
 
 	// node is disqualified when it fails too many audits or is offline for too long
 	field disqualified timestamp ( updatable, nullable )
+	field disqualification_reason int ( updatable, nullable )
 	// node is placed under inspection when it has too many unknown-error audits
 	// renamed column from suspended
 	field unknown_audit_suspended timestamp ( updatable, nullable )

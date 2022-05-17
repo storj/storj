@@ -271,6 +271,7 @@ CREATE TABLE reputations (
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	disqualified timestamp with time zone,
+	disqualification_reason integer,
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
 	under_review timestamp with time zone,

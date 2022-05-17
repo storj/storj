@@ -591,6 +591,7 @@ CREATE TABLE reputations (
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	disqualified timestamp with time zone,
+	disqualification_reason integer,
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
 	under_review timestamp with time zone,
@@ -1224,6 +1225,7 @@ CREATE TABLE reputations (
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	disqualified timestamp with time zone,
+	disqualification_reason integer,
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
 	under_review timestamp with time zone,
@@ -6222,6 +6224,7 @@ type Reputation struct {
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 	Disqualified                *time.Time
+	DisqualificationReason      *int
 	UnknownAuditSuspended       *time.Time
 	OfflineSuspended            *time.Time
 	UnderReview                 *time.Time
@@ -6240,6 +6243,7 @@ type Reputation_Create_Fields struct {
 	TotalAuditCount             Reputation_TotalAuditCount_Field
 	VettedAt                    Reputation_VettedAt_Field
 	Disqualified                Reputation_Disqualified_Field
+	DisqualificationReason      Reputation_DisqualificationReason_Field
 	UnknownAuditSuspended       Reputation_UnknownAuditSuspended_Field
 	OfflineSuspended            Reputation_OfflineSuspended_Field
 	UnderReview                 Reputation_UnderReview_Field
@@ -6255,6 +6259,7 @@ type Reputation_Update_Fields struct {
 	TotalAuditCount             Reputation_TotalAuditCount_Field
 	VettedAt                    Reputation_VettedAt_Field
 	Disqualified                Reputation_Disqualified_Field
+	DisqualificationReason      Reputation_DisqualificationReason_Field
 	UnknownAuditSuspended       Reputation_UnknownAuditSuspended_Field
 	OfflineSuspended            Reputation_OfflineSuspended_Field
 	UnderReview                 Reputation_UnderReview_Field
@@ -6424,6 +6429,40 @@ func (f Reputation_Disqualified_Field) value() interface{} {
 }
 
 func (Reputation_Disqualified_Field) _Column() string { return "disqualified" }
+
+type Reputation_DisqualificationReason_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func Reputation_DisqualificationReason(v int) Reputation_DisqualificationReason_Field {
+	return Reputation_DisqualificationReason_Field{_set: true, _value: &v}
+}
+
+func Reputation_DisqualificationReason_Raw(v *int) Reputation_DisqualificationReason_Field {
+	if v == nil {
+		return Reputation_DisqualificationReason_Null()
+	}
+	return Reputation_DisqualificationReason(*v)
+}
+
+func Reputation_DisqualificationReason_Null() Reputation_DisqualificationReason_Field {
+	return Reputation_DisqualificationReason_Field{_set: true, _null: true}
+}
+
+func (f Reputation_DisqualificationReason_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f Reputation_DisqualificationReason_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_DisqualificationReason_Field) _Column() string { return "disqualification_reason" }
 
 type Reputation_UnknownAuditSuspended_Field struct {
 	_set   bool
@@ -11136,19 +11175,20 @@ func (obj *pgxImpl) Create_Reputation(ctx context.Context,
 	__id_val := reputation_id.value()
 	__vetted_at_val := optional.VettedAt.value()
 	__disqualified_val := optional.Disqualified.value()
+	__disqualification_reason_val := optional.DisqualificationReason.value()
 	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
 	__offline_suspended_val := optional.OfflineSuspended.value()
 	__under_review_val := optional.UnderReview.value()
 	__audit_history_val := reputation_audit_history.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, vetted_at, disqualified, unknown_audit_suspended, offline_suspended, under_review, audit_history")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, vetted_at, disqualified, disqualification_reason, unknown_audit_suspended, offline_suspended, under_review, audit_history")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
+	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __disqualification_reason_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -11207,7 +11247,7 @@ func (obj *pgxImpl) Create_Reputation(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12426,7 +12466,7 @@ func (obj *pgxImpl) Get_Reputation_By_Id(ctx context.Context,
 	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, reputation_id.value())
@@ -12435,7 +12475,7 @@ func (obj *pgxImpl) Get_Reputation_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err != nil {
 		return (*Reputation)(nil), obj.makeErr(err)
 	}
@@ -15572,7 +15612,7 @@ func (obj *pgxImpl) Update_Reputation_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -15596,6 +15636,11 @@ func (obj *pgxImpl) Update_Reputation_By_Id(ctx context.Context,
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
 
 	if update.UnknownAuditSuspended._set {
@@ -15657,7 +15702,7 @@ func (obj *pgxImpl) Update_Reputation_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -15675,7 +15720,7 @@ func (obj *pgxImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -15699,6 +15744,11 @@ func (obj *pgxImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
 
 	if update.UnknownAuditSuspended._set {
@@ -15760,7 +15810,7 @@ func (obj *pgxImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -15801,6 +15851,11 @@ func (obj *pgxImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
 
 	if update.UnknownAuditSuspended._set {
@@ -17741,19 +17796,20 @@ func (obj *pgxcockroachImpl) Create_Reputation(ctx context.Context,
 	__id_val := reputation_id.value()
 	__vetted_at_val := optional.VettedAt.value()
 	__disqualified_val := optional.Disqualified.value()
+	__disqualification_reason_val := optional.DisqualificationReason.value()
 	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
 	__offline_suspended_val := optional.OfflineSuspended.value()
 	__under_review_val := optional.UnderReview.value()
 	__audit_history_val := reputation_audit_history.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, vetted_at, disqualified, unknown_audit_suspended, offline_suspended, under_review, audit_history")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, vetted_at, disqualified, disqualification_reason, unknown_audit_suspended, offline_suspended, under_review, audit_history")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reputations "), __clause, __sqlbundle_Literal(" RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
+	__values = append(__values, __id_val, __vetted_at_val, __disqualified_val, __disqualification_reason_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __audit_history_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -17812,7 +17868,7 @@ func (obj *pgxcockroachImpl) Create_Reputation(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -19031,7 +19087,7 @@ func (obj *pgxcockroachImpl) Get_Reputation_By_Id(ctx context.Context,
 	reputation *Reputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, reputation_id.value())
@@ -19040,7 +19096,7 @@ func (obj *pgxcockroachImpl) Get_Reputation_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err != nil {
 		return (*Reputation)(nil), obj.makeErr(err)
 	}
@@ -22177,7 +22233,7 @@ func (obj *pgxcockroachImpl) Update_Reputation_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -22201,6 +22257,11 @@ func (obj *pgxcockroachImpl) Update_Reputation_By_Id(ctx context.Context,
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
 
 	if update.UnknownAuditSuspended._set {
@@ -22262,7 +22323,7 @@ func (obj *pgxcockroachImpl) Update_Reputation_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -22280,7 +22341,7 @@ func (obj *pgxcockroachImpl) Update_Reputation_By_Id_And_AuditHistory(ctx contex
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? AND reputations.audit_history = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.disqualified, reputations.disqualification_reason, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -22304,6 +22365,11 @@ func (obj *pgxcockroachImpl) Update_Reputation_By_Id_And_AuditHistory(ctx contex
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
 
 	if update.UnknownAuditSuspended._set {
@@ -22365,7 +22431,7 @@ func (obj *pgxcockroachImpl) Update_Reputation_By_Id_And_AuditHistory(ctx contex
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -22406,6 +22472,11 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context
 	if update.Disqualified._set {
 		__values = append(__values, update.Disqualified.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.DisqualificationReason._set {
+		__values = append(__values, update.DisqualificationReason.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualification_reason = ?"))
 	}
 
 	if update.UnknownAuditSuspended._set {
