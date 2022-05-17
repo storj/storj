@@ -136,7 +136,7 @@
                 class="project-dashboard__info__middle"
                 title="Objects"
                 :subtitle="`Updated ${now}`"
-                :value="limits.objectCount"
+                :value="limits.objectCount.toString()"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
@@ -148,7 +148,7 @@
             <InfoContainer
                 title="Segments"
                 :subtitle="`Updated ${now}`"
-                :value="limits.segmentCount"
+                :value="limits.segmentCount.toString()"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
@@ -354,13 +354,6 @@ export default class NewProjectDashboard extends Vue {
      */
     public get isProAccount(): boolean {
         return this.$store.getters.user.paidTier;
-    }
-
-    /**
-     * Returns user's projects count from store.
-     */
-    public get ownProjectsCount(): number {
-        return this.$store.getters.projectsCount;
     }
 
     /**

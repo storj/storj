@@ -15,7 +15,7 @@
             <OSContainer is-install-step="true">
                 <template #windows>
                     <div class="cli-install__windows">
-                        <h2 class="cli-install__macos__sub-title">
+                        <h2 class="cli-install__windows__sub-title">
                             1. Download the
                             <a href="https://github.com/storj/storj/releases/latest/download/uplink_windows_amd64.zip">
                                 Windows Uplink Binary
@@ -165,10 +165,10 @@ export default class CLIInstall extends Vue {
         font-family: 'font_regular', sans-serif;
 
         &__msg {
-            font-size: 18px;
-            line-height: 32px;
-            letter-spacing: 0.15px;
-            color: #4e4b66;
+            font-size: 16px;
+            line-height: 24px;
+            color: #1b2533;
+            align-self: flex-start;
         }
 
         &__macos,

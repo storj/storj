@@ -1151,14 +1151,15 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		UPDATE nodes
-		SET disqualified = current_timestamp
+		SET disqualified = current_timestamp,
+            disqualification_reason = $3
 		WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success < $2
 			AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
 		RETURNING id, last_contact_success;
-	`), pgutil.NodeIDArray(nodeIDs), cutoff)
+	`), pgutil.NodeIDArray(nodeIDs), cutoff, overlay.DisqualificationReasonNodeOffline)
 	if err != nil {
 		return 0, err
 	}
