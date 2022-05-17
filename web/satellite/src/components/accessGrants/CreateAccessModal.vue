@@ -321,7 +321,7 @@
                     <div class="access-grant__modal-container__header-container__close-cross-container" @click="onCloseClick">
                         <CloseCrossIcon />
                     </div>
-                    <h2 class="access-grant__modal-container__header-container__title-complete">{{ createdAccessGrantName }} Created</h2>
+                    <h2 class="access-grant__modal-container__header-container__title-complete">{{ accessName }} Created</h2>
                 </div>
                 <div class="access-grant__modal-container__body-container__created"> 
                     <p>Now copy and save the {{ checkedText[checkedType] }} as they will only appear once.</p>
@@ -331,10 +331,15 @@
                         <span class="access-grant__modal-container__generated-credentials__label__text">
                             Access Grant
                         </span>
-                        <img
-                            class="tooltip-icon"
-                            src="../../../static/images/accessGrants/create-access_information.png"
+                        <a                             
+                            href="https://docs.storj.io/dcs/concepts/access/access-grants/"
+                            target="_blank"
                         >
+                            <img
+                                class="tooltip-icon"
+                                src="../../../static/images/accessGrants/create-access_information.png"
+                            >
+                        </a>
                     </div>
                     <div
                         class="access-grant__modal-container__generated-credentials"
@@ -354,10 +359,6 @@
                         <span class="access-grant__modal-container__generated-credentials__label__text">
                             Access Key
                         </span>
-                        <img
-                            class="tooltip-icon"
-                            src="../../../static/images/accessGrants/create-access_information.png"
-                        >
                     </div>
                     <div
                         class="access-grant__modal-container__generated-credentials"
@@ -375,10 +376,6 @@
                         <span class="access-grant__modal-container__generated-credentials__label__text">
                             Secret Key
                         </span>
-                        <img
-                            class="tooltip-icon"
-                            src="../../../static/images/accessGrants/create-access_information.png"
-                        >
                     </div>
                     <div
                         class="access-grant__modal-container__generated-credentials"
@@ -396,10 +393,6 @@
                         <span class="access-grant__modal-container__generated-credentials__label__text">
                             Endpoint
                         </span>
-                        <img
-                            class="tooltip-icon"
-                            src="../../../static/images/accessGrants/create-access_information.png"
-                        >
                     </div>
                     <div
                         class="access-grant__modal-container__generated-credentials"
@@ -411,6 +404,8 @@
                             class="clickable-image" 
                             src="../../../static/images/accessGrants/create-access_copy-icon.png"
                             @click="onCopyClick(gatewayCredentials.endpoint)"
+                            href="https://docs.storj.io/dcs/concepts/satellite/"
+                            target="_blank"
                         >
                     </div>
                 </div>
@@ -419,10 +414,15 @@
                         <span class="access-grant__modal-container__generated-credentials__label__text">
                             Satellite Address
                         </span>
-                        <img
-                            class="tooltip-icon"
-                            src="../../../static/images/accessGrants/create-access_information.png"
+                        <a
+                            href="https://docs.storj.io/dcs/concepts/satellite/"
+                            target="_blank"
                         >
+                            <img
+                                class="tooltip-icon"
+                                src="../../../static/images/accessGrants/create-access_information.png"
+                            >
+                        </a>
                     </div>
                     <div
                         class="access-grant__modal-container__generated-credentials"
@@ -440,10 +440,15 @@
                         <span class="access-grant__modal-container__generated-credentials__label__text">
                             API Key 
                         </span>
-                        <img
-                            class="tooltip-icon"
-                            src="../../../static/images/accessGrants/create-access_information.png"
+                        <a
+                            href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key/"
+                            target="_blank"
                         >
+                            <img
+                                class="tooltip-icon"
+                                src="../../../static/images/accessGrants/create-access_information.png"
+                            >
+                        </a>
                     </div>
                     <div
                         class="access-grant__modal-container__generated-credentials"
@@ -458,13 +463,51 @@
                         >
                     </div>
                 </div>
-                <div class="access-grant__modal-container__download-credentials__container">
+                <div class="access-grant__modal-container__credential-buttons__container"
+                v-if="checkedType !== 'access'"
+                >
+                    <a 
+                        v-if="checkedType === 's3'"
+                        href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway/"
+                        target="_blank"
+                    >
+                        <v-button
+                            label="Learn More"
+                            width="150px"
+                            height="50px"
+                            is-transparent="true"
+                            font-size="16px"
+                            class="access-grant__modal-container__footer-container__learn-more-button"
+                        />
+                    </a>
+                    <v-button
+                        v-if="checkedType === 'api'"
+                        label="Set up in the CLI"
+                        width="150px"
+                        height="50px"
+                        is-transparent="true"
+                        font-size="16px"
+                        class="access-grant__modal-container__footer-container__learn-more-button"
+                    />
                     <v-button
                         label="Download .txt"
                         font-size="16px"
-                        width="150px"
+                        width="182px"
                         height="50px"
-                        class="access-grant__modal-container__download-credentials__button"
+                        class="access-grant__modal-container__credential-buttons__download-button"
+                        :is-green-white="areCredentialsDownloaded ? true : false"
+                        :on-press="downloadCredentials"
+                    />
+                </div>
+                <div class="access-grant__modal-container__credential-buttons__container-access"
+                v-if="checkedType === 'access'"
+                >
+                    <v-button
+                        label="Download .txt"
+                        font-size="16px"
+                        width="182px"
+                        height="50px"
+                        class="access-grant__modal-container__credential-buttons__download-button"
                         :is-green-white="areCredentialsDownloaded ? true : false"
                         :on-press="downloadCredentials"
                     />
@@ -541,6 +584,7 @@ export default class CreateAccessModal extends Vue {
     private accessGrantStep = "create";
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
     public areKeysVisible = false;
+    private readonly FIRST_PAGE = 1;
 
     /**
      * Stores access type that is selected and text changes based on type.
@@ -642,8 +686,22 @@ export default class CreateAccessModal extends Vue {
 
         // creates restricted key
         const date = new Date().toISOString()
-        const onbAGName = `Onboarding Grant ${date}`
-        const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, onbAGName);
+        let cleanAPIKey: AccessGrant;
+        try {
+            cleanAPIKey = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.accessName);
+        } catch (error) {
+            await this.$notify.error(error.message);
+            return;
+        }
+
+        try {
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+
+            this.isLoading = false;
+        }
+
         let permissionsMsg = {
             'type': 'SetPermission',
             'buckets': this.selectedBucketNames,
@@ -1017,12 +1075,18 @@ export default class CreateAccessModal extends Vue {
                 }
             }
 
-            &__download-credentials {
+            &__credential-buttons {
 
                 &__container {
                     display: flex;
+                    justify-content: space-between;
+                    margin: 15px 0;
+                }
+                
+                &__container-access {
+                    display: flex;
                     justify-content: center;
-                    margin: 15px;
+                    margin: 15px 0;
                 }
             }
 
