@@ -748,6 +748,7 @@ CREATE TABLE users (
 	mfa_recovery_codes text,
 	signup_promo_code text,
 	last_verification_reminder timestamp with time zone,
+	verification_reminders integer NOT NULL DEFAULT 0,
 	failed_login_count integer,
 	login_lockout_expiration timestamp with time zone,
 	PRIMARY KEY ( id )
@@ -1380,6 +1381,7 @@ CREATE TABLE users (
 	mfa_recovery_codes text,
 	signup_promo_code text,
 	last_verification_reminder timestamp with time zone,
+	verification_reminders integer NOT NULL DEFAULT 0,
 	failed_login_count integer,
 	login_lockout_expiration timestamp with time zone,
 	PRIMARY KEY ( id )
@@ -8495,6 +8497,7 @@ type User struct {
 	MfaRecoveryCodes         *string
 	SignupPromoCode          *string
 	LastVerificationReminder *time.Time
+	VerificationReminders    int
 	FailedLoginCount         *int
 	LoginLockoutExpiration   *time.Time
 }
@@ -8522,6 +8525,7 @@ type User_Create_Fields struct {
 	MfaRecoveryCodes         User_MfaRecoveryCodes_Field
 	SignupPromoCode          User_SignupPromoCode_Field
 	LastVerificationReminder User_LastVerificationReminder_Field
+	VerificationReminders    User_VerificationReminders_Field
 	FailedLoginCount         User_FailedLoginCount_Field
 	LoginLockoutExpiration   User_LoginLockoutExpiration_Field
 }
@@ -8550,6 +8554,7 @@ type User_Update_Fields struct {
 	MfaRecoveryCodes         User_MfaRecoveryCodes_Field
 	SignupPromoCode          User_SignupPromoCode_Field
 	LastVerificationReminder User_LastVerificationReminder_Field
+	VerificationReminders    User_VerificationReminders_Field
 	FailedLoginCount         User_FailedLoginCount_Field
 	LoginLockoutExpiration   User_LoginLockoutExpiration_Field
 }
@@ -9224,6 +9229,25 @@ func (f User_LastVerificationReminder_Field) value() interface{} {
 }
 
 func (User_LastVerificationReminder_Field) _Column() string { return "last_verification_reminder" }
+
+type User_VerificationReminders_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func User_VerificationReminders(v int) User_VerificationReminders_Field {
+	return User_VerificationReminders_Field{_set: true, _value: v}
+}
+
+func (f User_VerificationReminders_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_VerificationReminders_Field) _Column() string { return "verification_reminders" }
 
 type User_FailedLoginCount_Field struct {
 	_set   bool
@@ -11228,7 +11252,7 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration")}}
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val, __signup_promo_code_val, __last_verification_reminder_val, __failed_login_count_val, __login_lockout_expiration_val)
@@ -11284,6 +11308,12 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
+	if optional.VerificationReminders._set {
+		__values = append(__values, optional.VerificationReminders.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("verification_reminders"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
 	if len(__optional_columns.SQLs) == 0 {
 		if __columns.SQL == nil {
 			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
@@ -11296,7 +11326,7 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12048,14 +12078,14 @@ func (obj *pgxImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_OauthClient(ctx context.Context,
+func (obj *pgxImpl) CreateNoReturn_OauthClient(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field,
 	oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
 	oauth_client_redirect_url OauthClient_RedirectUrl_Field,
 	oauth_client_user_id OauthClient_UserId_Field,
 	oauth_client_app_name OauthClient_AppName_Field,
 	oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
-	oauth_client *OauthClient, err error) {
+	err error) {
 	defer mon.Task()(&ctx)(&err)
 	__id_val := oauth_client_id.value()
 	__encrypted_secret_val := oauth_client_encrypted_secret.value()
@@ -12064,7 +12094,7 @@ func (obj *pgxImpl) Create_OauthClient(ctx context.Context,
 	__app_name_val := oauth_client_app_name.value()
 	__app_logo_url_val := oauth_client_app_logo_url.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __encrypted_secret_val, __redirect_url_val, __user_id_val, __app_name_val, __app_logo_url_val)
@@ -12072,16 +12102,15 @@ func (obj *pgxImpl) Create_OauthClient(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	oauth_client = &OauthClient{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_client.Id, &oauth_client.EncryptedSecret, &oauth_client.RedirectUrl, &oauth_client.UserId, &oauth_client.AppName, &oauth_client.AppLogoUrl)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return oauth_client, nil
+	return nil
 
 }
 
-func (obj *pgxImpl) Create_OauthCode(ctx context.Context,
+func (obj *pgxImpl) CreateNoReturn_OauthCode(ctx context.Context,
 	oauth_code_client_id OauthCode_ClientId_Field,
 	oauth_code_user_id OauthCode_UserId_Field,
 	oauth_code_scope OauthCode_Scope_Field,
@@ -12092,7 +12121,7 @@ func (obj *pgxImpl) Create_OauthCode(ctx context.Context,
 	oauth_code_created_at OauthCode_CreatedAt_Field,
 	oauth_code_expires_at OauthCode_ExpiresAt_Field,
 	optional OauthCode_Create_Fields) (
-	oauth_code *OauthCode, err error) {
+	err error) {
 	defer mon.Task()(&ctx)(&err)
 	__client_id_val := oauth_code_client_id.value()
 	__user_id_val := oauth_code_user_id.value()
@@ -12105,7 +12134,7 @@ func (obj *pgxImpl) Create_OauthCode(ctx context.Context,
 	__expires_at_val := oauth_code_expires_at.value()
 	__claimed_at_val := optional.ClaimedAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __redirect_url_val, __challenge_val, __challenge_method_val, __code_val, __created_at_val, __expires_at_val, __claimed_at_val)
@@ -12113,16 +12142,15 @@ func (obj *pgxImpl) Create_OauthCode(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	oauth_code = &OauthCode{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_code.ClientId, &oauth_code.UserId, &oauth_code.Scope, &oauth_code.RedirectUrl, &oauth_code.Challenge, &oauth_code.ChallengeMethod, &oauth_code.Code, &oauth_code.CreatedAt, &oauth_code.ExpiresAt, &oauth_code.ClaimedAt)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return oauth_code, nil
+	return nil
 
 }
 
-func (obj *pgxImpl) Create_OauthToken(ctx context.Context,
+func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 	oauth_token_client_id OauthToken_ClientId_Field,
 	oauth_token_user_id OauthToken_UserId_Field,
 	oauth_token_scope OauthToken_Scope_Field,
@@ -12130,7 +12158,7 @@ func (obj *pgxImpl) Create_OauthToken(ctx context.Context,
 	oauth_token_token OauthToken_Token_Field,
 	oauth_token_created_at OauthToken_CreatedAt_Field,
 	oauth_token_expires_at OauthToken_ExpiresAt_Field) (
-	oauth_token *OauthToken, err error) {
+	err error) {
 	defer mon.Task()(&ctx)(&err)
 	__client_id_val := oauth_token_client_id.value()
 	__user_id_val := oauth_token_user_id.value()
@@ -12140,7 +12168,7 @@ func (obj *pgxImpl) Create_OauthToken(ctx context.Context,
 	__created_at_val := oauth_token_created_at.value()
 	__expires_at_val := oauth_token_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
@@ -12148,12 +12176,11 @@ func (obj *pgxImpl) Create_OauthToken(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	oauth_token = &OauthToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_token.ClientId, &oauth_token.UserId, &oauth_token.Scope, &oauth_token.Kind, &oauth_token.Token, &oauth_token.CreatedAt, &oauth_token.ExpiresAt)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return oauth_token, nil
+	return nil
 
 }
 
@@ -12421,7 +12448,7 @@ func (obj *pgxImpl) All_User_By_NormalizedEmail(ctx context.Context,
 	rows []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.normalized_email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.normalized_email = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -12439,7 +12466,7 @@ func (obj *pgxImpl) All_User_By_NormalizedEmail(ctx context.Context,
 
 			for __rows.Next() {
 				user := &User{}
-				err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+				err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -12466,7 +12493,7 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -12490,7 +12517,7 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 			}
 
 			user = &User{}
-			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 			if err != nil {
 				return nil, err
 			}
@@ -12524,7 +12551,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -12533,7 +12560,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -15848,7 +15875,7 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -15969,6 +15996,11 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_verification_reminder = ?"))
 	}
 
+	if update.VerificationReminders._set {
+		__values = append(__values, update.VerificationReminders.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_reminders = ?"))
+	}
+
 	if update.FailedLoginCount._set {
 		__values = append(__values, update.FailedLoginCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_login_count = ?"))
@@ -15992,7 +16024,7 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16853,6 +16885,33 @@ func (obj *pgxImpl) Delete_WebappSession_By_Id(ctx context.Context,
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -17798,7 +17857,7 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration")}}
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __user_agent_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val, __signup_promo_code_val, __last_verification_reminder_val, __failed_login_count_val, __login_lockout_expiration_val)
@@ -17854,6 +17913,12 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
+	if optional.VerificationReminders._set {
+		__values = append(__values, optional.VerificationReminders.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("verification_reminders"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
 	if len(__optional_columns.SQLs) == 0 {
 		if __columns.SQL == nil {
 			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
@@ -17866,7 +17931,7 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -18618,14 +18683,14 @@ func (obj *pgxcockroachImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Create_OauthClient(ctx context.Context,
+func (obj *pgxcockroachImpl) CreateNoReturn_OauthClient(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field,
 	oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
 	oauth_client_redirect_url OauthClient_RedirectUrl_Field,
 	oauth_client_user_id OauthClient_UserId_Field,
 	oauth_client_app_name OauthClient_AppName_Field,
 	oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
-	oauth_client *OauthClient, err error) {
+	err error) {
 	defer mon.Task()(&ctx)(&err)
 	__id_val := oauth_client_id.value()
 	__encrypted_secret_val := oauth_client_encrypted_secret.value()
@@ -18634,7 +18699,7 @@ func (obj *pgxcockroachImpl) Create_OauthClient(ctx context.Context,
 	__app_name_val := oauth_client_app_name.value()
 	__app_logo_url_val := oauth_client_app_logo_url.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING oauth_clients.id, oauth_clients.encrypted_secret, oauth_clients.redirect_url, oauth_clients.user_id, oauth_clients.app_name, oauth_clients.app_logo_url")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_clients ( id, encrypted_secret, redirect_url, user_id, app_name, app_logo_url ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __encrypted_secret_val, __redirect_url_val, __user_id_val, __app_name_val, __app_logo_url_val)
@@ -18642,16 +18707,15 @@ func (obj *pgxcockroachImpl) Create_OauthClient(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	oauth_client = &OauthClient{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_client.Id, &oauth_client.EncryptedSecret, &oauth_client.RedirectUrl, &oauth_client.UserId, &oauth_client.AppName, &oauth_client.AppLogoUrl)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return oauth_client, nil
+	return nil
 
 }
 
-func (obj *pgxcockroachImpl) Create_OauthCode(ctx context.Context,
+func (obj *pgxcockroachImpl) CreateNoReturn_OauthCode(ctx context.Context,
 	oauth_code_client_id OauthCode_ClientId_Field,
 	oauth_code_user_id OauthCode_UserId_Field,
 	oauth_code_scope OauthCode_Scope_Field,
@@ -18662,7 +18726,7 @@ func (obj *pgxcockroachImpl) Create_OauthCode(ctx context.Context,
 	oauth_code_created_at OauthCode_CreatedAt_Field,
 	oauth_code_expires_at OauthCode_ExpiresAt_Field,
 	optional OauthCode_Create_Fields) (
-	oauth_code *OauthCode, err error) {
+	err error) {
 	defer mon.Task()(&ctx)(&err)
 	__client_id_val := oauth_code_client_id.value()
 	__user_id_val := oauth_code_user_id.value()
@@ -18675,7 +18739,7 @@ func (obj *pgxcockroachImpl) Create_OauthCode(ctx context.Context,
 	__expires_at_val := oauth_code_expires_at.value()
 	__claimed_at_val := optional.ClaimedAt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth_codes.client_id, oauth_codes.user_id, oauth_codes.scope, oauth_codes.redirect_url, oauth_codes.challenge, oauth_codes.challenge_method, oauth_codes.code, oauth_codes.created_at, oauth_codes.expires_at, oauth_codes.claimed_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_codes ( client_id, user_id, scope, redirect_url, challenge, challenge_method, code, created_at, expires_at, claimed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __redirect_url_val, __challenge_val, __challenge_method_val, __code_val, __created_at_val, __expires_at_val, __claimed_at_val)
@@ -18683,16 +18747,15 @@ func (obj *pgxcockroachImpl) Create_OauthCode(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	oauth_code = &OauthCode{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_code.ClientId, &oauth_code.UserId, &oauth_code.Scope, &oauth_code.RedirectUrl, &oauth_code.Challenge, &oauth_code.ChallengeMethod, &oauth_code.Code, &oauth_code.CreatedAt, &oauth_code.ExpiresAt, &oauth_code.ClaimedAt)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return oauth_code, nil
+	return nil
 
 }
 
-func (obj *pgxcockroachImpl) Create_OauthToken(ctx context.Context,
+func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 	oauth_token_client_id OauthToken_ClientId_Field,
 	oauth_token_user_id OauthToken_UserId_Field,
 	oauth_token_scope OauthToken_Scope_Field,
@@ -18700,7 +18763,7 @@ func (obj *pgxcockroachImpl) Create_OauthToken(ctx context.Context,
 	oauth_token_token OauthToken_Token_Field,
 	oauth_token_created_at OauthToken_CreatedAt_Field,
 	oauth_token_expires_at OauthToken_ExpiresAt_Field) (
-	oauth_token *OauthToken, err error) {
+	err error) {
 	defer mon.Task()(&ctx)(&err)
 	__client_id_val := oauth_token_client_id.value()
 	__user_id_val := oauth_token_user_id.value()
@@ -18710,7 +18773,7 @@ func (obj *pgxcockroachImpl) Create_OauthToken(ctx context.Context,
 	__created_at_val := oauth_token_created_at.value()
 	__expires_at_val := oauth_token_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING oauth_tokens.client_id, oauth_tokens.user_id, oauth_tokens.scope, oauth_tokens.kind, oauth_tokens.token, oauth_tokens.created_at, oauth_tokens.expires_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO oauth_tokens ( client_id, user_id, scope, kind, token, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
 	__values = append(__values, __client_id_val, __user_id_val, __scope_val, __kind_val, __token_val, __created_at_val, __expires_at_val)
@@ -18718,12 +18781,11 @@ func (obj *pgxcockroachImpl) Create_OauthToken(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	oauth_token = &OauthToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&oauth_token.ClientId, &oauth_token.UserId, &oauth_token.Scope, &oauth_token.Kind, &oauth_token.Token, &oauth_token.CreatedAt, &oauth_token.ExpiresAt)
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return obj.makeErr(err)
 	}
-	return oauth_token, nil
+	return nil
 
 }
 
@@ -18991,7 +19053,7 @@ func (obj *pgxcockroachImpl) All_User_By_NormalizedEmail(ctx context.Context,
 	rows []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.normalized_email = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.normalized_email = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -19009,7 +19071,7 @@ func (obj *pgxcockroachImpl) All_User_By_NormalizedEmail(ctx context.Context,
 
 			for __rows.Next() {
 				user := &User{}
-				err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+				err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 				if err != nil {
 					return nil, err
 				}
@@ -19036,7 +19098,7 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -19060,7 +19122,7 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 			}
 
 			user = &User{}
-			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 			if err != nil {
 				return nil, err
 			}
@@ -19094,7 +19156,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -19103,7 +19165,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -22418,7 +22480,7 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.failed_login_count, users.login_lockout_expiration")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.last_verification_reminder, users.verification_reminders, users.failed_login_count, users.login_lockout_expiration")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -22539,6 +22601,11 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_verification_reminder = ?"))
 	}
 
+	if update.VerificationReminders._set {
+		__values = append(__values, update.VerificationReminders.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("verification_reminders = ?"))
+	}
+
 	if update.FailedLoginCount._set {
 		__values = append(__values, update.FailedLoginCount.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_login_count = ?"))
@@ -22562,7 +22629,7 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.FailedLoginCount, &user.LoginLockoutExpiration)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.LastVerificationReminder, &user.VerificationReminders, &user.FailedLoginCount, &user.LoginLockoutExpiration)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -23423,6 +23490,33 @@ func (obj *pgxcockroachImpl) Delete_WebappSession_By_Id(ctx context.Context,
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM webapp_sessions WHERE webapp_sessions.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, webapp_session_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -24462,6 +24556,59 @@ func (rx *Rx) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 
 }
 
+func (rx *Rx) CreateNoReturn_OauthClient(ctx context.Context,
+	oauth_client_id OauthClient_Id_Field,
+	oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
+	oauth_client_redirect_url OauthClient_RedirectUrl_Field,
+	oauth_client_user_id OauthClient_UserId_Field,
+	oauth_client_app_name OauthClient_AppName_Field,
+	oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_OauthClient(ctx, oauth_client_id, oauth_client_encrypted_secret, oauth_client_redirect_url, oauth_client_user_id, oauth_client_app_name, oauth_client_app_logo_url)
+
+}
+
+func (rx *Rx) CreateNoReturn_OauthCode(ctx context.Context,
+	oauth_code_client_id OauthCode_ClientId_Field,
+	oauth_code_user_id OauthCode_UserId_Field,
+	oauth_code_scope OauthCode_Scope_Field,
+	oauth_code_redirect_url OauthCode_RedirectUrl_Field,
+	oauth_code_challenge OauthCode_Challenge_Field,
+	oauth_code_challenge_method OauthCode_ChallengeMethod_Field,
+	oauth_code_code OauthCode_Code_Field,
+	oauth_code_created_at OauthCode_CreatedAt_Field,
+	oauth_code_expires_at OauthCode_ExpiresAt_Field,
+	optional OauthCode_Create_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_OauthCode(ctx, oauth_code_client_id, oauth_code_user_id, oauth_code_scope, oauth_code_redirect_url, oauth_code_challenge, oauth_code_challenge_method, oauth_code_code, oauth_code_created_at, oauth_code_expires_at, optional)
+
+}
+
+func (rx *Rx) CreateNoReturn_OauthToken(ctx context.Context,
+	oauth_token_client_id OauthToken_ClientId_Field,
+	oauth_token_user_id OauthToken_UserId_Field,
+	oauth_token_scope OauthToken_Scope_Field,
+	oauth_token_kind OauthToken_Kind_Field,
+	oauth_token_token OauthToken_Token_Field,
+	oauth_token_created_at OauthToken_CreatedAt_Field,
+	oauth_token_expires_at OauthToken_ExpiresAt_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_OauthToken(ctx, oauth_token_client_id, oauth_token_user_id, oauth_token_scope, oauth_token_kind, oauth_token_token, oauth_token_created_at, oauth_token_expires_at)
+
+}
+
 func (rx *Rx) CreateNoReturn_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
@@ -24604,59 +24751,6 @@ func (rx *Rx) Create_CouponUsage(ctx context.Context,
 		return
 	}
 	return tx.Create_CouponUsage(ctx, coupon_usage_coupon_id, coupon_usage_amount, coupon_usage_status, coupon_usage_period)
-
-}
-
-func (rx *Rx) Create_OauthClient(ctx context.Context,
-	oauth_client_id OauthClient_Id_Field,
-	oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
-	oauth_client_redirect_url OauthClient_RedirectUrl_Field,
-	oauth_client_user_id OauthClient_UserId_Field,
-	oauth_client_app_name OauthClient_AppName_Field,
-	oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
-	oauth_client *OauthClient, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_OauthClient(ctx, oauth_client_id, oauth_client_encrypted_secret, oauth_client_redirect_url, oauth_client_user_id, oauth_client_app_name, oauth_client_app_logo_url)
-
-}
-
-func (rx *Rx) Create_OauthCode(ctx context.Context,
-	oauth_code_client_id OauthCode_ClientId_Field,
-	oauth_code_user_id OauthCode_UserId_Field,
-	oauth_code_scope OauthCode_Scope_Field,
-	oauth_code_redirect_url OauthCode_RedirectUrl_Field,
-	oauth_code_challenge OauthCode_Challenge_Field,
-	oauth_code_challenge_method OauthCode_ChallengeMethod_Field,
-	oauth_code_code OauthCode_Code_Field,
-	oauth_code_created_at OauthCode_CreatedAt_Field,
-	oauth_code_expires_at OauthCode_ExpiresAt_Field,
-	optional OauthCode_Create_Fields) (
-	oauth_code *OauthCode, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_OauthCode(ctx, oauth_code_client_id, oauth_code_user_id, oauth_code_scope, oauth_code_redirect_url, oauth_code_challenge, oauth_code_challenge_method, oauth_code_code, oauth_code_created_at, oauth_code_expires_at, optional)
-
-}
-
-func (rx *Rx) Create_OauthToken(ctx context.Context,
-	oauth_token_client_id OauthToken_ClientId_Field,
-	oauth_token_user_id OauthToken_UserId_Field,
-	oauth_token_scope OauthToken_Scope_Field,
-	oauth_token_kind OauthToken_Kind_Field,
-	oauth_token_token OauthToken_Token_Field,
-	oauth_token_created_at OauthToken_CreatedAt_Field,
-	oauth_token_expires_at OauthToken_ExpiresAt_Field) (
-	oauth_token *OauthToken, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_OauthToken(ctx, oauth_token_client_id, oauth_token_user_id, oauth_token_scope, oauth_token_kind, oauth_token_token, oauth_token_created_at, oauth_token_expires_at)
 
 }
 
@@ -24984,6 +25078,17 @@ func (rx *Rx) Delete_WebappSession_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_WebappSession_By_Id(ctx, webapp_session_id)
+}
+
+func (rx *Rx) Delete_WebappSession_By_UserId(ctx context.Context,
+	webapp_session_user_id WebappSession_UserId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_WebappSession_By_UserId(ctx, webapp_session_user_id)
+
 }
 
 func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
@@ -26002,6 +26107,38 @@ type Methods interface {
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
 		err error)
 
+	CreateNoReturn_OauthClient(ctx context.Context,
+		oauth_client_id OauthClient_Id_Field,
+		oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
+		oauth_client_redirect_url OauthClient_RedirectUrl_Field,
+		oauth_client_user_id OauthClient_UserId_Field,
+		oauth_client_app_name OauthClient_AppName_Field,
+		oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
+		err error)
+
+	CreateNoReturn_OauthCode(ctx context.Context,
+		oauth_code_client_id OauthCode_ClientId_Field,
+		oauth_code_user_id OauthCode_UserId_Field,
+		oauth_code_scope OauthCode_Scope_Field,
+		oauth_code_redirect_url OauthCode_RedirectUrl_Field,
+		oauth_code_challenge OauthCode_Challenge_Field,
+		oauth_code_challenge_method OauthCode_ChallengeMethod_Field,
+		oauth_code_code OauthCode_Code_Field,
+		oauth_code_created_at OauthCode_CreatedAt_Field,
+		oauth_code_expires_at OauthCode_ExpiresAt_Field,
+		optional OauthCode_Create_Fields) (
+		err error)
+
+	CreateNoReturn_OauthToken(ctx context.Context,
+		oauth_token_client_id OauthToken_ClientId_Field,
+		oauth_token_user_id OauthToken_UserId_Field,
+		oauth_token_scope OauthToken_Scope_Field,
+		oauth_token_kind OauthToken_Kind_Field,
+		oauth_token_token OauthToken_Token_Field,
+		oauth_token_created_at OauthToken_CreatedAt_Field,
+		oauth_token_expires_at OauthToken_ExpiresAt_Field) (
+		err error)
+
 	CreateNoReturn_PeerIdentity(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field,
 		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
@@ -26083,38 +26220,6 @@ type Methods interface {
 		coupon_usage_status CouponUsage_Status_Field,
 		coupon_usage_period CouponUsage_Period_Field) (
 		coupon_usage *CouponUsage, err error)
-
-	Create_OauthClient(ctx context.Context,
-		oauth_client_id OauthClient_Id_Field,
-		oauth_client_encrypted_secret OauthClient_EncryptedSecret_Field,
-		oauth_client_redirect_url OauthClient_RedirectUrl_Field,
-		oauth_client_user_id OauthClient_UserId_Field,
-		oauth_client_app_name OauthClient_AppName_Field,
-		oauth_client_app_logo_url OauthClient_AppLogoUrl_Field) (
-		oauth_client *OauthClient, err error)
-
-	Create_OauthCode(ctx context.Context,
-		oauth_code_client_id OauthCode_ClientId_Field,
-		oauth_code_user_id OauthCode_UserId_Field,
-		oauth_code_scope OauthCode_Scope_Field,
-		oauth_code_redirect_url OauthCode_RedirectUrl_Field,
-		oauth_code_challenge OauthCode_Challenge_Field,
-		oauth_code_challenge_method OauthCode_ChallengeMethod_Field,
-		oauth_code_code OauthCode_Code_Field,
-		oauth_code_created_at OauthCode_CreatedAt_Field,
-		oauth_code_expires_at OauthCode_ExpiresAt_Field,
-		optional OauthCode_Create_Fields) (
-		oauth_code *OauthCode, err error)
-
-	Create_OauthToken(ctx context.Context,
-		oauth_token_client_id OauthToken_ClientId_Field,
-		oauth_token_user_id OauthToken_UserId_Field,
-		oauth_token_scope OauthToken_Scope_Field,
-		oauth_token_kind OauthToken_Kind_Field,
-		oauth_token_token OauthToken_Token_Field,
-		oauth_token_created_at OauthToken_CreatedAt_Field,
-		oauth_token_expires_at OauthToken_ExpiresAt_Field) (
-		oauth_token *OauthToken, err error)
 
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
@@ -26264,6 +26369,10 @@ type Methods interface {
 	Delete_WebappSession_By_Id(ctx context.Context,
 		webapp_session_id WebappSession_Id_Field) (
 		deleted bool, err error)
+
+	Delete_WebappSession_By_UserId(ctx context.Context,
+		webapp_session_user_id WebappSession_UserId_Field) (
+		count int64, err error)
 
 	Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (

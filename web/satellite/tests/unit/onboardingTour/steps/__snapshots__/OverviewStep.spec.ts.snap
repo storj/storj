@@ -2,31 +2,28 @@
 
 exports[`OverviewStep.vue renders correctly 1`] = `
 <div class="overview-area">
-  <div class="overview-area__header"><svg></svg>
-    <h1 aria-roledescription="title" class="overview-area__header__title">Welcome</h1> <svg></svg>
-  </div>
-  <p class="overview-area__subtitle">Let's get you started using Storj</p>
-  <p class="overview-area__question">Do you want to use web browser or command-line interface?</p>
+  <h1 aria-roledescription="title" class="overview-area__title">Welcome to Storj </h1>
+  <p class="overview-area__subtitle">Get started using the web browser, or the command line.</p>
   <div class="overview-area__routes">
-    <div class="overview-container overview-area__routes__left-cont"><svg alt="web" class="overview-container__img"></svg>
-      <h2 class="overview-container__title">Web browser</h2>
+    <div class="overview-container"><svg alt="web" class="overview-container__img"></svg>
       <p aria-roledescription="server-side-encryption-title" class="overview-container__enc">Server-side encrypted</p>
+      <h2 class="overview-container__title">Start with web browser</h2>
       <p class="overview-container__info">Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world.</p>
+      <div class="container" style="width: 240px; height: 48px; border-radius: 8px; font-size: 16px;"> <span class="label">Continue in web -&gt;</span></div>
       <p class="overview-container__encryption-container">
         By using the web browser you are opting in to
         <a href="https://docs.storj.io/concepts/encryption-key/design-decision-server-side-encryption" target="_blank" rel="noopener noreferrer" aria-roledescription="server-side-encryption-link" class="overview-container__encryption-container__link">server-side encryption</a>.
       </p>
-      <div class="container" style="width: 100%; height: 64px; border-radius: 62px; font-size: 16px;"> <span class="label uppercase">Continue in web</span></div>
     </div>
     <div class="overview-container"><svg alt="cli" class="overview-container__img"></svg>
-      <h2 class="overview-container__title">Command line</h2>
       <p aria-roledescription="end-to-end-encryption-title" class="overview-container__enc">End-to-end encrypted</p>
-      <p class="overview-container__info">The Uplink CLI is a command-line interface which allows you to upload and download files from the network, manage permissions and sharing.</p>
+      <h2 class="overview-container__title">Start with Uplink CLI</h2>
+      <p class="overview-container__info">The Uplink CLI is a command-line interface tool which allows you to upload and download files from the network, manage permissions and share files.</p>
+      <div class="container" style="width: 240px; height: 48px; border-radius: 8px; font-size: 16px;"> <span class="label">Continue in cli -&gt;</span></div>
       <p class="overview-container__encryption-container">
         The Uplink CLI uses
-        <a href="https://docs.storj.io/concepts/encryption-key/design-decision-end-to-end-encryption" target="_blank" rel="noopener noreferrer" aria-roledescription="end-to-end-encryption-link" class="overview-container__encryption-container__link">end-to-end</a> encryption for object data, metadata and path data.
+        <a href="https://docs.storj.io/concepts/encryption-key/design-decision-end-to-end-encryption" target="_blank" rel="noopener noreferrer" aria-roledescription="end-to-end-encryption-link" class="overview-container__encryption-container__link">end-to-end encryption</a> for object data, metadata and path data.
       </p>
-      <div class="container" style="width: 100%; height: 64px; border-radius: 62px; font-size: 16px;"> <span class="label uppercase">Continue in cli</span></div>
     </div>
   </div> <a href="/project-dashboard" class="overview-area__skip-button">
     Skip and go directly to dashboard

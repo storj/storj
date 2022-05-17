@@ -5,28 +5,51 @@ package ulfs
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplink/ulloc"
 )
 
+// LocalBackendFile represents a file in the filesystem.
+type LocalBackendFile interface {
+	io.Closer
+	io.ReaderAt
+	io.WriterAt
+	Name() string
+	Stat() (os.FileInfo, error)
+	Readdir(int) ([]os.FileInfo, error)
+}
+
+// LocalBackend abstracts what the Local filesystem interacts with.
+type LocalBackend interface {
+	Create(name string) (LocalBackendFile, error)
+	MkdirAll(path string, perm os.FileMode) error
+	Open(name string) (LocalBackendFile, error)
+	Remove(name string) error
+	Rename(oldname, newname string) error
+	Stat(name string) (os.FileInfo, error)
+}
+
 // Local implements something close to a filesystem but backed by the local disk.
-type Local struct{}
+type Local struct {
+	fs LocalBackend
+}
 
 // NewLocal constructs a Local filesystem.
-func NewLocal() *Local {
-	return &Local{}
+func NewLocal(fs LocalBackend) *Local {
+	return &Local{
+		fs: fs,
+	}
 }
 
 // Open returns a read ReadHandle for the given local path.
 func (l *Local) Open(ctx context.Context, path string) (MultiReadHandle, error) {
-	fh, err := os.Open(path)
+	fh, err := l.fs.Open(path)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -35,28 +58,28 @@ func (l *Local) Open(ctx context.Context, path string) (MultiReadHandle, error) 
 
 // Create makes any directories necessary to create a file at path and returns a WriteHandle.
 func (l *Local) Create(ctx context.Context, path string) (MultiWriteHandle, error) {
-	fi, err := os.Stat(path)
+	fi, err := l.fs.Stat(path)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, errs.Wrap(err)
 	} else if err == nil && fi.IsDir() {
 		return nil, errs.New("path exists as a directory already")
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := l.fs.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
 	// TODO: atomic rename
-	fh, err := os.Create(path)
+	fh, err := l.fs.Create(path)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	return newOSMultiWriteHandle(fh), nil
+	return newOSMultiWriteHandle(l.fs, fh), nil
 }
 
 // Move moves file to provided path.
 func (l *Local) Move(ctx context.Context, oldpath, newpath string) error {
-	return os.Rename(oldpath, newpath)
+	return l.fs.Rename(oldpath, newpath)
 }
 
 // Copy copies file to provided path.
@@ -70,7 +93,7 @@ func (l *Local) Remove(ctx context.Context, path string, opts *RemoveOptions) er
 		return nil
 	}
 
-	if err := os.Remove(path); os.IsNotExist(err) {
+	if err := l.fs.Remove(path); os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
 		return err
@@ -86,20 +109,13 @@ func (l *Local) List(ctx context.Context, path string, opts *ListOptions) (Objec
 		return emptyObjectIterator{}, nil
 	}
 
-	prefix := path
-	if idx := strings.LastIndex(path, "/"); idx >= 0 {
-		prefix = path[:idx+1]
-	}
+	prefix := filepath.Clean(path) + string(filepath.Separator)
 
-	prefix, err := filepath.Abs(prefix)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	prefix += string(filepath.Separator)
-
+	var err error
 	var files []os.FileInfo
+
 	if opts.isRecursive() {
-		err = filepath.Walk(prefix, func(path string, info os.FileInfo, err error) error {
+		err = walk(l.fs, filepath.Clean(path), func(path string, info os.FileInfo, err error) error {
 			if err == nil && !info.IsDir() {
 				rel, err := filepath.Rel(prefix, path)
 				if err != nil {
@@ -113,10 +129,13 @@ func (l *Local) List(ctx context.Context, path string, opts *ListOptions) (Objec
 			return nil
 		})
 	} else {
-		files, err = ioutil.ReadDir(prefix)
+		files, err = readdir(l.fs, prefix, -1)
+		if os.IsNotExist(err) {
+			return emptyObjectIterator{}, nil
+		}
 	}
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	sort.Slice(files, func(i, j int) bool {
@@ -146,7 +165,7 @@ func (l *Local) List(ctx context.Context, path string, opts *ListOptions) (Objec
 
 // IsLocalDir returns true if the path is a directory.
 func (l *Local) IsLocalDir(ctx context.Context, path string) bool {
-	fi, err := os.Stat(path)
+	fi, err := l.fs.Stat(path)
 	if err != nil {
 		return false
 	}
@@ -155,7 +174,7 @@ func (l *Local) IsLocalDir(ctx context.Context, path string) bool {
 
 // Stat returns an ObjectInfo describing the provided path.
 func (l *Local) Stat(ctx context.Context, path string) (*ObjectInfo, error) {
-	fi, err := os.Stat(path)
+	fi, err := l.fs.Stat(path)
 	if err != nil {
 		return nil, err
 	}
@@ -202,4 +221,56 @@ func (fi *fileinfoObjectIterator) Item() ObjectInfo {
 		Created:       fi.current.ModTime(), // TODO: use real crtime
 		ContentLength: fi.current.Size(),
 	}
+}
+
+func walk(fs LocalBackend, path string, cb func(path string, info os.FileInfo, err error) error) error {
+	info, err := fs.Stat(path)
+	if err != nil {
+		return cb(path, nil, err)
+	}
+	return walkHelper(fs, path, info, cb)
+}
+
+func walkHelper(fs LocalBackend, path string, info os.FileInfo, cb func(path string, info os.FileInfo, err error) error) error {
+	if !info.IsDir() {
+		return cb(path, info, nil)
+	}
+
+	infos, err := readdir(fs, path, -1)
+	err1 := cb(path, info, err)
+	if err != nil || err1 != nil {
+		return err1
+	}
+
+	for _, info := range infos {
+		filename := filepath.Join(path, info.Name())
+		fileInfo, err := fs.Stat(filename)
+		if err != nil {
+			if err := cb(filename, fileInfo, err); err != nil {
+				return err
+			}
+		} else {
+			err := walkHelper(fs, filename, fileInfo, cb)
+			if err != nil && !fileInfo.IsDir() {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func readdir(fs LocalBackend, path string, n int) ([]os.FileInfo, error) {
+	f, err := fs.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	list, err := f.Readdir(n)
+	_ = f.Close()
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Name() < list[j].Name()
+	})
+	return list, nil
 }

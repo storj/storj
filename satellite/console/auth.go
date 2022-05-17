@@ -5,7 +5,6 @@ package console
 
 import (
 	"context"
-	"encoding/base64"
 
 	"github.com/zeebo/errs"
 
@@ -13,24 +12,6 @@ import (
 )
 
 // TODO: change to JWT or Macaroon based auth
-
-// Signer creates signature for provided data.
-type Signer interface {
-	Sign(data []byte) ([]byte, error)
-}
-
-// signToken signs token with given signer.
-func signToken(token *consoleauth.Token, signer Signer) error {
-	encoded := base64.URLEncoding.EncodeToString(token.Payload)
-
-	signature, err := signer.Sign([]byte(encoded))
-	if err != nil {
-		return err
-	}
-
-	token.Signature = signature
-	return nil
-}
 
 // key is a context value key type.
 type key int

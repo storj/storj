@@ -12,7 +12,7 @@
                 <p>{{ requestErr }}</p>
             </div>
             <div v-else class="authorize-area__content-area__container">
-                <p class="authorize-area__content-area__client-app-logo">
+                <p v-if="client.appLogoURL" class="authorize-area__content-area__client-app-logo">
                     <img :alt="client.appName" :src="client.appLogoURL">
                 </p>
 

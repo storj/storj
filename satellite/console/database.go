@@ -5,6 +5,8 @@ package console
 
 import (
 	"context"
+
+	"storj.io/storj/satellite/console/consoleauth"
 )
 
 // DB contains access to different satellite databases.
@@ -23,6 +25,8 @@ type DB interface {
 	RegistrationTokens() RegistrationTokens
 	// ResetPasswordTokens is a getter for ResetPasswordTokens repository.
 	ResetPasswordTokens() ResetPasswordTokens
+	// WebappSessions is a getter for WebappSessions repository.
+	WebappSessions() consoleauth.WebappSessions
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error

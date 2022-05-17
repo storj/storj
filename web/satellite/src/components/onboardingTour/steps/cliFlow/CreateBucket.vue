@@ -12,7 +12,7 @@
         </template>
         <template #content class="create-bucket">
             <p class="create-bucket__msg">
-                Let's create a bucket to store your data.
+                Let's create a bucket to store your data.<br><br>
                 You can name your bucket using only lowercase alphanumeric characters (no spaces), like “cakes”.
             </p>
             <OSContainer>
@@ -72,10 +72,10 @@ export default class CreateBucket extends Vue {
         font-family: 'font_regular', sans-serif;
 
         &__msg {
-            font-size: 18px;
-            line-height: 32px;
-            letter-spacing: 0.15px;
-            color: #4e4b66;
+            font-size: 16px;
+            line-height: 24px;
+            color: #1b2533;
+            margin-bottom: 20px;
         }
     }
 </style>

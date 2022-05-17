@@ -107,6 +107,11 @@ func (o *GenericMultiReadHandle) Info(ctx context.Context) (*ObjectInfo, error) 
 	return &info, nil
 }
 
+// Length returns the size of the object.
+func (o *GenericMultiReadHandle) Length() int64 {
+	return o.info.ContentLength
+}
+
 type genericReadHandle struct {
 	r    GenericReader
 	info ObjectInfo

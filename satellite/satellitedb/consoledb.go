@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/lrucache"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -66,6 +67,11 @@ func (db *ConsoleDB) RegistrationTokens() console.RegistrationTokens {
 // ResetPasswordTokens is a getter for ResetPasswordTokens repository.
 func (db *ConsoleDB) ResetPasswordTokens() console.ResetPasswordTokens {
 	return &resetPasswordTokens{db.methods}
+}
+
+// WebappSessions is a getter for WebappSessions repository.
+func (db *ConsoleDB) WebappSessions() consoleauth.WebappSessions {
+	return &webappSessions{db.methods}
 }
 
 // WithTx is a method for executing and retrying transaction.

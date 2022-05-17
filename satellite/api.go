@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -142,9 +143,10 @@ type API struct {
 	}
 
 	Console struct {
-		Listener net.Listener
-		Service  *console.Service
-		Endpoint *consoleweb.Server
+		Listener   net.Listener
+		Service    *console.Service
+		Endpoint   *consoleweb.Server
+		AuthTokens *consoleauth.Service
 	}
 
 	Marketing struct {
@@ -514,7 +516,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				ServerAddress: mailConfig.SMTPServerAddress,
 			}
 		default:
-			sender = simulate.NewDefaultLinkClicker()
+			sender = simulate.NewDefaultLinkClicker(peer.Log.Named("mail:linkclicker"))
 		}
 
 		peer.Mail.Service, err = mailservice.New(
@@ -591,9 +593,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
+		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.REST.Keys,
 			peer.DB.ProjectAccounting(),
@@ -602,6 +605,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			peer.Analytics.Service,
+			peer.Console.AuthTokens,
 			consoleConfig.Config,
 		)
 		if err != nil {
@@ -694,10 +698,15 @@ func (peer *API) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	pprof.Do(ctx, pprof.Labels("subsystem", "api"), func(ctx context.Context) {
+		peer.Servers.Run(ctx, group)
+		peer.Services.Run(ctx, group)
 
-	return group.Wait()
+		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+			err = group.Wait()
+		})
+	})
+	return err
 }
 
 // Close closes all the resources.

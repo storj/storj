@@ -603,7 +603,7 @@ func TestResetPassword(t *testing.T) {
 		require.True(t, console.ErrRecoveryToken.Has(err))
 
 		// Expect error when providing good but expired token.
-		err = service.ResetPassword(ctx, token.Secret.String(), newPass, "", "", token.CreatedAt.Add(sat.Config.Console.TokenExpirationTime).Add(time.Second))
+		err = service.ResetPassword(ctx, token.Secret.String(), newPass, "", "", token.CreatedAt.Add(sat.Config.ConsoleAuth.TokenExpirationTime).Add(time.Second))
 		require.True(t, console.ErrTokenExpiration.Has(err))
 
 		// Expect error when providing good token with bad (too short) password.

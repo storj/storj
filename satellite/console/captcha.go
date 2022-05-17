@@ -15,27 +15,47 @@ import (
 )
 
 const recaptchaAPIURL = "https://www.google.com/recaptcha/api/siteverify"
+const hcaptchaAPIURL = "https://hcaptcha.com/siteverify"
 
-// RecaptchaHandler is responsible for contacting the reCAPTCHA API
+// CaptchaHandler is responsible for contacting a captcha API
 // and returning whether the user response characterized by the given
 // response token and IP is valid.
-type RecaptchaHandler interface {
+type CaptchaHandler interface {
 	Verify(ctx context.Context, responseToken string, userIP string) (bool, error)
 }
 
-// googleRecaptcha is a reCAPTCHA handler that contacts Google's reCAPTCHA API.
-type googleRecaptcha struct {
+// CaptchaType is a type of captcha.
+type CaptchaType int
+
+const (
+	// Recaptcha is the type for reCAPTCHA.
+	Recaptcha CaptchaType = iota
+	// Hcaptcha is the type for hCaptcha.
+	Hcaptcha
+)
+
+// captchaHandler is a captcha handler that contacts a reCAPTCHA or hCaptcha API.
+type captchaHandler struct {
 	SecretKey string
+	Endpoint  string
 }
 
-// NewDefaultRecaptcha returns a reCAPTCHA handler that contacts Google's reCAPTCHA API.
-func NewDefaultRecaptcha(secretKey string) RecaptchaHandler {
-	return googleRecaptcha{SecretKey: secretKey}
+// NewDefaultCaptcha returns a captcha handler that contacts a reCAPTCHA or hCaptcha API.
+func NewDefaultCaptcha(kind CaptchaType, secretKey string) CaptchaHandler {
+	handler := captchaHandler{SecretKey: secretKey}
+	switch kind {
+	case Recaptcha:
+		handler.Endpoint = recaptchaAPIURL
+	case Hcaptcha:
+		handler.Endpoint = hcaptchaAPIURL
+	}
+	return handler
 }
 
-// Verify contacts the reCAPTCHA API and returns whether the given response token is valid.
-// The documentation can be found here: https://developers.google.com/recaptcha/docs/verify
-func (r googleRecaptcha) Verify(ctx context.Context, responseToken string, userIP string) (valid bool, err error) {
+// Verify contacts the captcha API and returns whether the given response token is valid.
+// The documentation can be found here for recaptcha: https://developers.google.com/recaptcha/docs/verify
+// And here for hcaptcha: https://docs.hcaptcha.com/
+func (r captchaHandler) Verify(ctx context.Context, responseToken string, userIP string) (valid bool, err error) {
 	if responseToken == "" {
 		return false, errs.New("the response token is empty")
 	}
@@ -49,7 +69,7 @@ func (r googleRecaptcha) Verify(ctx context.Context, responseToken string, userI
 		"remoteip": {userIP},
 	}.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, recaptchaAPIURL, strings.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.Endpoint, strings.NewReader(reqBody))
 	if err != nil {
 		return false, err
 	}

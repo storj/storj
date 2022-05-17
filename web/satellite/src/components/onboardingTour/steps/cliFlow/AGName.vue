@@ -6,7 +6,7 @@
         :on-back-click="onBackClick"
         :on-next-click="onNextClick"
         :is-loading="isLoading"
-        title="Lets Create an Access Grant"
+        title="Create an Access Grant"
     >
         <template #icon>
             <Icon />
@@ -34,6 +34,7 @@ import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
 import HeaderedInput from "@/components/common/HeaderedInput.vue";
+
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
 // @vue/component
@@ -65,7 +66,7 @@ export default class AGName extends Vue {
     public async onBackClick(): Promise<void> {
         this.backRoute ?
             await this.$router.push(this.backRoute).catch(() => {return; }) :
-            await this.$router.push(RouteConfig.ProjectDashboard.path);
+            await this.$router.push({name: RouteConfig.OverviewStep.name});
     }
 
     /**
@@ -85,18 +86,18 @@ export default class AGName extends Vue {
         let createdAccessGrant: AccessGrant;
         try {
             createdAccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.name);
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
 
+            await this.$notify.success("New clean access grant was generated successfully.");
+        } catch {
             return;
+        } finally {
+            this.isLoading = false;
         }
 
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY, createdAccessGrant.secret);
         this.name = '';
-        this.isLoading = false;
 
-        await this.$router.push({name: RouteConfig.AGPermissions.name,});
+        await this.$router.push({name: RouteConfig.AGPermissions.name});
     }
 
     /**
@@ -113,11 +114,10 @@ export default class AGName extends Vue {
         font-family: 'font_regular', sans-serif;
 
         &__msg {
-            font-size: 18px;
-            line-height: 32px;
-            letter-spacing: 0.15px;
+            font-size: 16px;
+            line-height: 24px;
             color: #4e4b66;
-            margin: 10px 0 30px;
+            margin-bottom: 20px;
         }
     }
 </style>
