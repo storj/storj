@@ -162,7 +162,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:               req.Bucket,
 		EncryptedObjectKey:   req.EncryptedPath,
-		Version:              int32(object.Version),
+		Version:              int64(object.Version),
 		CreationDate:         object.CreatedAt,
 		ExpirationDate:       req.ExpiresAt,
 		StreamId:             streamID[:],
@@ -1126,7 +1126,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:             []byte(object.BucketName),
 		EncryptedObjectKey: []byte(object.ObjectKey),
-		Version:            int32(object.Version), // TODO incompatible types
+		Version:            int64(object.Version),
 		CreationDate:       object.CreatedAt,
 		ExpirationDate:     expires,
 		StreamId:           object.StreamID[:],
@@ -1268,7 +1268,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 			Bucket:             bucket,
 			EncryptedObjectKey: append([]byte(prefixToPrependInSatStreamID), item.EncryptedPath...),
-			Version:            item.Version,
+			Version:            int64(item.Version),
 			CreationDate:       item.CreatedAt,
 			ExpirationDate:     item.ExpiresAt,
 			StreamId:           entry.StreamID[:],
@@ -1534,7 +1534,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
-		Version:            int32(metabase.DefaultVersion),
+		Version:            int64(metabase.DefaultVersion),
 		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
@@ -1763,7 +1763,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
-		Version:            int32(metabase.DefaultVersion),
+		Version:            int64(metabase.DefaultVersion),
 		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
