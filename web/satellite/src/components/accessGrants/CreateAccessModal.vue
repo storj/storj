@@ -324,7 +324,7 @@
                     <h2 class="access-grant__modal-container__header-container__title-complete">{{ accessName }} Created</h2>
                 </div>
                 <div class="access-grant__modal-container__body-container__created"> 
-                    <p>Now copy and save the {{ checkedText[checkedType] }} as they will only appear once.</p>
+                    <p>Now copy and save the {{ checkedText[checkedType][0] }} will only appear once. Click on the {{checkedText[checkedType][1]}}</p>
                 </div>
                 <div v-if="checkedType === 'access'">
                     <div class="access-grant__modal-container__generated-credentials__label">
@@ -463,8 +463,8 @@
                         >
                     </div>
                 </div>
-                <div class="access-grant__modal-container__credential-buttons__container"
-                v-if="checkedType !== 'access'"
+                <div class="access-grant__modal-container__credential-buttons__container-s3"
+                v-if="checkedType === 's3'"
                 >
                     <a 
                         v-if="checkedType === 's3'"
@@ -481,15 +481,6 @@
                         />
                     </a>
                     <v-button
-                        v-if="checkedType === 'api'"
-                        label="Set up in the CLI"
-                        width="150px"
-                        height="50px"
-                        is-transparent="true"
-                        font-size="16px"
-                        class="access-grant__modal-container__footer-container__learn-more-button"
-                    />
-                    <v-button
                         label="Download .txt"
                         font-size="16px"
                         width="182px"
@@ -499,8 +490,8 @@
                         :on-press="downloadCredentials"
                     />
                 </div>
-                <div class="access-grant__modal-container__credential-buttons__container-access"
-                v-if="checkedType === 'access'"
+                <div class="access-grant__modal-container__credential-buttons__container"
+                v-if="checkedType !== 's3'"
                 >
                     <v-button
                         label="Download .txt"
@@ -590,7 +581,7 @@ export default class CreateAccessModal extends Vue {
      * Stores access type that is selected and text changes based on type.
      */
     private checkedType = '';
-    private checkedText = {access: 'Access Grant', s3: 'S3 credentials',api: 'Satellite Address and API Key'};
+    private checkedText = {access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.']};
     private areCredentialsDownloaded = false;
 
     /**
@@ -1077,13 +1068,13 @@ export default class CreateAccessModal extends Vue {
 
             &__credential-buttons {
 
-                &__container {
+                &__container-s3 {
                     display: flex;
                     justify-content: space-between;
                     margin: 15px 0;
                 }
                 
-                &__container-access {
+                &__container {
                     display: flex;
                     justify-content: center;
                     margin: 15px 0;
@@ -1379,6 +1370,7 @@ export default class CreateAccessModal extends Vue {
     }
 
     .tooltip-icon {
+        display: flex;
         width: 14px;
         height: 14px;
         cursor: pointer;

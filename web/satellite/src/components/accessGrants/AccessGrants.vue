@@ -385,7 +385,7 @@ export default class AccessGrants extends Vue {
         display: inline-block;
         padding: 28px;
         width: 26%;
-        height: 167px;
+        height: auto;
         background: #fff;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         border-radius: 10px;
@@ -435,17 +435,19 @@ export default class AccessGrants extends Vue {
             }
 
             &__learn-button {
-                margin-right: 2%;
+                margin: 2px 2% 0 0;
                 padding: 0 10px;
             }
 
             &__create-button {
                 padding: 0 10px;
+                margin-top: 2px;
             }
 
             &__button-container {
                 display: flex;
-                margin-top: 10px;
+                margin-top: 8px;
+                flex-wrap: wrap;
             }
 
             &__summary {
