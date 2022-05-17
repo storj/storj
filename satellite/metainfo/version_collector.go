@@ -24,7 +24,7 @@ const download = transfer("download")
 
 var knownUserAgents = []string{
 	"rclone", "gateway-st", "gateway-mt", "linksharing", "uplink-cli", "transfer-sh", "filezilla", "duplicati",
-	"comet", "orbiter", "uplink-php", "nextcloud", "aws-cli",
+	"comet", "orbiter", "uplink-php", "nextcloud", "aws-cli", "ipfs-go-ds-storj",
 }
 
 type versionOccurrence struct {
