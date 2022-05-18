@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -14,9 +15,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 	"golang.org/x/term"
+
+	"storj.io/common/rpc/rpctracing"
 )
 
 type external struct {
@@ -43,6 +47,10 @@ type external struct {
 		loaded      bool              // true if we've successfully loaded access.json
 		defaultName string            // default access name to use from accesses
 		accesses    map[string]string // map of all of the stored accesses
+	}
+
+	tracing struct {
+		traceID int64 // if non-zero, sends up a trace with the given id
 	}
 }
 
@@ -74,7 +82,17 @@ func (ex *external) Setup(f clingy.Flags) {
 		clingy.Advanced,
 	).(string)
 
+	ex.tracing.traceID = f.Flag(
+		"trace-id", "Specify a trace id to send a trace to somewhere", int64(0),
+		clingy.Transform(transformInt64),
+		clingy.Advanced,
+	).(int64)
+
 	ex.dirs.loaded = true
+}
+
+func transformInt64(x string) (int64, error) {
+	return strconv.ParseInt(x, 0, 64)
 }
 
 func (ex *external) AccessInfoFile() string   { return filepath.Join(ex.dirs.current, "access.json") }
@@ -108,7 +126,7 @@ func (ex *external) Dynamic(name string) (vals []string, err error) {
 }
 
 // Wrap is called by clingy with the command to be executed.
-func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) error {
+func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) (err error) {
 	if err := ex.migrate(); err != nil {
 		return err
 	}
@@ -120,8 +138,39 @@ func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) error {
 			return err
 		}
 	}
-	return cmd.Execute(ctx)
+
+	ctxWrapped := ctx
+
+	if ex.tracing.traceID != 0 {
+		// TODO: set up the tracing collector here as well to send up the
+		// traces that we generate. must be done before the RemoteTrace call.
+
+		trace := monkit.NewTrace(ex.tracing.traceID)
+		trace.Set(rpctracing.Sampled, true)
+
+		var baseContext context.Context = ctx
+		defer mon.Func().RemoteTrace(&baseContext, monkit.NewId(), trace)(&err)
+
+		ctxWrapped = &clingyWrapper{
+			Context: baseContext,
+			clx:     ctx,
+		}
+	}
+
+	return cmd.Execute(ctxWrapped)
 }
+
+// clingyWrapper lets one swap out the context.Context in a clingy.Context.
+type clingyWrapper struct {
+	context.Context
+	clx clingy.Context
+}
+
+func (cw *clingyWrapper) Read(p []byte) (int, error)  { return cw.clx.Read(p) }
+func (cw *clingyWrapper) Write(p []byte) (int, error) { return cw.clx.Write(p) }
+func (cw *clingyWrapper) Stdin() io.Reader            { return cw.clx.Stdin() }
+func (cw *clingyWrapper) Stdout() io.Writer           { return cw.clx.Stdout() }
+func (cw *clingyWrapper) Stderr() io.Writer           { return cw.clx.Stderr() }
 
 // PromptInput gets a line of input text from the user and returns an error if
 // interactive mode is disabled.
