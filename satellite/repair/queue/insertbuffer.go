@@ -5,7 +5,11 @@ package queue
 
 import (
 	"context"
+
+	"github.com/spacemonkeygo/monkit/v3"
 )
+
+var mon = monkit.Package()
 
 // InsertBuffer exposes a synchronous API to buffer a batch of segments
 // and insert them at once. Not threadsafe. Call Flush() before discarding.
@@ -56,6 +60,8 @@ func (r *InsertBuffer) Insert(
 
 // Flush inserts the remaining segments into the database.
 func (r *InsertBuffer) Flush(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	newlyInsertedSegments, err := r.queue.InsertBatch(ctx, r.batch)
 	if err != nil {
 		return err

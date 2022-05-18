@@ -36,6 +36,7 @@ type cmdCp struct {
 	progress  bool
 	byteRange string
 	expires   time.Time
+	metadata  map[string]string
 
 	parallelism          int
 	parallelismChunkSize memory.Size
@@ -43,6 +44,8 @@ type cmdCp struct {
 	source ulloc.Location
 	dest   ulloc.Location
 }
+
+const maxPartCount int64 = 10000
 
 func newCmdCp(ex ulext.External) *cmdCp {
 	return &cmdCp{ex: ex}
@@ -82,11 +85,11 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 			return n, nil
 		}),
 	).(int)
-	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Controls the size of the chunks for parallelism", 64*memory.MiB,
+	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Set the size of the chunks for parallelism, 0 means automatic adjustment", memory.Size(0),
 		clingy.Transform(memory.ParseString),
 		clingy.Transform(func(n int64) (memory.Size, error) {
-			if memory.Size(n) < 1*memory.MB {
-				return 0, errs.New("file chunk size must be at least 1 MB")
+			if n < 0 {
+				return 0, errs.New("parallelism-chunk-size cannot be below 0")
 			}
 			return memory.Size(n), nil
 		}),
@@ -95,6 +98,10 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	c.expires = params.Flag("expires",
 		"Schedule removal after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
 		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
+
+	c.metadata = params.Flag("metadata",
+		"optional metadata for the object. Please use a single level JSON object of string to string only",
+		nil, clingy.Transform(parseJSON), clingy.Type("string")).(map[string]string)
 
 	c.source = params.Arg("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 	c.dest = params.Arg("dest", "Destination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
@@ -232,7 +239,10 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 	}
 	defer func() { _ = mrh.Close() }()
 
-	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{Expires: c.expires})
+	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{
+		Expires:  c.expires,
+		Metadata: c.metadata,
+	})
 	if err != nil {
 		return err
 	}
@@ -244,13 +254,35 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 		defer bar.Finish()
 	}
 
+	partSize, err := c.calculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64())
+	if err != nil {
+		return err
+	}
+
 	return errs.Wrap(parallelCopy(
 		ctx,
 		mwh, mrh,
-		c.parallelism, c.parallelismChunkSize.Int64(),
+		c.parallelism, partSize,
 		offset, length,
 		bar,
 	))
+}
+
+// calculatePartSize returns the needed part size in order to upload the file with size of 'length'.
+// It hereby respects if the client requests/prefers a certain size and only increases if needed.
+// If length is -1 (ie. stdin input), then this will limit to 64MiB and the total file length to 640GB.
+func (c *cmdCp) calculatePartSize(length, preferredSize int64) (requiredSize int64, err error) {
+	segC := (length / maxPartCount / (memory.MiB * 64).Int64()) + 1
+	requiredSize = segC * (memory.MiB * 64).Int64()
+	switch {
+	case preferredSize == 0:
+		return requiredSize, nil
+	case requiredSize <= preferredSize:
+		return preferredSize, nil
+	default:
+		return 0, errs.New(fmt.Sprintf("the specified chunk size %s is too small, requires %s or larger",
+			memory.FormatBytes(preferredSize), memory.FormatBytes(requiredSize)))
+	}
 }
 
 func copyVerb(source, dest ulloc.Location) string {

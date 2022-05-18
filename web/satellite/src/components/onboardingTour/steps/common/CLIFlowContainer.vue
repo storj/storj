@@ -8,18 +8,15 @@
         <slot name="content" />
         <div class="flow-container__buttons">
             <VButton
-                class="flow-container__buttons__back"
-                label="< Back"
-                height="64px"
-                border-radius="52px"
-                is-grey-blue="true"
+                label="Back"
+                height="48px"
+                is-white="true"
                 :on-press="onBackClick"
                 :is-disabled="isLoading"
             />
             <VButton
-                label="Next >"
-                height="64px"
-                border-radius="52px"
+                label="Continue ->"
+                height="48px"
                 :on-press="onNextClick"
                 :is-disabled="isLoading"
             />
@@ -57,14 +54,17 @@ export default class CLIFlowContainer extends Vue {
         box-shadow: 0 0 32px rgb(0 0 0 / 4%);
         border-radius: 20px;
         padding: 48px;
-        max-width: 500px;
+        max-width: 484px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
 
         &__title {
             margin: 20px 0;
             font-family: 'font_Bold', sans-serif;
-            font-size: 48px;
-            line-height: 56px;
-            letter-spacing: 1px;
+            font-size: 28px;
+            line-height: 36px;
+            text-align: center;
             color: #14142b;
         }
 
@@ -72,11 +72,8 @@ export default class CLIFlowContainer extends Vue {
             display: flex;
             align-items: center;
             width: 100%;
-            margin-top: 48px;
-
-            &__back {
-                margin-right: 24px;
-            }
+            margin-top: 34px;
+            column-gap: 24px;
         }
     }
 </style>

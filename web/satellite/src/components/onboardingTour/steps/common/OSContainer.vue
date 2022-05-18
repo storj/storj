@@ -114,7 +114,8 @@ export default class OSContainer extends Vue {
 <style scoped lang="scss">
     .os {
         font-family: 'font_regular', sans-serif;
-        margin: 20px 0;
+        margin-top: 20px;
+        width: 100%;
 
         &__tabs {
             display: inline-flex;

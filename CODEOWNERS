@@ -1,0 +1,4 @@
+
+satellite/{metabase,metainfo,repair,gracefulexit} @mniewrzal @Fadila82 @Qweder93 @Erikvv
+cmd/{storagenode,storagenode-updater,multinode} @profclems
+{multinode,storagenode} @profclems

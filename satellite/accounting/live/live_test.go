@@ -132,7 +132,7 @@ func TestGetAllProjectTotals(t *testing.T) {
 				projectIDs[i] = testrand.UUID()
 				err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i))
 				require.NoError(t, err)
-				err = cache.UpdateProjectSegmentUsage(ctx, projectIDs[i], int64(i), time.Hour)
+				err = cache.UpdateProjectSegmentUsage(ctx, projectIDs[i], int64(i))
 				require.NoError(t, err)
 			}
 

@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/mail"
-	"net/smtp"
 	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -27,8 +25,6 @@ import (
 	"storj.io/private/debug"
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -43,7 +39,6 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
@@ -143,9 +138,10 @@ type API struct {
 	}
 
 	Console struct {
-		Listener net.Listener
-		Service  *console.Service
-		Endpoint *consoleweb.Server
+		Listener   net.Listener
+		Service    *console.Service
+		Endpoint   *consoleweb.Server
+		AuthTokens *consoleauth.Service
 	}
 
 	Marketing struct {
@@ -463,66 +459,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup mailservice
-		// TODO(yar): test multiple satellites using same OAUTH credentials
-		mailConfig := config.Mail
-
-		// validate from mail address
-		from, err := mail.ParseAddress(mailConfig.From)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		// validate smtp server address
-		host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		var sender mailservice.Sender
-		switch mailConfig.AuthType {
-		case "oauth2":
-			creds := oauth2.Credentials{
-				ClientID:     mailConfig.ClientID,
-				ClientSecret: mailConfig.ClientSecret,
-				TokenURI:     mailConfig.TokenURI,
-			}
-			token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			sender = &post.SMTPSender{
-				From: *from,
-				Auth: &oauth2.Auth{
-					UserEmail: from.Address,
-					Storage:   oauth2.NewTokenStore(creds, *token),
-				},
-				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		case "plain":
-			sender = &post.SMTPSender{
-				From:          *from,
-				Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
-				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		case "login":
-			sender = &post.SMTPSender{
-				From: *from,
-				Auth: post.LoginAuth{
-					Username: mailConfig.Login,
-					Password: mailConfig.Password,
-				},
-				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		default:
-			sender = simulate.NewDefaultLinkClicker(peer.Log.Named("mail:linkclicker"))
-		}
-
-		peer.Mail.Service, err = mailservice.New(
-			peer.Log.Named("mail:service"),
-			sender,
-			mailConfig.TemplatePath,
-		)
+		peer.Mail.Service, err = setupMailService(peer.Log, *config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -592,9 +529,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
+		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.REST.Keys,
 			peer.DB.ProjectAccounting(),
@@ -603,6 +541,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			peer.Analytics.Service,
+			peer.Console.AuthTokens,
 			consoleConfig.Config,
 		)
 		if err != nil {

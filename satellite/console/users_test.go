@@ -11,10 +11,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -337,5 +339,66 @@ func TestGetUserByEmail(t *testing.T) {
 		dbUser, err := usersRepo.GetByEmail(ctx, email)
 		require.NoError(t, err)
 		require.Equal(t, activeUser.ID, dbUser.ID)
+	})
+}
+
+func TestGetUnverifiedNeedingReminder(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.EmailReminders.FirstVerificationReminder = 24 * time.Hour
+				config.EmailReminders.SecondVerificationReminder = 120 * time.Hour
+			},
+		},
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var sentFirstReminder bool
+		var sentSecondReminder bool
+
+		config := planet.Satellites[0].Config.EmailReminders
+		db := planet.Satellites[0].DB.Console().Users()
+
+		id := testrand.UUID()
+		_, err := db.Insert(ctx, &console.User{
+			ID:           id,
+			FullName:     "unverified user one",
+			Email:        "userone@mail.test",
+			PasswordHash: []byte("123a123"),
+		})
+		require.NoError(t, err)
+
+		now := time.Now()
+
+		// We expect two reminders in total - one after a day of account creation,
+		// and one after five. This test will check to ensure that both reminders occur.
+		// Each iteration advances time by i*24 hours from `now`.
+		for i := 0; i <= 6; i++ {
+			u, err := db.Get(ctx, id)
+			require.NoError(t, err)
+
+			// Intuitively it would be better to test this by setting `created_at` to some point in the past.
+			// Since we have no control over `created_at` (it's autoinserted) we will instead pass in a future time
+			// as the `now` argument to `GetUnverifiedNeedingReminder`
+			futureTime := now.Add(time.Duration(i*24) * time.Hour)
+			needReminder, err := db.GetUnverifiedNeedingReminder(ctx, futureTime.Add(-config.FirstVerificationReminder), futureTime.Add(-config.SecondVerificationReminder))
+			require.NoError(t, err)
+
+			// These are the conditions in the SQL query which selects users needing reminder
+			if u.VerificationReminders == 0 && u.CreatedAt.Before(futureTime.Add(-config.FirstVerificationReminder)) {
+				require.NotEmpty(t, needReminder)
+				require.Equal(t, u.ID, needReminder[0].ID)
+				require.NoError(t, db.UpdateVerificationReminders(ctx, u.ID))
+				sentFirstReminder = true
+			} else if u.VerificationReminders == 1 && u.CreatedAt.Before(futureTime.Add(-config.SecondVerificationReminder)) {
+				require.NotEmpty(t, needReminder)
+				require.Equal(t, u.ID, needReminder[0].ID)
+				require.NoError(t, db.UpdateVerificationReminders(ctx, u.ID))
+				sentSecondReminder = true
+			} else {
+				require.Empty(t, needReminder)
+			}
+		}
+		require.True(t, sentFirstReminder)
+		require.True(t, sentSecondReminder)
 	})
 }

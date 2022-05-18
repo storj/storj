@@ -20,6 +20,10 @@ import (
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
+	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
+	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder time.Time) ([]*User, error)
+	// UpdateVerificationReminders increments verification_reminders.
+	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (*User, []User, error)
 	// GetByEmail is a method for querying user by verified email from the database.
@@ -59,21 +63,21 @@ func (user *UserInfo) IsValid() error {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	FullName          string `json:"fullName"`
-	ShortName         string `json:"shortName"`
-	Email             string `json:"email"`
-	PartnerID         string `json:"partnerId"`
-	UserAgent         []byte `json:"userAgent"`
-	Password          string `json:"password"`
-	IsProfessional    bool   `json:"isProfessional"`
-	Position          string `json:"position"`
-	CompanyName       string `json:"companyName"`
-	WorkingOn         string `json:"workingOn"`
-	EmployeeCount     string `json:"employeeCount"`
-	HaveSalesContact  bool   `json:"haveSalesContact"`
-	RecaptchaResponse string `json:"recaptchaResponse"`
-	IP                string `json:"ip"`
-	SignupPromoCode   string `json:"signupPromoCode"`
+	FullName         string `json:"fullName"`
+	ShortName        string `json:"shortName"`
+	Email            string `json:"email"`
+	PartnerID        string `json:"partnerId"`
+	UserAgent        []byte `json:"userAgent"`
+	Password         string `json:"password"`
+	IsProfessional   bool   `json:"isProfessional"`
+	Position         string `json:"position"`
+	CompanyName      string `json:"companyName"`
+	WorkingOn        string `json:"workingOn"`
+	EmployeeCount    string `json:"employeeCount"`
+	HaveSalesContact bool   `json:"haveSalesContact"`
+	CaptchaResponse  string `json:"captchaResponse"`
+	IP               string `json:"ip"`
+	SignupPromoCode  string `json:"signupPromoCode"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -165,6 +169,7 @@ type User struct {
 	SignupPromoCode string `json:"signupPromoCode"`
 
 	LastVerificationReminder time.Time `json:"lastVerificationReminder"`
+	VerificationReminders    int       `json:"verificationReminders"`
 
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`

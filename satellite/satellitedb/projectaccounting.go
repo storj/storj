@@ -752,9 +752,8 @@ func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []
 }
 
 // GetBucketTotals retrieves bucket usage totals for period of time.
-func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
+func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	since = timeTruncateDown(since)
 	bucketPrefix := []byte(cursor.Search)
 
 	if cursor.Limit > 50 {
@@ -799,8 +798,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
-	var buckets []string
-	bucketsQuery := db.db.Rebind(`SELECT name FROM bucket_metainfos
+	bucketsQuery := db.db.Rebind(`SELECT name, created_at FROM bucket_metainfos
 	WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`)
 
 	args = []interface{}{
@@ -818,14 +816,24 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	}
 	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
 
+	type bucketWithCreationDate struct {
+		name      string
+		createdAt time.Time
+	}
+
+	var buckets []bucketWithCreationDate
 	for bucketRows.Next() {
 		var bucket string
-		err = bucketRows.Scan(&bucket)
+		var createdAt time.Time
+		err = bucketRows.Scan(&bucket, &createdAt)
 		if err != nil {
 			return nil, err
 		}
 
-		buckets = append(buckets, bucket)
+		buckets = append(buckets, bucketWithCreationDate{
+			name:      bucket,
+			createdAt: createdAt,
+		})
 	}
 	if err := bucketRows.Err(); err != nil {
 		return nil, err
@@ -845,13 +853,13 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	for _, bucket := range buckets {
 		bucketUsage := accounting.BucketUsage{
 			ProjectID:  projectID,
-			BucketName: bucket,
-			Since:      since,
+			BucketName: bucket.name,
+			Since:      bucket.createdAt,
 			Before:     before,
 		}
 
 		// get bucket_bandwidth_rollups
-		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucket), since, before, pb.PieceAction_GET)
+		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucket.name), bucket.createdAt, before, pb.PieceAction_GET)
 
 		var egress int64
 		err = rollupRow.Scan(&egress)
@@ -863,7 +871,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 
 		bucketUsage.Egress = memory.Size(egress).GB()
 
-		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
+		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(bucket.name), bucket.createdAt, before)
 
 		var tally accounting.BucketStorageTally
 		var inline, remote int64

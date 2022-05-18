@@ -49,6 +49,8 @@
                 </div>
             </template>
         </div>
+        <!-- TODO: put all the modals to one single wrapper component and move out all the logic from here -->
+        <CreateProjectPromptModal v-if="isCreateProjectPromptModal" :on-close="toggleCreateProjectPromptModal" />
         <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal" />
         <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
     </div>
@@ -58,6 +60,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import AddPaymentMethodModal from '@/components/account/billing/paidTier/AddPaymentMethodModal.vue';
+import CreateProjectPromptModal from "@/components/account/billing/paidTier/CreateProjectPromptModal.vue";
 import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -79,6 +82,7 @@ import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from "@/types/users";
@@ -93,6 +97,7 @@ const {
 // @vue/component
 @Component({
     components: {
+        CreateProjectPromptModal,
         NavigationArea,
         NewNavigationArea,
         DashboardHeader,
@@ -207,6 +212,13 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Toggles create project prompt modal.
+     */
+    public toggleCreateProjectPromptModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+    }
+
+    /**
      * Toggles MFA recovery codes popup visibility.
      */
     public toggleMFACodesPopup(): void {
@@ -267,6 +279,13 @@ export default class DashboardArea extends Vue {
      */
     public get isAddPMModal(): boolean {
         return this.$store.state.paymentsModule.isAddPMModalShown;
+    }
+
+    /**
+     * Indicates if create project prompt modal is shown.
+     */
+    public get isCreateProjectPromptModal(): boolean {
+        return this.$store.state.appStateModule.appState.isCreateProjectPromptModalShown;
     }
 
     /**
