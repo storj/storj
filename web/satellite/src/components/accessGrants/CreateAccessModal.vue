@@ -540,6 +540,7 @@ import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { EdgeCredentials } from '@/types/accessGrants';
+import { read, write } from 'fs';
 
 
 // @vue/component
@@ -697,10 +698,10 @@ export default class CreateAccessModal extends Vue {
             'type': 'SetPermission',
             'buckets': this.selectedBucketNames,
             'apiKey': cleanAPIKey.secret,
-            'isDownload': true,
-            'isUpload': true,
-            'isList': true,
-            'isDelete': true,
+            'isDownload': this.checkedPermissions.read,
+            'isUpload': this.checkedPermissions.write,
+            'isList': this.checkedPermissions.list,
+            'isDelete': this.checkedPermissions.delete,
         }
 
         if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
