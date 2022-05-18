@@ -523,7 +523,7 @@ export default class AccessGrants extends Vue {
                 border: 1px solid #dadfe7;
                 display: flex;
                 justify-content: center;
-                
+
                 &__text {
                     font-family: sans-serif;
                     font-size: 40px;
