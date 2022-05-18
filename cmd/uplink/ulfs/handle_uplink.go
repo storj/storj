@@ -167,20 +167,22 @@ func (u *uplinkReadHandle) Info() ObjectInfo           { return *u.info }
 //
 
 type uplinkMultiWriteHandle struct {
-	project *uplink.Project
-	bucket  string
-	info    uplink.UploadInfo
+	project  *uplink.Project
+	bucket   string
+	info     uplink.UploadInfo
+	metadata uplink.CustomMetadata
 
 	mu   sync.Mutex
 	tail bool
 	part uint32
 }
 
-func newUplinkMultiWriteHandle(project *uplink.Project, bucket string, info uplink.UploadInfo) *uplinkMultiWriteHandle {
+func newUplinkMultiWriteHandle(project *uplink.Project, bucket string, info uplink.UploadInfo, metadata uplink.CustomMetadata) *uplinkMultiWriteHandle {
 	return &uplinkMultiWriteHandle{
-		project: project,
-		bucket:  bucket,
-		info:    info,
+		project:  project,
+		bucket:   bucket,
+		info:     info,
+		metadata: metadata,
 	}
 }
 
@@ -214,7 +216,9 @@ func (u *uplinkMultiWriteHandle) NextPart(ctx context.Context, length int64) (Wr
 }
 
 func (u *uplinkMultiWriteHandle) Commit(ctx context.Context) error {
-	_, err := u.project.CommitUpload(ctx, u.bucket, u.info.Key, u.info.UploadID, nil)
+	_, err := u.project.CommitUpload(ctx, u.bucket, u.info.Key, u.info.UploadID, &uplink.CommitUploadOptions{
+		CustomMetadata: u.metadata,
+	})
 	return err
 }
 

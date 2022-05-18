@@ -200,6 +200,15 @@ func TestCpUpload(t *testing.T) {
 
 		state.Succeed(t, "cp", "/home/user/fi", "sj://user/folder", "--recursive").RequireRemoteFiles(t)
 	})
+
+	t.Run("Metadata", func(t *testing.T) {
+		state.Succeed(t, "cp", "--metadata", "{\"key\":\"value\"}", "/home/user/file1.txt", "sj://user/file_with_metadata.txt").RequireRemoteFiles(t,
+			ultest.File{Loc: "sj://user/file1.txt", Contents: "remote"},
+			ultest.File{Loc: "sj://user/file_with_metadata.txt", Contents: "local", Metadata: map[string]string{
+				"key": "value",
+			}},
+		)
+	})
 }
 
 func TestCpRecursiveDifficult(t *testing.T) {
