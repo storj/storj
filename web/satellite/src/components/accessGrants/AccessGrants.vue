@@ -138,7 +138,14 @@
                     />
                 </div>
             </div>
-            <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
+            <div
+                v-if="!accessGrantsList.length && !areGrantsFetching"
+                class="access-grants-items2__empty-state"
+            > 
+                <span class="access-grants-items2__empty-state__text">
+                    No Results Found
+                </span>
+            </div>
             <ConfirmDeletePopup
                 v-if="isDeleteClicked"
                 @close="onClearSelection"
@@ -504,6 +511,23 @@ export default class AccessGrants extends Vue {
                 &__pagination-area {
                     padding-right: 20px;
                     margin-bottom: 25px;
+                }
+            }
+
+            &__empty-state {
+                height: 75px;
+                width: auto;
+                background: white;
+                border-radius: 6px;
+                margin-top: 10px;
+                border: 1px solid #dadfe7;
+                display: flex;
+                justify-content: center;
+                &__text {
+                    font-family: sans-serif;
+                    font-size: 40px;
+                    font-weight: 700;
+                    margin: auto 0;
                 }
             }
         }
