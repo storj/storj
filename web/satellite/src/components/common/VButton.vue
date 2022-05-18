@@ -9,6 +9,8 @@
         @click="onPress"
     >
         <slot name="icon" />
+        <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
+        <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
         <span class="label" :class="{uppercase: isUppercase}">{{ label }}</span>
     </div>
 </template>
@@ -45,6 +47,10 @@ export default class VButton extends Vue {
     @Prop({default: false})
     private readonly isBlueWhite: boolean;
     @Prop({default: false})
+    private readonly isWhiteGreen: boolean;
+    @Prop({default: false})
+    private readonly isGreenWhite: boolean;
+    @Prop({default: false})
     private isDisabled: boolean;
     @Prop({default: false})
     private readonly isUppercase: boolean;
@@ -69,6 +75,10 @@ export default class VButton extends Vue {
         if (this.isGreyBlue) return 'container grey-blue';
 
         if (this.isBlueWhite) return 'container blue-white';
+
+        if (this.isWhiteGreen) return 'container white-green';
+
+        if (this.isGreenWhite) return 'container green-white';
 
         return 'container';
     }
@@ -117,6 +127,20 @@ export default class VButton extends Vue {
         }
     }
 
+    .white-green {
+        background-color: transparent !important;
+        border: 1px solid #afb7c1 !important;
+
+        .label {
+            color: #00ac26 !important;
+        }
+    }
+
+    .green-white {
+        background-color: #00ac26 !important;
+        border: 1px solid #00ac26 !important;
+    }
+
     .grey-blue {
         background-color: #fff !important;
         border: 2px solid #d9dbe9 !important;
@@ -151,6 +175,16 @@ export default class VButton extends Vue {
         justify-content: center;
         background-color: #0149ff;
         cursor: pointer;
+
+        .greenCheck {
+            color: #00ac26 !important;
+            margin-right: 5px;
+        }
+
+        .whiteCheck {
+            color: #fff !important;
+            margin-right: 5px;
+        }
 
         .label {
             font-family: 'font_medium', sans-serif;

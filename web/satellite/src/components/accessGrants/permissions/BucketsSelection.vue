@@ -13,12 +13,12 @@
                 alt="Arrow down (expand)"
             />
         </div>
-        <BucketsDropdown v-if="isDropdownShown" />
+        <BucketsDropdown v-if="isDropdownShown" :show-scrollbar="showScrollbar" />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
@@ -33,6 +33,8 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
     },
 })
 export default class BucketsSelection extends Vue {
+    @Prop({default: false})
+    private readonly showScrollbar: boolean;
     /**
      * Toggles dropdown visibility.
      */

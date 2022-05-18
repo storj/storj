@@ -34,8 +34,14 @@ exports[`CreateProject.vue renders correctly 1`] = `
       <!---->
     </div>
     <div class="create-project__container__button-container">
-      <div class="create-project__container__button-container__cancel container transparent" style="width: 210px; height: 48px; border-radius: 6px; font-size: 16px;"> <span class="label">Cancel</span></div>
-      <div class="container disabled" style="width: 210px; height: 48px; border-radius: 6px; font-size: 16px;"> <span class="label">Create Project +</span></div>
+      <div class="create-project__container__button-container__cancel container transparent" style="width: 210px; height: 48px; border-radius: 6px; font-size: 16px;">
+        <!---->
+        <!----> <span class="label">Cancel</span>
+      </div>
+      <div class="container disabled" style="width: 210px; height: 48px; border-radius: 6px; font-size: 16px;">
+        <!---->
+        <!----> <span class="label">Create Project +</span>
+      </div>
     </div>
     <!---->
   </div>

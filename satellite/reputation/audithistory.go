@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"storj.io/common/pb"
+	"storj.io/storj/satellite/internalpb"
 )
 
 // AuditHistory represents a node's audit history for the most recent tracking period.
@@ -43,4 +44,23 @@ func AuditHistoryToPB(auditHistory AuditHistory) (historyPB *pb.AuditHistory) {
 		}
 	}
 	return historyPB
+}
+
+// AuditHistoryFromBytes decodes an AuditHistory from the givenprotobuf-encoded
+// internalpb.AuditHistory object.
+func AuditHistoryFromBytes(encodedHistory []byte) (history AuditHistory, err error) {
+	var pbHistory internalpb.AuditHistory
+	if err := pb.Unmarshal(encodedHistory, &pbHistory); err != nil {
+		return AuditHistory{}, err
+	}
+	history.Score = pbHistory.Score
+	history.Windows = make([]*AuditWindow, len(pbHistory.Windows))
+	for i, window := range pbHistory.Windows {
+		history.Windows[i] = &AuditWindow{
+			TotalCount:  window.TotalCount,
+			OnlineCount: window.OnlineCount,
+			WindowStart: window.WindowStart,
+		}
+	}
+	return history, nil
 }

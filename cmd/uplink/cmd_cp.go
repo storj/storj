@@ -36,6 +36,7 @@ type cmdCp struct {
 	progress  bool
 	byteRange string
 	expires   time.Time
+	metadata  map[string]string
 
 	parallelism          int
 	parallelismChunkSize memory.Size
@@ -84,13 +85,23 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 			return n, nil
 		}),
 	).(int)
-	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Set the size of the chunks for parallelism, 0 means automatic adjustment", memory.B*0,
+	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Set the size of the chunks for parallelism, 0 means automatic adjustment", memory.Size(0),
 		clingy.Transform(memory.ParseString),
+		clingy.Transform(func(n int64) (memory.Size, error) {
+			if n < 0 {
+				return 0, errs.New("parallelism-chunk-size cannot be below 0")
+			}
+			return memory.Size(n), nil
+		}),
 	).(memory.Size)
 
 	c.expires = params.Flag("expires",
 		"Schedule removal after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
 		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
+
+	c.metadata = params.Flag("metadata",
+		"optional metadata for the object. Please use a single level JSON object of string to string only",
+		nil, clingy.Transform(parseJSON), clingy.Type("string")).(map[string]string)
 
 	c.source = params.Arg("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 	c.dest = params.Arg("dest", "Destination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
@@ -228,7 +239,10 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 	}
 	defer func() { _ = mrh.Close() }()
 
-	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{Expires: c.expires})
+	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{
+		Expires:  c.expires,
+		Metadata: c.metadata,
+	})
 	if err != nil {
 		return err
 	}
