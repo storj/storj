@@ -336,6 +336,7 @@ import Chevron from '@/../static/images/accessGrants/chevron.svg';
 
 import { generateMnemonic } from "bip39";
 import { AccessGrant } from '@/types/accessGrants';
+import { Download } from "@/utils/download";
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 
@@ -421,11 +422,7 @@ export default class CreateAccessModal extends Vue {
      */
     public downloadText(): void {
         this.isPassphraseDownloaded = true;
-        var blob = new Blob([ this.passphrase ], { "type" : "text/plain" });
-        let link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
-        link.download = 'sampleText.txt';
-        link.click();
+        Download.file(this.passphrase, 'sampleText.txt')
     }
 
     public onRadioInput(): void {
