@@ -403,9 +403,9 @@
                         <img 
                             class="clickable-image" 
                             src="../../../static/images/accessGrants/create-access_copy-icon.png"
-                            @click="onCopyClick(gatewayCredentials.endpoint)"
-                            href="https://docs.storj.io/dcs/concepts/satellite/"
                             target="_blank"
+                            href="https://docs.storj.io/dcs/concepts/satellite/"
+                            @click="onCopyClick(gatewayCredentials.endpoint)"
                         >
                     </div>
                 </div>
@@ -463,9 +463,7 @@
                         >
                     </div>
                 </div>
-                <div class="access-grant__modal-container__credential-buttons__container-s3"
-                v-if="checkedType === 's3'"
-                >
+                <div v-if="checkedType === 's3'" class="access-grant__modal-container__credential-buttons__container-s3">
                     <a 
                         v-if="checkedType === 's3'"
                         href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway/"
@@ -490,9 +488,7 @@
                         :on-press="downloadCredentials"
                     />
                 </div>
-                <div class="access-grant__modal-container__credential-buttons__container"
-                v-if="checkedType !== 's3'"
-                >
+                <div v-if="checkedType !== 's3'" class="access-grant__modal-container__credential-buttons__container">
                     <v-button
                         label="Download .txt"
                         font-size="16px"
@@ -697,10 +693,10 @@ export default class CreateAccessModal extends Vue {
             'type': 'SetPermission',
             'buckets': this.selectedBucketNames,
             'apiKey': cleanAPIKey.secret,
-            'isDownload': true,
-            'isUpload': true,
-            'isList': true,
-            'isDelete': true,
+            'isDownload': this.selectedPermissions.includes('read'),
+            'isUpload': this.selectedPermissions.includes('write'),
+            'isList': this.selectedPermissions.includes('list'),
+            'isDelete': this.selectedPermissions.includes('delete'),
         }
 
         if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
@@ -726,7 +722,6 @@ export default class CreateAccessModal extends Vue {
         });
 
         const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-        console.log('Passphrase: ', accessEvent)
         if (accessEvent.data.error) {
             await this.$notify.error(accessEvent.data.error);
             this.isLoading = false;
