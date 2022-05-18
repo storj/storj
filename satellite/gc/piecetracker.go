@@ -55,8 +55,9 @@ func (pieceTracker *PieceTracker) LoopStarted(ctx context.Context, info segmentl
 func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	deriver := segment.RootPieceID.Deriver()
 	for _, piece := range segment.Pieces {
-		pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+		pieceID := deriver.Derive(piece.StorageNode, int32(piece.Number))
 		pieceTracker.add(piece.StorageNode, pieceID)
 	}
 
@@ -70,7 +71,8 @@ func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, segment *se
 
 // adds a pieceID to the relevant node's RetainInfo.
 func (pieceTracker *PieceTracker) add(nodeID storj.NodeID, pieceID storj.PieceID) {
-	if _, ok := pieceTracker.RetainInfos[nodeID]; !ok {
+	info, ok := pieceTracker.RetainInfos[nodeID]
+	if !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
 		numPieces := pieceTracker.config.InitialPieces
 		if pieceTracker.pieceCounts[nodeID] > 0 {
@@ -78,12 +80,13 @@ func (pieceTracker *PieceTracker) add(nodeID storj.NodeID, pieceID storj.PieceID
 		}
 		// limit size of bloom filter to ensure we are under the limit for RPC
 		filter := bloomfilter.NewOptimalMaxSize(numPieces, pieceTracker.config.FalsePositiveRate, 2*memory.MiB)
-		pieceTracker.RetainInfos[nodeID] = &RetainInfo{
+		info = &RetainInfo{
 			Filter:       filter,
 			CreationDate: pieceTracker.creationDate,
 		}
+		pieceTracker.RetainInfos[nodeID] = info
 	}
 
-	pieceTracker.RetainInfos[nodeID].Filter.Add(pieceID)
-	pieceTracker.RetainInfos[nodeID].Count++
+	info.Filter.Add(pieceID)
+	info.Count++
 }
