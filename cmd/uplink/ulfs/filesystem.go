@@ -36,7 +36,7 @@ type RemoveOptions struct {
 
 func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
 
-// Filesystem represents either the local Filesystem or the data backed by a project.
+// Filesystem represents either the local filesystem or the data backed by a project.
 type Filesystem interface {
 	Close() error
 	Open(ctx clingy.Context, loc ulloc.Location) (MultiReadHandle, error)
@@ -47,6 +47,30 @@ type Filesystem interface {
 	List(ctx context.Context, prefix ulloc.Location, opts *ListOptions) (ObjectIterator, error)
 	IsLocalDir(ctx context.Context, loc ulloc.Location) bool
 	Stat(ctx context.Context, loc ulloc.Location) (*ObjectInfo, error)
+}
+
+// FilesystemLocal is the interface for a local filesystem.
+type FilesystemLocal interface {
+	IsLocalDir(ctx context.Context, path string) bool
+	Open(ctx context.Context, path string) (MultiReadHandle, error)
+	Create(ctx context.Context, path string) (MultiWriteHandle, error)
+	Move(ctx context.Context, oldpath string, newpath string) error
+	Copy(ctx context.Context, oldpath string, newpath string) error
+	Remove(ctx context.Context, path string, opts *RemoveOptions) error
+	List(ctx context.Context, path string, opts *ListOptions) (ObjectIterator, error)
+	Stat(ctx context.Context, path string) (*ObjectInfo, error)
+}
+
+// FilesystemRemote is the interface for a remote filesystem.
+type FilesystemRemote interface {
+	Close() error
+	Open(ctx context.Context, bucket, key string) (MultiReadHandle, error)
+	Create(ctx context.Context, bucket, key string, opts *CreateOptions) (MultiWriteHandle, error)
+	Move(ctx context.Context, oldbucket, oldkey string, newbucket, newkey string) error
+	Copy(ctx context.Context, oldbucket, oldkey string, newbucket, newkey string) error
+	Remove(ctx context.Context, bucket, key string, opts *RemoveOptions) error
+	List(ctx context.Context, bucket, key string, opts *ListOptions) ObjectIterator
+	Stat(ctx context.Context, bucket, key string) (*ObjectInfo, error)
 }
 
 //

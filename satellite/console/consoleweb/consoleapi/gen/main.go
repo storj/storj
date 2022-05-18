@@ -79,5 +79,5 @@ func main() {
 		})
 	}
 
-	a.MustWrite("satellite/console/consoleweb/consoleapi/api.gen.go")
+	a.MustWriteGo("satellite/console/consoleweb/consoleapi/api.gen.go")
 }

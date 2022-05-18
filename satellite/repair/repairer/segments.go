@@ -65,7 +65,7 @@ type SegmentRepairer struct {
 	overlay        *overlay.Service
 	ec             *ECRepairer
 	timeout        time.Duration
-	reporter       *audit.Reporter
+	reporter       audit.Reporter
 
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
 	// threshold results in the maximum limit of number of nodes to upload
@@ -90,7 +90,7 @@ func NewSegmentRepairer(
 	metabase *metabase.DB,
 	orders *orders.Service,
 	overlay *overlay.Service,
-	reporter *audit.Reporter,
+	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
 	repairOverrides checker.RepairOverrides,
 	timeout time.Duration, excessOptimalThreshold float64,

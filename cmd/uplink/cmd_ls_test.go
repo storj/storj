@@ -357,15 +357,15 @@ func TestLsLocal(t *testing.T) {
 	)
 
 	t.Run("Recursive", func(t *testing.T) {
-		state.Succeed(t, "ls", "/user", "--recursive", "--utc").RequireStdout(t, `
-			KIND    CREATED                SIZE    KEY
-			OBJ     1970-01-01 00:00:01    0       /user/deep/aaa/bbb/1
-			OBJ     1970-01-01 00:00:02    0       /user/deep/aaa/bbb/2
-			OBJ     1970-01-01 00:00:03    0       /user/deep/aaa/bbb/3
-			OBJ     1970-01-01 00:00:04    0       /user/foobar/1
-			OBJ     1970-01-01 00:00:05    0       /user/foobar/2
-			OBJ     1970-01-01 00:00:06    0       /user/foobar/3
-			OBJ     1970-01-01 00:00:07    0       /user/foobaz/1
+		state.Succeed(t, "ls", "/user", "--recursive", "--utc").RequireStdoutGlob(t, `
+			KIND    CREATED    SIZE    KEY
+			OBJ                20      /user/deep/aaa/bbb/1
+			OBJ                20      /user/deep/aaa/bbb/2
+			OBJ                20      /user/deep/aaa/bbb/3
+			OBJ                14      /user/foobar/1
+			OBJ                14      /user/foobar/2
+			OBJ                14      /user/foobar/3
+			OBJ                14      /user/foobaz/1
 		`)
 	})
 
@@ -374,20 +374,20 @@ func TestLsLocal(t *testing.T) {
 	})
 
 	t.Run("ExactPrefix", func(t *testing.T) {
-		state.Succeed(t, "ls", "/user/foobar", "--utc").RequireStdout(t, `
-			KIND    CREATED                SIZE    KEY
-			OBJ     1970-01-01 00:00:04    0       1
-			OBJ     1970-01-01 00:00:05    0       2
-			OBJ     1970-01-01 00:00:06    0       3
+		state.Succeed(t, "ls", "/user/foobar", "--utc").RequireStdoutGlob(t, `
+			KIND    CREATED    SIZE    KEY
+			OBJ                14      1
+			OBJ                14      2
+			OBJ                14      3
 		`)
 	})
 
 	t.Run("ExactPrefixWithSlash", func(t *testing.T) {
-		state.Succeed(t, "ls", "/user/foobar/", "--utc").RequireStdout(t, `
-			KIND    CREATED                SIZE    KEY
-			OBJ     1970-01-01 00:00:04    0       1
-			OBJ     1970-01-01 00:00:05    0       2
-			OBJ     1970-01-01 00:00:06    0       3
+		state.Succeed(t, "ls", "/user/foobar/", "--utc").RequireStdoutGlob(t, `
+			KIND    CREATED    SIZE    KEY
+			OBJ                14      1
+			OBJ                14      2
+			OBJ                14      3
 		`)
 	})
 
@@ -402,11 +402,11 @@ func TestLsLocal(t *testing.T) {
 			PRE                        bbb/
 		`)
 
-		state.Succeed(t, "ls", "/user/deep/aaa/bbb/", "--utc").RequireStdout(t, `
-			KIND    CREATED                SIZE    KEY
-			OBJ     1970-01-01 00:00:01    0       1
-			OBJ     1970-01-01 00:00:02    0       2
-			OBJ     1970-01-01 00:00:03    0       3
+		state.Succeed(t, "ls", "/user/deep/aaa/bbb/", "--utc").RequireStdoutGlob(t, `
+			KIND    CREATED    SIZE    KEY
+			OBJ                20      1
+			OBJ                20      2
+			OBJ                20      3
 		`)
 	})
 }
@@ -442,26 +442,26 @@ func TestLsRelative(t *testing.T) {
 	})
 
 	recursive := `
-		KIND    CREATED                SIZE    KEY
-		OBJ     1970-01-01 00:00:01    0       deep/aaa/bbb/1
-		OBJ     1970-01-01 00:00:02    0       deep/aaa/bbb/2
-		OBJ     1970-01-01 00:00:03    0       deep/aaa/bbb/3
-		OBJ     1970-01-01 00:00:04    0       foobar/1
-		OBJ     1970-01-01 00:00:05    0       foobar/2
-		OBJ     1970-01-01 00:00:06    0       foobar/3
-		OBJ     1970-01-01 00:00:07    0       foobaz/1
+		KIND    CREATED    SIZE    KEY
+		OBJ                14      deep/aaa/bbb/1
+		OBJ                14      deep/aaa/bbb/2
+		OBJ                14      deep/aaa/bbb/3
+		OBJ                8       foobar/1
+		OBJ                8       foobar/2
+		OBJ                8       foobar/3
+		OBJ                8       foobaz/1
 	`
 
 	t.Run("Recursive", func(t *testing.T) {
-		state.Succeed(t, "ls", "", "--recursive", "--utc").RequireStdout(t, recursive)
+		state.Succeed(t, "ls", "", "--recursive", "--utc").RequireStdoutGlob(t, recursive)
 	})
 
 	t.Run("RecursiveDot", func(t *testing.T) {
-		state.Succeed(t, "ls", ".", "--recursive", "--utc").RequireStdout(t, recursive)
+		state.Succeed(t, "ls", ".", "--recursive", "--utc").RequireStdoutGlob(t, recursive)
 	})
 
 	t.Run("RecursiveDotSlash", func(t *testing.T) {
-		state.Succeed(t, "ls", "./", "--recursive", "--utc").RequireStdout(t, recursive)
+		state.Succeed(t, "ls", "./", "--recursive", "--utc").RequireStdoutGlob(t, recursive)
 	})
 
 }

@@ -185,6 +185,9 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { PaymentAmountOption } from '@/types/payments';
 import { MetaUtils } from '@/utils/meta';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 interface StripeForm {
     onSubmit(): Promise<void>;
 }
@@ -215,6 +218,8 @@ export default class AddPaymentMethodModal extends Vue {
     public isLoading = false;
     public coinPaymentsCheckoutLink = '';
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     public $refs!: {
         stripeCardInput: StripeCardInput & StripeForm;
     };
@@ -243,7 +248,6 @@ export default class AddPaymentMethodModal extends Vue {
         } catch (error) {
             await this.$notify.error(error.message);
         }
-
         this.isLoading = false;
     }
 
@@ -266,6 +270,9 @@ export default class AddPaymentMethodModal extends Vue {
             if (this.$route.name === RouteConfig.ProjectDashboard.name) {
                 await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             }
+
+            await this.analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
+
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -302,6 +309,9 @@ export default class AddPaymentMethodModal extends Vue {
             if (this.$route.name === RouteConfig.Billing.name) {
                 await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
             }
+
+            await this.analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_TOKENS);
+
         } catch (error) {
             await this.$notify.error(error.message);
         }

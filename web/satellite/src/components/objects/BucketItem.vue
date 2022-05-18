@@ -21,7 +21,7 @@
 </template>
 
 <script lang="ts">
-import { Bucket } from 'aws-sdk/clients/s3';
+import { Bucket } from '@aws-sdk/client-s3';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import BucketIcon from '@/../static/images/objects/bucketItem.svg';

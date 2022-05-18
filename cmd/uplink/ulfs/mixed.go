@@ -14,12 +14,12 @@ import (
 
 // Mixed dispatches to either the local or remote filesystem depending on the location.
 type Mixed struct {
-	local  *Local
-	remote *Remote
+	local  FilesystemLocal
+	remote FilesystemRemote
 }
 
 // NewMixed returns a Mixed backed by the provided local and remote filesystems.
-func NewMixed(local *Local, remote *Remote) *Mixed {
+func NewMixed(local FilesystemLocal, remote FilesystemRemote) *Mixed {
 	return &Mixed{
 		local:  local,
 		remote: remote,

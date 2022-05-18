@@ -6,7 +6,6 @@ package oidc
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
 
 	"storj.io/common/uuid"
@@ -42,17 +41,19 @@ func (clients *clientsDBX) Get(ctx context.Context, id uuid.UUID) (OAuthClient, 
 }
 
 // Create creates a new OAuthClient.
-func (clients *clientsDBX) Create(ctx context.Context, client OAuthClient) error {
-	_, err := clients.db.Create_OauthClient(ctx,
+func (clients *clientsDBX) Create(ctx context.Context, client OAuthClient) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return clients.db.CreateNoReturn_OauthClient(ctx,
 		dbx.OauthClient_Id(client.ID.Bytes()), dbx.OauthClient_EncryptedSecret(client.Secret),
 		dbx.OauthClient_RedirectUrl(client.RedirectURL), dbx.OauthClient_UserId(client.UserID.Bytes()),
 		dbx.OauthClient_AppName(client.AppName), dbx.OauthClient_AppLogoUrl(client.AppLogoURL))
-
-	return err
 }
 
 // Update modifies information for the provided OAuthClient.
-func (clients *clientsDBX) Update(ctx context.Context, client OAuthClient) error {
+func (clients *clientsDBX) Update(ctx context.Context, client OAuthClient) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if client.RedirectURL == "" && client.Secret == nil {
 		return nil
 	}
@@ -67,12 +68,12 @@ func (clients *clientsDBX) Update(ctx context.Context, client OAuthClient) error
 		update.EncryptedSecret = dbx.OauthClient_EncryptedSecret(client.Secret)
 	}
 
-	err := clients.db.UpdateNoReturn_OauthClient_By_Id(ctx, dbx.OauthClient_Id(client.ID.Bytes()), update)
-	return err
+	return clients.db.UpdateNoReturn_OauthClient_By_Id(ctx, dbx.OauthClient_Id(client.ID.Bytes()), update)
 }
 
-func (clients *clientsDBX) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := clients.db.Delete_OauthClient_By_Id(ctx, dbx.OauthClient_Id(id.Bytes()))
+func (clients *clientsDBX) Delete(ctx context.Context, id uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = clients.db.Delete_OauthClient_By_Id(ctx, dbx.OauthClient_Id(id.Bytes()))
 	return err
 }
 
@@ -81,6 +82,8 @@ type codesDBX struct {
 }
 
 func (o *codesDBX) Get(ctx context.Context, code string) (oauthCode OAuthCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	dbCode, err := o.db.Get_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx, dbx.OauthCode_Code(code))
 	if err != nil {
 		return oauthCode, err
@@ -114,17 +117,19 @@ func (o *codesDBX) Get(ctx context.Context, code string) (oauthCode OAuthCode, e
 	return oauthCode, nil
 }
 
-func (o *codesDBX) Create(ctx context.Context, code OAuthCode) error {
-	_, err := o.db.Create_OauthCode(ctx, dbx.OauthCode_ClientId(code.ClientID.Bytes()),
+func (o *codesDBX) Create(ctx context.Context, code OAuthCode) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return o.db.CreateNoReturn_OauthCode(ctx, dbx.OauthCode_ClientId(code.ClientID.Bytes()),
 		dbx.OauthCode_UserId(code.UserID.Bytes()), dbx.OauthCode_Scope(code.Scope),
 		dbx.OauthCode_RedirectUrl(code.RedirectURL), dbx.OauthCode_Challenge(code.Challenge),
 		dbx.OauthCode_ChallengeMethod(code.ChallengeMethod), dbx.OauthCode_Code(code.Code),
 		dbx.OauthCode_CreatedAt(code.CreatedAt), dbx.OauthCode_ExpiresAt(code.ExpiresAt), dbx.OauthCode_Create_Fields{})
-
-	return err
 }
 
-func (o *codesDBX) Claim(ctx context.Context, code string) error {
+func (o *codesDBX) Claim(ctx context.Context, code string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return o.db.UpdateNoReturn_OauthCode_By_Code_And_ClaimedAt_Is_Null(ctx, dbx.OauthCode_Code(code), dbx.OauthCode_Update_Fields{
 		ClaimedAt: dbx.OauthCode_ClaimedAt(time.Now()),
 	})
@@ -135,6 +140,8 @@ type tokensDBX struct {
 }
 
 func (o *tokensDBX) Get(ctx context.Context, kind OAuthTokenKind, token string) (oauthToken OAuthToken, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	dbToken, err := o.db.Get_OauthToken_By_Kind_And_Token(ctx, dbx.OauthToken_Kind(int(kind)),
 		dbx.OauthToken_Token([]byte(token)))
 
@@ -167,22 +174,25 @@ func (o *tokensDBX) Get(ctx context.Context, kind OAuthTokenKind, token string) 
 	return oauthToken, nil
 }
 
-func (o *tokensDBX) Create(ctx context.Context, token OAuthToken) error {
-	_, err := o.db.Create_OauthToken(ctx, dbx.OauthToken_ClientId(token.ClientID.Bytes()),
+func (o *tokensDBX) Create(ctx context.Context, token OAuthToken) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = o.db.CreateNoReturn_OauthToken(ctx, dbx.OauthToken_ClientId(token.ClientID.Bytes()),
 		dbx.OauthToken_UserId(token.UserID.Bytes()), dbx.OauthToken_Scope(token.Scope),
 		dbx.OauthToken_Kind(int(token.Kind)), dbx.OauthToken_Token([]byte(token.Token)),
 		dbx.OauthToken_CreatedAt(token.CreatedAt), dbx.OauthToken_ExpiresAt(token.ExpiresAt))
 
 	// ignore duplicate key errors as they're somewhat expected
-	if err != nil && strings.Contains(err.Error(), "duplicate key") {
+	if err != nil && dbx.IsConstraintError(err) {
 		return nil
 	}
-
 	return err
 }
 
 // RevokeRESTTokenV0 revokes a v0 REST token by setting its expires_at time to zero.
-func (o *tokensDBX) RevokeRESTTokenV0(ctx context.Context, token string) error {
+func (o *tokensDBX) RevokeRESTTokenV0(ctx context.Context, token string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return o.db.UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx, dbx.OauthToken_Token([]byte(token)),
 		dbx.OauthToken_Kind(int(KindRESTTokenV0)),
 		dbx.OauthToken_Update_Fields{
