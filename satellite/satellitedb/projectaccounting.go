@@ -205,6 +205,8 @@ func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, proje
 func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time, crdbInterval time.Duration) (_ *accounting.ProjectDailyUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	now := time.Now()
+	nowBeginningOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	fromBeginningOfDay := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
 	toEndOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, time.UTC)
 
@@ -215,11 +217,17 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
 		var batch pgx.Batch
 
+		expiredSince := nowBeginningOfDay.Add(time.Duration(-allocatedExpirationInDays) * time.Hour * 24)
+
 		batch.Queue(db.db.Rebind(`
-			SELECT interval_day, egress_allocated, egress_settled
+			SELECT interval_day, egress_settled,
+				CASE WHEN interval_day < $1
+					THEN egress_settled
+					ELSE egress_allocated-egress_dead 
+				END AS allocated
 			FROM project_bandwidth_daily_rollups
-			WHERE project_id = $1 AND (interval_day BETWEEN $2 AND $3)
-		`), projectID, fromBeginningOfDay, toEndOfDay)
+			WHERE project_id = $2 AND (interval_day BETWEEN $3 AND $4)
+		`), expiredSince, projectID, fromBeginningOfDay, toEndOfDay)
 
 		storageQuery := db.db.Rebind(`
 			WITH project_usage AS (
@@ -263,22 +271,22 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 
 		for bandwidthRows.Next() {
 			var day time.Time
-			var allocated int64
 			var settled int64
+			var allocated int64
 
-			err = bandwidthRows.Scan(&day, &allocated, &settled)
+			err = bandwidthRows.Scan(&day, &settled, &allocated)
 			if err != nil {
 				return err
 			}
 
-			allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
-				Date:  day.UTC(),
-				Value: allocated,
-			})
-
 			settledBandwidth = append(settledBandwidth, accounting.ProjectUsageByDay{
 				Date:  day.UTC(),
 				Value: settled,
+			})
+
+			allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
+				Date:  day.UTC(),
+				Value: allocated,
 			})
 		}
 
