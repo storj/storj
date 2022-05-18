@@ -52,13 +52,13 @@ func (c *cmdAccessList) Execute(ctx clingy.Context) error {
 	sort.Strings(names)
 
 	for _, name := range names {
-		access, err := uplink.ParseAccess(accesses[name])
-		if err != nil {
-			return err
-		}
-		address := access.SatelliteAddress()
-		if idx := strings.IndexByte(address, '@'); !c.verbose && idx >= 0 {
-			address = address[idx+1:]
+		address := "<access parse error>"
+
+		if access, err := uplink.ParseAccess(accesses[name]); err == nil {
+			address = access.SatelliteAddress()
+			if idx := strings.IndexByte(address, '@'); !c.verbose && idx >= 0 {
+				address = address[idx+1:]
+			}
 		}
 
 		inUse := ' '

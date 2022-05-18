@@ -548,6 +548,8 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
+	peer.Mail.EmailReminders.TestSetLinkAddress("http://" + api.Console.Listener.Addr().String() + "/")
+
 	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer), nil
 }
 

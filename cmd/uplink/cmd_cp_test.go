@@ -507,3 +507,9 @@ func TestCpStandard(t *testing.T) {
 		)
 	})
 }
+
+func TestCpInputValidation(t *testing.T) {
+	state := ultest.Setup(commands)
+
+	state.Fail(t, "cp", "/home/user/file1.txt", "sj://testbucket/", "--parallelism-chunk-size", "-1")
+}

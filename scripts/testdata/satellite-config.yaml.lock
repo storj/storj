@@ -385,6 +385,18 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
+# how often to send reminders to users who need to verify their email
+# email-reminders.chore-interval: 24h0m0s
+
+# enable sending emails reminding users to verify their email
+# email-reminders.enable: true
+
+# amount of time before sending first reminder to users who need to verify their email
+# email-reminders.first-verification-reminder: 24h0m0s
+
+# amount of time before sending second reminder to users who need to verify their email
+# email-reminders.second-verification-reminder: 120h0m0s
+
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true
 
