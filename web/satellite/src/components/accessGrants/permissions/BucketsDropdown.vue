@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-click-outside="closeDropdown" class="buckets-dropdown">
-        <div class="buckets-dropdown__container">
+    <div v-click-outside="closeDropdown" :class="`buckets-dropdown ${showScrollbar ? 'show-scroll' : ''}`">
+        <div :class="`buckets-dropdown__container ${showScrollbar ? 'show-scroll' : ''}`">
             <p class="buckets-dropdown__container__all" @click.stop="selectAllBuckets">
                 All
             </p>
@@ -43,7 +43,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
@@ -59,6 +59,8 @@ import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
     },
 })
 export default class BucketsDropdown extends Vue {
+    @Prop({default: false})
+    private readonly showScrollbar: boolean;
     public bucketSearch = '';
 
     /**
@@ -241,5 +243,14 @@ export default class BucketsDropdown extends Vue {
                 }
             }
         }
+    }
+
+    .show-scroll {
+        padding-right: 2px;
+        width: calc(100% - 2px);
+    }
+
+    .show-scroll::-webkit-scrollbar {
+        width: 4px;
     }
 </style>

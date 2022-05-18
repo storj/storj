@@ -203,18 +203,6 @@ func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UU
 	return total, ErrProjectUsage.Wrap(err)
 }
 
-// GetProjectSegments returns project allocated segment usage.
-func (usage *Service) GetProjectSegments(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-
-	total, err := usage.metabaseDB.GetProjectSegmentCount(ctx, metabase.GetProjectSegmentCount{
-		ProjectID: projectID,
-
-		AsOfSystemInterval: usage.asOfSystemInterval,
-	})
-	return total, ErrProjectUsage.Wrap(err)
-}
-
 // GetProjectStorageLimit returns current project storage limit.
 func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)

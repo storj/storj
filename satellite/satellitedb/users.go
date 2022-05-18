@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -21,7 +22,7 @@ var _ console.Users = (*users)(nil)
 
 // implementation of Users interface repository using spacemonkeygo/dbx orm.
 type users struct {
-	db dbx.Methods
+	db *satelliteDB
 }
 
 // Get is a method for querying user from the database by id.
@@ -73,6 +74,46 @@ func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.Us
 	}
 
 	return userFromDBX(ctx, user)
+}
+
+// GetUnverifiedNeedingReminder returns users in need of a reminder to verify their email.
+func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder time.Time) (usersNeedingReminder []*console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := users.db.Query(ctx, `
+		SELECT id, email, full_name, short_name
+		FROM users
+		WHERE status = 0
+			AND (
+				(verification_reminders = 0 AND created_at < $1)
+				OR (verification_reminders = 1 AND created_at < $2)
+			)
+	`, firstReminder, secondReminder)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var user console.User
+		err = rows.Scan(&user.ID, &user.Email, &user.FullName, &user.ShortName)
+		if err != nil {
+			return nil, err
+		}
+		usersNeedingReminder = append(usersNeedingReminder, &user)
+	}
+
+	return usersNeedingReminder, rows.Err()
+}
+
+// UpdateVerificationReminders increments verification_reminders.
+func (users *users) UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error {
+	_, err := users.db.ExecContext(ctx, `
+		UPDATE users
+		SET verification_reminders = verification_reminders + 1
+		WHERE id = $1
+	`, id.Bytes())
+	return err
 }
 
 // Insert is a method for inserting user into the database.

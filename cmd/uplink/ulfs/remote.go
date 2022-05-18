@@ -47,13 +47,22 @@ func (r *Remote) Stat(ctx context.Context, bucket, key string) (*ObjectInfo, err
 
 // Create returns a MultiWriteHandle for the object identified by a given bucket and key.
 func (r *Remote) Create(ctx context.Context, bucket, key string, opts *CreateOptions) (MultiWriteHandle, error) {
+	var customMetadata uplink.CustomMetadata
+	if opts.Metadata != nil {
+		customMetadata = uplink.CustomMetadata(opts.Metadata)
+
+		if err := customMetadata.Verify(); err != nil {
+			return nil, err
+		}
+	}
+
 	info, err := r.project.BeginUpload(ctx, bucket, key, &uplink.UploadOptions{
 		Expires: opts.Expires,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return newUplinkMultiWriteHandle(r.project, bucket, info), nil
+	return newUplinkMultiWriteHandle(r.project, bucket, info, customMetadata), nil
 }
 
 // Move moves object to provided key and bucket.

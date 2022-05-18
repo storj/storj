@@ -1064,21 +1064,6 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	return nil
 }
 
-// UpdateEmailVerificationReminder updates the last time a user was sent a verification email.
-func (s *Service) UpdateEmailVerificationReminder(ctx context.Context, t time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = s.store.Users().Update(ctx, &User{
-		LastVerificationReminder: t,
-	})
-
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
 // ChangeEmail updates email for a given user.
 func (s *Service) ChangeEmail(ctx context.Context, newEmail string) (err error) {
 	defer mon.Task()(&ctx)(&err)
