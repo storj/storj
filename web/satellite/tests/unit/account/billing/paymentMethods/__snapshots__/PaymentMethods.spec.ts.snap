@@ -40,7 +40,10 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 1`] =
       </div>
       <div class="add-storj-area__submit-area">
         <!---->
-        <div class="confirm-add-storj-button container" style="width: 251px; height: 48px; border-radius: 6px; font-size: 16px;"> <span class="label">Continue to Coin Payments</span></div>
+        <div class="confirm-add-storj-button container" style="width: 251px; height: 48px; border-radius: 6px; font-size: 16px;">
+          <!---->
+          <!----> <span class="label">Continue to Coin Payments</span>
+        </div>
       </div>
     </div>
     <!---->
@@ -60,7 +63,10 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 2`] =
       <h1 aria-roledescription="title" class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;"> <span class="label">Add STORJ</span></div>
+          <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
+            <!---->
+            <!----> <span class="label">Add STORJ</span>
+          </div>
         </div>
       </div>
     </div>
@@ -151,7 +157,10 @@ exports[`PaymentMethods renders correctly with card 1`] = `
       <h1 aria-roledescription="title" class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;"> <span class="label">Add STORJ</span></div>
+          <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
+            <!---->
+            <!----> <span class="label">Add STORJ</span>
+          </div>
         </div>
       </div>
     </div>
@@ -204,7 +213,10 @@ exports[`PaymentMethods renders correctly without card 1`] = `
       <h1 aria-roledescription="title" class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;"> <span class="label">Add STORJ</span></div>
+          <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
+            <!---->
+            <!----> <span class="label">Add STORJ</span>
+          </div>
         </div>
       </div>
     </div>
