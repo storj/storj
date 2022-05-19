@@ -104,9 +104,61 @@ install-sim: ## install storj-sim
 
 ##@ Test
 
+TEST_TARGET ?= "./..."
+
+.PHONY: test/setup
+test/setup:
+	@docker compose -f docker-compose.tests.yaml up -d
+	@sleep 3
+	@docker exec -it storj-crdb1-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker exec -it storj-crdb2-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker exec -it storj-crdb3-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker exec -it storj-crdb4-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker exec -it storj-crdb5-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker exec -it storj-crdb4-1 bash -c 'cockroach sql --insecure -e "create database testmetabase;"'
+	@docker exec -it storj-postgres-1 bash -c 'echo "postgres" | psql -U postgres -c "create database teststorj;"'
+	@docker exec -it storj-postgres-1 bash -c 'echo "postgres" | psql -U postgres -c "create database testmetabase;"'
+
+.PHONY: test/postgres
+test/postgres: test/setup ## Run tests against Postgres (developer)
+	@env \
+		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost/teststorj?sslmode=disable' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+			docker compose -f docker-compose.tests.yaml rm -fs; \
+		}
+	@docker compose -f docker-compose.tests.yaml rm -fs
+	@echo done
+
+.PHONY: test/cockroach
+test/cockroach: test/setup ## Run tests against CockroachDB (developer)
+	@env \
+		STORJ_TEST_COCKROACH="cockroach://root@localhost:26256/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26257/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26258/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26259/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26260/testcockroach?sslmode=disable' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+			docker compose -f docker-compose.tests.yaml rm -fs; \
+		}
+	@docker compose -f docker-compose.tests.yaml rm -fs
+	@echo done
+
 .PHONY: test
-test: ## Run tests on source code (jenkins)
-	go test -race -v -cover -coverprofile=.coverprofile ./...
+test: test/setup ## Run tests against CockroachDB and Postgres (developer)
+	@env \
+		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost/teststorj?sslmode=disable' \
+		STORJ_TEST_COCKROACH="cockroach://root@localhost:26256/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26257/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26258/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26259/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26260/testcockroach?sslmode=disable' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+			docker compose -f docker-compose.tests.yaml rm -fs; \
+		}
+	@docker compose -f docker-compose.tests.yaml rm -fs
 	@echo done
 
 .PHONY: test-sim

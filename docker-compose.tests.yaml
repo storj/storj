@@ -1,0 +1,44 @@
+# Support services used by tests
+
+version: "3.4"
+
+services:
+  postgres:
+    hostname: postgres
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+
+  crdb1:
+    hostname: crdb1
+    command: [ "start-single-node", "--insecure" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26256:26257"
+  crdb2:
+    hostname: crdb2
+    command: [ "start-single-node", "--insecure" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26257:26257"
+  crdb3:
+    hostname: crdb3
+    command: [ "start-single-node", "--insecure" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26258:26257"
+  crdb4:
+    hostname: crdb4
+    command: [ "start-single-node", "--insecure" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26259:26257"
+  crdb5:
+    hostname: crdb5
+    command: [ "start-single-node", "--insecure" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26260:26257"
