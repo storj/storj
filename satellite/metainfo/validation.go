@@ -287,6 +287,7 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 
 	pieceNums := make(map[uint16]struct{})
 	nodeIds := make(map[storj.NodeID]struct{})
+	deriver := commitRequest.RootPieceID.Deriver()
 	for _, piece := range commitRequest.Pieces {
 		if int(piece.Number) >= len(originalLimits) {
 			return Error.New("invalid piece number")
@@ -307,7 +308,7 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 			return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.config.MaxCommitInterval.Minutes())
 		}
 
-		derivedPieceID := commitRequest.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+		derivedPieceID := deriver.Derive(piece.StorageNode, int32(piece.Number))
 		if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 			return Error.New("invalid order limit piece id")
 		}

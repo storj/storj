@@ -48,6 +48,9 @@ import SortingHeader from '@/components/project/buckets/SortingHeader.vue';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Bucket } from '@/types/buckets';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 const {FETCH, SET_SEARCH} = BUCKET_ACTIONS;
 
 // @vue/component
@@ -61,6 +64,7 @@ const {FETCH, SET_SEARCH} = BUCKET_ACTIONS;
     },
 })
 export default class BucketArea extends Vue {
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
     /**
      * Lifecycle hook before component destruction where buckets search query is cleared.
      */
@@ -136,6 +140,7 @@ export default class BucketArea extends Vue {
      */
     public async fetch(searchQuery: string): Promise<void> {
         await this.$store.dispatch(SET_SEARCH, searchQuery);
+        await this.analytics.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
 
         try {
             await this.$store.dispatch(FETCH, 1);

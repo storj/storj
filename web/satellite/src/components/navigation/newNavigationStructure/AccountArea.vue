@@ -61,6 +61,9 @@ import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -76,6 +79,8 @@ export default class AccountArea extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
     private dropdownYPos = 0;
     private dropdownXPos = 0;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public $refs!: {
         accountArea: HTMLDivElement,
@@ -96,6 +101,7 @@ export default class AccountArea extends Vue {
         await this.$router.push(RouteConfig.Login.path);
 
         try {
+            this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
             await this.auth.logout();
         } catch (error) {
             await this.$notify.error(error.message);
