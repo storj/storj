@@ -51,11 +51,6 @@ build-dev-deps: ## Install dependencies for builds
 	go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo
 	go get github.com/github-release/github-release
 
-.PHONY: lint
-lint: ## Analyze and find programs in source code
-	@echo "Running ${@}"
-	@golangci-lint run
-
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
 	goimports -w -local storj.io $$(find . -type f -name '*.go' -not -path "*/vendor/*")
@@ -101,6 +96,59 @@ install-sim: ## install storj-sim
 
 	## install the latest stable version of Gateway-ST
 	go install -race -v storj.io/gateway@latest
+
+##@ Lint
+
+LINT_TARGET="./..."
+
+.PHONY: .lint
+.lint:
+	go run ./scripts/lint.go \
+		-parallel 4 \
+		-race \
+		-modules \
+		-copyright \
+		-imports \
+		-peer-constraints \
+		-atomic-align \
+		-monkit \
+		-errs \
+		-staticcheck \
+		-golangci \
+		-monitoring \
+		-wasm-size \
+		-protolock \
+		$(LINT_TARGET)
+
+.PHONY: lint
+lint:
+	docker run --rm -it \
+		-v ${GOPATH}/pkg:/go/pkg \
+		-v ${PWD}:/storj \
+		-w /storj \
+		storjlabs/ci \
+		make .lint LINT_TARGET="$(LINT_TARGET)"
+
+.PHONY: .lint/testsuite
+.lint/testsuite:
+	go run ./scripts/lint.go \
+		-work-dir testsuite \
+		-parallel 4 \
+		-imports \
+		-atomic-align \
+		-errs \
+		-staticcheck \
+		-golangci \
+		$(LINT_TARGET)
+
+.PHONY: lint/testsuite
+lint/testsuite:
+	docker run --rm -it \
+		-v ${GOPATH}/pkg:/go/pkg \
+		-v ${PWD}:/storj \
+		-w /storj \
+		storjlabs/ci \
+		make .lint/testsuite LINT_TARGET="$(LINT_TARGET)"
 
 ##@ Test
 
