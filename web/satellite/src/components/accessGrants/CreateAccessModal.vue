@@ -702,6 +702,8 @@ export default class CreateAccessModal extends Vue {
         if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
         if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
 
+        console.log(permissionsMsg, 'permissionsMsg');
+
         await this.worker.postMessage(permissionsMsg);
 
         const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
@@ -709,7 +711,7 @@ export default class CreateAccessModal extends Vue {
             throw new Error(grantEvent.data.error)
         }
         this.restrictedKey = grantEvent.data.value;
-
+        console.log(grantEvent, 'grantEvent');
         // creates access credentials
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
 
