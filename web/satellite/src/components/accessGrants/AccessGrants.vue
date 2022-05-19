@@ -36,14 +36,19 @@
                 <div class="access-grants__flows-area__title">Access Grant</div>
                 <div class="access-grants__flows-area__summary">Gives access through native clients such as uplink, libuplink, associate libraries, and bindings. </div>
                 <div class="access-grants__flows-area__button-container">
-                    <VButton
-                        label="Learn More"
-                        width="auto"
-                        height="30px"
-                        is-transparent="true"
-                        font-size="13px"
-                        class="access-grants__flows-area__learn-button"
-                    />
+                    <a
+                        href="https://docs.storj.io/dcs/concepts/access/access-grants/"
+                        target="_blank"
+                    >
+                        <VButton
+                            label="Learn More"
+                            width="auto"
+                            height="30px"
+                            is-transparent="true"
+                            font-size="13px"
+                            class="access-grants__flows-area__learn-button"
+                        />
+                    </a>
                     <VButton
                         label="Create Access Grant"
                         font-size="13px"
@@ -62,14 +67,19 @@
                 <div class="access-grants__flows-area__summary">Gives access through S3 compatible tools and services via our hosted Gateway MT.</div>
                 <br>
                 <div class="access-grants__flows-area__button-container">
-                    <VButton
-                        label="Learn More"
-                        width="auto"
-                        height="30px"
-                        is-transparent="true"
-                        font-size="13px"
-                        class="access-grants__flows-area__learn-button"
-                    />
+                    <a
+                        href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway"
+                        target="_blank"
+                    >
+                        <VButton
+                            label="Learn More"
+                            width="auto"
+                            height="30px"
+                            is-transparent="true"
+                            font-size="13px"
+                            class="access-grants__flows-area__learn-button"
+                        />
+                    </a>
                     <VButton
                         label="Create S3 Credentials"
                         font-size="13px"
@@ -88,14 +98,19 @@
                 <div class="access-grants__flows-area__summary">Use it for generating S3 credentials and access grants programatically. </div>
                 <br>
                 <div class="access-grants__flows-area__button-container">
-                    <VButton
-                        label="Learn More"
-                        width="auto"
-                        height="30px"
-                        is-transparent="true"
-                        font-size="13px"
-                        class="access-grants__flows-area__learn-button"
-                    />
+                    <a
+                        href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/"
+                        target="_blank"
+                    >
+                        <VButton
+                            label="Learn More"
+                            width="auto"
+                            height="30px"
+                            is-transparent="true"
+                            font-size="13px"
+                            class="access-grants__flows-area__learn-button"
+                        />
+                    </a>
                     <VButton
                         label="Create Keys for CLI"
                         font-size="13px"
@@ -389,6 +404,8 @@ export default class AccessGrants extends Vue {
         background: #fff;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         border-radius: 10px;
+        min-width: 175px;
+        margin-bottom: 10px;
     }
 
     .access-grants {
@@ -422,6 +439,7 @@ export default class AccessGrants extends Vue {
         .access-grants__flows-area {
             text-align: center;
             display: flex;
+            flex-wrap: wrap;
             -webkit-box-align: center;
             align-items: center;
             -webkit-box-pack: justify;

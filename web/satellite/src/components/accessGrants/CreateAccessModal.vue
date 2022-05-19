@@ -181,14 +181,6 @@
                 <div class="access-grant__modal-container__divider" />
                 <div class="access-grant__modal-container__footer-container">
                     <v-button
-                        label="Learn More"
-                        width="auto"
-                        height="50px"
-                        is-transparent="true"
-                        font-size="16px"
-                        class="access-grant__modal-container__footer-container__learn-more-button"
-                    />
-                    <v-button
                         :label="checkedType === 'api' ? 'Create Keys  ⟶' : 'Encrypt My Access  ⟶'"
                         font-size="16px"
                         width="auto"
@@ -596,7 +588,7 @@ export default class CreateAccessModal extends Vue {
      * Handles permission types, which have been selected, and determining if all have been selected.
      */
     private showAllPermissions = {show: false, position: "up"};
-    private permissionsList = ["read","write","list","delete"];
+    private permissionsList = ["Read","Write","List","Delete"];
     private checkedPermissions = {read: false, write: false, list: false, delete: false};
     private selectedPermissions : string[] = [];
     private allPermissionsClicked = false;
@@ -1024,9 +1016,9 @@ export default class CreateAccessModal extends Vue {
             flex-direction: column;
             align-items: flex-start;
             position: relative;
-            padding: 25px;
+            padding: 25px 40px;
             margin-top: 40px;
-            width: 410px;
+            max-width: 70vw;
             height: auto;
 
             &__generated-passphrase {
@@ -1230,16 +1222,24 @@ export default class CreateAccessModal extends Vue {
                     grid-row: 2;
                     display: flex;
                     flex-direction: column;
+                    max-width: 238px;
 
                     &__input {
                         background: #fff;
                         border: 1px solid #c8d3de;
                         box-sizing: border-box;
-                        border-radius: 4px;
+                        border-radius: 6px;
                         height: 40px;
                         font-size: 17px;
                         padding: 10px;
                     }
+                    &__input:focus {
+                        border-color: #2683ff;
+                    }
+                }
+
+                &__input:focus {
+                    border-color: #2683ff;
                 }
 
                 &__permissions-icon {
