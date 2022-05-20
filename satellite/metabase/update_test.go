@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
@@ -386,7 +385,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			segment = segments[0]
 
 			require.NoError(t, err)
-			diff := cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
+			diff := cmp.Diff(expectedSegment, segment, metabasetest.DefaultTimeDiff())
 			require.Zero(t, diff)
 
 			segment, err = db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -394,7 +393,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				Position: metabase.SegmentPosition{Index: 0},
 			})
 			require.NoError(t, err)
-			diff = cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
+			diff = cmp.Diff(expectedSegment, segment, metabasetest.DefaultTimeDiff())
 			require.Zero(t, diff)
 
 			metabasetest.Verify{
