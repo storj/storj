@@ -27,7 +27,7 @@ func newCmdAccessRegister(ex ulext.External) *cmdAccessRegister {
 }
 
 func (c *cmdAccessRegister) Setup(params clingy.Parameters) {
-	c.authService = params.Flag("auth-service", "The address to the service you wish to register your access with", "auth.us1.storjshare.io:7777").(string)
+	c.authService = params.Flag("auth-service", "The address to the service you wish to register your access with", "auth.storjshare.io:7777").(string)
 	c.caCert = params.Flag("ca-cert", "path to a file in PEM format with certificate(s) or certificate chain(s) to validate the auth service against", "").(string)
 	c.public = params.Flag("public", "If true, the access will be public", false, clingy.Transform(strconv.ParseBool)).(bool)
 	c.format = params.Flag("format", "Format of the output credentials, use 'env' or 'aws' when using in scripts", "").(string)

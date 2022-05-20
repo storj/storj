@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"time"
 
@@ -54,4 +55,18 @@ func parseHumanDate(date string) (time.Time, error) {
 		t, err := time.Parse(time.RFC3339, date)
 		return t, errs.Wrap(err)
 	}
+}
+
+// parseJSON parses command-line flags which accept JSON string.
+// It can be passed to clingy.Transform to create a clingy.Option.
+func parseJSON(jsonString string) (map[string]string, error) {
+	if len(jsonString) > 0 {
+		var jsonValue map[string]string
+		err := json.Unmarshal([]byte(jsonString), &jsonValue)
+		if err != nil {
+			return nil, err
+		}
+		return jsonValue, nil
+	}
+	return nil, nil
 }

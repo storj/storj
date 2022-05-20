@@ -676,18 +676,3 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 	require.Zero(t, diff)
 	return result
 }
-
-// GetProjectSegmentCount is for testing metabase.GetProjectSegmentCount.
-type GetProjectSegmentCount struct {
-	Opts     metabase.GetProjectSegmentCount
-	Result   int64
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step GetProjectSegmentCount) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.GetProjectSegmentCount(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-	require.Equal(t, step.Result, result)
-}

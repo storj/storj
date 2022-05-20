@@ -28,6 +28,9 @@ const (
 	eventObjectUploaded            = "Object Uploaded"
 	eventAPIKeyGenerated           = "API Key Generated"
 	eventCreditCardAdded           = "Credit Card Added"
+	eventUpgradeBannerClicked      = "Upgrade Banner Clicked"
+	eventModalAddCard              = "Credit Card Added In Modal"
+	eventModalAddTokens            = "Storj Token Added In Modal"
 )
 
 var (
@@ -68,7 +71,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		service.segment = segment.New(config.SegmentWriteKey)
 	}
 	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked,
-		eventPathSelected, eventLinkShared, eventObjectUploaded, eventAPIKeyGenerated} {
+		eventPathSelected, eventLinkShared, eventObjectUploaded, eventAPIKeyGenerated, eventUpgradeBannerClicked,
+		eventModalAddCard, eventModalAddTokens} {
 		service.clientEvents[name] = true
 	}
 

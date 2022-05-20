@@ -1,12 +1,14 @@
 ARG DOCKER_ARCH
 ARG DOCKER_PLATFORM
 
-FROM --platform=${DOCKER_PLATFORM:-linux/amd64} storjlabs/storagenode-base:af1f0aa94-${DOCKER_ARCH:-amd64}
+FROM --platform=${DOCKER_PLATFORM:-linux/amd64} storjlabs/storagenode-base:70e276ecb-${DOCKER_ARCH:-amd64}
 ARG TAG
 ARG GOARCH
 ARG VERSION_SERVER_URL
+ARG SUPERVISOR_SERVER
 ENV GOARCH ${GOARCH:-amd64}
 ENV VERSION_SERVER_URL ${VERSION_SERVER_URL:-https://version.storj.io}
+ENV SUPERVISOR_SERVER ${SUPERVISOR_SERVER:-unix}
 EXPOSE 28967
 EXPOSE 14002
 # copy the files individually to avoid overriding the permissions on the folders

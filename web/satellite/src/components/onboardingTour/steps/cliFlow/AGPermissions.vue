@@ -44,6 +44,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import { RouteConfig } from "@/router";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { AnalyticsEvent } from "@/utils/constants/analyticsEventNames";
+import { AnalyticsHttpApi } from "@/api/analytics";
 
 import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
 import PermissionsSelect from "@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue";
@@ -51,6 +53,7 @@ import BucketNameBullet from "@/components/accessGrants/permissions/BucketNameBu
 import BucketsSelection from "@/components/accessGrants/permissions/BucketsSelection.vue";
 import VLoader from "@/components/common/VLoader.vue";
 import DurationSelection from "@/components/accessGrants/permissions/DurationSelection.vue";
+
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
 // @vue/component
@@ -67,13 +70,15 @@ import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 })
 export default class AGPermissions extends Vue {
     private worker: Worker;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public areBucketNamesFetching = true;
     public isLoading = true;
 
     /**
      * Lifecycle hook after initial render.
-     * Sets local key from props value.
+     * Checks if clean api key was generated during previous step.
+     * Fetches all existing bucket names.
      * Initializes web worker's onmessage functionality.
      */
     public async mounted(): Promise<void> {
@@ -128,15 +133,16 @@ export default class AGPermissions extends Vue {
 
         try {
             const restrictedKey = await this.generateRestrictedKey();
-            await this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY, restrictedKey);
+            this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY, restrictedKey);
+
+            await this.$notify.success("Restrictions were set successfully.")
         } catch (error) {
             await this.$notify.error(error.message)
-            this.isLoading = false;
-
             return;
+        } finally {
+            this.isLoading = false;
         }
 
-        this.isLoading = false;
         await this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE, this.$route.path)
         await this.$router.push({name: RouteConfig.APIKey.name});
     }
@@ -164,6 +170,8 @@ export default class AGPermissions extends Vue {
         if (grantEvent.data.error) {
             throw new Error(grantEvent.data.error)
         }
+
+        this.analytics.eventTriggered(AnalyticsEvent.API_KEY_GENERATED);
 
         return grantEvent.data.value;
     }
@@ -230,20 +238,23 @@ export default class AGPermissions extends Vue {
     .permissions {
 
         &__select {
+            width: 287px;
+            padding: 0 98.5px;
 
             &__label {
-                font-size: 18px;
-                line-height: 32px;
-                letter-spacing: 0.75px;
-                color: #4e4b66;
-                margin: 20px 0 10px;
+                font-family: 'font_medium', sans-serif;
+                margin: 20px 0 8px;
+                font-size: 14px;
+                line-height: 20px;
+                color: #56606d;
             }
         }
 
         &__bucket-bullets {
             display: flex;
-            align-items: center;
-            max-width: 100%;
+            align-items: flex-start;
+            width: calc(100% - 197px);
+            padding: 0 98.5px;
             flex-wrap: wrap;
 
             &__container {
@@ -255,6 +266,7 @@ export default class AGPermissions extends Vue {
 
     ::v-deep .buckets-selection,
     ::v-deep .duration-selection {
+        width: 287px;
         margin-left: 0;
     }
 </style>

@@ -129,7 +129,7 @@ type Satellite struct {
 		Worker   *audit.Worker
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
-		Reporter *audit.Reporter
+		Reporter audit.Reporter
 	}
 
 	Reputation struct {
@@ -547,6 +547,8 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	if err != nil {
 		return nil, err
 	}
+
+	peer.Mail.EmailReminders.TestSetLinkAddress("http://" + api.Console.Listener.Addr().String() + "/")
 
 	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer), nil
 }

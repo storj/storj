@@ -10,4 +10,7 @@ export enum AnalyticsEvent {
     LINK_SHARED = 'Link Shared',
     OBJECT_UPLOADED = 'Object Uploaded',
     API_KEY_GENERATED = 'API Key Generated',
+    UPGRADE_BANNER_CLICKED = 'Upgrade Banner Clicked',
+    MODAL_ADD_CARD = 'Credit Card Added In Modal',
+    MODAL_ADD_TOKENS = 'Storj Token Added In Modal',
 }

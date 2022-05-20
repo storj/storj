@@ -460,6 +460,15 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				endpoint.log.Error("internal", zap.Error(err))
 				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
+
+			// TODO we may think about fallback to encrypted size
+			// as plain size may be empty for old objects
+			downloaded := segment.PlainSize
+			if streamRange != nil {
+				downloaded = int32(streamRange.PlainLimit)
+			}
+			endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
+
 			endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
 			mon.Meter("req_get_inline").Mark(1)
 
@@ -491,6 +500,14 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			endpoint.log.Error("internal", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
+
+		// TODO we may think about fallback to encrypted size
+		// as plain size may be empty for old objects
+		downloaded := segment.PlainSize
+		if streamRange != nil {
+			downloaded = int32(streamRange.PlainLimit)
+		}
+		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
 		endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
 		mon.Meter("req_get_remote").Mark(1)

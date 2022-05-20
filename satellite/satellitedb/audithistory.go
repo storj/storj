@@ -106,23 +106,3 @@ func (reputations *reputations) UpdateAuditHistory(ctx context.Context, oldHisto
 	res.NewScore = history.Score
 	return res, nil
 }
-
-func auditHistoryFromPB(historyBytes []byte) (auditHistory *reputation.AuditHistory, err error) {
-	historyPB := &internalpb.AuditHistory{}
-	err = pb.Unmarshal(historyBytes, historyPB)
-	if err != nil {
-		return nil, err
-	}
-	history := &reputation.AuditHistory{
-		Score:   historyPB.Score,
-		Windows: make([]*reputation.AuditWindow, len(historyPB.Windows)),
-	}
-	for i, window := range historyPB.Windows {
-		history.Windows[i] = &reputation.AuditWindow{
-			TotalCount:  window.TotalCount,
-			OnlineCount: window.OnlineCount,
-			WindowStart: window.WindowStart,
-		}
-	}
-	return history, nil
-}

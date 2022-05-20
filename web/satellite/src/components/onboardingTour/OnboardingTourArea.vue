@@ -17,9 +17,9 @@ export default class OnboardingTourArea extends Vue {}
 
 <style scoped lang="scss">
     .tour-area {
-        padding: 45px 0 60px;
+        padding: 30px 0;
         width: 100%;
-        height: calc(100% - 105px);
+        height: calc(100% - 60px);
         display: flex;
         flex-direction: column;
         align-items: center;

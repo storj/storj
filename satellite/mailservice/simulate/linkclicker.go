@@ -7,9 +7,11 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/net/html"
 
 	"storj.io/storj/private/post"
@@ -24,15 +26,20 @@ var _ mailservice.Sender = (*LinkClicker)(nil)
 //
 // architecture: Service
 type LinkClicker struct {
+	log *zap.Logger
+
 	// MarkerAttribute specifies the attribute every anchor element must have in order to be clicked.
 	// This prevents the link clicker from clicking links that it should not (such as the password reset cancellation link).
 	// Leaving this field empty will make it click every link.
-	MarkerAttribute string
+	markerAttribute string
 }
 
 // NewDefaultLinkClicker returns a LinkClicker with the default marker attribute.
-func NewDefaultLinkClicker() *LinkClicker {
-	return &LinkClicker{MarkerAttribute: "data-simulate"}
+func NewDefaultLinkClicker(log *zap.Logger) *LinkClicker {
+	return &LinkClicker{
+		log:             log,
+		markerAttribute: "data-simulate",
+	}
 }
 
 // FromAddress return empty mail address.
@@ -56,8 +63,12 @@ func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (e
 		if err != nil {
 			continue
 		}
-		response, err := http.DefaultClient.Do(req)
+		clicker.log.Debug("clicking", zap.String("url", link))
+		client := &http.Client{}
+		client.Timeout = 5 * time.Second
+		response, err := client.Do(req)
 		if err != nil {
+			clicker.log.Error("failed to click", zap.String("url", link), zap.Error(err))
 			continue
 		}
 		sendError = errs.Combine(sendError, err, response.Body.Close())
@@ -77,12 +88,12 @@ Loop:
 		case html.StartTagToken:
 			token := tokens.Token()
 			if strings.ToLower(token.Data) == "a" {
-				simulate := clicker.MarkerAttribute == ""
+				simulate := clicker.markerAttribute == ""
 				var href string
 				for _, attr := range token.Attr {
 					if strings.ToLower(attr.Key) == "href" {
 						href = attr.Val
-					} else if !simulate && attr.Key == clicker.MarkerAttribute {
+					} else if !simulate && attr.Key == clicker.markerAttribute {
 						simulate = true
 					}
 				}

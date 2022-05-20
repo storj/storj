@@ -20,7 +20,9 @@ type ClientStore struct {
 var _ oauth2.ClientStore = (*ClientStore)(nil)
 
 // GetByID returns client information by id.
-func (c *ClientStore) GetByID(ctx context.Context, id string) (oauth2.ClientInfo, error) {
+func (c *ClientStore) GetByID(ctx context.Context, id string) (_ oauth2.ClientInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	uid, err := uuid.FromString(id)
 	if err != nil {
 		return nil, err
@@ -39,6 +41,8 @@ var _ oauth2.TokenStore = (*TokenStore)(nil)
 
 // Create creates a new token with the given info.
 func (t *TokenStore) Create(ctx context.Context, info oauth2.TokenInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var code OAuthCode
 	var access, refresh OAuthToken
 
@@ -115,22 +119,30 @@ func (t *TokenStore) Create(ctx context.Context, info oauth2.TokenInfo) (err err
 }
 
 // RemoveByCode deletes token by authorization code.
-func (t *TokenStore) RemoveByCode(ctx context.Context, code string) error {
+func (t *TokenStore) RemoveByCode(ctx context.Context, code string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return t.codes.Claim(ctx, code)
 }
 
 // RemoveByAccess deletes token by access token.
-func (t *TokenStore) RemoveByAccess(ctx context.Context, access string) error {
+func (t *TokenStore) RemoveByAccess(ctx context.Context, access string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return nil // unsupported by current configuration
 }
 
 // RemoveByRefresh deletes token by refresh token.
-func (t *TokenStore) RemoveByRefresh(ctx context.Context, refresh string) error {
+func (t *TokenStore) RemoveByRefresh(ctx context.Context, refresh string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return nil // unsupported by current configuration
 }
 
 // GetByCode uses authorization code to find token information.
-func (t *TokenStore) GetByCode(ctx context.Context, code string) (oauth2.TokenInfo, error) {
+func (t *TokenStore) GetByCode(ctx context.Context, code string) (_ oauth2.TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	oauthCode, err := t.codes.Get(ctx, code)
 	if err != nil {
 		return nil, err
@@ -140,7 +152,9 @@ func (t *TokenStore) GetByCode(ctx context.Context, code string) (oauth2.TokenIn
 }
 
 // GetByAccess uses access token to find token information.
-func (t *TokenStore) GetByAccess(ctx context.Context, access string) (oauth2.TokenInfo, error) {
+func (t *TokenStore) GetByAccess(ctx context.Context, access string) (_ oauth2.TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	oauthToken, err := t.tokens.Get(ctx, KindAccessToken, access)
 	if err != nil {
 		return nil, err
@@ -150,7 +164,9 @@ func (t *TokenStore) GetByAccess(ctx context.Context, access string) (oauth2.Tok
 }
 
 // GetByRefresh uses refresh token to find token information.
-func (t *TokenStore) GetByRefresh(ctx context.Context, refresh string) (oauth2.TokenInfo, error) {
+func (t *TokenStore) GetByRefresh(ctx context.Context, refresh string) (_ oauth2.TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	oauthToken, err := t.tokens.Get(ctx, KindRefreshToken, refresh)
 	if err != nil {
 		return nil, err

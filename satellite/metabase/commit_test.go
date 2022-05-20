@@ -881,8 +881,7 @@ func TestBeginSegment(t *testing.T) {
 						StorageNode: testrand.NodeID(),
 					}},
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "pending object missing",
+				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -914,8 +913,7 @@ func TestBeginSegment(t *testing.T) {
 						StorageNode: testrand.NodeID(),
 					}},
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "pending object missing",
+				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1476,8 +1474,7 @@ func TestCommitSegment(t *testing.T) {
 					PlainOffset:   0,
 					Redundancy:    metabasetest.DefaultRedundancy,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "pending object missing",
+				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -1520,8 +1517,7 @@ func TestCommitSegment(t *testing.T) {
 					PlainOffset:   0,
 					Redundancy:    metabasetest.DefaultRedundancy,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "pending object missing",
+				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -1673,7 +1669,8 @@ func TestCommitSegment(t *testing.T) {
 
 						Pieces: pieces,
 					},
-				}}.Check(ctx, t, db)
+				},
+			}.Check(ctx, t, db)
 		})
 	})
 }
@@ -1937,8 +1934,7 @@ func TestCommitInlineSegment(t *testing.T) {
 					PlainSize:   512,
 					PlainOffset: 0,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "pending object missing",
+				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -1964,8 +1960,7 @@ func TestCommitInlineSegment(t *testing.T) {
 					PlainSize:   512,
 					PlainOffset: 0,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "pending object missing",
+				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
