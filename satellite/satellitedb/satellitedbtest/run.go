@@ -7,7 +7,9 @@ package satellitedbtest
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,6 +29,17 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
 )
+
+// Cockroach DROP DATABASE takes a significant amount, however, it has no importance in our tests.
+var cockroachNoDrop = flag.Bool("cockroach-no-drop", stringToBool(os.Getenv("STORJ_TEST_COCKROACH_NODROP")), "Skip dropping cockroach databases to speed up tests")
+
+func stringToBool(v string) bool {
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false
+	}
+	return b
+}
 
 // SatelliteDatabases maybe name can be better.
 type SatelliteDatabases struct {
@@ -135,6 +148,9 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 	if err != nil {
 		return nil, err
 	}
+	if *cockroachNoDrop && tempDB.Driver == "cockroach" {
+		tempDB.Cleanup = func(d tagsql.DB) error { return nil }
+	}
 
 	return CreateMasterDBOnTopOf(ctx, log, tempDB)
 }
@@ -160,6 +176,9 @@ func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, categor
 	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
 	if err != nil {
 		return nil, err
+	}
+	if *cockroachNoDrop && tempDB.Driver == "cockroach" {
+		tempDB.Cleanup = func(d tagsql.DB) error { return nil }
 	}
 
 	return CreateMetabaseDBOnTopOf(ctx, log, tempDB, config)

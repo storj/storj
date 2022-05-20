@@ -48,7 +48,7 @@
                             href="https://docs.storj.io/"
                             target="_blank"
                             rel="noopener noreferrer"
-                            @click.prevent="trackExternalLinkClickEvent('https://docs.storj.io/')"
+                            @click.prevent="trackViewDocsEvent('https://docs.storj.io/')"
                         >
                             <DocsIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
@@ -62,7 +62,7 @@
                             href="https://forum.storj.io/"
                             target="_blank"
                             rel="noopener noreferrer"
-                            @click.prevent="trackExternalLinkClickEvent('https://forum.storj.io/')"
+                            @click.prevent="trackViewForumEvent('https://forum.storj.io/')"
                         >
                             <ForumIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
@@ -76,7 +76,7 @@
                             href="https://supportdcs.storj.io/hc/en-us"
                             target="_blank"
                             rel="noopener noreferrer"
-                            @click.prevent="trackExternalLinkClickEvent('https://supportdcs.storj.io/hc/en-us')"
+                            @click.prevent="trackViewSupportEvent('https://supportdcs.storj.io/hc/en-us')"
                         >
                             <SupportIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
@@ -244,7 +244,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to create project screen.
      */
     public navigateToCreateAG(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Create an Access Grant");
+        this.analytics.eventTriggered(AnalyticsEvent.CREATE_AN_ACCESS_GRANT_CLICKED);
         this.closeDropdowns();
         this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).path).catch(() => {return;});
     }
@@ -253,7 +253,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to objects screen.
      */
     public navigateToBuckets(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Buckets");
+        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_IN_WEB_CLICKED);
         this.closeDropdowns();
         this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
     }
@@ -262,7 +262,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to onboarding CLI flow screen.
      */
     public navigateToCLIFlow(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Upload using CLI");
+        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_USING_CLI_CLICKED);
         this.closeDropdowns();
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
         this.$router.push({name: RouteConfig.AGName.name});
@@ -272,7 +272,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to create access grant screen.
      */
     public navigateToNewProject(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "New Project");
+        this.analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
         this.closeDropdowns();
         this.$router.push(RouteConfig.CreateProject.path);
     }
@@ -358,10 +358,26 @@ export default class NewNavigationArea extends Vue {
     }
 
     /**
-     * Sends external link click event to segment and opens link.
+     * Sends "View Docs" event to segment and opens link.
      */
-    public trackExternalLinkClickEvent(link: string): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, link);
+    public trackViewDocsEvent(link: string): void {
+        this.analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+        window.open(link)
+    }
+
+    /**
+     * Sends "View Forum" event to segment and opens link.
+     */
+    public trackViewForumEvent(link: string): void {
+        this.analytics.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
+        window.open(link)
+    }
+
+    /**
+     * Sends "View Support" event to segment and opens link.
+     */
+    public trackViewSupportEvent(link: string): void {
+        this.analytics.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
         window.open(link)
     }
 

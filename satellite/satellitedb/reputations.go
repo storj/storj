@@ -60,7 +60,7 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 				AuditHistory:                historyBytes,
 			}
 
-			auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, historyBytes, updateReq, now)
+			auditHistoryResponse, err := updateAuditHistory(ctx, historyBytes, updateReq.AuditHistory, updateReq.AuditOutcome != reputation.AuditOffline, now)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
@@ -88,7 +88,7 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 			return &status, nil
 		}
 
-		auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, dbNode.AuditHistory, updateReq, now)
+		auditHistoryResponse, err := updateAuditHistory(ctx, dbNode.AuditHistory, updateReq.AuditHistory, updateReq.AuditOutcome != reputation.AuditOffline, now)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

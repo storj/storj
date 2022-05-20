@@ -1434,8 +1434,9 @@ func groupPiecesByNodeID(segments []metabase.DeletedSegmentInfo) map[storj.NodeI
 	piecesToDelete := map[storj.NodeID][]storj.PieceID{}
 
 	for _, segment := range segments {
+		deriver := segment.RootPieceID.Deriver()
 		for _, piece := range segment.Pieces {
-			pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+			pieceID := deriver.Derive(piece.StorageNode, int32(piece.Number))
 			piecesToDelete[piece.StorageNode] = append(piecesToDelete[piece.StorageNode], pieceID)
 		}
 	}
