@@ -143,8 +143,7 @@ export default class DurationPicker extends Vue {
 </script>
 
 <style scoped lang="scss">
-
-    @mixin dateContainer {
+    @mixin date-container {
         background: #fff;
         width: 600px;
         border: 1px solid #384b65;
@@ -157,12 +156,14 @@ export default class DurationPicker extends Vue {
     }
 
     .duration-picker {
-        @include dateContainer;
+        @include date-container;
+
         right: 0;
 
         &__access-date-container {
-            @include dateContainer;
-             right: -88%;
+            @include date-container;
+
+            right: -88%;
         }
 
         &__list {

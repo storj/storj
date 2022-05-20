@@ -316,7 +316,7 @@
                     <h2 class="access-grant__modal-container__header-container__title-complete">{{ accessName }} Created</h2>
                 </div>
                 <div class="access-grant__modal-container__body-container__created"> 
-                    <p>Now copy and save the {{ checkedText[checkedType][0] }} will only appear once. Click on the {{checkedText[checkedType][1]}}</p>
+                    <p>Now copy and save the {{ checkedText[checkedType][0] }} will only appear once. Click on the {{ checkedText[checkedType][1] }}</p>
                 </div>
                 <div v-if="checkedType === 'access'">
                     <div class="access-grant__modal-container__generated-credentials__label">
@@ -528,7 +528,6 @@ import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { EdgeCredentials } from '@/types/accessGrants';
-import { read, write } from 'fs';
 
 
 // @vue/component
@@ -648,8 +647,6 @@ export default class CreateAccessModal extends Vue {
         };
     }
 
-    // creates restricted key
-
     /**
      * Creates Access Grant 
      */
@@ -665,7 +662,6 @@ export default class CreateAccessModal extends Vue {
         }
 
         // creates restricted key
-        const date = new Date().toISOString()
         let cleanAPIKey: AccessGrant;
         try {
             cleanAPIKey = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.accessName);
@@ -695,8 +691,6 @@ export default class CreateAccessModal extends Vue {
         if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
         if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
 
-        console.log(permissionsMsg, 'permissionsMsg');
-
         await this.worker.postMessage(permissionsMsg);
 
         const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
@@ -704,7 +698,7 @@ export default class CreateAccessModal extends Vue {
             throw new Error(grantEvent.data.error)
         }
         this.restrictedKey = grantEvent.data.value;
-        console.log(grantEvent, 'grantEvent');
+
         // creates access credentials
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
 
@@ -720,7 +714,6 @@ export default class CreateAccessModal extends Vue {
         if (accessEvent.data.error) {
             await this.$notify.error(accessEvent.data.error);
             this.isLoading = false;
-
             return;
         }
 
@@ -1063,7 +1056,7 @@ export default class CreateAccessModal extends Vue {
                     justify-content: space-between;
                     margin: 15px 0;
                 }
-                
+
                 &__container {
                     display: flex;
                     justify-content: center;
@@ -1194,12 +1187,8 @@ export default class CreateAccessModal extends Vue {
                     width: 100%;
                     text-align: left;
                     display: grid;
-
-                    // grid-template-columns: 1fr 6fr 1fr;
                     margin-top: 15px;
                     row-gap: 4ch;
-
-                    // grid-template-rows: 2fr 2fr;
                     padding-top: 10px;
 
                     p {
@@ -1233,6 +1222,7 @@ export default class CreateAccessModal extends Vue {
                         font-size: 17px;
                         padding: 10px;
                     }
+
                     &__input:focus {
                         border-color: #2683ff;
                     }
@@ -1430,6 +1420,7 @@ export default class CreateAccessModal extends Vue {
     }
 
     @media screen and (max-width: 500px) {
+
         .access-grant__modal-container {
             width: auto;
             max-width: 80vw;
@@ -1439,8 +1430,6 @@ export default class CreateAccessModal extends Vue {
                 grid-template-columns: 1.2fr 6fr;
             }
         }
-
-
     }
 
     @media screen and (max-height: 800px) {

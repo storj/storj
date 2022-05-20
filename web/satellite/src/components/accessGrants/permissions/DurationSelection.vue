@@ -15,8 +15,8 @@
         </div>
         <DurationPicker
             v-if="isDurationPickerVisible"
-            @setLabel="setDateRangeLabel"
             :container-style="pickerStyle"
+            @setLabel="setDateRangeLabel"
         />
     </div>
 </template>
