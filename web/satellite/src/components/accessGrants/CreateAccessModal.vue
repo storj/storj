@@ -1018,7 +1018,7 @@ export default class CreateAccessModal extends Vue {
             position: relative;
             padding: 25px 40px;
             margin-top: 40px;
-            max-width: 70vw;
+            width: 410px;
             height: auto;
 
             &__generated-passphrase {
@@ -1427,6 +1427,20 @@ export default class CreateAccessModal extends Vue {
 
             @include tooltip-arrow;
         }
+    }
+
+    @media screen and (max-width: 500px) {
+        .access-grant__modal-container {
+            width: auto;
+            max-width: 80vw;
+            padding: 30px 24px;
+
+            &__body-container {
+                grid-template-columns: 1.2fr 6fr;
+            }
+        }
+
+
     }
 
     @media screen and (max-height: 800px) {
