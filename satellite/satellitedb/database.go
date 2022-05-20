@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/reputation"
@@ -264,12 +265,17 @@ func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
 	return &stripeCoinPaymentsDB{db: dbc.getByName("stripecoinpayments")}
 }
 
+// Wallets returns database for storjscan wallets.
+func (dbc *satelliteDBCollection) Wallets() storjscan.WalletsDB {
+	return &storjscanWalletsDB{db: dbc.getByName("storjscan")}
+}
+
 // SNOPayouts returns database for storagenode payStubs and payments info.
 func (dbc *satelliteDBCollection) SNOPayouts() snopayouts.DB {
 	return &snopayoutsDB{db: dbc.getByName("snopayouts")}
 }
 
-// Compenstation returns database for storage node compensation.
+// Compensation returns database for storage node compensation.
 func (dbc *satelliteDBCollection) Compensation() compensation.DB {
 	return &compensationDB{db: dbc.getByName("compensation")}
 }

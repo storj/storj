@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
@@ -108,9 +109,11 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
-	// SnoPayout returns database for payouts.
+	// Wallets returns storjscan wallets database.
+	Wallets() storjscan.WalletsDB
+	// SNOPayouts returns database for payouts.
 	SNOPayouts() snopayouts.DB
-	// Compoensation tracks storage node compensation
+	// Compensation tracks storage node compensation
 	Compensation() compensation.DB
 	// Revocation tracks revoked macaroons
 	Revocation() revocation.DB

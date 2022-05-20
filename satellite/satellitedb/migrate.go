@@ -1920,6 +1920,19 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE reputations ADD COLUMN disqualification_reason integer`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add storjscan_wallets",
+				Version:     198,
+				Action: migrate.SQL{
+					`CREATE TABLE storjscan_wallets (
+						user_id bytea NOT NULL,
+						wallet_address bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id, wallet_address )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

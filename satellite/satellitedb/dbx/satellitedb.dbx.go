@@ -694,6 +694,12 @@ CREATE TABLE storagenode_storage_tallies (
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( interval_end_time, node_id )
 );
+CREATE TABLE storjscan_wallets (
+	user_id bytea NOT NULL,
+	wallet_address bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id, wallet_address )
+);
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
@@ -1327,6 +1333,12 @@ CREATE TABLE storagenode_storage_tallies (
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( interval_end_time, node_id )
+);
+CREATE TABLE storjscan_wallets (
+	user_id bytea NOT NULL,
+	wallet_address bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id, wallet_address )
 );
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
@@ -8122,6 +8134,74 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
+type StorjscanWallet struct {
+	UserId        []byte
+	WalletAddress []byte
+	CreatedAt     time.Time
+}
+
+func (StorjscanWallet) _Table() string { return "storjscan_wallets" }
+
+type StorjscanWallet_Update_Fields struct {
+}
+
+type StorjscanWallet_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StorjscanWallet_UserId(v []byte) StorjscanWallet_UserId_Field {
+	return StorjscanWallet_UserId_Field{_set: true, _value: v}
+}
+
+func (f StorjscanWallet_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanWallet_UserId_Field) _Column() string { return "user_id" }
+
+type StorjscanWallet_WalletAddress_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StorjscanWallet_WalletAddress(v []byte) StorjscanWallet_WalletAddress_Field {
+	return StorjscanWallet_WalletAddress_Field{_set: true, _value: v}
+}
+
+func (f StorjscanWallet_WalletAddress_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanWallet_WalletAddress_Field) _Column() string { return "wallet_address" }
+
+type StorjscanWallet_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StorjscanWallet_CreatedAt(v time.Time) StorjscanWallet_CreatedAt_Field {
+	return StorjscanWallet_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StorjscanWallet_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StorjscanWallet_CreatedAt_Field) _Column() string { return "created_at" }
+
 type StripeCustomer struct {
 	UserId     []byte
 	CustomerId string
@@ -11106,8 +11186,16 @@ type UsageLimit_Row struct {
 	UsageLimit *int64
 }
 
+type UserId_Row struct {
+	UserId []byte
+}
+
 type Value_Row struct {
 	Value time.Time
+}
+
+type WalletAddress_Row struct {
+	WalletAddress []byte
 }
 
 func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
@@ -11872,6 +11960,33 @@ func (obj *pgxImpl) Create_StripeCustomer(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return stripe_customer, nil
+
+}
+
+func (obj *pgxImpl) CreateNoReturn_StorjscanWallet(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := storjscan_wallet_user_id.value()
+	__wallet_address_val := storjscan_wallet_wallet_address.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_wallets ( user_id, wallet_address, created_at ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __wallet_address_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -14490,6 +14605,107 @@ func (obj *pgxImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc
 			}
 			err = __rows.Err()
 			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *WalletAddress_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.wallet_address FROM storjscan_wallets WHERE storjscan_wallets.user_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_wallet_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		row, err = func() (row *WalletAddress_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			row = &WalletAddress_Row{}
+			err = __rows.Scan(&row.WalletAddress)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return row, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("StorjscanWallet_WalletAddress_By_UserId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return row, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_StorjscanWallet_UserId(ctx context.Context) (
+	rows []*UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id FROM storjscan_wallets")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*UserId_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &UserId_Row{}
+				err = __rows.Scan(&row.UserId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			if err := __rows.Err(); err != nil {
 				return nil, err
 			}
 			return rows, nil
@@ -17396,6 +17612,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storjscan_wallets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -18493,6 +18719,33 @@ func (obj *pgxcockroachImpl) Create_StripeCustomer(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return stripe_customer, nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_StorjscanWallet(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := storjscan_wallet_user_id.value()
+	__wallet_address_val := storjscan_wallet_wallet_address.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storjscan_wallets ( user_id, wallet_address, created_at ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __wallet_address_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -21111,6 +21364,107 @@ func (obj *pgxcockroachImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_Ord
 			}
 			err = __rows.Err()
 			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *WalletAddress_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.wallet_address FROM storjscan_wallets WHERE storjscan_wallets.user_id = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, storjscan_wallet_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		row, err = func() (row *WalletAddress_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			row = &WalletAddress_Row{}
+			err = __rows.Scan(&row.WalletAddress)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return row, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("StorjscanWallet_WalletAddress_By_UserId")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return row, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_StorjscanWallet_UserId(ctx context.Context) (
+	rows []*UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_wallets.user_id FROM storjscan_wallets")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*UserId_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				row := &UserId_Row{}
+				err = __rows.Scan(&row.UserId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			if err := __rows.Err(); err != nil {
 				return nil, err
 			}
 			return rows, nil
@@ -24017,6 +24371,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storjscan_wallets;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -24585,6 +24949,15 @@ func (rx *Rx) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx 
 	return tx.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, storagenode_storage_tally_interval_end_time_greater_or_equal)
 }
 
+func (rx *Rx) All_StorjscanWallet_UserId(ctx context.Context) (
+	rows []*UserId_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_StorjscanWallet_UserId(ctx)
+}
+
 func (rx *Rx) All_User_By_NormalizedEmail(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	rows []*User, err error) {
@@ -24716,6 +25089,18 @@ func (rx *Rx) CreateNoReturn_StoragenodePayment(ctx context.Context,
 		return
 	}
 	return tx.CreateNoReturn_StoragenodePayment(ctx, storagenode_payment_node_id, storagenode_payment_period, storagenode_payment_amount, optional)
+
+}
+
+func (rx *Rx) CreateNoReturn_StorjscanWallet(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field,
+	storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_StorjscanWallet(ctx, storjscan_wallet_user_id, storjscan_wallet_wallet_address)
 
 }
 
@@ -25482,6 +25867,16 @@ func (rx *Rx) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
 	return tx.Get_StoragenodePaystub_By_NodeId_And_Period(ctx, storagenode_paystub_node_id, storagenode_paystub_period)
 }
 
+func (rx *Rx) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Context,
+	storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+	row *WalletAddress_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StorjscanWallet_WalletAddress_By_UserId(ctx, storjscan_wallet_user_id)
+}
+
 func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field) (
 	row *CustomerId_Row, err error) {
@@ -26161,6 +26556,9 @@ type Methods interface {
 		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
 		rows []*StoragenodeStorageTally, err error)
 
+	All_StorjscanWallet_UserId(ctx context.Context) (
+		rows []*UserId_Row, err error)
+
 	All_User_By_NormalizedEmail(ctx context.Context,
 		user_normalized_email User_NormalizedEmail_Field) (
 		rows []*User, err error)
@@ -26226,6 +26624,11 @@ type Methods interface {
 		storagenode_payment_period StoragenodePayment_Period_Field,
 		storagenode_payment_amount StoragenodePayment_Amount_Field,
 		optional StoragenodePayment_Create_Fields) (
+		err error)
+
+	CreateNoReturn_StorjscanWallet(ctx context.Context,
+		storjscan_wallet_user_id StorjscanWallet_UserId_Field,
+		storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
 		err error)
 
 	Create_ApiKey(ctx context.Context,
@@ -26578,6 +26981,10 @@ type Methods interface {
 		storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
 		storagenode_paystub_period StoragenodePaystub_Period_Field) (
 		storagenode_paystub *StoragenodePaystub, err error)
+
+	Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Context,
+		storjscan_wallet_user_id StorjscanWallet_UserId_Field) (
+		row *WalletAddress_Row, err error)
 
 	Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field) (
