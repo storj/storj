@@ -124,7 +124,7 @@
                                 <input 
                                     :id="`permissions__${item}-check`"
                                     v-model="selectedPermissions"
-                                    :value="item" 
+                                    :value="item"
                                     type="checkbox"
                                     :checked="checkedPermissions.item"
                                     @click="toggleAllPermission(item)"
@@ -686,10 +686,10 @@ export default class CreateAccessModal extends Vue {
             'type': 'SetPermission',
             'buckets': this.selectedBucketNames,
             'apiKey': cleanAPIKey.secret,
-            'isDownload': this.selectedPermissions.includes('read'),
-            'isUpload': this.selectedPermissions.includes('write'),
-            'isList': this.selectedPermissions.includes('list'),
-            'isDelete': this.selectedPermissions.includes('delete'),
+            'isDownload': this.selectedPermissions.includes('Read'),
+            'isUpload': this.selectedPermissions.includes('Write'),
+            'isList': this.selectedPermissions.includes('List'),
+            'isDelete': this.selectedPermissions.includes('Delete'),
         }
 
         if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
