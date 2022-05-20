@@ -480,30 +480,6 @@ func (coll *LoopIterateCollector) Add(ctx context.Context, it metabase.LoopObjec
 	return nil
 }
 
-// IterateObjects is for testing metabase.IterateObjects.
-type IterateObjects struct {
-	Opts metabase.IterateObjects
-
-	Result   []metabase.ObjectEntry
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step IterateObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	var collector IterateCollector
-
-	err := db.IterateObjectsAllVersions(ctx, step.Opts, collector.Add)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	result := []metabase.ObjectEntry(collector)
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].ObjectKey < result[j].ObjectKey
-	})
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
-	require.Zero(t, diff)
-}
-
 // IteratePendingObjectsByKey is for testing metabase.IteratePendingObjectsByKey.
 type IteratePendingObjectsByKey struct {
 	Opts metabase.IteratePendingObjectsByKey
