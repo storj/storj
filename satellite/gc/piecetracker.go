@@ -16,6 +16,8 @@ import (
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
+var remoteSegmentFunc = mon.Func()
+
 var _ segmentloop.Observer = (*PieceTracker)(nil)
 
 // PieceTracker implements the metainfo loop observer interface for garbage collection.
@@ -52,8 +54,8 @@ func (pieceTracker *PieceTracker) LoopStarted(ctx context.Context, info segmentl
 }
 
 // RemoteSegment takes a remote segment found in metabase and adds pieces to bloom filters.
-func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
+	defer remoteSegmentFunc.Task(&ctx)(nil) // method always returns nil
 
 	deriver := segment.RootPieceID.Deriver()
 	for _, piece := range segment.Pieces {

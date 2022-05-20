@@ -168,6 +168,8 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
+var remoteSegmentFunc = mon.Func()
+
 var _ segmentloop.Observer = (*checkerObserver)(nil)
 
 // checkerObserver implements the metainfo loop Observer interface.
@@ -216,7 +218,7 @@ func (obs *checkerObserver) LoopStarted(context.Context, segmentloop.LoopInfo) (
 }
 
 func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer remoteSegmentFunc.Task(&ctx)(&err)
 
 	// ignore segment if expired
 	if segment.Expired(time.Now()) {
