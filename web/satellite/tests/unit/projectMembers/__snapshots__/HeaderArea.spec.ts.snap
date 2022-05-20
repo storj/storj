@@ -7,7 +7,7 @@ exports[`Team HeaderArea renders correctly 1`] = `
     <vinfo-stub title="" buttonlabel="" onbuttonclick="[Function]" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">
-    <vheader-stub placeholder="Team Members" search="[Function]">
+    <vheader-stub styletype="common" placeholder="Team Members" search="[Function]">
       <div class="header-default-state">
         <vbutton-stub label="+ Add" width="122px" height="48px" fontsize="16px" borderradius="6px" onpress="[Function]" class="button"></vbutton-stub>
       </div>
@@ -28,7 +28,7 @@ exports[`Team HeaderArea renders correctly with 1 selected user and delete click
     <vinfo-stub title="" buttonlabel="" onbuttonclick="[Function]" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">
-    <vheader-stub placeholder="Team Members" search="[Function]">
+    <vheader-stub styletype="common" placeholder="Team Members" search="[Function]">
       <!---->
       <!---->
       <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>1</b> user?</span>
@@ -52,7 +52,7 @@ exports[`Team HeaderArea renders correctly with 2 selected users and delete clic
     <vinfo-stub title="" buttonlabel="" onbuttonclick="[Function]" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">
-    <vheader-stub placeholder="Team Members" search="[Function]">
+    <vheader-stub styletype="common" placeholder="Team Members" search="[Function]">
       <!---->
       <!---->
       <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>2</b> users?</span>
@@ -76,7 +76,7 @@ exports[`Team HeaderArea renders correctly with opened Add team member popup 1`]
     <vinfo-stub title="" buttonlabel="" onbuttonclick="[Function]" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">
-    <vheader-stub placeholder="Team Members" search="[Function]">
+    <vheader-stub styletype="common" placeholder="Team Members" search="[Function]">
       <div class="header-default-state">
         <vbutton-stub label="+ Add" width="122px" height="48px" fontsize="16px" borderradius="6px" onpress="[Function]" class="button"></vbutton-stub>
       </div>
@@ -97,7 +97,7 @@ exports[`Team HeaderArea renders correctly with selected users 1`] = `
     <vinfo-stub title="" buttonlabel="" onbuttonclick="[Function]" class="team-header-container__title-area__info-button"></vinfo-stub>
   </div>
   <div class="team-header-container__wrapper">
-    <vheader-stub placeholder="Team Members" search="[Function]">
+    <vheader-stub styletype="common" placeholder="Team Members" search="[Function]">
       <!---->
       <div class="header-selected-members">
         <vbutton-stub label="Delete" width="122px" height="48px" fontsize="16px" borderradius="6px" onpress="[Function]" class="button deletion"></vbutton-stub>

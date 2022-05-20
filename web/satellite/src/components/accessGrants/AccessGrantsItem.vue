@@ -112,4 +112,5 @@ export default class AccessGrantsItem extends Vue {
     .date-item-container {
         width: 40%;
     }
+
 </style>
