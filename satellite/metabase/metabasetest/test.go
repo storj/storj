@@ -193,7 +193,7 @@ func (step GetObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, 
 	result, err := db.GetObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -210,7 +210,7 @@ func (step GetSegmentByPosition) Check(ctx *testcontext.Context, t testing.TB, d
 	result, err := db.GetSegmentByPosition(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -227,7 +227,7 @@ func (step GetLatestObjectLastSegment) Check(ctx *testcontext.Context, t testing
 	result, err := db.GetLatestObjectLastSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -264,7 +264,7 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 		return
 	}
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -281,7 +281,7 @@ func (step ListStreamPositions) Check(ctx *testcontext.Context, t testing.TB, db
 	result, err := db.ListStreamPositions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -330,7 +330,7 @@ func (step IterateLoopSegments) Check(ctx *testcontext.Context, t testing.TB, db
 	sort.Slice(step.Result, func(i, j int) bool {
 		return bytes.Compare(step.Result[i].StreamID[:], step.Result[j].StreamID[:]) < 0
 	})
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -353,7 +353,7 @@ func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t testing.T
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second), cmpopts.EquateEmpty())
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
 
@@ -376,7 +376,7 @@ func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -399,7 +399,7 @@ func (step DeleteObjectAnyStatusAllVersions) Check(ctx *testcontext.Context, t t
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -422,7 +422,7 @@ func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.T
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -500,7 +500,7 @@ func (step IterateObjects) Check(ctx *testcontext.Context, t testing.TB, db *met
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].ObjectKey < result[j].ObjectKey
 	})
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -522,7 +522,7 @@ func (step IteratePendingObjectsByKey) Check(ctx *testcontext.Context, t *testin
 
 	result := []metabase.ObjectEntry(collector)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -542,7 +542,7 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	err := db.IterateObjectsAllVersionsWithStatus(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -562,7 +562,7 @@ func (step IterateLoopObjects) Check(ctx *testcontext.Context, t testing.TB, db 
 	err := db.IterateLoopObjects(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.LoopObjectEntry(result), cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, []metabase.LoopObjectEntry(result), DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -672,7 +672,7 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 	result, err := db.FinishCopyObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 	return result
 }

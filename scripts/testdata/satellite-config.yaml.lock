@@ -242,7 +242,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.new-navigation: true
 
 # indicates if new objects flow should be used
-# console.new-objects-flow: true
+# console.new-objects-flow: false
 
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: false

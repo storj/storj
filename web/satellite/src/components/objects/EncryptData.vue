@@ -98,13 +98,11 @@ export default class EncryptData extends Vue {
      * Sets local worker if new flow is used.
      */
     public mounted(): void {
-        if (this.isNewObjectsFlow) {
-            if (!this.apiKey) {
-                this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path)
-            }
-
-            this.setWorker();
+        if (!this.apiKey) {
+            this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path)
         }
+
+        this.setWorker();
     }
 
     /**
@@ -142,27 +140,19 @@ export default class EncryptData extends Vue {
             return;
         }
 
-        const keyToBeStored = await result.toString('hex');
+        const keyToBeStored = result.toString('hex');
 
         await LocalData.setUserIDPassSalt(this.$store.getters.user.id, keyToBeStored, SALT);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
 
-        if (this.isNewObjectsFlow) {
-            try {
-                await this.setAccess();
-                await this.$router.push(RouteConfig.UploadFile.path);
-            } catch (e) {
-                await this.$notify.error(e.message);
-            }
-
+        try {
+            await this.setAccess();
+            await this.$router.push(RouteConfig.UploadFile.path);
+        } catch (e) {
+            await this.$notify.error(e.message);
+        } finally {
             this.isLoading = false;
-
-            return;
         }
-
-        this.isLoading = false;
-
-        await this.$router.push(RouteConfig.BucketsManagement.path);
     }
 
     /**
@@ -241,13 +231,6 @@ export default class EncryptData extends Vue {
      */
     private get bucket(): string {
         return this.$store.state.objectsModule.fileComponentBucketName;
-    }
-
-    /**
-     * Returns objects flow status from store.
-     */
-    private get isNewObjectsFlow(): string {
-        return this.$store.state.appStateModule.isNewObjectsFlow;
     }
 }
 </script>
