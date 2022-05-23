@@ -49,18 +49,15 @@
                 </div>
             </template>
         </div>
-        <!-- TODO: put all the modals to one single wrapper component and move out all the logic from here -->
-        <CreateProjectPromptModal v-if="isCreateProjectPromptModal" :on-close="toggleCreateProjectPromptModal" />
-        <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal" />
         <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
+        <AllModals />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import AddPaymentMethodModal from '@/components/account/billing/paidTier/AddPaymentMethodModal.vue';
-import CreateProjectPromptModal from "@/components/account/billing/paidTier/CreateProjectPromptModal.vue";
+import AllModals from "@/components/modals/AllModals.vue";
 import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -75,7 +72,7 @@ import LoaderImage from '@/../static/images/common/loader.svg';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
@@ -97,7 +94,7 @@ const {
 // @vue/component
 @Component({
     components: {
-        CreateProjectPromptModal,
+        AllModals,
         NavigationArea,
         NewNavigationArea,
         DashboardHeader,
@@ -107,7 +104,6 @@ const {
         BetaSatBar,
         ProjectInfoBar,
         MFARecoveryCodesPopup,
-        AddPaymentMethodModal,
     },
 })
 export default class DashboardArea extends Vue {
@@ -208,14 +204,7 @@ export default class DashboardArea extends Vue {
      * Opens add payment method modal.
      */
     public togglePMModal(): void {
-        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
-    }
-
-    /**
-     * Toggles create project prompt modal.
-     */
-    public toggleCreateProjectPromptModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
     }
 
     /**
@@ -272,20 +261,6 @@ export default class DashboardArea extends Vue {
      */
     public get isProjectListPage(): boolean {
         return this.$route.name === RouteConfig.ProjectsList.name;
-    }
-
-    /**
-     * Indicates if add payment method modal is shown.
-     */
-    public get isAddPMModal(): boolean {
-        return this.$store.state.paymentsModule.isAddPMModalShown;
-    }
-
-    /**
-     * Indicates if create project prompt modal is shown.
-     */
-    public get isCreateProjectPromptModal(): boolean {
-        return this.$store.state.appStateModule.appState.isCreateProjectPromptModalShown;
     }
 
     /**
