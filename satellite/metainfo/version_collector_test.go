@@ -19,7 +19,11 @@ import (
 )
 
 func TestUserAgentTransferStats(t *testing.T) {
-	monkitRegistry := monkit.Default
+	// bacause we are testing monkit there is no easy way to separate
+	// collected metrics from other tests run in parallel
+	t.Skipf("this test can be run only locally and without other tests in parallel")
+
+	monkitRegistry := monkit.NewRegistry()
 	environment.Register(monkitRegistry)
 
 	iteration := 0
