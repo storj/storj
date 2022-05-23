@@ -19,9 +19,18 @@
                 v-click-outside="popupVisible" 
                 class="popup-menu"
             >
-                <p class="popup-menu__popup-delete"
+                <p
+                    class="popup-menu__popup-delete"
+                    @mouseenter="popupHover = true"
+                    @mouseleave="popupHover = false"
                     @click="toggleSelection"
                 >
+                    <TrashIconWhite 
+                        v-if="popupHover"
+                    />
+                    <TrashIconBlack 
+                        v-if="!popupHover"
+                    />
                     Delete Access
                 </p>
             </div>
@@ -31,7 +40,8 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-
+import TrashIconWhite from '@/../static/images/accessGrants/trashIcon.svg';
+import TrashIconBlack from '@/../static/images/accessGrants/trashIcon-black.svg';
 import { AccessGrant } from '@/types/accessGrants';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -43,6 +53,8 @@ const {
 // @vue/component
 @Component({
     components: {
+        TrashIconWhite,
+        TrashIconBlack,
     },
 })
 export default class AccessGrantsItem extends Vue {
@@ -51,6 +63,7 @@ export default class AccessGrantsItem extends Vue {
 
     private readonly itemData: AccessGrant;
     private popupVisible = false;
+    private popupHover = false;
 
     public togglePopupVisibility(): void {
         this.popupVisible = !this.popupVisible;

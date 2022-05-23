@@ -23,11 +23,11 @@
                 />
             </div>
         </div>
-        <div v-if="!isNewAccessGrantFlow" class="access-grants__new-title-area">
+        <div v-if="isNewAccessGrantFlow" class="access-grants__new-title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Management</h2>
             <div class="access-grants__title-area__title-subtext" aria-roledescription="title">Create encryption keys to setup permissions to access your objects.</div>
         </div>
-        <div v-if="!isNewAccessGrantFlow" class="access-grants__flows-area">
+        <div v-if="isNewAccessGrantFlow" class="access-grants__flows-area">
             <div class="access-grants__flows-area__access-grant">
                 <div class="access-grants__flows-area__icon-container">
                     <AccessGrantsIcon />
@@ -121,7 +121,7 @@
                 </div>
             </div>
         </div>
-        <div v-if="!isNewAccessGrantFlow"> 
+        <div v-if="isNewAccessGrantFlow"> 
             <div class="access-grants__header-container">
                 <h3 class="access-grants__header-container__title">My Accesses</h3>
                 <div class="access-grants__header-container__divider" />
@@ -165,16 +165,6 @@
                     No Results Found
                 </span>
             </div>
-            <!-- <ConfirmDeletePopup
-                v-if="isDeleteClicked"
-                @close="onClearSelection"
-                @reset-pagination="resetPagination"
-            /> -->
-            <ConfirmDeletePopup2
-                v-if="isDeleteClicked"
-                @close="onClearSelection"
-                @reset-pagination="resetPagination"
-            />
         </div>
         <div v-if="!isNewAccessGrantFlow">
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
@@ -195,18 +185,22 @@
                     :on-page-click-callback="onPageClick"
                 />
             </div>
+        </div>
+        <div v-if="!isNewAccessGrantFlow">
+            <ConfirmDeletePopup
+                v-if="isDeleteClicked"
+                @close="onClearSelection"
+                @reset-pagination="resetPagination"
+            />
             <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
         </div>
-        <!-- <ConfirmDeletePopup
-            v-if="isDeleteClicked"
-            @close="onClearSelection"
-            @reset-pagination="resetPagination"
-        /> -->
-        <ConfirmDeletePopup2
-            v-if="isDeleteClicked"
-            @close="onClearSelection"
-            @reset-pagination="resetPagination"
-        />
+        <div v-if="isNewAccessGrantFlow">
+            <ConfirmDeletePopup2
+                v-if="isDeleteClicked"
+                @close="onClearSelection"
+                @reset-pagination="resetPagination"
+            />
+        </div>
         <CreateAccessModal 
             v-if="showAccessModal"
             :default-type="modalAccessType"

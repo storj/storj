@@ -24,10 +24,6 @@
             <div>
                 <p>This action cannot be undone.</p>
             </div>
-            <!-- <input 
-                type="text" 
-                v-model="confirmedInput" 
-            /> -->
             <headerless-input
                 placeholder="Type the name of the access"
                 @setData="setConfirmedInput"
@@ -47,8 +43,9 @@
                     width="150px"
                     height="44px"
                     :on-press="onDeleteClick"
-                    :is-disabled="isLoading || confirmedInput !== this.selectedAccessGrants[0].name"
-                    is-deletion="true"
+                    :is-disabled="isLoading || confirmedInput !== selectedAccessGrants[0].name"
+                    is-solid-delete="true"
+                    has-trash-icon="true"
                 />
             </div>
             <div class="confirm-delete__container__close-cross-container" @click="onCancelClick">
@@ -66,7 +63,6 @@ import VButton from '@/components/common/VButton.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue'
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
@@ -77,7 +73,6 @@ import { AccessGrant } from '@/types/accessGrants';
         VButton,
         HeaderlessInput,
         CloseCrossIcon,
-        TrashIcon
     },
 })
 export default class ConfirmDeletePopup extends Vue {
@@ -188,7 +183,7 @@ export default class ConfirmDeletePopup extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: #000;
-                margin: 25px 0 10px 0;
+                margin: 25px 0 10px;
             }
 
             &__info-new {
@@ -221,7 +216,7 @@ export default class ConfirmDeletePopup extends Vue {
                     &__item {
                         padding: 3px 7px;
                         max-width: fit-content;
-                        background: #D8DEE3;
+                        background: #d8dee3;
                         border-radius: 20px;
                         margin-bottom: 10px;
 
