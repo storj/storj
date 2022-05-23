@@ -4,7 +4,6 @@
 <template>
     <div :class="`duration-selection ${containerStyle}`">
         <div
-
             :class="`duration-selection__toggle-container ${textStyle}`"
             aria-roledescription="select-duration"
             @click.stop="togglePicker"

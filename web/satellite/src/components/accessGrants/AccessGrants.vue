@@ -49,6 +49,7 @@
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
+                        :on-press="accessGrantClick"
                     />
                 </div>
             </div>
@@ -69,11 +70,12 @@
                         class="access-grants__flows-area__learn-button"
                     />
                     <VButton
-                        label="Create Access Grant"
+                        label="Create S3 Credentials"
                         font-size="13px"
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
+                        :on-press="s3Click"
                     />
                 </div>
             </div>
@@ -81,8 +83,8 @@
                 <div class="access-grants__flows-area__icon-container">
                     <CLIIcon />
                 </div>
-                <div class="access-grants__flows-area__title">CLI Access</div>
-                <div class="access-grants__flows-area__summary">Creates Satellite Adress and API Key to run the “setup” in Command Line Interface. </div>
+                <div class="access-grants__flows-area__title">API Key</div>
+                <div class="access-grants__flows-area__summary">Use it for generating S3 credentials and access grants programatically. </div>
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <VButton
@@ -94,11 +96,12 @@
                         class="access-grants__flows-area__learn-button"
                     />
                     <VButton
-                        label="Create Access Grant"
+                        label="Create Keys for CLI"
                         font-size="13px"
                         width="auto"
                         height="30px"
                         class="access-grants__flows-area__create-button"
+                        :on-press="cliClick"
                     />
                 </div>
             </div>
@@ -177,6 +180,11 @@
                 @close="onClearSelection"
                 @reset-pagination="resetPagination"
             />
+            <CreateAccessModal 
+                v-if="showAccessModal"
+                :default-type="modalAccessType"
+                @close-modal="toggleAccessModal"
+            />
         </div>
         <router-view />
     </div>
@@ -190,6 +198,7 @@ import AccessGrantsItem2 from '@/components/accessGrants/AccessGrantsItem2.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
+import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
 import SortAccessGrantsHeader2 from '@/components/accessGrants/SortingHeader2.vue';
 import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
@@ -229,12 +238,20 @@ declare interface ResetPagination {
         VButton,
         ConfirmDeletePopup,
         VLoader,
+        CreateAccessModal,
         VHeader,
     },
 })
 export default class AccessGrants extends Vue {
     private FIRST_PAGE = 1;
     private isDeleteClicked = false;
+
+    /**
+     * Indicates if the access modal should be shown and what the defaulted type of access should be defaulted.
+     */
+    private showAccessModal = false;
+    private modalAccessType = '';
+
     public areGrantsFetching = true;
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
@@ -374,6 +391,36 @@ export default class AccessGrants extends Vue {
         return this.$store.state.accessGrantsModule.selectedAccessGrantsIds.length;
     }
 
+    /**
+     * Access grant button click.
+     */
+    public accessGrantClick(): void {
+        this.modalAccessType = 'access';
+        this.toggleAccessModal();
+    }
+
+    /**
+     * S3 Access button click..
+     */
+    public s3Click(): void {
+        this.modalAccessType = 's3';
+        this.toggleAccessModal();
+    }
+
+    /**
+     * CLI Access button click.
+     */
+    public cliClick(): void {
+        this.modalAccessType = 'api';
+        this.toggleAccessModal();
+    }
+
+    /**
+     * toggles Create Access Modal visibility.
+     */
+    public toggleAccessModal(): void {
+        this.showAccessModal = !this.showAccessModal;
+    }
 }
 </script>
 <style scoped lang="scss">
