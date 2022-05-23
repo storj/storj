@@ -95,7 +95,6 @@ export default store;
   store and the router. Many of the tests require router, however, this implementation
   relies on store state for the routing behavior.
 */
-
 router.beforeEach(async (to, _, next) => {
     if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
@@ -127,13 +126,7 @@ router.beforeEach(async (to, _, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Buckets)) {
-        if (store.state.appStateModule.isNewObjectsFlow) {
-            next(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-
-            return;
-        }
-
-        next(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+        next(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
 
         return;
     }

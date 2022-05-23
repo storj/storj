@@ -22,7 +22,7 @@ func (ex *external) OpenFilesystem(ctx context.Context, accessName string, optio
 	if err != nil {
 		return nil, err
 	}
-	return ulfs.NewMixed(ulfs.NewLocal(), ulfs.NewRemote(project)), nil
+	return ulfs.NewMixed(ulfs.NewLocal(ulfs.NewLocalBackendOS()), ulfs.NewRemote(project)), nil
 }
 
 func (ex *external) OpenProject(ctx context.Context, accessName string, options ...ulext.Option) (*uplink.Project, error) {

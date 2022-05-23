@@ -7,6 +7,8 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"math"
+	"math/big"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -26,10 +28,12 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/api"
+	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -50,6 +54,8 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	lockedAccountErrMsg                  = "Your account is locked, please try again later"
+	lockedAccountWithResultErrMsg        = "Your login credentials are incorrect, your account is locked again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
@@ -80,6 +86,12 @@ var (
 	// ErrLoginCredentials occurs when provided invalid login credentials.
 	ErrLoginCredentials = errs.Class("login credentials")
 
+	// ErrLoginPassword occurs when provided invalid login password.
+	ErrLoginPassword = errs.Class("login password")
+
+	// ErrLockedAccount occurs when user's account is locked.
+	ErrLockedAccount = errs.Class("locked")
+
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
 
@@ -92,8 +104,8 @@ var (
 	// ErrRegToken describes registration token errors.
 	ErrRegToken = errs.Class("registration token")
 
-	// ErrRecaptcha describes reCAPTCHA validation errors.
-	ErrRecaptcha = errs.Class("recaptcha validation")
+	// ErrCaptcha describes captcha validation errors.
+	ErrCaptcha = errs.Class("captcha validation")
 
 	// ErrRecoveryToken describes account recovery token errors.
 	ErrRecoveryToken = errs.Class("recovery token")
@@ -103,8 +115,6 @@ var (
 //
 // architecture: Service
 type Service struct {
-	Signer
-
 	log, auditLogger  *zap.Logger
 	store             DB
 	restKeys          RESTKeys
@@ -113,8 +123,9 @@ type Service struct {
 	buckets           Buckets
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
-	recaptchaHandler  RecaptchaHandler
+	captchaHandler    CaptchaHandler
 	analytics         *analytics.Service
+	tokens            *consoleauth.Service
 
 	config Config
 }
@@ -133,13 +144,15 @@ func init() {
 
 // Config keeps track of core console service configuration parameters.
 type Config struct {
-	PasswordCost            int           `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
-	OpenRegistrationEnabled bool          `help:"enable open registration" default:"false" testDefault:"true"`
-	DefaultProjectLimit     int           `help:"default project limits for users" default:"1" testDefault:"5"`
-	TokenExpirationTime     time.Duration `help:"expiration time for auth tokens, account recovery tokens, and activation tokens" default:"24h"`
-	AsOfSystemTimeDuration  time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
-	UsageLimits             UsageLimitsConfig
-	Recaptcha               RecaptchaConfig
+	PasswordCost                int           `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
+	OpenRegistrationEnabled     bool          `help:"enable open registration" default:"false" testDefault:"true"`
+	DefaultProjectLimit         int           `help:"default project limits for users" default:"1" testDefault:"5"`
+	AsOfSystemTimeDuration      time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
+	LoginAttemptsWithoutPenalty int           `help:"number of times user can try to login without penalty" default:"3"`
+	FailedLoginPenalty          float64       `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
+	UsageLimits                 UsageLimitsConfig
+	Recaptcha                   RecaptchaConfig
+	Hcaptcha                    HcaptchaConfig
 }
 
 // RecaptchaConfig contains configurations for the reCAPTCHA system.
@@ -149,16 +162,20 @@ type RecaptchaConfig struct {
 	SecretKey string `help:"reCAPTCHA secret key"`
 }
 
+// HcaptchaConfig contains configurations for the hCaptcha system.
+type HcaptchaConfig struct {
+	Enabled   bool   `help:"whether or not hCaptcha is enabled for user registration" default:"false"`
+	SiteKey   string `help:"hCaptcha site key" default:""`
+	SecretKey string `help:"hCaptcha secret key"`
+}
+
 // PaymentsService separates all payment related functionality.
 type PaymentsService struct {
 	service *Service
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, config Config) (*Service, error) {
-	if signer == nil {
-		return nil, errs.New("signer can't be nil")
-	}
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, tokens *consoleauth.Service, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -169,10 +186,16 @@ func NewService(log *zap.Logger, signer Signer, store DB, restKeys RESTKeys, pro
 		config.PasswordCost = bcrypt.DefaultCost
 	}
 
+	var captchaHandler CaptchaHandler
+	if config.Recaptcha.Enabled {
+		captchaHandler = NewDefaultCaptcha(Recaptcha, config.Recaptcha.SecretKey)
+	} else if config.Hcaptcha.Enabled {
+		captchaHandler = NewDefaultCaptcha(Hcaptcha, config.Hcaptcha.SecretKey)
+	}
+
 	return &Service{
 		log:               log,
 		auditLogger:       log.Named("auditlog"),
-		Signer:            signer,
 		store:             store,
 		restKeys:          restKeys,
 		projectAccounting: projectAccounting,
@@ -180,8 +203,9 @@ func NewService(log *zap.Logger, signer Signer, store DB, restKeys RESTKeys, pro
 		buckets:           buckets,
 		partners:          partners,
 		accounts:          accounts,
-		recaptchaHandler:  NewDefaultRecaptcha(config.Recaptcha.SecretKey),
+		captchaHandler:    captchaHandler,
 		analytics:         analytics,
+		tokens:            tokens,
 		config:            config,
 	}, nil
 }
@@ -586,14 +610,14 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if s.config.Recaptcha.Enabled {
-		valid, err := s.recaptchaHandler.Verify(ctx, user.RecaptchaResponse, user.IP)
+	if s.config.Recaptcha.Enabled || s.config.Hcaptcha.Enabled {
+		valid, err := s.captchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
 		if err != nil {
-			s.log.Error("reCAPTCHA authorization failed", zap.Error(err))
-			return nil, ErrRecaptcha.Wrap(err)
+			s.log.Error("captcha authorization failed", zap.Error(err))
+			return nil, ErrCaptcha.Wrap(err)
 		}
 		if !valid {
-			return nil, ErrRecaptcha.New("reCAPTCHA validation unsuccessful")
+			return nil, ErrCaptcha.New("captcha validation unsuccessful")
 		}
 	}
 
@@ -683,24 +707,17 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
-// TestSwapRecaptchaHandler replaces the existing handler for reCAPTCHAs with
+// TestSwapCaptchaHandler replaces the existing handler for captchas with
 // the one specified for use in testing.
-func (s *Service) TestSwapRecaptchaHandler(h RecaptchaHandler) {
-	s.recaptchaHandler = h
+func (s *Service) TestSwapCaptchaHandler(h CaptchaHandler) {
+	s.captchaHandler = h
 }
 
 // GenerateActivationToken - is a method for generating activation token.
 func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: activation token should differ from auth token
-	claims := &consoleauth.Claims{
-		ID:         id,
-		Email:      email,
-		Expiration: time.Now().Add(s.config.TokenExpirationTime),
-	}
-
-	return s.createToken(ctx, claims)
+	return s.tokens.CreateToken(ctx, id, email)
 }
 
 // GeneratePasswordRecoveryToken - is a method for generating password recovery token.
@@ -763,12 +780,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
 
 	// now that the account is activated, create a token to be stored in a cookie to log the user in.
-	claims = &consoleauth.Claims{
-		ID:         user.ID,
-		Expiration: time.Now().Add(s.config.TokenExpirationTime),
-	}
-
-	token, err = s.createToken(ctx, claims)
+	token, err = s.tokens.CreateToken(ctx, user.ID, "")
 	if err != nil {
 		return "", err
 	}
@@ -826,7 +838,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return ErrValidation.Wrap(err)
 	}
 
-	if t.Sub(token.CreatedAt) > s.config.TokenExpirationTime {
+	if s.tokens.IsExpired(t, token.CreatedAt) {
 		return ErrRecoveryToken.Wrap(ErrTokenExpiration.New(passwordRecoveryTokenIsExpiredErrMsg))
 	}
 
@@ -836,6 +848,10 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	user.PasswordHash = hash
+	if user.FailedLoginCount != 0 {
+		user.FailedLoginCount = 0
+		user.LoginLockoutExpiration = time.Time{}
+	}
 
 	err = s.store.Users().Update(ctx, user)
 	if err != nil {
@@ -871,9 +887,38 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 		return "", ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
+	now := time.Now()
+
+	if user.LoginLockoutExpiration.After(now) {
+		return "", ErrLockedAccount.New(lockedAccountErrMsg)
+	}
+
+	lockoutExpDate := now.Add(time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute)
+	handleLockAccount := func() error {
+		err = s.UpdateUsersFailedLoginState(ctx, user, lockoutExpDate)
+		if err != nil {
+			return err
+		}
+
+		if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+			return ErrLockedAccount.New(lockedAccountErrMsg)
+		}
+
+		if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+			return ErrLockedAccount.New(lockedAccountWithResultErrMsg)
+		}
+
+		return nil
+	}
+
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
-		return "", ErrLoginCredentials.New(credentialsErrMsg)
+		err = handleLockAccount()
+		if err != nil {
+			return "", err
+		}
+
+		return "", ErrLoginPassword.New(credentialsErrMsg)
 	}
 
 	if user.MFAEnabled {
@@ -892,6 +937,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 				}
 			}
 			if !found {
+				err = handleLockAccount()
+				if err != nil {
+					return "", err
+				}
+
 				return "", ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
 			}
 
@@ -904,9 +954,19 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 		} else if request.MFAPasscode != "" {
 			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, time.Now())
 			if err != nil {
+				err = handleLockAccount()
+				if err != nil {
+					return "", err
+				}
+
 				return "", ErrMFAPasscode.Wrap(err)
 			}
 			if !valid {
+				err = handleLockAccount()
+				if err != nil {
+					return "", err
+				}
+
 				return "", ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 			}
 		} else {
@@ -914,12 +974,16 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 		}
 	}
 
-	claims := consoleauth.Claims{
-		ID:         user.ID,
-		Expiration: time.Now().Add(s.config.TokenExpirationTime),
+	if user.FailedLoginCount != 0 {
+		user.FailedLoginCount = 0
+		user.LoginLockoutExpiration = time.Time{}
+		err = s.store.Users().Update(ctx, user)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	token, err = s.createToken(ctx, &claims)
+	token, err = s.tokens.CreateToken(ctx, user.ID, "")
 	if err != nil {
 		return "", err
 	}
@@ -928,6 +992,16 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 	s.analytics.TrackSignedIn(user.ID, user.Email)
 
 	return token, nil
+}
+
+// UpdateUsersFailedLoginState updates User's failed login state.
+func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User, lockoutExpDate time.Time) error {
+	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
+		user.LoginLockoutExpiration = lockoutExpDate
+	}
+	user.FailedLoginCount++
+
+	return s.store.Users().Update(ctx, user)
 }
 
 // GetUser returns User by id.
@@ -986,21 +1060,6 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 	auth.User.FullName = fullName
 	auth.User.ShortName = shortName
 	err = s.store.Users().Update(ctx, &auth.User)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-// UpdateEmailVerificationReminder updates the last time a user was sent a verification email.
-func (s *Service) UpdateEmailVerificationReminder(ctx context.Context, t time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = s.store.Users().Update(ctx, &User{
-		LastVerificationReminder: t,
-	})
-
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1881,12 +1940,12 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 		return nil, Error.Wrap(err)
 	}
 
-	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	usage, err := s.projectAccounting.GetBucketTotals(ctx, projectID, cursor, isMember.project.CreatedAt, before)
+	usage, err := s.projectAccounting.GetBucketTotals(ctx, projectID, cursor, before)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2325,30 +2384,12 @@ func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (_ *Registr
 	return result, nil
 }
 
-// createToken creates string representation.
-func (s *Service) createToken(ctx context.Context, claims *consoleauth.Claims) (_ string, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	json, err := claims.JSON()
-	if err != nil {
-		return "", Error.Wrap(err)
-	}
-
-	token := consoleauth.Token{Payload: json}
-	err = signToken(&token, s.Signer)
-	if err != nil {
-		return "", Error.Wrap(err)
-	}
-
-	return token.String(), nil
-}
-
 // authenticate validates token signature and returns authenticated *satelliteauth.Authorization.
 func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ *consoleauth.Claims, err error) {
 	defer mon.Task()(&ctx)(&err)
 	signature := token.Signature
 
-	err = signToken(&token, s.Signer)
+	err = s.tokens.SignToken(&token)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2426,6 +2467,46 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	}
 
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
+}
+
+// WalletInfo contains all the information about a destination wallet assigned to a user.
+type WalletInfo struct {
+	Address blockchain.Address `json:"address"`
+	Balance *big.Int           `json:"balance"`
+}
+
+// TokenTransactions represents the list of ERC-20 token payments.
+type TokenTransactions struct {
+	Transactions []TokenTransaction `json:"transactions"`
+}
+
+// TokenTransaction contains the data of one single ERC-20 token payment.
+type TokenTransaction struct {
+	Origin  blockchain.Address `json:"origin"`
+	Address blockchain.Address `json:"address"`
+	TxHash  blockchain.Hash    `json:"tx_hash"`
+	Status  string             `json:"status"`
+	Date    time.Time          `json:"date"`
+	Amount  monetary.Amount    `json:"amount"`
+}
+
+// ErrWalletNotClaimed shows that no address is claimed by the user.
+var ErrWalletNotClaimed = errs.Class("wallet is not claimed")
+
+// ClaimWallet requests a new wallet for the users to be used for payments. If wallet is already claimed,
+// it will return with the info without error.
+func (paymentService PaymentsService) ClaimWallet(ctx context.Context) (WalletInfo, error) {
+	panic("Not yet implemented")
+}
+
+// GetWallet returns with the assigned wallet, or with ErrWalletNotClaimed if not yet claimed.
+func (paymentService PaymentsService) GetWallet(ctx context.Context) (WalletInfo, error) {
+	panic("Not yet implemented")
+}
+
+// Transactions returns with all the native blockchain transactions.
+func (paymentService PaymentsService) Transactions(ctx context.Context) (TokenTransactions, error) {
+	panic("Not yet implemented")
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {

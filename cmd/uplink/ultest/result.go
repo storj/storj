@@ -214,6 +214,7 @@ func globMatchLine(pattern, line string) bool {
 type File struct {
 	Loc      string
 	Contents string
+	Metadata map[string]string
 }
 
 func (f File) less(g File) bool {

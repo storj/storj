@@ -29,7 +29,8 @@ type Signer struct {
 	Bucket metabase.BucketLocation
 
 	// TODO: use a Template pb.OrderLimit here?
-	RootPieceID storj.PieceID
+	RootPieceID        storj.PieceID
+	rootPieceIDDeriver storj.PieceIDDeriver
 
 	PieceExpiration time.Time
 	OrderCreation   time.Time
@@ -69,6 +70,7 @@ func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time
 	signer.Bucket = bucket
 
 	signer.RootPieceID = rootPieceID
+	signer.rootPieceIDDeriver = rootPieceID.Deriver()
 
 	signer.PieceExpiration = pieceExpiration
 	signer.OrderCreation = orderCreation
@@ -166,7 +168,7 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 		UplinkPublicKey: signer.PublicKey,
 		StorageNodeId:   node.ID,
 
-		PieceId: signer.RootPieceID.Derive(node.ID, pieceNum),
+		PieceId: signer.rootPieceIDDeriver.Derive(node.ID, pieceNum),
 		Limit:   signer.Limit,
 		Action:  signer.Action,
 

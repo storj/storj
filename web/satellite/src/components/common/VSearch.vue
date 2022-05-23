@@ -54,7 +54,6 @@ export default class VSearch extends Vue {
      */
     public onMouseEnter(): void {
         this.inputWidth = '540px';
-
         this.$refs.input.focus();
     }
 
@@ -102,9 +101,5 @@ export default class VSearch extends Vue {
         background-repeat: no-repeat;
         background-size: 22px 22px;
         background-position: top 16px right 16px;
-    }
-
-    ::placeholder {
-        color: #afb7c1;
     }
 </style>

@@ -68,6 +68,8 @@ export class AuthHttpApi implements UsersApi {
         const result = await response.json();
         const errMsg = result.error || 'Failed to receive authentication token';
         switch (response.status) {
+        case 400:
+            throw new ErrorBadRequest(errMsg);
         case 401:
             throw new ErrorUnauthorized(errMsg);
         case 429:
@@ -237,11 +239,11 @@ export class AuthHttpApi implements UsersApi {
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
-     * @param recaptchaResponse - recaptcha response
+     * @param captchaResponse - captcha response
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean, signupPromoCode: string }, secret: string, recaptchaResponse: string): Promise<string> {
+    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean, signupPromoCode: string }, secret: string, captchaResponse: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -256,7 +258,7 @@ export class AuthHttpApi implements UsersApi {
             companyName: user.companyName,
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
-            recaptchaResponse: recaptchaResponse,
+            captchaResponse: captchaResponse,
             signupPromoCode: user.signupPromoCode,
         };
         const response = await this.http.post(path, JSON.stringify(body));

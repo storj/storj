@@ -93,7 +93,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	token, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
-			serveCustomJSONError(a.log, w, 200, err, a.getUserErrorMessage(err))
+			serveCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.serveJSONError(w, err)
@@ -159,22 +159,22 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	var registerData struct {
-		FullName          string `json:"fullName"`
-		ShortName         string `json:"shortName"`
-		Email             string `json:"email"`
-		Partner           string `json:"partner"`
-		PartnerID         string `json:"partnerId"`
-		UserAgent         []byte `json:"userAgent"`
-		Password          string `json:"password"`
-		SecretInput       string `json:"secret"`
-		ReferrerUserID    string `json:"referrerUserId"`
-		IsProfessional    bool   `json:"isProfessional"`
-		Position          string `json:"position"`
-		CompanyName       string `json:"companyName"`
-		EmployeeCount     string `json:"employeeCount"`
-		HaveSalesContact  bool   `json:"haveSalesContact"`
-		RecaptchaResponse string `json:"recaptchaResponse"`
-		SignupPromoCode   string `json:"signupPromoCode"`
+		FullName         string `json:"fullName"`
+		ShortName        string `json:"shortName"`
+		Email            string `json:"email"`
+		Partner          string `json:"partner"`
+		PartnerID        string `json:"partnerId"`
+		UserAgent        []byte `json:"userAgent"`
+		Password         string `json:"password"`
+		SecretInput      string `json:"secret"`
+		ReferrerUserID   string `json:"referrerUserId"`
+		IsProfessional   bool   `json:"isProfessional"`
+		Position         string `json:"position"`
+		CompanyName      string `json:"companyName"`
+		EmployeeCount    string `json:"employeeCount"`
+		HaveSalesContact bool   `json:"haveSalesContact"`
+		CaptchaResponse  string `json:"captchaResponse"`
+		SignupPromoCode  string `json:"signupPromoCode"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -259,20 +259,20 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 		user, err = a.service.CreateUser(ctx,
 			console.CreateUser{
-				FullName:          registerData.FullName,
-				ShortName:         registerData.ShortName,
-				Email:             registerData.Email,
-				PartnerID:         registerData.PartnerID,
-				UserAgent:         registerData.UserAgent,
-				Password:          registerData.Password,
-				IsProfessional:    registerData.IsProfessional,
-				Position:          registerData.Position,
-				CompanyName:       registerData.CompanyName,
-				EmployeeCount:     registerData.EmployeeCount,
-				HaveSalesContact:  registerData.HaveSalesContact,
-				RecaptchaResponse: registerData.RecaptchaResponse,
-				IP:                ip,
-				SignupPromoCode:   registerData.SignupPromoCode,
+				FullName:         registerData.FullName,
+				ShortName:        registerData.ShortName,
+				Email:            registerData.Email,
+				PartnerID:        registerData.PartnerID,
+				UserAgent:        registerData.UserAgent,
+				Password:         registerData.Password,
+				IsProfessional:   registerData.IsProfessional,
+				Position:         registerData.Position,
+				CompanyName:      registerData.CompanyName,
+				EmployeeCount:    registerData.EmployeeCount,
+				HaveSalesContact: registerData.HaveSalesContact,
+				CaptchaResponse:  registerData.CaptchaResponse,
+				IP:               ip,
+				SignupPromoCode:  registerData.SignupPromoCode,
 			},
 			secret,
 		)
@@ -334,10 +334,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			UserName:       userName,
 		},
 	)
-
-	if err = a.service.UpdateEmailVerificationReminder(ctx, time.Now().UTC()); err != nil {
-		a.serveJSONError(w, err)
-	}
 }
 
 // ValidateEmail validates email to have correct form and syntax.
@@ -616,10 +612,6 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			UserName:              userName,
 		},
 	)
-
-	if err = a.service.UpdateEmailVerificationReminder(ctx, time.Now().UTC()); err != nil {
-		a.serveJSONError(w, err)
-	}
 }
 
 // EnableUserMFA enables multi-factor authentication for the user.
@@ -757,9 +749,9 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
 	switch {
-	case console.ErrValidation.Has(err), console.ErrRecaptcha.Has(err), console.ErrMFAMissing.Has(err):
+	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err), console.ErrLockedAccount.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
@@ -775,8 +767,8 @@ func (a *Auth) getStatusCode(err error) int {
 // getUserErrorMessage returns a user-friendly representation of the error.
 func (a *Auth) getUserErrorMessage(err error) string {
 	switch {
-	case console.ErrRecaptcha.Has(err):
-		return "Validation of reCAPTCHA was unsuccessful"
+	case console.ErrCaptcha.Has(err):
+		return "Validation of captcha was unsuccessful"
 	case console.ErrRegToken.Has(err):
 		return "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	case console.ErrEmailUsed.Has(err):
@@ -791,11 +783,15 @@ func (a *Auth) getUserErrorMessage(err error) string {
 	case console.ErrMFAConflict.Has(err):
 		return "Expected either passcode or recovery code, but got both"
 	case console.ErrMFAPasscode.Has(err):
-		return "The MFA passcode is not valid or has expired"
+		return "The MFA passcode is not valid or has expired. You have just used up one of your login attempts"
 	case console.ErrMFARecoveryCode.Has(err):
-		return "The MFA recovery code is not valid or has been previously used"
+		return "The MFA recovery code is not valid or has been previously used. You have just used up one of your login attempts"
 	case console.ErrLoginCredentials.Has(err):
 		return "Your login credentials are incorrect, please try again"
+	case console.ErrLoginPassword.Has(err):
+		return "Your login credentials are incorrect. You have just used up one of your login attempts"
+	case console.ErrLockedAccount.Has(err):
+		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"
 	default:

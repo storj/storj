@@ -8,6 +8,8 @@ import (
 	"runtime/pprof"
 	"testing"
 
+	"storj.io/common/grant"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/private/dbutil/pgtest"
 	"storj.io/storj/private/testmonkit"
@@ -72,10 +74,27 @@ func provisionUplinks(ctx context.Context, t *testing.T, planet *Planet) {
 	for _, planetUplink := range planet.Uplinks {
 		for _, satellite := range planet.Satellites {
 			apiKey := planetUplink.APIKey[satellite.ID()]
-			access, err := uplink.RequestAccessWithPassphrase(ctx, satellite.URL(), apiKey.Serialize(), "")
+
+			// create access grant manually to avoid dialing satellite for
+			// project id and deriving key with argon2.IDKey method
+			encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
+			encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+
+			grantAccess := grant.Access{
+				SatelliteAddress: satellite.URL(),
+				APIKey:           apiKey,
+				EncAccess:        encAccess,
+			}
+
+			serializedAccess, err := grantAccess.Serialize()
 			if err != nil {
 				t.Fatalf("%+v", err)
 			}
+			access, err := uplink.ParseAccess(serializedAccess)
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+
 			planetUplink.Access[satellite.ID()] = access
 		}
 	}

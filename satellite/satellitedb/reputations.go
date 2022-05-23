@@ -34,7 +34,7 @@ type reputations struct {
 // 2. Depends on the result of the first step,
 //	a. if existing row is returned, do compare-and-swap.
 //	b. if no row found, insert a new row.
-func (reputations *reputations) Update(ctx context.Context, updateReq reputation.UpdateRequest, now time.Time) (_ *overlay.ReputationUpdate, err error) {
+func (reputations *reputations) Update(ctx context.Context, updateReq reputation.UpdateRequest, now time.Time) (_ *reputation.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
@@ -60,7 +60,7 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 				AuditHistory:                historyBytes,
 			}
 
-			auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, historyBytes, updateReq, now)
+			auditHistoryResponse, err := updateAuditHistory(ctx, historyBytes, updateReq.AuditHistory, updateReq.AuditOutcome != reputation.AuditOffline, now)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
@@ -81,18 +81,14 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 				return nil, Error.Wrap(err)
 			}
 
-			status := getNodeStatus(stats)
-			repUpdate := overlay.ReputationUpdate{
-				Disqualified:           status.Disqualified,
-				DisqualificationReason: update.DisqualificationReason,
-				UnknownAuditSuspended:  status.UnknownAuditSuspended,
-				OfflineSuspended:       status.OfflineSuspended,
-				VettedAt:               status.VettedAt,
+			status, err := dbxToReputationInfo(stats)
+			if err != nil {
+				return nil, Error.Wrap(err)
 			}
-			return &repUpdate, nil
+			return &status, nil
 		}
 
-		auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, dbNode.AuditHistory, updateReq, now)
+		auditHistoryResponse, err := updateAuditHistory(ctx, dbNode.AuditHistory, updateReq.AuditHistory, updateReq.AuditOutcome != reputation.AuditOffline, now)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -113,15 +109,11 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 			continue
 		}
 
-		status := getNodeStatus(dbNode)
-		repUpdate := overlay.ReputationUpdate{
-			Disqualified:           status.Disqualified,
-			DisqualificationReason: update.DisqualificationReason,
-			UnknownAuditSuspended:  status.UnknownAuditSuspended,
-			OfflineSuspended:       status.OfflineSuspended,
-			VettedAt:               status.VettedAt,
+		status, err := dbxToReputationInfo(dbNode)
+		if err != nil {
+			return nil, Error.Wrap(err)
 		}
-		return &repUpdate, nil
+		return &status, nil
 	}
 }
 
@@ -134,9 +126,13 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 		return nil, Error.Wrap(err)
 	}
 
-	history, err := auditHistoryFromPB(res.AuditHistory)
+	history, err := reputation.AuditHistoryFromBytes(res.AuditHistory)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+	var dqReason overlay.DisqualificationReason
+	if res.DisqualificationReason != nil {
+		dqReason = overlay.DisqualificationReason(*res.DisqualificationReason)
 	}
 
 	return &reputation.Info{
@@ -147,8 +143,9 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 		OfflineSuspended:            res.OfflineSuspended,
 		UnderReview:                 res.UnderReview,
 		Disqualified:                res.Disqualified,
+		DisqualificationReason:      dqReason,
 		OnlineScore:                 res.OnlineScore,
-		AuditHistory:                *history,
+		AuditHistory:                history,
 		AuditReputationAlpha:        res.AuditReputationAlpha,
 		AuditReputationBeta:         res.AuditReputationBeta,
 		UnknownAuditReputationAlpha: res.UnknownAuditReputationAlpha,
@@ -157,7 +154,7 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time) (err error) {
+func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, disqualificationReason overlay.DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
@@ -187,6 +184,7 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 
 		updateFields := dbx.Reputation_Update_Fields{}
 		updateFields.Disqualified = dbx.Reputation_Disqualified(disqualifiedAt.UTC())
+		updateFields.DisqualificationReason = dbx.Reputation_DisqualificationReason(int(disqualificationReason))
 
 		_, err = tx.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()), updateFields)
 		return err
@@ -289,6 +287,9 @@ func (reputations *reputations) populateCreateFields(update updateNodeStats) dbx
 	if update.Disqualified.set {
 		createFields.Disqualified = dbx.Reputation_Disqualified(update.Disqualified.value)
 	}
+	if update.DisqualificationReason.set {
+		createFields.DisqualificationReason = dbx.Reputation_DisqualificationReason(update.DisqualificationReason.value)
+	}
 	if update.UnknownAuditReputationAlpha.set {
 		createFields.UnknownAuditReputationAlpha = dbx.Reputation_UnknownAuditReputationAlpha(update.UnknownAuditReputationAlpha.value)
 	}
@@ -344,6 +345,9 @@ func (reputations *reputations) populateUpdateFields(update updateNodeStats, his
 	}
 	if update.Disqualified.set {
 		updateFields.Disqualified = dbx.Reputation_Disqualified(update.Disqualified.value)
+	}
+	if update.DisqualificationReason.set {
+		updateFields.DisqualificationReason = dbx.Reputation_DisqualificationReason(update.DisqualificationReason.value)
 	}
 	if update.UnknownAuditReputationAlpha.set {
 		updateFields.UnknownAuditReputationAlpha = dbx.Reputation_UnknownAuditReputationAlpha(update.UnknownAuditReputationAlpha.value)
@@ -474,7 +478,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		reputations.db.log.Info("Disqualified", zap.String("DQ type", "audit failure"), zap.String("Node ID", updateReq.NodeID.String()))
 		mon.Meter("bad_audit_dqs").Mark(1) //mon:locked
 		updateFields.Disqualified = timeField{set: true, value: now}
-		updateFields.DisqualificationReason = overlay.DisqualificationReasonAuditFailure
+		updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonAuditFailure)}
 	}
 
 	// if unknown audit rep goes below threshold, suspend node. Otherwise unsuspend node.
@@ -500,7 +504,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 				reputations.db.log.Info("Disqualified", zap.String("DQ type", "suspension grace period expired for unknown audits"), zap.String("Node ID", updateReq.NodeID.String()))
 				mon.Meter("unknown_suspension_dqs").Mark(1) //mon:locked
 				updateFields.Disqualified = timeField{set: true, value: now}
-				updateFields.DisqualificationReason = overlay.DisqualificationReasonSuspension
+				updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonSuspension)}
 				updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 			}
 		}
@@ -558,7 +562,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 					reputations.db.log.Info("Disqualified", zap.String("DQ type", "node offline"), zap.String("Node ID", updateReq.NodeID.String()))
 					mon.Meter("offline_dqs").Mark(1) //mon:locked
 					updateFields.Disqualified = timeField{set: true, value: now}
-					updateFields.DisqualificationReason = overlay.DisqualificationReasonNodeOffline
+					updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonNodeOffline)}
 				}
 			} else {
 				updateFields.OfflineUnderReview = timeField{set: true, isNil: true}
@@ -572,6 +576,11 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	}
 
 	return updateFields
+}
+
+type intField struct {
+	set   bool
+	value int
 }
 
 type int64Field struct {
@@ -602,7 +611,7 @@ type updateNodeStats struct {
 	AuditReputationAlpha        float64Field
 	AuditReputationBeta         float64Field
 	Disqualified                timeField
-	DisqualificationReason      overlay.DisqualificationReason
+	DisqualificationReason      intField
 	UnknownAuditReputationAlpha float64Field
 	UnknownAuditReputationBeta  float64Field
 	UnknownAuditSuspended       timeField
@@ -615,13 +624,32 @@ type updateNodeStats struct {
 	OnlineScore                 float64Field
 }
 
-func getNodeStatus(dbNode *dbx.Reputation) overlay.ReputationStatus {
-	return overlay.ReputationStatus{
-		VettedAt:              dbNode.VettedAt,
-		Disqualified:          dbNode.Disqualified,
-		UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
-		OfflineSuspended:      dbNode.OfflineSuspended,
+func dbxToReputationInfo(dbNode *dbx.Reputation) (reputation.Info, error) {
+	info := reputation.Info{
+		AuditSuccessCount:           dbNode.AuditSuccessCount,
+		TotalAuditCount:             dbNode.TotalAuditCount,
+		VettedAt:                    dbNode.VettedAt,
+		UnknownAuditSuspended:       dbNode.UnknownAuditSuspended,
+		OfflineSuspended:            dbNode.OfflineSuspended,
+		UnderReview:                 dbNode.UnderReview,
+		Disqualified:                dbNode.Disqualified,
+		OnlineScore:                 dbNode.OnlineScore,
+		AuditReputationAlpha:        dbNode.AuditReputationAlpha,
+		AuditReputationBeta:         dbNode.AuditReputationBeta,
+		UnknownAuditReputationAlpha: dbNode.UnknownAuditReputationAlpha,
+		UnknownAuditReputationBeta:  dbNode.UnknownAuditReputationBeta,
 	}
+	if dbNode.DisqualificationReason != nil {
+		info.DisqualificationReason = overlay.DisqualificationReason(*dbNode.DisqualificationReason)
+	}
+	if dbNode.AuditHistory != nil {
+		auditHistory, err := reputation.AuditHistoryFromBytes(dbNode.AuditHistory)
+		if err != nil {
+			return info, err
+		}
+		info.AuditHistory = auditHistory
+	}
+	return info, nil
 }
 
 // updateReputation uses the Beta distribution model to determine a node's reputation.

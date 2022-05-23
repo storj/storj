@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -31,7 +32,10 @@ import (
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
@@ -63,6 +67,11 @@ type Core struct {
 	Version struct {
 		Chore   *version_checker.Chore
 		Service *version_checker.Service
+	}
+
+	Mail struct {
+		Service        *mailservice.Service
+		EmailReminders *emailreminders.Chore
 	}
 
 	Debug struct {
@@ -101,7 +110,7 @@ type Core struct {
 		Worker   *audit.Worker
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
-		Reporter *audit.Reporter
+		Reporter audit.Reporter
 	}
 
 	ExpiredDeletion struct {
@@ -206,6 +215,40 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
+	}
+
+	{ // setup mailservice
+		peer.Mail.Service, err = setupMailService(peer.Log, *config)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Service.Close,
+		})
+	}
+
+	{ // setup email reminders
+		authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Mail.EmailReminders = emailreminders.NewChore(
+			peer.Log.Named("console:chore"),
+			authTokens,
+			peer.DB.Console().Users(),
+			peer.Mail.Service,
+			config.EmailReminders,
+			config.Console.ExternalAddress,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:email-reminders",
+			Run:   peer.Mail.EmailReminders.Run,
+			Close: peer.Mail.EmailReminders.Close,
+		})
 	}
 
 	{ // setup overlay
@@ -534,10 +577,15 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	pprof.Do(ctx, pprof.Labels("subsystem", "core"), func(ctx context.Context) {
+		peer.Servers.Run(ctx, group)
+		peer.Services.Run(ctx, group)
 
-	return group.Wait()
+		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+			err = group.Wait()
+		})
+	})
+	return err
 }
 
 // Close closes all the resources.

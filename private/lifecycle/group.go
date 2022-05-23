@@ -61,7 +61,7 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 		}
 
 		shutdownCtx, shutdownFinished := context.WithCancel(context.Background())
-		go func() {
+		go pprof.Do(ctx, pprof.Labels("name", "slow_shutdown:"+item.Name), func(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 			case <-shutdownCtx.Done():
@@ -77,7 +77,7 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 				group.logStackTrace()
 			case <-shutdownCtx.Done():
 			}
-		}()
+		})
 
 		g.Go(func() error {
 			defer shutdownFinished()

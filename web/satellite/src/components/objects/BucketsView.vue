@@ -5,7 +5,7 @@
     <div class="buckets-view">
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title" aria-roledescription="title">Buckets</h1>
-            <div class="buckets-view__title-area__button" :class="{ disabled: isLoading }" @click="showCreateBucketPopup">
+            <div class="buckets-view__title-area__button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
                 <BucketIcon />
                 <p class="buckets-view__title-area__button__label">New Bucket</p>
             </div>
@@ -62,19 +62,19 @@
 import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Vue, Watch } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { MetaUtils } from '@/utils/meta';
+import { Validator } from '@/utils/validation';
+import { LocalData } from "@/utils/localData";
+
 import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
 
 import BucketIcon from '@/../static/images/objects/bucket.svg';
-
-import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { DEMO_BUCKET_NAME, OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { MetaUtils } from '@/utils/meta';
-import { Validator } from '@/utils/validation';
-import { LocalData } from "@/utils/localData";
 
 // @vue/component
 @Component({
@@ -104,23 +104,15 @@ export default class BucketsView extends Vue {
      * Setup gateway credentials.
      */
     public async mounted(): Promise<void> {
-        if (!this.$store.state.objectsModule.passphrase && !this.isNewObjectsFlow) {
-            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
-
-            return;
-        }
-
         await this.setBucketsView();
     }
 
     @Watch('selectedProjectID')
     public async handleProjectChange(): Promise<void> {
-        if (this.isNewObjectsFlow) {
-            this.isLoading = true;
+        this.isLoading = true;
 
-            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-            await this.setBucketsView();
-        }
+        await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+        await this.setBucketsView();
     }
 
     /**
@@ -147,7 +139,14 @@ export default class BucketsView extends Vue {
                 return;
             }
 
-            if (!wasDemoBucketCreated) await this.createDemoBucket();
+            if (!this.bucketsList.length && !wasDemoBucketCreated) {
+                if (this.isNewObjectsFlow) {
+                    await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+                    return;
+                }
+
+                await this.createDemoBucket();
+            }
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
         } finally {
@@ -183,14 +182,10 @@ export default class BucketsView extends Vue {
         }
 
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
-        let passphrase = '';
-        if (!this.isNewObjectsFlow) {
-            passphrase = this.passphrase;
-        }
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': this.grantWithPermissions,
-            'passphrase': passphrase,
+            'passphrase': '',
             'projectID': this.$store.getters.selectedProject.id,
             'satelliteNodeURL': satelliteNodeURL,
         });
@@ -224,6 +219,12 @@ export default class BucketsView extends Vue {
         };
     }
 
+    public onNewBucketButtonClick(): void {
+        this.isNewObjectsFlow
+            ? this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path)
+            : this.showCreateBucketPopup();
+    }
+
     /**
      * Holds create bucket click logic.
      */
@@ -239,14 +240,9 @@ export default class BucketsView extends Vue {
                 await this.setAccess();
             }
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
-            if (this.isNewObjectsFlow) {
-                await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
-                this.createBucketName = '';
-                this.isRequestProcessing = false;
-                this.hideCreateBucketPopup();
-
-                return;
-            }
+            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            this.createBucketName = '';
+            this.hideCreateBucketPopup();
         } catch (error) {
             const BUCKET_ALREADY_EXISTS_ERROR = 'BucketAlreadyExists';
 
@@ -255,17 +251,9 @@ export default class BucketsView extends Vue {
             } else {
                 await this.$notify.error(error.message);
             }
-
+        } finally {
             this.isRequestProcessing = false;
-
-            return;
         }
-
-        const bucket = this.createBucketName;
-        this.createBucketName = '';
-        this.isRequestProcessing = false;
-
-        this.openBucket(bucket);
     }
 
     /**
@@ -278,25 +266,14 @@ export default class BucketsView extends Vue {
 
         try {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_DEMO_BUCKET);
-            if (this.isNewObjectsFlow) {
-                await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
 
-                LocalData.setDemoBucketCreatedStatus();
-                this.isRequestProcessing = false;
-
-                return;
-            }
+            LocalData.setDemoBucketCreatedStatus();
         } catch (error) {
             await this.$notify.error(error.message);
+        } finally {
             this.isRequestProcessing = false;
-
-            return;
         }
-
-        LocalData.setDemoBucketCreatedStatus();
-        this.isRequestProcessing = false;
-
-        this.openBucket(DEMO_BUCKET_NAME);
     }
 
     /**
@@ -317,15 +294,25 @@ export default class BucketsView extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
             await this.$notify.error(error.message);
-
-            this.isRequestProcessing = false;
-
             return;
+        } finally {
+            this.isRequestProcessing = false;
         }
 
-        this.isRequestProcessing = false;
         this.deleteBucketName = '';
         this.hideDeleteBucketPopup();
+    }
+
+    /**
+     * Removes temporary created access grant.
+     */
+    public async removeTemporaryAccessGrant(): Promise<void> {
+        try {
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
+            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
     }
 
     /**
@@ -390,30 +377,11 @@ export default class BucketsView extends Vue {
     }
 
     /**
-     * Removes temporary created access grant.
-     */
-    public async removeTemporaryAccessGrant(): Promise<void> {
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
-            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-    }
-
-    /**
      * Holds on bucket click. Proceeds to file browser.
      */
     public openBucket(bucketName: string): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
-
-        if (this.isNewObjectsFlow) {
-            this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
-
-            return;
-        }
-
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
     }
 
     /**
@@ -421,13 +389,6 @@ export default class BucketsView extends Vue {
      */
     public get bucketsList(): Bucket[] {
         return this.$store.state.objectsModule.bucketsList;
-    }
-
-    /**
-     * Returns passphrase from store.
-     */
-    private get passphrase(): string {
-        return this.$store.state.objectsModule.passphrase;
     }
 
     /**

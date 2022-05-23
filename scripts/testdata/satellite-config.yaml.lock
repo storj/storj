@@ -7,6 +7,21 @@
 # default project limits for users
 # admin.console-config.default-project-limit: 1
 
+# incremental duration of penalty for failed login attempts in minutes
+# admin.console-config.failed-login-penalty: 2
+
+# whether or not hCaptcha is enabled for user registration
+# admin.console-config.hcaptcha.enabled: false
+
+# hCaptcha secret key
+# admin.console-config.hcaptcha.secret-key: ""
+
+# hCaptcha site key
+# admin.console-config.hcaptcha.site-key: ""
+
+# number of times user can try to login without penalty
+# admin.console-config.login-attempts-without-penalty: 3
+
 # enable open registration
 # admin.console-config.open-registration-enabled: false
 
@@ -21,9 +36,6 @@
 
 # reCAPTCHA site key
 # admin.console-config.recaptcha.site-key: ""
-
-# expiration time for auth tokens, account recovery tokens, and activation tokens
-# admin.console-config.token-expiration-time: 24h0m0s
 
 # the default free-tier bandwidth usage limit
 # admin.console-config.usage-limits.bandwidth.free: 150.00 GB
@@ -106,6 +118,9 @@
 # comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)
 # checker.repair-overrides: 29/80/110-52,29/80/95-52,29/80/130-52
 
+# Number of damaged segments to buffer in-memory before flushing to the repair queue
+# checker.repair-queue-insert-batch-size: 100
+
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
 
@@ -129,6 +144,9 @@ compensation.rates.put-tb: "0"
 
 # comma separated monthly withheld percentage rates
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
+
+# expiration time for auth tokens, account recovery tokens, and activation tokens
+# console-auth.token-expiration-time: 24h0m0s
 
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
@@ -172,6 +190,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# incremental duration of penalty for failed login attempts in minutes
+# console.failed-login-penalty: 2
+
 # indicates if file browser flow is disabled
 # console.file-browser-flow-disabled: false
 
@@ -179,13 +200,22 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.frame-ancestors: tardigrade.io storj.io
 
 # url link for gateway credentials requests
-# console.gateway-credentials-request-url: https://auth.us1.storjshare.io
+# console.gateway-credentials-request-url: https://auth.storjshare.io
 
 # url link to general request page
 # console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
 # indicates if generated console api should be used
 # console.generated-api-enabled: false
+
+# whether or not hCaptcha is enabled for user registration
+# console.hcaptcha.enabled: false
+
+# hCaptcha secret key
+# console.hcaptcha.secret-key: ""
+
+# hCaptcha site key
+# console.hcaptcha.site-key: ""
 
 # inactivity timer delay in seconds
 # console.inactivity-timer-delay: 600
@@ -200,7 +230,10 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
 # url link for linksharing requests
-# console.linksharing-url: https://link.us1.storjshare.io
+# console.linksharing-url: https://link.storjshare.io
+
+# number of times user can try to login without penalty
+# console.login-attempts-without-penalty: 3
 
 # indicates if new access grant flow should be used
 # console.new-access-grant-flow: false
@@ -209,7 +242,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.new-navigation: true
 
 # indicates if new objects flow should be used
-# console.new-objects-flow: true
+# console.new-objects-flow: false
 
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: false
@@ -273,9 +306,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
-
-# expiration time for auth tokens, account recovery tokens, and activation tokens
-# console.token-expiration-time: 24h0m0s
 
 # the default free-tier bandwidth usage limit
 # console.usage-limits.bandwidth.free: 150.00 GB
@@ -354,6 +384,18 @@ contact.external-address: ""
 
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
+
+# how often to send reminders to users who need to verify their email
+# email-reminders.chore-interval: 24h0m0s
+
+# enable sending emails reminding users to verify their email
+# email-reminders.enable: true
+
+# amount of time before sending first reminder to users who need to verify their email
+# email-reminders.first-verification-reminder: 24h0m0s
+
+# amount of time before sending second reminder to users who need to verify their email
+# email-reminders.second-verification-reminder: 120h0m0s
 
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true

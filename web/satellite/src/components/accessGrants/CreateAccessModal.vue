@@ -313,7 +313,7 @@
                     <div class="access-grant__modal-container__header-container__close-cross-container" @click="onCloseClick">
                         <CloseCrossIcon />
                     </div>
-                    <h2 class="access-grant__modal-container__header-container__title-complete">{{ accessName }} Created</h2>
+                    <h2 class="access-grant__modal-container__header-container__title-complete">{{ accessName }} <br> Created</h2>
                 </div>
                 <div class="access-grant__modal-container__body-container__created"> 
                     <p>Now copy and save the {{ checkedText[checkedType][0] }} will only appear once. Click on the {{ checkedText[checkedType][1] }}</p>
@@ -518,7 +518,7 @@ import S3Icon from '@/../static/images/accessGrants/s3.svg';
 // for future use when notes is implemented
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
-
+import { Download } from "@/utils/download";
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { generateMnemonic } from "bip39";
@@ -588,7 +588,7 @@ export default class CreateAccessModal extends Vue {
      */
     private showAllPermissions = {show: false, position: "up"};
     private permissionsList = ["Read","Write","List","Delete"];
-    private checkedPermissions = {read: false, write: false, list: false, delete: false};
+    private checkedPermissions = {Read: false, Write: false, List: false, Delete: false};
     private selectedPermissions : string[] = [];
     private allPermissionsClicked = false;
     private acknowledgementCheck = false;
@@ -633,8 +633,6 @@ export default class CreateAccessModal extends Vue {
             await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
         }
     }
-
-    
 
     /**
      * Sets local worker with worker instantiated in store.
@@ -766,6 +764,14 @@ export default class CreateAccessModal extends Vue {
         link.download = `${this.checkedType}-credentials-${this.currentDate}.txt`;
         link.click();
     }
+    
+    /**
+     * Downloads passphrase to .txt file
+     */
+    public downloadText(): void {
+        this.isPassphraseDownloaded = true;
+        Download.file(this.passphrase, 'sampleText.txt')
+    }
 
     public onRadioInput(): void {
         this.isPassphraseCopied = false;
@@ -853,12 +859,12 @@ export default class CreateAccessModal extends Vue {
         if (type === 'all' && this.allPermissionsClicked === false) {
             this.allPermissionsClicked = true;
             this.selectedPermissions = this.permissionsList;
-            this.checkedPermissions = {read: true, write: true, list: true, delete: true}
+            this.checkedPermissions = {Read: true, Write: true, List: true, Delete: true}
             return
         } else if(type === 'all' && this.allPermissionsClicked === true) {
             this.allPermissionsClicked = false;
             this.selectedPermissions = []
-            this.checkedPermissions = {read: false, write: false, list: false, delete: false}
+            this.checkedPermissions = {Read: false, Write: false, List: false, Delete: false}
             return
         } else if(this.checkedPermissions[type] === true) {
             this.checkedPermissions[type] = false
@@ -866,10 +872,11 @@ export default class CreateAccessModal extends Vue {
             return
         } else {
             this.checkedPermissions[type] = true
-            if(this.checkedPermissions.read === true && this.checkedPermissions.write === true && this.checkedPermissions.list === true && this.checkedPermissions.delete === true) {
+            if(this.checkedPermissions.Read === true && this.checkedPermissions.Write === true && this.checkedPermissions.List === true && this.checkedPermissions.Delete === true) {
                 this.allPermissionsClicked = true
                 return
             }
+            return;
         }
     }
 

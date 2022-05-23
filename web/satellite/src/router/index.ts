@@ -45,6 +45,7 @@ import RegistrationSuccess from "@/components/common/RegistrationSuccess.vue";
 import SuccessScreen from "@/components/onboardingTour/steps/cliFlow/SuccessScreen.vue";
 import AGName from "@/components/onboardingTour/steps/cliFlow/AGName.vue";
 import AGPermissions from "@/components/onboardingTour/steps/cliFlow/AGPermissions.vue";
+import BucketCreation from "@/components/objects/BucketCreation.vue";
 
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from "@/utils/meta";
@@ -121,6 +122,7 @@ export abstract class RouteConfig {
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
+    public static BucketCreation = new NavigationLink('creation', 'Bucket Creation')
 }
 
 const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard') === 'true';
@@ -418,6 +420,11 @@ export const router = new Router({
                                     component: UploadFile,
                                 },
                             ],
+                        },
+                        {
+                            path: RouteConfig.BucketCreation.path,
+                            name: RouteConfig.BucketCreation.name,
+                            component: BucketCreation,
                         },
                     ],
                 },

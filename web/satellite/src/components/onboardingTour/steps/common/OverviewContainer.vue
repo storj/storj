@@ -5,10 +5,18 @@
     <div class="overview-container">
         <WebIcon v-if="isWeb" class="overview-container__img" alt="web" />
         <CLIIcon v-else class="overview-container__img" alt="cli" />
-        <h2 class="overview-container__title">{{ title }}</h2>
         <p v-if="isWeb" class="overview-container__enc" aria-roledescription="server-side-encryption-title">Server-side encrypted</p>
         <p v-else class="overview-container__enc" aria-roledescription="end-to-end-encryption-title">End-to-end encrypted</p>
+        <h2 class="overview-container__title">{{ title }}</h2>
         <p class="overview-container__info">{{ info }}</p>
+        <VButton
+            :label="buttonLabel"
+            width="240px"
+            height="48px"
+            border-radius="8px"
+            :is-disabled="isDisabled"
+            :on-press="onClick"
+        />
         <p v-if="isWeb" class="overview-container__encryption-container">
             By using the web browser you are opting in to
             <a
@@ -27,17 +35,8 @@
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-roledescription="end-to-end-encryption-link"
-            >end-to-end</a> encryption for object data, metadata and path data.
+            >end-to-end encryption</a> for object data, metadata and path data.
         </p>
-        <VButton
-            :label="buttonLabel"
-            width="100%"
-            height="64px"
-            border-radius="62px"
-            is-uppercase="true"
-            :is-disabled="isDisabled"
-            :on-press="onClick"
-        />
     </div>
 </template>
 
@@ -78,58 +77,61 @@ export default class OverviewContainer extends Vue {
         box-shadow: 0 0 32px rgb(0 0 0 / 4%);
         border-radius: 20px;
         font-family: 'font_regular', sans-serif;
-        padding: 48px;
-        max-width: 396px;
+        padding: 52px;
+        max-width: 394px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
 
         &__img {
-            min-height: 90px;
+            min-height: 83px;
+        }
+
+        &__enc {
+            font-family: 'font_bold', sans-serif;
+            font-size: 14px;
+            line-height: 36px;
+            letter-spacing: 1px;
+            color: #14142a;
+            margin-bottom: 10px;
+            text-transform: uppercase;
         }
 
         &__title {
             font-family: 'font_bold', sans-serif;
-            font-size: 36px;
-            line-height: 36px;
+            font-size: 26px;
+            line-height: 31px;
             letter-spacing: 1px;
-            color: #14142b;
-            margin: 5px 0 10px;
-        }
-
-        &__enc {
-            font-family: 'font_medium', sans-serif;
-            font-size: 14px;
-            line-height: 36px;
-            letter-spacing: 1px;
-            color: #14142b;
-            font-weight: 300;
-            margin: 0 0 10px;
-            text-transform: uppercase;
+            color: #131621;
+            margin-bottom: 14px;
         }
 
         &__info {
-            font-size: 14px;
-            line-height: 22px;
-            letter-spacing: 0.75px;
-            color: #14142a;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
+            font-size: 16px;
+            line-height: 21px;
+            text-align: center;
+            color: #354049;
         }
 
         &__encryption-container {
-            width: calc(100% - 40px);
-            padding: 20px;
-            border: 1px solid #e6e9ef;
-            border-radius: 20px;
-            margin-bottom: 30px;
-            font-size: 14px;
-            line-height: 20px;
-            letter-spacing: 0.75px;
-            color: #14142a;
+            width: calc(100% - 48px);
+            padding: 12px 24px;
+            background: #fec;
+            border-radius: 8px;
+            margin-top: 37px;
+            font-size: 16px;
+            line-height: 24px;
+            color: #354049;
+            text-align: center;
 
             &__link {
                 text-decoration: underline !important;
                 text-underline-position: under;
+                color: #354049;
 
                 &:visited {
-                    color: #14142a;
+                    color: #354049;
                 }
             }
         }
