@@ -4,16 +4,20 @@
 <template>
     <div class="bucket-item">
         <div class="bucket-item__name">
-            <BucketIcon />
-            <p class="bucket-item__name__value">{{ itemData.Name }}</p>
+            <bucket-icon />
+            <p class="bucket-item__name__value">{{ itemData.name }}</p>
         </div>
         <p class="bucket-item__date">{{ formattedDate }}</p>
         <div v-click-outside="closeDropdown" class="bucket-item__functional" @click.stop="openDropdown(dropdownKey)">
-            <DotsIcon />
+            <dots-icon />
             <div v-if="isDropdownOpen" class="bucket-item__functional__dropdown">
+                <div class="bucket-item__functional__dropdown__item" @click.stop="onDetailsClick">
+                    <details-icon />
+                    <p class="bucket-item__functional__dropdown__item__label">View Bucket Details</p>
+                </div>
                 <div class="bucket-item__functional__dropdown__item" @click.stop="onDeleteClick">
-                    <DeleteIcon />
-                    <p class="bucket-item__functional__dropdown__item__label">Delete</p>
+                    <delete-icon />
+                    <p class="bucket-item__functional__dropdown__item__label">Delete Bucket</p>
                 </div>
             </div>
         </div>
@@ -21,12 +25,14 @@
 </template>
 
 <script lang="ts">
-import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import BucketIcon from '@/../static/images/objects/bucketItem.svg';
 import DeleteIcon from '@/../static/images/objects/delete.svg';
+import DetailsIcon from '@/../static/images/objects/details.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
+import {RouteConfig} from "@/router";
+import {Bucket} from "@/types/buckets";
 
 // @vue/component
 @Component({
@@ -34,6 +40,7 @@ import DotsIcon from '@/../static/images/objects/dots.svg';
         BucketIcon,
         DotsIcon,
         DeleteIcon,
+        DetailsIcon,
     },
 })
 export default class BucketItem extends Vue {
@@ -48,14 +55,13 @@ export default class BucketItem extends Vue {
     @Prop({ default: -1 })
     public readonly dropdownKey: number;
 
-    public isRequestProcessing = false;
     public errorMessage = '';
 
     /**
      * Returns formatted date.
      */
     public get formattedDate(): string | undefined {
-        return this.itemData.CreationDate?.toLocaleString();
+        return this.itemData.since.toLocaleString();
     }
 
     /**
@@ -70,6 +76,17 @@ export default class BucketItem extends Vue {
      */
     public onDeleteClick(): void {
         this.showDeleteBucketPopup();
+        this.closeDropdown();
+    }
+
+    /**
+     * Redirects to bucket details page.
+     */
+    public onDetailsClick(): void {
+        this.$router.push({
+            name: RouteConfig.Buckets.with(RouteConfig.BucketsDetails).name,
+            params: { bucketName: this.itemData.name },
+        });
         this.closeDropdown();
     }
 }
@@ -134,7 +151,7 @@ export default class BucketItem extends Vue {
                         background-color: #f4f5f7;
                         font-family: 'font_medium', sans-serif;
 
-                        .bucket-delete-path {
+                        & svg path {
                             fill: #0068dc;
                             stroke: #0068dc;
                         }

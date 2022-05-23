@@ -49,6 +49,7 @@ import BucketCreation from "@/components/objects/BucketCreation.vue";
 
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from "@/utils/meta";
+import BucketDetails from "@/components/objects/BucketDetails.vue";
 
 const ActivateAccount = () => import('@/views/ActivateAccount.vue');
 const AuthorizeArea = () => import('@/views/AuthorizeArea.vue');
@@ -120,6 +121,7 @@ export abstract class RouteConfig {
     // objects child paths.
     public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
+    public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
     public static BucketCreation = new NavigationLink('creation', 'Bucket Creation')
@@ -407,6 +409,12 @@ export const router = new Router({
                             path: RouteConfig.BucketsManagement.path,
                             name: RouteConfig.BucketsManagement.name,
                             component: BucketsView,
+                            props: true,
+                        },
+                        {
+                            path: RouteConfig.BucketsDetails.path,
+                            name: RouteConfig.BucketsDetails.name,
+                            component: BucketDetails,
                             props: true,
                         },
                         {
