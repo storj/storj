@@ -14,13 +14,17 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/term"
 
 	"storj.io/common/rpc/rpctracing"
+	jaeger "storj.io/monkit-jaeger"
+	"storj.io/private/version"
 )
 
 type external struct {
@@ -50,7 +54,8 @@ type external struct {
 	}
 
 	tracing struct {
-		traceID int64 // if non-zero, sends up a trace with the given id
+		traceID      int64  // if non-zero, sets outgoing traces to the given id
+		traceAddress string // if non-zero, sampled spans are sent to this trace collector address.
 	}
 }
 
@@ -87,6 +92,11 @@ func (ex *external) Setup(f clingy.Flags) {
 		clingy.Transform(transformInt64),
 		clingy.Advanced,
 	).(int64)
+
+	ex.tracing.traceAddress = f.Flag(
+		"trace-addr", "Specify where to send traces", "agent.tracing.datasci.storj.io:5775",
+		clingy.Advanced,
+	).(string)
 
 	ex.dirs.loaded = true
 }
@@ -141,10 +151,25 @@ func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) (err error) {
 
 	ctxWrapped := ctx
 
-	if ex.tracing.traceID != 0 {
-		// TODO: set up the tracing collector here as well to send up the
-		// traces that we generate. must be done before the RemoteTrace call.
+	if ex.tracing.traceAddress != "" {
+		versionName := fmt.Sprintf("uplink-release-%s", version.Build.Version.String())
+		if !version.Build.Release {
+			versionName = fmt.Sprintf("uplink-dev-%s", version.Build.Timestamp.Format(time.RFC3339))
+		}
+		collector, err := jaeger.NewUDPCollector(zap.L(), ex.tracing.traceAddress, versionName, nil, 0, 0, 0)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			sendErr := collector.Send(context.Background())
+			closeErr := collector.Close()
+			err = errs.Combine(err, sendErr, closeErr)
+		}()
+		cancel := jaeger.RegisterJaeger(monkit.Default, collector, jaeger.Options{Fraction: 0})
+		defer cancel()
+	}
 
+	if ex.tracing.traceID != 0 {
 		trace := monkit.NewTrace(ex.tracing.traceID)
 		trace.Set(rpctracing.Sampled, true)
 
