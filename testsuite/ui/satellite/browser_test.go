@@ -440,3 +440,47 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 		wait7()
 	})
 }
+
+func TestBrowser_OpenBucket(t *testing.T) {
+	uitest.Edge(t, func(t *testing.T, ctx *testcontext.Context, planet *uitest.EdgePlanet, browser *rod.Browser) {
+		page := openPage(browser, planet.Satellites[0].ConsoleURL())
+
+		// Sign up and login.
+		signUpWithUser(t, planet, page)
+		loginWithUser(t, planet, page)
+
+		// Navigate into browser with new onboarding.
+		page.MustElementR("a", "Skip and go directly to dashboard").MustClick()
+		page.MustElementR("p", "Buckets").MustClick()
+		page.MustElementR("[aria-roledescription=title]", "Create a bucket")
+		page.MustElementR("span", "Continue").MustClick()
+		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Encrypt your bucket")
+		page.MustElementR("span", "Continue").MustClick()
+		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Generate a passphrase")
+		page.MustElementR("label", "I understand, and I have saved the passphrase.").MustClick()
+		page.MustElementR("span", "Continue").MustClick()
+
+		// Verify that browser component has loaded and that the dropzone is present.
+		page.MustElementR("p", "Drop Files Here to Upload")
+
+		// Navigate to buckets view
+		page.MustElementR("p", "<- Back to Buckets").MustClick()
+		waitVueTick(page)
+
+		// Open bucket
+		page.MustElementR("p", "demo-bucket").MustClick()
+		page.MustElementR("h1", "Open a Bucket")
+		input := page.MustElement("[aria-roledescription=bucket] input").MustText()
+		require.Equal(t, "demo-bucket", input)
+
+		page.MustElement("[aria-roledescription=passphrase] input").MustInput("passphrase")
+		wait := page.MustWaitRequestIdle()
+		page.MustElementR("span", "Continue ->").MustClick()
+		wait()
+
+		// Verify that browser component has loaded and that the dropzone is present.
+		page.MustElementR("p", "Drop Files Here to Upload")
+	})
+}

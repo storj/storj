@@ -69,6 +69,7 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 import { LocalData } from "@/utils/localData";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -381,7 +382,9 @@ export default class BucketsView extends Vue {
      */
     public openBucket(bucketName: string): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+        this.isNewObjectsFlow
+            ? this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN)
+            : this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
     }
 
     /**
