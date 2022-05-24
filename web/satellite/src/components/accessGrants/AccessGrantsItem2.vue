@@ -76,6 +76,8 @@ export default class AccessGrantsItem extends Vue {
         await this.$store.dispatch(TOGGLE_SELECTION, this.itemData);
         this.$emit('altMethod');
         this.togglePopupVisibility();
+        this.popupHover = false;
+
     }
 }
 </script>

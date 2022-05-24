@@ -741,11 +741,7 @@ export default class CreateAccessModal extends Vue {
      */
     public downloadPassphrase(): void {
         this.isPassphraseDownloaded = true;
-        var blob = new Blob([ this.passphrase ], { "type" : "text/plain" });
-        let link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
-        link.download = `passphrase-${this.currentDate}.txt`;
-        link.click();
+        Download.file(this.passphrase, `passphrase-${this.currentDate}.txt`)
     }
 
     /**
@@ -754,23 +750,11 @@ export default class CreateAccessModal extends Vue {
     public downloadCredentials(): void {
         let credentialMap = {
             access: [`access grant: ${this.access}`], 
-            s3: [`access key: ${this.gatewayCredentials.accessKeyId}`,'\n', `secret key: ${this.gatewayCredentials.secretKey}`,'\n', `endpoint: ${this.gatewayCredentials.endpoint}`], 
-            api: [`satellite address: ${this.satelliteAddress}`,'\n',`restricted key: ${this.restrictedKey}`]
+            s3: [`access key: ${this.gatewayCredentials.accessKeyId}\nsecret key: ${this.gatewayCredentials.secretKey}\nendpoint: ${this.gatewayCredentials.endpoint}`], 
+            api: [`satellite address: ${this.satelliteAddress}\nrestricted key: ${this.restrictedKey}`]
         }
         this.areCredentialsDownloaded = true;
-        var blob = new Blob( credentialMap[this.checkedType] , { "type" : "text/plain" });
-        let link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
-        link.download = `${this.checkedType}-credentials-${this.currentDate}.txt`;
-        link.click();
-    }
-    
-    /**
-     * Downloads passphrase to .txt file
-     */
-    public downloadText(): void {
-        this.isPassphraseDownloaded = true;
-        Download.file(this.passphrase, 'sampleText.txt')
+        Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`)
     }
 
     public onRadioInput(): void {
@@ -1384,7 +1368,7 @@ export default class CreateAccessModal extends Vue {
 
     .access-tooltip {
         top: 52px;
-        left: 94px;
+        left: 109px;
 
         @include tooltip-container;
 
@@ -1398,7 +1382,7 @@ export default class CreateAccessModal extends Vue {
 
     .s3-tooltip {
         top: 158px;
-        left: 103px;
+        left: 118px;
 
         @include tooltip-container;
 
@@ -1413,7 +1397,7 @@ export default class CreateAccessModal extends Vue {
 
     .api-tooltip {
         top: 186px;
-        left: 78px;
+        left: 94px;
 
         @include tooltip-container;
 
