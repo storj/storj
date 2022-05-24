@@ -610,13 +610,17 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	mon.Counter("create_user_attempt").Inc(1) //mon:locked
+
 	if s.config.Recaptcha.Enabled || s.config.Hcaptcha.Enabled {
 		valid, err := s.captchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
 		if err != nil {
+			mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
 			s.log.Error("captcha authorization failed", zap.Error(err))
 			return nil, ErrCaptcha.Wrap(err)
 		}
 		if !valid {
+			mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
 			return nil, ErrCaptcha.New("captcha validation unsuccessful")
 		}
 	}
@@ -635,7 +639,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	if verified != nil || len(unverified) != 0 {
+	if verified != nil {
+		mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
+	} else if len(unverified) != 0 {
+		mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
 		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
@@ -703,6 +711,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	s.auditLog(ctx, "create user", nil, user.Email)
+	mon.Counter("create_user_success").Inc(1) //mon:locked
 
 	return u, nil
 }
@@ -882,14 +891,22 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 func (s *Service) Token(ctx context.Context, request AuthUser) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, _, err := s.store.Users().GetByEmailWithUnverified(ctx, request.Email)
+	mon.Counter("login_attempt").Inc(1) //mon:locked
+
+	user, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, request.Email)
 	if user == nil {
+		if len(unverified) > 0 {
+			mon.Counter("login_email_unverified").Inc(1) //mon:locked
+		} else {
+			mon.Counter("login_email_invalid").Inc(1) //mon:locked
+		}
 		return "", ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
 	now := time.Now()
 
 	if user.LoginLockoutExpiration.After(now) {
+		mon.Counter("login_locked_out").Inc(1) //mon:locked
 		return "", ErrLockedAccount.New(lockedAccountErrMsg)
 	}
 
@@ -900,11 +917,16 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 			return err
 		}
 
+		mon.Counter("login_failed").Inc(1)                                          //mon:locked
+		mon.IntVal("login_user_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+
 		if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+			mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
 			return ErrLockedAccount.New(lockedAccountErrMsg)
 		}
 
 		if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+			mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
 			return ErrLockedAccount.New(lockedAccountWithResultErrMsg)
 		}
 
@@ -917,12 +939,13 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 		if err != nil {
 			return "", err
 		}
-
+		mon.Counter("login_invalid_password").Inc(1) //mon:locked
 		return "", ErrLoginPassword.New(credentialsErrMsg)
 	}
 
 	if user.MFAEnabled {
 		if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
+			mon.Counter("login_mfa_conflict").Inc(1) //mon:locked
 			return "", ErrMFAConflict.New(mfaConflictErrMsg)
 		}
 
@@ -941,9 +964,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 				if err != nil {
 					return "", err
 				}
-
+				mon.Counter("login_mfa_recovery_failure").Inc(1) //mon:locked
 				return "", ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
 			}
+
+			mon.Counter("login_mfa_recovery_success").Inc(1) //mon:locked
 
 			user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
 
@@ -966,10 +991,12 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 				if err != nil {
 					return "", err
 				}
-
+				mon.Counter("login_mfa_passcode_failure").Inc(1) //mon:locked
 				return "", ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 			}
+			mon.Counter("login_mfa_passcode_success").Inc(1) //mon:locked
 		} else {
+			mon.Counter("login_mfa_missing").Inc(1) //mon:locked
 			return "", ErrMFAMissing.New(mfaRequiredErrMsg)
 		}
 	}
@@ -990,6 +1017,8 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 	s.auditLog(ctx, "login", &user.ID, user.Email)
 
 	s.analytics.TrackSignedIn(user.ID, user.Email)
+
+	mon.Counter("login_success").Inc(1) //mon:locked
 
 	return token, nil
 }
