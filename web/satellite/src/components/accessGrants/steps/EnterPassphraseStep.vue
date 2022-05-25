@@ -104,7 +104,6 @@ export default class EnterPassphraseStep extends Vue {
         });
 
         const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-        console.log('Passphrase: ', accessEvent)
         if (accessEvent.data.error) {
             await this.$notify.error(accessEvent.data.error);
             this.isLoading = false;

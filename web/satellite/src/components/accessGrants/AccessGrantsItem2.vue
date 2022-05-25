@@ -21,15 +21,15 @@
             >
                 <p
                     class="popup-menu__popup-delete"
-                    @mouseenter="popupHover = true"
-                    @mouseleave="popupHover = false"
+                    @mouseenter="isPopupHovered = true"
+                    @mouseleave="isPopupHovered = false"
                     @click="toggleSelection"
                 >
                     <TrashIconWhite 
-                        v-if="popupHover"
+                        v-if="isPopupHovered"
                     />
                     <TrashIconBlack 
-                        v-if="!popupHover"
+                        v-if="!isPopupHovered"
                     />
                     Delete Access
                 </p>
@@ -59,11 +59,9 @@ const {
 })
 export default class AccessGrantsItem extends Vue {
     @Prop({ default: new AccessGrant('', '', new Date(), '') })
-    @Prop({default: ''})
-
     private readonly itemData: AccessGrant;
     private popupVisible = false;
-    private popupHover = false;
+    private isPopupHovered = false;
 
     public togglePopupVisibility(): void {
         this.popupVisible = !this.popupVisible;
@@ -76,7 +74,7 @@ export default class AccessGrantsItem extends Vue {
         await this.$store.dispatch(TOGGLE_SELECTION, this.itemData);
         this.$emit('altMethod');
         this.togglePopupVisibility();
-        this.popupHover = false;
+        this.isPopupHovered = false;
 
     }
 }

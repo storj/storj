@@ -35,7 +35,7 @@ export default class VList extends Vue {
      * testMethod
      */
     public openDeleteModal() {
-        this.$emit('open-modal')
+        this.$emit('openModal')
     }
 }
 </script>

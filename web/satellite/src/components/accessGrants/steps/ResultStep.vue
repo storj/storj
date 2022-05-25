@@ -91,10 +91,6 @@ export default class ResultStep extends Vue {
 
         const requestURL = MetaUtils.getMetaContent('gateway-credentials-request-url');
         if (requestURL) this.isGatewayLinkVisible = true;
-
-        console.log('normal key: ', this.key)
-        console.log('restricted key: ', this.restrictedKey)
-        console.log('Access: ', this.access)
     }
 
     /**

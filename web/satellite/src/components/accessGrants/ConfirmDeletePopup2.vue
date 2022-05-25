@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -57,7 +57,6 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { MetaUtils } from '@/utils/meta';
 
 import VButton from '@/components/common/VButton.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue'
@@ -76,7 +75,7 @@ import { AccessGrant } from '@/types/accessGrants';
     },
 })
 export default class ConfirmDeletePopup extends Vue {
-    private FIRST_PAGE = 1;
+    private readonly FIRST_PAGE: number = 1;
     private isLoading = false;
     private confirmedInput = '';
 
@@ -109,7 +108,7 @@ export default class ConfirmDeletePopup extends Vue {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
         }
 
-        this.$emit('reset-pagination');
+        this.$emit('resetPagination');
         this.isLoading = false;
         this.onCancelClick();
     }
@@ -120,13 +119,7 @@ export default class ConfirmDeletePopup extends Vue {
     public onCancelClick(): void {
         this.$emit('close');
     }
-    /**
-     * Checks for new access grant flag
-     */ 
-    public get isNewAccessGrantFlow(): boolean {
-        const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
-        return isNewAccessGrantFlow === "true";
-    }
+
     /**
      * Returns list of selected access grants from store.
      */

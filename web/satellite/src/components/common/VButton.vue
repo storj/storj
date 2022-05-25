@@ -11,7 +11,7 @@
         <slot name="icon" />
         <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
         <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
-        <div v-if="hasTrashIcon" class="trashIcon"><TrashIcon /></div>
+        <div v-if="hasTrashIcon" class="trash-icon"><TrashIcon /></div>
         <span class="label" :class="{uppercase: isUppercase}">{{ label }}</span>
     </div>
 </template>
@@ -19,8 +19,6 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
-
-
 
 /**
  * Custom button component with label.
@@ -186,7 +184,7 @@ export default class VButton extends Vue {
         background-color: #0149ff;
         cursor: pointer;
 
-        .trashIcon {
+        .trash-icon {
             margin-right: 5px;
         }
 
