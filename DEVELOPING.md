@@ -378,6 +378,15 @@ cd web/satellite
 npm run build
 ```
 
+Any changes to the `static` directory will also automatically be picked up by the backend. If you’re iterating on the
+wasm module, you can invoke the `wasm` or `wasm-dev` npm targets.
+
+```shell
+cd web/satellite
+
+npm run wasm
+```
+
 ### Interacting with the satellite database
 
 `docker compose ps` will list your running containers. Find the one that looks like `<prefix>-cockroach-1`
