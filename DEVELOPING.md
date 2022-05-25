@@ -357,16 +357,11 @@ _Aside_ - A few more notes here on OSX:
 
 ### Testing frontend changes
 
-In order to support mounting local web builds into the container, manual changes needed to be made to the
-`satellite-api` volumes block of the `docker-compose.yaml` file. The following block adds a bind mount for the web
-assets. Be sure to replace `${SOURCE_DIR}` with the path to the storj source repository (`pwd` on OSX and Linux).
+In order to support mounting local web builds into the container, a new volume needs to be added with `storj-up`. The following command mounts local web
+assets to the satellite api container. Be sure to replace `${SOURCE_DIR}` with the path to the storj source repository (`pwd` on OSX and Linux).
 
-```yaml
-    - type: bind
-      source: ${SOURCE_DIR}/web/satellite/dist/
-      target: /var/lib/storj/storj/web/satellite/dist/
-      bind:
-        create_host_path: true
+```shell
+storj-up local-ws ${SOURCE_DIR}/web/satellite/
 ```
 
 You’ll need to restart the container to pick up the new volume.
@@ -383,32 +378,23 @@ cd web/satellite
 npm run build
 ```
 
-#### Testing changes to static files (including wasm)
+### Interacting with the satellite database
 
-Any changes to the `static` directory (including wasm) will require an additional bind mount for the `satellite-api`.
+`docker compose ps` will list your running containers. Find the one that looks like `<prefix>-cockroach-1`
 
-```yaml
-    - type: bind
-      source: ${SOURCE_DIR}/web/satellite/static/
-      target: /var/lib/storj/storj/web/satellite/static/
-      bind:
-        create_host_path: true
+To run sql on this container,
+
+```
+docker exec -it <prefix>-cockroach-1 ./cockroach sql --insecure 
 ```
 
-Similarly, you’ll need to restart the container to pick up the new volume.
+`show databases;` will list all the databases you can query from. `master` will contain most satellite tables, and `metainfo` contains... metainfo tables.
 
-```shell
-docker compose up -d
-```
+`use <database>;` will switch to one of those.
 
-Now, any changes to the `static` directory will automatically be picked up by the backend. If you’re iterating on the
-wasm module, you can invoke the `wasm` or `wasm-dev` npm targets.
+`show tables;` will give a list of tables accessible from the selected database.
 
-```shell
-cd web/satellite
-
-npm run wasm
-```
+Then you can run queries like `update users set project_limit=3 where ...;`
 
 # Specific Contribution Workflows
 
