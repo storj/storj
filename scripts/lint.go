@@ -86,7 +86,9 @@ func main() {
 			start := time.Now()
 
 			log.Println(prefix, "running")
-			defer log.Println(prefix, "done", time.Since(start))
+			defer func() {
+				log.Println(prefix, "done", time.Since(start))
+			}()
 
 			_ = cmd.Run()
 			exitCode := cmd.ProcessState.ExitCode()
@@ -163,6 +165,11 @@ func main() {
 		args := append([]string{"--config", "/go/ci/.golangci.yml", "--skip-dirs", "(^|/)node_modules($|/)", "-j=2", "run"}, target...)
 		commands[1] = append(commands[1], newCommand(ctx, workDir, "golangci-lint", args...))
 	}
+
+	start := time.Now()
+	defer func() {
+		log.Println("total time", time.Since(start))
+	}()
 
 	for _, tier := range commands {
 		for _, cmd := range tier {
