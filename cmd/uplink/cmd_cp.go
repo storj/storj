@@ -103,8 +103,8 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		"optional metadata for the object. Please use a single level JSON object of string to string only",
 		nil, clingy.Transform(parseJSON), clingy.Type("string")).(map[string]string)
 
-	c.source = params.Arg("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
-	c.dest = params.Arg("dest", "Destination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
+	c.source = params.Arg("source", "Source to copy, use - for standard input", clingy.Transform(ulloc.Parse)).(ulloc.Location)
+	c.dest = params.Arg("dest", "Destination to copy, use - for standard output", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 }
 
 func (c *cmdCp) Execute(ctx clingy.Context) error {
