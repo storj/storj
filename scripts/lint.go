@@ -90,11 +90,10 @@ func main() {
 				log.Println(prefix, "done", time.Since(start))
 			}()
 
-			_ = cmd.Run()
+			out, _ := cmd.CombinedOutput()
 			exitCode := cmd.ProcessState.ExitCode()
 			if exitCode > 0 {
-				out, err := cmd.CombinedOutput()
-				log.Fatalln(prefix, "error", string(out), err)
+				log.Fatalln(prefix, "error", string(out))
 			}
 		})
 	}
