@@ -96,11 +96,7 @@ type Config struct {
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"false"`
 	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"false"`
-<<<<<<< HEAD
 	NewBillingScreen                bool    `help:"indicates if new billing screens should be used" default:"false"`
-=======
-	NewBillingScreen                bool    `help:"indicates if new access grant flow should be used" default:"false"`
->>>>>>> 70cd93d204d493209fc7145b6195c9fbdd7fd819
 	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
 	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
 	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`

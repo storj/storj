@@ -241,11 +241,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if new access grant flow should be used
 # console.new-access-grant-flow: false
 
-<<<<<<< HEAD
 # indicates if new billing screens should be used
-=======
-# indicates if new billing screen should be used
->>>>>>> 70cd93d204d493209fc7145b6195c9fbdd7fd819
 # console.new-billing-screen: false
 
 # indicates if new navigation structure should be rendered
