@@ -3,7 +3,37 @@
 
 <template>
     <div class="account-billing-area">
-        <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
+
+        <div class="account-billing-area__header">
+            <div 
+                :class="`account-billing-area__header__tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
+                @click="routeToOverview"    
+            >
+                <p>Overview</p>
+            </div>
+            <div 
+                :class="`account-billing-area__header__tab ${$route.name === 'Payment Methods' ? 'selected-tab' : ''}`"
+                @click="routeToPaymentMethods"
+            >
+                <p>Payment Methods</p>
+            </div>
+            <div 
+                :class="`account-billing-area__header__tab ${$route.name === 'Billing History 2' ? 'selected-tab' : ''}`"
+                @click="routeToBillingHistory"
+            >
+                <p>Billing History</p>
+            </div>
+            <div 
+                :class="`account-billing-area__header__tab ${$route.name === 'Coupons' ? 'selected-tab' : ''}`"
+                @click="routeToCoupons"
+            >
+                <p>Coupons</p>
+            </div>      
+        </div>
+        <div class="account-billing-area__divider"></div>
+        <router-view />
+
+        <!-- <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
             <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
                 <NegativeBalanceIcon />
                 <p class="account-billing-area__notification-container__negative-balance__text">
@@ -48,8 +78,9 @@
         <EstimatedCostsAndCredits v-if="isSummaryVisible" />
         <PaymentMethods />
         <SmallDepositHistory />
-        <CouponArea />
-        <router-view />
+        <CouponArea /> -->
+
+        <!-- <router-view /> -->
     </div>
 </template>
 
@@ -62,12 +93,15 @@ import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCost
 import CouponArea from '@/components/account/billing/coupons/CouponArea.vue';
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
+import BillingOverview from '@/components/account/billing/billingTabs/Overview.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import ExpandIcon from '@/../static/images/account/billing/expand.svg';
 import HideIcon from '@/../static/images/account/billing/hide.svg';
 import LowBalanceIcon from '@/../static/images/account/billing/lowBalance.svg';
 import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBalance.svg';
+
+
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -88,6 +122,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         HideIcon,
         CouponArea,
         VLoader,
+        BillingOverview,
     },
 })
 export default class BillingArea extends Vue {
@@ -195,6 +230,25 @@ export default class BillingArea extends Vue {
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 
+    /**
+     * Routes for new billing screens.
+     */
+    public routeToOverview(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+    }
+
+    public routeToPaymentMethods(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
+    }
+
+    public routeToBillingHistory(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
+    }
+
+    public routeToCoupons(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path);
+    }
+
 }
 </script>
 
@@ -277,8 +331,40 @@ export default class BillingArea extends Vue {
         }
     }
 
+    .selected-tab {
+        border-bottom: 5px solid black;
+    }
+
     .account-billing-area {
         padding-bottom: 40px;
+
+        &__divider {
+            width: 100%;
+            border-bottom: 1px solid #DADFE7;
+        }
+
+        &__header {
+            width: 100%;
+            max-width: 750px;
+            height: 40px;
+            display: flex;
+            align-content: center;
+            justify-content: space-between;
+            padding-top: 25px;
+            &__tab {
+                font-family: sans-serif;
+                color: #56606D;
+                font-size: 16px;
+                height: auto;
+                width: auto;
+                transition-duration: 50ms;
+            }
+
+            &__tab:hover{
+                border-bottom: 5px solid black;
+                cursor: pointer;
+            }
+        }
 
         &__title-area {
             display: flex;
