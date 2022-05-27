@@ -16,6 +16,7 @@ Requires setting `Authorization` header for requests.
             * [PUT /api/users/{user-email}](#put-apiusersuser-email)
             * [GET /api/users/{user-email}](#get-apiusersuser-email)
             * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
+            * [DELETE /api/users/{user-email}/mfa](#delete-apiusersuser-emailmfa)
         * [Project Management](#project-management)
             * [POST /api/projects](#post-apiprojects)
             * [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
@@ -147,6 +148,10 @@ A successful response body:
 #### DELETE /api/users/{user-email}
 
 Deletes the user.
+
+#### DELETE /api/users/{user-email}/mfa
+
+Disables the user's mfa.
 
 ### OAuth Client Management
 
