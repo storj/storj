@@ -1,66 +1,6 @@
 # admin peer http listening address
 # admin.address: ""
 
-# default duration for AS OF SYSTEM TIME
-# admin.console-config.as-of-system-time-duration: -5m0s
-
-# default project limits for users
-# admin.console-config.default-project-limit: 1
-
-# incremental duration of penalty for failed login attempts in minutes
-# admin.console-config.failed-login-penalty: 2
-
-# whether or not hCaptcha is enabled for user registration
-# admin.console-config.hcaptcha.enabled: false
-
-# hCaptcha secret key
-# admin.console-config.hcaptcha.secret-key: ""
-
-# hCaptcha site key
-# admin.console-config.hcaptcha.site-key: ""
-
-# number of times user can try to login without penalty
-# admin.console-config.login-attempts-without-penalty: 3
-
-# enable open registration
-# admin.console-config.open-registration-enabled: false
-
-# password hashing cost (0=automatic)
-# admin.console-config.password-cost: 0
-
-# whether or not reCAPTCHA is enabled for user registration
-# admin.console-config.recaptcha.enabled: false
-
-# reCAPTCHA secret key
-# admin.console-config.recaptcha.secret-key: ""
-
-# reCAPTCHA site key
-# admin.console-config.recaptcha.site-key: ""
-
-# the default free-tier bandwidth usage limit
-# admin.console-config.usage-limits.bandwidth.free: 150.00 GB
-
-# the default paid-tier bandwidth usage limit
-# admin.console-config.usage-limits.bandwidth.paid: 100.00 TB
-
-# the default free-tier project limit
-# admin.console-config.usage-limits.project.free: 1
-
-# the default paid-tier project limit
-# admin.console-config.usage-limits.project.paid: 3
-
-# the default free-tier segment usage limit
-# admin.console-config.usage-limits.segment.free: 150000
-
-# the default paid-tier segment usage limit
-# admin.console-config.usage-limits.segment.paid: 100000000
-
-# the default free-tier storage usage limit
-# admin.console-config.usage-limits.storage.free: 150.00 GB
-
-# the default paid-tier storage usage limit
-# admin.console-config.usage-limits.storage.paid: 25.00 TB
-
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.static-dir: ""
 

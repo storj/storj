@@ -78,15 +78,15 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newuser, err := server.db.Console().Users().Insert(ctx, &console.User{
+	newUser, err := server.db.Console().Users().Insert(ctx, &console.User{
 		ID:                    userID,
 		FullName:              user.FullName,
 		ShortName:             user.ShortName,
 		Email:                 user.Email,
 		PasswordHash:          hash,
-		ProjectLimit:          server.config.ConsoleConfig.DefaultProjectLimit,
-		ProjectStorageLimit:   server.config.ConsoleConfig.UsageLimits.Storage.Free.Int64(),
-		ProjectBandwidthLimit: server.config.ConsoleConfig.UsageLimits.Bandwidth.Free.Int64(),
+		ProjectLimit:          server.console.DefaultProjectLimit,
+		ProjectStorageLimit:   server.console.UsageLimits.Storage.Free.Int64(),
+		ProjectBandwidthLimit: server.console.UsageLimits.Bandwidth.Free.Int64(),
 		SignupPromoCode:       user.SignupPromoCode,
 	})
 	if err != nil {
@@ -95,7 +95,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = server.payments.Setup(ctx, newuser.ID, newuser.Email, newuser.SignupPromoCode)
+	_, err = server.payments.Setup(ctx, newUser.ID, newUser.Email, newUser.SignupPromoCode)
 	if err != nil {
 		sendJSONError(w, "failed to create payment account for user",
 			err.Error(), http.StatusInternalServerError)
@@ -103,16 +103,16 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set User Status to be activated, as we manually created it
-	newuser.Status = console.Active
-	newuser.PasswordHash = nil
-	err = server.db.Console().Users().Update(ctx, newuser)
+	newUser.Status = console.Active
+	newUser.PasswordHash = nil
+	err = server.db.Console().Users().Update(ctx, newUser)
 	if err != nil {
 		sendJSONError(w, "failed to activate user",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	data, err := json.Marshal(newuser)
+	data, err := json.Marshal(newUser)
 	if err != nil {
 		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
