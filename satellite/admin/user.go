@@ -286,6 +286,40 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	user.MFAEnabled = false
+	user.MFASecretKey = ""
+	user.MFARecoveryCodes = nil
+
+	err = server.db.Console().Users().Update(ctx, user)
+	if err != nil {
+		sendJSONError(w, "failed to disable mfa",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
