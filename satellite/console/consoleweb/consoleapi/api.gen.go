@@ -23,6 +23,7 @@ const dateLayout = "2006-01-02T15:04:05.000Z"
 
 var ErrProjectsAPI = errs.Class("consoleapi projects api")
 var ErrApikeysAPI = errs.Class("consoleapi apikeys api")
+var ErrUsersAPI = errs.Class("consoleapi users api")
 
 type ProjectManagementService interface {
 	GenGetUsersProjects(context.Context) ([]console.Project, api.HTTPError)
@@ -34,6 +35,10 @@ type ProjectManagementService interface {
 
 type APIKeyManagementService interface {
 	GenCreateAPIKey(context.Context, console.CreateAPIKeyRequest) (*console.CreateAPIKeyResponse, api.HTTPError)
+}
+
+type UserManagementService interface {
+	GenGetUser(context.Context) (*console.ResponseUser, api.HTTPError)
 }
 
 // ProjectManagementHandler is an api handler that exposes all projects related functionality.
@@ -50,6 +55,13 @@ type APIKeyManagementHandler struct {
 	auth    api.Auth
 }
 
+// UserManagementHandler is an api handler that exposes all users related functionality.
+type UserManagementHandler struct {
+	log     *zap.Logger
+	service UserManagementService
+	auth    api.Auth
+}
+
 func NewProjectManagement(log *zap.Logger, service ProjectManagementService, router *mux.Router, auth api.Auth) *ProjectManagementHandler {
 	handler := &ProjectManagementHandler{
 		log:     log,
@@ -58,11 +70,11 @@ func NewProjectManagement(log *zap.Logger, service ProjectManagementService, rou
 	}
 
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
-	projectsRouter.HandleFunc("/bucket-rollup", handler.handleGenGetSingleBucketUsageRollup).Methods("GET")
 	projectsRouter.HandleFunc("/bucket-rollups", handler.handleGenGetBucketUsageRollups).Methods("GET")
 	projectsRouter.HandleFunc("/create", handler.handleGenCreateProject).Methods("POST")
 	projectsRouter.HandleFunc("/update/{id}", handler.handleGenUpdateProject).Methods("PATCH")
 	projectsRouter.HandleFunc("/", handler.handleGenGetUsersProjects).Methods("GET")
+	projectsRouter.HandleFunc("/bucket-rollup", handler.handleGenGetSingleBucketUsageRollup).Methods("GET")
 
 	return handler
 }
@@ -78,6 +90,62 @@ func NewAPIKeyManagement(log *zap.Logger, service APIKeyManagementService, route
 	apikeysRouter.HandleFunc("/create", handler.handleGenCreateAPIKey).Methods("POST")
 
 	return handler
+}
+
+func NewUserManagement(log *zap.Logger, service UserManagementService, router *mux.Router, auth api.Auth) *UserManagementHandler {
+	handler := &UserManagementHandler{
+		log:     log,
+		service: service,
+		auth:    auth,
+	}
+
+	usersRouter := router.PathPrefix("/api/v0/users").Subrouter()
+	usersRouter.HandleFunc("/", handler.handleGenGetUser).Methods("GET")
+
+	return handler
+}
+
+func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenGetBucketUsageRollups(ctx, projectID, since, before)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenGetBucketUsageRollups response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
 }
 
 func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter, r *http.Request) {
@@ -228,49 +296,6 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 	}
 }
 
-func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	retVal, httpErr := h.service.GenGetBucketUsageRollups(ctx, projectID, since, before)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(retVal)
-	if err != nil {
-		h.log.Debug("failed to write json GenGetBucketUsageRollups response", zap.Error(ErrProjectsAPI.Wrap(err)))
-	}
-}
-
 func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -299,5 +324,30 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GenCreateAPIKey response", zap.Error(ErrApikeysAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleGenGetUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenGetUser(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenGetUser response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
