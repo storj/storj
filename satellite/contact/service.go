@@ -24,6 +24,7 @@ import (
 type Config struct {
 	ExternalAddress string        `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 	Timeout         time.Duration `help:"timeout for pinging storage nodes" default:"10m0s" testDefault:"1m"`
+	AllowPrivateIP  bool          `help:"allow private IPs in CheckIn and PingMe" testDefault:"true" devDefault:"true" default:"false"`
 
 	RateLimitInterval  time.Duration `help:"the amount of time that should happen between contact attempts usually" releaseDefault:"10m0s" devDefault:"1ns"`
 	RateLimitBurst     int           `help:"the maximum burst size for the contact rate limit token bucket" releaseDefault:"2" devDefault:"1000"`
@@ -45,20 +46,22 @@ type Service struct {
 	peerIDs overlay.PeerIdentities
 	dialer  rpc.Dialer
 
-	timeout   time.Duration
-	idLimiter *RateLimiter
+	timeout        time.Duration
+	idLimiter      *RateLimiter
+	allowPrivateIP bool
 }
 
 // NewService creates a new contact service.
 func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, config Config) *Service {
 	return &Service{
-		log:       log,
-		self:      self,
-		overlay:   overlay,
-		peerIDs:   peerIDs,
-		dialer:    dialer,
-		timeout:   config.Timeout,
-		idLimiter: NewRateLimiter(config.RateLimitInterval, config.RateLimitBurst, config.RateLimitCacheSize),
+		log:            log,
+		self:           self,
+		overlay:        overlay,
+		peerIDs:        peerIDs,
+		dialer:         dialer,
+		timeout:        config.Timeout,
+		idLimiter:      NewRateLimiter(config.RateLimitInterval, config.RateLimitBurst, config.RateLimitCacheSize),
+		allowPrivateIP: config.AllowPrivateIP,
 	}
 }
 
