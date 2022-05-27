@@ -330,7 +330,6 @@ func (c *cmdCp) parallelCopy(
 
 	ctx, cancel := context.WithCancel(clctx)
 
-	defer limiter.Wait()
 	defer func() { _ = src.Close() }()
 	defer func() {
 		nocancel := context2.WithoutCancellation(ctx)
@@ -339,6 +338,16 @@ func (c *cmdCp) parallelCopy(
 		_ = dst.Abort(timedctx)
 	}()
 	defer cancel()
+
+	addError := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		es.Add(err)
+
+		// abort all other concurrenty copies
+		cancel()
+	}
 
 	for i := 0; length != 0; i++ {
 		i := i
@@ -350,25 +359,19 @@ func (c *cmdCp) parallelCopy(
 		length -= chunk
 
 		rh, err := src.NextPart(ctx, chunk)
-		if errors.Is(err, io.EOF) {
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				addError(errs.New("error getting reader for part %d: %v", i, err))
+			}
 			break
-		} else if err != nil {
-			mu.Lock()
-			fmt.Fprintln(clctx.Stderr(), "Error getting reader for part", i)
-			mu.Unlock()
-
-			return err
 		}
 
 		wh, err := dst.NextPart(ctx, chunk)
 		if err != nil {
 			_ = rh.Close()
 
-			mu.Lock()
-			fmt.Fprintln(clctx.Stderr(), "Error getting writer for part", i)
-			mu.Unlock()
-
-			return err
+			addError(errs.New("error getting writer for part %d: %v", i, err))
+			break
 		}
 
 		ok := limiter.Go(ctx, func() {
@@ -387,8 +390,6 @@ func (c *cmdCp) parallelCopy(
 			}
 
 			if err != nil {
-				// abort all other concurrenty copies
-				cancel()
 				// TODO: it would be also nice to use wh.Abort and rh.Close directly
 				// to avoid some of the waiting that's caused by sync2.Copy.
 				//
@@ -397,9 +398,7 @@ func (c *cmdCp) parallelCopy(
 				//
 				// Also, we may want to check that it actually helps, before implementing it.
 
-				mu.Lock()
-				es.Add(errs.New("failed to %s part %d: %v", copyVerb(c.source, c.dest), i, err))
-				mu.Unlock()
+				addError(errs.New("failed to %s part %d: %v", copyVerb(c.source, c.dest), i, err))
 			}
 		})
 		if !ok {
