@@ -259,7 +259,7 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 		return err
 	}
 
-	return errs.Wrap(parallelCopy(
+	return errs.Wrap(c.parallelCopy(
 		ctx,
 		mwh, mrh,
 		c.parallelism, partSize,
@@ -308,7 +308,7 @@ func joinDestWith(dest ulloc.Location, suffix string) ulloc.Location {
 	return dest
 }
 
-func parallelCopy(
+func (c *cmdCp) parallelCopy(
 	clctx clingy.Context,
 	dst ulfs.MultiWriteHandle,
 	src ulfs.MultiReadHandle,
@@ -396,26 +396,25 @@ func parallelCopy(
 				// to have concurrent safe API with that regards.
 				//
 				// Also, we may want to check that it actually helps, before implementing it.
+
+				mu.Lock()
+				es.Add(errs.New("failed to %s part %d: %v", copyVerb(c.source, c.dest), i, err))
+				mu.Unlock()
 			}
-
-			mu.Lock()
-			defer mu.Unlock()
-
-			es.Add(err)
 		})
 		if !ok {
-			mu.Lock()
-			fmt.Fprintln(clctx.Stderr(), "Failed to start part copy", i)
-			mu.Unlock()
-			return ctx.Err()
+			break
 		}
 	}
 
 	limiter.Wait()
 
-	es.Add(dst.Commit(ctx))
+	// don't try to commit if any error occur
+	if len(es) == 0 {
+		es.Add(dst.Commit(ctx))
+	}
 
-	return es.Err()
+	return errs.Wrap(combineErrs(es))
 }
 
 func parseRange(r string) (offset, length int64, err error) {
@@ -465,4 +464,18 @@ func parseRange(r string) (offset, length int64, err error) {
 	default:
 		return starti, endi - starti + 1, nil
 	}
+}
+
+// combineErrs makes a more readable error message from the errors group.
+func combineErrs(group errs.Group) error {
+	if len(group) == 0 {
+		return nil
+	}
+
+	errstrings := make([]string, len(group))
+	for i, err := range group {
+		errstrings[i] = err.Error()
+	}
+
+	return fmt.Errorf("%s", strings.Join(errstrings, "\n"))
 }
