@@ -94,6 +94,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	api.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	api.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	api.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
+	api.HandleFunc("/users/{useremail}/mfa", server.disableUserMFA).Methods("DELETE")
 	api.HandleFunc("/oauth/clients", server.createOAuthClient).Methods("POST")
 	api.HandleFunc("/oauth/clients/{id}", server.updateOAuthClient).Methods("PUT")
 	api.HandleFunc("/oauth/clients/{id}", server.deleteOAuthClient).Methods("DELETE")
