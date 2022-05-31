@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/straynodes"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -109,6 +110,9 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
+	// Billing returns storjscan transactions database.
+	Billing() billing.TransactionsDB
+	// SNOPayouts returns database for payouts.
 	// Wallets returns storjscan wallets database.
 	Wallets() storjscan.WalletsDB
 	// SNOPayouts returns database for payouts.

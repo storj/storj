@@ -369,14 +369,15 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	if server.config.CSPEnabled {
 		cspValues := []string{
 			"default-src 'self'",
-			"connect-src 'self' *.tardigradeshare.io *.storjshare.io https://hcaptcha.com, https://*.hcaptcha.com " + server.config.GatewayCredentialsRequestURL,
+			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
+			"script-src-elem 'self' *.stripe.com https://hcaptcha.com *.hcaptcha.com",
+			"connect-src 'self' *.tardigradeshare.io *.storjshare.io https://hcaptcha.com *.hcaptcha.com " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
-			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com https://*.hcaptcha.com",
+			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
 			"img-src 'self' data: blob: *.tardigradeshare.io *.storjshare.io",
 			// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
-			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'self' https://hcaptcha.com, https://*.hcaptcha.com",
+			"style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'self' https://hcaptcha.com *.hcaptcha.com",
 			"media-src 'self' blob: *.tardigradeshare.io *.storjshare.io",
-			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://hcaptcha.com https://*.hcaptcha.com",
 		}
 
 		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))

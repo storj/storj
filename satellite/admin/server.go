@@ -21,6 +21,7 @@ import (
 	adminui "storj.io/storj/satellite/admin/ui"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
@@ -33,8 +34,6 @@ type Config struct {
 	StaticDir string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
 
 	AuthorizationToken string `internal:"true"`
-
-	ConsoleConfig console.Config
 }
 
 // DB is databases needed for the admin server.
@@ -63,11 +62,12 @@ type Server struct {
 
 	nowFn func() time.Time
 
-	config Config
+	console consoleweb.Config
+	config  Config
 }
 
 // NewServer returns a new administration Server.
-func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, restKeys *restkeys.Service, accounts payments.Accounts, config Config) *Server {
+func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, restKeys *restkeys.Service, accounts payments.Accounts, console consoleweb.Config, config Config) *Server {
 	server := &Server{
 		log: log,
 
@@ -80,7 +80,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 
 		nowFn: time.Now,
 
-		config: config,
+		console: console,
+		config:  config,
 	}
 
 	root := mux.NewRouter()
@@ -93,6 +94,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	api.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	api.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	api.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
+	api.HandleFunc("/users/{useremail}/mfa", server.disableUserMFA).Methods("DELETE")
 	api.HandleFunc("/oauth/clients", server.createOAuthClient).Methods("POST")
 	api.HandleFunc("/oauth/clients/{id}", server.updateOAuthClient).Methods("PUT")
 	api.HandleFunc("/oauth/clients/{id}", server.deleteOAuthClient).Methods("DELETE")

@@ -559,18 +559,20 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 			sendJSONError(w, "usage for current month exists", "", http.StatusConflict)
 			return true
 		}
-		// check usage for last month
+
+		// check usage for last month, if exists, ensure we have an invoice item created.
 		lastMonthUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
 		if err != nil {
 			sendJSONError(w, "error getting project totals",
 				"", http.StatusInternalServerError)
 			return true
 		}
-
-		// project had usage that is not billed yet
 		if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
-			sendJSONError(w, "usage for last month exist, but is not billed yet", "", http.StatusConflict)
-			return true
+			err = server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+			if !errors.Is(err, stripecoinpayments.ErrProjectRecordExists) {
+				sendJSONError(w, "usage for last month exist, but is not billed yet", "", http.StatusConflict)
+				return true
+			}
 		}
 	}
 
