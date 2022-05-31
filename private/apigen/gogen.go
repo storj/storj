@@ -56,7 +56,6 @@ func (a *API) generateGo() ([]byte, error) {
 	p(`"context"`)
 	p(`"encoding/json"`)
 	p(`"net/http"`)
-	p(`"strconv"`)
 	p(`"time"`)
 	p("")
 	p(`"github.com/gorilla/mux"`)
@@ -88,17 +87,21 @@ func (a *API) generateGo() ([]byte, error) {
 				p(`"%s"`, path)
 			}
 		}
-		p(")")
-		p("")
 	}
+
+	p(")")
+	p("")
 
 	p("const dateLayout = \"2006-01-02T15:04:05.000Z\"")
 	p("")
 
 	for _, group := range a.EndpointGroups {
 		p("var Err%sAPI = errs.Class(\"%s %s api\")", cases.Title(language.Und).String(group.Prefix), a.PackageName, group.Prefix)
-		p("")
+	}
 
+	p("")
+
+	for _, group := range a.EndpointGroups {
 		p("type %sService interface {", group.Name)
 		for _, e := range group.Endpoints {
 			responseType := reflect.TypeOf(e.Response)
@@ -110,21 +113,26 @@ func (a *API) generateGo() ([]byte, error) {
 		}
 		p("}")
 		p("")
+	}
 
-		p("// Handler is an api handler that exposes all %s related functionality.", group.Prefix)
-		p("type Handler struct {")
+	for _, group := range a.EndpointGroups {
+		p("// %sHandler is an api handler that exposes all %s related functionality.", group.Name, group.Prefix)
+		p("type %sHandler struct {", group.Name)
 		p("log *zap.Logger")
 		p("service %sService", group.Name)
 		p("auth api.Auth")
 		p("}")
 		p("")
+	}
 
+	for _, group := range a.EndpointGroups {
 		p(
-			"func New%s(log *zap.Logger, service %sService, router *mux.Router, auth api.Auth) *Handler {",
+			"func New%s(log *zap.Logger, service %sService, router *mux.Router, auth api.Auth) *%sHandler {",
+			group.Name,
 			group.Name,
 			group.Name,
 		)
-		p("handler := &Handler{")
+		p("handler := &%sHandler{", group.Name)
 		p("log: log,")
 		p("service: service,")
 		p("auth: auth,")
@@ -138,11 +146,14 @@ func (a *API) generateGo() ([]byte, error) {
 		p("")
 		p("return handler")
 		p("}")
+		p("")
+	}
 
+	for _, group := range a.EndpointGroups {
 		for pathMethod, endpoint := range group.Endpoints {
 			p("")
 			handlerName := "handle" + endpoint.MethodName
-			p("func (h *Handler) %s(w http.ResponseWriter, r *http.Request) {", handlerName)
+			p("func (h *%sHandler) %s(w http.ResponseWriter, r *http.Request) {", group.Name, handlerName)
 			p("ctx := r.Context()")
 			p("var err error")
 			p("defer mon.Task()(&ctx)(&err)")

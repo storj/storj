@@ -230,25 +230,27 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup email reminders
-		authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
+		if config.EmailReminders.Enable {
+			authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Mail.EmailReminders = emailreminders.NewChore(
+				peer.Log.Named("console:chore"),
+				authTokens,
+				peer.DB.Console().Users(),
+				peer.Mail.Service,
+				config.EmailReminders,
+				config.Console.ExternalAddress,
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "mail:email-reminders",
+				Run:   peer.Mail.EmailReminders.Run,
+				Close: peer.Mail.EmailReminders.Close,
+			})
 		}
-
-		peer.Mail.EmailReminders = emailreminders.NewChore(
-			peer.Log.Named("console:chore"),
-			authTokens,
-			peer.DB.Console().Users(),
-			peer.Mail.Service,
-			config.EmailReminders,
-			config.Console.ExternalAddress,
-		)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "mail:email-reminders",
-			Run:   peer.Mail.EmailReminders.Run,
-			Close: peer.Mail.EmailReminders.Close,
-		})
 	}
 
 	{ // setup overlay

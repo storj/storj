@@ -39,13 +39,15 @@ func TestActivationRouting(t *testing.T) {
 		activationToken, err := service.GenerateActivationToken(ctx, user.ID, user.Email)
 		require.NoError(t, err)
 
+		client := http.Client{}
+
 		checkActivationRedirect := func(testMsg, redirectURL string, shouldHaveCookie bool) {
 			url := "http://" + sat.API.Console.Listener.Addr().String() + "/activation/?token=" + activationToken
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err, testMsg)
 
-			result, err := http.DefaultClient.Do(req)
+			result, err := client.Do(req)
 			require.NoError(t, err, testMsg)
 
 			// cookie should be set on successful activation
@@ -63,7 +65,7 @@ func TestActivationRouting(t *testing.T) {
 			require.NoError(t, result.Body.Close(), testMsg)
 		}
 
-		http.DefaultClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		}
 

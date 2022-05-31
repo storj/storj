@@ -57,6 +57,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
+import { MetaUtils } from '@/utils/meta';
 
 // @vue/component
 @Component({
@@ -141,10 +142,11 @@ export default class ForgotPassword extends Vue {
     }
 
     /**
-     * Reloads the page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 
     /**

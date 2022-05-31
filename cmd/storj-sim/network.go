@@ -383,7 +383,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			if err != nil {
 				return err
 			}
-			process.AddExtra("ID", satNodeID.String())
+			process.Info.ID = satNodeID.String()
 			return nil
 		}
 

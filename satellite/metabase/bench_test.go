@@ -214,9 +214,10 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		for i := 0; i < b.N; i++ {
 			for _, projectID := range s.projectID {
 				m.Record(func() {
-					err := db.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
+					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
 						ProjectID:  projectID,
 						BucketName: "bucket",
+						Status:     metabase.Committed,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						var entry metabase.ObjectEntry
 						for it.Next(ctx, &entry) {
@@ -236,10 +237,11 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		for i := 0; i < b.N; i++ {
 			for i, projectID := range s.projectID {
 				m.Record(func() {
-					err := db.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
+					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
 						ProjectID:  projectID,
 						BucketName: "bucket",
 						Prefix:     metabase.ObjectKey(prefixes[i]),
+						Status:     metabase.Committed,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						var entry metabase.ObjectEntry
 						for it.Next(ctx, &entry) {

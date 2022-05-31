@@ -195,10 +195,8 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
                         sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
 
-                        sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testmetabase;\''
-
                         sh 'psql -U postgres -c \'create database teststorj;\''
-                        sh 'psql -U postgres -c \'create database testmetabase;\''
+
                         sh 'use-ports -from 1024 -to 10000 &'
 
                         sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'

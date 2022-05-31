@@ -16,6 +16,17 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE billing_transactions (
+	tx_id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	currency text NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	timestamp timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
+);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -373,6 +384,12 @@ CREATE TABLE storagenode_storage_tallies (
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
 	PRIMARY KEY ( interval_end_time, node_id )
+);
+CREATE TABLE storjscan_wallets (
+	user_id bytea NOT NULL,
+	wallet_address bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id, wallet_address )
 );
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,

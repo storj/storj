@@ -7,14 +7,7 @@ import (
 	"time"
 
 	"storj.io/common/pb"
-	"storj.io/storj/satellite/internalpb"
 )
-
-// AuditHistory represents a node's audit history for the most recent tracking period.
-type AuditHistory struct {
-	Score   float64
-	Windows []*AuditWindow
-}
 
 // UpdateAuditHistoryResponse contains information returned by UpdateAuditHistory.
 type UpdateAuditHistoryResponse struct {
@@ -23,52 +16,26 @@ type UpdateAuditHistoryResponse struct {
 	History            []byte
 }
 
-// AuditWindow represents the number of online and total audits a node received for a specific time period.
-type AuditWindow struct {
-	WindowStart time.Time
-	TotalCount  int32
-	OnlineCount int32
-}
-
-// AuditHistoryToPB converts an overlay.AuditHistory to a pb.AuditHistory.
-func AuditHistoryToPB(auditHistory AuditHistory) (historyPB *pb.AuditHistory) {
-	historyPB = &pb.AuditHistory{
-		Score:   auditHistory.Score,
-		Windows: make([]*pb.AuditWindow, len(auditHistory.Windows)),
+// DuplicateAuditHistory creates a duplicate (deep copy) of an AuditHistory object.
+func DuplicateAuditHistory(auditHistory *pb.AuditHistory) *pb.AuditHistory {
+	// argument is not a pointer type, so auditHistory is already a copy.
+	// Just need to copy the slice.
+	if auditHistory == nil {
+		return nil
 	}
-	for i, window := range auditHistory.Windows {
-		historyPB.Windows[i] = &pb.AuditWindow{
-			TotalCount:  window.TotalCount,
-			OnlineCount: window.OnlineCount,
-			WindowStart: window.WindowStart,
-		}
+	windows := make([]*pb.AuditWindow, len(auditHistory.Windows))
+	for i := range windows {
+		windows[i] = &pb.AuditWindow{}
+		*windows[i] = *auditHistory.Windows[i]
 	}
-	return historyPB
-}
-
-// AuditHistoryFromBytes returns the corresponding AuditHistory for the given
-// encoded internalpb.AuditHistory.
-func AuditHistoryFromBytes(encodedHistory []byte) (history AuditHistory, err error) {
-	var pbHistory internalpb.AuditHistory
-	if err := pb.Unmarshal(encodedHistory, &pbHistory); err != nil {
-		return AuditHistory{}, err
-	}
-	history.Score = pbHistory.Score
-	history.Windows = make([]*AuditWindow, len(pbHistory.Windows))
-	for i, window := range pbHistory.Windows {
-		history.Windows[i] = &AuditWindow{
-			TotalCount:  window.TotalCount,
-			OnlineCount: window.OnlineCount,
-			WindowStart: window.WindowStart,
-		}
-	}
-	return history, nil
+	auditHistory.Windows = windows
+	return auditHistory
 }
 
 // AddAuditToHistory adds a single online/not-online event to an AuditHistory.
 // If the AuditHistory contains windows that are now outside the tracking
 // period, those windows will be trimmed.
-func AddAuditToHistory(a *internalpb.AuditHistory, online bool, auditTime time.Time, config AuditHistoryConfig) error {
+func AddAuditToHistory(a *pb.AuditHistory, online bool, auditTime time.Time, config AuditHistoryConfig) error {
 	newAuditWindowStartTime := auditTime.Truncate(config.WindowSize)
 	earliestWindow := newAuditWindowStartTime.Add(-config.TrackingPeriod)
 	// windowsModified is used to determine whether we will need to recalculate the score because windows have been added or removed.
@@ -90,7 +57,7 @@ func AddAuditToHistory(a *internalpb.AuditHistory, online bool, auditTime time.T
 	// if there are no windows or the latest window has passed, add another window
 	if len(a.Windows) == 0 || a.Windows[len(a.Windows)-1].WindowStart.Before(newAuditWindowStartTime) {
 		windowsModified = true
-		a.Windows = append(a.Windows, &internalpb.AuditWindow{WindowStart: newAuditWindowStartTime})
+		a.Windows = append(a.Windows, &pb.AuditWindow{WindowStart: newAuditWindowStartTime})
 	}
 
 	latestIndex := len(a.Windows) - 1

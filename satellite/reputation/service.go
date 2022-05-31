@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
 )
@@ -37,7 +38,7 @@ type Info struct {
 	Disqualified                *time.Time
 	DisqualificationReason      overlay.DisqualificationReason
 	OnlineScore                 float64
-	AuditHistory                AuditHistory
+	AuditHistory                *pb.AuditHistory
 	AuditReputationAlpha        float64
 	AuditReputationBeta         float64
 	UnknownAuditReputationAlpha float64
@@ -71,14 +72,7 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 	statusUpdate, err := service.db.Update(ctx, UpdateRequest{
 		NodeID:       nodeID,
 		AuditOutcome: result,
-
-		AuditLambda:              service.config.AuditLambda,
-		AuditWeight:              service.config.AuditWeight,
-		AuditDQ:                  service.config.AuditDQ,
-		SuspensionGracePeriod:    service.config.SuspensionGracePeriod,
-		SuspensionDQEnabled:      service.config.SuspensionDQEnabled,
-		AuditsRequiredForVetting: service.config.AuditCount,
-		AuditHistory:             service.config.AuditHistory,
+		Config:       service.config,
 	}, now)
 	if err != nil {
 		return err
