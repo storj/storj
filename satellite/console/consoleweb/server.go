@@ -93,7 +93,6 @@ type Config struct {
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:""`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
-	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
 	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"false"`
 	NewBillingScreen                bool    `help:"indicates if new billing screens should be used" default:"false"`
@@ -416,7 +415,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NewProjectDashboard             bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
-		NewNavigation                   bool
 		NewObjectsFlow                  bool
 		NewAccessGrantFlow              bool
 		NewBillingScreen                bool
@@ -454,7 +452,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.HcaptchaEnabled = server.config.Hcaptcha.Enabled
 	data.HcaptchaSiteKey = server.config.Hcaptcha.SiteKey
 	data.NewProjectDashboard = server.config.NewProjectDashboard
-	data.NewNavigation = server.config.NewNavigation
 	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
 	data.NewBillingScreen = server.config.NewBillingScreen
