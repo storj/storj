@@ -23,6 +23,7 @@
                             'with-two-bars': amountOfInfoBars === 2,
                             'with-three-bars': amountOfInfoBars === 3,
                             'with-four-bars': amountOfInfoBars === 4,
+                            'no-nav': isNavigationHidden,
                         }"
                     >
                         <BetaSatBar v-if="isBetaSatellite" />
@@ -424,7 +425,7 @@ export default class DashboardArea extends Vue {
                 height: 100%;
 
                 &__content-wrap {
-                    width: 100%;
+                    width: calc(100% - 280px);
 
                     &__content {
                         overflow-y: auto;
@@ -466,10 +467,22 @@ export default class DashboardArea extends Vue {
         height: calc(100% - 62px - 104px);
     }
 
+    .no-nav {
+        width: 100%;
+    }
+
     @media screen and (max-width: 1280px) {
 
         .regular-navigation {
             display: none;
+        }
+
+        .dashboard__wrap__new-main-area__content-wrap {
+            width: calc(100% - 86px);
+        }
+
+        .no-nav {
+            width: 100%;
         }
     }
 </style>
