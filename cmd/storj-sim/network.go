@@ -42,9 +42,7 @@ const (
 	folderPermissions = 0744
 )
 
-var (
-	defaultAccess = "12edqtGZnqQo6QHwTB92EDqg9B1WrWn34r7ALu94wkqXL4eXjBNnVr6F5W7GhJjVqJCqxpFERmDR1dhZWyMt3Qq5zwrE9yygXeT6kBoS9AfiPuwB6kNjjxepg5UtPPtp4VLp9mP5eeyobKQRD5TsEsxTGhxamsrHvGGBPrZi8DeLtNYFMRTV6RyJVxpYX6MrPCw9HVoDQbFs7VcPeeRxRMQttSXL3y33BJhkqJ6ByFviEquaX5R2wjQT2Kx"
-)
+var defaultAccess = "12edqtGZnqQo6QHwTB92EDqg9B1WrWn34r7ALu94wkqXL4eXjBNnVr6F5W7GhJjVqJCqxpFERmDR1dhZWyMt3Qq5zwrE9yygXeT6kBoS9AfiPuwB6kNjjxepg5UtPPtp4VLp9mP5eeyobKQRD5TsEsxTGhxamsrHvGGBPrZi8DeLtNYFMRTV6RyJVxpYX6MrPCw9HVoDQbFs7VcPeeRxRMQttSXL3y33BJhkqJ6ByFviEquaX5R2wjQT2Kx"
 
 const (
 	// The following values of peer class and endpoints are used
@@ -242,7 +240,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	processes := NewProcesses(flags.Directory, flags.FailFast)
 
-	var host = flags.Host
+	host := flags.Host
 	versioncontrol := processes.New(Info{
 		Name:       "versioncontrol/0",
 		Executable: "versioncontrol",
@@ -353,7 +351,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 
 				"--admin.address", net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
-				"--admin.static-dir", filepath.Join(storjRoot, "web/satellite/admin/ui/build"),
+				"--admin.static-dir", filepath.Join(storjRoot, "satellite/admin/ui/build"),
 			},
 			"run": {"api"},
 		})
