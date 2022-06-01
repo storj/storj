@@ -33,7 +33,7 @@ type Users interface {
 	// Delete is a method for deleting user by Id from the database.
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity.
-	Update(ctx context.Context, user *User) error
+	Update(ctx context.Context, userID uuid.UUID, request UpdateUserRequest) error
 	// UpdatePaidTier sets whether the user is in the paid tier.
 	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int) error
 	// GetProjectLimit is a method to get the users project limit
@@ -225,4 +225,33 @@ func GetUser(ctx context.Context) (*User, error) {
 	}
 
 	return nil, Error.New("user is not in context")
+}
+
+// UpdateUserRequest contains all columns which are optionally updatable by users.Update.
+type UpdateUserRequest struct {
+	FullName  *string
+	ShortName **string
+
+	Email        *string
+	PasswordHash []byte
+
+	Status *UserStatus
+
+	ProjectLimit          *int
+	ProjectStorageLimit   *int64
+	ProjectBandwidthLimit *int64
+	ProjectSegmentLimit   *int64
+	PaidTier              *bool
+
+	MFAEnabled       *bool
+	MFASecretKey     **string
+	MFARecoveryCodes *[]string
+
+	LastVerificationReminder **time.Time
+
+	// failed_login_count is nullable, but we don't really have a reason
+	// to set it to NULL, so it doesn't need to be a double pointer here.
+	FailedLoginCount *int
+
+	LoginLockoutExpiration **time.Time
 }

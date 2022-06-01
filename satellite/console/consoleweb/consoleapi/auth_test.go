@@ -695,7 +695,9 @@ func TestRegistrationEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		user.Status = console.Active
-		require.NoError(t, sat.DB.Console().Users().Update(ctx, user))
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &user.Status,
+		}))
 
 		newUserID = register()
 		require.Equal(t, userID, newUserID)
@@ -740,7 +742,9 @@ func TestResendActivationEmail(t *testing.T) {
 
 		// Expect activation e-mail to be sent when using unverified e-mail address.
 		user.Status = console.Inactive
-		require.NoError(t, usersRepo.Update(ctx, user))
+		require.NoError(t, usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &user.Status,
+		}))
 
 		resendEmail()
 		body, err = sender.Data.Get(ctx)

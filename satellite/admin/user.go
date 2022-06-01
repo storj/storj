@@ -104,8 +104,9 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 
 	// Set User Status to be activated, as we manually created it
 	newUser.Status = console.Active
-	newUser.PasswordHash = nil
-	err = server.db.Console().Users().Update(ctx, newUser)
+	err = server.db.Console().Users().Update(ctx, userID, console.UpdateUserRequest{
+		Status: &newUser.Status,
+	})
 	if err != nil {
 		sendJSONError(w, "failed to activate user",
 			err.Error(), http.StatusInternalServerError)
@@ -240,32 +241,32 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	updateRequest := console.UpdateUserRequest{}
+
 	if input.FullName != "" {
-		user.FullName = input.FullName
+		updateRequest.FullName = &input.FullName
 	}
 	if input.ShortName != "" {
-		user.ShortName = input.ShortName
+		shortNamePtr := &input.ShortName
+		updateRequest.ShortName = &shortNamePtr
 	}
 	if input.Email != "" {
-		user.Email = input.Email
-	}
-	if !input.PartnerID.IsZero() {
-		user.PartnerID = input.PartnerID
+		updateRequest.Email = &input.Email
 	}
 	if len(input.PasswordHash) > 0 {
-		user.PasswordHash = input.PasswordHash
+		updateRequest.PasswordHash = input.PasswordHash
 	}
 	if input.ProjectLimit > 0 {
-		user.ProjectLimit = input.ProjectLimit
+		updateRequest.ProjectLimit = &input.ProjectLimit
 	}
 	if input.ProjectStorageLimit > 0 {
-		user.ProjectStorageLimit = input.ProjectStorageLimit
+		updateRequest.ProjectStorageLimit = &input.ProjectStorageLimit
 	}
 	if input.ProjectBandwidthLimit > 0 {
-		user.ProjectBandwidthLimit = input.ProjectBandwidthLimit
+		updateRequest.ProjectBandwidthLimit = &input.ProjectBandwidthLimit
 	}
 	if input.ProjectSegmentLimit > 0 {
-		user.ProjectSegmentLimit = input.ProjectSegmentLimit
+		updateRequest.ProjectSegmentLimit = &input.ProjectSegmentLimit
 	}
 	if input.PaidTierStr != "" {
 		status, err := strconv.ParseBool(input.PaidTierStr)
@@ -275,10 +276,10 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user.PaidTier = status
+		updateRequest.PaidTier = &status
 	}
 
-	err = server.db.Console().Users().Update(ctx, user)
+	err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
 	if err != nil {
 		sendJSONError(w, "failed to update user",
 			err.Error(), http.StatusInternalServerError)
@@ -310,9 +311,14 @@ func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
 
 	user.MFAEnabled = false
 	user.MFASecretKey = ""
-	user.MFARecoveryCodes = nil
+	mfaSecretKeyPtr := &user.MFASecretKey
+	var mfaRecoveryCodes []string
 
-	err = server.db.Console().Users().Update(ctx, user)
+	err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+		MFAEnabled:       &user.MFAEnabled,
+		MFASecretKey:     &mfaSecretKeyPtr,
+		MFARecoveryCodes: &mfaRecoveryCodes,
+	})
 	if err != nil {
 		sendJSONError(w, "failed to disable mfa",
 			err.Error(), http.StatusInternalServerError)
@@ -402,15 +408,17 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userInfo := &console.User{
-		ID:        user.ID,
-		FullName:  "",
-		ShortName: "",
-		Email:     fmt.Sprintf("deactivated+%s@storj.io", user.ID.String()),
-		Status:    console.Deleted,
-	}
+	emptyName := ""
+	emptyNamePtr := &emptyName
+	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
+	status := console.Deleted
 
-	err = server.db.Console().Users().Update(ctx, userInfo)
+	err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+		FullName:  &emptyName,
+		ShortName: &emptyNamePtr,
+		Email:     &deactivatedEmail,
+		Status:    &status,
+	})
 	if err != nil {
 		sendJSONError(w, "unable to delete user",
 			err.Error(), http.StatusInternalServerError)

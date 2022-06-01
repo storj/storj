@@ -765,7 +765,7 @@ func TestLockAccount(t *testing.T) {
 		// lock account once again and check if lockout expiration time increased.
 		expDuration := time.Duration(math.Pow(consoleConfig.FailedLoginPenalty, float64(lockedUser.FailedLoginCount-1))) * time.Minute
 		lockoutExpDate := now.Add(expDuration)
-		err = service.UpdateUsersFailedLoginState(userCtx, lockedUser, lockoutExpDate)
+		err = service.UpdateUsersFailedLoginState(userCtx, lockedUser, &lockoutExpDate)
 		require.NoError(t, err)
 
 		lockedUser, err = service.GetUser(userCtx, user.ID)
@@ -777,7 +777,10 @@ func TestLockAccount(t *testing.T) {
 
 		// unlock account by successful login
 		lockedUser.LoginLockoutExpiration = now.Add(-time.Second)
-		err = usersDB.Update(userCtx, lockedUser)
+		lockoutExpirationPtr := &lockedUser.LoginLockoutExpiration
+		err = usersDB.Update(userCtx, lockedUser.ID, console.UpdateUserRequest{
+			LoginLockoutExpiration: &lockoutExpirationPtr,
+		})
 		require.NoError(t, err)
 
 		authUser.Password = newUser.FullName
@@ -808,8 +811,12 @@ func TestLockAccount(t *testing.T) {
 
 		// unlock account
 		lockedUser.LoginLockoutExpiration = time.Time{}
+		lockoutExpirationPtr = &lockedUser.LoginLockoutExpiration
 		lockedUser.FailedLoginCount = 0
-		err = usersDB.Update(userCtx, lockedUser)
+		err = usersDB.Update(userCtx, lockedUser.ID, console.UpdateUserRequest{
+			LoginLockoutExpiration: &lockoutExpirationPtr,
+			FailedLoginCount:       &lockedUser.FailedLoginCount,
+		})
 		require.NoError(t, err)
 
 		// check if user's account gets locked because of providing wrong mfa recovery code.

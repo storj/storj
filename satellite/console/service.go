@@ -830,8 +830,10 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return nil, Error.Wrap(err)
 	}
 
-	user.Status = Active
-	err = s.store.Users().Update(ctx, user)
+	status := Active
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		Status: &status,
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -898,16 +900,22 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return Error.Wrap(err)
 	}
 
-	user.PasswordHash = hash
-	if user.FailedLoginCount != 0 {
-		user.FailedLoginCount = 0
-		user.LoginLockoutExpiration = time.Time{}
+	updateRequest := UpdateUserRequest{
+		PasswordHash: hash,
 	}
 
-	err = s.store.Users().Update(ctx, user)
+	if user.FailedLoginCount != 0 {
+		resetFailedLoginCount := 0
+		resetLoginLockoutExpirationPtr := &time.Time{}
+		updateRequest.FailedLoginCount = &resetFailedLoginCount
+		updateRequest.LoginLockoutExpiration = &resetLoginLockoutExpirationPtr
+	}
+
+	err = s.store.Users().Update(ctx, user.ID, updateRequest)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
 	s.auditLog(ctx, "password reset", &user.ID, user.Email)
 
 	if err = s.store.ResetPasswordTokens().Delete(ctx, token.Secret); err != nil {
@@ -954,7 +962,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 	lockoutExpDate := now.Add(time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute)
 	handleLockAccount := func() error {
-		err = s.UpdateUsersFailedLoginState(ctx, user, lockoutExpDate)
+		err = s.UpdateUsersFailedLoginState(ctx, user, &lockoutExpDate)
 		if err != nil {
 			return err
 		}
@@ -1014,7 +1022,9 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 			user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
 
-			err = s.store.Users().Update(ctx, user)
+			err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+				MFARecoveryCodes: &user.MFARecoveryCodes,
+			})
 			if err != nil {
 				return consoleauth.Token{}, err
 			}
@@ -1045,8 +1055,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 	if user.FailedLoginCount != 0 {
 		user.FailedLoginCount = 0
-		user.LoginLockoutExpiration = time.Time{}
-		err = s.store.Users().Update(ctx, user)
+		loginLockoutExpirationPtr := &time.Time{}
+		err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+			FailedLoginCount:       &user.FailedLoginCount,
+			LoginLockoutExpiration: &loginLockoutExpirationPtr,
+		})
 		if err != nil {
 			return consoleauth.Token{}, err
 		}
@@ -1063,13 +1076,15 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 }
 
 // UpdateUsersFailedLoginState updates User's failed login state.
-func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User, lockoutExpDate time.Time) error {
+func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User, lockoutExpDate *time.Time) error {
+	updateRequest := UpdateUserRequest{}
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
-		user.LoginLockoutExpiration = lockoutExpDate
+		updateRequest.LoginLockoutExpiration = &lockoutExpDate
 	}
 	user.FailedLoginCount++
 
-	return s.store.Users().Update(ctx, user)
+	updateRequest.FailedLoginCount = &user.FailedLoginCount
+	return s.store.Users().Update(ctx, user.ID, updateRequest)
 }
 
 // GetUser returns User by id.
@@ -1161,7 +1176,11 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 
 	user.FullName = fullName
 	user.ShortName = shortName
-	err = s.store.Users().Update(ctx, user)
+	shortNamePtr := &user.ShortName
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		FullName:  &user.FullName,
+		ShortName: &shortNamePtr,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1190,7 +1209,9 @@ func (s *Service) ChangeEmail(ctx context.Context, newEmail string) (err error) 
 	}
 
 	user.Email = newEmail
-	err = s.store.Users().Update(ctx, user)
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		Email: &user.Email,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1221,7 +1242,9 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	}
 
 	user.PasswordHash = hash
-	err = s.store.Users().Update(ctx, user)
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		PasswordHash: hash,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
