@@ -36,7 +36,7 @@
             <div class="account-billing-area__divider"></div>
             <router-view />
         </div>
-        <div v-if="!isNewBillingScreen">
+        <div v-if="isNewBillingScreen">
             <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
                 <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
                     <NegativeBalanceIcon />

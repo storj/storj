@@ -34,7 +34,12 @@
         </div>
         <div class="cost-by-project">
             <h3 class="cost-by-project__title">Cost by Project</h3>
-
+            <UsageAndChargesItem2
+                v-for="usageAndCharges in projectUsageAndCharges"
+                :key="usageAndCharges.projectId"
+                :item="usageAndCharges"
+                class="cost-by-project__item"
+            />
         </div>
         <router-view />
     </div>
@@ -44,21 +49,58 @@
 import { Component, Vue } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 
+import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
+
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
+
+import { ProjectUsageAndCharges } from '@/types/payments';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+
 
 // @vue/component
 @Component({
     components: {
         EstimatedChargesIcon,
         AvailableBalanceIcon,
+        UsageAndChargesItem2,
     },
 })
 export default class BillingArea extends Vue {
     public estimatedCharges: number = 0;
     public availableBalance: number = 0;
     public showChargesTooltip: boolean = false;
+    public isDataFetching = true;
 
+    /**
+     * Lifecycle hook after initial render.
+     * Fetches projects and usage rollup.
+     */
+    public async mounted(): Promise<void> {
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
+        } catch (error) {
+            this.isDataFetching = false;
+            return;
+        }
+
+        try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+
+            this.isDataFetching = false;
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
+
+    /**
+     * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
+     */
+    public get projectUsageAndCharges(): ProjectUsageAndCharges[] {
+        console.log(this.$store.state.paymentsModule.usageAndCharges)
+        return this.$store.state.paymentsModule.usageAndCharges;
+    }
 
 }
 </script>
@@ -152,4 +194,22 @@ export default class BillingArea extends Vue {
             }
         }
     }
+
+    .cost-by-project {
+        font-family: sans-serif;
+        &__title {
+            padding-bottom: 10px;
+        }
+        // &__item {
+        // background-color: #fff;
+        // box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
+        // border-radius: 8px;
+        // margin-top: 20px;
+        // padding: 20px;
+        // }
+    }
+    // ::v-deep .usage-charges-item-container__detailed-info-container {
+    //     margin-top: 10px;
+    //     border-top: 1px solid #EBEEF1;
+    // }
 </style>
