@@ -34,6 +34,8 @@ type DepositWallets interface {
 	Claim(ctx context.Context, userID uuid.UUID) (blockchain.Address, error)
 	// Get returns the crypto wallet address associated with the given user.
 	Get(ctx context.Context, userID uuid.UUID) (blockchain.Address, error)
+	// Payments returns payments for a particular wallet.
+	Payments(ctx context.Context, wallet blockchain.Address, limit int, offset int64) ([]WalletPayment, error)
 }
 
 // TransactionStatus defines allowed statuses
@@ -96,4 +98,27 @@ type DepositBonus struct {
 	AmountCents   int64
 	Percentage    int64
 	CreatedAt     time.Time
+}
+
+// PaymentStatus indicates payment status.
+type PaymentStatus string
+
+const (
+	// PaymentStatusConfirmed indicates that payment has required number of confirmations.
+	PaymentStatusConfirmed = "confirmed"
+	// PaymentStatusPending indicates that payment has not meet confirmation requirements.
+	PaymentStatusPending = "pending"
+)
+
+// WalletPayment holds storj token payment data.
+type WalletPayment struct {
+	From        blockchain.Address `json:"from"`
+	To          blockchain.Address `json:"to"`
+	TokenValue  monetary.Amount    `json:"tokenValue"`
+	Status      PaymentStatus      `json:"status"`
+	BlockHash   blockchain.Hash    `json:"blockHash"`
+	BlockNumber int64              `json:"blockNumber"`
+	Transaction blockchain.Hash    `json:"transaction"`
+	LogIndex    int                `json:"logIndex"`
+	Timestamp   time.Time          `json:"timestamp"`
 }

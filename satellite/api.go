@@ -526,10 +526,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.Storjscan.Auth.Identifier,
 			pc.Storjscan.Auth.Secret)
 
-		peer.Payments.StorjscanService, err = storjscan.NewService(peer.DB, peer.Payments.StorjscanClient)
+		peer.Payments.StorjscanService = storjscan.NewService(log.Named("storjscan-service"),
+			peer.DB.Wallets(),
+			peer.DB.StorjscanPayments(),
+			peer.Payments.StorjscanClient)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
 		peer.Payments.DepositWallets = peer.Payments.StorjscanService
 	}
 
