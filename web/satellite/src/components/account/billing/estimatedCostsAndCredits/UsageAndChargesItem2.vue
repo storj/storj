@@ -238,6 +238,7 @@ export default class UsageAndChargesItem extends Vue {
         font-size: 16px;
         line-height: 21px;
         padding: 20px;
+        margin-top: 10px;
         font-family: 'font_regular', sans-serif;
         background-color: #fff;
         border-radius: 8px;
@@ -411,6 +412,9 @@ export default class UsageAndChargesItem extends Vue {
     @media only screen and (max-width: 750px) {
         .usage-charges-item-container__detailed-info-container__content-area__period-container, .period-header,         .usage-charges-item-container__detailed-info-container__content-area__usage-container, .usage-header{
             display: none;
+        }
+        .usage-charges-item-container__detailed-info-container__content-area__resource-container {
+            width: 80%;
         }
 
     }
