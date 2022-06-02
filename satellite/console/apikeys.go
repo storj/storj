@@ -37,6 +37,18 @@ type RESTKeys interface {
 	Revoke(ctx context.Context, apiKey string) (err error)
 }
 
+// CreateAPIKeyRequest holds create API key info.
+type CreateAPIKeyRequest struct {
+	ProjectID string `json:"projectID"`
+	Name      string `json:"name"`
+}
+
+// CreateAPIKeyResponse holds macaroon.APIKey and APIKeyInfo.
+type CreateAPIKeyResponse struct {
+	Key     string      `json:"key"`
+	KeyInfo *APIKeyInfo `json:"keyInfo"`
+}
+
 // APIKeyInfo describing api key model in the database.
 type APIKeyInfo struct {
 	ID        uuid.UUID `json:"id"`

@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/queue"
@@ -263,6 +264,11 @@ func (dbc *satelliteDBCollection) GracefulExit() gracefulexit.DB {
 // StripeCoinPayments returns database for stripecoinpayments.
 func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
 	return &stripeCoinPaymentsDB{db: dbc.getByName("stripecoinpayments")}
+}
+
+// Billing returns database for billing and payment transactions.
+func (dbc *satelliteDBCollection) Billing() billing.TransactionsDB {
+	return &billingDB{db: dbc.getByName("billing")}
 }
 
 // Wallets returns database for storjscan wallets.

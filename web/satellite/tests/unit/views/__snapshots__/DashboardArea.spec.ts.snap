@@ -15,8 +15,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
     </div>
   </div>
   <!---->
-  <!---->
-  <!---->
+  <allmodals-stub></allmodals-stub>
 </div>
 `;
 
@@ -27,7 +26,6 @@ exports[`Dashboard renders correctly when data is loading 1`] = `
   </div>
   <!---->
   <!---->
-  <!---->
-  <!---->
+  <allmodals-stub></allmodals-stub>
 </div>
 `;

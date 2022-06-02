@@ -166,8 +166,9 @@ deleted_copies AS (
 ),
 -- lowest stream_id becomes new ancestor
 promoted_ancestors AS (
-	SELECT
-		min(segment_copies.stream_id::text)::bytea AS new_ancestor_stream_id,
+	-- select only one child to promote per ancestor
+	SELECT DISTINCT ON (segment_copies.ancestor_stream_id)
+		segment_copies.stream_id AS new_ancestor_stream_id,
 		segment_copies.ancestor_stream_id AS deleted_stream_id
 	FROM segment_copies
 	-- select children about to lose their ancestor
@@ -181,8 +182,6 @@ promoted_ancestors AS (
 		SELECT stream_id
 		FROM deleted_objects
 	)
-	-- select only one child to promote per ancestor
-	GROUP BY segment_copies.ancestor_stream_id
 )
 SELECT
 	deleted_objects.stream_id,
