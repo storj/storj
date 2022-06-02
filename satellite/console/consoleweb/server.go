@@ -96,6 +96,7 @@ type Config struct {
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
 	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"false"`
+	NewBillingScreen                bool    `help:"indicates if new billing screens should be used" default:"false"`
 	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
 	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
 	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`
@@ -418,6 +419,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NewNavigation                   bool
 		NewObjectsFlow                  bool
 		NewAccessGrantFlow              bool
+		NewBillingScreen                bool
 		InactivityTimerEnabled          bool
 		InactivityTimerDelay            int
 		OptionalSignupSuccessURL        string
@@ -455,6 +457,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NewNavigation = server.config.NewNavigation
 	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
+	data.NewBillingScreen = server.config.NewBillingScreen
 	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
 	data.InactivityTimerDelay = server.config.InactivityTimerDelay
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
