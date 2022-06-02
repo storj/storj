@@ -8,8 +8,11 @@
                 <GreyChevron :class="`chevron-${isDetailedInfoShown?'down':'up'}`" />
                 <span class="usage-charges-item-container__summary__name-container__name">{{ projectName }}</span>
             </div>
-            <span class="usage-charges-item-container__summary__amount">
-                Estimated Total {{ item.summary() | centsToDollars }}
+            <span class="usage-charges-item-container__summary__text">
+                Estimated Total &nbsp;
+                <span
+                    class="usage-charges-item-container__summary__amount">{{ item.summary() | centsToDollars }}
+                </span>
             </span>
         </div>
         <div v-if="isDetailedInfoShown" class="usage-charges-item-container__detailed-info-container">
@@ -46,10 +49,38 @@
             <div class="usage-charges-item-container__detailed-info-container__footer">
                 <div class="usage-charges-item-container__detailed-info-container__footer__payment-type">
                     <p class="usage-charges-item-container__detailed-info-container__footer__payment-type__method">PAYMENT METHOD</p>
-                    <p class="usage-charges-item-container__detailed-info-container__footer__payment-type__type">Test Type</p>
+                    <p class="usage-charges-item-container__detailed-info-container__footer__payment-type__type">{{ paymentMethod }}</p>
                 </div>
                 <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
-                    Buttons go here
+                    <v-button
+                        v-if="paymentMethod === 'None Assigned'"
+                        label="Add Payment Method"
+                        font-size="13px"
+                        width="auto"
+                        height="30px"
+                        icon="credit-card"
+                        class="usage-charges-item-container__detailed-info-container__footer__buttons__assigned"
+                    />
+                    <v-button
+                        v-if="paymentMethod !== 'None Assigned'"
+                        label="Edit Payment Method"
+                        font-size="13px"
+                        width="auto"
+                        height="30px"
+                        icon="lock"
+                        :is-transparent="true"
+                        class="usage-charges-item-container__detailed-info-container__footer__buttons__none-assigned"
+                    />
+                    <v-button
+                        v-if="paymentMethod !== 'None Assigned'"
+                        label="See Payment"
+                        font-size="13px"
+                        width="auto"
+                        height="30px"
+                        icon="document"
+                        :is-transparent="true"
+                        class="usage-charges-item-container__detailed-info-container__footer__buttons__none-assigned"
+                    />
                 </div>
             </div>
         </div>
@@ -58,6 +89,8 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import VButton from '@/components/common/VButton.vue';
 
 import GreyChevron from '@/../static/images/common/greyChevron.svg';
 
@@ -71,6 +104,7 @@ import { MetaUtils } from '@/utils/meta';
 @Component({
     components: {
         GreyChevron,
+        VButton,
     },
 })
 export default class UsageAndChargesItem extends Vue {
@@ -89,6 +123,9 @@ export default class UsageAndChargesItem extends Vue {
      * GB_IN_TB constant shows amount of GBs in one TB.
      */
     private readonly GB_IN_TB = 1000;
+
+
+    public paymentMethod: string = "None Assigned";
 
     /**
      * projectName returns project name.
@@ -232,11 +269,21 @@ export default class UsageAndChargesItem extends Vue {
                 }
             }
 
-            &__amount {
+            &__text {
                 font-size: 16px;
                 line-height: 21px;
                 text-align: right;
                 color: #354049;
+                display: flex;
+                align-items: center;
+            }
+
+            &__amount {
+                font-size: 24px;
+                line-height: 31px;
+                font-weight: 800;
+                text-align: right;
+                color: #000000;
             }
         }
 
@@ -309,7 +356,15 @@ export default class UsageAndChargesItem extends Vue {
                 &__buttons {
                     display: flex;
                     align-self: center;
-                    flex-direction: row-reverse;
+
+                    &__assigned {
+                        padding: 5px 10px;
+                    }
+
+                    &__none-assigned {
+                        padding: 5px 10px;
+                        margin-left: 10px;
+                    }
                 }
             }
 

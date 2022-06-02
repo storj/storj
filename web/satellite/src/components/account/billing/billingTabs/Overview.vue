@@ -200,16 +200,5 @@ export default class BillingArea extends Vue {
         &__title {
             padding-bottom: 10px;
         }
-        // &__item {
-        // background-color: #fff;
-        // box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
-        // border-radius: 8px;
-        // margin-top: 20px;
-        // padding: 20px;
-        // }
     }
-    // ::v-deep .usage-charges-item-container__detailed-info-container {
-    //     margin-top: 10px;
-    //     border-top: 1px solid #EBEEF1;
-    // }
 </style>

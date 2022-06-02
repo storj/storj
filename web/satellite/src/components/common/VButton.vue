@@ -11,18 +11,36 @@
         <slot name="icon" />
         <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
         <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
-        <span class="label" :class="{uppercase: isUppercase}">{{ label }}</span>
+        <span class="label" :class="{uppercase: isUppercase}">
+            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
+            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
+            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import LockIcon from '@/../static/images/common/lockIcon.svg';
+import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
+import DocumentIcon from '@/../static/images/common/documentIcon.svg';
+
+
+import { component } from 'vue/types/umd';
+
+
 /**
  * Custom button component with label.
  */
 // @vue/component
-@Component
+@Component({
+    components: {
+        LockIcon,
+        CreditCardIcon,
+        DocumentIcon,
+    },
+})
 export default class VButton extends Vue {
     @Prop({default: 'Default'})
     private readonly label: string;
@@ -34,6 +52,8 @@ export default class VButton extends Vue {
     private readonly fontSize: string;
     @Prop({default: '6px'})
     private readonly borderRadius: string;
+    @Prop({ default: 'none' })
+    private readonly icon: string;
     @Prop({default: false})
     private readonly isWhite: boolean;
     @Prop({default: false})
@@ -56,6 +76,25 @@ export default class VButton extends Vue {
     private readonly isUppercase: boolean;
     @Prop({default: () => () => {}})
     private readonly onPress: () => void;
+
+
+    // controls icon usage
+    private iconsList = ['lock','creditCard','document'];
+    private iconsMap: Object = {
+        lock: 'LockIcon',
+        creditCard: 'CreditCardIcon',
+        document: 'DocumentIcon',
+    };
+
+    public get iconHTML(): string {
+        if(this.icon.toLowerCase() !== 'none' && this.iconsList.includes(this.icon.toLowerCase())) {
+            console.log(`<${this.iconsMap[this.icon.toLowerCase()]} />`)
+            return `<${this.iconsMap[this.icon.toLowerCase()]} />`
+        } else {
+            console.log('miss')
+            return 'none'
+        }
+    }
 
     public get style(): Record<string, unknown> {
         return { width: this.width, height: this.height, borderRadius: this.borderRadius, fontSize: this.fontSize };
@@ -86,6 +125,12 @@ export default class VButton extends Vue {
 </script>
 
 <style scoped lang="scss">
+
+    .label {
+        display: flex;
+        align-items: center;
+    }
+
     .transparent {
         background-color: transparent !important;
         border: 1px solid #afb7c1 !important;
