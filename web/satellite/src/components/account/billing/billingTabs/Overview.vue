@@ -26,7 +26,7 @@
                 </div>
                 <div class="total-cost__card">
                     <AvailableBalanceIcon class="total-cost__card__main-icon"/>
-                    <p class="total-cost__card__money-text">${{ availableBalance }}</p>
+                    <p class="total-cost__card__money-text">{{ balance.coins | centsToDollars }}</p>
                     <p class="total-cost__card__label-text">Available Balance</p>
                     <p class="total-cost__card__link-text">View Payment Methods →</p>
                 </div>
@@ -54,6 +54,7 @@ import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAnd
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
 
+import { AccountBalance } from '@/types/payments';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -92,14 +93,35 @@ export default class BillingArea extends Vue {
         } catch (error) {
             await this.$notify.error(error.message);
         }
+
+        let total = 0
+        for (let i in this.projectUsageAndCharges) {
+            console.log(i)
+        }
+    }
+
+    /**
+     * Returns account balance from store.
+     */
+    public get balance(): AccountBalance {
+        return this.$store.state.paymentsModule.balance;
     }
 
     /**
      * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
      */
     public get projectUsageAndCharges(): ProjectUsageAndCharges[] {
-        console.log(this.$store.state.paymentsModule.usageAndCharges)
+        console.log('main: ', this.$store.state.paymentsModule.usageAndCharges)
         return this.$store.state.paymentsModule.usageAndCharges;
+    }
+
+    public estimatedTotalCharges(): string {
+        let total = 0
+        for (let i in this.projectUsageAndCharges) {
+            console.log('usage: ', i)
+        }
+        return 'test'
+        
     }
 
 }

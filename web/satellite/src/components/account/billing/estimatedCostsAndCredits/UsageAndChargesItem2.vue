@@ -125,7 +125,7 @@ export default class UsageAndChargesItem extends Vue {
     private readonly GB_IN_TB = 1000;
 
 
-    public paymentMethod: string = "None Assigned";
+    public paymentMethod: string = "test";
 
     /**
      * projectName returns project name.
@@ -247,6 +247,7 @@ export default class UsageAndChargesItem extends Vue {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
             cursor: pointer;
 
             &__name-container {
@@ -321,6 +322,9 @@ export default class UsageAndChargesItem extends Vue {
                     font-size: 16px;
                     line-height: 19px;
                     color: #354049;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
 
                     :nth-child(1),
                     :nth-child(2) {
@@ -337,11 +341,13 @@ export default class UsageAndChargesItem extends Vue {
                 display: flex;
                 justify-content: space-between;
                 align-content: center;
+                flex-wrap: wrap;
                 padding-top: 10px;
                 width: 100%;
                 &__payment-type {
                     display: flex;
                     flex-direction: column;
+                    padding-top: 10px;
                     &__method {
                         color: #56606D;
                         font-weight: 600;
@@ -356,6 +362,8 @@ export default class UsageAndChargesItem extends Vue {
                 &__buttons {
                     display: flex;
                     align-self: center;
+                    flex-wrap: wrap;
+                    padding-top: 10px;
 
                     &__assigned {
                         padding: 5px 10px;
@@ -398,5 +406,19 @@ export default class UsageAndChargesItem extends Vue {
     .cost-header,
     .price {
         text-align: right;
+    }
+
+    @media only screen and (max-width: 750px) {
+        .usage-charges-item-container__detailed-info-container__content-area__period-container, .period-header,         .usage-charges-item-container__detailed-info-container__content-area__usage-container, .usage-header{
+            display: none;
+        }
+
+    }
+
+    @media only screen and (max-width: 507px) {
+        .usage-charges-item-container__detailed-info-container__footer__buttons__none-assigned {
+            margin-left: 0px;
+            margin-top: 5px;
+        }
     }
 </style>
