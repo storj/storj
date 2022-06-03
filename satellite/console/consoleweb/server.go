@@ -94,8 +94,9 @@ type Config struct {
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
 	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
-	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"false"`
+	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
 	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"false"`
+	NewBillingScreen                bool    `help:"indicates if new billing screens should be used" default:"false"`
 	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
 	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
 	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`
@@ -370,7 +371,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		cspValues := []string{
 			"default-src 'self'",
 			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
-			"script-src-elem 'self' *.stripe.com https://hcaptcha.com *.hcaptcha.com",
 			"connect-src 'self' *.tardigradeshare.io *.storjshare.io https://hcaptcha.com *.hcaptcha.com " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
@@ -419,6 +419,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NewNavigation                   bool
 		NewObjectsFlow                  bool
 		NewAccessGrantFlow              bool
+		NewBillingScreen                bool
 		InactivityTimerEnabled          bool
 		InactivityTimerDelay            int
 		OptionalSignupSuccessURL        string
@@ -456,6 +457,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NewNavigation = server.config.NewNavigation
 	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
+	data.NewBillingScreen = server.config.NewBillingScreen
 	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
 	data.InactivityTimerDelay = server.config.InactivityTimerDelay
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL

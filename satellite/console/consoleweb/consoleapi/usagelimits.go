@@ -133,8 +133,8 @@ func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	since := time.Unix(sinceStamp, 0).UTC()
-	before := time.Unix(beforeStamp, 0).UTC()
+	since := time.Unix(sinceStamp, 0)
+	before := time.Unix(beforeStamp, 0)
 
 	dailyUsage, err := ul.service.GetDailyProjectUsage(ctx, projectID, since, before)
 	if err != nil {

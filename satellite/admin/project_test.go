@@ -539,10 +539,10 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 
-		planet.Satellites[0].API.Payments.Service.SetNow(func() time.Time {
+		planet.Satellites[0].API.Payments.StripeService.SetNow(func() time.Time {
 			return oneMonthAhead
 		})
-		err = planet.Satellites[0].API.Payments.Service.PrepareInvoiceProjectRecords(ctx, now)
+		err = planet.Satellites[0].API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, now)
 		require.NoError(t, err)
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/usage", projectID), nil)

@@ -27,7 +27,7 @@ type Config struct {
 	FirstVerificationReminder  time.Duration `help:"amount of time before sending first reminder to users who need to verify their email" default:"24h"`
 	SecondVerificationReminder time.Duration `help:"amount of time before sending second reminder to users who need to verify their email" default:"120h"`
 	ChoreInterval              time.Duration `help:"how often to send reminders to users who need to verify their email" default:"24h"`
-	Enable                     bool          `help:"enable sending emails reminding users to verify their email" default:"true"`
+	Enable                     bool          `help:"enable sending emails reminding users to verify their email" releaseDefault:"false" devDefault:"true"`
 }
 
 // Chore checks whether any emails need to be re-sent.

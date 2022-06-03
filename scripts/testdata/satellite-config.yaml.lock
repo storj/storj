@@ -181,11 +181,14 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if new access grant flow should be used
 # console.new-access-grant-flow: false
 
+# indicates if new billing screens should be used
+# console.new-billing-screen: false
+
 # indicates if new navigation structure should be rendered
 # console.new-navigation: true
 
 # indicates if new objects flow should be used
-# console.new-objects-flow: false
+# console.new-objects-flow: true
 
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: false
@@ -332,7 +335,7 @@ contact.external-address: ""
 # email-reminders.chore-interval: 24h0m0s
 
 # enable sending emails reminding users to verify their email
-# email-reminders.enable: true
+# email-reminders.enable: false
 
 # amount of time before sending first reminder to users who need to verify their email
 # email-reminders.first-verification-reminder: 24h0m0s
@@ -660,6 +663,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"
+
+# payments.storjscan.credentials.private-key: ""
+
+# payments.storjscan.credentials.public-key: ""
+
+# payments.storjscan.endpoint: ""
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 2m0s
