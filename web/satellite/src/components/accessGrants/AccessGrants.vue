@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 <template>
     <div class="access-grants">
-        <div v-if="!isNewAccessGrantFlow" class="access-grants__title-area">
+        <div v-if="isNewAccessGrantFlow" class="access-grants__title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Grants</h2>
             <div v-if="accessGrantsList.length" class="access-grants__title-area__right">
                 <VButton
@@ -23,11 +23,11 @@
                 />
             </div>
         </div>
-        <div v-if="isNewAccessGrantFlow" class="access-grants__new-title-area">
+        <div v-if="!isNewAccessGrantFlow" class="access-grants__new-title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Management</h2>
             <div class="access-grants__title-area__title-subtext" aria-roledescription="title">Create encryption keys to setup permissions to access your objects.</div>
         </div>
-        <div v-if="isNewAccessGrantFlow" class="access-grants__flows-area">
+        <div v-if="!isNewAccessGrantFlow" class="access-grants__flows-area">
             <div class="access-grants__flows-area__access-grant">
                 <div class="access-grants__flows-area__icon-container">
                     <AccessGrantsIcon />
@@ -124,7 +124,7 @@
                 </div>
             </div>
         </div>
-        <div v-if="isNewAccessGrantFlow"> 
+        <div v-if="!isNewAccessGrantFlow"> 
             <div class="access-grants__header-container">
                 <h3 class="access-grants__header-container__title">My Accesses</h3>
                 <div class="access-grants__header-container__divider" />
@@ -169,7 +169,7 @@
                 </span>
             </div>
         </div>
-        <div v-if="!isNewAccessGrantFlow">
+        <div v-if="isNewAccessGrantFlow">
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
             <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
                 <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
@@ -189,7 +189,7 @@
                 />
             </div>
         </div>
-        <div v-if="!isNewAccessGrantFlow">
+        <div v-if="isNewAccessGrantFlow">
             <ConfirmDeletePopup
                 v-if="isDeleteClicked"
                 @close="onClearSelection"
@@ -197,7 +197,7 @@
             />
             <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
         </div>
-        <div v-if="isNewAccessGrantFlow">
+        <div v-if="!isNewAccessGrantFlow">
             <ConfirmDeletePopup2
                 v-if="isDeleteClicked"
                 @close="onClearSelection"
@@ -455,6 +455,7 @@ export default class AccessGrants extends Vue {
         padding: 28px;
         width: 26%;
         height: auto;
+        max-height: 220px;
         background: #fff;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         border-radius: 10px;
@@ -498,6 +499,9 @@ export default class AccessGrants extends Vue {
             align-items: center;
             -webkit-box-pack: justify;
             justify-content: space-between;
+            @media screen and (max-width: 908px) {
+                justify-content: space-evenly;
+            }
             margin-top: 20px;
 
             &__access-grant,
