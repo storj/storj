@@ -11,6 +11,7 @@
             :item-data="item"
             :class="{ selected: item.isSelected }"
             @click.native="onItemClick(item)"
+            @altMethod="openDeleteModal"
         />
     </div>
 </template>
@@ -29,6 +30,13 @@ export default class VList extends Vue {
     private readonly onItemClick: listItemClickCallback;
     @Prop({default: []})
     private readonly dataSet: unknown[];
+
+    /**
+     * testMethod
+     */
+    public openDeleteModal() {
+        this.$emit('openModal')
+    }
 }
 </script>
 

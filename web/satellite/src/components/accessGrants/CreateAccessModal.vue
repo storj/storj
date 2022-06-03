@@ -124,7 +124,7 @@
                                 <input 
                                     :id="`permissions__${item}-check`"
                                     v-model="selectedPermissions"
-                                    :value="item" 
+                                    :value="item"
                                     type="checkbox"
                                     :checked="checkedPermissions.item"
                                     @click="toggleAllPermission(item)"
@@ -159,6 +159,7 @@
                             <DurationSelection
                                 container-style="access-date-container"
                                 text-style="access-date-text"
+                                picker-style="__access-date-container"
                             />
                         </div>
                         <div 
@@ -180,21 +181,13 @@
                 <div class="access-grant__modal-container__divider" />
                 <div class="access-grant__modal-container__footer-container">
                     <v-button
-                        label="Learn More"
-                        width="auto"
-                        height="50px"
-                        is-transparent="true"
-                        font-size="16px"
-                        class="access-grant__modal-container__footer-container__learn-more-button"
-                    />
-                    <v-button
-                        label="Encrypt My Access  ⟶"
+                        :label="checkedType === 'api' ? 'Create Keys  ⟶' : 'Encrypt My Access  ⟶'"
                         font-size="16px"
                         width="auto"
                         height="50px"
                         class="access-grant__modal-container__footer-container__encrypt-button"
-                        :on-press="encryptClickAction"
-                        :is-disabled="selectedPermissions.length === 0 || accessName === '' || selectedBucketNames.length === 0"
+                        :on-press="checkedType === 'api' ? createAccessGrant : encryptClickAction"
+                        :is-disabled="selectedPermissions.length === 0 || accessName === ''"
                     />
                 </div>
             </form>
@@ -248,7 +241,6 @@
                     > 
                         {{ passphrase }}
                     </div>
-                    <!-- Working Here -->
                     <input
                         v-if="encryptSelect === 'create'"
                         v-model="passphrase"
@@ -265,7 +257,7 @@
                             :is-white-green="isPassphraseCopied ? true : false"
                             class="access-grant__modal-container__footer-container__copy-button"
                             font-size="16px"
-                            :on-press="onCopyClick"
+                            :on-press="onCopyPassphraseClick"
                             :is-disabled="passphrase.length < 1"   
                         />
                         <v-button
@@ -275,7 +267,7 @@
                             height="50px"
                             class="access-grant__modal-container__footer-container__download-button"
                             :is-green-white="isPassphraseDownloaded ? true : false"
-                            :on-press="downloadText"
+                            :on-press="downloadPassphrase"
                             :is-disabled="passphrase.length < 1"
                         />
                     </div>
@@ -307,8 +299,197 @@
                             height="50px"
                             class="access-grant__modal-container__footer-container__download-button"
                             :is-disabled="!acknowledgementCheck"
+                            :on-press="createAccessGrant"
                         />
                     </div>
+                </div>
+            </form>
+            <!-- *********   Grant Created Modal  ********* -->
+            <form v-if="accessGrantStep === 'grantCreated'">
+                <div class="access-grant__modal-container__header-container">
+                    <AccessGrantsIcon v-if="checkedType === 'access'" />
+                    <S3Icon v-if="checkedType === 's3'" />
+                    <CLIIcon v-if="checkedType === 'api'" />
+                    <div class="access-grant__modal-container__header-container__close-cross-container" @click="onCloseClick">
+                        <CloseCrossIcon />
+                    </div>
+                    <h2 class="access-grant__modal-container__header-container__title-complete">{{ accessName }} <br> Created</h2>
+                </div>
+                <div class="access-grant__modal-container__body-container__created"> 
+                    <p>Now copy and save the {{ checkedText[checkedType][0] }} will only appear once. Click on the {{ checkedText[checkedType][1] }}</p>
+                </div>
+                <div v-if="checkedType === 'access'">
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Access Grant
+                        </span>
+                        <a                             
+                            href="https://docs.storj.io/dcs/concepts/access/access-grants/"
+                            target="_blank"
+                        >
+                            <img
+                                class="tooltip-icon"
+                                src="../../../static/images/accessGrants/create-access_information.png"
+                            >
+                        </a>
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    > 
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ access }}
+                        </span>
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(access)"
+                        >
+                    </div>
+                </div>
+                <div v-if="checkedType === 's3'">
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Access Key
+                        </span>
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    > 
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ gatewayCredentials.accessKeyId }}
+                        </span>
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(gatewayCredentials.accessKeyId)"
+                        >
+                    </div>
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Secret Key
+                        </span>
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    >
+                        <span class="access-grant__modal-container__generated-credentials__text"> 
+                            {{ gatewayCredentials.secretKey }}
+                        </span>
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(gatewayCredentials.secretKey)"
+                        >
+                    </div>
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Endpoint
+                        </span>
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    >
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ gatewayCredentials.endpoint }}
+                        </span>
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            target="_blank"
+                            href="https://docs.storj.io/dcs/concepts/satellite/"
+                            @click="onCopyClick(gatewayCredentials.endpoint)"
+                        >
+                    </div>
+                </div>
+                <div v-if="checkedType === 'api'">
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            Satellite Address
+                        </span>
+                        <a
+                            href="https://docs.storj.io/dcs/concepts/satellite/"
+                            target="_blank"
+                        >
+                            <img
+                                class="tooltip-icon"
+                                src="../../../static/images/accessGrants/create-access_information.png"
+                            >
+                        </a>
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    >
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ satelliteAddress }}
+                        </span>
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(satelliteAddress)"
+                        >
+                    </div>
+                    <div class="access-grant__modal-container__generated-credentials__label">
+                        <span class="access-grant__modal-container__generated-credentials__label__text">
+                            API Key 
+                        </span>
+                        <a
+                            href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key/"
+                            target="_blank"
+                        >
+                            <img
+                                class="tooltip-icon"
+                                src="../../../static/images/accessGrants/create-access_information.png"
+                            >
+                        </a>
+                    </div>
+                    <div
+                        class="access-grant__modal-container__generated-credentials"
+                    >
+                        <span class="access-grant__modal-container__generated-credentials__text">
+                            {{ restrictedKey }}
+                        </span>
+                        <img 
+                            class="clickable-image" 
+                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
+                            @click="onCopyClick(restrictedKey)"
+                        >
+                    </div>
+                </div>
+                <div v-if="checkedType === 's3'" class="access-grant__modal-container__credential-buttons__container-s3">
+                    <a 
+                        v-if="checkedType === 's3'"
+                        href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway/"
+                        target="_blank"
+                    >
+                        <v-button
+                            label="Learn More"
+                            width="150px"
+                            height="50px"
+                            is-transparent="true"
+                            font-size="16px"
+                            class="access-grant__modal-container__footer-container__learn-more-button"
+                        />
+                    </a>
+                    <v-button
+                        label="Download .txt"
+                        font-size="16px"
+                        width="182px"
+                        height="50px"
+                        class="access-grant__modal-container__credential-buttons__download-button"
+                        :is-green-white="areCredentialsDownloaded ? true : false"
+                        :on-press="downloadCredentials"
+                    />
+                </div>
+                <div v-if="checkedType !== 's3'" class="access-grant__modal-container__credential-buttons__container">
+                    <v-button
+                        label="Download .txt"
+                        font-size="16px"
+                        width="182px"
+                        height="50px"
+                        class="access-grant__modal-container__credential-buttons__download-button"
+                        :is-green-white="areCredentialsDownloaded ? true : false"
+                        :on-press="downloadCredentials"
+                    />
                 </div>
             </form>
         </div>
@@ -330,20 +511,32 @@ import PermissionsIcon from '@/../static/images/accessGrants/create-access_permi
 import NameIcon from '@/../static/images/accessGrants/create-access_name.svg';
 import BucketsIcon from '@/../static/images/accessGrants/create-access_buckets.svg';
 import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
+import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
+import CLIIcon from '@/../static/images/accessGrants/cli.svg';
+import S3Icon from '@/../static/images/accessGrants/s3.svg';
+
 // for future use when notes is implemented
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
-
+import { Download } from "@/utils/download";
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { generateMnemonic } from "bip39";
 import { AccessGrant } from '@/types/accessGrants';
-import { Download } from "@/utils/download";
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { MetaUtils } from '@/utils/meta';
+import { EdgeCredentials } from '@/types/accessGrants';
+
 
 // @vue/component
 @Component({
     components: {
         VButton,
+        AccessGrantsIcon,
+        CLIIcon,
+        S3Icon,
         AccessKeyIcon,
         ThumbPrintIcon,
         DurationSelection,
@@ -368,11 +561,21 @@ export default class CreateAccessModal extends Vue {
 
     private accessGrantList = this.accessGrantsList;
     private accessGrantStep = "create";
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+    public areKeysVisible = false;
+    private readonly FIRST_PAGE = 1;
 
     /**
-     * Stores access type that is selected.
+     * Stores access type that is selected and text changes based on type.
      */
     private checkedType = '';
+    private checkedText = {access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.']};
+    private areCredentialsDownloaded = false;
+
+    /**
+     * Global isLoading Variable
+     **/    
+    private isLoading = false;
 
     /**
      * Handles which tooltip is hovered over and set/clear timeout when leaving hover.
@@ -384,8 +587,8 @@ export default class CreateAccessModal extends Vue {
      * Handles permission types, which have been selected, and determining if all have been selected.
      */
     private showAllPermissions = {show: false, position: "up"};
-    private permissionsList = ["read","write","list","delete"];
-    private checkedPermissions = {read: false, write: false, list: false, delete: false};
+    private permissionsList = ["Read","Write","List","Delete"];
+    private checkedPermissions = {Read: false, Write: false, List: false, Delete: false};
     private selectedPermissions : string[] = [];
     private allPermissionsClicked = false;
     private acknowledgementCheck = false;
@@ -403,12 +606,26 @@ export default class CreateAccessModal extends Vue {
     public areBucketNamesFetching = true;
     private addDateSelected = false;
 
+    /**
+     * Created Access Grant
+     */
+    private createdAccessGrant; 
+    private createdAccessGrantName = "";
+    private createdAccessGrantSecret = "";
+    private access = "";
+
+    public currentDate = new Date().toISOString();
+    private worker: Worker;
+    private restrictedKey = '';
+    public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
+
 
     /**
      * Checks which type was selected and retrieves buckets on mount.
      */
     public async mounted(): Promise<void> {
         this.checkedType = this.defaultType;
+        this.setWorker();
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
             this.areBucketNamesFetching = false;
@@ -418,11 +635,126 @@ export default class CreateAccessModal extends Vue {
     }
 
     /**
+     * Sets local worker with worker instantiated in store.
+     * Also sets worker's onmessage and onerror logic.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
+        this.worker.onerror = (error: ErrorEvent) => {
+            this.$notify.error(error.message);
+        };
+    }
+
+    /**
+     * Creates Access Grant 
+     */
+    public async createAccessGrant(): Promise<void> {
+
+        if (this.$store.getters.projects.length === 0) {
+            try {
+                await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+            } catch (error) {
+                this.isLoading = false;
+                return;
+            }
+        }
+
+        // creates restricted key
+        let cleanAPIKey: AccessGrant;
+        try {
+            cleanAPIKey = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.accessName);
+        } catch (error) {
+            await this.$notify.error(error.message);
+            return;
+        }
+
+        try {
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+
+            this.isLoading = false;
+        }
+
+        let permissionsMsg = {
+            'type': 'SetPermission',
+            'buckets': this.selectedBucketNames,
+            'apiKey': cleanAPIKey.secret,
+            'isDownload': this.selectedPermissions.includes('Read'),
+            'isUpload': this.selectedPermissions.includes('Write'),
+            'isList': this.selectedPermissions.includes('List'),
+            'isDelete': this.selectedPermissions.includes('Delete'),
+        }
+
+        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
+        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
+
+        await this.worker.postMessage(permissionsMsg);
+
+        const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        if (grantEvent.data.error) {
+            throw new Error(grantEvent.data.error)
+        }
+        this.restrictedKey = grantEvent.data.value;
+
+        // creates access credentials
+        const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+
+        this.worker.postMessage({
+            'type': 'GenerateAccess',
+            'apiKey': this.restrictedKey,
+            'passphrase': this.passphrase,
+            'projectID': this.$store.getters.selectedProject.id,
+            'satelliteNodeURL': satelliteNodeURL,
+        });
+
+        const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        if (accessEvent.data.error) {
+            await this.$notify.error(accessEvent.data.error);
+            this.isLoading = false;
+            return;
+        }
+
+        this.access = accessEvent.data.value;
+        await this.$notify.success('Access Grant was generated successfully');
+
+
+        if (this.checkedType === 's3') {
+            try {
+                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
+
+                await this.$notify.success('Gateway credentials were generated successfully');
+
+                await this.analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
+
+                this.areKeysVisible = true;
+            } catch (error) {
+                await this.$notify.error(error.message);
+            }
+        }
+
+        this.accessGrantStep = 'grantCreated';
+    }
+
+    /**
      * Downloads passphrase to .txt file
      */
-    public downloadText(): void {
+    public downloadPassphrase(): void {
         this.isPassphraseDownloaded = true;
-        Download.file(this.passphrase, 'sampleText.txt')
+        Download.file(this.passphrase, `passphrase-${this.currentDate}.txt`)
+    }
+
+    /**
+     * Downloads credentials to .txt file
+     */
+    public downloadCredentials(): void {
+        let credentialMap = {
+            access: [`access grant: ${this.access}`], 
+            s3: [`access key: ${this.gatewayCredentials.accessKeyId}\nsecret key: ${this.gatewayCredentials.secretKey}\nendpoint: ${this.gatewayCredentials.endpoint}`], 
+            api: [`satellite address: ${this.satelliteAddress}\nrestricted key: ${this.restrictedKey}`]
+        }
+        this.areCredentialsDownloaded = true;
+        Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`)
     }
 
     public onRadioInput(): void {
@@ -443,13 +775,19 @@ export default class CreateAccessModal extends Vue {
             return
         } else if (this.checkedType !== "api") {
             this.accessGrantStep = 'encrypt';
-        }  
+        } 
     }
 
-    public onCopyClick(): void {
+    public onCopyClick(item): void {
+        this.$copyText(item);
+        this.$notify.success(`credential was copied successfully`);
+    }
+
+    public onCopyPassphraseClick(): void {
         this.$copyText(this.passphrase);
         this.isPassphraseCopied = true;
-        this.$notify.success('Passphrase was copied successfully');
+        this.$notify.success(`Passphrase was copied successfully`);
+        return;
     }
 
     public backAction(): void {
@@ -505,12 +843,12 @@ export default class CreateAccessModal extends Vue {
         if (type === 'all' && this.allPermissionsClicked === false) {
             this.allPermissionsClicked = true;
             this.selectedPermissions = this.permissionsList;
-            this.checkedPermissions = {read: true, write: true, list: true, delete: true}
+            this.checkedPermissions = {Read: true, Write: true, List: true, Delete: true}
             return
         } else if(type === 'all' && this.allPermissionsClicked === true) {
             this.allPermissionsClicked = false;
             this.selectedPermissions = []
-            this.checkedPermissions = {read: false, write: false, list: false, delete: false}
+            this.checkedPermissions = {Read: false, Write: false, List: false, Delete: false}
             return
         } else if(this.checkedPermissions[type] === true) {
             this.checkedPermissions[type] = false
@@ -518,10 +856,11 @@ export default class CreateAccessModal extends Vue {
             return
         } else {
             this.checkedPermissions[type] = true
-            if(this.checkedPermissions.read === true && this.checkedPermissions.write === true && this.checkedPermissions.list === true && this.checkedPermissions.delete === true) {
+            if(this.checkedPermissions.Read === true && this.checkedPermissions.Write === true && this.checkedPermissions.List === true && this.checkedPermissions.Delete === true) {
                 this.allPermissionsClicked = true
                 return
             }
+            return;
         }
     }
 
@@ -551,6 +890,13 @@ export default class CreateAccessModal extends Vue {
      */
     public get accessGrantsList(): AccessGrant[] {
         return this.$store.state.accessGrantsModule.page.accessGrants;
+    }
+
+    /**
+     * Returns generated gateway credentials from store.
+     */
+    public get gatewayCredentials(): EdgeCredentials {
+        return this.$store.state.accessGrantsModule.gatewayCredentials;
     }
 }
 </script>
@@ -595,6 +941,15 @@ export default class CreateAccessModal extends Vue {
         margin-bottom: -20px;
     }
 
+    @mixin generated-text {
+        margin-top: 20px;
+        align-items: center;
+        padding: 10px 16px;
+        background: #ebeef1;
+        border: 1px solid #c8d3de;
+        border-radius: 7px;
+    }
+
     p {
         font-weight: bold;
         padding-bottom: 5px;
@@ -616,6 +971,10 @@ export default class CreateAccessModal extends Vue {
 
     .blue-background {
         background: #d7e8ff;
+    }
+
+    .clickable-image {
+        cursor: pointer;
     }
 
     .access-grant {
@@ -641,18 +1000,59 @@ export default class CreateAccessModal extends Vue {
             flex-direction: column;
             align-items: flex-start;
             position: relative;
-            padding: 25px;
+            padding: 25px 40px;
             margin-top: 40px;
             width: 410px;
             height: auto;
 
             &__generated-passphrase {
-                margin-top: 20px;
-                align-items: center;
-                padding: 10px 16px;
-                background: #ebeef1;
-                border: 1px solid #c8d3de;
-                border-radius: 7px;
+                @include generated-text;
+            }
+
+            &__generated-credentials {
+                @include generated-text;
+
+                margin: 0 0 4px;
+                display: flex;
+                justify-content: space-between;
+
+                &__text {
+                    width: 90%;
+                    text-overflow: ellipsis;
+                    overflow-x: hidden;
+                    white-space: nowrap;
+                }
+
+                &__label {
+                    display: flex;
+                    margin: 8px 0;
+                    align-items: center;
+
+                    &__text {
+                        font-family: sans-serif;
+                        font-size: 14px;
+                        font-weight: 700;
+                        line-height: 20px;
+                        letter-spacing: 0;
+                        text-align: left;
+                        padding: 0 6px 0 0;
+                    }
+                }
+            }
+
+            &__credential-buttons {
+
+                &__container-s3 {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 15px 0;
+                }
+
+                &__container {
+                    display: flex;
+                    justify-content: center;
+                    margin: 15px 0;
+                }
             }
 
             &__header-container {
@@ -664,6 +1064,11 @@ export default class CreateAccessModal extends Vue {
 
                 &__title {
                     grid-column: 1;
+                }
+
+                &__title-complete {
+                    grid-column: 1;
+                    margin-top: 10px;
                 }
 
                 &__close-cross-container {
@@ -769,6 +1174,24 @@ export default class CreateAccessModal extends Vue {
                     padding-top: 10px;
                 }
 
+                &__created {
+                    width: 100%;
+                    text-align: left;
+                    display: grid;
+                    margin-top: 15px;
+                    row-gap: 4ch;
+                    padding-top: 10px;
+
+                    p {
+                        font-style: normal;
+                        font-weight: 400;
+                        font-size: 14px;
+                        line-height: 20px;
+                        overflow-wrap: break-word;
+                        text-align: left;
+                    }
+                }
+
                 &__name-icon {
                     grid-column: 1;
                     grid-row: 2;
@@ -779,16 +1202,25 @@ export default class CreateAccessModal extends Vue {
                     grid-row: 2;
                     display: flex;
                     flex-direction: column;
+                    max-width: 238px;
 
                     &__input {
                         background: #fff;
                         border: 1px solid #c8d3de;
                         box-sizing: border-box;
-                        border-radius: 4px;
+                        border-radius: 6px;
                         height: 40px;
                         font-size: 17px;
                         padding: 10px;
                     }
+
+                    &__input:focus {
+                        border-color: #2683ff;
+                    }
+                }
+
+                &__input:focus {
+                    border-color: #2683ff;
                 }
 
                 &__permissions-icon {
@@ -917,6 +1349,7 @@ export default class CreateAccessModal extends Vue {
     }
 
     .tooltip-icon {
+        display: flex;
         width: 14px;
         height: 14px;
         cursor: pointer;
@@ -935,7 +1368,7 @@ export default class CreateAccessModal extends Vue {
 
     .access-tooltip {
         top: 52px;
-        left: 94px;
+        left: 109px;
 
         @include tooltip-container;
 
@@ -949,7 +1382,7 @@ export default class CreateAccessModal extends Vue {
 
     .s3-tooltip {
         top: 158px;
-        left: 103px;
+        left: 118px;
 
         @include tooltip-container;
 
@@ -964,7 +1397,7 @@ export default class CreateAccessModal extends Vue {
 
     .api-tooltip {
         top: 186px;
-        left: 78px;
+        left: 94px;
 
         @include tooltip-container;
 
@@ -974,6 +1407,19 @@ export default class CreateAccessModal extends Vue {
             transform: rotate(180deg);
 
             @include tooltip-arrow;
+        }
+    }
+
+    @media screen and (max-width: 500px) {
+
+        .access-grant__modal-container {
+            width: auto;
+            max-width: 80vw;
+            padding: 30px 24px;
+
+            &__body-container {
+                grid-template-columns: 1.2fr 6fr;
+            }
         }
     }
 

@@ -47,8 +47,8 @@ export default class BucketNameBullet extends Vue {
             font-family: 'font_bold', sans-serif;
             font-style: normal;
             font-weight: bold;
-            font-size: 9px;
-            line-height: 12px;
+            font-size: 13px;
+            line-height: 15px;
             white-space: nowrap;
             text-overflow: ellipsis;
             overflow: hidden;
