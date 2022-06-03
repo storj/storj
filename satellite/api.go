@@ -48,6 +48,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/rewards"
@@ -127,10 +128,15 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts   payments.Accounts
-		Conversion *stripecoinpayments.ConversionService
-		Service    *stripecoinpayments.Service
-		Stripe     stripecoinpayments.StripeClient
+		Accounts       payments.Accounts
+		DepositWallets payments.DepositWallets
+
+		StorjscanService *storjscan.Service
+		StorjscanClient  *storjscan.Client
+
+		Conversion    *stripecoinpayments.ConversionService
+		StripeService *stripecoinpayments.Service
+		StripeClient  stripecoinpayments.StripeClient
 	}
 
 	REST struct {
@@ -485,7 +491,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
 
-		peer.Payments.Service, err = stripecoinpayments.NewService(
+		peer.Payments.StripeService, err = stripecoinpayments.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
 			pc.StripeCoinPayments,
@@ -501,11 +507,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Payments.Stripe = stripeClient
-		peer.Payments.Accounts = peer.Payments.Service.Accounts()
+		peer.Payments.StripeClient = stripeClient
+		peer.Payments.Accounts = peer.Payments.StripeService.Accounts()
 		peer.Payments.Conversion = stripecoinpayments.NewConversionService(
 			peer.Log.Named("payments.stripe:version"),
-			peer.Payments.Service,
+			peer.Payments.StripeService,
 			pc.StripeCoinPayments.ConversionRatesCycleInterval)
 
 		peer.Services.Add(lifecycle.Item{
@@ -513,6 +519,16 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Payments.Conversion.Run,
 			Close: peer.Payments.Conversion.Close,
 		})
+
+		peer.Payments.StorjscanClient = storjscan.NewClient(
+			pc.Storjscan.Endpoint,
+			pc.Storjscan.Credentials.PublicKey,
+			pc.Storjscan.Credentials.PrivateKey)
+		peer.Payments.StorjscanService, err = storjscan.NewService(peer.DB, peer.Payments.StorjscanClient)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Payments.DepositWallets = peer.Payments.StorjscanService
 	}
 
 	{ // setup account management api keys
@@ -540,6 +556,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Buckets.Service,
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
+			peer.Payments.DepositWallets,
 			peer.Analytics.Service,
 			peer.Console.AuthTokens,
 			consoleConfig.Config,
