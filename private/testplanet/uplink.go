@@ -147,11 +147,11 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (_ *Uplink, er
 			return nil, err
 		}
 
-		authCtx, err := satellite.AuthenticatedContext(ctx, user.ID)
+		userCtx, err := satellite.UserContext(ctx, user.ID)
 		if err != nil {
 			return nil, err
 		}
-		_, apiKey, err := consoleAPI.Service.CreateAPIKey(authCtx, project.ID, "root")
+		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root")
 		if err != nil {
 			return nil, err
 		}

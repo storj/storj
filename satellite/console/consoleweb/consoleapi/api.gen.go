@@ -165,6 +165,7 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -208,6 +209,7 @@ func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter,
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -239,6 +241,7 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -282,6 +285,7 @@ func (h *ProjectManagementHandler) handleGenDeleteProject(w http.ResponseWriter,
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -313,6 +317,7 @@ func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWrit
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -338,6 +343,7 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -369,6 +375,7 @@ func (h *UserManagementHandler) handleGenGetUser(w http.ResponseWriter, r *http.
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}

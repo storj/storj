@@ -53,12 +53,12 @@ func NewEndpoint(
 	svr := server.NewDefaultServer(manager)
 
 	svr.SetUserAuthorizationHandler(func(w http.ResponseWriter, r *http.Request) (userID string, err error) {
-		auth, err := console.GetAuth(r.Context())
+		user, err := console.GetUser(r.Context())
 		if err != nil {
 			return "", console.ErrUnauthorized.Wrap(err)
 		}
 
-		return auth.User.ID.String(), nil
+		return user.ID.String(), nil
 	})
 
 	// externalAddress _should_ end with a '/' suffix based on the calling path

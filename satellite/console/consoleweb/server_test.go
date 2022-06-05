@@ -124,17 +124,19 @@ func TestUserIDRateLimiter(t *testing.T) {
 				token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 				require.NoError(t, err)
 
+				tokenStr := token.String()
+
 				if userNum == 1 {
-					firstToken = token
+					firstToken = tokenStr
 				}
 
 				// Expect burst number of successes.
 				for burstNum := 0; burstNum < sat.Config.Console.RateLimit.Burst; burstNum++ {
-					require.NotEqual(t, http.StatusTooManyRequests, applyCouponStatus(token))
+					require.NotEqual(t, http.StatusTooManyRequests, applyCouponStatus(tokenStr))
 				}
 
 				// Expect failure.
-				require.Equal(t, http.StatusTooManyRequests, applyCouponStatus(token))
+				require.Equal(t, http.StatusTooManyRequests, applyCouponStatus(tokenStr))
 			})
 		}
 

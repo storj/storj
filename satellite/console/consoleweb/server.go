@@ -35,7 +35,6 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -180,6 +179,62 @@ type templates struct {
 	usageReport         *template.Template
 }
 
+// apiAuth exposes methods to control authentication process for each generated API endpoint.
+type apiAuth struct {
+	server *Server
+}
+
+// IsAuthenticated checks if request is performed with all needed authorization credentials.
+func (a *apiAuth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth, isKeyAuth bool) (_ context.Context, err error) {
+	if isCookieAuth && isKeyAuth {
+		ctx, err = a.cookieAuth(ctx, r)
+		if err != nil {
+			ctx, err = a.keyAuth(ctx, r)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else if isCookieAuth {
+		ctx, err = a.cookieAuth(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+	} else if isKeyAuth {
+		ctx, err = a.keyAuth(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ctx, nil
+}
+
+// cookieAuth returns an authenticated context by session cookie.
+func (a *apiAuth) cookieAuth(ctx context.Context, r *http.Request) (context.Context, error) {
+	token, err := a.server.cookieAuth.GetToken(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.server.service.TokenAuth(ctx, token, time.Now())
+}
+
+// cookieAuth returns an authenticated context by api key.
+func (a *apiAuth) keyAuth(ctx context.Context, r *http.Request) (context.Context, error) {
+	authToken := r.Header.Get("Authorization")
+	split := strings.Split(authToken, "Bearer ")
+	if len(split) != 2 {
+		return ctx, errs.New("authorization key format is incorrect. Should be 'Bearer <key>'")
+	}
+
+	return a.server.service.KeyAuth(ctx, split[1], time.Now())
+}
+
+// RemoveAuthCookie indicates to the client that the authentication cookie should be removed.
+func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
+	a.server.cookieAuth.RemoveTokenCookie(w)
+}
+
 // NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
@@ -219,9 +274,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router := mux.NewRouter()
 
 	if server.config.GeneratedAPIEnabled {
-		consoleapi.NewProjectManagement(logger, server.service, router, server.service)
-		consoleapi.NewAPIKeyManagement(logger, server.service, router, server.service)
-		consoleapi.NewUserManagement(logger, server.service, router, server.service)
+		consoleapi.NewProjectManagement(logger, server.service, router, &apiAuth{&server})
+		consoleapi.NewAPIKeyManagement(logger, server.service, router, &apiAuth{&server})
+		consoleapi.NewUserManagement(logger, server.service, router, &apiAuth{&server})
 	}
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
@@ -486,17 +541,15 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 		ctxWithAuth := func(ctx context.Context) context.Context {
 			token, err := server.cookieAuth.GetToken(r)
 			if err != nil {
-				return console.WithAuthFailure(ctx, err)
+				return console.WithUserFailure(ctx, console.ErrUnauthorized.Wrap(err))
 			}
 
-			ctx = consoleauth.WithAPIKey(ctx, []byte(token))
-
-			auth, err := server.service.Authorize(ctx)
+			newCtx, err := server.service.TokenAuth(ctx, token, time.Now())
 			if err != nil {
-				return console.WithAuthFailure(ctx, err)
+				return console.WithUserFailure(ctx, err)
 			}
 
-			return console.WithAuth(ctx, auth)
+			return newCtx
 		}
 
 		ctx = ctxWithAuth(r.Context())
@@ -524,13 +577,11 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	auth, err := server.service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
+	ctx, err = server.service.TokenAuth(ctx, token, time.Now())
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
-
-	ctx = console.WithAuth(ctx, auth)
 
 	// parse query params
 	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
@@ -625,7 +676,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	defer mon.Task()(&ctx)(nil)
 	activationToken := r.URL.Query().Get("token")
 
-	token, err := server.service.ActivateAccount(ctx, activationToken)
+	user, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		server.log.Error("activation: failed to activate account",
 			zap.String("token", activationToken),
@@ -642,6 +693,18 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		}
 
 		server.serveError(w, http.StatusNotFound)
+		return
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		server.serveError(w, http.StatusInternalServerError)
+		return
+	}
+
+	token, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
+	if err != nil {
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -897,10 +960,10 @@ func (server *Server) parseTemplates() (_ *templates, err error) {
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
 func NewUserIDRateLimiter(config web.RateLimiterConfig) *web.RateLimiter {
 	return web.NewRateLimiter(config, func(r *http.Request) (string, error) {
-		auth, err := console.GetAuth(r.Context())
+		user, err := console.GetUser(r.Context())
 		if err != nil {
 			return "", err
 		}
-		return auth.User.ID.String(), nil
+		return user.ID.String(), nil
 	})
 }

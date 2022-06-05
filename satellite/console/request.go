@@ -8,6 +8,9 @@ import (
 	"net/http"
 )
 
+// requestKey is context key for Requests.
+const requestKey key = 1
+
 // WithRequest creates new context with *http.Request.
 func WithRequest(ctx context.Context, req *http.Request) context.Context {
 	return context.WithValue(ctx, requestKey, req)

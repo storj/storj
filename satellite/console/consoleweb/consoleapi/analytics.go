@@ -59,15 +59,15 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, http.StatusInternalServerError, err)
 	}
 
-	auth, err := console.GetAuth(ctx)
+	user, err := console.GetUser(ctx)
 	if err != nil {
 		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
 	if et.Link != "" {
-		a.analytics.TrackLinkEvent(et.EventName, auth.User.ID, auth.User.Email, et.Link)
+		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link)
 	} else {
-		a.analytics.TrackEvent(et.EventName, auth.User.ID, auth.User.Email)
+		a.analytics.TrackEvent(et.EventName, user.ID, user.Email)
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -88,13 +88,13 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, http.StatusInternalServerError, err)
 	}
 
-	auth, err := console.GetAuth(ctx)
+	user, err := console.GetUser(ctx)
 	if err != nil {
 		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
 
-	a.analytics.PageVisitEvent(pv.PageName, auth.User.ID, auth.User.Email)
+	a.analytics.PageVisitEvent(pv.PageName, user.ID, user.Email)
 
 	w.WriteHeader(http.StatusOK)
 }
