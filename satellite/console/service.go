@@ -1047,6 +1047,40 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 	return user, nil
 }
 
+// GenGetUser returns ResponseUser by request context for generated api.
+func (s *Service) GenGetUser(ctx context.Context) (*ResponseUser, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get user")
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	user := &ResponseUser{
+		ID:                   auth.User.ID,
+		FullName:             auth.User.FullName,
+		ShortName:            auth.User.ShortName,
+		Email:                auth.User.Email,
+		PartnerID:            auth.User.PartnerID,
+		UserAgent:            auth.User.UserAgent,
+		ProjectLimit:         auth.User.ProjectLimit,
+		IsProfessional:       auth.User.IsProfessional,
+		Position:             auth.User.Position,
+		CompanyName:          auth.User.CompanyName,
+		EmployeeCount:        auth.User.EmployeeCount,
+		HaveSalesContact:     auth.User.HaveSalesContact,
+		PaidTier:             auth.User.PaidTier,
+		MFAEnabled:           auth.User.MFAEnabled,
+		MFARecoveryCodeCount: len(auth.User.MFARecoveryCodes),
+	}
+
+	return user, api.HTTPError{}
+}
+
 // GetUserID returns the User ID from the session.
 func (s *Service) GetUserID(ctx context.Context) (id uuid.UUID, err error) {
 	defer mon.Task()(&ctx)(&err)
