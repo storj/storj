@@ -664,10 +664,16 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"
 
-# payments.storjscan.credentials.private-key: ""
+# basic auth identifier
+# payments.storjscan.auth.identifier: ""
 
-# payments.storjscan.credentials.public-key: ""
+# basic auth secret
+# payments.storjscan.auth.secret: ""
 
+# required number of following blocks in the chain to accept payment as confirmed
+# payments.storjscan.confirmations: 12
+
+# storjscan API endpoint
 # payments.storjscan.endpoint: ""
 
 # amount of time we wait before running next account balance update loop

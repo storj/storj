@@ -522,8 +522,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Payments.StorjscanClient = storjscan.NewClient(
 			pc.Storjscan.Endpoint,
-			pc.Storjscan.Credentials.PublicKey,
-			pc.Storjscan.Credentials.PrivateKey)
+			pc.Storjscan.Auth.Identifier,
+			pc.Storjscan.Auth.Secret)
+
 		peer.Payments.StorjscanService, err = storjscan.NewService(peer.DB, peer.Payments.StorjscanClient)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

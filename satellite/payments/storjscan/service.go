@@ -11,7 +11,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/coinpayments"
 )
 
 var (
@@ -21,12 +20,6 @@ var (
 
 // ensures that Wallets implements payments.Wallets.
 var _ payments.DepositWallets = (*Service)(nil)
-
-// Config stores needed information for storjscan service initialization.
-type Config struct {
-	Credentials coinpayments.Credentials
-	Endpoint    string
-}
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
 //
@@ -50,15 +43,20 @@ func (service *Service) Claim(ctx context.Context, userID uuid.UUID) (_ blockcha
 
 	address, err := service.storjscanClient.ClaimNewEthAddress(ctx)
 	if err != nil {
-		return blockchain.Address{}, err
+		return blockchain.Address{}, Error.Wrap(err)
 	}
 	err = service.walletsDB.Add(ctx, userID, address)
-	return address, err
+	if err != nil {
+		return blockchain.Address{}, Error.Wrap(err)
+	}
+
+	return address, nil
 }
 
 // Get returns the crypto wallet address associated with the given user.
 func (service *Service) Get(ctx context.Context, userID uuid.UUID) (_ blockchain.Address, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.walletsDB.Get(ctx, userID)
+	address, err := service.walletsDB.Get(ctx, userID)
+	return address, Error.Wrap(err)
 }
