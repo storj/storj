@@ -174,3 +174,22 @@ type User struct {
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
 }
+
+// ResponseUser is an entity which describes db User and can be sent in response.
+type ResponseUser struct {
+	ID                   uuid.UUID `json:"id"`
+	FullName             string    `json:"fullName"`
+	ShortName            string    `json:"shortName"`
+	Email                string    `json:"email"`
+	PartnerID            uuid.UUID `json:"partnerId"`
+	UserAgent            []byte    `json:"userAgent"`
+	ProjectLimit         int       `json:"projectLimit"`
+	IsProfessional       bool      `json:"isProfessional"`
+	Position             string    `json:"position"`
+	CompanyName          string    `json:"companyName"`
+	EmployeeCount        string    `json:"employeeCount"`
+	HaveSalesContact     bool      `json:"haveSalesContact"`
+	PaidTier             bool      `json:"paidTier"`
+	MFAEnabled           bool      `json:"isMFAEnabled"`
+	MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
+}

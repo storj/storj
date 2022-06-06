@@ -93,5 +93,16 @@ func main() {
 		})
 	}
 
+	{
+		g := a.Group("UserManagement", "users")
+
+		g.Get("/", &apigen.Endpoint{
+			Name:        "Get User",
+			Description: "Gets User by request context",
+			MethodName:  "GenGetUser",
+			Response:    &console.ResponseUser{},
+		})
+	}
+
 	a.MustWriteGo("satellite/console/consoleweb/consoleapi/api.gen.go")
 }

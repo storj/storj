@@ -214,3 +214,29 @@ A successful response body:
   }
 }
 ```
+
+### User Endpoints
+#### GET /api/v0/users/
+Returns User entity by request context.
+
+A successful response body:
+
+```json
+{
+  "id": "00fe2cef-9412-4c9c-bc42-e57cc062bb7d",
+  "fullName": "Test",
+  "shortName": "",
+  "email": "test@test.com",
+  "partnerId": "00000000-0000-0000-0000-000000000000",
+  "userAgent": null,
+  "projectLimit": 1,
+  "isProfessional": false,
+  "position": "",
+  "companyName": "",
+  "employeeCount": "",
+  "haveSalesContact": false,
+  "paidTier": false,
+  "isMFAEnabled": false,
+  "mfaRecoveryCodeCount": 0
+}
+```
