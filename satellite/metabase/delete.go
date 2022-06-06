@@ -296,6 +296,8 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 }
 
 func (db *DB) deleteObjectExactVersionServerSideCopy(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	objects := []deletedObjectInfo{}
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		err = withRows(
@@ -333,7 +335,9 @@ func (db *DB) deleteObjectExactVersionServerSideCopy(ctx context.Context, opts D
 	return result, nil
 }
 
-func (db *DB) promoteNewAncestors(ctx context.Context, tx tagsql.Tx, objects []deletedObjectInfo) error {
+func (db *DB) promoteNewAncestors(ctx context.Context, tx tagsql.Tx, objects []deletedObjectInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	for _, object := range objects {
 		if object.PromotedAncestor == nil {
 			continue
