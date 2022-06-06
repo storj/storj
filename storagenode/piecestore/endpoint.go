@@ -265,6 +265,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		uploadRate := float64(0)
 		if dt.Seconds() > 0 {
 			uploadRate = float64(uploadSize) / dt.Seconds()
+			mon.FloatVal("upload_rate_bytes_per_sec_meter").Observe(uploadRate)
+
 		}
 		uploadDuration := dt.Nanoseconds()
 
@@ -513,6 +515,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		downloadRate := float64(0)
 		if dt.Seconds() > 0 {
 			downloadRate = float64(downloadSize) / dt.Seconds()
+			mon.FloatVal("download_rate_bytes_per_sec_meter", actionSeriesTag).Observe(downloadRate)
 		}
 		downloadDuration := dt.Nanoseconds()
 		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) {
