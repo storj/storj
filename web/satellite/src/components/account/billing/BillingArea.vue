@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-billing-area">
-        <div v-if="isNewBillingScreen">
+        <div v-if="!isNewBillingScreen">
             <div class="account-billing-area__header">
                 <div 
                     :class="`account-billing-area__header__tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
@@ -33,7 +33,7 @@
             <div class="account-billing-area__divider"></div>
             <router-view />
         </div>
-        <div v-if="!isNewBillingScreen">
+        <div v-if="isNewBillingScreen">
             <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
                 <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
                     <NegativeBalanceIcon />
