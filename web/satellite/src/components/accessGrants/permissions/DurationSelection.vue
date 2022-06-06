@@ -16,6 +16,7 @@
         </div>
         <DurationPicker
             v-if="isDurationPickerVisible"
+            :container-style="pickerStyle"
             @setLabel="setDateRangeLabel"
         />
     </div>
@@ -42,6 +43,8 @@ export default class DurationSelection extends Vue {
     private readonly containerStyle: string;
     @Prop({default: ''})
     private readonly textStyle: string;
+    @Prop({default: ''})
+    private readonly pickerStyle: string;
 
 
     public dateRangeLabel = 'Forever';

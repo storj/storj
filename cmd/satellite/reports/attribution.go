@@ -18,12 +18,15 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/useragent"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb"
 )
 
 var headers = []string{
 	"userAgent",
+	"projectID",
+	"bucketName",
 	"gbHours",
 	"segmentHours",
 	"objectHours",
@@ -31,8 +34,15 @@ var headers = []string{
 	"gbEgress",
 }
 
-// AttributionTotals is a map of attribution totals per user agent.
-type AttributionTotals map[string]Total
+// AttributionTotals is a map of attribution totals per user agent, project ID, and bucket name combination.
+type AttributionTotals map[AttributionTotalsIndex]Total
+
+// AttributionTotalsIndex is a key into AttributionTotals.
+type AttributionTotalsIndex struct {
+	UserAgent  string
+	ProjectID  string
+	BucketName string
+}
 
 // Total is the total attributable usage for a user agent over a period of time.
 type Total struct {
@@ -44,7 +54,7 @@ type Total struct {
 }
 
 // GenerateAttributionCSV creates a report with.
-func GenerateAttributionCSV(ctx context.Context, database string, start time.Time, end time.Time, output io.Writer) error {
+func GenerateAttributionCSV(ctx context.Context, database string, start time.Time, end time.Time, userAgents []string, output io.Writer) error {
 	log := zap.L().Named("attribution-report")
 	db, err := satellitedb.Open(ctx, log.Named("db"), database, satellitedb.Options{ApplicationName: "satellite-attribution"})
 	if err != nil {
@@ -62,7 +72,7 @@ func GenerateAttributionCSV(ctx context.Context, database string, start time.Tim
 		return errs.Wrap(err)
 	}
 
-	partnerAttributionTotals := SumAttributionByUserAgent(rows, log)
+	partnerAttributionTotals := ProcessAttributions(rows, userAgents, log)
 
 	w := csv.NewWriter(output)
 	defer func() {
@@ -72,11 +82,13 @@ func GenerateAttributionCSV(ctx context.Context, database string, start time.Tim
 	if err := w.Write(headers); err != nil {
 		return errs.Wrap(err)
 	}
-	for userAgent, totals := range partnerAttributionTotals {
+	for idx, totals := range partnerAttributionTotals {
 		gbHours := memory.Size(totals.ByteHours).GB()
 		egressGBData := memory.Size(totals.BytesEgress).GB()
 		record := []string{
-			userAgent,
+			idx.UserAgent,
+			idx.ProjectID,
+			idx.BucketName,
 			strconv.FormatFloat(gbHours, 'f', 4, 64),
 			strconv.FormatFloat(totals.SegmentHours, 'f', 4, 64),
 			strconv.FormatFloat(totals.ObjectHours, 'f', 4, 64),
@@ -97,9 +109,9 @@ func GenerateAttributionCSV(ctx context.Context, database string, start time.Tim
 	return errs.Wrap(err)
 }
 
-// SumAttributionByUserAgent sums all bucket attribution by the first entry in the user agent.
-func SumAttributionByUserAgent(rows []*attribution.BucketUsage, log *zap.Logger) AttributionTotals {
-	attributionTotals := make(map[string]Total)
+// ProcessAttributions sums all bucket attribution by the first entry in the user agent, project ID, and bucket name.
+func ProcessAttributions(rows []*attribution.BucketUsage, userAgents []string, log *zap.Logger) AttributionTotals {
+	attributionTotals := make(AttributionTotals)
 	userAgentParseFailures := make(map[string]bool)
 
 	for _, row := range rows {
@@ -115,9 +127,33 @@ func SumAttributionByUserAgent(rows []*attribution.BucketUsage, log *zap.Logger)
 		}
 
 		userAgent := strings.ToLower(userAgentEntries[0].Product)
+		if userAgents != nil {
+			uaFound := false
+			for _, allowed := range userAgents {
+				if userAgent == strings.ToLower(allowed) {
+					uaFound = true
+					break
+				}
+			}
+			if !uaFound {
+				continue
+			}
+		}
 
-		if _, ok := attributionTotals[userAgent]; !ok {
-			attributionTotals[userAgent] = Total{
+		projID, err := uuid.FromBytes(row.ProjectID)
+		if err != nil {
+			log.Error("malformed project ID", zap.String("project ID", fmt.Sprintf("%x", projID)), zap.Error(err))
+			continue
+		}
+
+		idx := AttributionTotalsIndex{
+			UserAgent:  userAgent,
+			ProjectID:  projID.String(),
+			BucketName: string(row.BucketName),
+		}
+
+		if _, ok := attributionTotals[idx]; !ok {
+			attributionTotals[idx] = Total{
 				ByteHours:    row.ByteHours,
 				SegmentHours: row.SegmentHours,
 				ObjectHours:  row.ObjectHours,
@@ -125,7 +161,7 @@ func SumAttributionByUserAgent(rows []*attribution.BucketUsage, log *zap.Logger)
 				BytesEgress:  row.EgressData,
 			}
 		} else {
-			partnerTotal := attributionTotals[userAgent]
+			partnerTotal := attributionTotals[idx]
 
 			partnerTotal.ByteHours += row.ByteHours
 			partnerTotal.SegmentHours += row.SegmentHours
@@ -133,7 +169,7 @@ func SumAttributionByUserAgent(rows []*attribution.BucketUsage, log *zap.Logger)
 			partnerTotal.BucketHours += float64(row.Hours)
 			partnerTotal.BytesEgress += row.EgressData
 
-			attributionTotals[userAgent] = partnerTotal
+			attributionTotals[idx] = partnerTotal
 		}
 	}
 	return attributionTotals

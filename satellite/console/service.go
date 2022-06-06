@@ -123,6 +123,7 @@ type Service struct {
 	buckets           Buckets
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
+	depositWallets    payments.DepositWallets
 	captchaHandler    CaptchaHandler
 	analytics         *analytics.Service
 	tokens            *consoleauth.Service
@@ -169,13 +170,13 @@ type HcaptchaConfig struct {
 	SecretKey string `help:"hCaptcha secret key"`
 }
 
-// PaymentsService separates all payment related functionality.
-type PaymentsService struct {
+// Payments separates all payment related functionality.
+type Payments struct {
 	service *Service
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, tokens *consoleauth.Service, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, analytics *analytics.Service, tokens *consoleauth.Service, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -203,6 +204,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		buckets:           buckets,
 		partners:          partners,
 		accounts:          accounts,
+		depositWallets:    depositWallets,
 		captchaHandler:    captchaHandler,
 		analytics:         analytics,
 		tokens:            tokens,
@@ -254,79 +256,79 @@ func (s *Service) getAuthAndAuditLog(ctx context.Context, operation string, extr
 }
 
 // Payments separates all payment related functionality.
-func (s *Service) Payments() PaymentsService {
-	return PaymentsService{service: s}
+func (s *Service) Payments() Payments {
+	return Payments{service: s}
 }
 
 // SetupAccount creates payment account for authorized user.
-func (paymentService PaymentsService) SetupAccount(ctx context.Context) (_ payments.CouponType, err error) {
+func (payment Payments) SetupAccount(ctx context.Context) (_ payments.CouponType, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "setup payment account")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "setup payment account")
 	if err != nil {
 		return payments.NoCoupon, Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email, auth.User.SignupPromoCode)
+	return payment.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email, auth.User.SignupPromoCode)
 }
 
 // AccountBalance return account balance.
-func (paymentService PaymentsService) AccountBalance(ctx context.Context) (balance payments.Balance, err error) {
+func (payment Payments) AccountBalance(ctx context.Context) (balance payments.Balance, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "get account balance")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "get account balance")
 	if err != nil {
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.Balance(ctx, auth.User.ID)
+	return payment.service.accounts.Balance(ctx, auth.User.ID)
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
-func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
+func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
 	defer mon.Task()(&ctx, creditCardToken)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "add credit card")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "add credit card")
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = paymentService.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
+	err = payment.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	paymentService.service.analytics.TrackCreditCardAdded(auth.User.ID, auth.User.Email)
+	payment.service.analytics.TrackCreditCardAdded(auth.User.ID, auth.User.Email)
 
 	if !auth.User.PaidTier {
 		// put this user into the paid tier and convert projects to upgraded limits.
-		err = paymentService.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true,
-			paymentService.service.config.UsageLimits.Bandwidth.Paid,
-			paymentService.service.config.UsageLimits.Storage.Paid,
-			paymentService.service.config.UsageLimits.Segment.Paid,
-			paymentService.service.config.UsageLimits.Project.Paid,
+		err = payment.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true,
+			payment.service.config.UsageLimits.Bandwidth.Paid,
+			payment.service.config.UsageLimits.Storage.Paid,
+			payment.service.config.UsageLimits.Segment.Paid,
+			payment.service.config.UsageLimits.Project.Paid,
 		)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		projects, err := paymentService.service.store.Projects().GetOwn(ctx, auth.User.ID)
+		projects, err := payment.service.store.Projects().GetOwn(ctx, auth.User.ID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 		for _, project := range projects {
-			if project.StorageLimit == nil || *project.StorageLimit < paymentService.service.config.UsageLimits.Storage.Paid {
+			if project.StorageLimit == nil || *project.StorageLimit < payment.service.config.UsageLimits.Storage.Paid {
 				project.StorageLimit = new(memory.Size)
-				*project.StorageLimit = paymentService.service.config.UsageLimits.Storage.Paid
+				*project.StorageLimit = payment.service.config.UsageLimits.Storage.Paid
 			}
-			if project.BandwidthLimit == nil || *project.BandwidthLimit < paymentService.service.config.UsageLimits.Bandwidth.Paid {
+			if project.BandwidthLimit == nil || *project.BandwidthLimit < payment.service.config.UsageLimits.Bandwidth.Paid {
 				project.BandwidthLimit = new(memory.Size)
-				*project.BandwidthLimit = paymentService.service.config.UsageLimits.Bandwidth.Paid
+				*project.BandwidthLimit = payment.service.config.UsageLimits.Bandwidth.Paid
 			}
-			if project.SegmentLimit == nil || *project.SegmentLimit < paymentService.service.config.UsageLimits.Segment.Paid {
-				*project.SegmentLimit = paymentService.service.config.UsageLimits.Segment.Paid
+			if project.SegmentLimit == nil || *project.SegmentLimit < payment.service.config.UsageLimits.Segment.Paid {
+				*project.SegmentLimit = payment.service.config.UsageLimits.Segment.Paid
 			}
-			err = paymentService.service.store.Projects().Update(ctx, &project)
+			err = payment.service.store.Projects().Update(ctx, &project)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -337,63 +339,63 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.
-func (paymentService PaymentsService) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
+func (payment Payments) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "make credit card default")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "make credit card default")
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
+	return payment.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
 }
 
 // ProjectsCharges returns how much money current user will be charged for each project which he owns.
-func (paymentService PaymentsService) ProjectsCharges(ctx context.Context, since, before time.Time) (_ []payments.ProjectCharge, err error) {
+func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.Time) (_ []payments.ProjectCharge, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "project charges")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "project charges")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.ProjectCharges(ctx, auth.User.ID, since, before)
+	return payment.service.accounts.ProjectCharges(ctx, auth.User.ID, since, before)
 }
 
 // ListCreditCards returns a list of credit cards for a given payment account.
-func (paymentService PaymentsService) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
+func (payment Payments) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "list credit cards")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "list credit cards")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.CreditCards().List(ctx, auth.User.ID)
+	return payment.service.accounts.CreditCards().List(ctx, auth.User.ID)
 }
 
 // RemoveCreditCard is used to detach a credit card from payment account.
-func (paymentService PaymentsService) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
+func (payment Payments) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "remove credit card")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "remove credit card")
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
+	return payment.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
 }
 
 // BillingHistory returns a list of billing history items for payment account.
-func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
+func (payment Payments) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "get billing history")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "get billing history")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	invoices, couponUsages, err := paymentService.service.accounts.Invoices().ListWithDiscounts(ctx, auth.User.ID)
+	invoices, couponUsages, err := payment.service.accounts.Invoices().ListWithDiscounts(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -411,7 +413,7 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 		})
 	}
 
-	txsInfos, err := paymentService.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
+	txsInfos, err := payment.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -430,7 +432,7 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 		})
 	}
 
-	charges, err := paymentService.service.accounts.Charges(ctx, auth.User.ID)
+	charges, err := payment.service.accounts.Charges(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -465,7 +467,7 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 		})
 	}
 
-	bonuses, err := paymentService.service.accounts.StorjTokens().ListDepositBonuses(ctx, auth.User.ID)
+	bonuses, err := payment.service.accounts.StorjTokens().ListDepositBonuses(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -492,29 +494,29 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 }
 
 // TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
-func (paymentService PaymentsService) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
+func (payment Payments) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "token deposit")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "token deposit")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	tx, err := paymentService.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
+	tx, err := payment.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
 
 	return tx, Error.Wrap(err)
 }
 
 // checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.
-func (paymentService PaymentsService) checkOutstandingInvoice(ctx context.Context) (err error) {
+func (payment Payments) checkOutstandingInvoice(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "get outstanding invoices")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "get outstanding invoices")
 	if err != nil {
 		return err
 	}
 
-	invoices, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
+	invoices, err := payment.service.accounts.Invoices().List(ctx, auth.User.ID)
 	if err != nil {
 		return err
 	}
@@ -526,7 +528,7 @@ func (paymentService PaymentsService) checkOutstandingInvoice(ctx context.Contex
 		}
 	}
 
-	hasItems, err := paymentService.service.accounts.Invoices().CheckPendingItems(ctx, auth.User.ID)
+	hasItems, err := payment.service.accounts.Invoices().CheckPendingItems(ctx, auth.User.ID)
 	if err != nil {
 		return err
 	}
@@ -538,28 +540,28 @@ func (paymentService PaymentsService) checkOutstandingInvoice(ctx context.Contex
 
 // checkProjectInvoicingStatus returns if for the given project there are outstanding project records and/or usage
 // which have not been applied/invoiced yet (meaning sent over to stripe).
-func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (unpaidUsage bool, err error) {
+func (payment Payments) checkProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (unpaidUsage bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = paymentService.service.getAuthAndAuditLog(ctx, "project charges")
+	_, err = payment.service.getAuthAndAuditLog(ctx, "project charges")
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
+	return payment.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
 }
 
 // ApplyCouponCode applies a coupon code to a Stripe customer
 // and returns the coupon corresponding to the code.
-func (paymentService PaymentsService) ApplyCouponCode(ctx context.Context, couponCode string) (coupon *payments.Coupon, err error) {
+func (payment Payments) ApplyCouponCode(ctx context.Context, couponCode string) (coupon *payments.Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "apply coupon code")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "apply coupon code")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	coupon, err = paymentService.service.accounts.Coupons().ApplyCouponCode(ctx, auth.User.ID, couponCode)
+	coupon, err = payment.service.accounts.Coupons().ApplyCouponCode(ctx, auth.User.ID, couponCode)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -568,15 +570,15 @@ func (paymentService PaymentsService) ApplyCouponCode(ctx context.Context, coupo
 }
 
 // GetCoupon returns the coupon applied to the user's account.
-func (paymentService PaymentsService) GetCoupon(ctx context.Context) (coupon *payments.Coupon, err error) {
+func (payment Payments) GetCoupon(ctx context.Context) (coupon *payments.Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "get coupon")
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "get coupon")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	coupon, err = paymentService.service.accounts.Coupons().GetByUserID(ctx, auth.User.ID)
+	coupon, err = payment.service.accounts.Coupons().GetByUserID(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2601,17 +2603,43 @@ var ErrWalletNotClaimed = errs.Class("wallet is not claimed")
 
 // ClaimWallet requests a new wallet for the users to be used for payments. If wallet is already claimed,
 // it will return with the info without error.
-func (paymentService PaymentsService) ClaimWallet(ctx context.Context) (WalletInfo, error) {
-	panic("Not yet implemented")
+func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := payment.service.getAuthAndAuditLog(ctx, "claim wallet")
+	if err != nil {
+		return WalletInfo{}, Error.Wrap(err)
+	}
+	address, err := payment.service.depositWallets.Claim(ctx, auth.User.ID)
+	if err != nil {
+		return WalletInfo{}, Error.Wrap(err)
+	}
+	return WalletInfo{
+		Address: address,
+		Balance: nil, //TODO: populate with call to billing table
+	}, nil
 }
 
 // GetWallet returns with the assigned wallet, or with ErrWalletNotClaimed if not yet claimed.
-func (paymentService PaymentsService) GetWallet(ctx context.Context) (WalletInfo, error) {
-	panic("Not yet implemented")
+func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return WalletInfo{}, Error.Wrap(err)
+	}
+	address, err := payment.service.depositWallets.Get(ctx, auth.User.ID)
+	if err != nil {
+		return WalletInfo{}, Error.Wrap(err)
+	}
+	return WalletInfo{
+		Address: address,
+		Balance: nil, //TODO: populate with call to billing table
+	}, nil
 }
 
 // Transactions returns with all the native blockchain transactions.
-func (paymentService PaymentsService) Transactions(ctx context.Context) (TokenTransactions, error) {
+func (payment Payments) Transactions(ctx context.Context) (TokenTransactions, error) {
 	panic("Not yet implemented")
 }
 

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-click-outside="closePicker" class="duration-picker">
+    <div v-click-outside="closePicker" :class="`duration-picker${containerStyle}`">
         <div class="duration-picker__list">
             <ul class="duration-picker__list__column">
                 <li class="duration-picker__list__column-item" @click="onForeverClick">Forever</li>
@@ -23,7 +23,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
@@ -38,6 +38,8 @@ import VDateRangePicker from "@/components/common/VDateRangePicker.vue";
     },
 })
 export default class DurationPicker extends Vue {
+    @Prop({default: ''})
+    private readonly containerStyle: string;
     /**
      * onCustomRangePick holds logic for choosing custom date range.
      * @param dateRange
@@ -141,7 +143,7 @@ export default class DurationPicker extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .duration-picker {
+    @mixin date-container {
         background: #fff;
         width: 600px;
         border: 1px solid #384b65;
@@ -150,8 +152,19 @@ export default class DurationPicker extends Vue {
         box-shadow: 0 4px 8px 0 rgb(0 0 0 / 20%), 0 6px 20px 0 rgb(0 0 0 / 19%);
         position: absolute;
         z-index: 1;
-        right: 0;
         top: 100%;
+    }
+
+    .duration-picker {
+        @include date-container;
+
+        right: 0;
+
+        &__access-date-container {
+            @include date-container;
+
+            right: -88%;
+        }
 
         &__list {
             column-count: 2;

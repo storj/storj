@@ -35,14 +35,20 @@
                 <div class="access-grants__flows-area__title">Access Grant</div>
                 <div class="access-grants__flows-area__summary">Gives access through native clients such as uplink, libuplink, associate libraries, and bindings. </div>
                 <div class="access-grants__flows-area__button-container">
-                    <VButton
-                        label="Learn More"
-                        width="auto"
-                        height="30px"
-                        is-transparent="true"
-                        font-size="13px"
-                        class="access-grants__flows-area__learn-button"
-                    />
+                    <a
+                        href="https://docs.storj.io/dcs/concepts/access/access-grants/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <VButton
+                            label="Learn More"
+                            width="auto"
+                            height="30px"
+                            is-transparent="true"
+                            font-size="13px"
+                            class="access-grants__flows-area__learn-button"
+                        />
+                    </a>
                     <VButton
                         label="Create Access Grant"
                         font-size="13px"
@@ -61,14 +67,20 @@
                 <div class="access-grants__flows-area__summary">Gives access through S3 compatible tools and services via our hosted Gateway MT.</div>
                 <br>
                 <div class="access-grants__flows-area__button-container">
-                    <VButton
-                        label="Learn More"
-                        width="auto"
-                        height="30px"
-                        is-transparent="true"
-                        font-size="13px"
-                        class="access-grants__flows-area__learn-button"
-                    />
+                    <a
+                        href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <VButton
+                            label="Learn More"
+                            width="auto"
+                            height="30px"
+                            is-transparent="true"
+                            font-size="13px"
+                            class="access-grants__flows-area__learn-button"
+                        />
+                    </a>
                     <VButton
                         label="Create S3 Credentials"
                         font-size="13px"
@@ -87,14 +99,20 @@
                 <div class="access-grants__flows-area__summary">Use it for generating S3 credentials and access grants programatically. </div>
                 <br>
                 <div class="access-grants__flows-area__button-container">
-                    <VButton
-                        label="Learn More"
-                        width="auto"
-                        height="30px"
-                        is-transparent="true"
-                        font-size="13px"
-                        class="access-grants__flows-area__learn-button"
-                    />
+                    <a
+                        href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <VButton
+                            label="Learn More"
+                            width="auto"
+                            height="30px"
+                            is-transparent="true"
+                            font-size="13px"
+                            class="access-grants__flows-area__learn-button"
+                        />
+                    </a>
                     <VButton
                         label="Create Keys for CLI"
                         font-size="13px"
@@ -126,6 +144,7 @@
                     <VList
                         :data-set="accessGrantsList"
                         :item-component="itemComponent2"
+                        @openModal="onDeleteClick"
                     />
                 </div>
                 <div class="access-grants-items2__footer">
@@ -149,11 +168,6 @@
                     No Results Found
                 </span>
             </div>
-            <ConfirmDeletePopup
-                v-if="isDeleteClicked"
-                @close="onClearSelection"
-                @reset-pagination="resetPagination"
-            />
         </div>
         <div v-if="!isNewAccessGrantFlow">
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
@@ -174,18 +188,27 @@
                     :on-page-click-callback="onPageClick"
                 />
             </div>
-            <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
+        </div>
+        <div v-if="!isNewAccessGrantFlow">
             <ConfirmDeletePopup
                 v-if="isDeleteClicked"
                 @close="onClearSelection"
                 @reset-pagination="resetPagination"
             />
-            <CreateAccessModal 
-                v-if="showAccessModal"
-                :default-type="modalAccessType"
-                @close-modal="toggleAccessModal"
+            <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
+        </div>
+        <div v-if="isNewAccessGrantFlow">
+            <ConfirmDeletePopup2
+                v-if="isDeleteClicked"
+                @close="onClearSelection"
+                @resetPagination="resetPagination"
             />
         </div>
+        <CreateAccessModal 
+            v-if="showAccessModal"
+            :default-type="modalAccessType"
+            @close-modal="toggleAccessModal"
+        />
         <router-view />
     </div>
 </template>
@@ -196,6 +219,7 @@ import { MetaUtils } from '@/utils/meta';
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import AccessGrantsItem2 from '@/components/accessGrants/AccessGrantsItem2.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
+import ConfirmDeletePopup2 from '@/components/accessGrants/ConfirmDeletePopup2.vue';
 import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
 import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
@@ -237,6 +261,7 @@ declare interface ResetPagination {
         VPagination,
         VButton,
         ConfirmDeletePopup,
+        ConfirmDeletePopup2,
         VLoader,
         CreateAccessModal,
         VHeader,
@@ -253,6 +278,7 @@ export default class AccessGrants extends Vue {
     private modalAccessType = '';
 
     public areGrantsFetching = true;
+
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
     };
@@ -428,10 +454,12 @@ export default class AccessGrants extends Vue {
         display: inline-block;
         padding: 28px;
         width: 26%;
-        height: 167px;
+        height: auto;
         background: #fff;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         border-radius: 10px;
+        min-width: 175px;
+        margin-bottom: 10px;
     }
 
     .access-grants {
@@ -465,6 +493,7 @@ export default class AccessGrants extends Vue {
         .access-grants__flows-area {
             text-align: center;
             display: flex;
+            flex-wrap: wrap;
             -webkit-box-align: center;
             align-items: center;
             -webkit-box-pack: justify;
@@ -478,17 +507,19 @@ export default class AccessGrants extends Vue {
             }
 
             &__learn-button {
-                margin-right: 2%;
+                margin: 2px 2% 0 0;
                 padding: 0 10px;
             }
 
             &__create-button {
                 padding: 0 10px;
+                margin-top: 2px;
             }
 
             &__button-container {
                 display: flex;
-                margin-top: 10px;
+                margin-top: 8px;
+                flex-wrap: wrap;
             }
 
             &__summary {

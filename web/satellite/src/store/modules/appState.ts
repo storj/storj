@@ -3,9 +3,8 @@
 
 import { OnboardingOS, PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { AppState } from '@/utils/constants/appStateEnum';
-
 import { APP_STATE_MUTATIONS } from '../mutationConstants';
+import { AppState } from '@/utils/constants/appStateEnum';
 
 // Object that contains all states of views
 class ViewsState {
@@ -31,6 +30,7 @@ class ViewsState {
         public isUploadCancelPopupVisible = false,
         public isSuccessfulPasswordResetShown = false,
         public isCreateProjectPromptModalShown = false,
+        public isAddPMModalShown = false,
 
         public onbAGStepBackRoute = "",
         public onbAPIKeyStepBackRoute = "",
@@ -120,6 +120,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP](state: State): void {
             state.appState.isCreateProjectPromptModalShown = !state.appState.isCreateProjectPromptModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: State): void {
+            state.appState.isAddPMModalShown = !state.appState.isAddPMModalShown;
         },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;

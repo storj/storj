@@ -22,6 +22,7 @@ exports[`AddStorjForm renders correctly 1`] = `
     <!---->
     <div class="confirm-add-storj-button container" style="width: 251px; height: 48px; border-radius: 6px; font-size: 16px;">
       <!---->
+      <!---->
       <!----> <span class="label">Continue to Coin Payments</span>
     </div>
   </div>
