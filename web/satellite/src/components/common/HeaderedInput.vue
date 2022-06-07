@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="input-container">
+    <div class="input-container" :aria-roledescription="roleDescription">
         <div v-if="!isOptional" class="label-container">
             <div class="label-container__main">
                 <ErrorIcon v-if="error" class="label-container__error-icon" />
@@ -27,6 +27,7 @@
             :rows="5"
             :cols="40"
             wrap="hard"
+            :disabled="isDisabled"
             @input="onInput"
             @change="onInput"
         />
@@ -38,6 +39,7 @@
             :placeholder="placeholder"
             :type="[isPassword ? 'password': 'text']"
             :style="style.inputStyle"
+            :disabled="isDisabled"
             @input="onInput"
             @change="onInput"
         >

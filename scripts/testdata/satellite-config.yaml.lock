@@ -181,8 +181,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if new access grant flow should be used
 # console.new-access-grant-flow: false
 
-# indicates if new navigation structure should be rendered
-# console.new-navigation: true
+# indicates if new billing screens should be used
+# console.new-billing-screen: false
 
 # indicates if new objects flow should be used
 # console.new-objects-flow: true
@@ -276,6 +276,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether to load templates on each request
 # console.watch: false
+
+# allow private IPs in CheckIn and PingMe
+# contact.allow-private-ip: false
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
@@ -660,6 +663,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"
+
+# basic auth identifier
+# payments.storjscan.auth.identifier: ""
+
+# basic auth secret
+# payments.storjscan.auth.secret: ""
+
+# required number of following blocks in the chain to accept payment as confirmed
+# payments.storjscan.confirmations: 12
+
+# storjscan API endpoint
+# payments.storjscan.endpoint: ""
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 2m0s

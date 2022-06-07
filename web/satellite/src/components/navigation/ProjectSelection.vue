@@ -85,7 +85,7 @@ import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
         VLoader,
     },
 })
-export default class NewProjectSelection extends Vue {
+export default class ProjectSelection extends Vue {
     private FIRST_PAGE = 1;
     private dropdownYPos = 0;
     private dropdownXPos = 0;

@@ -16,14 +16,14 @@
             height="100px"
             class="buckets-view__loader"
         />
-        <p v-if="!(isLoading || bucketsList.length)" class="buckets-view__no-buckets">No Buckets</p>
-        <div v-if="!isLoading && bucketsList.length" class="buckets-view__list">
+        <p v-if="!(isLoading || bucketsPage.buckets.length)" class="buckets-view__no-buckets">No Buckets</p>
+        <div v-if="!isLoading && bucketsPage.buckets.length" class="buckets-view__list">
             <div class="buckets-view__list__sorting-header">
                 <p class="buckets-view__list__sorting-header__name">Name</p>
                 <p class="buckets-view__list__sorting-header__date">Date Added</p>
                 <p class="buckets-view__list__sorting-header__empty" />
             </div>
-            <div v-for="(bucket, key) in bucketsList" :key="key" class="buckets-view__list__item" @click.stop="openBucket(bucket.Name)">
+            <div v-for="(bucket, key) in bucketsPage.buckets" :key="key" class="buckets-view__list__item" @click.stop="openBucket(bucket.name)">
                 <BucketItem
                     :item-data="bucket"
                     :show-delete-bucket-popup="showDeleteBucketPopup"
@@ -32,6 +32,7 @@
                     :is-dropdown-open="activeDropdown === key"
                 />
             </div>
+            <v-pagination v-if="bucketsPage.pageCount > 1" :total-page-count="bucketsPage.pageCount" :on-page-click-callback="fetchBuckets" />
         </div>
         <ObjectsPopup
             v-if="isCreatePopupVisible"
@@ -59,7 +60,6 @@
 </template>
 
 <script lang="ts">
-import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Vue, Watch } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
@@ -69,6 +69,10 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 import { LocalData } from "@/utils/localData";
+import VPagination from "@/components/common/VPagination.vue";
+import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { BucketPage } from "@/types/buckets";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -81,6 +85,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 // @vue/component
 @Component({
     components: {
+        VPagination,
         BucketIcon,
         ObjectsPopup,
         BucketItem,
@@ -131,19 +136,19 @@ export default class BucketsView extends Vue {
 
             const wasDemoBucketCreated = LocalData.getDemoBucketCreatedStatus();
 
-            if (this.bucketsList.length && !wasDemoBucketCreated) {
+            if (this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
                 LocalData.setDemoBucketCreatedStatus();
 
                 return;
             }
 
-            if (!this.bucketsList.length && wasDemoBucketCreated) {
+            if (!this.bucketsPage.buckets.length && wasDemoBucketCreated) {
                 await this.removeTemporaryAccessGrant();
 
                 return;
             }
 
-            if (!this.bucketsList.length && !wasDemoBucketCreated) {
+            if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
                 if (this.isNewObjectsFlow) {
                     this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
                     await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
@@ -208,10 +213,14 @@ export default class BucketsView extends Vue {
     }
 
     /**
-     * Fetches bucket using S3 client.
+     * Fetches bucket using api.
      */
-    public async fetchBuckets(): Promise<void> {
-        await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+    public async fetchBuckets(page = 1): Promise<void> {
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, page);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
+        }
     }
 
     /**
@@ -388,15 +397,18 @@ export default class BucketsView extends Vue {
      */
     public openBucket(bucketName: string): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.EncryptData).path)
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+        this.isNewObjectsFlow
+            ? this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN)
+            : this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+
+            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
     }
 
     /**
-     * Returns fetched buckets from store.
+     * Returns fetched buckets page from store.
      */
-    public get bucketsList(): Bucket[] {
-        return this.$store.state.objectsModule.bucketsList;
+    public get bucketsPage(): BucketPage {
+        return this.$store.state.bucketUsageModule.page;
     }
 
     /**
@@ -509,7 +521,7 @@ export default class BucketsView extends Vue {
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            padding-bottom: 100px;
+            padding-bottom: 170px;
 
             &__sorting-header {
                 display: flex;

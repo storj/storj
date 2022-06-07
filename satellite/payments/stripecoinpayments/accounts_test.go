@@ -83,6 +83,8 @@ func TestSignupCouponCodes(t *testing.T) {
 			sat.API.Buckets.Service,
 			partnersService,
 			paymentsService.Accounts(),
+			// TODO: do we need a payment deposit wallet here?
+			nil,
 			analyticsService,
 			consoleauth.NewService(consoleauth.Config{
 				TokenExpirationTime: 24 * time.Hour,

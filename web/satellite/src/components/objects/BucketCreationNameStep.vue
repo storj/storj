@@ -17,7 +17,7 @@
                 </div>
                 <headered-input
                     label="Bucket Name"
-                    placeholder="Enter a passphrase here..."
+                    placeholder="Enter a name here..."
                     :error="nameError"
                     role-description="name"
                     :init-value="name"
