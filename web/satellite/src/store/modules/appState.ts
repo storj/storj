@@ -31,6 +31,7 @@ class ViewsState {
         public isSuccessfulPasswordResetShown = false,
         public isCreateProjectPromptModalShown = false,
         public isAddPMModalShown = false,
+        public isOpenBucketModalShown = false,
 
         public onbAGStepBackRoute = "",
         public onbAPIKeyStepBackRoute = "",
@@ -122,6 +123,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: State): void {
             state.appState.isAddPMModalShown = !state.appState.isAddPMModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN](state: State): void {
+            state.appState.isOpenBucketModalShown = !state.appState.isOpenBucketModalShown;
         },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;

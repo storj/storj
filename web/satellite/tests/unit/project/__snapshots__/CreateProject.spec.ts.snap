@@ -5,7 +5,7 @@ exports[`CreateProject.vue renders correctly 1`] = `
   <div class="create-project__container">
     <div class="create-project__container__image-container"><img src="@/../static/images/project/createProject.png" alt="create project" class="create-project__container__image-container__img"></div>
     <h2 aria-roledescription="title" class="create-project__container__title">Create a Project</h2>
-    <div class="input-container full-input">
+    <div aria-roledescription="input-container" class="input-container full-input">
       <div class="label-container">
         <div class="label-container__main">
           <!---->
@@ -19,7 +19,7 @@ exports[`CreateProject.vue renders correctly 1`] = `
       <!---->
       <!----> <input id="Project Name" placeholder="Enter Project Name" type="text" class="headered-input" style="width: 100%; height: 48px;">
     </div>
-    <div class="input-container full-input">
+    <div aria-roledescription="input-container" class="input-container full-input">
       <div class="label-container">
         <div class="label-container__main">
           <!---->

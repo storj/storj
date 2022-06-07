@@ -26,11 +26,12 @@ var ErrApikeysAPI = errs.Class("consoleapi apikeys api")
 var ErrUsersAPI = errs.Class("consoleapi users api")
 
 type ProjectManagementService interface {
-	GenGetUsersProjects(context.Context) ([]console.Project, api.HTTPError)
 	GenGetSingleBucketUsageRollup(context.Context, uuid.UUID, string, time.Time, time.Time) (*accounting.BucketUsageRollup, api.HTTPError)
 	GenGetBucketUsageRollups(context.Context, uuid.UUID, time.Time, time.Time) ([]accounting.BucketUsageRollup, api.HTTPError)
 	GenCreateProject(context.Context, console.ProjectInfo) (*console.Project, api.HTTPError)
 	GenUpdateProject(context.Context, uuid.UUID, console.ProjectInfo) (*console.Project, api.HTTPError)
+	GenDeleteProject(context.Context, uuid.UUID) api.HTTPError
+	GenGetUsersProjects(context.Context) ([]console.Project, api.HTTPError)
 }
 
 type APIKeyManagementService interface {
@@ -70,11 +71,12 @@ func NewProjectManagement(log *zap.Logger, service ProjectManagementService, rou
 	}
 
 	projectsRouter := router.PathPrefix("/api/v0/projects").Subrouter()
-	projectsRouter.HandleFunc("/bucket-rollups", handler.handleGenGetBucketUsageRollups).Methods("GET")
 	projectsRouter.HandleFunc("/create", handler.handleGenCreateProject).Methods("POST")
 	projectsRouter.HandleFunc("/update/{id}", handler.handleGenUpdateProject).Methods("PATCH")
+	projectsRouter.HandleFunc("/delete/{id}", handler.handleGenDeleteProject).Methods("DELETE")
 	projectsRouter.HandleFunc("/", handler.handleGenGetUsersProjects).Methods("GET")
 	projectsRouter.HandleFunc("/bucket-rollup", handler.handleGenGetSingleBucketUsageRollup).Methods("GET")
+	projectsRouter.HandleFunc("/bucket-rollups", handler.handleGenGetBucketUsageRollups).Methods("GET")
 
 	return handler
 }
@@ -103,6 +105,55 @@ func NewUserManagement(log *zap.Logger, service UserManagementService, router *m
 	usersRouter.HandleFunc("/", handler.handleGenGetUser).Methods("GET")
 
 	return handler
+}
+
+func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	bucket := r.URL.Query().Get("bucket")
+	if bucket == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'bucket' can't be empty"))
+		return
+	}
+
+	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenGetSingleBucketUsageRollup(ctx, projectID, bucket, since, before)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenGetSingleBucketUsageRollup response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
 }
 
 func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.ResponseWriter, r *http.Request) {
@@ -222,6 +273,37 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 	}
 }
 
+func (h *ProjectManagementHandler) handleGenDeleteProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	httpErr := h.service.GenDeleteProject(ctx, id)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
 func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -244,55 +326,6 @@ func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWrit
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GenGetUsersProjects response", zap.Error(ErrProjectsAPI.Wrap(err)))
-	}
-}
-
-func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	bucket := r.URL.Query().Get("bucket")
-	if bucket == "" {
-		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'bucket' can't be empty"))
-		return
-	}
-
-	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	retVal, httpErr := h.service.GenGetSingleBucketUsageRollup(ctx, projectID, bucket, since, before)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(retVal)
-	if err != nil {
-		h.log.Debug("failed to write json GenGetSingleBucketUsageRollup response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 

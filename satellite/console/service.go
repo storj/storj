@@ -538,17 +538,29 @@ func (payment Payments) checkOutstandingInvoice(ctx context.Context) (err error)
 	return nil
 }
 
-// checkProjectInvoicingStatus returns if for the given project there are outstanding project records and/or usage
+// checkProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 // which have not been applied/invoiced yet (meaning sent over to stripe).
-func (payment Payments) checkProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (unpaidUsage bool, err error) {
+func (payment Payments) checkProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = payment.service.getAuthAndAuditLog(ctx, "project charges")
+	_, err = payment.service.getAuthAndAuditLog(ctx, "project invoicing status")
 	if err != nil {
-		return false, Error.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return payment.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
+}
+
+// checkProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
+func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = payment.service.getAuthAndAuditLog(ctx, "project usage status")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return payment.service.accounts.CheckProjectUsageStatus(ctx, projectID)
 }
 
 // ApplyCouponCode applies a coupon code to a Stripe customer
@@ -1421,6 +1433,7 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 // DeleteProject is a method for deleting project by id.
 func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	auth, err := s.getAuthAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return Error.Wrap(err)
@@ -1431,7 +1444,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 		return Error.Wrap(err)
 	}
 
-	err = s.checkProjectCanBeDeleted(ctx, projectID)
+	err = s.checkProjectCanBeDeleted(ctx, auth.User, projectID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1442,6 +1455,46 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 	}
 
 	return nil
+}
+
+// GenDeleteProject is a method for deleting project by id for generated API.
+func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (httpError api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	_, err = s.isProjectOwner(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	err = s.checkProjectCanBeDeleted(ctx, auth.User, projectID)
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusConflict,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	err = s.store.Projects().Delete(ctx, projectID)
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return httpError
 }
 
 // UpdateProject is a method for updating project name and description by id.
@@ -2452,10 +2505,10 @@ func (s *Service) keyAuth(ctx context.Context, r *http.Request) (context.Context
 
 // checkProjectCanBeDeleted ensures that all data, api-keys and buckets are deleted and usage has been accounted.
 // no error means the project status is clean.
-func (s *Service) checkProjectCanBeDeleted(ctx context.Context, project uuid.UUID) (err error) {
+func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user User, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	buckets, err := s.buckets.CountBuckets(ctx, project)
+	buckets, err := s.buckets.CountBuckets(ctx, projectID)
 	if err != nil {
 		return err
 	}
@@ -2463,19 +2516,27 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, project uuid.UUI
 		return ErrUsage.New("some buckets still exist")
 	}
 
-	keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, project, APIKeyCursor{Limit: 1, Page: 1})
+	keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{Limit: 1, Page: 1})
 	if err != nil {
 		return err
 	}
 	if keys.TotalCount > 0 {
-		return ErrUsage.New("some api-keys still exist")
+		return ErrUsage.New("some api keys still exist")
 	}
 
-	outstanding, err := s.Payments().checkProjectInvoicingStatus(ctx, project)
-	if outstanding {
-		return ErrUsage.New("there is outstanding usage that is not charged yet")
+	if user.PaidTier {
+		err = s.Payments().checkProjectUsageStatus(ctx, projectID)
+		if err != nil {
+			return ErrUsage.Wrap(err)
+		}
 	}
-	return ErrUsage.Wrap(err)
+
+	err = s.Payments().checkProjectInvoicingStatus(ctx, projectID)
+	if err != nil {
+		return ErrUsage.Wrap(err)
+	}
+
+	return nil
 }
 
 // checkProjectLimit is used to check if user is able to create a new project.

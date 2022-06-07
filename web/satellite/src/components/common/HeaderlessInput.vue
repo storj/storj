@@ -16,6 +16,7 @@
             :type="type"
             :style="style.inputStyle"
             :optionsShown="optionsShown"
+            :disabled="isDisabled"
             @input="onInput"
             @change="onInput"
             @focus="showPasswordStrength"
@@ -106,6 +107,8 @@ export default class HeaderlessInput extends Vue {
 
     @Prop({default: false})
     private readonly isWhite: boolean;
+    @Prop({default: false})
+    private readonly isDisabled: boolean;
     @Prop({default: false})
     private readonly withIcon: boolean;
     @Prop({default: 'input-container'})
