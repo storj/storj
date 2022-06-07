@@ -234,11 +234,10 @@ export default class BucketsView extends Vue {
     }
 
     public onNewBucketButtonClick(): void {
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
         this.isNewObjectsFlow
             ? this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path)
             : this.showCreateBucketPopup();
-
-            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
     }
 
     /**
@@ -397,11 +396,10 @@ export default class BucketsView extends Vue {
      */
     public openBucket(bucketName: string): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
         this.isNewObjectsFlow
             ? this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN)
             : this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
-
-            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
     }
 
     /**

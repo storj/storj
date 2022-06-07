@@ -68,11 +68,10 @@ export default class AGName extends Vue {
      * Navigates to previous screen.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OverviewStep.path);
         this.backRoute ?
             await this.$router.push(this.backRoute).catch(() => {return; }) :
             await this.$router.push({name: RouteConfig.OverviewStep.name});
-
-            this.analytics.pageVisit(RouteConfig.OverviewStep.path);
     }
 
     /**
