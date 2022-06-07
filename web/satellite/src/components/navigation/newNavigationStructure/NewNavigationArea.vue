@@ -17,7 +17,7 @@
                     :aria-label="navItem.name"
                     class="navigation-area__container__wrap__item-container"
                     :to="navItem.path"
-                    @click.native="trackClickEvent(navItem.name)"
+                    @click.native="trackClickEvent(navItem.path)"
                 >
                     <div class="navigation-area__container__wrap__item-container__left">
                         <component :is="navItem.icon" class="navigation-area__container__wrap__item-container__left__image" />
@@ -244,6 +244,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to create project screen.
      */
     public navigateToCreateAG(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_AN_ACCESS_GRANT_CLICKED);
         this.closeDropdowns();
         this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).path).catch(() => {return;});
@@ -253,6 +254,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to objects screen.
      */
     public navigateToBuckets(): void {
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
         this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_IN_WEB_CLICKED);
         this.closeDropdowns();
         this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
@@ -262,6 +264,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to onboarding CLI flow screen.
      */
     public navigateToCLIFlow(): void {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
         this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_USING_CLI_CLICKED);
         this.closeDropdowns();
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
@@ -272,6 +275,7 @@ export default class NewNavigationArea extends Vue {
      * Redirects to create access grant screen.
      */
     public navigateToNewProject(): void {
+        this.analytics.pageVisit(RouteConfig.CreateProject.path);
         this.analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
         this.closeDropdowns();
         this.$router.push(RouteConfig.CreateProject.path);
@@ -361,6 +365,7 @@ export default class NewNavigationArea extends Vue {
      * Sends "View Docs" event to segment and opens link.
      */
     public trackViewDocsEvent(link: string): void {
+        this.analytics.pageVisit(link);
         this.analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
         window.open(link)
     }
@@ -369,6 +374,7 @@ export default class NewNavigationArea extends Vue {
      * Sends "View Forum" event to segment and opens link.
      */
     public trackViewForumEvent(link: string): void {
+        this.analytics.pageVisit(link);
         this.analytics.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
         window.open(link)
     }
@@ -377,6 +383,7 @@ export default class NewNavigationArea extends Vue {
      * Sends "View Support" event to segment and opens link.
      */
     public trackViewSupportEvent(link: string): void {
+        this.analytics.pageVisit(link);
         this.analytics.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
         window.open(link)
     }
@@ -385,7 +392,7 @@ export default class NewNavigationArea extends Vue {
      * Sends new path click event to segment.
      */
     public trackClickEvent(name: string): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, name);
+        this.analytics.pageVisit(name);
     }
 }
 </script>

@@ -87,6 +87,8 @@ import { User } from "@/types/users";
 import { AuthHttpApi } from "@/api/auth";
 import { MetaUtils } from "@/utils/meta";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 const {
     SETUP_ACCOUNT,
     GET_CREDIT_CARDS,
@@ -116,6 +118,8 @@ export default class DashboardArea extends Vue {
     public recoveryCodeWarningThreshold = 4;
 
     public isMFACodesPopup = false;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -174,6 +178,7 @@ export default class DashboardArea extends Vue {
             try {
                 await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
 
+                this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
                 await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
@@ -339,6 +344,7 @@ export default class DashboardArea extends Vue {
             this.resetActivityEvents.forEach((eventName: string) => {
                 document.removeEventListener(eventName, this.resetInactivityTimer);
             });
+            this.analytics.pageVisit(RouteConfig.Login.path);
             await this.$router.push(RouteConfig.Login.path);
             await this.$notify.notify('Your session was timed out.');
         } catch (error) {

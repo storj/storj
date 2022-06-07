@@ -104,6 +104,8 @@ import {ACCESS_GRANTS_ACTIONS} from '@/store/modules/accessGrants';
 import {OAuthClient, OAuthClientsAPI} from '@/api/oauthClients';
 import {URLSearchParams} from "url";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 const oauthClientsAPI = new OAuthClientsAPI();
 
 // @vue/component
@@ -150,6 +152,8 @@ export default class Authorize extends Vue {
 
     private worker: Worker;
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     private async ensureLogin(): Promise<void> {
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
@@ -162,6 +166,7 @@ export default class Authorize extends Vue {
             const query = new URLSearchParams(this.oauthData).toString();
             const path = `${RouteConfig.Authorize.path}?${query}#${this.clientKey}`;
 
+            this.analytics.pageVisit(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
             await this.$router.push(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
             return;
         }

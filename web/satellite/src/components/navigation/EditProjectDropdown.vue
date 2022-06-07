@@ -25,6 +25,8 @@ import EditImage from '@/../static/images/navigation/edit.svg';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -33,6 +35,9 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class EditProjectDropdown extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Returns selected project's name.
      */
@@ -59,6 +64,7 @@ export default class EditProjectDropdown extends Vue {
      */
     public onEditProjectClick(): void {
         this.closeDropdown();
+        this.analytics.pageVisit(RouteConfig.EditProjectDetails.path);
         this.$router.push(RouteConfig.EditProjectDetails.path);
     }
 

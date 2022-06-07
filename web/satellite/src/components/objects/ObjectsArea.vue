@@ -14,9 +14,14 @@ import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { MetaUtils } from '@/utils/meta';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component
 export default class ObjectsArea extends Vue {
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Lifecycle hook after initial render.
      * Redirects if flow is disabled.
@@ -24,6 +29,7 @@ export default class ObjectsArea extends Vue {
     public async mounted(): Promise<void> {
         const isFileBrowserFlowDisabled = MetaUtils.getMetaContent('file-browser-flow-disabled');
         if (isFileBrowserFlowDisabled === "true") {
+            this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
             await this.$router.push(RouteConfig.ProjectDashboard.path);
         }
     }

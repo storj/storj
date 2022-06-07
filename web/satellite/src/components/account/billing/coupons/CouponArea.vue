@@ -63,6 +63,8 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -74,6 +76,7 @@ import { Coupon, CouponDuration } from '@/types/payments';
 })
 export default class CouponArea extends Vue {
     public isCouponFetching = true;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -92,6 +95,7 @@ export default class CouponArea extends Vue {
      * Opens Add Coupon modal.
      */
     public onCreateClick(): void {
+        this.analytics.pageVisit(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
         this.$router.push(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
     }
 

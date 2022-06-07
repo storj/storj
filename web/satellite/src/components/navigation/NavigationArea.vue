@@ -10,7 +10,7 @@
             :aria-label="navItem.name"
             class="navigation-area__item-container"
             :to="navItem.path"
-            @click.native="trackClickEvent(navItem.name)"
+            @click.native="trackClickEvent(navItem.path)"
         >
             <div class="navigation-area__item-container__link">
                 <component :is="navItem.icon" class="navigation-area__item-container__link__icon" />
@@ -98,7 +98,7 @@ export default class NavigationArea extends Vue {
      * Sends new path click event to segment.
      */
     public trackClickEvent(name: string): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, name);
+        this.analytics.pageVisit(name);
     }
 
     /**

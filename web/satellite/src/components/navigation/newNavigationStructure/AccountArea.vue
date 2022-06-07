@@ -91,6 +91,7 @@ export default class AccountArea extends Vue {
      */
     public navigateToSettings(): void {
         this.closeDropdown();
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
     }
 
@@ -98,6 +99,7 @@ export default class AccountArea extends Vue {
      * Logouts user and navigates to login page.
      */
     public async onLogout(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.Login.path);
         await this.$router.push(RouteConfig.Login.path);
 
         try {

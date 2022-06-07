@@ -39,6 +39,10 @@ type eventTriggeredBody struct {
 	Link      string `json:"link"`
 }
 
+type pageVisitBody struct {
+	PageName string `json:"pageName"`
+}
+
 // EventTriggered tracks the occurrence of an arbitrary event on the client.
 func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -65,6 +69,33 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 	} else {
 		a.analytics.TrackEvent(et.EventName, auth.User.ID, auth.User.Email)
 	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// PageEventTriggered tracks the occurrence of an arbitrary page visit event on the client.
+func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		a.serveJSONError(w, http.StatusInternalServerError, err)
+	}
+	var pv pageVisitBody
+	err = json.Unmarshal(body, &pv)
+	if err != nil {
+		a.serveJSONError(w, http.StatusInternalServerError, err)
+	}
+
+	auth, err := console.GetAuth(ctx)
+	if err != nil {
+		a.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	a.analytics.PageVisitEvent(pv.PageName, auth.User.ID, auth.User.Email)
+
 	w.WriteHeader(http.StatusOK)
 }
 

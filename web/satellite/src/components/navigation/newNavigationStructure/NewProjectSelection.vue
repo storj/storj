@@ -145,6 +145,7 @@ export default class NewProjectSelection extends Vue {
 
         if (this.isBucketsView) {
             await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+            this.analytics.pageVisit(RouteConfig.Buckets.path);
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
         }
 
@@ -213,6 +214,7 @@ export default class NewProjectSelection extends Vue {
      */
     public onProjectsLinkClick(): void {
         if (this.$route.name !== RouteConfig.ProjectsList.name) {
+            this.analytics.pageVisit(RouteConfig.ProjectsList.path);
             this.analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
             this.$router.push(RouteConfig.ProjectsList.path);
         }
@@ -225,6 +227,7 @@ export default class NewProjectSelection extends Vue {
      */
     public onCreateLinkClick(): void {
         if (this.$route.name !== RouteConfig.CreateProject.name) {
+            this.analytics.pageVisit(RouteConfig.CreateProject.path);
             this.analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
             const user: User = this.$store.getters.user;
@@ -233,6 +236,7 @@ export default class NewProjectSelection extends Vue {
             if (!user.paidTier && user.projectLimit === ownProjectsCount) {
                 this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
             } else {
+                this.analytics.pageVisit(RouteConfig.CreateProject.path);
                 this.$router.push(RouteConfig.CreateProject.path);
             }
         }

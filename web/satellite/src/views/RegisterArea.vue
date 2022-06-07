@@ -248,6 +248,8 @@ import { User } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -316,6 +318,8 @@ export default class RegisterArea extends Vue {
         recaptcha: VueRecaptcha;
         hcaptcha: VueHcaptcha;
     }
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -390,6 +394,7 @@ export default class RegisterArea extends Vue {
      * Changes location to login route.
      */
     public onLoginClick(): void {
+        this.analytics.pageVisit(RouteConfig.Login.path);
         this.$router.push(RouteConfig.Login.path);
     }
 
