@@ -12,7 +12,7 @@ curl  -i -L \
 ```
 
 ## Successful responses
-All the requests a non-empty body for the resource that we're interacting with.
+All the requests (except DELETE) have a non-empty response body for the resource that you're interacting with.
 
 Example:
 
@@ -183,6 +183,13 @@ A successful response body:
   "segmentLimit":15000
 }
 ```
+
+#### DELETE /api/v0/projects/delete/{uuid string}
+Deletes project by id.
+
+Note: all the buckets and access grants have to be deleted first and there should not be any usage during current month for paid tier users.
+
+!!!WARNING!!! Project ID is used as encryption salt. Please don't send it to anyone. We're going to fix it soon.
 
 ### Macaroon API key API Endpoints
 #### POST /api/v0/apikeys/create

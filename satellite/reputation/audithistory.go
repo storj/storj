@@ -94,3 +94,76 @@ func AddAuditToHistory(a *pb.AuditHistory, online bool, auditTime time.Time, con
 	a.Score = totalWindowScores / float64(len(a.Windows)-1)
 	return nil
 }
+
+// MergeAuditHistories merges two audit histories into one, including all
+// windows that are present in either input and summing counts for
+// any windows that appear in _both_ inputs. Any windows that are now outside
+// the tracking period will be trimmed.
+//
+// The history parameter will be mutated to include the windows passed as
+// addHistory.
+//
+// Returns true if the number of windows in the new history is the maximum
+// possible for the tracking config.
+func MergeAuditHistories(history *pb.AuditHistory, addHistory []*pb.AuditWindow, config AuditHistoryConfig) (trackingPeriodFull bool) {
+	windows := history.Windows
+
+	for addIndex, windowIndex := 0, 0; addIndex < len(addHistory); {
+		switch {
+		case windowIndex == len(windows):
+			windows = append(windows, &pb.AuditWindow{
+				WindowStart: addHistory[addIndex].WindowStart,
+			})
+			fallthrough
+		case windows[windowIndex].WindowStart.Equal(addHistory[addIndex].WindowStart):
+			windows[windowIndex].TotalCount += addHistory[addIndex].TotalCount
+			windows[windowIndex].OnlineCount += addHistory[addIndex].OnlineCount
+			addIndex++
+		case windows[windowIndex].WindowStart.Before(addHistory[addIndex].WindowStart):
+			windowIndex++
+		case windows[windowIndex].WindowStart.After(addHistory[addIndex].WindowStart):
+			windows = append(windows[:windowIndex+1], windows[windowIndex:]...)
+			windows[windowIndex] = &pb.AuditWindow{
+				WindowStart: addHistory[addIndex].WindowStart,
+				TotalCount:  addHistory[addIndex].TotalCount,
+				OnlineCount: addHistory[addIndex].OnlineCount,
+			}
+			addIndex++
+		}
+	}
+
+	// trim off windows that are too old
+	if len(windows) > 0 {
+		cutoffTime := windows[len(windows)-1].WindowStart.Add(-config.TrackingPeriod)
+		for len(windows) > 0 && windows[0].WindowStart.Before(cutoffTime) {
+			windows = windows[1:]
+		}
+	}
+
+	history.Windows = windows
+	RecalculateScore(history)
+
+	windowsPerTrackingPeriod := int(config.TrackingPeriod.Seconds() / config.WindowSize.Seconds())
+	trackingPeriodFull = len(history.Windows)-1 >= windowsPerTrackingPeriod
+
+	return trackingPeriodFull
+}
+
+// RecalculateScore calculates and assigns the Score field in a pb.AuditHistory object.
+// The score is calculated by averaging the online percentage in each window
+// (not including the last).
+func RecalculateScore(history *pb.AuditHistory) {
+	if len(history.Windows) <= 1 {
+		history.Score = 1
+		return
+	}
+	totalWindowScores := float64(0)
+	for i, window := range history.Windows {
+		// do not include last window in score
+		if i+1 == len(history.Windows) {
+			break
+		}
+		totalWindowScores += float64(window.OnlineCount) / float64(window.TotalCount)
+	}
+	history.Score = totalWindowScores / float64(len(history.Windows)-1)
+}
