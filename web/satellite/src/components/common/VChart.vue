@@ -104,6 +104,9 @@ export default class VChart extends Vue {
                     hoverRadius: 10,
                     hitRadius: 8,
                 },
+                line: {
+                    tension: 0,
+                },
             },
             scales: {
                 yAxes: [{
