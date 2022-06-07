@@ -2,21 +2,6 @@
 // See LICENSE for copying information.
 
 <template>
-<<<<<<< HEAD
-    <div v-if="!isNavigationHidden" class="navigation-area">
-        <EditProjectDropdown />
-        <router-link
-            v-for="navItem in navigation"
-            :key="navItem.name"
-            :aria-label="navItem.name"
-            class="navigation-area__item-container"
-            :to="navItem.path"
-            @click.native="trackClickEvent(navItem.path)"
-        >
-            <div class="navigation-area__item-container__link">
-                <component :is="navItem.icon" class="navigation-area__item-container__link__icon" />
-                <p class="navigation-area__item-container__link__title">{{ navItem.name }}</p>
-=======
     <div class="navigation-area">
         <div ref="navigationContainer" class="navigation-area__container">
             <div class="navigation-area__container__wrap">
@@ -152,7 +137,6 @@
                         </div>
                     </GuidesDropdown>
                 </div>
->>>>>>> 5b79970575a4370c6c2798046e992fba660ab3fd
             </div>
             <AccountArea />
         </div>
