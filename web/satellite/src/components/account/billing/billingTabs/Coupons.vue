@@ -74,7 +74,7 @@ export default class CouponArea extends Vue {
     public isCouponFetching = true;
     public showCreateCode: boolean = false;
 
-    public testData = [{index: 1, status: "Active", discount: 3.25, expiration: 'Jul 2023'}]
+    public testData = [{index: 1, status: "Active", discount: 3.25, expiration: 'Jul 2023'},{index: 2, status: "Inactive", discount: 1000, expiration: 'Mar 2023'},{index: 3, status: "Inactive", discount: 28.95, expiration: 'Jan 2023'}]
 
     /**
      * Lifecycle hook after initial render.
@@ -198,9 +198,12 @@ export default class CouponArea extends Vue {
 
             &__existing-coupons{
                 border-radius: 10px;
-                aspect-ratio: 1.8/1;
                 max-width: 400px;
+                width: 18vw;
                 min-width: 227px;
+                max-height: 222px;
+                height: 10vw;
+                min-height: 126px;
                 display: grid;
                 grid-template-columns: 4fr 1fr;
                 grid-template-rows: 2fr 1fr 1fr;
@@ -267,9 +270,13 @@ export default class CouponArea extends Vue {
             &__new-coupon{
                 border: 2px dashed #929FB1;
                 border-radius: 10px;
-                aspect-ratio: 1.8/1;
                 max-width: 400px;
+                width: 18vw;
                 min-width: 227px;
+                max-height: 222px;
+                height: 10vw;
+                min-height: 126px;
+                padding: 18px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
