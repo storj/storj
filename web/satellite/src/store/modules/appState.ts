@@ -3,9 +3,8 @@
 
 import { OnboardingOS, PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { AppState } from '@/utils/constants/appStateEnum';
-
 import { APP_STATE_MUTATIONS } from '../mutationConstants';
+import { AppState } from '@/utils/constants/appStateEnum';
 
 // Object that contains all states of views
 class ViewsState {
@@ -31,6 +30,8 @@ class ViewsState {
         public isUploadCancelPopupVisible = false,
         public isSuccessfulPasswordResetShown = false,
         public isCreateProjectPromptModalShown = false,
+        public isAddPMModalShown = false,
+        public isOpenBucketModalShown = false,
 
         public onbAGStepBackRoute = "",
         public onbAPIKeyStepBackRoute = "",
@@ -51,7 +52,6 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
-        public isNewNavStructure = false,
         public isNewObjectsFlow = false,
     ){}
 }
@@ -121,6 +121,12 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP](state: State): void {
             state.appState.isCreateProjectPromptModalShown = !state.appState.isCreateProjectPromptModalShown;
         },
+        [APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: State): void {
+            state.appState.isAddPMModalShown = !state.appState.isAddPMModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN](state: State): void {
+            state.appState.isOpenBucketModalShown = !state.appState.isOpenBucketModalShown;
+        },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;
         },
@@ -172,9 +178,6 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY](state: State, apiKey: string): void {
             state.appState.onbCleanApiKey = apiKey;
-        },
-        [APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS](state: State, isNewNavStructure: boolean): void {
-            state.isNewNavStructure = isNewNavStructure;
         },
         [APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS](state: State, isNewObjectsFlow: boolean): void {
             state.isNewObjectsFlow = isNewObjectsFlow;
@@ -342,9 +345,6 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({commit}: AppContext, isNewProjectDashboard: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard);
-        },
-        [APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS]: function ({commit}: AppContext, isNewNavStructure: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure);
         },
         [APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS]: function ({commit}: AppContext, isNewObjectsFlow: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow);

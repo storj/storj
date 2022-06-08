@@ -1136,6 +1136,35 @@ read limitoffset (
     orderby desc stripe_customer.created_at
 )
 
+model billing_transaction (
+    key tx_id
+
+    field tx_id            blob
+    field user_id          blob
+    field amount           int64
+    field currency         text
+    field description      text
+    field type             int
+    field timestamp        timestamp
+
+    field created_at timestamp ( autoinsert )
+)
+
+create billing_transaction ( noreturn )
+
+read all (
+    select billing_transaction
+    where billing_transaction.user_id = ?
+    orderby desc billing_transaction.timestamp
+)
+
+read all (
+    select billing_transaction
+    where billing_transaction.user_id = ?
+    where billing_transaction.type = ?
+    orderby desc billing_transaction.timestamp
+)
+
 model storjscan_wallet (
     key user_id wallet_address
 

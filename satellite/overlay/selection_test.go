@@ -721,15 +721,15 @@ func TestAddrtoNetwork_Conversion(t *testing.T) {
 	defer ctx.Cleanup()
 
 	ip := "8.8.8.8:28967"
-	resolvedIPPort, network, err := overlay.ResolveIPAndNetwork(ctx, ip)
+	resolvedIP, port, network, err := overlay.ResolveIPAndNetwork(ctx, ip)
 	require.Equal(t, "8.8.8.0", network)
-	require.Equal(t, ip, resolvedIPPort)
+	require.Equal(t, ip, net.JoinHostPort(resolvedIP.String(), port))
 	require.NoError(t, err)
 
 	ipv6 := "[fc00::1:200]:28967"
-	resolvedIPPort, network, err = overlay.ResolveIPAndNetwork(ctx, ipv6)
+	resolvedIP, port, network, err = overlay.ResolveIPAndNetwork(ctx, ipv6)
 	require.Equal(t, "fc00::", network)
-	require.Equal(t, ipv6, resolvedIPPort)
+	require.Equal(t, ipv6, net.JoinHostPort(resolvedIP.String(), port))
 	require.NoError(t, err)
 }
 

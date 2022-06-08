@@ -259,7 +259,7 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 		return err
 	}
 
-	return errs.Wrap(parallelCopy(
+	return errs.Wrap(c.parallelCopy(
 		ctx,
 		mwh, mrh,
 		c.parallelism, partSize,
@@ -308,7 +308,7 @@ func joinDestWith(dest ulloc.Location, suffix string) ulloc.Location {
 	return dest
 }
 
-func parallelCopy(
+func (c *cmdCp) parallelCopy(
 	clctx clingy.Context,
 	dst ulfs.MultiWriteHandle,
 	src ulfs.MultiReadHandle,
@@ -330,7 +330,6 @@ func parallelCopy(
 
 	ctx, cancel := context.WithCancel(clctx)
 
-	defer limiter.Wait()
 	defer func() { _ = src.Close() }()
 	defer func() {
 		nocancel := context2.WithoutCancellation(ctx)
@@ -339,6 +338,16 @@ func parallelCopy(
 		_ = dst.Abort(timedctx)
 	}()
 	defer cancel()
+
+	addError := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		es.Add(err)
+
+		// abort all other concurrenty copies
+		cancel()
+	}
 
 	for i := 0; length != 0; i++ {
 		i := i
@@ -350,25 +359,19 @@ func parallelCopy(
 		length -= chunk
 
 		rh, err := src.NextPart(ctx, chunk)
-		if errors.Is(err, io.EOF) {
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				addError(errs.New("error getting reader for part %d: %v", i, err))
+			}
 			break
-		} else if err != nil {
-			mu.Lock()
-			fmt.Fprintln(clctx.Stderr(), "Error getting reader for part", i)
-			mu.Unlock()
-
-			return err
 		}
 
 		wh, err := dst.NextPart(ctx, chunk)
 		if err != nil {
 			_ = rh.Close()
 
-			mu.Lock()
-			fmt.Fprintln(clctx.Stderr(), "Error getting writer for part", i)
-			mu.Unlock()
-
-			return err
+			addError(errs.New("error getting writer for part %d: %v", i, err))
+			break
 		}
 
 		ok := limiter.Go(ctx, func() {
@@ -387,8 +390,6 @@ func parallelCopy(
 			}
 
 			if err != nil {
-				// abort all other concurrenty copies
-				cancel()
 				// TODO: it would be also nice to use wh.Abort and rh.Close directly
 				// to avoid some of the waiting that's caused by sync2.Copy.
 				//
@@ -396,26 +397,23 @@ func parallelCopy(
 				// to have concurrent safe API with that regards.
 				//
 				// Also, we may want to check that it actually helps, before implementing it.
+
+				addError(errs.New("failed to %s part %d: %v", copyVerb(c.source, c.dest), i, err))
 			}
-
-			mu.Lock()
-			defer mu.Unlock()
-
-			es.Add(err)
 		})
 		if !ok {
-			mu.Lock()
-			fmt.Fprintln(clctx.Stderr(), "Failed to start part copy", i)
-			mu.Unlock()
-			return ctx.Err()
+			break
 		}
 	}
 
 	limiter.Wait()
 
-	es.Add(dst.Commit(ctx))
+	// don't try to commit if any error occur
+	if len(es) == 0 {
+		es.Add(dst.Commit(ctx))
+	}
 
-	return es.Err()
+	return errs.Wrap(combineErrs(es))
 }
 
 func parseRange(r string) (offset, length int64, err error) {
@@ -465,4 +463,18 @@ func parseRange(r string) (offset, length int64, err error) {
 	default:
 		return starti, endi - starti + 1, nil
 	}
+}
+
+// combineErrs makes a more readable error message from the errors group.
+func combineErrs(group errs.Group) error {
+	if len(group) == 0 {
+		return nil
+	}
+
+	errstrings := make([]string, len(group))
+	for i, err := range group {
+		errstrings[i] = err.Error()
+	}
+
+	return fmt.Errorf("%s", strings.Join(errstrings, "\n"))
 }

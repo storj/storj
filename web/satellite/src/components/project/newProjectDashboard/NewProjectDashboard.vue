@@ -175,9 +175,10 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PROJECTS_ACTIONS } from "@/store/modules/projects";
-import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from "@/store/modules/payments";
+import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 import { RouteConfig } from "@/router";
 import { DataStamp, ProjectLimits } from "@/types/projects";
 import { Dimensions, Size } from "@/utils/bytesSize";
@@ -281,7 +282,7 @@ export default class NewProjectDashboard extends Vue {
      * Holds on upgrade button click logic.
      */
     public onUpgradeClick(): void {
-        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
     }
 
     /**

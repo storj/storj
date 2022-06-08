@@ -29,9 +29,12 @@ type Accounts interface {
 	// ProjectCharges returns how much money current user will be charged for each project.
 	ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) ([]ProjectCharge, error)
 
-	// CheckProjectInvoicingStatus returns true if for the given project there are outstanding project records and/or usage
+	// CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 	// which have not been applied/invoiced yet (meaning sent over to stripe).
-	CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (unpaidUsage bool, err error)
+	CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) error
+
+	// CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
+	CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) error
 
 	// Charges returns list of all credit card charges related to account.
 	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)

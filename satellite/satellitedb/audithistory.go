@@ -5,39 +5,30 @@ package satellitedb
 
 import (
 	"context"
-	"time"
 
 	"storj.io/common/pb"
 	"storj.io/storj/satellite/reputation"
 )
 
-func updateAuditHistory(ctx context.Context, oldHistory []byte, config reputation.AuditHistoryConfig, online bool, auditTime time.Time) (res *reputation.UpdateAuditHistoryResponse, err error) {
+func mergeAuditHistory(ctx context.Context, oldHistory []byte, addHistory []*pb.AuditWindow, config reputation.AuditHistoryConfig) (res *reputation.UpdateAuditHistoryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res = &reputation.UpdateAuditHistoryResponse{
-		NewScore:           1,
-		TrackingPeriodFull: false,
-	}
-
-	// deserialize node audit history
 	history := &pb.AuditHistory{}
 	err = pb.Unmarshal(oldHistory, history)
 	if err != nil {
-		return res, err
+		return nil, Error.Wrap(err)
 	}
 
-	err = reputation.AddAuditToHistory(history, online, auditTime, config)
+	trackingPeriodFull := reputation.MergeAuditHistories(history, addHistory, config)
+
+	historyBytes, err := pb.Marshal(history)
 	if err != nil {
-		return res, err
+		return nil, Error.Wrap(err)
 	}
 
-	res.History, err = pb.Marshal(history)
-	if err != nil {
-		return res, err
-	}
-
-	windowsPerTrackingPeriod := int(config.TrackingPeriod.Seconds() / config.WindowSize.Seconds())
-	res.TrackingPeriodFull = len(history.Windows)-1 >= windowsPerTrackingPeriod
-	res.NewScore = history.Score
-	return res, nil
+	return &reputation.UpdateAuditHistoryResponse{
+		NewScore:           history.Score,
+		TrackingPeriodFull: trackingPeriodFull,
+		History:            historyBytes,
+	}, nil
 }
