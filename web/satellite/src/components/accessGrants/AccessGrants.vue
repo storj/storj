@@ -106,7 +106,7 @@
                 </div>
             </div>
         </div>
-        <div v-if="isNewAccessGrantFlow"> 
+        <div v-if="!isNewAccessGrantFlow"> 
             <div class="access-grants__header-container">
                 <h3 class="access-grants__header-container__title">My Accesses</h3>
                 <div class="access-grants__header-container__divider" />
@@ -127,6 +127,7 @@
                         :data-set="accessGrantsList"
                         :item-component="itemComponent2"
                     />
+
                 </div>
                 <div class="access-grants-items2__footer">
                     <span class="access-grants-items2__footer__total-accesses">
@@ -155,7 +156,7 @@
                 @reset-pagination="resetPagination"
             />
         </div>
-        <div v-if="!isNewAccessGrantFlow">
+        <div v-if="isNewAccessGrantFlow">
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
             <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
                 <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
@@ -375,6 +376,7 @@ export default class AccessGrants extends Vue {
      * Returns AccessGrant2 item component.
      */
     public get itemComponent2(): typeof AccessGrantsItem2 {
+        console.log(AccessGrantsItem2);
         return AccessGrantsItem2;
     }
     /**
