@@ -151,7 +151,7 @@ export default class BucketItem extends Vue {
                         background-color: #f4f5f7;
                         font-family: 'font_medium', sans-serif;
 
-                        & svg path {
+                        svg ::v-deep path {
                             fill: #0068dc;
                             stroke: #0068dc;
                         }

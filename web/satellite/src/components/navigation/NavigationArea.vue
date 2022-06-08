@@ -480,8 +480,8 @@ export default class NavigationArea extends Vue {
 
         .navigation-area__container__wrap__item-container {
 
-            &__left__image path,
-            &__arrow path {
+            &__left__image ::v-deep path,
+            &__arrow ::v-deep path {
                 fill: #0149ff;
             }
         }
@@ -494,7 +494,7 @@ export default class NavigationArea extends Vue {
         background-color: #f7f8fb;
         color: #0149ff;
 
-        .navigation-area__container__wrap__item-container__left__image path {
+        .navigation-area__container__wrap__item-container__left__image ::v-deep path {
             fill: #0149ff;
         }
     }

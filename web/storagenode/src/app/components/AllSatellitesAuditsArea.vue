@@ -164,7 +164,7 @@ export default class AllSatellitesAuditsArea extends Vue {
     .disqualification {
         color: var(--critical-color);
 
-        path {
+        ::v-deep path {
             fill: var(--critical-color);
         }
     }
@@ -172,7 +172,7 @@ export default class AllSatellitesAuditsArea extends Vue {
     .warning {
         color: var(--warning-color);
 
-        path {
+        ::v-deep path {
             fill: var(--warning-color);
         }
     }

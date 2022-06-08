@@ -89,7 +89,7 @@ export default class NavigationArea extends Vue {
             margin-bottom: 20px;
             text-decoration: none;
 
-            path {
+            ::v-deep path {
                 fill: var(--c-label);
             }
 
@@ -117,7 +117,7 @@ export default class NavigationArea extends Vue {
                     color: var(--c-title);
                 }
 
-                path {
+                ::v-deep path {
                     fill: var(--c-title) !important;
                     opacity: 1;
                 }

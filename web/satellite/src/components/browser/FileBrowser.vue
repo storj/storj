@@ -908,7 +908,7 @@ tbody {
     transform: translateY(-50%);
     margin: unset;
 
-    & path {
+    ::v-deep path {
         fill: white;
     }
 }

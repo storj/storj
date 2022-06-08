@@ -282,8 +282,8 @@ export default class AccountArea extends Vue {
                 font-weight: 600;
             }
 
-            &__left__icon path,
-            &__arrow path {
+            &__left__icon ::v-deep path,
+            &__arrow ::v-deep path {
                 fill: #0149ff;
             }
         }
