@@ -1,40 +1,56 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package satellitedb_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestUserFromDbx(t *testing.T) {
-	ctx := context.Background()
+func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		users := db.Console().Users()
 
-	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
-		user, err := userFromDBX(ctx, nil)
-		assert.Nil(t, user)
-		assert.Error(t, err)
-	})
+		id := testrand.UUID()
+		_, err := users.Insert(ctx, &console.User{
+			ID:           id,
+			FullName:     "test",
+			Email:        "userone@mail.test",
+			PasswordHash: []byte("testpassword"),
+		})
+		require.NoError(t, err)
 
-	t.Run("can't create dbo from dbx model with invalid ID", func(t *testing.T) {
-		dbxUser := dbx.User{
-			Id:           []byte("qweqwe"),
-			FullName:     "Very long full name",
-			ShortName:    nil,
-			Email:        "some@mail.test",
-			PasswordHash: []byte("ihqerfgnu238723huagsd"),
-			CreatedAt:    time.Now(),
-		}
+		u, err := users.Get(ctx, id)
+		require.NoError(t, err)
+		require.Equal(t, console.UserStatus(0), u.Status)
 
-		user, err := userFromDBX(ctx, &dbxUser)
+		now := time.Now()
+		reminders := now.Add(time.Hour)
 
-		assert.Nil(t, user)
-		assert.Error(t, err)
+		// to get a reminder, created_at needs be after cutoff.
+		// since we don't have control over created_at, make cutoff in the future to test that
+		// user doesn't get a reminder.
+		cutoff := now.Add(time.Hour)
+
+		needingReminder, err := users.GetUnverifiedNeedingReminder(ctx, reminders, reminders, cutoff)
+		require.NoError(t, err)
+		require.Len(t, needingReminder, 0)
+
+		// change cutoff so user created_at is after it.
+		// user should get a reminder.
+		cutoff = now.Add(-time.Hour)
+
+		needingReminder, err = users.GetUnverifiedNeedingReminder(ctx, now, now, cutoff)
+		require.NoError(t, err)
+		require.Len(t, needingReminder, 1)
 	})
 }
