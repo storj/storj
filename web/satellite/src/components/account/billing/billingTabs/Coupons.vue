@@ -7,29 +7,28 @@
             <h1 class="coupon-area__title">coupons</h1>
         <VLoader v-if="isCouponFetching" />
         <div class="coupon-area__container">
-            <div 
+            <div
+            v-if="coupon"
             class="coupon-area__container__existing-coupons"
-            v-for="coupons in testData"
-            :key="coupons.index"
             >
-                <div :class="`coupon-area__container__existing-coupons__discount-top-container ${coupons.status === 'Active'?'active':'inactive'}`">
-                    <span :class="`coupon-area__container__existing-coupons__discount-top-container__discount ${coupons.status === 'Active'?'active-discount':'inactive-discount'}`">
-                        ${{coupons.discount}}
+                <div class="coupon-area__container__existing-coupons__discount-top-container active">
+                    <span class="coupon-area__container__existing-coupons__discount-top-container active">
+                        ${{ coupon.getDescription() }}
                     </span>
                 </div>
                 <div :class="`coupon-area__container__existing-coupons__status-container`">
-                    <span :class="`coupon-area__container__existing-coupons__status-container__status ${coupons.status === 'Active'?'active-status':'inactive-status'}`">
-                        {{coupons.status}}
+                    <span class="coupon-area__container__existing-coupons__discount-top-container active">
+                        Active
                     </span>
                 </div>
                 <div class="coupon-area__container__existing-coupons__discount-black-container">
                     <span class="coupon-area__container__existing-coupons__discount-black-container__discount">
-                        ${{coupons.discount}} off
+                        ${{ coupon.getDescription() }} off
                     </span>
                 </div>
                 <div class="coupon-area__container__existing-coupons__expiration-container">
                     <span class="coupon-area__container__existing-coupons__expiration-container__text">
-                        Expiration in {{coupons.expiration}}
+                        Expiration in {{ expiration }}
                     </span>
                 </div>
             </div>

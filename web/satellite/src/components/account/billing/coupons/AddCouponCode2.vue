@@ -74,11 +74,12 @@ export default class AddCouponCode extends Vue {
             min-width: 300px;
             max-width: 390px;
             aspect-ratio: 1/1;
-            height: 390px;
+            height: auto;
             background: #fff;
             border-radius: 8px;
             margin: 15% auto;
             position: relative;
+            padding-bottom: 20px;
         }
 
         &__container {
