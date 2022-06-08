@@ -82,6 +82,7 @@
                                 New Folder
                             </button>
                         </div>
+                        <bucket-settings-nav class="new-folder-button" :bucket-name="bucket" />
                     </div>
 
                     <div class="row mb-2 d-flex justify-content-between">
@@ -424,10 +425,12 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from "@/types/browser";
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from "@/router";
+import BucketSettingsNav from "@/components/objects/BucketSettingsNav.vue";
 
 // @vue/component
 @Component({
     components: {
+        BucketSettingsNav,
         FileEntry,
         BreadCrumbs,
         FileBrowserHeader,
@@ -971,7 +974,7 @@ tbody {
     border-radius: 8px;
     width: auto;
     padding: 0 17px;
-    height: 40px;
+    height: 44px;
     font-family: 'font_bold', sans-serif;
     line-height: 2.4;
 
@@ -985,6 +988,7 @@ tbody {
     background: white;
     border: 1px solid #d8dee3;
     color: #56606d;
+    border-radius: 8px;
 }
 
 .upload-button {
