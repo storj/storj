@@ -13,10 +13,10 @@
         </div>
 
         <div class="grants-item-container__common-info menu-item-container">
-            <p class="ellipses" @click="togglePopupVisibility">...</p>
+            <p class="ellipses" @click.stop="togglePopupVisibility">...</p>
             <div 
                 v-if="popupVisible"
-                v-click-outside="popupVisible" 
+                v-click-outside="togglePopupVisibility" 
                 class="popup-menu"
             >
                 <p
