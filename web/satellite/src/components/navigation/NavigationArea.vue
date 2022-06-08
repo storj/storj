@@ -17,7 +17,7 @@
                     :aria-label="navItem.name"
                     class="navigation-area__container__wrap__item-container"
                     :to="navItem.path"
-                    @click.native="trackClickEvent(navItem.name)"
+                    @click.native="trackClickEvent(navItem.path)"
                 >
                     <div class="navigation-area__container__wrap__item-container__left">
                         <component :is="navItem.icon" class="navigation-area__container__wrap__item-container__left__image" />
@@ -365,6 +365,7 @@ export default class NavigationArea extends Vue {
      * Sends "View Docs" event to segment and opens link.
      */
     public trackViewDocsEvent(link: string): void {
+        this.analytics.pageVisit(link);
         this.analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
         window.open(link)
     }
@@ -373,6 +374,7 @@ export default class NavigationArea extends Vue {
      * Sends "View Forum" event to segment and opens link.
      */
     public trackViewForumEvent(link: string): void {
+        this.analytics.pageVisit(link);
         this.analytics.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
         window.open(link)
     }
@@ -381,6 +383,7 @@ export default class NavigationArea extends Vue {
      * Sends "View Support" event to segment and opens link.
      */
     public trackViewSupportEvent(link: string): void {
+        this.analytics.pageVisit(link);
         this.analytics.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
         window.open(link)
     }
@@ -388,8 +391,8 @@ export default class NavigationArea extends Vue {
     /**
      * Sends new path click event to segment.
      */
-    public trackClickEvent(name: string): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, name);
+    public trackClickEvent(path: string): void {
+        this.analytics.pageVisit(path);
     }
 }
 </script>
