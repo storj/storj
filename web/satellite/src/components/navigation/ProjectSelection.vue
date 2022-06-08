@@ -227,7 +227,6 @@ export default class ProjectSelection extends Vue {
      */
     public onCreateLinkClick(): void {
         if (this.$route.name !== RouteConfig.CreateProject.name) {
-            this.analytics.pageVisit(RouteConfig.CreateProject.path);
             this.analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
             const user: User = this.$store.getters.user;

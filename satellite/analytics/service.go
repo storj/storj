@@ -375,7 +375,7 @@ func (service *Service) TrackCreditCardAdded(userID uuid.UUID, email string) {
 
 }
 
-// PageVisitEvent sends an arbitrary event associated with user ID to Segment.
+// PageVisitEvent sends a page visit event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
 func (service *Service) PageVisitEvent(pageName string, userID uuid.UUID, email string) {
 	if !service.config.Enabled {
