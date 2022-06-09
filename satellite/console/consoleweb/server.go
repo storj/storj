@@ -293,6 +293,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()
 	analyticsRouter.Use(server.withAuth)
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost)
+	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
 		oidc := oidc.NewEndpoint(server.config.ExternalAddress, logger, oidcService, service,

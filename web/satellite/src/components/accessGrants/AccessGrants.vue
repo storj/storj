@@ -236,6 +236,7 @@ import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 const {
     FETCH,
@@ -270,6 +271,8 @@ declare interface ResetPagination {
 export default class AccessGrants extends Vue {
     private FIRST_PAGE = 1;
     private isDeleteClicked = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Indicates if the access modal should be shown and what the defaulted type of access should be defaulted.
@@ -355,6 +358,7 @@ export default class AccessGrants extends Vue {
      * Starts create access grant flow.
      */
     public onCreateClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
         this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
     }
     /**

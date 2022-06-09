@@ -31,6 +31,8 @@ import ValueWithCopy from "@/components/onboardingTour/steps/common/ValueWithCop
 
 import Icon from '@/../static/images/onboardingTour/apiKeyStep.svg';
 
+import { AnalyticsHttpApi } from "@/api/analytics";
+
 // @vue/component
 @Component({
     components: {
@@ -42,12 +44,15 @@ import Icon from '@/../static/images/onboardingTour/apiKeyStep.svg';
 export default class APIKey extends Vue {
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Lifecycle hook after initial render.
      * Checks if api key was generated during previous step.
      */
     public mounted(): void {
         if (!this.storedAPIKey) {
+            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
             this.$router.push({name: RouteConfig.AGName.name});
         }
     }
@@ -58,11 +63,13 @@ export default class APIKey extends Vue {
      */
     public async onBackClick(): Promise<void> {
         if (this.backRoute) {
+            this.analytics.pageVisit(this.backRoute);
             await this.$router.push(this.backRoute).catch(() => {return; });
 
             return;
         }
 
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.path);
         await this.$router.push(RouteConfig.OnboardingTour.path).catch(() => {return; })
     }
 
@@ -70,6 +77,7 @@ export default class APIKey extends Vue {
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
     }
 

@@ -33,6 +33,8 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -46,12 +48,15 @@ export default class ProjectDashboard extends Vue {
     public areBucketsFetching = true;
     public isSummaryDataFetching = true;
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Lifecycle hook after initial render.
      * Fetches buckets, usage rollup, project members and access grants.
      */
     public async mounted(): Promise<void> {
         if (!this.$store.getters.selectedProject.id) {
+            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
             return;
