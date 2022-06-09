@@ -6,7 +6,7 @@
         <div class="total-cost">
             <h3 class="total-cost__title">Total Cost</h3>
             <div class="total-cost__card-container">
-                <div class="total-cost__card">
+                <!-- <div class="total-cost__card">
                     <EstimatedChargesIcon class="total-cost__card__main-icon"/>
                     <p class="total-cost__card__money-text">${{ EstimatedTotat }}</p>
                     <p class="total-cost__card__label-text">Total Estimated Charges 
@@ -23,7 +23,7 @@
                         <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Bandwidth remaining in your free tier, you won't be charged. This information is to help you estimate what charges would have been had you graduated to the paid tier.</span>
                     </div>
                     <p class="total-cost__card__link-text">View Billing History →</p>
-                </div>
+                </div> -->
                 <div class="total-cost__card">
                     <AvailableBalanceIcon class="total-cost__card__main-icon"/>
                     <p class="total-cost__card__money-text">{{ balance.coins | centsToDollars }}</p>
@@ -142,7 +142,8 @@ export default class BillingArea extends Vue {
         }
 
         &__card {
-            width: calc(50% - 50px);
+            // width: calc(50% - 50px);
+            width: 100%;
             min-width: 188px;
             box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
             border-radius: 10px;
