@@ -104,12 +104,17 @@ func (a *API) generateGo() ([]byte, error) {
 	for _, group := range a.EndpointGroups {
 		p("type %sService interface {", group.Name)
 		for _, e := range group.Endpoints {
-			responseType := reflect.TypeOf(e.Response)
 			var params string
 			for _, param := range e.Params {
 				params += param.Type.String() + ", "
 			}
-			p("%s(context.Context, "+params+") (%s, api.HTTPError)", e.MethodName, a.handleTypesPackage(responseType))
+
+			if e.Response != nil {
+				responseType := reflect.TypeOf(e.Response)
+				p("%s(context.Context, "+params+") (%s, api.HTTPError)", e.MethodName, a.handleTypesPackage(responseType))
+			} else {
+				p("%s(context.Context, "+params+") (api.HTTPError)", e.MethodName)
+			}
 		}
 		p("}")
 		p("")
@@ -184,68 +189,41 @@ func (a *API) generateGo() ([]byte, error) {
 				for _, param := range endpoint.Params {
 					switch param.Type {
 					case reflect.TypeOf(uuid.UUID{}):
-						p("%s, err := uuid.FromString(r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
-						p("if err != nil {")
-						p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-						p("return")
-						p("}")
-						p("")
+						handleUUIDQuery(p, param)
 						continue
 					case reflect.TypeOf(time.Time{}):
-						p("%s, err := time.Parse(dateLayout, r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
-						p("if err != nil {")
-						p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-						p("return")
-						p("}")
-						p("")
+						handleTimeQuery(p, param)
 						continue
 					case reflect.TypeOf(""):
-						p("%s := r.URL.Query().Get(\"%s\")", param.Name, param.Name)
-						p("if %s == \"\" {", param.Name)
-						p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"parameter '%s' can't be empty\"))", param.Name)
-						p("return")
-						p("}")
-						p("")
+						handleStringQuery(p, param)
 						continue
 					}
 				}
 			case http.MethodPatch:
 				for _, param := range endpoint.Params {
 					if param.Type == reflect.TypeOf(uuid.UUID{}) {
-						p("%sParam, ok := mux.Vars(r)[\"%s\"]", param.Name, param.Name)
-						p("if !ok {")
-						p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"missing %s route param\"))", param.Name)
-						p("return")
-						p("}")
-						p("")
-
-						p("%s, err := uuid.FromString(%sParam)", param.Name, param.Name)
-						p("if err != nil {")
-						p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-						p("return")
-						p("}")
-						p("")
+						handleUUIDParam(p, param)
 					} else {
-						p("%s := &%s{}", param.Name, param.Type)
-						p("if err = json.NewDecoder(r.Body).Decode(&%s); err != nil {", param.Name)
-						p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-						p("return")
-						p("}")
-						p("")
+						handleBody(p, param)
 					}
 				}
 			case http.MethodPost:
 				for _, param := range endpoint.Params {
-					p("%s := &%s{}", param.Name, param.Type)
-					p("if err = json.NewDecoder(r.Body).Decode(&%s); err != nil {", param.Name)
-					p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-					p("return")
-					p("}")
-					p("")
+					handleBody(p, param)
+				}
+			case http.MethodDelete:
+				for _, param := range endpoint.Params {
+					handleUUIDParam(p, param)
 				}
 			}
 
-			methodFormat := "retVal, httpErr := h.service.%s(ctx, "
+			var methodFormat string
+			if endpoint.Response != nil {
+				methodFormat = "retVal, httpErr := h.service.%s(ctx, "
+			} else {
+				methodFormat = "httpErr := h.service.%s(ctx, "
+			}
+
 			switch pathMethod.Method {
 			case http.MethodGet:
 				for _, methodParam := range endpoint.Params {
@@ -263,22 +241,30 @@ func (a *API) generateGo() ([]byte, error) {
 				for _, methodParam := range endpoint.Params {
 					methodFormat += "*" + methodParam.Name + ", "
 				}
+			case http.MethodDelete:
+				for _, methodParam := range endpoint.Params {
+					methodFormat += methodParam.Name + ", "
+				}
 			}
 
 			methodFormat += ")"
 			p(methodFormat, endpoint.MethodName)
 			p("if httpErr.Err != nil {")
 			p("api.ServeError(h.log, w, httpErr.Status, httpErr.Err)")
+			if endpoint.Response == nil {
+				p("}")
+				p("}")
+				continue
+			}
 			p("return")
 			p("}")
-			p("")
 
+			p("")
 			p("err = json.NewEncoder(w).Encode(retVal)")
 			p("if err != nil {")
 			p("h.log.Debug(\"failed to write json %s response\", zap.Error(Err%sAPI.Wrap(err)))", endpoint.MethodName, cases.Title(language.Und).String(group.Prefix))
 			p("}")
 			p("}")
-			p("")
 		}
 	}
 
@@ -292,11 +278,68 @@ func (a *API) generateGo() ([]byte, error) {
 
 // handleTypesPackage handles the way some type is used in generated code.
 // If type is from the same package then we use only type's name.
-// If type is from external package then we use type along with it's appropriate package name.
+// If type is from external package then we use type along with its appropriate package name.
 func (a *API) handleTypesPackage(t reflect.Type) interface{} {
 	if strings.HasPrefix(t.String(), a.PackageName) {
 		return t.Elem().Name()
 	}
 
 	return t
+}
+
+// handleStringQuery handles request query param of type string.
+func handleStringQuery(p func(format string, a ...interface{}), param Param) {
+	p("%s := r.URL.Query().Get(\"%s\")", param.Name, param.Name)
+	p("if %s == \"\" {", param.Name)
+	p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"parameter '%s' can't be empty\"))", param.Name)
+	p("return")
+	p("}")
+	p("")
+}
+
+// handleUUIDQuery handles request query param of type uuid.UUID.
+func handleUUIDQuery(p func(format string, a ...interface{}), param Param) {
+	p("%s, err := uuid.FromString(r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
+	p("if err != nil {")
+	p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+	p("return")
+	p("}")
+	p("")
+}
+
+// handleTimeQuery handles request query param of type time.Time.
+func handleTimeQuery(p func(format string, a ...interface{}), param Param) {
+	p("%s, err := time.Parse(dateLayout, r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
+	p("if err != nil {")
+	p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+	p("return")
+	p("}")
+	p("")
+}
+
+// handleUUIDParam handles request inline param of type uuid.UUID.
+func handleUUIDParam(p func(format string, a ...interface{}), param Param) {
+	p("%sParam, ok := mux.Vars(r)[\"%s\"]", param.Name, param.Name)
+	p("if !ok {")
+	p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"missing %s route param\"))", param.Name)
+	p("return")
+	p("}")
+	p("")
+
+	p("%s, err := uuid.FromString(%sParam)", param.Name, param.Name)
+	p("if err != nil {")
+	p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+	p("return")
+	p("}")
+	p("")
+}
+
+// handleBody handles request body.
+func handleBody(p func(format string, a ...interface{}), param Param) {
+	p("%s := &%s{}", param.Name, param.Type)
+	p("if err = json.NewDecoder(r.Body).Decode(&%s); err != nil {", param.Name)
+	p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+	p("return")
+	p("}")
+	p("")
 }

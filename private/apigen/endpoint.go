@@ -58,6 +58,11 @@ func (eg *EndpointGroup) Post(path string, endpoint *Endpoint) {
 	eg.addEndpoint(path, http.MethodPost, endpoint)
 }
 
+// Delete adds new DELETE endpoint to endpoints group.
+func (eg *EndpointGroup) Delete(path string, endpoint *Endpoint) {
+	eg.addEndpoint(path, http.MethodDelete, endpoint)
+}
+
 // addEndpoint adds new endpoint to endpoints list.
 func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
 	pathMethod := PathMethod{

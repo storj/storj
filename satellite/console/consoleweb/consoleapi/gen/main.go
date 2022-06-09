@@ -25,6 +25,37 @@ func main() {
 	{
 		g := a.Group("ProjectManagement", "projects")
 
+		g.Post("/create", &apigen.Endpoint{
+			Name:        "Create new Project",
+			Description: "Creates new Project with given info",
+			MethodName:  "GenCreateProject",
+			Response:    &console.Project{},
+			Params: []apigen.Param{
+				apigen.NewParam("projectInfo", console.ProjectInfo{}),
+			},
+		})
+
+		g.Patch("/update/{id}", &apigen.Endpoint{
+			Name:        "Update Project",
+			Description: "Updates project with given info",
+			MethodName:  "GenUpdateProject",
+			Response:    &console.Project{},
+			Params: []apigen.Param{
+				apigen.NewParam("id", uuid.UUID{}),
+				apigen.NewParam("projectInfo", console.ProjectInfo{}),
+			},
+		})
+
+		g.Delete("/delete/{id}", &apigen.Endpoint{
+			Name:        "Delete Project",
+			Description: "Deletes project by id",
+			MethodName:  "GenDeleteProject",
+			Response:    nil,
+			Params: []apigen.Param{
+				apigen.NewParam("id", uuid.UUID{}),
+			},
+		})
+
 		g.Get("/", &apigen.Endpoint{
 			Name:        "Get Projects",
 			Description: "Gets all projects user has",
@@ -56,27 +87,6 @@ func main() {
 				apigen.NewParam("before", time.Time{}),
 			},
 		})
-
-		g.Post("/create", &apigen.Endpoint{
-			Name:        "Create new Project",
-			Description: "Creates new Project with given info",
-			MethodName:  "GenCreateProject",
-			Response:    &console.Project{},
-			Params: []apigen.Param{
-				apigen.NewParam("projectInfo", console.ProjectInfo{}),
-			},
-		})
-
-		g.Patch("/update/{id}", &apigen.Endpoint{
-			Name:        "Update Project",
-			Description: "Updates project with given info",
-			MethodName:  "GenUpdateProject",
-			Response:    &console.Project{},
-			Params: []apigen.Param{
-				apigen.NewParam("id", uuid.UUID{}),
-				apigen.NewParam("projectInfo", console.ProjectInfo{}),
-			},
-		})
 	}
 
 	{
@@ -90,6 +100,17 @@ func main() {
 			Params: []apigen.Param{
 				apigen.NewParam("apikeyInfo", console.CreateAPIKeyRequest{}),
 			},
+		})
+	}
+
+	{
+		g := a.Group("UserManagement", "users")
+
+		g.Get("/", &apigen.Endpoint{
+			Name:        "Get User",
+			Description: "Gets User by request context",
+			MethodName:  "GenGetUser",
+			Response:    &console.ResponseUser{},
 		})
 	}
 

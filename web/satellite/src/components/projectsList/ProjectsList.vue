@@ -69,6 +69,7 @@ const {
 export default class Projects extends Vue {
     private currentPageNumber = 1;
     private FIRST_PAGE = 1;
+    private isLoading = false;
 
     public areProjectsFetching = true;
 
@@ -110,6 +111,10 @@ export default class Projects extends Vue {
      * @param project
      */
     public async onProjectSelected(project: Project): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
         const projectID = project.id;
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         LocalData.setSelectedProjectId(projectID);
@@ -122,16 +127,12 @@ export default class Projects extends Vue {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
 
-            if (this.isNewNavStructure) {
-                await this.$router.push(RouteConfig.EditProjectDetails.path);
-
-                return;
-            }
-
-            await this.$router.push(RouteConfig.ProjectDashboard.path);
+            await this.$router.push(RouteConfig.EditProjectDetails.path);
         } catch (error) {
             await this.$notify.error(`Unable to select project. ${error.message}`);
         }
+
+        this.isLoading = false;
     }
 
     /**
@@ -146,13 +147,6 @@ export default class Projects extends Vue {
      */
     public get projectsPage(): ProjectsPage {
         return this.$store.state.projectsModule.page;
-    }
-
-    /**
-     * Indicates if new navigation structure is used.
-     */
-    public get isNewNavStructure(): boolean {
-        return this.$store.state.appStateModule.isNewNavStructure;
     }
 }
 </script>

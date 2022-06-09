@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`HeaderedInput.vue renders correctly with default props 1`] = `
-<div class="input-container">
+<div aria-roledescription="input-container" class="input-container">
   <div class="label-container">
     <div class="label-container__main">
       <!---->
@@ -18,7 +18,7 @@ exports[`HeaderedInput.vue renders correctly with default props 1`] = `
 `;
 
 exports[`HeaderedInput.vue renders correctly with input error 1`] = `
-<div class="input-container">
+<div aria-roledescription="input-container" class="input-container">
   <div class="label-container">
     <div class="label-container__main">
       <erroricon-stub class="label-container__error-icon"></erroricon-stub>
@@ -35,7 +35,7 @@ exports[`HeaderedInput.vue renders correctly with input error 1`] = `
 `;
 
 exports[`HeaderedInput.vue renders correctly with isMultiline props 1`] = `
-<div class="input-container">
+<div aria-roledescription="input-container" class="input-container">
   <div class="label-container">
     <div class="label-container__main">
       <!---->

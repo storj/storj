@@ -3,13 +3,13 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width,initial-scale=1" />
-		<link rel="icon" type="image/png" href="/favicon.ico" />
-		<link rel="stylesheet" href="/global.css" />
-		<link rel="stylesheet" href="/pretty-print-json.css" />
-		%svelte.head%
+		<link rel="icon" type="image/png" href="%sveltekit.assets%/favicon.ico" />
+		<link rel="stylesheet" href="%sveltekit.assets%/global.css" />
+		<link rel="stylesheet" href="%sveltekit.assets%/pretty-print-json.css" />
+		%sveltekit.head%
 	</head>
 
 	<body>
-		<div id="svelte">%svelte.body%</div>
+		<div id="svelte">%sveltekit.body%</div>
 	</body>
 </html>

@@ -13,7 +13,10 @@
                 alt="Arrow down (expand)"
             />
         </div>
-        <BucketsDropdown v-if="isDropdownShown" :show-scrollbar="showScrollbar" />
+        <BucketsDropdown 
+            v-if="isDropdownShown" 
+            :show-scrollbar="showScrollbar" 
+        />
     </div>
 </template>
 
