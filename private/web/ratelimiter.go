@@ -140,7 +140,11 @@ func (rl *RateLimiter) getUserLimit(key string) *rate.Limiter {
 				delete(rl.limits, oldestKey)
 			}
 		}
-		limiter := rate.NewLimiter(rate.Limit(time.Second)/rate.Limit(rl.config.Duration), rl.config.Burst)
+		maxFreq := rate.Inf
+		if rl.config.Duration != 0 {
+			maxFreq = rate.Limit(time.Second) / rate.Limit(rl.config.Duration)
+		}
+		limiter := rate.NewLimiter(maxFreq, rl.config.Burst)
 		rl.limits[key] = &userLimit{limiter, time.Now()}
 		return limiter
 	}

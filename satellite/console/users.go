@@ -21,7 +21,7 @@ type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
-	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder time.Time) ([]*User, error)
+	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) ([]*User, error)
 	// UpdateVerificationReminders increments verification_reminders.
 	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.

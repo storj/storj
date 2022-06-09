@@ -12,7 +12,7 @@
                 >
             </div>
             <h2 class="create-project__container__title" aria-roledescription="title">Create a Project</h2>
-            <HeaderedInput
+            <VInput
                 label="Project Name"
                 additional-label="Up To 20 Characters"
                 placeholder="Enter Project Name"
@@ -23,7 +23,7 @@
                 :error="nameError"
                 @setData="setProjectName"
             />
-            <HeaderedInput
+            <VInput
                 label="Description"
                 placeholder="Enter Project Description"
                 additional-label="Optional"
@@ -62,7 +62,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from "@/components/common/VLoader.vue";
 
@@ -76,7 +76,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 // @vue/component
 @Component({
     components: {
-        HeaderedInput,
+        VInput,
         VButton,
         VLoader,
     },

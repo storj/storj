@@ -9,7 +9,7 @@
                     <ChangePasswordIcon class="change-password-popup__form-container__svg" />
                     <h2 class="change-password-popup__form-container__main-label-text">Change Password</h2>
                 </div>
-                <HeaderlessInput
+                <VInput
                     class="full-input"
                     label="Old Password"
                     placeholder="Enter Old Password"
@@ -18,7 +18,7 @@
                     @setData="setOldPassword"
                 />
                 <div class="password-input">
-                    <HeaderlessInput
+                    <VInput
                         class="full-input"
                         label="New Password"
                         placeholder="Enter New Password"
@@ -33,7 +33,7 @@
                         :is-shown="isPasswordStrengthShown"
                     />
                 </div>
-                <HeaderlessInput
+                <VInput
                     class="full-input"
                     label="Confirm Password"
                     placeholder="Confirm Password"
@@ -67,7 +67,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VButton from '@/components/common/VButton.vue';
 
@@ -83,7 +83,7 @@ import { Validator } from '@/utils/validation';
     components: {
         ChangePasswordIcon,
         CloseCrossIcon,
-        HeaderlessInput,
+        VInput,
         VButton,
         PasswordStrength,
     },

@@ -48,7 +48,7 @@
                 />
             </div>
             <div v-else class="encrypt-container__functional__enter">
-                <HeaderlessInput
+                <VInput
                     label="Your Passphrase"
                     placeholder="Enter a passphrase here..."
                     :error="enterError"
@@ -104,7 +104,7 @@ import { Download } from "@/utils/download";
 
 import VButton from '@/components/common/VButton.vue';
 import VInfo from "@/components/common/VInfo.vue";
-import HeaderlessInput from "@/components/common/HeaderlessInput.vue";
+import VInput from "@/components/common/VInput.vue";
 import VCheckbox from "@/components/common/VCheckbox.vue";
 
 import EncryptIcon from "@/../static/images/objects/encrypt.svg";
@@ -117,7 +117,7 @@ import InfoIcon from "@/../static/images/common/smallGreyInfo.svg";
         InfoIcon,
         VInfo,
         VButton,
-        HeaderlessInput,
+        VInput,
         VCheckbox,
     },
 })

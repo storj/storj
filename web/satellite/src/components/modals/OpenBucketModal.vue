@@ -10,14 +10,14 @@
                 <p class="modal__info">
                     To open a bucket and view your files, please enter the encryption passphrase you saved upon creating this bucket.
                 </p>
-                <HeaderlessInput
+                <VInput
                     class="modal__input"
                     label="Bucket Name"
                     :init-value="bucketName"
                     role-description="bucket"
-                    is-disabled="true"
+                    disabled="true"
                 />
-                <HeaderlessInput
+                <VInput
                     label="Encryption Passphrase"
                     placeholder="Enter a passphrase here"
                     :error="enterError"
@@ -57,7 +57,7 @@ import { AccessGrant, EdgeCredentials } from "@/types/accessGrants";
 import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
 
 import VModal from "@/components/common/VModal.vue";
-import HeaderlessInput from "@/components/common/HeaderlessInput.vue";
+import VInput from "@/components/common/VInput.vue";
 import VButton from "@/components/common/VButton.vue";
 
 import Icon from "@/../static/images/objects/openBucket.svg";
@@ -65,7 +65,7 @@ import Icon from "@/../static/images/objects/openBucket.svg";
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
+        VInput,
         VModal,
         Icon,
         VButton,
