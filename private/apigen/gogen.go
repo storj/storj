@@ -80,7 +80,7 @@ func (a *API) generateGo() ([]byte, error) {
 	}
 
 	for _, group := range a.EndpointGroups {
-		for _, method := range group.Endpoints {
+		for _, method := range group.endpoints {
 			if method.Request != nil {
 				i(reflect.TypeOf(method.Request).Elem().PkgPath())
 			}
@@ -102,7 +102,7 @@ func (a *API) generateGo() ([]byte, error) {
 
 	for _, group := range a.EndpointGroups {
 		p("type %sService interface {", group.Name)
-		for _, e := range group.Endpoints {
+		for _, e := range group.endpoints {
 			var params string
 			for _, param := range e.Params {
 				params += param.Type.String() + ", "
@@ -146,9 +146,9 @@ func (a *API) generateGo() ([]byte, error) {
 		p("}")
 		p("")
 		p("%sRouter := router.PathPrefix(\"/api/v0/%s\").Subrouter()", group.Prefix, group.Prefix)
-		for pathMethod, endpoint := range group.Endpoints {
+		for _, endpoint := range group.endpoints {
 			handlerName := "handle" + endpoint.MethodName
-			p("%sRouter.HandleFunc(\"%s\", handler.%s).Methods(\"%s\")", group.Prefix, pathMethod.Path, handlerName, pathMethod.Method)
+			p("%sRouter.HandleFunc(\"%s\", handler.%s).Methods(\"%s\")", group.Prefix, endpoint.Path, handlerName, endpoint.Method)
 		}
 		p("")
 		p("return handler")
@@ -157,7 +157,7 @@ func (a *API) generateGo() ([]byte, error) {
 	}
 
 	for _, group := range a.EndpointGroups {
-		for pathMethod, endpoint := range group.Endpoints {
+		for _, endpoint := range group.endpoints {
 			i("net/http")
 			p("")
 			handlerName := "handle" + endpoint.MethodName
@@ -182,7 +182,7 @@ func (a *API) generateGo() ([]byte, error) {
 				p("")
 			}
 
-			switch pathMethod.Method {
+			switch endpoint.Method {
 			case http.MethodGet:
 				for _, param := range endpoint.Params {
 					switch param.Type {
@@ -224,7 +224,7 @@ func (a *API) generateGo() ([]byte, error) {
 				methodFormat = "httpErr := h.service.%s(ctx, "
 			}
 
-			switch pathMethod.Method {
+			switch endpoint.Method {
 			case http.MethodGet:
 				for _, methodParam := range endpoint.Params {
 					methodFormat += methodParam.Name + ", "
