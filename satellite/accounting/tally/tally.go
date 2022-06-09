@@ -228,6 +228,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 		monAccounting.IntVal("total_objects").Observe(total.ObjectCount) //mon:locked
 		monAccounting.IntVal("total_segments").Observe(total.Segments()) //mon:locked
 		monAccounting.IntVal("total_bytes").Observe(total.Bytes())       //mon:locked
+		monAccounting.IntVal("total_pending_objects").Observe(total.PendingObjectCount)
 	}
 
 	// return errors if something went wrong.
@@ -308,6 +309,9 @@ func (observer *BucketTallyCollector) object(ctx context.Context, object metabas
 	bucket.TotalBytes += object.TotalEncryptedSize
 	bucket.MetadataSize += int64(object.EncryptedMetadataSize)
 	bucket.ObjectCount++
+	if object.Status == metabase.Pending {
+		bucket.PendingObjectCount++
+	}
 
 	return nil
 }

@@ -25,9 +25,9 @@
             </div>
             <div class="usage-charges-item-container__detailed-info-container__content-area">
                 <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
-                    <p>Storage (${{ storagePrice }} per Gigabyte-Month)</p>
-                    <p>Egress (${{ egressPrice }} per GB)</p>
-                    <p>Segments (${{ segmentPrice }} per Segment-Month)</p>
+                    <p>Storage <span class="price-per-month">(${{ storagePrice }} per Gigabyte-Month)</span></p>
+                    <p>Egress <span class="price-per-month">(${{ egressPrice }} per GB)</span></p>
+                    <p>Segments <span class="price-per-month">(${{ segmentPrice }} per Segment-Month)</span></p>
                 </div>
                 <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
                     <p>{{ period }}</p>
@@ -409,14 +409,28 @@ export default class UsageAndChargesItem extends Vue {
         text-align: right;
     }
 
-    @media only screen and (max-width: 750px) {
+    @media only screen and (max-width: 1040px) {
+        .price-per-month{
+            display: none;
+        }
+
+        .usage-charges-item-container__detailed-info-container__content-area__resource-container, .resource-header, .usage-charges-item-container__detailed-info-container__content-area__cost-container, .cost-header {
+            width: 15%;
+        }
+
+        .usage-charges-item-container__detailed-info-container__content-area__period-container, .period-header, .usage-charges-item-container__detailed-info-container__content-area__usage-container, .usage-header {
+            width: 25%;
+        }
+
+    }
+
+        @media only screen and (max-width: 625px) {
         .usage-charges-item-container__detailed-info-container__content-area__period-container, .period-header,         .usage-charges-item-container__detailed-info-container__content-area__usage-container, .usage-header{
             display: none;
         }
-        .usage-charges-item-container__detailed-info-container__content-area__resource-container {
-            width: 80%;
+        .usage-charges-item-container__detailed-info-container__content-area__resource-container,        .usage-charges-item-container__detailed-info-container__content-area__cost-container {
+            width: auto;
         }
-
     }
 
     @media only screen and (max-width: 507px) {

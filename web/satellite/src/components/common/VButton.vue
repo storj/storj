@@ -15,12 +15,14 @@
             <LockIcon v-if="icon.toLowerCase() === 'lock'" />
             <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
             <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
+            <TrashIcon v-if="icon.toLowerCase() === 'trash'"/>
             <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
@@ -39,6 +41,7 @@ import { component } from 'vue/types/umd';
         LockIcon,
         CreditCardIcon,
         DocumentIcon,
+        TrashIcon
     },
 })
 export default class VButton extends Vue {
@@ -220,6 +223,10 @@ export default class VButton extends Vue {
         justify-content: center;
         background-color: #0149ff;
         cursor: pointer;
+
+        .trash-icon {
+            margin-right: 5px;
+        }
 
         .greenCheck {
             color: #00ac26 !important;

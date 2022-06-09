@@ -5,6 +5,7 @@ package contact
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -68,10 +69,14 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, errCheckInIdentity.New("failed to add peer identity entry for ID: %v", err).Error())
 	}
 
-	resolvedIPPort, resolvedNetwork, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
+	resolvedIP, port, resolvedNetwork, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
 		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
+	}
+	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || resolvedIP.IsPrivate()) {
+		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
 	}
 
 	nodeurl := storj.NodeURL{
@@ -102,7 +107,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 		},
 		LastNet:    resolvedNetwork,
-		LastIPPort: resolvedIPPort,
+		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),
 		IsUp:       pingNodeSuccess,
 		Capacity:   req.Capacity,
 		Operator:   req.Operator,
@@ -155,6 +160,16 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 	nodeURL := storj.NodeURL{
 		ID:      nodeID,
 		Address: req.Address,
+	}
+
+	resolvedIP, _, _, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
+	if err != nil {
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
+	}
+	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || resolvedIP.IsPrivate()) {
+		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
 	}
 
 	if endpoint.service.timeout > 0 {

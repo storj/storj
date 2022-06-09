@@ -8,7 +8,7 @@
             <div class="total-cost__card-container">
                 <div class="total-cost__card">
                     <EstimatedChargesIcon class="total-cost__card__main-icon"/>
-                    <p class="total-cost__card__money-text">${{ estimatedCharges }}</p>
+                    <p class="total-cost__card__money-text">${{ EstimatedTotat }}</p>
                     <p class="total-cost__card__label-text">Total Estimated Charges 
                         <img 
                             src="@/../static/images/common/smallGreyWhiteInfo.png"
@@ -73,6 +73,7 @@ export default class BillingArea extends Vue {
     public availableBalance: number = 0;
     public showChargesTooltip: boolean = false;
     public isDataFetching = true;
+    public charges = this.projectUsageAndCharges;
 
     /**
      * Lifecycle hook after initial render.
@@ -93,11 +94,6 @@ export default class BillingArea extends Vue {
         } catch (error) {
             await this.$notify.error(error.message);
         }
-
-        let total = 0
-        for (let i in this.projectUsageAndCharges) {
-            console.log(i)
-        }
     }
 
     /**
@@ -115,14 +111,18 @@ export default class BillingArea extends Vue {
         return this.$store.state.paymentsModule.usageAndCharges;
     }
 
-    public estimatedTotalCharges(): string {
-        let total = 0
-        for (let i in this.projectUsageAndCharges) {
-            console.log('usage: ', i)
-        }
-        return 'test'
-        
-    }
+    /**
+     * Returns total cost.
+     */
+    // private EstimatedTotal(): void {
+    //     let total = 0;
+    //     for (let i = 0; i < this.projectUsageAndCharges.length; i++) {
+    //         let x = i.egressPrice + i.segmentPrice + i.storagePrice;
+    //         total = total + x;
+    //     }
+    //     console.log('estimated total: ', total)
+    //     return total;
+    // }
 
 }
 </script>

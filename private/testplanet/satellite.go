@@ -523,7 +523,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
-	err = metabaseDB.MigrateToLatest(ctx)
+	err = metabaseDB.TestMigrateToLatest(ctx)
 	if err != nil {
 		return nil, err
 	}
