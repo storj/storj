@@ -29,25 +29,23 @@
                     
                     <div class="payments-area__container__token__balance-container">
                         <p class="payments-area__container__token__balance-container__label">Total Balance</p>
-                        <span class="payments-area__container__token__balance-amount">USD $ {{ balanceAmount }}</span>
+                        <span class="payments-area__container__token__balance-container__text">USD ${{ balanceAmount }}</span>
                     </div>
-                    <div class="payments-area__container__token__button-container">
-                        <v-button
-                            label='See transactions'
-                            width="auto"
-                            height="30px"
-                            is-transparent="true"
-                            font-size="13px"
-                            class=""
-                        >
-                        <v-button
-                            label='Add funds'
-                            font-size="13px"
-                            width="auto"
-                            height="30px"
-                            class=""
-                        >
-                    </div>
+                    <VButton
+                        label='See transactions'
+                        width="120px"
+                        height="30px"
+                        is-transparent="true"
+                        font-size="13px"
+                        class="payments-area__container__token__transaction-button"
+                    />
+                    <VButton
+                        label='Add funds'
+                        font-size="13px"
+                        width="80px"
+                        height="30px"
+                        class="payments-area__container__token__funds-button"
+                    />
                 </div>
                 <div
                     class="payments-area__container__cards"
@@ -108,22 +106,17 @@ export default class paymentsArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .active-discount {
-        background: #dffff7;
+
+    .Pending {
+        color: #FFA800;
+    }
+
+    .Confirmed {
         color: #00ac26;
     }
 
-    .inactive-discount {
-        background: #ffe1df;
+    .Rejected {
         color: #ac1a00;
-    }
-
-    .active-status {
-        background: #00ac26;
-    }
-
-    .inactive-status {
-        background: #ac1a00;
     }
 
     .payments-area {
@@ -147,13 +140,14 @@ export default class paymentsArea extends Vue {
                 height: 10vw;
                 min-height: 126px;
                 display: grid;
-                grid-template-columns: 2fr 1fr 1fr;
-                grid-template-rows: 1fr 1fr 1fr;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 4fr 1fr 1fr;
                 margin: 0 10px 10px 0;
                 padding: 20px;
                 box-shadow: 0 0 20px rgb(0 0 0 / 4%);
                 background: #fff;
                 overflow: hidden;
+                font-family: sans-serif;
                 &__small-icon{
                     grid-column: 1;
                     grid-row: 1;
@@ -166,7 +160,7 @@ export default class paymentsArea extends Vue {
                     align-items: center;
                 }
                 &__large-icon{
-                    grid-column: 1/3;
+                    grid-column: 1/2;
                     grid-row: 1/3;
                     margin: 0 0 auto 0;
                     position: relative;
@@ -179,14 +173,57 @@ export default class paymentsArea extends Vue {
                     grid-column: 1;
                     grid-row: 2;
                     z-index: 3;
+                    display: grid;
+                    grid-template-columns: 1fr 6fr;
+                    grid-template-rows: 1fr 1fr;
+                    &__label{
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #56606D;
+                        grid-column: 1/ span 2;
+                        grid-row: 1;
+                        margin: auto 0 0 0;
+                    }
+                    &__circle-icon{
+                        grid-column: 1;
+                        grid-row: 2;
+                        margin: auto;
+                    }
+                    &__text{
+                        font-size: 16px;
+                        font-weight: 700;
+                        grid-column: 2;
+                        grid-row: 2;
+                        margin: auto 0;
+                    }
                 }
                 &__balance-container {
                     grid-column: 2;
                     grid-row: 2;
                     z-index: 3;
+                    display: grid;
+                    grid-template-rows: 1fr 1fr;
+                    &__label{
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #56606D;
+                        grid-row: 1;
+                        margin: auto 0 0 0;
+                    }
+                    &__text{
+                        font-size: 16px;
+                        font-weight: 700;
+                        grid-row: 2;
+                        margin: auto 0;
+                    }
                 }
-                &__button-container{
-                    grid-column: 1/3;
+                &__transaction-button{
+                    grid-column: 1;
+                    grid-row: 4;
+                    z-index: 3;
+                }
+                &__funds-button{
+                    grid-column: 2;
                     grid-row: 4;
                     z-index: 3;
                 }
