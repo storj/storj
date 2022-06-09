@@ -13,7 +13,7 @@
         </template>
         <template #content class="permissions">
             <p class="permissions__msg">Access Grants are keys that allow access to upload, delete, and view your project’s data.</p>
-            <HeaderedInput
+            <VInput
                 label="Access Grant Name"
                 placeholder="Enter a name here..."
                 :error="errorMessage"
@@ -33,7 +33,7 @@ import { ACCESS_GRANTS_ACTIONS} from "@/store/modules/accessGrants";
 import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import HeaderedInput from "@/components/common/HeaderedInput.vue";
+import VInput from "@/components/common/VInput.vue";
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
@@ -41,7 +41,7 @@ import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 @Component({
     components: {
         CLIFlowContainer,
-        HeaderedInput,
+        VInput,
         Icon,
     }
 })

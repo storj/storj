@@ -377,7 +377,7 @@ export default class ProjectSelection extends Vue {
             font-weight: 600;
         }
 
-        svg path {
+        svg ::v-deep path {
             fill: #0149ff;
         }
     }

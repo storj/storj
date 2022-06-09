@@ -613,11 +613,8 @@ export default class NewProjectDashboard extends Vue {
             margin-right: 9px;
         }
 
-        &:hover {
-
-            svg path {
-                fill: #fff;
-            }
+        &:hover svg ::v-deep path {
+            fill: #fff;
         }
     }
 

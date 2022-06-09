@@ -38,7 +38,7 @@
                 <template v-else>
                     <p class="reset-area__content-area__container__message">Please enter your new password.</p>
                     <div class="reset-area__content-area__container__input-wrapper password">
-                        <HeaderlessInput
+                        <VInput
                             label="Password"
                             placeholder="Enter Password"
                             :error="passwordError"
@@ -53,7 +53,7 @@
                         />
                     </div>
                     <div class="reset-area__content-area__container__input-wrapper">
-                        <HeaderlessInput
+                        <VInput
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
@@ -78,7 +78,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
@@ -96,7 +96,7 @@ import { MetaUtils } from '@/utils/meta';
 @Component({
     components: {
         LogoIcon,
-        HeaderlessInput,
+        VInput,
         PasswordStrength,
         KeyIcon,
         ConfirmMFAInput,

@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -21,13 +21,14 @@
             v-if="isMultiline"
             :id="label"
             v-model="value"
-            class="headered-textarea"
+            class="textarea"
             :placeholder="placeholder"
             :style="style.inputStyle"
             :rows="5"
             :cols="40"
+            :maxlength="maxSymbols"
+            :disabled="disabled"
             wrap="hard"
-            :disabled="isDisabled"
             @input="onInput"
             @change="onInput"
         />
@@ -35,33 +36,50 @@
             v-if="!isMultiline"
             :id="label"
             v-model="value"
-            class="headered-input"
+            class="input"
             :placeholder="placeholder"
-            :type="[isPassword ? 'password': 'text']"
+            :type="type"
             :style="style.inputStyle"
-            :disabled="isDisabled"
+            :maxlength="maxSymbols"
+            :disabled="disabled"
             @input="onInput"
             @change="onInput"
+            @focus="showPasswordStrength"
+            @blur="hidePasswordStrength"
         >
+
+        <!--2 conditions of eye image (crossed or not) -->
+        <PasswordHiddenIcon
+            v-if="isPasswordHiddenState"
+            class="input-container__image"
+            @click="changeVision"
+        />
+        <PasswordShownIcon
+            v-if="isPasswordShownState"
+            class="input-container__image"
+            @click="changeVision"
+        />
+        <!-- end of image-->
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import PasswordHiddenIcon from '@/../static/images/common/passwordHidden.svg';
+import PasswordShownIcon from '@/../static/images/common/passwordShown.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 
-import HeaderlessInput from './HeaderlessInput.vue';
-
-// Custom input component with labeled header
 // @vue/component
 @Component({
     components: {
         ErrorIcon,
+        PasswordHiddenIcon,
+        PasswordShownIcon,
     },
 })
 // TODO: merge these two components to have one single source of truth.
-export default class HeaderedInput extends HeaderlessInput {
+export default class VInput extends Vue {
     @Prop({default: ''})
     private readonly additionalLabel: string;
     @Prop({default: 0})
@@ -74,6 +92,96 @@ export default class HeaderedInput extends HeaderlessInput {
     private readonly isMultiline: boolean;
     @Prop({default: false})
     private readonly isLoading: boolean;
+    @Prop({default: ''})
+    protected readonly initValue: string;
+    @Prop({default: ''})
+    protected readonly label: string;
+    @Prop({default: 'default'})
+    protected readonly placeholder: string;
+    @Prop({default: false})
+    protected readonly isPassword: boolean;
+    @Prop({default: '48px'})
+    protected readonly height: string;
+    @Prop({default: '100%'})
+    protected readonly width: string;
+    @Prop({default: ''})
+    protected readonly error: string;
+    @Prop({default: Number.MAX_SAFE_INTEGER})
+    protected readonly maxSymbols: number;
+    @Prop({default: false})
+    private readonly isWhite: boolean;
+    @Prop({default: false})
+    private readonly withIcon: boolean;
+    @Prop({default: false})
+    private readonly disabled: boolean;
+    @Prop({default: 'input-container'})
+    private readonly roleDescription: boolean;
+
+    private readonly textType: string = 'text';
+    private readonly passwordType: string = 'password';
+
+    private type: string = this.textType;
+    private isPasswordShown = false;
+
+    public value: string;
+
+    public created() {
+        this.type = this.isPassword ? this.passwordType : this.textType;
+        this.value = this.initValue;
+    }
+
+    public showPasswordStrength(): void {
+        this.$emit('showPasswordStrength');
+    }
+
+    public hidePasswordStrength(): void {
+        this.$emit('hidePasswordStrength');
+    }
+
+    /**
+     * triggers on input.
+     */
+    public onInput(event: Event): void {
+        const target = event.target as HTMLInputElement;
+        this.value = target.value;
+
+        this.$emit('setData', this.value);
+    }
+
+    /**
+     * Triggers input type between text and password to show/hide symbols.
+     */
+    public changeVision(): void {
+        this.isPasswordShown = !this.isPasswordShown;
+        this.type = this.isPasswordShown ? this.textType : this.passwordType;
+    }
+
+    public get isPasswordHiddenState(): boolean {
+        return this.isPassword && !this.isPasswordShown;
+    }
+
+    public get isPasswordShownState(): boolean {
+        return this.isPassword && this.isPasswordShown;
+    }
+
+    /**
+     * Returns style objects depends on props.
+     */
+    protected get style(): Record<string, unknown> {
+        return {
+            inputStyle: {
+                width: this.width,
+                height: this.height,
+                padding: this.withIcon ? '0 30px 0 50px' : '',
+            },
+            labelStyle: {
+                color: this.isWhite ? 'white' : '#354049',
+            },
+            errorStyle: {
+                color: this.isWhite ? 'white' : '#FF5560',
+            },
+        };
+    }
 }
 </script>
 
@@ -85,6 +193,20 @@ export default class HeaderedInput extends HeaderlessInput {
         margin-top: 10px;
         width: 100%;
         font-family: 'font_regular', sans-serif;
+        position: relative;
+
+        &__image {
+            position: absolute;
+            right: 25px;
+            bottom: 5px;
+            transform: translateY(-50%);
+            z-index: 20;
+            cursor: pointer;
+
+            &:hover .input-container__image__path {
+                fill: #2683ff !important;
+            }
+        }
     }
 
     .label-container {
@@ -139,8 +261,8 @@ export default class HeaderedInput extends HeaderlessInput {
         }
     }
 
-    .headered-input,
-    .headered-textarea {
+    .input,
+    .textarea {
         font-size: 16px;
         line-height: 21px;
         resize: none;
@@ -159,7 +281,7 @@ export default class HeaderedInput extends HeaderlessInput {
         }
     }
 
-    .headered-textarea {
+    .textarea {
         padding: 15px 22px;
         text-indent: 0;
         line-height: 26px;

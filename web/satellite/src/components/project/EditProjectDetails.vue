@@ -214,7 +214,6 @@ import {
 
 import { MetaUtils } from '@/utils/meta';
 
-
 // @vue/component
 @Component({
     components: {

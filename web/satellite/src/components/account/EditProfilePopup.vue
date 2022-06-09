@@ -11,7 +11,7 @@
                     </div>
                     <h2 class="edit-profile-popup__form-container__main-label-text">Edit Profile</h2>
                 </div>
-                <HeaderedInput
+                <VInput
                     label="Full Name"
                     placeholder="Enter Full Name"
                     :error="fullNameError"
@@ -44,7 +44,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
@@ -57,7 +57,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 @Component({
     components: {
         CloseCrossIcon,
-        HeaderedInput,
+        VInput,
         VButton,
     },
 })

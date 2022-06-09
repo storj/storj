@@ -42,7 +42,7 @@
                         </p>
                     </div>
                     <div class="login-area__input-wrapper">
-                        <HeaderlessInput
+                        <VInput
                             label="Email Address"
                             placeholder="user@example.com"
                             :error="emailError"
@@ -51,7 +51,7 @@
                         />
                     </div>
                     <div class="login-area__input-wrapper">
-                        <HeaderlessInput
+                        <VInput
                             label="Password"
                             placeholder="Password"
                             :error="passwordError"
@@ -102,7 +102,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 
 import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
@@ -128,7 +128,7 @@ interface ClearInput {
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
+        VInput,
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,

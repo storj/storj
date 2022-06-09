@@ -15,7 +15,7 @@
                         Buckets are used to store your files. It’s recommended that every bucket should have it’s own encryption passphrase.
                     </p>
                 </div>
-                <headered-input
+                <v-input
                     label="Bucket Name"
                     placeholder="Enter a name here..."
                     :error="nameError"
@@ -53,7 +53,7 @@ import { Validator } from "@/utils/validation";
 import { LocalData } from "@/utils/localData";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from "@/components/common/VLoader.vue";
 
@@ -62,7 +62,7 @@ import BucketIcon from "@/../static/images/objects/bucketCreation.svg";
 // @vue/component
 @Component({
     components: {
-        HeaderedInput,
+        VInput,
         VButton,
         BucketIcon,
         VLoader,

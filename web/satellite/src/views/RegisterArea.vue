@@ -69,7 +69,7 @@
                         </ul>
                     </div>
                     <div class="register-area__input-wrapper first-input">
-                        <HeaderlessInput
+                        <VInput
                             label="Full Name"
                             placeholder="Enter Full Name"
                             :error="fullNameError"
@@ -78,7 +78,7 @@
                         />
                     </div>
                     <div class="register-area__input-wrapper">
-                        <HeaderlessInput
+                        <VInput
                             label="Email Address"
                             placeholder="user@example.com"
                             :error="emailError"
@@ -88,7 +88,7 @@
                     </div>
                     <div v-if="isProfessional">
                         <div class="register-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Company Name"
                                 placeholder="Acme Corp."
                                 :error="companyNameError"
@@ -97,7 +97,7 @@
                             />
                         </div>
                         <div class="register-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Position"
                                 placeholder="Position Title"
                                 :error="positionError"
@@ -115,7 +115,7 @@
                     </div>
                     <div class="register-input">
                         <div class="register-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Password"
                                 placeholder="Enter Password"
                                 :error="passwordError"
@@ -132,7 +132,7 @@
                         </div>
                     </div>
                     <div class="register-area__input-wrapper">
-                        <HeaderlessInput
+                        <VInput
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
@@ -230,7 +230,7 @@ import VueRecaptcha from 'vue-recaptcha';
 import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import SelectInput from '@/components/common/SelectInput.vue';
 
@@ -251,7 +251,7 @@ import { Validator } from '@/utils/validation';
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
+        VInput,
         BottomArrowIcon,
         ErrorIcon,
         SelectedCheckIcon,
@@ -308,7 +308,6 @@ export default class RegisterArea extends Vue {
 
     // Employee Count dropdown options
     public employeeCountOptions = ['1-50', '51-1000', '1001+'];
-    public optionsShown = false;
 
     public readonly loginPath: string = RouteConfig.Login.path;
 
@@ -384,13 +383,6 @@ export default class RegisterArea extends Vue {
     public onLogoClick(): void {
         const homepageURL = MetaUtils.getMetaContent('homepage-url');
         window.location.href = homepageURL;
-    }
-
-    /**
-     * Changes location to login route.
-     */
-    public onLoginClick(): void {
-        this.$router.push(RouteConfig.Login.path);
     }
 
     /**

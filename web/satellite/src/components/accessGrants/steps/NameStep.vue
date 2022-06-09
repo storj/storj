@@ -5,7 +5,7 @@
     <div class="name-step" :class="{ 'border-radius': isOnboardingTour }">
         <h1 class="name-step__title" aria-roledescription="name-ag-title">Name Your Access Grant</h1>
         <p class="name-step__sub-title">Enter a name for your new Access grant to get started.</p>
-        <HeaderedInput
+        <VInput
             label="Access Grant Name"
             placeholder="Enter a name here..."
             :error="errorMessage"
@@ -36,7 +36,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
@@ -47,7 +47,7 @@ import { AccessGrant } from '@/types/accessGrants';
 // @vue/component
 @Component({
     components: {
-        HeaderedInput,
+        VInput,
         VButton,
     },
 })

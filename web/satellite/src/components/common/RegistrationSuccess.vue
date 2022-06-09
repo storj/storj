@@ -30,7 +30,7 @@
                         width="450px"
                         height="50px"
                         :on-press="onResendEmailButtonClick"
-                        :is-disabled="secondsToWait != 0"
+                        :is-disabled="secondsToWait !== 0"
                     />
                 </div>
                 <p class="register-success-area__form-container__contact">
