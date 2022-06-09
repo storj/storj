@@ -100,12 +100,14 @@ export default class AddCouponCode extends Vue {
             align-items: center;
             flex-direction: column;
             height: 150px;
-            &__title{
+
+            &__title {
                 font-family: sans-serif;
                 font-weight: 800;
                 text-align: center;
             }
-            &__text{
+
+            &__text {
                 font-family: sans-serif;
                 text-align: center;
             }

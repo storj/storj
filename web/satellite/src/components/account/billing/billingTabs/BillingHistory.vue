@@ -3,14 +3,13 @@
 
 <template>
     <div>
-       Billing History
+        Billing History
         <router-view />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { RouteConfig } from '@/router';
 
 // @vue/component
 @Component({
@@ -23,5 +22,5 @@ export default class BillingArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-    
+
 </style>

@@ -131,13 +131,13 @@ export default class AddCouponCodeInput extends Vue {
 
         &__input-wrapper {
             position: relative;
-            margin: 30px 0 10px 0;
+            margin: 30px 0 10px;
 
             &__label {
                 font-family: sans-serif;
                 font-weight: 700;
                 font-size: 14px;
-                color: #56606D;
+                color: #56606d;
                 margin-top: -15px;
             }
         }
