@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -ueo pipefail
-set +x
+set -x
 
 cleanup(){
     ret=$?
