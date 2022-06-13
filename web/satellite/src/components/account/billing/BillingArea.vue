@@ -33,7 +33,7 @@
                     <p>Coupons</p>
                 </div>      
             </div>
-            <div class="account-billing-area__divider"></div>
+            <div class="account-billing-area__divider" />
             <router-view />
         </div>
         <div v-if="isNewBillingScreen">
@@ -370,16 +370,17 @@ export default class BillingArea extends Vue {
             align-content: center;
             justify-content: space-between;
             padding-top: 25px;
+
             &__tab {
                 font-family: sans-serif;
-                color: #56606D;
+                color: #56606d;
                 font-size: 16px;
                 height: auto;
                 width: auto;
                 transition-duration: 50ms;
             }
 
-            &__tab:hover{
+            &__tab:hover {
                 border-bottom: 5px solid black;
                 cursor: pointer;
             }

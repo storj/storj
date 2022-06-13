@@ -178,6 +178,9 @@ func (a *API) generateGo() ([]byte, error) {
 					p("ctx, err = h.auth.IsAuthenticated(ctx, r, true, false)")
 				}
 				p("if err != nil {")
+				if !endpoint.NoCookieAuth {
+					p("h.auth.RemoveAuthCookie(w)")
+				}
 				p("api.ServeError(h.log, w, http.StatusUnauthorized, err)")
 				p("return")
 				p("}")

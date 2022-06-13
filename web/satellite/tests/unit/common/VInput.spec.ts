@@ -1,21 +1,21 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VInput from '@/components/common/VInput.vue';
 
 import { mount, shallowMount } from '@vue/test-utils';
 
-describe('HeaderedInput.vue', () => {
+describe('VInput.vue', () => {
     it('renders correctly with default props', () => {
 
-        const wrapper = shallowMount(HeaderedInput);
+        const wrapper = shallowMount(VInput);
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with isMultiline props', () => {
 
-        const wrapper = shallowMount(HeaderedInput, {
+        const wrapper = shallowMount(VInput, {
             propsData: {isMultiline: true},
         });
 
@@ -30,7 +30,7 @@ describe('HeaderedInput.vue', () => {
         const width = '30px';
         const height = '20px';
 
-        const wrapper = shallowMount(HeaderedInput, {
+        const wrapper = shallowMount(VInput, {
             propsData: {label, width, height, additionalLabel},
         });
 
@@ -44,7 +44,7 @@ describe('HeaderedInput.vue', () => {
 
     it('renders correctly with isOptional props', () => {
 
-        const wrapper = shallowMount(HeaderedInput, {
+        const wrapper = shallowMount(VInput, {
             propsData: {
                 isOptional: true,
             },
@@ -56,7 +56,7 @@ describe('HeaderedInput.vue', () => {
     it('renders correctly with input error', () => {
         const error = 'testError';
 
-        const wrapper = shallowMount(HeaderedInput, {
+        const wrapper = shallowMount(VInput, {
             propsData: {
                 error,
             },
@@ -69,7 +69,7 @@ describe('HeaderedInput.vue', () => {
     it('emit setData on input correctly', async () => {
         const testData = 'testData';
 
-        const wrapper = mount(HeaderedInput);
+        const wrapper = mount(VInput);
 
         await wrapper.find('input').trigger('input');
 

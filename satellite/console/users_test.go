@@ -380,7 +380,7 @@ func TestGetUnverifiedNeedingReminder(t *testing.T) {
 			// Since we have no control over `created_at` (it's autoinserted) we will instead pass in a future time
 			// as the `now` argument to `GetUnverifiedNeedingReminder`
 			futureTime := now.Add(time.Duration(i*24) * time.Hour)
-			needReminder, err := db.GetUnverifiedNeedingReminder(ctx, futureTime.Add(-config.FirstVerificationReminder), futureTime.Add(-config.SecondVerificationReminder))
+			needReminder, err := db.GetUnverifiedNeedingReminder(ctx, futureTime.Add(-config.FirstVerificationReminder), futureTime.Add(-config.SecondVerificationReminder), now.Add(-time.Hour))
 			require.NoError(t, err)
 
 			// These are the conditions in the SQL query which selects users needing reminder

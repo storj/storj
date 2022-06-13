@@ -85,7 +85,7 @@ compensation.rates.put-tb: "0"
 # comma separated monthly withheld percentage rates
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
-# expiration time for auth tokens, account recovery tokens, and activation tokens
+# expiration time for account recovery and activation tokens
 # console-auth.token-expiration-time: 24h0m0s
 
 # url link for account activation redirect
@@ -243,6 +243,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
+
+# duration a session is valid for
+# console.session-duration: 168h0m0s
 
 # path to static resources
 # console.static-dir: ""

@@ -221,7 +221,7 @@ export default class NotificationsArea extends Vue {
         background-color: var(--disabled-background-color);
         pointer-events: none;
 
-        .notifications-container__header__button__svg path {
+        .notifications-container__header__button__svg ::v-deep path {
             fill: #979ba7 !important;
         }
 

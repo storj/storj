@@ -15,7 +15,6 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
 )
 
 // UUIDAuthorizeGenerate generates an auth code using Storj's uuid.
@@ -65,13 +64,7 @@ func (a *MacaroonAccessGenerate) apiKeyForProject(ctx context.Context, data *oau
 		return nil, err
 	}
 
-	ctx = console.WithAuth(ctx, console.Authorization{
-		User: *user,
-		Claims: consoleauth.Claims{
-			ID:    user.ID,
-			Email: user.Email,
-		},
-	})
+	ctx = console.WithUser(ctx, user)
 
 	oauthClient := data.Client.(OAuthClient)
 	name := oauthClient.AppName + " / " + oauthClient.ID.String()

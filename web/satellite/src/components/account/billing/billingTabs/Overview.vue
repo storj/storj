@@ -4,11 +4,14 @@
 <template>
     <div>
         <div class="total-cost">
-            <h3 class="total-cost__title">Total Cost</h3>
+            <div class="total-cost__header-container"> 
+                <h3 class="total-cost__header-container__title">Total Cost</h3>
+                <div class="total-cost__header-container__date"><CalendarIcon />&nbsp;&nbsp;{{ currentDate }}</div>
+            </div>
             <div class="total-cost__card-container">
-                <!-- <div class="total-cost__card">
+                <div class="total-cost__card">
                     <EstimatedChargesIcon class="total-cost__card__main-icon"/>
-                    <p class="total-cost__card__money-text">${{ EstimatedTotat }}</p>
+                    <p class="total-cost__card__money-text">{{ priceSummary | centsToDollars }}</p>
                     <p class="total-cost__card__label-text">Total Estimated Charges 
                         <img 
                             src="@/../static/images/common/smallGreyWhiteInfo.png"
@@ -20,15 +23,23 @@
                         v-if="showChargesTooltip"
                         class="total-cost__card__charges-tooltip"
                     >
-                        <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Bandwidth remaining in your free tier, you won't be charged. This information is to help you estimate what charges would have been had you graduated to the paid tier.</span>
+                        <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Bandwidth remaining in your free tier, you won't be charged. This information is to help you estimate what the charges would have been had you graduated to the paid tier.</span>
                     </div>
-                    <p class="total-cost__card__link-text">View Billing History →</p>
-                </div> -->
+                    <p class="total-cost__card__link-text"
+                    @click="routeToBillingHistory"
+                    >
+                        View Billing History →
+                    </p>
+                </div>
                 <div class="total-cost__card">
                     <AvailableBalanceIcon class="total-cost__card__main-icon"/>
                     <p class="total-cost__card__money-text">{{ balance.coins | centsToDollars }}</p>
                     <p class="total-cost__card__label-text">Available Balance</p>
-                    <p class="total-cost__card__link-text">View Payment Methods →</p>
+                    <p class="total-cost__card__link-text"
+                    @click="routeToPaymentMethods"
+                    >
+                        View Payment Methods →
+                    </p>
                 </div>
             </div>
         </div>
@@ -53,6 +64,7 @@ import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAnd
 
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
+import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
 
 import { AccountBalance } from '@/types/payments';
 import { ProjectUsageAndCharges } from '@/types/payments';
@@ -66,14 +78,18 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
         EstimatedChargesIcon,
         AvailableBalanceIcon,
         UsageAndChargesItem2,
+        CalendarIcon,
     },
 })
 export default class BillingArea extends Vue {
-    public estimatedCharges: number = 0;
+    // public estimatedCharges: number = 0;
     public availableBalance: number = 0;
     public showChargesTooltip: boolean = false;
     public isDataFetching = true;
     public charges = this.projectUsageAndCharges;
+    public currentDate: string = ""
+
+
 
     /**
      * Lifecycle hook after initial render.
@@ -94,6 +110,12 @@ export default class BillingArea extends Vue {
         } catch (error) {
             await this.$notify.error(error.message);
         }
+
+        const rawDate = new Date();
+        let currentYear = rawDate.getFullYear();
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        this.currentDate = `${monthNames[rawDate.getMonth()]} ${currentYear}`
     }
 
     /**
@@ -107,22 +129,23 @@ export default class BillingArea extends Vue {
      * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
      */
     public get projectUsageAndCharges(): ProjectUsageAndCharges[] {
-        console.log('main: ', this.$store.state.paymentsModule.usageAndCharges)
         return this.$store.state.paymentsModule.usageAndCharges;
     }
 
     /**
-     * Returns total cost.
+     * priceSummary returns price summary of usages for all the projects.
      */
-    // private EstimatedTotal(): void {
-    //     let total = 0;
-    //     for (let i = 0; i < this.projectUsageAndCharges.length; i++) {
-    //         let x = i.egressPrice + i.segmentPrice + i.storagePrice;
-    //         total = total + x;
-    //     }
-    //     console.log('estimated total: ', total)
-    //     return total;
-    // }
+    public get priceSummary(): number {
+        return this.$store.state.paymentsModule.priceSummary;
+    }
+
+    public routeToBillingHistory(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
+    }
+
+    public routeToPaymentMethods(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
+    }
 
 }
 </script>
@@ -131,8 +154,25 @@ export default class BillingArea extends Vue {
     .total-cost {
         font-family: sans-serif;
         margin: 20px 0;
-        &__title {
-
+        &__header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            &__date {
+                display: flex;
+                justify-content: space-between;
+                align-items: bottom;
+                color: #56606d;
+                font-weight: 700;
+                font-family: sans-serif;
+                border: 1px solid #D8DEE3;
+                border-radius: 5px;
+                background-color: #fff;
+                height: 15px;
+                width: auto;
+                padding: 10px;
+                box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.08);
+            }
         }
 
         &__card-container {
@@ -142,8 +182,7 @@ export default class BillingArea extends Vue {
         }
 
         &__card {
-            // width: calc(50% - 50px);
-            width: 100%;
+            width: calc(50% - 50px);
             min-width: 188px;
             box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
             border-radius: 10px;

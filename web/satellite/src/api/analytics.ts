@@ -56,4 +56,26 @@ export class AnalyticsHttpApi {
             console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
         }
     }
+
+    /**
+     * Used to notify the satellite about arbitrary page visits that occur.
+     * Does not throw any errors so that expected UI behavior is not interrupted if the API call fails.
+     *
+     * @param pageName - name of the page
+     */
+    public async pageVisit(pageName: string): Promise<void> {
+        try {
+            const path = `${this.ROOT_PATH}/page`;
+            const body = {
+                pageName: pageName,
+            };
+            const response = await this.http.post(path, JSON.stringify(body));
+            if (response.ok) {
+                return;
+            }
+            console.error('Attempted to notify Satellite that ' + pageName + ' occurred. Got bad response status code: ' + response.status);
+        } catch (error) {
+            console.error('Could not notify satellite about ' + pageName + ' event occurrence (most likely blocked by browser).');
+        }
+    }
 }

@@ -5,6 +5,7 @@ package console_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"math"
 	"math/big"
@@ -24,7 +25,6 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
 )
 
 func TestService(t *testing.T) {
@@ -46,20 +46,20 @@ func TestService(t *testing.T) {
 			require.NotEqual(t, up1Pro1.ID, up2Pro1.ID)
 			require.NotEqual(t, up1Pro1.OwnerID, up2Pro1.OwnerID)
 
-			authCtx1, err := sat.AuthenticatedContext(ctx, up1Pro1.OwnerID)
+			userCtx1, err := sat.UserContext(ctx, up1Pro1.OwnerID)
 			require.NoError(t, err)
 
-			authCtx2, err := sat.AuthenticatedContext(ctx, up2Pro1.OwnerID)
+			userCtx2, err := sat.UserContext(ctx, up2Pro1.OwnerID)
 			require.NoError(t, err)
 
 			t.Run("TestGetProject", func(t *testing.T) {
 				// Getting own project details should work
-				project, err := service.GetProject(authCtx1, up1Pro1.ID)
+				project, err := service.GetProject(userCtx1, up1Pro1.ID)
 				require.NoError(t, err)
 				require.Equal(t, up1Pro1.ID, project.ID)
 
 				// Getting someone else project details should not work
-				project, err = service.GetProject(authCtx1, up2Pro1.ID)
+				project, err = service.GetProject(userCtx1, up2Pro1.ID)
 				require.Error(t, err)
 				require.Nil(t, project)
 			})
@@ -75,17 +75,17 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.False(t, user.PaidTier)
 				// get context
-				authCtx1, err := sat.AuthenticatedContext(ctx, user.ID)
+				userCtx1, err := sat.UserContext(ctx, user.ID)
 				require.NoError(t, err)
 				// add a credit card to put the user in the paid tier
-				err = service.Payments().AddCreditCard(authCtx1, "test-cc-token")
+				err = service.Payments().AddCreditCard(userCtx1, "test-cc-token")
 				require.NoError(t, err)
 				// update auth ctx
-				authCtx1, err = sat.AuthenticatedContext(ctx, user.ID)
+				userCtx1, err = sat.UserContext(ctx, user.ID)
 				require.NoError(t, err)
 
 				// Updating own project should work
-				updatedProject, err := service.UpdateProject(authCtx1, up1Pro1.ID, console.ProjectInfo{
+				updatedProject, err := service.UpdateProject(userCtx1, up1Pro1.ID, console.ProjectInfo{
 					Name:           updatedName,
 					Description:    updatedDescription,
 					StorageLimit:   updatedStorageLimit,
@@ -102,7 +102,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.BandwidthLimit)
 
 				// Updating someone else project details should not work
-				updatedProject, err = service.UpdateProject(authCtx1, up2Pro1.ID, console.ProjectInfo{
+				updatedProject, err = service.UpdateProject(userCtx1, up2Pro1.ID, console.ProjectInfo{
 					Name:           "newName",
 					Description:    "TestUpdate",
 					StorageLimit:   memory.Size(100),
@@ -127,7 +127,7 @@ func TestService(t *testing.T) {
 					StorageLimit:   memory.Size(123),
 					BandwidthLimit: memory.Size(123),
 				}
-				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
+				updatedProject, err = service.UpdateProject(userCtx1, up1Pro1.ID, updateInfo)
 				require.Error(t, err)
 				require.Nil(t, updatedProject)
 
@@ -137,7 +137,7 @@ func TestService(t *testing.T) {
 				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
 				require.NoError(t, err)
 
-				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
+				updatedProject, err = service.UpdateProject(userCtx1, up1Pro1.ID, updateInfo)
 				require.Error(t, err)
 				require.Nil(t, updatedProject)
 
@@ -146,7 +146,7 @@ func TestService(t *testing.T) {
 				err = sat.DB.Console().Projects().Update(ctx, up1Pro1)
 				require.NoError(t, err)
 
-				updatedProject, err = service.UpdateProject(authCtx1, up1Pro1.ID, updateInfo)
+				updatedProject, err = service.UpdateProject(userCtx1, up1Pro1.ID, updateInfo)
 				require.NoError(t, err)
 				require.Equal(t, updateInfo.Name, updatedProject.Name)
 				require.Equal(t, updateInfo.Description, updatedProject.Description)
@@ -155,7 +155,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, updateInfo.StorageLimit, *updatedProject.StorageLimit)
 				require.Equal(t, updateInfo.BandwidthLimit, *updatedProject.BandwidthLimit)
 
-				project, err := service.GetProject(authCtx1, up1Pro1.ID)
+				project, err := service.GetProject(userCtx1, up1Pro1.ID)
 				require.NoError(t, err)
 				require.Equal(t, updateInfo.StorageLimit, *project.StorageLimit)
 				require.Equal(t, updateInfo.BandwidthLimit, *project.BandwidthLimit)
@@ -163,69 +163,69 @@ func TestService(t *testing.T) {
 
 			t.Run("TestAddProjectMembers", func(t *testing.T) {
 				// Adding members to own project should work
-				addedUsers, err := service.AddProjectMembers(authCtx1, up1Pro1.ID, []string{up2User.Email})
+				addedUsers, err := service.AddProjectMembers(userCtx1, up1Pro1.ID, []string{up2User.Email})
 				require.NoError(t, err)
 				require.Len(t, addedUsers, 1)
 				require.Contains(t, addedUsers, up2User)
 
 				// Adding members to someone else project should not work
-				addedUsers, err = service.AddProjectMembers(authCtx1, up2Pro1.ID, []string{up2User.Email})
+				addedUsers, err = service.AddProjectMembers(userCtx1, up2Pro1.ID, []string{up2User.Email})
 				require.Error(t, err)
 				require.Nil(t, addedUsers)
 			})
 
 			t.Run("TestGetProjectMembers", func(t *testing.T) {
 				// Getting the project members of an own project that one is a part of should work
-				userPage, err := service.GetProjectMembers(authCtx1, up1Pro1.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
+				userPage, err := service.GetProjectMembers(userCtx1, up1Pro1.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
 				require.NoError(t, err)
 				require.Len(t, userPage.ProjectMembers, 2)
 
 				// Getting the project members of a foreign project that one is a part of should work
-				userPage, err = service.GetProjectMembers(authCtx2, up1Pro1.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
+				userPage, err = service.GetProjectMembers(userCtx2, up1Pro1.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
 				require.NoError(t, err)
 				require.Len(t, userPage.ProjectMembers, 2)
 
 				// Getting the project members of a foreign project that one is not a part of should not work
-				userPage, err = service.GetProjectMembers(authCtx1, up2Pro1.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
+				userPage, err = service.GetProjectMembers(userCtx1, up2Pro1.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
 				require.Error(t, err)
 				require.Nil(t, userPage)
 			})
 
 			t.Run("TestDeleteProjectMembers", func(t *testing.T) {
 				// Deleting project members of an own project should work
-				err := service.DeleteProjectMembers(authCtx1, up1Pro1.ID, []string{up2User.Email})
+				err := service.DeleteProjectMembers(userCtx1, up1Pro1.ID, []string{up2User.Email})
 				require.NoError(t, err)
 
 				// Deleting Project members of someone else project should not work
-				err = service.DeleteProjectMembers(authCtx1, up2Pro1.ID, []string{up2User.Email})
+				err = service.DeleteProjectMembers(userCtx1, up2Pro1.ID, []string{up2User.Email})
 				require.Error(t, err)
 			})
 
 			t.Run("TestDeleteProject", func(t *testing.T) {
 				// Deleting the own project should not work before deleting the API-Key
-				err := service.DeleteProject(authCtx1, up1Pro1.ID)
+				err := service.DeleteProject(userCtx1, up1Pro1.ID)
 				require.Error(t, err)
 
-				keys, err := service.GetAPIKeys(authCtx1, up1Pro1.ID, console.APIKeyCursor{Page: 1, Limit: 10})
+				keys, err := service.GetAPIKeys(userCtx1, up1Pro1.ID, console.APIKeyCursor{Page: 1, Limit: 10})
 				require.NoError(t, err)
 				require.Len(t, keys.APIKeys, 1)
 
-				err = service.DeleteAPIKeys(authCtx1, []uuid.UUID{keys.APIKeys[0].ID})
+				err = service.DeleteAPIKeys(userCtx1, []uuid.UUID{keys.APIKeys[0].ID})
 				require.NoError(t, err)
 
 				// Deleting the own project should now work
-				err = service.DeleteProject(authCtx1, up1Pro1.ID)
+				err = service.DeleteProject(userCtx1, up1Pro1.ID)
 				require.NoError(t, err)
 
 				// Deleting someone else project should not work
-				err = service.DeleteProject(authCtx1, up2Pro1.ID)
+				err = service.DeleteProject(userCtx1, up2Pro1.ID)
 				require.Error(t, err)
 
 				err = planet.Uplinks[1].CreateBucket(ctx, sat, "testbucket")
 				require.NoError(t, err)
 
 				// deleting a project with a bucket should fail
-				err = service.DeleteProject(authCtx2, up2Pro1.ID)
+				err = service.DeleteProject(userCtx2, up2Pro1.ID)
 				require.Error(t, err)
 				require.Equal(t, "console service: project usage: some buckets still exist", err.Error())
 			})
@@ -233,14 +233,14 @@ func TestService(t *testing.T) {
 			t.Run("TestChangeEmail", func(t *testing.T) {
 				const newEmail = "newEmail@example.com"
 
-				err = service.ChangeEmail(authCtx2, newEmail)
+				err = service.ChangeEmail(userCtx2, newEmail)
 				require.NoError(t, err)
 
-				user, _, err := service.GetUserByEmailWithUnverified(authCtx2, newEmail)
+				user, _, err := service.GetUserByEmailWithUnverified(userCtx2, newEmail)
 				require.NoError(t, err)
 				require.Equal(t, newEmail, user.Email)
 
-				err = service.ChangeEmail(authCtx2, newEmail)
+				err = service.ChangeEmail(userCtx2, newEmail)
 				require.Error(t, err)
 			})
 
@@ -257,19 +257,19 @@ func TestService(t *testing.T) {
 					ProjectID: up2Pro1.ID,
 				}
 
-				_, err := sat.API.Buckets.Service.CreateBucket(authCtx2, bucket1)
+				_, err := sat.API.Buckets.Service.CreateBucket(userCtx2, bucket1)
 				require.NoError(t, err)
 
-				_, err = sat.API.Buckets.Service.CreateBucket(authCtx2, bucket2)
+				_, err = sat.API.Buckets.Service.CreateBucket(userCtx2, bucket2)
 				require.NoError(t, err)
 
-				bucketNames, err := service.GetAllBucketNames(authCtx2, up2Pro1.ID)
+				bucketNames, err := service.GetAllBucketNames(userCtx2, up2Pro1.ID)
 				require.NoError(t, err)
 				require.Equal(t, bucket1.Name, bucketNames[0])
 				require.Equal(t, bucket2.Name, bucketNames[1])
 
 				// Getting someone else buckets should not work
-				bucketsForUnauthorizedUser, err := service.GetAllBucketNames(authCtx1, up2Pro1.ID)
+				bucketsForUnauthorizedUser, err := service.GetAllBucketNames(userCtx1, up2Pro1.ID)
 				require.Error(t, err)
 				require.Nil(t, bucketsForUnauthorizedUser)
 			})
@@ -295,10 +295,10 @@ func TestService(t *testing.T) {
 				require.NotNil(t, info)
 
 				// Deleting someone else api keys should not work
-				err = service.DeleteAPIKeyByNameAndProjectID(authCtx1, apikey.Name, up2Pro1.ID)
+				err = service.DeleteAPIKeyByNameAndProjectID(userCtx1, apikey.Name, up2Pro1.ID)
 				require.Error(t, err)
 
-				err = service.DeleteAPIKeyByNameAndProjectID(authCtx2, apikey.Name, up2Pro1.ID)
+				err = service.DeleteAPIKeyByNameAndProjectID(userCtx2, apikey.Name, up2Pro1.ID)
 				require.NoError(t, err)
 
 				info, err = sat.DB.Console().APIKeys().Get(ctx, createdKey.ID)
@@ -351,11 +351,11 @@ func TestPaidTier(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, user.PaidTier)
 
-		authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
 		// add a credit card to the user
-		err = service.Payments().AddCreditCard(authCtx, "test-cc-token")
+		err = service.Payments().AddCreditCard(userCtx, "test-cc-token")
 		require.NoError(t, err)
 
 		// expect user to be in paid tier
@@ -365,18 +365,18 @@ func TestPaidTier(t *testing.T) {
 		require.Equal(t, usageConfig.Project.Paid, user.ProjectLimit)
 
 		// update auth ctx
-		authCtx, err = sat.AuthenticatedContext(ctx, user.ID)
+		userCtx, err = sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
 		// expect project to be migrated to paid tier usage limits
-		proj1, err = service.GetProject(authCtx, proj1.ID)
+		proj1, err = service.GetProject(userCtx, proj1.ID)
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Paid, *proj1.StorageLimit)
 		require.Equal(t, usageConfig.Bandwidth.Paid, *proj1.BandwidthLimit)
 		require.Equal(t, usageConfig.Segment.Paid, *proj1.SegmentLimit)
 
 		// expect new project to be created with paid tier usage limits
-		proj2, err := service.CreateProject(authCtx, console.ProjectInfo{Name: "Project 2"})
+		proj2, err := service.CreateProject(userCtx, console.ProjectInfo{Name: "Project 2"})
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Paid, *proj2.StorageLimit)
 	})
@@ -395,22 +395,22 @@ func TestMFA(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		getNewAuthorization := func() (context.Context, console.Authorization) {
-			authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+		updateContext := func() (context.Context, *console.User) {
+			userCtx, err := sat.UserContext(ctx, user.ID)
 			require.NoError(t, err)
-			auth, err := console.GetAuth(authCtx)
+			user, err := console.GetUser(userCtx)
 			require.NoError(t, err)
-			return authCtx, auth
+			return userCtx, user
 		}
-		authCtx, auth := getNewAuthorization()
+		userCtx, user := updateContext()
 
 		var key string
 		t.Run("TestResetMFASecretKey", func(t *testing.T) {
-			key, err = service.ResetMFASecretKey(authCtx)
+			key, err = service.ResetMFASecretKey(userCtx)
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			require.NotEmpty(t, auth.User.MFASecretKey)
+			_, user := updateContext()
+			require.NotEmpty(t, user.MFASecretKey)
 		})
 
 		t.Run("TestEnableUserMFABadPasscode", func(t *testing.T) {
@@ -418,15 +418,15 @@ func TestMFA(t *testing.T) {
 			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
 			require.NoError(t, err)
 
-			err = service.EnableUserMFA(authCtx, badCode, time.Time{})
+			err = service.EnableUserMFA(userCtx, badCode, time.Time{})
 			require.True(t, console.ErrValidation.Has(err))
 
-			authCtx, auth = getNewAuthorization()
-			_, err = service.ResetMFARecoveryCodes(authCtx)
+			userCtx, _ = updateContext()
+			_, err = service.ResetMFARecoveryCodes(userCtx)
 			require.True(t, console.ErrUnauthorized.Has(err))
 
-			authCtx, auth = getNewAuthorization()
-			require.False(t, auth.User.MFAEnabled)
+			_, user = updateContext()
+			require.False(t, user.MFAEnabled)
 		})
 
 		t.Run("TestEnableUserMFAGoodPasscode", func(t *testing.T) {
@@ -434,13 +434,13 @@ func TestMFA(t *testing.T) {
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			err = service.EnableUserMFA(authCtx, goodCode, time.Time{})
+			userCtx, _ = updateContext()
+			err = service.EnableUserMFA(userCtx, goodCode, time.Time{})
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			require.True(t, auth.User.MFAEnabled)
-			require.Equal(t, auth.User.MFASecretKey, key)
+			_, user = updateContext()
+			require.True(t, user.MFAEnabled)
+			require.Equal(t, user.MFASecretKey, key)
 		})
 
 		t.Run("TestMFAGetToken", func(t *testing.T) {
@@ -471,13 +471,13 @@ func TestMFA(t *testing.T) {
 		})
 
 		t.Run("TestMFARecoveryCodes", func(t *testing.T) {
-			_, err = service.ResetMFARecoveryCodes(authCtx)
+			_, err = service.ResetMFARecoveryCodes(userCtx)
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			require.Len(t, auth.User.MFARecoveryCodes, console.MFARecoveryCodeCount)
+			_, user = updateContext()
+			require.Len(t, user.MFARecoveryCodes, console.MFARecoveryCodeCount)
 
-			for _, code := range auth.User.MFARecoveryCodes {
+			for _, code := range user.MFARecoveryCodes {
 				// Ensure code is of the form XXXX-XXXX-XXXX where X is A-Z or 0-9.
 				require.Regexp(t, "^([A-Z0-9]{4})((-[A-Z0-9]{4})){2}$", code)
 
@@ -492,10 +492,11 @@ func TestMFA(t *testing.T) {
 				require.True(t, console.ErrMFARecoveryCode.Has(err))
 				require.Empty(t, token)
 
-				authCtx, auth = getNewAuthorization()
+				_, user = updateContext()
 			}
 
-			_, err = service.ResetMFARecoveryCodes(authCtx)
+			userCtx, _ = updateContext()
+			_, err = service.ResetMFARecoveryCodes(userCtx)
 			require.NoError(t, err)
 		})
 
@@ -504,14 +505,14 @@ func TestMFA(t *testing.T) {
 			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			err = service.DisableUserMFA(authCtx, badCode, time.Time{}, "")
+			userCtx, _ = updateContext()
+			err = service.DisableUserMFA(userCtx, badCode, time.Time{}, "")
 			require.True(t, console.ErrValidation.Has(err))
 
-			authCtx, auth = getNewAuthorization()
-			require.True(t, auth.User.MFAEnabled)
-			require.NotEmpty(t, auth.User.MFASecretKey)
-			require.NotEmpty(t, auth.User.MFARecoveryCodes)
+			_, user = updateContext()
+			require.True(t, user.MFAEnabled)
+			require.NotEmpty(t, user.MFASecretKey)
+			require.NotEmpty(t, user.MFARecoveryCodes)
 		})
 
 		t.Run("TestDisableUserMFAConflict", func(t *testing.T) {
@@ -519,14 +520,14 @@ func TestMFA(t *testing.T) {
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			err = service.DisableUserMFA(authCtx, goodCode, time.Time{}, auth.User.MFARecoveryCodes[0])
+			userCtx, user = updateContext()
+			err = service.DisableUserMFA(userCtx, goodCode, time.Time{}, user.MFARecoveryCodes[0])
 			require.True(t, console.ErrMFAConflict.Has(err))
 
-			authCtx, auth = getNewAuthorization()
-			require.True(t, auth.User.MFAEnabled)
-			require.NotEmpty(t, auth.User.MFASecretKey)
-			require.NotEmpty(t, auth.User.MFARecoveryCodes)
+			_, user = updateContext()
+			require.True(t, user.MFAEnabled)
+			require.NotEmpty(t, user.MFASecretKey)
+			require.NotEmpty(t, user.MFARecoveryCodes)
 		})
 
 		t.Run("TestDisableUserMFAGoodPasscode", func(t *testing.T) {
@@ -534,46 +535,46 @@ func TestMFA(t *testing.T) {
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			err = service.DisableUserMFA(authCtx, goodCode, time.Time{}, "")
+			userCtx, _ = updateContext()
+			err = service.DisableUserMFA(userCtx, goodCode, time.Time{}, "")
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			require.False(t, auth.User.MFAEnabled)
-			require.Empty(t, auth.User.MFASecretKey)
-			require.Empty(t, auth.User.MFARecoveryCodes)
+			userCtx, user = updateContext()
+			require.False(t, user.MFAEnabled)
+			require.Empty(t, user.MFASecretKey)
+			require.Empty(t, user.MFARecoveryCodes)
 		})
 
 		t.Run("TestDisableUserMFAGoodRecoveryCode", func(t *testing.T) {
 			// Expect MFA-disabling attempt to succeed when providing valid recovery code.
 			// Enable MFA
-			key, err = service.ResetMFASecretKey(authCtx)
+			key, err = service.ResetMFASecretKey(userCtx)
 			require.NoError(t, err)
 
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			err = service.EnableUserMFA(authCtx, goodCode, time.Time{})
+			userCtx, _ = updateContext()
+			err = service.EnableUserMFA(userCtx, goodCode, time.Time{})
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			_, err = service.ResetMFARecoveryCodes(authCtx)
+			userCtx, _ = updateContext()
+			_, err = service.ResetMFARecoveryCodes(userCtx)
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			require.True(t, auth.User.MFAEnabled)
-			require.NotEmpty(t, auth.User.MFASecretKey)
-			require.NotEmpty(t, auth.User.MFARecoveryCodes)
+			userCtx, user = updateContext()
+			require.True(t, user.MFAEnabled)
+			require.NotEmpty(t, user.MFASecretKey)
+			require.NotEmpty(t, user.MFARecoveryCodes)
 
 			// Disable MFA
-			err = service.DisableUserMFA(authCtx, "", time.Time{}, auth.User.MFARecoveryCodes[0])
+			err = service.DisableUserMFA(userCtx, "", time.Time{}, user.MFARecoveryCodes[0])
 			require.NoError(t, err)
 
-			authCtx, auth = getNewAuthorization()
-			require.False(t, auth.User.MFAEnabled)
-			require.Empty(t, auth.User.MFASecretKey)
-			require.Empty(t, auth.User.MFARecoveryCodes)
+			_, user = updateContext()
+			require.False(t, user.MFAEnabled)
+			require.Empty(t, user.MFASecretKey)
+			require.Empty(t, user.MFARecoveryCodes)
 		})
 	})
 }
@@ -620,23 +621,18 @@ func TestResetPassword(t *testing.T) {
 		token = getNewResetToken()
 
 		// Enable MFA.
-		getNewAuthorization := func() (context.Context, console.Authorization) {
-			authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
-			require.NoError(t, err)
-			auth, err := console.GetAuth(authCtx)
-			require.NoError(t, err)
-			return authCtx, auth
-		}
-		authCtx, _ := getNewAuthorization()
-
-		key, err := service.ResetMFASecretKey(authCtx)
+		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
-		authCtx, auth := getNewAuthorization()
+
+		key, err := service.ResetMFASecretKey(userCtx)
+		require.NoError(t, err)
+		userCtx, err = sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
 
 		passcode, err := console.NewMFAPasscode(key, token.CreatedAt)
 		require.NoError(t, err)
 
-		err = service.EnableUserMFA(authCtx, passcode, token.CreatedAt)
+		err = service.EnableUserMFA(userCtx, passcode, token.CreatedAt)
 		require.NoError(t, err)
 
 		// Expect error when providing bad passcode.
@@ -645,7 +641,7 @@ func TestResetPassword(t *testing.T) {
 		err = service.ResetPassword(ctx, token.Secret.String(), newPass, badPasscode, "", token.CreatedAt)
 		require.True(t, console.ErrMFAPasscode.Has(err))
 
-		for _, recoveryCode := range auth.User.MFARecoveryCodes {
+		for _, recoveryCode := range user.MFARecoveryCodes {
 			// Expect success when providing bad passcode and good recovery code.
 			err = service.ResetPassword(ctx, token.Secret.String(), newPass, badPasscode, recoveryCode, token.CreatedAt)
 			require.NoError(t, err)
@@ -662,40 +658,6 @@ func TestResetPassword(t *testing.T) {
 	})
 }
 
-// TestActivateAccountToken ensures that the token returned after activating an account can be used to authorize user activity.
-// i.e. a user does not need to acquire an authorization separate from the account activation step.
-func TestActivateAccountToken(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		service := sat.API.Console.Service
-
-		createUser := console.CreateUser{
-			FullName:  "Alice",
-			ShortName: "Alice",
-			Email:     "alice@mail.test",
-			Password:  "123a123",
-		}
-
-		regToken, err := service.CreateRegToken(ctx, 1)
-		require.NoError(t, err)
-
-		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
-		require.NoError(t, err)
-
-		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
-		require.NoError(t, err)
-
-		authToken, err := service.ActivateAccount(ctx, activationToken)
-		require.NoError(t, err)
-
-		_, err = service.Authorize(consoleauth.WithAPIKey(ctx, []byte(authToken)))
-		require.NoError(t, err)
-
-	})
-}
-
 func TestRESTKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -709,23 +671,23 @@ func TestRESTKeys(t *testing.T) {
 		user, err := service.GetUser(ctx, proj1.OwnerID)
 		require.NoError(t, err)
 
-		authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
 		now := time.Now()
 		expires := 5 * time.Hour
-		apiKey, expiresAt, err := service.CreateRESTKey(authCtx, expires)
+		apiKey, expiresAt, err := service.CreateRESTKey(userCtx, expires)
 		require.NoError(t, err)
 		require.NotEmpty(t, apiKey)
 		require.True(t, expiresAt.After(now))
 		require.True(t, expiresAt.Before(now.Add(expires+time.Hour)))
 
 		// test revocation
-		require.NoError(t, service.RevokeRESTKey(authCtx, apiKey))
+		require.NoError(t, service.RevokeRESTKey(userCtx, apiKey))
 
 		// test revoke non existent key
 		nonexistent := testrand.UUID()
-		err = service.RevokeRESTKey(authCtx, nonexistent.String())
+		err = service.RevokeRESTKey(userCtx, nonexistent.String())
 		require.Error(t, err)
 	})
 }
@@ -748,23 +710,23 @@ func TestLockAccount(t *testing.T) {
 		user, err := sat.AddUser(ctx, newUser, 1)
 		require.NoError(t, err)
 
-		getNewAuthorization := func() (context.Context, console.Authorization) {
-			authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+		updateContext := func() (context.Context, *console.User) {
+			userCtx, err := sat.UserContext(ctx, user.ID)
 			require.NoError(t, err)
-			auth, err := console.GetAuth(authCtx)
+			user, err := console.GetUser(userCtx)
 			require.NoError(t, err)
-			return authCtx, auth
+			return userCtx, user
 		}
 
-		authCtx, _ := getNewAuthorization()
-		secret, err := service.ResetMFASecretKey(authCtx)
+		userCtx, _ := updateContext()
+		secret, err := service.ResetMFASecretKey(userCtx)
 		require.NoError(t, err)
 
 		goodCode0, err := console.NewMFAPasscode(secret, time.Time{})
 		require.NoError(t, err)
 
-		authCtx, _ = getNewAuthorization()
-		err = service.EnableUserMFA(authCtx, goodCode0, time.Time{})
+		userCtx, _ = updateContext()
+		err = service.EnableUserMFA(userCtx, goodCode0, time.Time{})
 		require.NoError(t, err)
 
 		now := time.Now()
@@ -795,7 +757,7 @@ func TestLockAccount(t *testing.T) {
 			}
 		}
 
-		lockedUser, err := service.GetUser(authCtx, user.ID)
+		lockedUser, err := service.GetUser(userCtx, user.ID)
 		require.NoError(t, err)
 		require.True(t, lockedUser.FailedLoginCount == consoleConfig.LoginAttemptsWithoutPenalty)
 		require.True(t, lockedUser.LoginLockoutExpiration.After(now))
@@ -803,10 +765,10 @@ func TestLockAccount(t *testing.T) {
 		// lock account once again and check if lockout expiration time increased.
 		expDuration := time.Duration(math.Pow(consoleConfig.FailedLoginPenalty, float64(lockedUser.FailedLoginCount-1))) * time.Minute
 		lockoutExpDate := now.Add(expDuration)
-		err = service.UpdateUsersFailedLoginState(authCtx, lockedUser, lockoutExpDate)
+		err = service.UpdateUsersFailedLoginState(userCtx, lockedUser, lockoutExpDate)
 		require.NoError(t, err)
 
-		lockedUser, err = service.GetUser(authCtx, user.ID)
+		lockedUser, err = service.GetUser(userCtx, user.ID)
 		require.NoError(t, err)
 		require.True(t, lockedUser.FailedLoginCount == consoleConfig.LoginAttemptsWithoutPenalty+1)
 
@@ -815,7 +777,7 @@ func TestLockAccount(t *testing.T) {
 
 		// unlock account by successful login
 		lockedUser.LoginLockoutExpiration = now.Add(-time.Second)
-		err = usersDB.Update(authCtx, lockedUser)
+		err = usersDB.Update(userCtx, lockedUser)
 		require.NoError(t, err)
 
 		authUser.Password = newUser.FullName
@@ -823,7 +785,7 @@ func TestLockAccount(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, token)
 
-		unlockedUser, err := service.GetUser(authCtx, user.ID)
+		unlockedUser, err := service.GetUser(userCtx, user.ID)
 		require.NoError(t, err)
 		require.Zero(t, unlockedUser.FailedLoginCount)
 
@@ -839,7 +801,7 @@ func TestLockAccount(t *testing.T) {
 			}
 		}
 
-		lockedUser, err = service.GetUser(authCtx, user.ID)
+		lockedUser, err = service.GetUser(userCtx, user.ID)
 		require.NoError(t, err)
 		require.True(t, lockedUser.FailedLoginCount == consoleConfig.LoginAttemptsWithoutPenalty)
 		require.True(t, lockedUser.LoginLockoutExpiration.After(now))
@@ -847,7 +809,7 @@ func TestLockAccount(t *testing.T) {
 		// unlock account
 		lockedUser.LoginLockoutExpiration = time.Time{}
 		lockedUser.FailedLoginCount = 0
-		err = usersDB.Update(authCtx, lockedUser)
+		err = usersDB.Update(userCtx, lockedUser)
 		require.NoError(t, err)
 
 		// check if user's account gets locked because of providing wrong mfa recovery code.
@@ -863,7 +825,7 @@ func TestLockAccount(t *testing.T) {
 			}
 		}
 
-		lockedUser, err = service.GetUser(authCtx, user.ID)
+		lockedUser, err = service.GetUser(userCtx, user.ID)
 		require.NoError(t, err)
 		require.True(t, lockedUser.FailedLoginCount == consoleConfig.LoginAttemptsWithoutPenalty)
 		require.True(t, lockedUser.LoginLockoutExpiration.After(now))
@@ -881,4 +843,44 @@ func TestWalletJsonMarshall(t *testing.T) {
 	require.Contains(t, string(out), "\"address\":\"0102030000000000000000000000000000000000\"")
 	require.Contains(t, string(out), "\"balance\":100")
 
+}
+
+func TestSessionExpiration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SessionDuration = time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		// Session should be added to DB after token request
+		token, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		require.NoError(t, err)
+
+		_, err = service.TokenAuth(ctx, token, time.Now())
+		require.NoError(t, err)
+
+		sessionID, err := uuid.FromBytes(token.Payload)
+		require.NoError(t, err)
+
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
+		require.NoError(t, err)
+
+		// Session should be removed from DB after it has expired
+		_, err = service.TokenAuth(ctx, token, time.Now().Add(2*time.Hour))
+		require.True(t, console.ErrTokenExpiration.Has(err))
+
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
+		require.ErrorIs(t, sql.ErrNoRows, err)
+	})
 }

@@ -135,7 +135,7 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					_, err := console.GetAuth(p.Context)
+					_, err := console.GetUser(p.Context)
 					if err != nil {
 						return nil, err
 					}
@@ -182,11 +182,6 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
-
-					_, err := console.GetAuth(p.Context)
-					if err != nil {
-						return nil, err
-					}
 
 					cursor := cursorArgsToAPIKeysCursor(p.Args[CursorArg].(map[string]interface{}))
 					page, err := service.GetAPIKeys(p.Context, project.ID, cursor)

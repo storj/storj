@@ -24,7 +24,7 @@
             <div>
                 <p>This action cannot be undone.</p>
             </div>
-            <headerless-input
+            <VInput
                 placeholder="Type the name of the access"
                 @setData="setConfirmedInput"
             />
@@ -59,7 +59,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue'
+import VInput from '@/components/common/VInput.vue'
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
@@ -70,7 +70,7 @@ import { AccessGrant } from '@/types/accessGrants';
 @Component({
     components: {
         VButton,
-        HeaderlessInput,
+        VInput,
         CloseCrossIcon,
     },
 })

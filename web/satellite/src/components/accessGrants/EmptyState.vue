@@ -27,6 +27,8 @@ import Key from '@/../static/images/accessGrants/key.svg';
 
 import { RouteConfig } from '@/router';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -35,10 +37,14 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class EmptyState extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+    
     /**
      * Starts create access grant flow.
      */
     public onCreateClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
         this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
     }
 }

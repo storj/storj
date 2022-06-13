@@ -13,7 +13,7 @@
         </template>
         <template #content class="permissions">
             <p class="permissions__msg">Access Grants are keys that allow access to upload, delete, and view your project’s data.</p>
-            <HeaderedInput
+            <VInput
                 label="Access Grant Name"
                 placeholder="Enter a name here..."
                 :error="errorMessage"
@@ -33,15 +33,17 @@ import { ACCESS_GRANTS_ACTIONS} from "@/store/modules/accessGrants";
 import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import HeaderedInput from "@/components/common/HeaderedInput.vue";
+import VInput from "@/components/common/VInput.vue";
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
+
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({
     components: {
         CLIFlowContainer,
-        HeaderedInput,
+        VInput,
         Icon,
     }
 })
@@ -49,6 +51,8 @@ export default class AGName extends Vue {
     private name = '';
     private errorMessage = '';
     private isLoading = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Changes name data from input value.
@@ -64,6 +68,7 @@ export default class AGName extends Vue {
      * Navigates to previous screen.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OverviewStep.path);
         this.backRoute ?
             await this.$router.push(this.backRoute).catch(() => {return; }) :
             await this.$router.push({name: RouteConfig.OverviewStep.name});
@@ -97,6 +102,7 @@ export default class AGName extends Vue {
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY, createdAccessGrant.secret);
         this.name = '';
 
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGPermissions)).path);
         await this.$router.push({name: RouteConfig.AGPermissions.name});
     }
 

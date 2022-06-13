@@ -10,9 +10,7 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 	"strconv"
-	"time"
 
-	"github.com/pquerna/otp/totp"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -40,7 +38,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc"
@@ -237,11 +234,11 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 		return nil, err
 	}
 
-	authCtx, err := system.AuthenticatedContext(ctx, user.ID)
+	userCtx, err := system.UserContext(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
-	_, err = system.API.Console.Service.Payments().SetupAccount(authCtx)
+	_, err = system.API.Console.Service.Payments().SetupAccount(userCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -253,11 +250,11 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	authCtx, err := system.AuthenticatedContext(ctx, ownerID)
+	ctx, err = system.UserContext(ctx, ownerID)
 	if err != nil {
 		return nil, err
 	}
-	project, err := system.API.Console.Service.CreateProject(authCtx, console.ProjectInfo{
+	project, err := system.API.Console.Service.CreateProject(ctx, console.ProjectInfo{
 		Name: name,
 	})
 	if err != nil {
@@ -266,8 +263,8 @@ func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name
 	return project, nil
 }
 
-// AuthenticatedContext creates context with authentication date for given user.
-func (system *Satellite) AuthenticatedContext(ctx context.Context, userID uuid.UUID) (_ context.Context, err error) {
+// UserContext creates context with user.
+func (system *Satellite) UserContext(ctx context.Context, userID uuid.UUID) (_ context.Context, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := system.API.Console.Service.GetUser(ctx, userID)
@@ -275,26 +272,7 @@ func (system *Satellite) AuthenticatedContext(ctx context.Context, userID uuid.U
 		return nil, err
 	}
 
-	// we are using full name as a password
-	request := console.AuthUser{Email: user.Email, Password: user.FullName}
-	if user.MFAEnabled {
-		code, err := totp.GenerateCode(user.MFASecretKey, time.Now())
-		if err != nil {
-			return nil, err
-		}
-		request.MFAPasscode = code
-	}
-	token, err := system.API.Console.Service.Token(ctx, request)
-	if err != nil {
-		return nil, err
-	}
-
-	auth, err := system.API.Console.Service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
-	if err != nil {
-		return nil, err
-	}
-
-	return console.WithAuth(ctx, auth), nil
+	return console.WithUser(ctx, user), nil
 }
 
 // Close closes all the subsystems in the Satellite system.

@@ -77,18 +77,19 @@ func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.Us
 }
 
 // GetUnverifiedNeedingReminder returns users in need of a reminder to verify their email.
-func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder time.Time) (usersNeedingReminder []*console.User, err error) {
+func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) (usersNeedingReminder []*console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := users.db.Query(ctx, `
 		SELECT id, email, full_name, short_name
 		FROM users
 		WHERE status = 0
+			AND created_at > $3
 			AND (
 				(verification_reminders = 0 AND created_at < $1)
 				OR (verification_reminders = 1 AND created_at < $2)
 			)
-	`, firstReminder, secondReminder)
+	`, firstReminder, secondReminder, cutoff)
 	if err != nil {
 		return nil, err
 	}

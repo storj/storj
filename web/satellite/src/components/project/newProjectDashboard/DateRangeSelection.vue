@@ -118,7 +118,7 @@ export default class DateRangeSelection extends Vue {
             color: #0149ff;
         }
 
-        svg path {
+        svg ::v-deep path {
             fill: #0149ff;
         }
     }
