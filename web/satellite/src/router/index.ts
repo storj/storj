@@ -15,6 +15,14 @@ import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue
 import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
+
+// new payment screen routes
+import BillingOverview from '@/components/account/billing/billingTabs/Overview.vue';
+import BillingPaymentMethods from '@/components/account/billing/billingTabs/PaymentMethods.vue';
+import BillingHistory2 from '@/components/account/billing/billingTabs/BillingHistory.vue';
+import BillingCoupons from '@/components/account/billing/billingTabs/Coupons.vue';
+
+
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
 import AddCouponCode from '@/components/account/billing/coupons/AddCouponCode.vue';
 import CreditsHistory from '@/components/account/billing/coupons/CouponArea.vue';
@@ -90,6 +98,10 @@ export abstract class RouteConfig {
     public static Billing = new NavigationLink('billing', 'Billing');
     public static AddCouponCode = new NavigationLink('add-coupon', 'Get Free Credits');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    public static BillingOverview = new NavigationLink('overview', 'Overview');
+    public static BillingPaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
+    public static BillingHistory2 = new NavigationLink('billing-history2', 'Billing History 2');
+    public static BillingCoupons = new NavigationLink('coupons', 'Coupons');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
 
@@ -142,6 +154,10 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Authorize.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
+    RouteConfig.BillingOverview.name,
+    RouteConfig.BillingPaymentMethods.name,
+    RouteConfig.BillingHistory2.name,
+    RouteConfig.BillingCoupons.name,
     RouteConfig.DepositHistory.name,
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
@@ -216,6 +232,26 @@ export const router = new Router({
                                     path: RouteConfig.AddCouponCode.path,
                                     name: RouteConfig.AddCouponCode.name,
                                     component: AddCouponCode,
+                                },
+                                {
+                                    path: RouteConfig.BillingOverview.path,
+                                    name: RouteConfig.BillingOverview.name,
+                                    component: BillingOverview,
+                                },
+                                {
+                                    path: RouteConfig.BillingPaymentMethods.path,
+                                    name: RouteConfig.BillingPaymentMethods.name,
+                                    component: BillingPaymentMethods,
+                                },
+                                {
+                                    path: RouteConfig.BillingHistory2.path,
+                                    name: RouteConfig.BillingHistory2.name,
+                                    component: BillingHistory2,
+                                },
+                                {
+                                    path: RouteConfig.BillingCoupons.path,
+                                    name: RouteConfig.BillingCoupons.name,
+                                    component: BillingCoupons,
                                 },
                             ],
                         },

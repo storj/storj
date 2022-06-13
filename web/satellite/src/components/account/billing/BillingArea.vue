@@ -3,59 +3,91 @@
 
 <template>
     <div class="account-billing-area">
-        <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
-            <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
-                <NegativeBalanceIcon />
-                <p class="account-billing-area__notification-container__negative-balance__text">
-                    Your usage charges exceed your account balance. Please add STORJ Tokens or a debit/credit card to
-                    prevent data loss.
-                </p>
-            </div>
-            <div v-if="isBalanceLow" class="account-billing-area__notification-container__low-balance">
-                <LowBalanceIcon />
-                <p class="account-billing-area__notification-container__low-balance__text">
-                    Your account balance is running low. Please add STORJ Tokens or a debit/credit card to prevent data loss.
-                </p>
-            </div>
-        </div>
-        <div v-if="userHasOwnProject" class="account-billing-area__title-area" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
-            <div class="account-billing-area__title-area__balance-area">
-                <div class="account-billing-area__title-area__balance-area__free-credits">
-                    <p class="account-billing-area__title-area__balance-area__free-credits__label">Free Credits:</p>
-                    <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
-                    <p v-else>{{ balance.freeCredits | centsToDollars }}</p>
+        <div v-if="isNewBillingScreen">
+            <div class="account-billing-area__header">
+                <div 
+                    :class="`account-billing-area__header__tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
+                    @click="routeToOverview"    
+                >
+                    <p>Overview</p>
                 </div>
-                <div class="account-billing-area__title-area__balance-area__tokens-area" @click.stop="toggleBalanceDropdown">
-                    <p class="account-billing-area__title-area__balance-area__tokens-area__label" :style="{ color: balanceColor }">
-                        Available Balance:
+                <div 
+                    :class="`account-billing-area__header__tab ${$route.name === 'Payment Methods' ? 'selected-tab' : ''}`"
+                    @click="routeToPaymentMethods"
+                >
+                    <p>Payment Methods</p>
+                </div>
+                <div 
+                    :class="`account-billing-area__header__tab ${$route.name === 'Billing History 2' ? 'selected-tab' : ''}`"
+                    @click="routeToBillingHistory"
+                >
+                    <p>Billing History</p>
+                </div>
+                <div 
+                    :class="`account-billing-area__header__tab ${$route.name === 'Coupons' ? 'selected-tab' : ''}`"
+                    @click="routeToCoupons"
+                >
+                    <p>Coupons</p>
+                </div>      
+            </div>
+            <div class="account-billing-area__divider" />
+            <router-view />
+        </div>
+        <div v-if="!isNewBillingScreen">
+            <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
+                <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
+                    <NegativeBalanceIcon />
+                    <p class="account-billing-area__notification-container__negative-balance__text">
+                        Your usage charges exceed your account balance. Please add STORJ Tokens or a debit/credit card to
+                        prevent data loss.
                     </p>
-                    <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
-                    <p v-else>
-                        {{ balance.coins | centsToDollars }}
+                </div>
+                <div v-if="isBalanceLow" class="account-billing-area__notification-container__low-balance">
+                    <LowBalanceIcon />
+                    <p class="account-billing-area__notification-container__low-balance__text">
+                        Your account balance is running low. Please add STORJ Tokens or a debit/credit card to prevent data loss.
                     </p>
-                    <HideIcon v-if="isBalanceDropdownShown" class="icon" />
-                    <ExpandIcon v-else class="icon" />
-                    <HistoryDropdown
-                        v-show="isBalanceDropdownShown"
-                        label="Balance History"
-                        :route="balanceHistoryRoute"
-                        @close="closeDropdown"
-                    />
                 </div>
             </div>
-            <PeriodSelection v-if="userHasOwnProject" />
+            <div v-if="userHasOwnProject" class="account-billing-area__title-area" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
+                <div class="account-billing-area__title-area__balance-area">
+                    <div class="account-billing-area__title-area__balance-area__free-credits">
+                        <p class="account-billing-area__title-area__balance-area__free-credits__label">Free Credits:</p>
+                        <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
+                        <p v-else>{{ balance.freeCredits | centsToDollars }}</p>
+                    </div>
+                    <div class="account-billing-area__title-area__balance-area__tokens-area" @click.stop="toggleBalanceDropdown">
+                        <p class="account-billing-area__title-area__balance-area__tokens-area__label" :style="{ color: balanceColor }">
+                            Available Balance:
+                        </p>
+                        <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
+                        <p v-else>
+                            {{ balance.coins | centsToDollars }}
+                        </p>
+                        <HideIcon v-if="isBalanceDropdownShown" class="icon" />
+                        <ExpandIcon v-else class="icon" />
+                        <HistoryDropdown
+                            v-show="isBalanceDropdownShown"
+                            label="Balance History"
+                            :route="balanceHistoryRoute"
+                            @close="closeDropdown"
+                        />
+                    </div>
+                </div>
+                <PeriodSelection v-if="userHasOwnProject" />
+            </div>
+            <EstimatedCostsAndCredits v-if="isSummaryVisible" />
+            <PaymentMethods />
+            <SmallDepositHistory />
+            <CouponArea />
+            <router-view />
         </div>
-        <EstimatedCostsAndCredits v-if="isSummaryVisible" />
-        <PaymentMethods />
-        <SmallDepositHistory />
-        <CouponArea />
-        <router-view />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-
+import { MetaUtils } from '@/utils/meta';
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
@@ -68,6 +100,8 @@ import ExpandIcon from '@/../static/images/account/billing/expand.svg';
 import HideIcon from '@/../static/images/account/billing/hide.svg';
 import LowBalanceIcon from '@/../static/images/account/billing/lowBalance.svg';
 import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBalance.svg';
+
+
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -195,6 +229,33 @@ export default class BillingArea extends Vue {
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 
+    /**
+     * Routes for new billing screens.
+     */
+    public routeToOverview(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+    }
+
+    public routeToPaymentMethods(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
+    }
+
+    public routeToBillingHistory(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
+    }
+
+    public routeToCoupons(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path);
+    }
+
+    /**
+     * Indicates if tabs options are hidden.
+     */
+    public get isNewBillingScreen(): boolean {
+        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
+        return isNewBillingScreen === "true";
+    }
+
 }
 </script>
 
@@ -277,8 +338,41 @@ export default class BillingArea extends Vue {
         }
     }
 
+    .selected-tab {
+        border-bottom: 5px solid black;
+    }
+
     .account-billing-area {
         padding-bottom: 40px;
+
+        &__divider {
+            width: 100%;
+            border-bottom: 1px solid #dadfe7;
+        }
+
+        &__header {
+            width: 100%;
+            max-width: 750px;
+            height: 40px;
+            display: flex;
+            align-content: center;
+            justify-content: space-between;
+            padding-top: 25px;
+
+            &__tab {
+                font-family: sans-serif;
+                color: #56606d;
+                font-size: 16px;
+                height: auto;
+                width: auto;
+                transition-duration: 50ms;
+            }
+
+            &__tab:hover {
+                border-bottom: 5px solid black;
+                cursor: pointer;
+            }
+        }
 
         &__title-area {
             display: flex;
