@@ -6,7 +6,10 @@
         <div class="payments-area__top-container">
             <h1 class="payments-area__title">Payment Methods</h1>
             <VLoader v-if="ispaymentsFetching" />
-            <div class="payments-area__container">
+            <div 
+                class="payments-area__container"
+                v-if="!showTransactions"
+            >
                 <div
                     class="payments-area__container__token"
                 >
@@ -38,6 +41,7 @@
                         is-transparent="true"
                         font-size="13px"
                         class="payments-area__container__token__transaction-button"
+                        :onPress="toggleTransactionsTable"
                     />
                     <VButton
                         label='Add funds'
@@ -62,10 +66,29 @@
                     </div>
                 </div>
             </div>
-            <Addpayments2 
-                v-if="showCreateCode"
-                @toggleMethod="toggleCreateModal"
-            />
+            <div v-if="showTransactions">
+                <SortAccessGrantsHeader2
+                    :on-header-click-callback="onHeaderSectionClickCallback"
+                />
+                <div class="">
+                    <VList
+                        :data-set="accessGrantsList"
+                        :item-component="itemComponent2"
+                    />
+                </div>
+                <div class="">
+                    <span class="">
+                        {{ accessGrantsList.length }} Access Grants
+                    </span>
+                    <VPagination
+                        v-if="totalPageCount > 1"
+                        ref="pagination"
+                        class=""
+                        :total-page-count="totalPageCount"
+                        :on-page-click-callback="onPageClick"
+                    />
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -75,6 +98,9 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
+import VList from '@/components/common/VList.vue';
+
+import TokenTransactionItem from '@/components/account/billing/payments/TokenTransactionItem.vue';
 
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
@@ -85,23 +111,36 @@ import { RouteConfig } from '@/router';
 @Component({
     components: {
         VLoader,
+        VButton,
+        VList,
         StorjSmall,
         StorjLarge,
-        VButton,
+        TokenTransactionItem,
     },
 })
 export default class paymentsArea extends Vue {
     public depositStatus: string = 'Confirmed';
     public balanceAmount: number = 0.00;
+    public showTransactions: boolean = false;
 
     public testData = [{},{},{}]
 
     /**
-     * Lifecycle hook after initial render.
-     * Fetches payments.
      */
     public async mounted(): Promise<void> {
     }
+
+    public toggleTransactionsTable(): void {
+        this.showTransactions = !this.showTransactions;
+    }
+
+    /**
+     * Returns TokenTransactionItem item component.
+     */
+    public get itemComponent(): typeof TokenTransactionItem {
+        return TokenTransactionItem;
+    }
+
 }
 </script>
 
@@ -133,12 +172,8 @@ export default class paymentsArea extends Vue {
 
             &__token {
                 border-radius: 10px;
-                max-width: 400px;
-                width: 18vw;
-                min-width: 227px;
-                max-height: 222px;
-                height: 10vw;
-                min-height: 126px;
+                width: 227px;
+                height: 126px;
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 grid-template-rows: 4fr 1fr 1fr;
@@ -232,12 +267,8 @@ export default class paymentsArea extends Vue {
             &__new-payments {
                 border: 2px dashed #929fb1;
                 border-radius: 10px;
-                max-width: 400px;
-                width: 18vw;
-                min-width: 227px;
-                max-height: 222px;
-                height: 10vw;
-                min-height: 126px;
+                width: 227px;
+                height: 126px;
                 padding: 18px;
                 display: flex;
                 align-items: center;
@@ -258,7 +289,7 @@ export default class paymentsArea extends Vue {
                     &__text {
                         color: #0149ff;
                         font-family: sans-serif;
-                        font-size: 18px;
+                        font-size: 16px;
                         text-decoration: underline;
                     }
                 }
