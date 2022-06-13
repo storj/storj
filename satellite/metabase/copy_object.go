@@ -287,7 +287,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	copyObject := originalObject
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		// TODO we need to handle metadata correctly (copy from original object or replace)
-		row := db.db.QueryRowContext(ctx, `
+		row := tx.QueryRowContext(ctx, `
 			WITH existing_object AS (
 				SELECT
 					objects.stream_id,
@@ -355,7 +355,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return Error.New("unable to copy object: %w", err)
 		}
 
-		_, err = db.db.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 			INSERT INTO segments (
 				stream_id, position, expires_at,
 				encrypted_key_nonce, encrypted_key,
@@ -393,7 +393,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		} else {
 			ancestorStreamID = originalObject.StreamID
 		}
-		_, err = db.db.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 			INSERT INTO segment_copies (
 				stream_id, ancestor_stream_id
 			) VALUES (
@@ -427,7 +427,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 func (db *DB) deleteExistingObjectSegments(ctx context.Context, tx tagsql.Tx, existingObjStreamID *uuid.UUID, newAncestorStreamID *uuid.UUID, segmentCount *int) (err error) {
 	if existingObjStreamID != nil && *segmentCount > 0 {
 		if newAncestorStreamID == nil {
-			_, err = db.db.ExecContext(ctx, `
+			_, err = tx.ExecContext(ctx, `
 			DELETE FROM segments WHERE stream_id = $1
 		`, existingObjStreamID,
 			)
@@ -443,7 +443,7 @@ func (db *DB) deleteExistingObjectSegments(ctx context.Context, tx tagsql.Tx, ex
 		infos.Segments = make([]deletedRemoteSegmentInfo, *segmentCount)
 
 		var aliasPieces AliasPieces
-		err = withRows(db.db.QueryContext(ctx, `
+		err = withRows(tx.QueryContext(ctx, `
 			DELETE FROM segments WHERE stream_id = $1
 			RETURNING position, remote_alias_pieces, repaired_at
 			`, existingObjStreamID))(func(rows tagsql.Rows) error {
