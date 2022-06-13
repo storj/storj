@@ -89,7 +89,7 @@ func Test_TotalUsageLimits(t *testing.T) {
 		cookie := http.Cookie{
 			Name:    "_tokenKey",
 			Path:    "/",
-			Value:   token,
+			Value:   token.String(),
 			Expires: expire,
 		}
 
@@ -203,7 +203,7 @@ func Test_DailyUsage(t *testing.T) {
 		cookie := http.Cookie{
 			Name:    "_tokenKey",
 			Path:    "/",
-			Value:   token,
+			Value:   token.String(),
 			Expires: expire,
 		}
 

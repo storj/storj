@@ -374,3 +374,24 @@ func (service *Service) TrackCreditCardAdded(userID uuid.UUID, email string) {
 	})
 
 }
+
+// PageVisitEvent sends a page visit event associated with user ID to Segment.
+// It is used for tracking occurrences of client-side events.
+func (service *Service) PageVisitEvent(pageName string, userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+	props.Set("path", pageName)
+	props.Set("user_id", userID.String())
+	props.Set("satellite", service.satelliteName)
+
+	service.enqueueMessage(segment.Page{
+		UserId:     userID.String(),
+		Name:       "Page Requested",
+		Properties: props,
+	})
+
+}

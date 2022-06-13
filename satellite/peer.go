@@ -123,6 +123,8 @@ type DB interface {
 	Revocation() revocation.DB
 	// NodeAPIVersion tracks nodes observed api usage
 	NodeAPIVersion() nodeapiversion.DB
+	// StorjscanPayments stores payments retrieved from storjscan.
+	StorjscanPayments() storjscan.PaymentsDB
 }
 
 // Config is the global config satellite.

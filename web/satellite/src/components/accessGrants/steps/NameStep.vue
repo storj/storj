@@ -43,6 +43,7 @@ import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({
@@ -59,6 +60,8 @@ export default class NameStep extends Vue {
 
     private readonly FIRST_PAGE = 1;
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Changes name data from input value.
      * @param value
@@ -73,6 +76,7 @@ export default class NameStep extends Vue {
      */
     public onCancelClick(): void {
         this.onChangeName('');
+        this.analytics.pageVisit(RouteConfig.AccessGrants.path);
         this.$router.push(RouteConfig.AccessGrants.path);
     }
 
@@ -128,6 +132,7 @@ export default class NameStep extends Vue {
 
         this.isLoading = false;
 
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).path);
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {

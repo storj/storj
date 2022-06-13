@@ -38,6 +38,8 @@ import VButton from "@/components/common/VButton.vue";
 
 import Icon from "@/../static/images/onboardingTour/successStep.svg";
 
+import { AnalyticsHttpApi } from "@/api/analytics";
+
 // @vue/component
 @Component({
     components: {
@@ -46,10 +48,14 @@ import Icon from "@/../static/images/onboardingTour/successStep.svg";
     }
 })
 export default class SuccessScreen extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ShareObject)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ShareObject)).path);
     }
 
@@ -57,6 +63,7 @@ export default class SuccessScreen extends Vue {
      * Holds on finish button click logic.
      */
     public async onFinishClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
         await this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 }

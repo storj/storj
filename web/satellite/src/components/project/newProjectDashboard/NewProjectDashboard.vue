@@ -196,6 +196,8 @@ import BucketArea from '@/components/project/buckets/BucketArea.vue';
 import NewProjectIcon from "@/../static/images/project/newProject.svg";
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -222,12 +224,15 @@ export default class NewProjectDashboard extends Vue {
         dashboard: HTMLDivElement;
     }
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Lifecycle hook after initial render.
      * Fetches project limits.
      */
     public async mounted(): Promise<void> {
         if (!this.$store.getters.selectedProject.id) {
+            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
             return;
@@ -289,6 +294,7 @@ export default class NewProjectDashboard extends Vue {
      * Holds on create project button click logic.
      */
     public onCreateProjectClick(): void {
+        this.analytics.pageVisit(RouteConfig.CreateProject.path);
         this.$router.push(RouteConfig.CreateProject.path);
     }
 
@@ -296,6 +302,7 @@ export default class NewProjectDashboard extends Vue {
      * Holds on upload button click logic.
      */
     public onUploadClick(): void {
+        this.analytics.pageVisit(RouteConfig.Buckets.path);
         this.$router.push(RouteConfig.Buckets.path).catch(() => {return;})
     }
 

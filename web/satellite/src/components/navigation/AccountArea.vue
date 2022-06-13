@@ -7,6 +7,8 @@
             <div class="account-area__wrap__left">
                 <AccountIcon class="account-area__wrap__left__icon" />
                 <p class="account-area__wrap__left__label">My Account</p>
+                <TierBadgePro v-if="isPaidTier" class="account-area__wrap__left__tier-badge" />
+                <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
             </div>
             <ArrowImage class="account-area__wrap__arrow" />
         </div>
@@ -60,6 +62,8 @@ import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
+import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
+import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -73,12 +77,15 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
         ArrowImage,
         SettingsIcon,
         LogoutIcon,
+        TierBadgeFree,
+        TierBadgePro,
     }
 })
 export default class AccountArea extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
     private dropdownYPos = 0;
     private dropdownXPos = 0;
+    public isPaidTier = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -87,10 +94,21 @@ export default class AccountArea extends Vue {
     }
 
     /**
+     * Lifecycle hook after initial render.
+     * Fetches paid tier status.
+     */
+    public async mounted(): Promise<void> {
+        if (this.$store.state.usersModule.user.paidTier) {
+            this.isPaidTier = true;
+        }
+    }
+
+    /**
      * Navigates user to account settings page.
      */
     public navigateToSettings(): void {
         this.closeDropdown();
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
     }
 
@@ -98,6 +116,7 @@ export default class AccountArea extends Vue {
      * Logouts user and navigates to login page.
      */
     public async onLogout(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.Login.path);
         await this.$router.push(RouteConfig.Login.path);
 
         try {
@@ -199,7 +218,7 @@ export default class AccountArea extends Vue {
                     font-size: 14px;
                     line-height: 20px;
                     color: #56606d;
-                    margin-left: 24px;
+                    margin: 0 6px 0 24px;
                 }
             }
         }
@@ -294,9 +313,11 @@ export default class AccountArea extends Vue {
         .account-area__wrap {
 
             &__left__label,
+            &__left__tier-badge,
             &__arrow {
                 display: none;
             }
         }
     }
+
 </style>

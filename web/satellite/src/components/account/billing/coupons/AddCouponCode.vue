@@ -27,6 +27,8 @@ import CloseIcon from '@/../static/images/common/closeCross.svg';
 
 import { RouteConfig } from '@/router';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -41,10 +43,13 @@ export default class AddCouponCode extends Vue {
     @Prop({default: false})
     protected readonly error: boolean;
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
     * Closes add coupon modal.
     */
     public onCloseClick(): void {
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
     }
 }

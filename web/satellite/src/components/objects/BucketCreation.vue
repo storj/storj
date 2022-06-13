@@ -31,6 +31,8 @@ import BucketCreationGeneratePassphrase from "@/components/objects/BucketCreatio
 import BucketCreationNameStep from "@/components/objects/BucketCreationNameStep.vue";
 import BucketCreationProgress from "@/components/objects/BucketCreationProgress.vue";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 export enum BucketCreationSteps {
     Name = 0,
     Passphrase,
@@ -54,6 +56,8 @@ export default class BucketCreation extends Vue {
     public isLoading = false;
     public bucketName = '';
     public passphrase = '';
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Sets bucket name from child component.
@@ -94,6 +98,7 @@ export default class BucketCreation extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.bucketName);
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
             await this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucketName);
+            this.analytics.pageVisit(RouteConfig.UploadFile.path);
             await this.$router.push(RouteConfig.UploadFile.path);
         } catch (e) {
             await this.$notify.error(e.message);
