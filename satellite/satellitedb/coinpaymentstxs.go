@@ -85,7 +85,7 @@ func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripe
 		}
 
 		for _, txID := range applies {
-			query := db.db.Rebind(`INSERT INTO stripecoinpayments_apply_balance_intents ( tx_id, state, created_at )
+			query := tx.Rebind(`INSERT INTO stripecoinpayments_apply_balance_intents ( tx_id, state, created_at )
 			VALUES ( ?, ?, ? ) ON CONFLICT DO NOTHING`)
 			_, err = tx.Tx.ExecContext(ctx, query, txID.String(), applyBalanceIntentStateUnapplied.Int(), db.db.Hooks.Now().UTC())
 			if err != nil {
