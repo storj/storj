@@ -11,12 +11,13 @@
             <span class="usage-charges-item-container__summary__text">
                 Estimated Total &nbsp;
                 <span
-                    class="usage-charges-item-container__summary__amount">{{ item.summary() | centsToDollars }}
+                    class="usage-charges-item-container__summary__amount"
+                >{{ item.summary() | centsToDollars }}
                 </span>
             </span>
         </div>
         <div v-if="isDetailedInfoShown" class="usage-charges-item-container__detailed-info-container">
-            <div class="divider"></div>
+            <div class="divider" />
             <div class="usage-charges-item-container__detailed-info-container__info-header">
                 <span class="resource-header">RESOURCE</span>
                 <span class="period-header">PERIOD</span>
@@ -45,7 +46,7 @@
                     <p class="price">{{ item.segmentPrice | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="divider"></div>
+            <div class="divider" />
             <div class="usage-charges-item-container__detailed-info-container__footer">
                 <div class="usage-charges-item-container__detailed-info-container__footer__payment-type">
                     <p class="usage-charges-item-container__detailed-info-container__footer__payment-type__method">PAYMENT METHOD</p>
@@ -125,7 +126,7 @@ export default class UsageAndChargesItem extends Vue {
     private readonly GB_IN_TB = 1000;
 
 
-    public paymentMethod: string = "test";
+    public paymentMethod = "test";
 
     /**
      * projectName returns project name.
@@ -219,7 +220,7 @@ export default class UsageAndChargesItem extends Vue {
 
     .divider {
         margin-top: 15px;
-        background-color: #EBEEF1;
+        background-color: #ebeef1;
         width: calc(100% + 40px);
         height: 1px;
         align-self: center;
@@ -242,7 +243,7 @@ export default class UsageAndChargesItem extends Vue {
         font-family: 'font_regular', sans-serif;
         background-color: #fff;
         border-radius: 8px;
-        box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 20px rgb(0 0 0 / 4%);
 
         &__summary {
             display: flex;
@@ -285,7 +286,7 @@ export default class UsageAndChargesItem extends Vue {
                 line-height: 31px;
                 font-weight: 800;
                 text-align: right;
-                color: #000000;
+                color: #000;
             }
         }
 
@@ -301,7 +302,7 @@ export default class UsageAndChargesItem extends Vue {
                 justify-content: space-between;
                 font-size: 12px;
                 line-height: 19px;
-                color: #56606D;
+                color: #56606d;
                 font-weight: 600;
                 height: 25px;
                 width: 100%;
@@ -345,12 +346,14 @@ export default class UsageAndChargesItem extends Vue {
                 flex-wrap: wrap;
                 padding-top: 10px;
                 width: 100%;
+
                 &__payment-type {
                     display: flex;
                     flex-direction: column;
                     padding-top: 10px;
+
                     &__method {
-                        color: #56606D;
+                        color: #56606d;
                         font-weight: 600;
                         font-size: 12px;
                     }
@@ -360,6 +363,7 @@ export default class UsageAndChargesItem extends Vue {
                         font-size: 16px;
                     }
                 }
+
                 &__buttons {
                     display: flex;
                     align-self: center;
@@ -410,32 +414,45 @@ export default class UsageAndChargesItem extends Vue {
     }
 
     @media only screen and (max-width: 1040px) {
-        .price-per-month{
+
+        .price-per-month {
             display: none;
         }
 
-        .usage-charges-item-container__detailed-info-container__content-area__resource-container, .resource-header, .usage-charges-item-container__detailed-info-container__content-area__cost-container, .cost-header {
+        .usage-charges-item-container__detailed-info-container__content-area__resource-container,
+        .resource-header,
+        .usage-charges-item-container__detailed-info-container__content-area__cost-container,
+        .cost-header {
             width: 15%;
         }
 
-        .usage-charges-item-container__detailed-info-container__content-area__period-container, .period-header, .usage-charges-item-container__detailed-info-container__content-area__usage-container, .usage-header {
+        .usage-charges-item-container__detailed-info-container__content-area__period-container,
+        .period-header,
+        .usage-charges-item-container__detailed-info-container__content-area__usage-container,
+        .usage-header {
             width: 25%;
         }
-
     }
 
-        @media only screen and (max-width: 625px) {
-        .usage-charges-item-container__detailed-info-container__content-area__period-container, .period-header,         .usage-charges-item-container__detailed-info-container__content-area__usage-container, .usage-header{
+    @media only screen and (max-width: 625px) {
+
+        .usage-charges-item-container__detailed-info-container__content-area__period-container,
+        .period-header,
+        .usage-charges-item-container__detailed-info-container__content-area__usage-container,
+        .usage-header {
             display: none;
         }
-        .usage-charges-item-container__detailed-info-container__content-area__resource-container,        .usage-charges-item-container__detailed-info-container__content-area__cost-container {
+
+        .usage-charges-item-container__detailed-info-container__content-area__resource-container,
+        .usage-charges-item-container__detailed-info-container__content-area__cost-container {
             width: auto;
         }
     }
 
     @media only screen and (max-width: 507px) {
+
         .usage-charges-item-container__detailed-info-container__footer__buttons__none-assigned {
-            margin-left: 0px;
+            margin-left: 0;
             margin-top: 5px;
         }
     }

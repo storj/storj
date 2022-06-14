@@ -10,14 +10,15 @@
             </div>
             <div class="total-cost__card-container">
                 <div class="total-cost__card">
-                    <EstimatedChargesIcon class="total-cost__card__main-icon"/>
+                    <EstimatedChargesIcon class="total-cost__card__main-icon" />
                     <p class="total-cost__card__money-text">{{ priceSummary | centsToDollars }}</p>
-                    <p class="total-cost__card__label-text">Total Estimated Charges 
+                    <p class="total-cost__card__label-text">
+                        Total Estimated Charges 
                         <img 
                             src="@/../static/images/common/smallGreyWhiteInfo.png"
                             @mouseenter="showChargesTooltip = true"
                             @mouseleave="showChargesTooltip = false"
-                        />
+                        >
                     </p>
                     <div 
                         v-if="showChargesTooltip"
@@ -25,18 +26,20 @@
                     >
                         <span class="total-cost__card__charges-tooltip__tooltip-text">If you still have Storage and Bandwidth remaining in your free tier, you won't be charged. This information is to help you estimate what the charges would have been had you graduated to the paid tier.</span>
                     </div>
-                    <p class="total-cost__card__link-text"
-                    @click="routeToBillingHistory"
+                    <p
+                        class="total-cost__card__link-text"
+                        @click="routeToBillingHistory"
                     >
                         View Billing History →
                     </p>
                 </div>
                 <div class="total-cost__card">
-                    <AvailableBalanceIcon class="total-cost__card__main-icon"/>
+                    <AvailableBalanceIcon class="total-cost__card__main-icon" />
                     <p class="total-cost__card__money-text">{{ balance.coins | centsToDollars }}</p>
                     <p class="total-cost__card__label-text">Available Balance</p>
-                    <p class="total-cost__card__link-text"
-                    @click="routeToPaymentMethods"
+                    <p
+                        class="total-cost__card__link-text"
+                        @click="routeToPaymentMethods"
                     >
                         View Payment Methods →
                     </p>
@@ -82,14 +85,10 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
     },
 })
 export default class BillingArea extends Vue {
-    // public estimatedCharges: number = 0;
-    public availableBalance: number = 0;
-    public showChargesTooltip: boolean = false;
+    public availableBalance = 0;
+    public showChargesTooltip = false;
     public isDataFetching = true;
-    public charges = this.projectUsageAndCharges;
-    public currentDate: string = ""
-
-
+    public currentDate = ""
 
     /**
      * Lifecycle hook after initial render.
@@ -114,7 +113,7 @@ export default class BillingArea extends Vue {
         const rawDate = new Date();
         let currentYear = rawDate.getFullYear();
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         this.currentDate = `${monthNames[rawDate.getMonth()]} ${currentYear}`
     }
 
@@ -154,10 +153,12 @@ export default class BillingArea extends Vue {
     .total-cost {
         font-family: sans-serif;
         margin: 20px 0;
+
         &__header-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
+
             &__date {
                 display: flex;
                 justify-content: space-between;
@@ -165,13 +166,13 @@ export default class BillingArea extends Vue {
                 color: #56606d;
                 font-weight: 700;
                 font-family: sans-serif;
-                border: 1px solid #D8DEE3;
+                border: 1px solid #d8dee3;
                 border-radius: 5px;
                 background-color: #fff;
                 height: 15px;
                 width: auto;
                 padding: 10px;
-                box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.08);
+                box-shadow: 0 0 3px rgb(0 0 0 / 8%);
             }
         }
 
@@ -184,7 +185,7 @@ export default class BillingArea extends Vue {
         &__card {
             width: calc(50% - 50px);
             min-width: 188px;
-            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 0 20px rgb(0 0 0 / 4%);
             border-radius: 10px;
             background-color: #fff;
             padding: 20px;
@@ -207,7 +208,7 @@ export default class BillingArea extends Vue {
             }
 
             &__link-text {
-                font-weight: 500;
+                font-weight: medium;
                 text-decoration: underline;
                 margin-top: 10px;
                 cursor: pointer;
@@ -216,10 +217,12 @@ export default class BillingArea extends Vue {
             &__charges-tooltip {
                 top: 5px;
                 left: 86px;
+
                 @media screen and (max-width: 635px) {
                     top: 5px;
                     left: -21px;
                 }
+
                 position: absolute;
                 background: #56606d;
                 border-radius: 6px;
@@ -231,11 +234,14 @@ export default class BillingArea extends Vue {
                 padding: 8px;
                 z-index: 1;
                 transition: 250ms;
+
                 &:after {
                     left: 50%;
+
                     @media screen and (max-width: 635px) {
                         left: 90%;
                     }
+
                     top: 100%;
                     content: '';
                     position: absolute;
@@ -259,6 +265,7 @@ export default class BillingArea extends Vue {
 
     .cost-by-project {
         font-family: sans-serif;
+
         &__title {
             padding-bottom: 10px;
         }

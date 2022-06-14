@@ -96,7 +96,6 @@ import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCost
 import CouponArea from '@/components/account/billing/coupons/CouponArea.vue';
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
-import BillingOverview from '@/components/account/billing/billingTabs/Overview.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import ExpandIcon from '@/../static/images/account/billing/expand.svg';
@@ -125,7 +124,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         HideIcon,
         CouponArea,
         VLoader,
-        BillingOverview,
     },
 })
 export default class BillingArea extends Vue {
@@ -351,6 +349,7 @@ export default class BillingArea extends Vue {
 
         &__title {
             padding-top: 20px;
+
             &__text {
                 font-family: sans-serif;
             }
@@ -358,7 +357,7 @@ export default class BillingArea extends Vue {
 
         &__divider {
             width: 100%;
-            border-bottom: 1px solid #DADFE7;
+            border-bottom: 1px solid #dadfe7;
         }
 
         &__header {

@@ -15,7 +15,7 @@
             <LockIcon v-if="icon.toLowerCase() === 'lock'" />
             <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
             <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
-            <TrashIcon v-if="icon.toLowerCase() === 'trash'"/>
+            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
             <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
     </div>
 </template>
@@ -27,10 +27,6 @@ import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
-
-
-import { component } from 'vue/types/umd';
-
 
 /**
  * Custom button component with label.
@@ -80,25 +76,6 @@ export default class VButton extends Vue {
     @Prop({default: () => () => {}})
     private readonly onPress: () => void;
 
-
-    // controls icon usage
-    private iconsList = ['lock','creditCard','document'];
-    private iconsMap: Object = {
-        lock: 'LockIcon',
-        creditCard: 'CreditCardIcon',
-        document: 'DocumentIcon',
-    };
-
-    public get iconHTML(): string {
-        if(this.icon.toLowerCase() !== 'none' && this.iconsList.includes(this.icon.toLowerCase())) {
-            console.log(`<${this.iconsMap[this.icon.toLowerCase()]} />`)
-            return `<${this.iconsMap[this.icon.toLowerCase()]} />`
-        } else {
-            console.log('miss')
-            return 'none'
-        }
-    }
-
     public get style(): Record<string, unknown> {
         return { width: this.width, height: this.height, borderRadius: this.borderRadius, fontSize: this.fontSize };
     }
@@ -128,7 +105,6 @@ export default class VButton extends Vue {
 </script>
 
 <style scoped lang="scss">
-
     .label {
         display: flex;
         align-items: center;
