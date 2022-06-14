@@ -168,7 +168,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
         `
 
 		var segmentsCount int
-		row := db.db.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
+		row := tx.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
 		if err = row.Scan(&segmentsCount); err != nil {
 			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 				return Error.Wrap(ErrObjectAlreadyExists.New(""))
@@ -193,7 +193,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			newSegmentKeys.Positions = append(newSegmentKeys.Positions, int64(u.Position.Encode()))
 		}
 
-		updateResult, err := db.db.ExecContext(ctx, `
+		updateResult, err := tx.ExecContext(ctx, `
 					UPDATE segments SET
 						encrypted_key_nonce = P.encrypted_key_nonce,
 						encrypted_key = P.encrypted_key
