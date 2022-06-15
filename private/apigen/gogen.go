@@ -295,8 +295,6 @@ func (a *API) generateGo() ([]byte, error) {
 
 	result += fileBody
 
-	fmt.Printf("\n\n\nHERE:%v\n\n\n", result)
-
 	output, err := format.Source([]byte(result))
 	if err != nil {
 		return nil, err
