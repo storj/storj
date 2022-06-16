@@ -35,6 +35,7 @@ func configureSatellite(log *zap.Logger, index int, config *satellite.Config) {
 		config.Console.StaticDir = dir
 	}
 	config.Console.NewObjectsFlow = true
+	config.Console.NewAccessGrantFlow = true
 	config.Console.NewProjectDashboard = true
 	config.Console.CouponCodeBillingUIEnabled = true
 }
