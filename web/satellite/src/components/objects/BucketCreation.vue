@@ -72,6 +72,7 @@ export default class BucketCreation extends Vue {
      */
     public setPassphrase(passphrase: string): void {
         this.passphrase = passphrase;
+        this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
     }
 
     /**
