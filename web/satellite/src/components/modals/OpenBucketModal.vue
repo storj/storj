@@ -186,6 +186,7 @@ export default class OpenBucketModal extends Vue {
         if (this.enterError) this.enterError = '';
 
         this.passphrase = passphrase;
+        this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
     }
 
     /**
