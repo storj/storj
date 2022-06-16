@@ -53,6 +53,9 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -72,6 +75,8 @@ export default class EditProfilePopup extends Vue {
         this.fullNameError = '';
     }
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Validates name and tries to update user info and close popup.
      */
@@ -89,6 +94,8 @@ export default class EditProfilePopup extends Vue {
 
             return;
         }
+
+        this.analytics.eventTriggered(AnalyticsEvent.PROFILE_UPDATED);
 
         await this.$notify.success('Account info successfully updated!');
 

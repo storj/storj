@@ -81,6 +81,7 @@ import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
 import BucketIcon from '@/../static/images/objects/bucket.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -313,6 +314,8 @@ export default class BucketsView extends Vue {
         } finally {
             this.isRequestProcessing = false;
         }
+
+        this.analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
 
         this.deleteBucketName = '';
         this.hideDeleteBucketPopup();
