@@ -17,16 +17,25 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE billing_balances (
+	user_id bytea NOT NULL,
+	balance bigint NOT NULL,
+	last_updated timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id )
+);
 CREATE TABLE billing_transactions (
-	tx_id bytea NOT NULL,
+	id bigserial NOT NULL,
 	user_id bytea NOT NULL,
 	amount bigint NOT NULL,
 	currency text NOT NULL,
 	description text NOT NULL,
-	type integer NOT NULL,
+	source text NOT NULL,
+	status text NOT NULL,
+	type text NOT NULL,
+	metadata jsonb NOT NULL,
 	timestamp timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( tx_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,

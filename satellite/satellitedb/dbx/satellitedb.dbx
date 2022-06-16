@@ -1149,21 +1149,54 @@ read limitoffset (
     orderby desc stripe_customer.created_at
 )
 
-model billing_transaction (
-    key tx_id
+model billing_balance (
+    key user_id
 
-    field tx_id            blob
+    field user_id          blob
+    field balance          int64   ( updatable )
+    field last_updated 	   timestamp ( autoinsert, autoupdate )
+)
+
+create billing_balance ( noreturn )
+
+update billing_balance (
+    where billing_balance.user_id = ?
+    where billing_balance.balance = ?
+)
+
+read one (
+	select billing_balance.balance
+	where billing_balance.user_id = ?
+)
+
+model billing_transaction (
+    key id
+
+    field id               serial64
     field user_id          blob
     field amount           int64
     field currency         text
     field description      text
-    field type             int
+    field source           text
+    field status           text      ( updatable )
+    field type             text
+    field metadata         json      ( updatable )
     field timestamp        timestamp
 
     field created_at timestamp ( autoinsert )
 )
 
-create billing_transaction ( noreturn )
+create billing_transaction ( )
+
+update billing_transaction (
+    where billing_transaction.id = ?
+    noreturn
+)
+
+read one (
+	select billing_transaction.metadata
+	where billing_transaction.id = ?
+)
 
 read all (
     select billing_transaction
@@ -1171,11 +1204,11 @@ read all (
     orderby desc billing_transaction.timestamp
 )
 
-read all (
-    select billing_transaction
-    where billing_transaction.user_id = ?
+read first (
+    select billing_transaction.timestamp
+    where billing_transaction.source = ?
     where billing_transaction.type = ?
-    orderby desc billing_transaction.timestamp
+    orderby ( desc billing_transaction.timestamp)
 )
 
 model storjscan_wallet (
@@ -1187,6 +1220,11 @@ model storjscan_wallet (
 )
 
 create storjscan_wallet ( noreturn )
+
+read one (
+	select storjscan_wallet.user_id
+	where storjscan_wallet.wallet_address = ?
+)
 
 read one (
 	select storjscan_wallet.wallet_address
