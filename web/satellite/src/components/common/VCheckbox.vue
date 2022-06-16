@@ -7,7 +7,7 @@
             <input id="checkbox" v-model="checked" class="checkmark-input" type="checkbox" @change="onChange">
             <span class="checkmark" :class="{'error': isCheckboxError}" />
         </label>
-        <label class="label" for="checkbox">{{ label }}</label>
+        <label v-if="label" class="label" for="checkbox">{{ label }}</label>
     </div>
 </template>
 
