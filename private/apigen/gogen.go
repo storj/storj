@@ -19,6 +19,9 @@ import (
 	"storj.io/common/uuid"
 )
 
+// DateFormat is the layout of dates passed into and out of the API.
+const DateFormat = "2006-01-02T15:04:05.999Z"
+
 // MustWriteGo writes generated Go code into a file.
 func (a *API) MustWriteGo(path string) {
 	generated, err := a.generateGo()
@@ -56,7 +59,7 @@ func (a *API) generateGo() ([]byte, error) {
 
 	i := func(paths ...string) {
 		for _, path := range paths {
-			if getPackageName(path) == a.PackageName {
+			if path == "" || getPackageName(path) == a.PackageName {
 				continue
 			}
 
@@ -88,9 +91,6 @@ func (a *API) generateGo() ([]byte, error) {
 			}
 		}
 	}
-
-	p("const dateLayout = \"2006-01-02T15:04:05.000Z\"")
-	p("")
 
 	for _, group := range a.EndpointGroups {
 		i("github.com/zeebo/errs")
@@ -131,10 +131,11 @@ func (a *API) generateGo() ([]byte, error) {
 	}
 
 	for _, group := range a.EndpointGroups {
-		i("go.uber.org/zap")
+		i("go.uber.org/zap", "github.com/spacemonkeygo/monkit/v3")
 		p("// %sHandler is an api handler that exposes all %s related functionality.", group.Name, group.Prefix)
 		p("type %sHandler struct {", group.Name)
 		p("log *zap.Logger")
+		p("mon *monkit.Scope")
 		p("service %sService", group.Name)
 		p("auth api.Auth")
 		p("}")
@@ -144,13 +145,14 @@ func (a *API) generateGo() ([]byte, error) {
 	for _, group := range a.EndpointGroups {
 		i("github.com/gorilla/mux")
 		p(
-			"func New%s(log *zap.Logger, service %sService, router *mux.Router, auth api.Auth) *%sHandler {",
+			"func New%s(log *zap.Logger, mon *monkit.Scope, service %sService, router *mux.Router, auth api.Auth) *%sHandler {",
 			group.Name,
 			group.Name,
 			group.Name,
 		)
 		p("handler := &%sHandler{", group.Name)
 		p("log: log,")
+		p("mon: mon,")
 		p("service: service,")
 		p("auth: auth,")
 		p("}")
@@ -174,7 +176,7 @@ func (a *API) generateGo() ([]byte, error) {
 			p("func (h *%sHandler) %s(w http.ResponseWriter, r *http.Request) {", group.Name, handlerName)
 			p("ctx := r.Context()")
 			p("var err error")
-			p("defer mon.Task()(&ctx)(&err)")
+			p("defer h.mon.Task()(&ctx)(&err)")
 			p("")
 
 			p("w.Header().Set(\"Content-Type\", \"application/json\")")
@@ -256,6 +258,11 @@ func (a *API) generateGo() ([]byte, error) {
 	}
 	p(")")
 	p("")
+
+	if _, ok := imports.All["time"]; ok {
+		p("const dateLayout = \"%s\"", DateFormat)
+		p("")
+	}
 
 	result += fileBody
 

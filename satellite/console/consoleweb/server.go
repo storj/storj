@@ -245,9 +245,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Use(newTraceRequestMiddleware(logger, router))
 
 	if server.config.GeneratedAPIEnabled {
-		consoleapi.NewProjectManagement(logger, server.service, router, &apiAuth{&server})
-		consoleapi.NewAPIKeyManagement(logger, server.service, router, &apiAuth{&server})
-		consoleapi.NewUserManagement(logger, server.service, router, &apiAuth{&server})
+		consoleapi.NewProjectManagement(logger, mon, server.service, router, &apiAuth{&server})
+		consoleapi.NewAPIKeyManagement(logger, mon, server.service, router, &apiAuth{&server})
+		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
