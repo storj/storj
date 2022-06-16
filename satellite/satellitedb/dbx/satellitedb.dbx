@@ -1206,7 +1206,7 @@ read all (
 )
 
 read first (
-    select billing_transaction.timestamp
+    select billing_transaction
     where billing_transaction.source = ?
     where billing_transaction.type = ?
     orderby ( desc billing_transaction.timestamp)

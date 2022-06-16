@@ -157,6 +157,30 @@ func (storjscanPayments storjscanPayments) DeletePending(ctx context.Context) er
 	return err
 }
 
+func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, blockNumber int64, logIndex int) (_ []storjscan.CachedPayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp
+              FROM storjscan_payments WHERE (storjscan_payments.block_number, storjscan_payments.log_index) > (?, ?) AND storjscan_payments.status = ?`
+	rows, err := storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), blockNumber, logIndex, payments.PaymentStatusConfirmed)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var payments []storjscan.CachedPayment
+	for rows.Next() {
+		var payment dbx.StorjscanPayment
+		err = rows.Scan(&payment.BlockHash, &payment.BlockNumber, &payment.Transaction, &payment.LogIndex,
+			&payment.FromAddress, &payment.ToAddress, &payment.TokenValue, &payment.UsdValue, &payment.Status, &payment.Timestamp)
+		if err != nil {
+			return nil, err
+		}
+		payments = append(payments, fromDBXPayment(&payment))
+	}
+	return payments, rows.Err()
+}
+
 // fromDBXPayment converts dbx storjscan payment type to storjscan.CachedPayment.
 func fromDBXPayment(dbxPmnt *dbx.StorjscanPayment) storjscan.CachedPayment {
 	payment := storjscan.CachedPayment{

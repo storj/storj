@@ -30,8 +30,8 @@ func (walletsDB storjscanWalletsDB) Add(ctx context.Context, userID uuid.UUID, w
 		dbx.StorjscanWallet_WalletAddress(walletAddress.Bytes()))
 }
 
-// Get returns with thw wallet associated with the user.
-func (walletsDB storjscanWalletsDB) Get(ctx context.Context, userID uuid.UUID) (_ blockchain.Address, err error) {
+// GetWallet returns the wallet associated with the given user.
+func (walletsDB storjscanWalletsDB) GetWallet(ctx context.Context, userID uuid.UUID) (_ blockchain.Address, err error) {
 	defer mon.Task()(&ctx)(&err)
 	wallet, err := walletsDB.db.Get_StorjscanWallet_WalletAddress_By_UserId(ctx, dbx.StorjscanWallet_UserId(userID[:]))
 	if err != nil {
@@ -42,6 +42,20 @@ func (walletsDB storjscanWalletsDB) Get(ctx context.Context, userID uuid.UUID) (
 		return blockchain.Address{}, Error.Wrap(err)
 	}
 	return address, nil
+}
+
+// GetUser returns the userID associated with the given wallet.
+func (walletsDB storjscanWalletsDB) GetUser(ctx context.Context, walletAddress blockchain.Address) (_ uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+	userID, err := walletsDB.db.Get_StorjscanWallet_UserId_By_WalletAddress(ctx, dbx.StorjscanWallet_WalletAddress(walletAddress.Bytes()))
+	if err != nil {
+		return uuid.UUID{}, Error.Wrap(err)
+	}
+	id, err := uuid.FromBytes(userID.UserId)
+	if err != nil {
+		return uuid.UUID{}, Error.Wrap(err)
+	}
+	return id, nil
 }
 
 // GetAll returns all saved wallet entries.

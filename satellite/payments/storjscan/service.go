@@ -5,6 +5,8 @@ package storjscan
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -12,13 +14,24 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
 )
 
 // ErrService is storjscan service error class.
 var ErrService = errs.Class("storjscan service")
 
-// ensures that Wallets implements payments.Wallets.
+type storjscanMetadata struct {
+	ReferenceID string
+	Wallet      string
+	BlockNumber int64
+	LogIndex    int
+}
+
+// ensures that storjscan implements payments.DepositWallets.
 var _ payments.DepositWallets = (*Service)(nil)
+
+// ensures that storjscan implements billing.PaymentType.
+var _ billing.PaymentType = (*Service)(nil)
 
 // Service exposes API to interact with storjscan payments provider.
 type Service struct {
@@ -58,7 +71,7 @@ func (service *Service) Claim(ctx context.Context, userID uuid.UUID) (_ blockcha
 func (service *Service) Get(ctx context.Context, userID uuid.UUID) (_ blockchain.Address, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	address, err := service.walletsDB.Get(ctx, userID)
+	address, err := service.walletsDB.GetWallet(ctx, userID)
 	return address, ErrService.Wrap(err)
 }
 
@@ -88,4 +101,61 @@ func (service *Service) Payments(ctx context.Context, wallet blockchain.Address,
 	}
 
 	return walletPayments, nil
+}
+
+// Source defines the billing transaction source for storjscan payments.
+func (service *Service) Source() string {
+	return "storjscan"
+}
+
+// Type defines the billing transaction type for storjscan payments.
+func (service *Service) Type() billing.TransactionType {
+	return billing.TransactionTypeCredit
+}
+
+// GetNewTransactions returns the storjscan payments since the given timestamp as billing transactions type.
+func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, lastPaymentMetadata []byte) ([]billing.Transaction, error) {
+
+	var latestMetadata storjscanMetadata
+	if err := json.Unmarshal(lastPaymentMetadata, &latestMetadata); err != nil {
+		service.log.Error("error retrieving metadata from latest recorded billing payment")
+		return nil, err
+	}
+
+	newCachedPayments, err := service.paymentsDB.ListConfirmed(ctx, latestMetadata.BlockNumber, latestMetadata.LogIndex)
+	if err != nil {
+		return []billing.Transaction{}, ErrService.Wrap(err)
+	}
+
+	var billingTXs []billing.Transaction
+	for _, payment := range newCachedPayments {
+		userID, err := service.walletsDB.GetUser(ctx, payment.To)
+		if err != nil {
+			service.log.Error("error retrieving user ID associated with wallet", zap.String("Wallet Address", payment.To.Hex()))
+			return nil, err
+		}
+
+		metadata, err := json.Marshal(storjscanMetadata{
+			ReferenceID: payment.Transaction.Hex(),
+			Wallet:      payment.To.Hex(),
+			BlockNumber: payment.BlockNumber,
+			LogIndex:    payment.LogIndex,
+		})
+		if err != nil {
+			service.log.Error("error populating metadata", zap.String("Reference ID", payment.Transaction.Hex()), zap.String("Wallet", payment.To.Hex()))
+			return nil, err
+		}
+
+		billingTXs = append(billingTXs, billing.Transaction{
+			UserID:      userID,
+			Amount:      payment.USDValue,
+			Description: "Storj token deposit",
+			Source:      service.Source(),
+			Status:      payments.PaymentStatusConfirmed,
+			Type:        service.Type(),
+			Metadata:    metadata,
+			Timestamp:   payment.Timestamp,
+		})
+	}
+	return billingTXs, nil
 }

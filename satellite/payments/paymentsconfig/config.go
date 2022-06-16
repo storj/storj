@@ -4,6 +4,7 @@
 package paymentsconfig
 
 import (
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
@@ -11,6 +12,7 @@ import (
 // Config defines global payments config.
 type Config struct {
 	Provider                 string `help:"payments provider to use" default:""`
+	BillingConfig            billing.Config
 	StripeCoinPayments       stripecoinpayments.Config
 	Storjscan                storjscan.Config
 	StorageTBPrice           string `help:"price user should pay for storing TB per month" default:"4" testDefault:"10"`
