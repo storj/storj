@@ -1364,6 +1364,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
 	if err != nil {
+		s.analytics.TrackProjectLimitError(user.ID, user.Email)
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
@@ -1891,8 +1892,6 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackAccessGrantCreated(user.ID, user.Email)
-
 	return info, key, nil
 }
 
@@ -1964,8 +1963,6 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 			Err:    Error.Wrap(err),
 		}
 	}
-
-	s.analytics.TrackAccessGrantCreated(user.ID, user.Email)
 
 	return &CreateAPIKeyResponse{
 		Key:     key.Serialize(),

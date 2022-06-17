@@ -32,6 +32,7 @@ import BucketCreationNameStep from "@/components/objects/BucketCreationNameStep.
 import BucketCreationProgress from "@/components/objects/BucketCreationProgress.vue";
 
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 export enum BucketCreationSteps {
     Name = 0,
@@ -99,6 +100,7 @@ export default class BucketCreation extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.bucketName);
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
             await this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucketName);
+            this.analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
             this.analytics.pageVisit(RouteConfig.UploadFile.path);
             await this.$router.push(RouteConfig.UploadFile.path);
         } catch (e) {

@@ -25,4 +25,9 @@ export enum AnalyticsEvent {
     UPLOAD_IN_WEB_CLICKED = 'Upload In Web Clicked',
     NEW_PROJECT_CLICKED = 'New Project Clicked',
     LOGOUT_CLICKED = 'Logout Clicked',
+    PROFILE_UPDATED = 'Profile Updated',
+    PASSWORD_CHANGED = 'Password Changed',
+    MFA_ENABLED = 'MFA Enabled',
+    BUCKET_CREATED = 'Bucket Created',
+    BUCKET_DELETED = 'Bucket Deleted',
 }
