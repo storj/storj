@@ -1041,7 +1041,7 @@ func TestUsageFromCreateToDelete(t *testing.T) {
 				err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "firstbucket")
 				require.NoError(t, err)
 
-				require.Equalf(t, "firstbucket",rollupsBeforeDelete.BucketUsages[1].BucketName,"if pass bucket does not exist")
+				require.Equalf(t, "firstbucket",rollupsBeforeDelete.BucketUsages[1].BucketName,"if pass bucket exist")
 			}
 		})
 
