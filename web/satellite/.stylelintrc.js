@@ -16,6 +16,7 @@ module.exports = {
         "indentation": 4,
         "string-quotes": "single",
         "no-duplicate-selectors": true,
+        "no-descending-specificity": null,
         "selector-max-attribute": 1,
         "selector-combinator-space-after": "always",
         "selector-attribute-operator-space-before": "never",
