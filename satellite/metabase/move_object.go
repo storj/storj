@@ -115,9 +115,10 @@ func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (result
 // FinishMoveObject holds all data needed to finish object move.
 type FinishMoveObject struct {
 	ObjectStream
-	NewBucket                    string
-	NewSegmentKeys               []EncryptedKeyAndNonce
-	NewEncryptedObjectKey        []byte
+	NewBucket             string
+	NewSegmentKeys        []EncryptedKeyAndNonce
+	NewEncryptedObjectKey []byte
+	// Optional. Required if object has metadata.
 	NewEncryptedMetadataKeyNonce storj.Nonce
 	NewEncryptedMetadataKey      []byte
 }
@@ -133,10 +134,6 @@ func (finishMove FinishMoveObject) Verify() error {
 		return ErrInvalidRequest.New("NewBucket is missing")
 	case len(finishMove.NewEncryptedObjectKey) == 0:
 		return ErrInvalidRequest.New("NewEncryptedObjectKey is missing")
-	case finishMove.NewEncryptedMetadataKeyNonce.IsZero() && len(finishMove.NewEncryptedMetadataKey) != 0:
-		return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
-	case len(finishMove.NewEncryptedMetadataKey) == 0 && !finishMove.NewEncryptedMetadataKeyNonce.IsZero():
-		return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
 	}
 
 	return nil
@@ -155,8 +152,14 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			UPDATE objects SET
 				bucket_name = $1,
 				object_key = $2,
-				encrypted_metadata_encrypted_key = $3,
-				encrypted_metadata_nonce = $4
+				encrypted_metadata_encrypted_key = CASE WHEN objects.encrypted_metadata IS NOT NULL
+				THEN $3
+				ELSE objects.encrypted_metadata_encrypted_key
+				END,
+				encrypted_metadata_nonce = CASE WHEN objects.encrypted_metadata IS NOT NULL
+				THEN $4
+				ELSE objects.encrypted_metadata_nonce
+				END
 			WHERE
 				project_id = $5 AND
 				bucket_name = $6 AND
@@ -164,12 +167,14 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 				version = $8 AND
 				stream_id = $9
 			RETURNING
-				segment_count;
+				segment_count, objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata;
         `
 
 		var segmentsCount int
+		var hasMetadata bool
+
 		row := tx.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
-		if err = row.Scan(&segmentsCount); err != nil {
+		if err = row.Scan(&segmentsCount, &hasMetadata); err != nil {
 			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 				return Error.Wrap(ErrObjectAlreadyExists.New(""))
 			} else if errors.Is(err, sql.ErrNoRows) {
@@ -179,6 +184,14 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		}
 		if segmentsCount != len(opts.NewSegmentKeys) {
 			return ErrInvalidRequest.New("wrong amount of segments keys received")
+		}
+		if hasMetadata {
+			switch {
+			case opts.NewEncryptedMetadataKeyNonce.IsZero() && len(opts.NewEncryptedMetadataKey) != 0:
+				return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
+			case len(opts.NewEncryptedMetadataKey) == 0 && !opts.NewEncryptedMetadataKeyNonce.IsZero():
+				return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
+			}
 		}
 
 		var newSegmentKeys struct {

@@ -30,8 +30,9 @@ func (e *Endpoint) APIAuth() bool {
 	return !e.NoAPIAuth
 }
 
-// PathMethod represents endpoint's path and method type.
-type PathMethod struct {
+// fullEndpoint represents endpoint with path and method.
+type fullEndpoint struct {
+	Endpoint
 	Path   string
 	Method string
 }
@@ -40,7 +41,7 @@ type PathMethod struct {
 type EndpointGroup struct {
 	Name      string
 	Prefix    string
-	Endpoints map[PathMethod]*Endpoint
+	endpoints []*fullEndpoint
 }
 
 // Get adds new GET endpoint to endpoints group.
@@ -65,12 +66,14 @@ func (eg *EndpointGroup) Delete(path string, endpoint *Endpoint) {
 
 // addEndpoint adds new endpoint to endpoints list.
 func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
-	pathMethod := PathMethod{
-		Path:   path,
-		Method: method,
+	ep := &fullEndpoint{*endpoint, path, method}
+	for i, e := range eg.endpoints {
+		if e.Path == path && e.Method == method {
+			eg.endpoints[i] = ep
+			return
+		}
 	}
-
-	eg.Endpoints[pathMethod] = endpoint
+	eg.endpoints = append(eg.endpoints, ep)
 }
 
 // Param represents string interpretation of param's name and type.

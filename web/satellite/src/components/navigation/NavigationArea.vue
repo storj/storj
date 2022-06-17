@@ -21,7 +21,7 @@
                 >
                     <div class="navigation-area__container__wrap__item-container__left">
                         <component :is="navItem.icon" class="navigation-area__container__wrap__item-container__left__image" />
-                        <p class="navigation-area__container__wrap__item-container__left__label">{{ navItem.name }}</p>
+                        <p class="navigation-area__container__wrap__item-container__left__label">{{ isSmallWindow ? navItem.name.split(' ').pop(): navItem.name }}</p>
                     </div>
                 </router-link>
                 <div class="navigation-area__container__wrap__border" />
@@ -56,7 +56,6 @@
                                 <p class="dropdown-item__text__label">Documentation for Storj</p>
                             </div>
                         </a>
-                        <div class="dropdown-border" />
                         <a
                             class="dropdown-item"
                             href="https://forum.storj.io/"
@@ -70,7 +69,6 @@
                                 <p class="dropdown-item__text__label">Join our global community</p>
                             </div>
                         </a>
-                        <div class="dropdown-border" />
                         <a
                             class="dropdown-item"
                             href="https://supportdcs.storj.io/hc/en-us"
@@ -94,7 +92,7 @@
                     >
                         <div class="navigation-area__container__wrap__item-container__left">
                             <QuickStartIcon class="navigation-area__container__wrap__item-container__left__image" />
-                            <p class="navigation-area__container__wrap__item-container__left__label">Quick Start</p>
+                            <p class="navigation-area__container__wrap__item-container__left__label">Quickstart</p>
                         </div>
                         <ArrowIcon class="navigation-area__container__wrap__item-container__arrow" />
                     </div>
@@ -111,7 +109,6 @@
                                 <p class="dropdown-item__text__label">Create a new project.</p>
                             </div>
                         </div>
-                        <div class="dropdown-border" />
                         <div class="dropdown-item" aria-roledescription="create-ag-route" @click.stop="navigateToCreateAG">
                             <CreateAGIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
@@ -119,7 +116,6 @@
                                 <p class="dropdown-item__text__label">Start the wizard to create a new access grant.</p>
                             </div>
                         </div>
-                        <div class="dropdown-border" />
                         <div class="dropdown-item" aria-roledescription="objects-route" @click.stop="navigateToBuckets">
                             <UploadInWebIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
@@ -127,7 +123,6 @@
                                 <p class="dropdown-item__text__label">Start uploading files in the web browser.</p>
                             </div>
                         </div>
-                        <div class="dropdown-border" />
                         <div class="dropdown-item" aria-roledescription="cli-flow-route" @click.stop="navigateToCLIFlow">
                             <UploadInCLIIcon class="dropdown-item__icon" />
                             <div class="dropdown-item__text">
@@ -156,6 +151,7 @@ import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { User } from "@/types/users";
 
 import LogoIcon from '@/../static/images/logo.svg';
 import SmallLogoIcon from '@/../static/images/smallLogo.svg';
@@ -222,13 +218,15 @@ export default class NavigationArea extends Vue {
         navigationContainer: HTMLDivElement;
     };
 
+    private windowWidth = window.innerWidth;
+
     /**
      * Mounted hook after initial render.
      * Adds scroll event listener to close dropdowns.
      */
     public mounted(): void {
         this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns)
-        window.addEventListener('resize', this.closeDropdowns)
+        window.addEventListener('resize', this.onResize)
     }
 
     /**
@@ -237,7 +235,15 @@ export default class NavigationArea extends Vue {
      */
     public beforeDestroy(): void {
         this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns)
-        window.removeEventListener('resize', this.closeDropdowns)
+        window.removeEventListener('resize', this.onResize)
+    }
+
+    /**
+     * On screen resize handler.
+     */
+    public onResize(): void {
+        this.windowWidth = window.innerWidth;
+        this.closeDropdowns();
     }
 
     /**
@@ -275,17 +281,30 @@ export default class NavigationArea extends Vue {
      * Redirects to create access grant screen.
      */
     public navigateToNewProject(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
+        if (this.$route.name !== RouteConfig.CreateProject.name) {
+            this.analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
+
+            const user: User = this.$store.getters.user;
+            const ownProjectsCount: number = this.$store.getters.projectsCount;
+
+            if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+            } else {
+                this.analytics.pageVisit(RouteConfig.CreateProject.path);
+                this.$router.push(RouteConfig.CreateProject.path);
+            }
+        }
+
         this.closeDropdowns();
-        this.analytics.pageVisit(RouteConfig.CreateProject.path);
-        this.$router.push(RouteConfig.CreateProject.path);
     }
 
     /**
-     * Reloads page.
+     * Redirects to project dashboard.
      */
     public onLogoClick(): void {
-        location.reload();
+        if (this.$route.name !== RouteConfig.ProjectDashboard.name) {
+            this.$router.push(RouteConfig.ProjectDashboard.path);
+        }
     }
 
     /**
@@ -359,6 +378,13 @@ export default class NavigationArea extends Vue {
      */
     public get isQuickStartDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.isQuickStartDropdownShown;
+    }
+
+    /**
+     * Indicates if window is less or equal of 1280px.
+     */
+    public get isSmallWindow(): boolean {
+        return this.windowWidth <= 1280;
     }
 
     /**
@@ -452,7 +478,6 @@ export default class NavigationArea extends Vue {
                     justify-content: space-between;
                     border-left: 4px solid #fff;
                     color: #56606d;
-                    font-weight: 500;
                     position: static;
                     cursor: pointer;
                     box-sizing: border-box;
@@ -467,6 +492,16 @@ export default class NavigationArea extends Vue {
                             margin-left: 24px;
                         }
                     }
+
+                    &:hover {
+                        border-color: #fafafb;
+                        background-color: #fafafb;
+                        color: #0149ff;
+
+                        ::v-deep path {
+                            fill: #0149ff;
+                        }
+                    }
                 }
 
                 &__border {
@@ -479,30 +514,23 @@ export default class NavigationArea extends Vue {
         }
     }
 
+    .router-link-active,
     .active {
-        font-weight: 600;
-        border-color: #0149ff;
-        background-color: #f7f8fb;
-        color: #0149ff;
+        border-color: #000;
+        color: #091c45;
+        font-family: 'font_bold', sans-serif;
 
-        .navigation-area__container__wrap__item-container {
+        ::v-deep path {
+            fill: #000;
+        }
 
-            &__left__image ::v-deep path,
-            &__arrow ::v-deep path {
+        &:hover {
+            color: #0149ff;
+            border-color: #0149ff;
+
+            ::v-deep path {
                 fill: #0149ff;
             }
-        }
-    }
-
-    .router-link-active,
-    .navigation-area__container__wrap__item-container:hover {
-        font-weight: 600;
-        border-color: #0149ff;
-        background-color: #f7f8fb;
-        color: #0149ff;
-
-        .navigation-area__container__wrap__item-container__left__image ::v-deep path {
-            fill: #0149ff;
         }
     }
 
@@ -510,17 +538,18 @@ export default class NavigationArea extends Vue {
         display: flex;
         align-items: center;
         font-family: 'font_regular', sans-serif;
-        padding: 10px 24px;
+        padding: 10px 16px;
         cursor: pointer;
+        border-top: 1px solid #ebeef1;
+        border-bottom: 1px solid #ebeef1;
 
         &__icon {
-            margin-left: 15px;
-            max-width: 37px;
-            min-width: 37px;
+            max-width: 40px;
+            min-width: 40px;
         }
 
         &__text {
-            margin-left: 24px;
+            margin-left: 10px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;
@@ -535,14 +564,23 @@ export default class NavigationArea extends Vue {
                 color: #091c45;
             }
         }
-    }
 
-    .dropdown-border {
-        height: 1px;
-        width: calc(100% - 48px);
-        margin: 0 24px;
-        background-color: #091c45;
-        opacity: 0.1;
+        &:first-of-type {
+            border-radius: 8px 8px 0 0;
+        }
+
+        &:last-of-type {
+            border-radius: 0 0 8px 8px;
+        }
+
+        &:hover {
+            background-color: #fafafb;
+
+            h2,
+            p {
+                color: #0149ff;
+            }
+        }
     }
 
     @media screen and (max-width: 1280px) {
@@ -553,14 +591,30 @@ export default class NavigationArea extends Vue {
 
             &__container__wrap {
 
+                &__border {
+                    margin: 8px 16px;
+                    width: calc(100% - 32px);
+                }
+
                 &__logo {
                     display: none;
                 }
 
                 &__item-container {
                     justify-content: center;
+                    align-items: center;
+                    padding: 10px 27px 10px 23px;
 
-                    &__left__label,
+                    &__left {
+                        flex-direction: column;
+
+                        &__label {
+                            font-family: 'font_medium', sans-serif;
+                            font-size: 9px;
+                            margin: 10px 0 0;
+                        }
+                    }
+
                     &__arrow {
                         display: none;
                     }
@@ -572,6 +626,11 @@ export default class NavigationArea extends Vue {
                     display: block;
                 }
             }
+        }
+
+        .router-link-active,
+        .active {
+            font-family: 'font_medium', sans-serif;
         }
     }
 </style>

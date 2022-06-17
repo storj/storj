@@ -12,6 +12,7 @@
             <div class="project-selection__selected__left">
                 <ProjectIcon class="project-selection__selected__left__image" />
                 <p class="project-selection__selected__left__name" :title="projectName">{{ projectName }}</p>
+                <p class="project-selection__selected__left__placeholder">Projects</p>
             </div>
             <ArrowImage class="project-selection__selected__arrow" />
         </div>
@@ -278,7 +279,6 @@ export default class ProjectSelection extends Vue {
 
                 &__name {
                     max-width: calc(100% - 24px - 16px);
-                    font-weight: 500;
                     font-size: 14px;
                     line-height: 20px;
                     color: #56606d;
@@ -286,6 +286,23 @@ export default class ProjectSelection extends Vue {
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
+                }
+
+                &__placeholder {
+                    display: none;
+                }
+            }
+
+            &:hover {
+                background-color: #fafafb;
+                border-color: #fafafb;
+
+                p {
+                    color: #0149ff;
+                }
+
+                ::v-deep path {
+                    fill: #0149ff;
                 }
             }
         }
@@ -295,6 +312,7 @@ export default class ProjectSelection extends Vue {
             min-width: 240px;
             max-width: 240px;
             background-color: #fff;
+            border: 1px solid #ebeef1;
             box-shadow: 0 2px 16px rgb(0 0 0 / 10%);
             border-radius: 8px;
             z-index: 1;
@@ -304,6 +322,7 @@ export default class ProjectSelection extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                border-radius: 8px 8px 0 0;
             }
 
             &__items {
@@ -318,6 +337,7 @@ export default class ProjectSelection extends Vue {
                     padding: 8px 16px;
                     cursor: pointer;
                     height: 32px;
+                    border-radius: 8px 8px 0 0;
 
                     &__selected,
                     &__unselected {
@@ -330,7 +350,7 @@ export default class ProjectSelection extends Vue {
                     }
 
                     &__selected {
-                        font-family: 'font_medium', sans-serif;
+                        font-family: 'font_bold', sans-serif;
                         margin-left: 24px;
                     }
 
@@ -340,6 +360,10 @@ export default class ProjectSelection extends Vue {
 
                     &:hover {
                         background-color: #f5f6fa;
+
+                        p {
+                            color: #0149ff;
+                        }
                     }
 
                     &__mark-container {
@@ -364,23 +388,51 @@ export default class ProjectSelection extends Vue {
                 &__label {
                     font-size: 14px;
                     line-height: 20px;
-                    color: #0149ff;
+                    color: #56606d;
                     margin-left: 24px;
+                }
+
+                &:last-of-type {
+                    border-radius: 0 0 8px 8px;
+                }
+
+                &:hover {
+                    background-color: #f5f6fa;
+
+                    p {
+                        color: #0149ff;
+                    }
+
+                    ::v-deep path {
+                        fill: #0149ff;
+                    }
                 }
             }
         }
     }
 
     .active {
+        border-color: #000;
+
+        p {
+            color: #091c45;
+            font-family: 'font_bold', sans-serif;
+        }
+
+        ::v-deep path {
+            fill: #000;
+        }
+    }
+
+    .active:hover {
         border-color: #0149ff;
         background-color: #f7f8fb;
 
         p {
             color: #0149ff;
-            font-weight: 600;
         }
 
-        svg ::v-deep path {
+        ::v-deep path {
             fill: #0149ff;
         }
     }
@@ -388,18 +440,33 @@ export default class ProjectSelection extends Vue {
     @media screen and (max-width: 1280px) {
 
         .project-selection__selected {
+            padding: 10px 0;
+            justify-content: center;
 
             &__left {
                 min-width: 18px;
+                flex-direction: column;
+                align-items: center;
 
                 &__name {
                     display: none;
+                }
+
+                &__placeholder {
+                    display: block;
+                    margin: 10px 0 0;
+                    font-family: 'font_medium', sans-serif;
+                    font-size: 9px;
                 }
             }
 
             &__arrow {
                 display: none;
             }
+        }
+
+        .active p {
+            font-family: 'font_medium', sans-serif;
         }
     }
 </style>
