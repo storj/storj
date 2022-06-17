@@ -835,13 +835,11 @@ func TestUsageFromCreateToDelete(t *testing.T) {
 
 		p1base := binary.BigEndian.Uint64(mainProject[:8]) >> 48
 
-
 		getValue := func(i, j int, base uint64) int64 {
 			a := uint64((i+1)*(j+1)) ^ base
 			a &^= (1 << 63)
 			return int64(a)
 		}
-
 
 		actions := []pb.PieceAction{
 			pb.PieceAction_GET,
@@ -875,10 +873,11 @@ func TestUsageFromCreateToDelete(t *testing.T) {
 			interval := start.Add(tallyInterval * time.Duration(i))
 
 			bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
-			{  bucketLoc1 := metabase.BucketLocation{
-				ProjectID:  mainProject,
-				BucketName: name,
-			}
+			{
+				bucketLoc1 := metabase.BucketLocation{
+					ProjectID:  mainProject,
+					BucketName: name,
+				}
 
 				value1 := getValue(i, 1, p1base) * 10
 
@@ -929,10 +928,11 @@ func TestUsageFromCreateToDelete(t *testing.T) {
 				interval := startFurther.Add(tallyInterval * time.Duration(i))
 
 				bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
-				{  bucketLoc := metabase.BucketLocation{
-					ProjectID:  mainProject,
-					BucketName: name,
-				}
+				{
+					bucketLoc := metabase.BucketLocation{
+						ProjectID:  mainProject,
+						BucketName: name,
+					}
 
 					value2 := getValue(i, 1, p1base) * 10
 
@@ -973,20 +973,20 @@ func TestUsageFromCreateToDelete(t *testing.T) {
 		})
 
 		t.Run("test bucket usage rollups check if stored data after deletion is lower", func(t *testing.T) {
-			rollupsBeforeDelete, err := usageRollups.GetSingleBucketUsageRollup(ctx,mainProject,name,start,now)
+			rollupsBeforeDelete, err := usageRollups.GetSingleBucketUsageRollup(ctx, mainProject, name, start, now)
 			require.NoError(t, err)
 			require.NotNil(t, rollupsBeforeDelete)
 
-			rollupsBeforeDeleteAfterDeleteAndCreation, err := usageRollups.GetSingleBucketUsageRollup(ctx,mainProject,name,startFurther,nowReally)
+			rollupsBeforeDeleteAfterDeleteAndCreation, err := usageRollups.GetSingleBucketUsageRollup(ctx, mainProject, name, startFurther, nowReally)
 			require.NoError(t, err)
 			require.NotNil(t, rollupsBeforeDeleteAfterDeleteAndCreation)
 
-			require.Less(t, rollupsBeforeDeleteAfterDeleteAndCreation.TotalStoredData ,rollupsBeforeDelete.TotalStoredData)
+			require.Less(t, rollupsBeforeDeleteAfterDeleteAndCreation.TotalStoredData, rollupsBeforeDelete.TotalStoredData)
 		})
 
 		t.Run("delete bucket and check if retrievable with getbuckettotals", func(t *testing.T) {
 			earlyNow := now.Add(-50 * time.Hour)
-			laterNow:= now.Add(-30 * time.Hour)
+			laterNow := now.Add(-30 * time.Hour)
 			earlyStart := laterNow.Add(tallyInterval * -tallyIntervals)
 
 			bucket, err := db.Buckets().CreateBucket(ctx, storj.Bucket{
@@ -1001,19 +1001,20 @@ func TestUsageFromCreateToDelete(t *testing.T) {
 				interval := earlyStart.Add(tallyInterval * time.Duration(i))
 
 				bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
-				{  bucketLoc := metabase.BucketLocation{
-					ProjectID:  mainProject,
-					BucketName: bucket.Name,
-				}
+				{
+					bucketLoc := metabase.BucketLocation{
+						ProjectID:  mainProject,
+						BucketName: bucket.Name,
+					}
 
-					objects:= int64(100)
+					objects := int64(100)
 					gB := int64(1.024e9)
-					segmentCount := gB/(6.5e7)
-					metadataSize := gB/500
+					segmentCount := gB / (6.5e7)
+					metadataSize := gB / 500
 
 					tally2 := &accounting.BucketTally{
 						BucketLocation: bucketLoc,
-						ObjectCount: objects,
+						ObjectCount:    objects,
 						TotalSegments:  segmentCount,
 						TotalBytes:     gB,
 						MetadataSize:   metadataSize,
@@ -1029,11 +1030,11 @@ func TestUsageFromCreateToDelete(t *testing.T) {
 					Page:  1,
 				}
 
-				rollupsBeforeDelete, err := usageRollups.GetBucketTotals(ctx,mainProject,cursor,laterNow)
+				rollupsBeforeDelete, err := usageRollups.GetBucketTotals(ctx, mainProject, cursor, laterNow)
 				require.NoError(t, err)
 				require.NotNil(t, rollupsBeforeDelete)
 
-				require.Contains(t, rollupsBeforeDelete.BucketUsages[1].BucketName,"firstbucket")
+				require.Contains(t, rollupsBeforeDelete.BucketUsages[1].BucketName, "firstbucket")
 
 				err = planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "firstbucket")
 				require.NoError(t, err)
@@ -1041,7 +1042,7 @@ func TestUsageFromCreateToDelete(t *testing.T) {
 				err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "firstbucket")
 				require.NoError(t, err)
 
-				require.Equalf(t, "firstbucket",rollupsBeforeDelete.BucketUsages[1].BucketName,"if pass bucket exist")
+				require.Equalf(t, "firstbucket", rollupsBeforeDelete.BucketUsages[1].BucketName, "if pass bucket exist")
 			}
 		})
 
