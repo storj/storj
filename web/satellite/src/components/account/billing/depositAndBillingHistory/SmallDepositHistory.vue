@@ -44,6 +44,9 @@ export default class SmallDepositHistory extends Vue {
      * Returns first 3 of deposit history items.
      */
     public get depositHistoryItems(): PaymentsHistoryItem[] {
+        console.log(this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
+        }))
         return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }).slice(0, 3);

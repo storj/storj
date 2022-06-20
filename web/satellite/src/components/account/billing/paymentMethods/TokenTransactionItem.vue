@@ -1,176 +1,112 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <div class="grants-item-container">
-        <div class="grants-item-container__common-info">
-            <div class="name-container" :title="itemData.name">
-                <p class="name">{{ itemData.name }}</p>
-            </div>
-        </div>
-        <div class="grants-item-container__common-info date-item-container">
-            <p class="date">{{ itemData.localDate() }}</p>
-        </div>
-
-        <div class="grants-item-container__common-info menu-item-container">
-            <p class="ellipses" @click.stop="togglePopupVisibility">...</p>
-            <div 
-                v-if="popupVisible"
-                v-click-outside="togglePopupVisibility" 
-                class="popup-menu"
-            >
-                <p
-                    class="popup-menu__popup-delete"
-                    @mouseenter="isPopupHovered = true"
-                    @mouseleave="isPopupHovered = false"
-                    @click="toggleSelection"
-                >
-                    <TrashIconWhite 
-                        v-if="isPopupHovered"
-                    />
-                    <TrashIconBlack 
-                        v-if="!isPopupHovered"
-                    />
-                    Delete Access
-                </p>
-            </div>
-        </div>
+    <div class="container">
+        <PaymentsHistoryItemDate
+            class="container__item date"
+            :start="billingItem.start"
+            :expiration="billingItem.end"
+            :type="billingItem.type"
+            :status="billingItem.status"
+        />
+        <p class="container__item description">{{ billingItem.description }}</p>
+        <p class="container__item status">{{ billingItem.formattedStatus }}</p>
+        <p class="container__item amount">
+            <b>
+                {{ billingItem.quantity.currency }}
+                <span v-if="billingItem.type === 1">
+                    {{ billingItem.quantity.received.toFixed(2) }}
+                </span>
+                <span v-else>
+                    {{ billingItem.quantity.total.toFixed(2) }}
+                </span>
+            </b>
+            <span v-if="billingItem.type === 1">
+                of <b>{{ billingItem.quantity.total.toFixed(2) }}</b>
+            </span>
+        </p>
+        <p class="container__item download">
+            <a v-if="billingItem.link" class="download-link" target="_blank" :href="billingItem.link">{{ billingItem.label }}</a>
+        </p>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import TrashIconWhite from '@/../static/images/accessGrants/trashIcon.svg';
-import TrashIconBlack from '@/../static/images/accessGrants/trashIcon-black.svg';
-import { AccessGrant } from '@/types/accessGrants';
 
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBillingHistory/PaymentsHistoryItemDate.vue';
 
-const {
-    TOGGLE_SELECTION,
-} = ACCESS_GRANTS_ACTIONS;
+import { PaymentsHistoryItem } from '@/types/payments';
 
 // @vue/component
 @Component({
     components: {
-        TrashIconWhite,
-        TrashIconBlack,
+        PaymentsHistoryItemDate,
     },
 })
-export default class AccessGrantsItem extends Vue {
-    @Prop({ default: new AccessGrant('', '', new Date(), '') })
-    private readonly itemData: AccessGrant;
-    private popupVisible = false;
-    private isPopupHovered = false;
-
-    public togglePopupVisibility(): void {
-        this.popupVisible = !this.popupVisible;
-    }
-
-    /**
-     * Toggles access grant selection.
-     */
-    public async toggleSelection(): Promise<void> {
-        await this.$store.dispatch(TOGGLE_SELECTION, this.itemData);
-        this.$emit('altMethod');
-        this.togglePopupVisibility();
-        this.isPopupHovered = false;
-
-    }
+export default class TokenTransactionItem extends Vue {
+    @Prop({default: () => new PaymentsHistoryItem()})
+    private readonly billingItem: PaymentsHistoryItem;
 }
 </script>
 
 <style scoped lang="scss">
-    @mixin popup-menu-button {
-        padding: 0 15px;
-        height: 100%;
-        line-height: 50px;
-        text-align: center;
-        font-family: 'font_regular', sans-serif;
-        color: #1b2533;
-        transition: 100ms;
-    }
+    .download-link {
+        color: #2683ff;
+        font-family: 'font_bold', sans-serif;
 
-    .grants-item-container {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        height: 83px;
-        background-color: #fff;
-        border: 1px solid #e5e7eb;
-        border-bottom: 0;
-        width: 100%;
-
-        &__common-info {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            width: 60%;
+        &:hover {
+            color: #0059d0;
         }
     }
 
-    .name-container {
-        max-width: calc(100% - 131px);
-        margin-right: 15px;
-    }
+    .container {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        border-top: 1px solid #c7cdd2;
 
-    .name {
-        font-family: 'font_bold', sans-serif;
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-        margin-left: 38px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        &__item {
+            min-width: 20%;
+            font-family: 'font_medium', sans-serif;
+            font-size: 16px;
+            text-align: left;
+            color: #768394;
+            margin: 30px 0;
+        }
     }
 
     .date {
-        font-family: 'font_regular', sans-serif;
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
+        font-family: 'font_bold', sans-serif;
         margin: 0;
     }
 
-    .ellipses {
-        margin: 0 auto 20px;
-        font-size: 30px;
-        font-weight: 1000;
-        color: #7c8794;
-        cursor: pointer;
+    .description {
+        min-width: 31%;
     }
 
-    .popup-menu {
-        width: 160px;
-        height: 50px;
-        position: absolute;
-        right: 40%;
-        bottom: -65%;
-        z-index: 1;
-        background: #fff;
-        border-radius: 10px;
-        box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
-
-        &__popup-delete {
-            @include popup-menu-button;
-
-            border-radius: 10px;
-
-            &:hover {
-                background-color: #b53737;
-                cursor: pointer;
-                color: #fff;
-            }
-        }
+    .status {
+        min-width: 17%;
     }
 
-    .date-item-container {
-        width: 50%;
+    .amount {
+        min-width: 22%;
+        margin: 0;
     }
 
-    .menu-item-container {
+    .download {
+        margin: 0;
+        text-align: right;
         width: 10%;
-        position: relative;
+        min-width: 10%;
+    }
+
+    .row {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        width: 175px;
     }
 </style>

@@ -33,7 +33,7 @@
             <div class="account-billing-area__divider" />
             <router-view />
         </div>
-        <div v-if="isNewBillingScreen">
+        <div v-if="!isNewBillingScreen">
             <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
                 <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
                     <NegativeBalanceIcon />
@@ -80,7 +80,6 @@
             <PaymentMethods />
             <SmallDepositHistory />
             <CouponArea />
-            <router-view />
         </div>
     </div>
 </template>
