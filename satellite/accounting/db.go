@@ -277,6 +277,9 @@ type Cache interface {
 	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
 	// GetProjectSegmentUsage returns the project's segment usage.
 	GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error)
+	// InsertProjectBanddwitdhUsage inserts a project banndwidth usage if it
+	// doesn't exist. It returns true if it's inserted, otherwise false.
+	InsertProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, value int64, ttl time.Duration, now time.Time) (inserted bool, _ error)
 	// UpdateProjectBandwidthUsage updates the project's bandwidth usage increasing
 	// it. The projectID is inserted to the increment when it doesn't exists,
 	// hence this method will never return ErrKeyNotFound error's class.

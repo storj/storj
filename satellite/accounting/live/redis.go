@@ -86,6 +86,38 @@ func (cache *redisLiveAccounting) GetProjectBandwidthUsage(ctx context.Context, 
 	return cache.getInt64(ctx, createBandwidthProjectIDKey(projectID, now))
 }
 
+// InsertProjectBanddwitdhUsage inserts a project banndwidth usage if it
+// doesn't exist. It returns true if it's inserted, otherwise false.
+func (cache *redisLiveAccounting) InsertProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, value int64, ttl time.Duration, now time.Time) (inserted bool, err error) {
+	mon.Task()(&ctx, projectID, value, ttl, now)(&err)
+
+	// The following script will set the cache key to a specific value with an
+	// expiration time to live when it doesn't exist, otherwise it ignores it.
+	script := fmt.Sprintf(`local inserted
+	inserted = redis.call("setnx", KEYS[1], "%d")
+	if tonumber(inserted) == 1 then
+		redis.call("expire",KEYS[1], %d)
+	end
+
+	return inserted
+	`, value, int(ttl.Seconds()))
+
+	key := createBandwidthProjectIDKey(projectID, now)
+	rcmd := cache.client.Eval(ctx, script, []string{key})
+	if err != nil {
+		return false, accounting.ErrSystemOrNetError.New("Redis eval failed: %w", err)
+	}
+
+	insert, err := rcmd.Int()
+	if err != nil {
+		err = accounting.ErrSystemOrNetError.New(
+			"Redis script is invalid it must return an boolean. %w", err,
+		)
+	}
+
+	return insert == 1, err
+}
+
 // UpdateProjectBandwidthUsage increment the bandwidth cache key value.
 func (cache *redisLiveAccounting) UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) (err error) {
 	mon.Task()(&ctx, projectID, increment, ttl, now)(&err)
