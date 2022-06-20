@@ -1,0 +1,68 @@
+# Refining Audit Containment to Prevent Node Disqualification for Being Temporarily Unresponsive
+
+## Abstract
+
+This blueprint outlines changes to "containment mode", in order to prevent disqualifying nodes which have become temporarily unresponsive, but are otherwise good and reliable nodes. It was sparked by an increasing amount of community reports of usually long time loyal node operators, who lost their nodes due to temporary issues that caused the node to be unresponsive.
+The current containment mode implementation causes these nodes to quickly be disqualified, usually without prior warning to the node operator. 
+The more data is stored on the node, the quicker this disqualification happens due to the high amount of audits occurring on nodes with high amounts of data. As a result long term loyal nodes are disqualified much more quickly than relatively new nodes, which provides an unwanted inverse incentive.
+This blueprint outlines some tweaks to the containment mechanism to both give the node operator early warning that something is wrong while giving them more time to resolve any issues. At the same time we still must prevent the node from getting out of giving a response to any audit initiated.
+
+This blueprint builds on the design as outlined in the blueprint [audit-containment.md](/docs/blueprints/audit-containment.md).
+
+## Main Objectives
+
+The objectives from the original blueprint carry over to the new design.
+1. Nodes won’t be able to “escape” audits for specific data by refusing to send requested data or going offline right after receiving a request from a Satellite.
+2. The audit service should attempt to verify the nodes' originally requested data in addition to continuing normal audits for that node.
+3. ContainmentDB holds metadata required to verify contained nodes' originally requested data.
+
+But additional objectives should be added.
+4. Nodes with temporary slow downs or issues with responsiveness should get a chance to fix those issues before disqualification.
+5. Node operators should receive some form of warning that their node is having issues.
+6. While the node operator is given time to fix issues, the network should start protecting itself for the eventuality that the node may be disqualified later on.
+
+## Design
+
+The original blueprint describes how the verifier will handle different audit results as follows:
+
+> the following cases can occur:
+> - Passes audit ->  `pendingAudit` is deleted from the ContainmentDB  -> stats updated in overlaycache/satelliteDB and `contained` field set to false
+> - Fails audit -> `pendingAudit` is deleted from the ContainmentDB -> stats updated in overlaycache/satelliteDB and `contained` field set to false
+> - Refuses to respond again -> the `pendingAudit`'s `reverifyCount` is incremented in the ContainmentDB ->
+>     - -> If that count exceeds the reverify limit, then the node’s stats will be updated to reflect an audit failure and the node will be removed from the ContainmentDB and `contained` field will be set to false.
+>     - -> If the count does not exceed the reverify limit, the `pendingAudit` will remain in the ContainmentDB.
+
+In this blueprint I suggest only a small addition to the very last scenario, where the node doesn't respond again, but the reverify limit hasn't been exceeded. In addition to leaving the `pendingAudit` in the ContainmentDB, the node's stats should be updated to reflect an unknown audit failure. Because these unkown audit failures will occur with every reverification, the node will be suspended before it is disqualified.
+This doesn't replace the disqualification. When the `reverifyCount` exceeds the `maxReverifyCount`, this should still count as a hard audit failure and node stats should still be updated to reflect this in the audit score. This ensures that suspension is only a temporary step inbetween, but doesn't replace the eventual inevitable disqualification, should the node be unable to respond with the correct data. This prevents nodes with bad intention from using this system to avoid disqualification by ensuring that each audit initiated will have to eventually result in a definitive audit success or audit failure.
+
+With suspension happening before disqualification and the pieces marked as unhealthy already, we can now afford to raise the maxReverifyCount (suggestion: to 10) to allow the node operator more time to resolve any issues with their setup.
+
+## Rationale
+This change uses mostly existing functionality to fullfil all the new objectives. By raising the maxVerifyCount we give node operators more time to resolve issues, which resolves objective 4. Having nodes get unknown audit failures followed by suspension takes care of objective 5 and 6. Nodes are already notified through the dashboard and emails, when their node is suspended. Furthermore, pieces are already marked as unhealthy when suspension kicks in, which ensures timely repair should the availability of a segment fall below the repair threshold. As a result, this change manages to allow for more time to recovery, while not allowing nodes to get out of responding to any audits. Data protection even kicks in a little earlier, because the node would be suspended more quickly than it would in the current implementation.
+
+The change also comes with some additional benefits. Nodes that are overloaded by the amount of traffic generated by Storj itself (rather than other processes running on the node hardware), would be given time to breath when suspended and may recover on their own when the load drops. This will be especially useful for known sustained IO restrained setups, like using NTFS on Linux based systems or using SMR drives.
+
+## Further considerations
+### Egress during suspension
+The current design for node suspension as described in [audit-suspend.md](/docs/blueprints/audit-suspend.md) still allows for egress to customers to take place.
+
+>Permitted requests: GET, GET_AUDIT, DELETE
+>
+>Unpermitted requests: PUT, PUT_REPAIR, PUT_GRACEFUL_EXIT, GET_REPAIR
+
+Suspended nodes have already shown to have trouble responding to audits correctly, either because of unknown errors or because of time outs, should this change be implemented.
+Essentially this has three effects:
+1. It doesn't provide a lot of incentive for node operators to resolve issues quickly, as their primary source of income is still working.
+2. It includes nodes with known issues with delivering data in the node selection, which results in more failed piece downloads and contributes to the possibility of the customer downloading too few correct pieces to recreate a segment, impacting the customer experience.
+3. Keep the load high on nodes that may already be overloaded.
+
+I suggest no longer allowing egress to happen on suspended nodes. This becomes more important when more unresponsive nodes end up being suspended, but is probably already a good idea, because a node wouldn't be suspended if it was able to consistently deliver good data.
+
+### Stabilizing audit and suspension scoring
+I posted a suggestion to stabilize scoring on the forum a while ago here: [Tuning audit scoring](https://forum.storj.io/t/tuning-audit-scoring/14084)
+Implementing these changes in combination with this design blueprint would stabilize the suspension score and prevent a node from being constantly bounced in and out of suspension. It will also add a little more time for node operators to fix issues, while allowing bad actors to get away with lower amounts of lost data.
+
+In the abstract of this blueprint I mentioned the inverse relation between node lifetime and time to disqualify. This blueprint doesn't entirely resolve that issue, but the `Tuning audit scoring` suggestion on the forum could be tweaked to set the lambda value, based on the amount of data stored on the node. This could potentially even out the time to suspend or disqualify a node across nodes of different sizes. Or if desired, actually allow long time loyal nodes a little more time to prevent disqualifying valuable nodes and triggering costly repair. After all, these nodes are a lot less likely to suddenly have bad intentions and put their valuable node at risk.
+
+### Have the node protect itself when responsiveness drops
+In addition to changes to containment mode, the node could also protect itself by crashing itself when response times of core functions drop below a certain level. Some accounts from node operators on the forum (including @AlexeyALeonov ) report that the node slowly becomes less responsive over time. If the node would monitor avereage response times and detects a significant increase in response time (eg. more than 10x), the node could crash itself to prevent timing out on audits. Since many node operators already use port monitoring tools to detect when the node is down, they would quickly be notified.
