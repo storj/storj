@@ -16,6 +16,14 @@
             <p class="project-dashboard__subtitle" aria-roledescription="empty-title">
                 Welcome to Storj :) <br> You’re ready to experience the future of cloud storage
             </p>
+        </template>
+        <p class="project-dashboard__limits">
+            <span class="project-dashboard__limits--bold">Storage Limit</span>
+            per month: {{ limits.storageLimit | bytesToBase10String }} |
+            <span class="project-dashboard__limits--bold">Bandwidth Limit</span>
+            per month: {{ limits.bandwidthLimit | bytesToBase10String }}
+        </p>
+        <template v-if="!isDataFetching && !limits.objectCount">
             <VButton
                 class="project-dashboard__upload-button"
                 label="Upload"
@@ -431,6 +439,15 @@ export default class NewProjectDashboard extends Vue {
         background-repeat: no-repeat;
         font-family: 'font_regular', sans-serif;
 
+        &__limits {
+            font-size: 14px;
+            margin-top: 11px;
+
+            &--bold {
+                font-family: 'font_bold', sans-serif;
+            }
+        }
+
         &__loader {
             display: inline-block;
         }
@@ -459,7 +476,7 @@ export default class NewProjectDashboard extends Vue {
         }
 
         &__upload-button {
-            margin-top: 24px;
+            margin-top: 16px;
         }
 
         &__stats-header {
