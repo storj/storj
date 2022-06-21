@@ -1,8 +1,8 @@
-module storj.io/storj/testsuite
+module storj.io/storj/testsuite/ui
 
 go 1.17
 
-replace storj.io/storj => ../
+replace storj.io/storj => ../../
 
 require (
 	github.com/go-rod/rod v0.101.8
