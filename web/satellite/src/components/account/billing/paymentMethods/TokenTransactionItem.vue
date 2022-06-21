@@ -48,6 +48,10 @@ import { PaymentsHistoryItem } from '@/types/payments';
 export default class TokenTransactionItem extends Vue {
     @Prop({default: () => new PaymentsHistoryItem()})
     private readonly billingItem: PaymentsHistoryItem;
+
+    public mounted() {
+        console.log(PaymentsHistoryItem)
+    }
 }
 </script>
 
