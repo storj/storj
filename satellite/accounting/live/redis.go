@@ -86,7 +86,7 @@ func (cache *redisLiveAccounting) GetProjectBandwidthUsage(ctx context.Context, 
 	return cache.getInt64(ctx, createBandwidthProjectIDKey(projectID, now))
 }
 
-// InsertProjectBanddwitdhUsage inserts a project banndwidth usage if it
+// InsertProjectBandwidthUsage inserts a project bandwidth usage if it
 // doesn't exist. It returns true if it's inserted, otherwise false.
 func (cache *redisLiveAccounting) InsertProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, value int64, ttl time.Duration, now time.Time) (inserted bool, err error) {
 	mon.Task()(&ctx, projectID, value, ttl, now)(&err)
