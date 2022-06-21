@@ -78,6 +78,9 @@ var (
 	// ErrTokenExpiration is error type of token reached expiration time.
 	ErrTokenExpiration = errs.Class("token expiration")
 
+	// ErrTokenInvalid is error type of tokens which are invalid.
+	ErrTokenInvalid = errs.Class("invalid token")
+
 	// ErrProjLimit is error type of project limit.
 	ErrProjLimit = errs.Class("project limit")
 
@@ -800,7 +803,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	parsedActivationToken, err := consoleauth.FromBase64URLString(activationToken)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrTokenInvalid.Wrap(err)
 	}
 
 	valid, err := s.tokens.ValidateToken(parsedActivationToken)
@@ -808,12 +811,12 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return nil, Error.Wrap(err)
 	}
 	if !valid {
-		return nil, Error.New("incorrect signature")
+		return nil, ErrTokenInvalid.New("incorrect signature")
 	}
 
 	claims, err := consoleauth.FromJSON(parsedActivationToken.Payload)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrTokenInvalid.New("JSON decoder: %w", err)
 	}
 
 	if time.Now().After(claims.Expiration) {
@@ -1977,7 +1980,6 @@ func (s *Service) GetAPIKeyInfoByName(ctx context.Context, projectID uuid.UUID, 
 	user, err := s.getUserAndAuditLog(ctx, "get api key info",
 		zap.String("projectID", projectID.String()),
 		zap.String("name", name))
-
 	if err != nil {
 		return nil, err
 	}
@@ -2680,7 +2682,7 @@ func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err erro
 	}
 	return WalletInfo{
 		Address: address,
-		Balance: nil, //TODO: populate with call to billing table
+		Balance: nil, // TODO: populate with call to billing table
 	}, nil
 }
 
@@ -2698,7 +2700,7 @@ func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error)
 	}
 	return WalletInfo{
 		Address: address,
-		Balance: nil, //TODO: populate with call to billing table
+		Balance: nil, // TODO: populate with call to billing table
 	}, nil
 }
 

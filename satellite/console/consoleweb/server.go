@@ -678,21 +678,44 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 
 	user, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
-		server.log.Error("activation: failed to activate account",
-			zap.String("token", activationToken),
-			zap.Error(err))
+		if console.ErrTokenInvalid.Has(err) {
+			server.log.Debug("account activation",
+				zap.String("token", activationToken),
+				zap.Error(err),
+			)
+			server.serveError(w, http.StatusBadRequest)
+			return
+		}
+
+		if console.ErrTokenExpiration.Has(err) {
+			server.log.Debug("account activation",
+				zap.String("token", activationToken),
+				zap.Error(err),
+			)
+			server.serveError(w, http.StatusNotFound)
+			return
+		}
 
 		if console.ErrEmailUsed.Has(err) {
+			server.log.Debug("account activation",
+				zap.String("token", activationToken),
+				zap.Error(err),
+			)
 			http.Redirect(w, r, server.config.ExternalAddress+"login?activated=false", http.StatusTemporaryRedirect)
 			return
 		}
 
 		if console.Error.Has(err) {
+			server.log.Error("activation: failed to activate account with a valid token",
+				zap.Error(err))
 			server.serveError(w, http.StatusInternalServerError)
 			return
 		}
 
-		server.serveError(w, http.StatusNotFound)
+		server.log.Error(
+			"activation: failed to activate account with a valid token and unknown error type. BUG: missed error type check",
+			zap.Error(err))
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
