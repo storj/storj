@@ -88,6 +88,19 @@ func (cache *DownloadSelectionCache) GetNodeIPs(ctx context.Context, nodes []sto
 	return state.IPs(nodes), nil
 }
 
+// GetNodes gets nodes by ID from the cache, and refreshes the cache if it is stale.
+func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stateAny, err := cache.cache.Get(ctx, time.Now())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	state := stateAny.(*DownloadSelectionCacheState)
+
+	return state.Nodes(nodes), nil
+}
+
 // Size returns how many nodes are in the cache.
 func (cache *DownloadSelectionCache) Size(ctx context.Context) (int, error) {
 	stateAny, err := cache.cache.Get(ctx, time.Now())
@@ -100,32 +113,43 @@ func (cache *DownloadSelectionCache) Size(ctx context.Context) (int, error) {
 
 // DownloadSelectionCacheState contains state of download selection cache.
 type DownloadSelectionCacheState struct {
-	// ipPortByID returns IP based on storj.NodeID
-	ipPortByID map[storj.NodeID]string
+	// byID returns IP based on storj.NodeID
+	byID map[storj.NodeID]*SelectedNode // TODO: optimize, avoid pointery structures for performance
 }
 
 // NewDownloadSelectionCacheState creates a new state from the nodes.
 func NewDownloadSelectionCacheState(nodes []*SelectedNode) *DownloadSelectionCacheState {
-	ipPortByID := map[storj.NodeID]string{}
+	byID := map[storj.NodeID]*SelectedNode{}
 	for _, n := range nodes {
-		ipPortByID[n.ID] = n.LastIPPort
+		byID[n.ID] = n
 	}
 	return &DownloadSelectionCacheState{
-		ipPortByID: ipPortByID,
+		byID: byID,
 	}
 }
 
 // Size returns how many nodes are in the state.
 func (state *DownloadSelectionCacheState) Size() int {
-	return len(state.ipPortByID)
+	return len(state.byID)
 }
 
 // IPs returns node ip:port for nodes that are in state.
 func (state *DownloadSelectionCacheState) IPs(nodes []storj.NodeID) map[storj.NodeID]string {
 	xs := make(map[storj.NodeID]string, len(nodes))
 	for _, nodeID := range nodes {
-		if ip, exists := state.ipPortByID[nodeID]; exists {
-			xs[nodeID] = ip
+		if n, exists := state.byID[nodeID]; exists {
+			xs[nodeID] = n.LastIPPort
+		}
+	}
+	return xs
+}
+
+// Nodes returns node ip:port for nodes that are in state.
+func (state *DownloadSelectionCacheState) Nodes(nodes []storj.NodeID) map[storj.NodeID]*SelectedNode {
+	xs := make(map[storj.NodeID]*SelectedNode, len(nodes))
+	for _, nodeID := range nodes {
+		if n, exists := state.byID[nodeID]; exists {
+			xs[nodeID] = n.Clone() // TODO: optimize the clones
 		}
 	}
 	return xs

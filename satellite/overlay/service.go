@@ -368,6 +368,12 @@ func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs 
 	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.Node.AsOfSystemTime)
 }
 
+// CachedGetOnlineNodesForGet returns a map of nodes from the download selection cache from the suppliedIDs.
+func (service *Service) CachedGetOnlineNodesForGet(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
+}
+
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
 func (service *Service) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
