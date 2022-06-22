@@ -277,6 +277,9 @@ type Cache interface {
 	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
 	// GetProjectSegmentUsage returns the project's segment usage.
 	GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error)
+	// AddProjectSegmentUsageUpToLimit increases segment usage up to the limit.
+	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+	AddProjectSegmentUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, segmentLimit int64) error
 	// InsertProjectBandwidthUsage inserts a project bandwidth usage if it
 	// doesn't exist. It returns true if it's inserted, otherwise false.
 	InsertProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, value int64, ttl time.Duration, now time.Time) (inserted bool, _ error)
@@ -292,6 +295,9 @@ type Cache interface {
 	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
 	// this method will never return ErrKeyNotFound.
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
+	// AddProjectStorageUsageUpToLimit increases storage usage up to the limit.
+	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+	AddProjectStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, spaceLimit int64) error
 	// GetAllProjectTotals return the total projects' storage and segments used space.
 	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]Usage, error)
 	// Close the client, releasing any open resources. Once it's called any other

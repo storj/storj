@@ -165,6 +165,33 @@ func (cache *redisLiveAccounting) UpdateProjectSegmentUsage(ctx context.Context,
 	return nil
 }
 
+// AddProjectSegmentUsageUpToLimit increases segment usage up to the limit.
+// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+func (cache *redisLiveAccounting) AddProjectSegmentUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, segmentLimit int64) (err error) {
+	defer mon.Task()(&ctx, projectID, increment)(&err)
+
+	key := createSegmentProjectIDKey(projectID)
+
+	// do a blind increment and checking the limit afterwards,
+	// so that the success path has only one round-trip.
+	newSegmentUsage, err := cache.client.IncrBy(ctx, key, increment).Result()
+	if err != nil {
+		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
+	}
+
+	if newSegmentUsage > segmentLimit {
+		// roll back
+		_, err = cache.client.DecrBy(ctx, key, increment).Result()
+		if err != nil {
+			return accounting.ErrSystemOrNetError.New("Redis decrby failed: %w", err)
+		}
+
+		return accounting.ErrProjectLimitExceeded.New("Additional %d segments exceed project limit of %d", increment, segmentLimit)
+	}
+
+	return nil
+}
+
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added spaceUsed bytes of storage (from the user's
 // perspective; i.e. segment size).
@@ -174,6 +201,31 @@ func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, pr
 	_, err = cache.client.IncrBy(ctx, string(projectID[:]), spaceUsed).Result()
 	if err != nil {
 		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
+	}
+
+	return nil
+}
+
+// AddProjectStorageUsageUpToLimit increases storage usage up to the limit.
+// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+func (cache *redisLiveAccounting) AddProjectStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, spaceLimit int64) (err error) {
+	defer mon.Task()(&ctx, projectID, increment)(&err)
+
+	// do a blind increment and checking the limit afterwards,
+	// so that the success path has only one round-trip.
+	newSpaceUsage, err := cache.client.IncrBy(ctx, string(projectID[:]), increment).Result()
+	if err != nil {
+		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
+	}
+
+	if newSpaceUsage > spaceLimit {
+		// roll back
+		_, err = cache.client.DecrBy(ctx, string(projectID[:]), increment).Result()
+		if err != nil {
+			return accounting.ErrSystemOrNetError.New("Redis decrby failed: %w", err)
+		}
+
+		return accounting.ErrProjectLimitExceeded.New("Additional storage of %d bytes exceeds project limit of %d", increment, spaceLimit)
 	}
 
 	return nil

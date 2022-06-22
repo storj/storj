@@ -515,7 +515,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit.Int64())
 		require.NoError(t, err)
 
-		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, false)
+		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, false)
 		require.NoError(t, err)
 		require.True(t, limit.ExceedsStorage)
 		require.Equal(t, expectedLimit.Int64(), limit.StorageLimit.Int64())

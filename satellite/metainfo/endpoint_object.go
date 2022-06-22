@@ -1747,6 +1747,9 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
 		Version: metabase.DefaultVersion,
+		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
+			return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo.ProjectID, encryptedObjectSize, nSegments)
+		},
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -1896,6 +1899,9 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		NewEncryptedMetadata:         req.NewEncryptedMetadata,
 		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
+		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
+			return endpoint.addStorageUsageUpToLimit(ctx, keyInfo.ProjectID, encryptedObjectSize, nSegments)
+		},
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)

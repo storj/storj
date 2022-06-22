@@ -32,6 +32,10 @@ type BeginCopyObjectResult struct {
 type BeginCopyObject struct {
 	Version Version
 	ObjectLocation
+
+	// VerifyLimits holds a callback by which the caller can interrupt the copy
+	// if it turns out the copy would exceed a limit.
+	VerifyLimits func(encryptedObjectSize int64, nSegments int64) error
 }
 
 // BeginCopyObject collects all data needed to begin object copy procedure.
@@ -47,10 +51,11 @@ func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (result
 	}
 
 	var segmentCount int64
+	var encryptedObjectSize int64
 
 	err = db.db.QueryRowContext(ctx, `
 		SELECT
-			stream_id, encryption, segment_count,
+			stream_id, encryption, total_encrypted_size, segment_count,
 			encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_metadata
 		FROM objects
 		WHERE
@@ -63,6 +68,7 @@ func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (result
 		Scan(
 			&result.StreamID,
 			encryptionParameters{&result.EncryptionParameters},
+			&encryptedObjectSize,
 			&segmentCount,
 			&result.EncryptedMetadataKey, &result.EncryptedMetadataKeyNonce, &result.EncryptedMetadata,
 		)
@@ -75,6 +81,13 @@ func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (result
 
 	if segmentCount > CopySegmentLimit {
 		return BeginCopyObjectResult{}, Error.New("object to copy has too many segments (%d). Limit is %d.", segmentCount, CopySegmentLimit)
+	}
+
+	if opts.VerifyLimits != nil {
+		err = opts.VerifyLimits(encryptedObjectSize, segmentCount)
+		if err != nil {
+			return BeginCopyObjectResult{}, err
+		}
 	}
 
 	err = withRows(db.db.QueryContext(ctx, `
@@ -117,6 +130,11 @@ type FinishCopyObject struct {
 	NewEncryptedMetadataKey      []byte
 
 	NewSegmentKeys []EncryptedKeyAndNonce
+
+	// VerifyLimits holds a callback by which the caller can interrupt the copy
+	// if it turns out completing the copy would exceed a limit.
+	// It will be called only once.
+	VerifyLimits func(encryptedObjectSize int64, nSegments int64) error
 }
 
 // Verify verifies metabase.FinishCopyObject data.
@@ -171,6 +189,13 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		sourceObject, ancestorStreamID, objectAtDestination, err := getObjectAtCopySourceAndDestination(ctx, tx, opts)
 		if err != nil {
 			return err
+		}
+
+		if opts.VerifyLimits != nil {
+			err := opts.VerifyLimits(sourceObject.TotalEncryptedSize, int64(sourceObject.SegmentCount))
+			if err != nil {
+				return err
+			}
 		}
 
 		if int(sourceObject.SegmentCount) != len(opts.NewSegmentKeys) {
