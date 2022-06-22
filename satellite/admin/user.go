@@ -147,7 +147,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	user.PasswordHash = nil
 
-	projects, err := server.db.Console().Projects().GetByUserID(ctx, user.ID)
+	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
 	if err != nil {
 		sendJSONError(w, "failed to get user projects",
 			err.Error(), http.StatusInternalServerError)
