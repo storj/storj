@@ -249,7 +249,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			`, originalObject.StreamID, originalObject.SegmentCount))(func(rows tagsql.Rows) error {
 			index := 0
 			for rows.Next() {
-				err = rows.Scan(
+				err := rows.Scan(
 					&positions[index],
 					&expiresAts[index],
 					&rootPieceIDs[index],
@@ -263,9 +263,14 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 				index++
 			}
 
-			if err = rows.Err(); err != nil {
+			if err := rows.Err(); err != nil {
 				return err
 			}
+
+			if index != int(originalObject.SegmentCount) {
+				return Error.New("could not load all of the segment information")
+			}
+
 			return nil
 		})
 		if err != nil {
