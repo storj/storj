@@ -260,8 +260,7 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
+            
         stage('Post') {
             parallel {
                 stage('Lint') {
