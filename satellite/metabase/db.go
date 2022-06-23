@@ -34,7 +34,8 @@ type Config struct {
 	MaxNumberOfParts int
 
 	// TODO remove this flag when server-side copy implementation will be finished
-	ServerSideCopy bool
+	ServerSideCopy         bool
+	ServerSideCopyDisabled bool
 }
 
 // DB implements a database for storing objects and segments.
