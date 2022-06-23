@@ -48,44 +48,6 @@ pipeline {
                 }
             }
         }
-        stage('Build Web') {
-            // The build code depends on the following assets being loaded.
-            parallel {
-                stage('web/satellite') {
-                    steps {
-                        dir('web/satellite') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh './scripts/build-wasm.sh'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-                stage('web/storagenode') {
-                    steps {
-                        dir('web/storagenode') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-                stage('web/multinode') {
-                    steps {
-                        dir('web/multinode') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-                stage('satellite/admin/ui') {
-                    steps {
-                        dir('satellite/admin/ui') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-            }
-        }
         stage('Build') {
             parallel {
                 stage('go') {
@@ -131,6 +93,76 @@ pipeline {
                 }
             }
         }
+        stage('Build Web') {
+            // The build code depends on the following assets being loaded.
+            parallel {
+                stage('web/satellite') {
+                    when {
+                        changeset "web/satellite/**"
+                    }
+                    steps {
+                        dir('web/satellite') {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh './scripts/build-wasm.sh'
+                            sh 'npm run build'
+
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+
+                        }
+                        dir(".build") {
+                            sh 'cp -r ../satellite/console/wasm/tests/ .'
+                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
+                            sh 'cd tests && npm install && npm run test'
+                        }
+                    }
+                }
+
+                stage('web/storagenode') {
+                    when {
+                        changeset "web/storagenode/**"
+                    }
+                    steps {
+                        dir("web/storagenode") {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('web/multinode') {
+                    when {
+                        changeset "web/multinode/**"
+                    }
+                    steps {
+                        dir("web/multinode") {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('satellite/admin/ui') {
+                    when {
+                        changeset "satellite/admin/ui/**"
+                    }
+                    steps {
+                        dir("satellite/admin/ui") {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                            sh script: 'npm audit', returnStatus: true
+                        }
+                    }
+                }
+            }
+        }
 
                 stage('Lint') {
                     steps {
@@ -157,12 +189,18 @@ pipeline {
                             sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
                         }
 
+                        sh './scripts/check-package-lock.sh'
+                    }
+                }
+                stage('Lint Admin UI') {
+                    when {
+                        changeset "satellite/admin/ui"
+                    }
+                    steps {
                         dir("satellite/admin/ui") {
                             sh 'npm run check'
                             sh 'npm run lint'
                         }
-
-                        sh './scripts/check-package-lock.sh'
                     }
                 }
                 stage('Tests') {
@@ -213,54 +251,7 @@ pipeline {
                         }
                     }
                 }
-                stage('wasm npm') {
-                    steps {
-                        dir(".build") {
-                            sh 'cp -r ../satellite/console/wasm/tests/ .'
-                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
-                            sh 'cd tests && npm install && npm run test'
-                        }
-                    }
-                }
 
-                stage('web/satellite') {
-                    steps {
-                        dir("web/satellite") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('web/storagenode') {
-                    steps {
-                        dir("web/storagenode") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('web/multinode') {
-                    steps {
-                        dir("web/multinode") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('satellite/admin/ui') {
-                    steps {
-                        dir("satellite/admin/ui") {
-                            sh script: 'npm audit', returnStatus: true
-                        }
-                    }
-                }
-            
         stage('Post') {
             parallel {
                 stage('Lint') {
