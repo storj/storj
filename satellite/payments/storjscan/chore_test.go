@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
@@ -48,6 +49,7 @@ func TestChore(t *testing.T) {
 					From:        blockchaintest.NewAddress(),
 					To:          blockchaintest.NewAddress(),
 					TokenValue:  new(big.Int).SetInt64(int64(i)),
+					USDValue:    float64(i) + 0.1,
 					BlockHash:   blockchaintest.NewHash(),
 					BlockNumber: int64(i),
 					Transaction: blockchaintest.NewHash(),
@@ -60,6 +62,7 @@ func TestChore(t *testing.T) {
 					From:        payment.From,
 					To:          payment.To,
 					TokenValue:  monetary.AmountFromBaseUnits(payment.TokenValue.Int64(), monetary.StorjToken),
+					USDValue:    monetary.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), monetary.USDollars),
 					Status:      payments.PaymentStatusPending,
 					BlockHash:   payment.BlockHash,
 					BlockNumber: payment.BlockNumber,

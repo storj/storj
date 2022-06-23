@@ -38,6 +38,7 @@ type CachedPayment struct {
 	From        blockchain.Address     `json:"from"`
 	To          blockchain.Address     `json:"to"`
 	TokenValue  monetary.Amount        `json:"tokenValue"`
+	USDValue    monetary.Amount        `json:"usdValue"`
 	Status      payments.PaymentStatus `json:"status"`
 	BlockHash   blockchain.Hash        `json:"blockHash"`
 	BlockNumber int64                  `json:"blockNumber"`
