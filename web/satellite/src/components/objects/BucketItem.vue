@@ -4,6 +4,7 @@
 <template>
     <table-item
         :item="{ name: itemData.name, date: formattedDate }"
+        :on-click="onClick"
         @setSelected="(value) => $parent.$emit('checkItem', value)"
     >
         <th slot="options" v-click-outside="closeDropdown" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
@@ -48,6 +49,8 @@ export default class BucketItem extends Vue {
     public readonly showDeleteBucketPopup: () => void;
     @Prop({ default: () => () => {} })
     public readonly openDropdown;
+    @Prop({ default: () => (_: string) => {} })
+    public readonly onClick: (bucket: string) => void;
     @Prop({ default: false })
     public readonly isDropdownOpen: boolean;
     @Prop({ default: -1 })
