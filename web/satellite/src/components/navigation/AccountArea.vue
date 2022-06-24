@@ -8,7 +8,7 @@
                 <AccountIcon class="account-area__wrap__left__icon" />
                 <p class="account-area__wrap__left__label">My Account</p>
                 <p class="account-area__wrap__left__label-small">Account</p>
-                <TierBadgePro v-if="isPaidTier" class="account-area__wrap__left__tier-badge" />
+                <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
                 <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
             </div>
             <ArrowImage class="account-area__wrap__arrow" />
@@ -86,22 +86,11 @@ export default class AccountArea extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
     private dropdownYPos = 0;
     private dropdownXPos = 0;
-    public isPaidTier = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public $refs!: {
         accountArea: HTMLDivElement,
-    }
-
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches paid tier status.
-     */
-    public async mounted(): Promise<void> {
-        if (this.$store.state.usersModule.user.paidTier) {
-            this.isPaidTier = true;
-        }
     }
 
     /**
@@ -365,7 +354,6 @@ export default class AccountArea extends Vue {
             }
 
             &__left__label,
-            &__left__tier-badge,
             &__arrow {
                 display: none;
             }

@@ -84,7 +84,7 @@ export abstract class RouteConfig {
     public static Authorize = new NavigationLink('/oauth/v2/authorize', 'Authorize')
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Project Overview');
-    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', 'Project Overview ');
+    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', ' Project Overview');
     public static Users = new NavigationLink('/project-members', 'Users');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
