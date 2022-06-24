@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <tr>
+    <tr @click="onClick">
         <th v-if="selectable" class="icon">
             <v-checkbox @setData="onChange" />
         </th>
@@ -26,6 +26,8 @@ export default class TableItem extends Vue {
     public readonly selectable: boolean;
     @Prop({ default: () => {} })
     public readonly item: object;
+    @Prop({ default: null })
+    public readonly onClick: (data?: unknown) => void;
 
     public isSelected = false;
 

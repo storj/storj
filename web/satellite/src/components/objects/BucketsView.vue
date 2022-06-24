@@ -16,9 +16,9 @@
             height="100px"
             class="buckets-view__loader"
         />
-        <p v-if="!(isLoading || bucketsPage.buckets.length)" class="buckets-view__no-buckets">No Buckets</p>
+        <p v-if="!(isLoading || (bucketsPage.buckets && bucketsPage.buckets.length))" class="buckets-view__no-buckets">No Buckets</p>
         <v-table
-            v-if="!isLoading && bucketsPage.buckets.length"
+            v-if="!isLoading && bucketsPage.buckets && bucketsPage.buckets.length"
             class="buckets-view__list"
             :limit="bucketsPage.limit"
             :total-page-count="bucketsPage.pageCount"
@@ -27,12 +27,12 @@
             :on-page-click-callback="fetchBuckets"
             :total-items-count="bucketsPage.totalCount"
         >
-            <template slot="head">
+            <template #head>
                 <th class="buckets-view__list__sorting-header__name align-left">Name</th>
                 <th class="buckets-view__list__sorting-header__date align-left">Date Added</th>
                 <th class="buckets-view__list__sorting-header__empty" />
             </template>
-            <template slot="body">
+            <template #body>
                 <BucketItem
                     v-for="(bucket, key) in bucketsPage.buckets"
                     :key="key"
@@ -41,7 +41,7 @@
                     :dropdown-key="key"
                     :open-dropdown="openDropdown"
                     :is-dropdown-open="activeDropdown === key"
-                    @click.stop="openBucket(bucket.name)"
+                    :on-click="() => openBucket(bucket.name)"
                     @checkItem="(value) => $parent.$emit('checkItem', { value, key })"
                 />
             </template>
@@ -270,7 +270,7 @@ export default class BucketsView extends Vue {
                 await this.setAccess();
             }
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            await this.fetchBuckets();
             this.createBucketName = '';
             this.hideCreateBucketPopup();
         } catch (error) {
@@ -296,7 +296,7 @@ export default class BucketsView extends Vue {
 
         try {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_DEMO_BUCKET);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            await this.fetchBuckets();
 
             LocalData.setDemoBucketCreatedStatus();
         } catch (error) {
@@ -321,7 +321,7 @@ export default class BucketsView extends Vue {
                 await this.setAccess();
             }
             await this.$store.dispatch(OBJECTS_ACTIONS.DELETE_BUCKET, this.deleteBucketName);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            await this.fetchBuckets();
         } catch (error) {
             await this.$notify.error(error.message);
             return;
