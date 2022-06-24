@@ -172,13 +172,11 @@ promoted_ancestors AS (
 		segment_copies.ancestor_stream_id AS deleted_stream_id
 	FROM segment_copies
 	-- select children about to lose their ancestor
-	WHERE segment_copies.ancestor_stream_id IN (
-		SELECT stream_id
-		FROM deleted_objects
-		ORDER BY stream_id
-	)
+	-- this is not a WHERE clause because that caused a full table scan in CockroachDB
+	INNER JOIN deleted_objects
+		ON deleted_objects.stream_id = segment_copies.ancestor_stream_id
 	-- don't select children which will be removed themselves
-	AND segment_copies.stream_id NOT IN (
+	WHERE segment_copies.stream_id NOT IN (
 		SELECT stream_id
 		FROM deleted_objects
 	)
