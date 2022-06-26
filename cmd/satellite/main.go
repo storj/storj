@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	mathrand "math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -882,6 +883,10 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			})
 		}
 	}
+
+	mathrand.Shuffle(len(nodes), func(i, j int) {
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	})
 
 	limiter := sync2.NewLimiter(100)
 	for _, node := range nodes {
