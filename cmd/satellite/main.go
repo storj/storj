@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -811,6 +812,9 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	undelete := func(node *overlay.SelectedNode) {
 		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
 
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
 		conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
 			ID:      node.ID,
 			Address: node.Address.Address,
@@ -866,6 +870,10 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			})
 		}
 	}
+
+	rand.Shuffle(len(nodes), func(i, j int) {
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	})
 
 	limiter := sync2.NewLimiter(100)
 	for _, node := range nodes {
