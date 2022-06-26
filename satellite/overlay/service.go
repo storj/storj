@@ -114,9 +114,9 @@ type DB interface {
 	// TestNodeCountryCode sets node country code.
 	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
 
-	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
-	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
-	// IterateAllNodes will call cb on all known nodes (used for invoice generation).
+	// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
+	IterateAllContactedNodes(context.Context, func(context.Context, *SelectedNode) error) error
+	// IterateAllNodeDossiers will call cb on all known nodes (used for invoice generation).
 	IterateAllNodeDossiers(context.Context, func(context.Context, *NodeDossier) error) error
 }
 

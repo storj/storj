@@ -857,7 +857,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 
 	var nodes []*overlay.SelectedNode
 	if len(args) == 0 {
-		err = db.OverlayCache().IterateAllNodes(ctx, func(ctx context.Context, node *overlay.SelectedNode) error {
+		err = db.OverlayCache().IterateAllContactedNodes(ctx, func(ctx context.Context, node *overlay.SelectedNode) error {
 			nodes = append(nodes, node)
 			return nil
 		})

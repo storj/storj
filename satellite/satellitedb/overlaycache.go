@@ -1410,14 +1410,16 @@ func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj
 	return nil
 }
 
-// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
-func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
+// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
+func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
+	// 2018-04-06 is the date of the first storj v3 commit.
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT last_net, id, address, last_ip_port
 		FROM nodes
+		WHERE last_contact_success >= timestamp '2018-04-06'
 	`))
 	if err != nil {
 		return Error.Wrap(err)
