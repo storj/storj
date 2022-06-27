@@ -59,6 +59,8 @@ import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -73,6 +75,8 @@ export default class ForgotPassword extends Vue {
     private emailError = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     // tardigrade logic
     public isDropdownShown = false;
@@ -138,6 +142,7 @@ export default class ForgotPassword extends Vue {
      * Changes location to Login route.
      */
     public onBackToLoginClick(): void {
+        this.analytics.pageVisit(RouteConfig.Login.path);
         this.$router.push(RouteConfig.Login.path);
     }
 

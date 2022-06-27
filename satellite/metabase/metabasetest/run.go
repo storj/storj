@@ -62,10 +62,11 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 	)
 
 	RunWithConfig(t, metabase.Config{
-		ApplicationName:  "satellite-test",
-		MinPartSize:      config.MinPartSize,
-		MaxNumberOfParts: config.MaxNumberOfParts,
-		ServerSideCopy:   config.ServerSideCopy,
+		ApplicationName:        "satellite-test",
+		MinPartSize:            config.MinPartSize,
+		MaxNumberOfParts:       config.MaxNumberOfParts,
+		ServerSideCopy:         config.ServerSideCopy,
+		ServerSideCopyDisabled: config.ServerSideCopyDisabled,
 	}, fn)
 }
 

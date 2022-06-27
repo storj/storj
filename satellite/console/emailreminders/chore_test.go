@@ -77,7 +77,9 @@ func TestEmailChoreUpdatesVerificationReminders(t *testing.T) {
 		require.Zero(t, user3.VerificationReminders)
 
 		user1.Status = 1
-		err = users.Update(ctx, user1)
+		err = users.Update(ctx, user1.ID, console.UpdateUserRequest{
+			Status: &user1.Status,
+		})
 		require.NoError(t, err)
 
 		chore.Loop.TriggerWait()
@@ -95,7 +97,9 @@ func TestEmailChoreUpdatesVerificationReminders(t *testing.T) {
 		require.Equal(t, 1, user3.VerificationReminders)
 
 		user2.Status = 1
-		err = users.Update(ctx, user2)
+		err = users.Update(ctx, user2.ID, console.UpdateUserRequest{
+			Status: &user2.Status,
+		})
 		require.NoError(t, err)
 
 		chore.Loop.TriggerWait()

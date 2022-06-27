@@ -76,7 +76,7 @@ func Test_AllBucketNames(t *testing.T) {
 		cookie := http.Cookie{
 			Name:    "_tokenKey",
 			Path:    "/",
-			Value:   token,
+			Value:   token.String(),
 			Expires: expire,
 		}
 

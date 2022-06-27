@@ -5,15 +5,14 @@
     <div class="bucket-details">
         <div class="bucket-details__header">
             <div class="bucket-details__header__left-area">
-                <p class="bucket-details__header__left-area__link" @click.stop="redirectToBucketsPage">Buckets</p>
+                <p class="bucket-details__header__left-area link" @click.stop="redirectToBucketsPage">Buckets</p>
                 <arrow-right-icon />
-                <p class="bold">{{ bucket.name }}</p>
+                <p class="bold link" @click.stop="openBucket">{{ bucket.name }}</p>
                 <arrow-right-icon />
                 <p>Bucket Details</p>
             </div>
             <div class="bucket-details__header__right-area">
                 <p>{{ bucket.name }} created at {{ creationDate }}</p>
-                <bucket-settings-nav :bucket-name="bucket" />
             </div>
         </div>
         <bucket-details-overview class="bucket-details__table" :bucket="bucket" />
@@ -23,22 +22,24 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import BucketDetailsOverview from "@/components/objects/BucketDetailsOverview.vue";
-import BucketSettingsNav from "@/components/objects/BucketSettingsNav.vue";
 import ArrowRightIcon from '@/../static/images/common/arrowRight.svg'
 
 import { Bucket } from "@/types/buckets";
 import { RouteConfig } from "@/router";
 import { MONTHS_NAMES } from "@/utils/constants/date";
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({
     components: {
         ArrowRightIcon,
         BucketDetailsOverview,
-        BucketSettingsNav,
     },
 })
 export default class BucketDetails extends Vue {
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Bucket from store found by router prop.
      */
@@ -62,6 +63,15 @@ export default class BucketDetails extends Vue {
 
     public redirectToBucketsPage(): void {
         this.$router.push({ name: RouteConfig.Buckets.with(RouteConfig.BucketsManagement).name });
+    }
+
+    /**
+     * Holds on bucket click. Proceeds to file browser.
+     */
+    public openBucket(): void {
+        this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucket?.name);
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
     }
 }
 </script>
@@ -88,6 +98,10 @@ export default class BucketDetails extends Vue {
 
             .bold {
                 font-family: 'font_bold', sans-serif;
+            }
+
+            .link {
+                cursor: pointer;
             }
         }
 

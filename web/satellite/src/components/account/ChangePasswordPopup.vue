@@ -78,6 +78,9 @@ import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -98,6 +101,8 @@ export default class ChangePasswordPopup extends Vue {
     private confirmationPasswordError = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Indicates if hint popup needs to be shown while creating new password.
@@ -164,6 +169,7 @@ export default class ChangePasswordPopup extends Vue {
             return;
         }
 
+        this.analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
         await this.$notify.success('Password successfully changed!');
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
     }

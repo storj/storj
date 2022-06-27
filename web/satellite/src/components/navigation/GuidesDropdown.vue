@@ -47,12 +47,10 @@ export default class GuidesDropdown extends Vue {
     .side-dropdown {
         position: absolute;
         background: #fff;
-        border: 1px solid #f4f5f7;
-        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
+        border: 1px solid #ebeef1;
+        box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         border-radius: 8px;
-        padding: 14px 0;
         width: 390px;
         z-index: 1;
-        cursor: default;
     }
 </style>

@@ -5,6 +5,7 @@ package consoleauth
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/base64"
 	"time"
 
@@ -17,7 +18,7 @@ var mon = monkit.Package()
 
 // Config contains configuration parameters for console auth.
 type Config struct {
-	TokenExpirationTime time.Duration `help:"expiration time for auth tokens, account recovery tokens, and activation tokens" default:"24h"`
+	TokenExpirationTime time.Duration `help:"expiration time for account recovery and activation tokens" default:"24h"`
 }
 
 // Service handles creating, signing, and checking the expiration of auth tokens.
@@ -63,25 +64,35 @@ func (s *Service) createToken(ctx context.Context, claims *Claims) (_ string, er
 	}
 
 	token := Token{Payload: json}
-	err = s.SignToken(&token)
+	signature, err := s.SignToken(token)
 	if err != nil {
 		return "", err
 	}
+	token.Signature = signature
 
 	return token.String(), nil
 }
 
-// SignToken signs token.
-func (s *Service) SignToken(token *Token) error {
+// SignToken returns token signature.
+func (s *Service) SignToken(token Token) ([]byte, error) {
 	encoded := base64.URLEncoding.EncodeToString(token.Payload)
 
 	signature, err := s.Signer.Sign([]byte(encoded))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	token.Signature = signature
-	return nil
+	return signature, nil
+}
+
+// ValidateToken determines token validity using its signature.
+func (s *Service) ValidateToken(token Token) (bool, error) {
+	signature, err := s.SignToken(token)
+	if err != nil {
+		return false, err
+	}
+
+	return subtle.ConstantTimeCompare(signature, token.Signature) == 1, nil
 }
 
 // IsExpired returns whether token is expired.

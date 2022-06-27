@@ -94,6 +94,8 @@ import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 declare interface ClearSearch {
     clearSearch(): void;
 }
@@ -117,6 +119,8 @@ export default class HeaderArea extends Vue {
     public readonly isAddButtonDisabled: boolean;
 
     private FIRST_PAGE = 1;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Indicates if state after first delete click is active.
@@ -215,6 +219,7 @@ export default class HeaderArea extends Vue {
     private async setProjectState(): Promise<void> {
         const projects: Project[] = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         if (!projects.length) {
+            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
             return;

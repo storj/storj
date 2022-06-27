@@ -6,6 +6,8 @@ package consolewebauth
 import (
 	"net/http"
 	"time"
+
+	"storj.io/storj/satellite/console/consoleauth"
 )
 
 // CookieSettings variable cookie settings.
@@ -27,20 +29,25 @@ func NewCookieAuth(settings CookieSettings) *CookieAuth {
 }
 
 // GetToken retrieves token from request.
-func (auth *CookieAuth) GetToken(r *http.Request) (string, error) {
+func (auth *CookieAuth) GetToken(r *http.Request) (consoleauth.Token, error) {
 	cookie, err := r.Cookie(auth.settings.Name)
 	if err != nil {
-		return "", err
+		return consoleauth.Token{}, err
 	}
 
-	return cookie.Value, nil
+	token, err := consoleauth.FromBase64URLString(cookie.Value)
+	if err != nil {
+		return consoleauth.Token{}, err
+	}
+
+	return token, nil
 }
 
 // SetTokenCookie sets parametrized token cookie that is not accessible from js.
-func (auth *CookieAuth) SetTokenCookie(w http.ResponseWriter, token string) {
+func (auth *CookieAuth) SetTokenCookie(w http.ResponseWriter, token consoleauth.Token) {
 	http.SetCookie(w, &http.Cookie{
 		Name:  auth.settings.Name,
-		Value: token,
+		Value: token.String(),
 		Path:  auth.settings.Path,
 		// TODO: get expiration from token
 		Expires:  time.Now().Add(time.Hour * 24),
@@ -59,4 +66,9 @@ func (auth *CookieAuth) RemoveTokenCookie(w http.ResponseWriter) {
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
+}
+
+// GetTokenCookieName returns the name of the cookie storing the session token.
+func (auth *CookieAuth) GetTokenCookieName() string {
+	return auth.settings.Name
 }

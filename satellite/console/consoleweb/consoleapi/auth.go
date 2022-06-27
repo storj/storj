@@ -90,6 +90,13 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tokenRequest.UserAgent = r.UserAgent()
+	tokenRequest.IP, err = web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
 	token, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
@@ -104,7 +111,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	a.cookieAuth.SetTokenCookie(w, token)
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(token)
+	err = json.NewEncoder(w).Encode(token.String())
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -116,9 +123,21 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	a.cookieAuth.RemoveTokenCookie(w)
-
 	w.Header().Set("Content-Type", "application/json")
+
+	token, err := a.cookieAuth.GetToken(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteSessionByToken(ctx, token)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	a.cookieAuth.RemoveTokenCookie(w)
 }
 
 // replaceURLCharacters replaces slash, colon, and dot characters in a string with a hyphen.
@@ -401,27 +420,27 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
 	}
 
-	auth, err := console.GetAuth(ctx)
+	consoleUser, err := console.GetUser(ctx)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	user.ShortName = auth.User.ShortName
-	user.FullName = auth.User.FullName
-	user.Email = auth.User.Email
-	user.ID = auth.User.ID
-	user.PartnerID = auth.User.PartnerID
-	user.UserAgent = auth.User.UserAgent
-	user.ProjectLimit = auth.User.ProjectLimit
-	user.IsProfessional = auth.User.IsProfessional
-	user.CompanyName = auth.User.CompanyName
-	user.Position = auth.User.Position
-	user.EmployeeCount = auth.User.EmployeeCount
-	user.HaveSalesContact = auth.User.HaveSalesContact
-	user.PaidTier = auth.User.PaidTier
-	user.MFAEnabled = auth.User.MFAEnabled
-	user.MFARecoveryCodeCount = len(auth.User.MFARecoveryCodes)
+	user.ShortName = consoleUser.ShortName
+	user.FullName = consoleUser.FullName
+	user.Email = consoleUser.Email
+	user.ID = consoleUser.ID
+	user.PartnerID = consoleUser.PartnerID
+	user.UserAgent = consoleUser.UserAgent
+	user.ProjectLimit = consoleUser.ProjectLimit
+	user.IsProfessional = consoleUser.IsProfessional
+	user.CompanyName = consoleUser.CompanyName
+	user.Position = consoleUser.Position
+	user.EmployeeCount = consoleUser.EmployeeCount
+	user.HaveSalesContact = consoleUser.HaveSalesContact
+	user.PaidTier = consoleUser.PaidTier
+	user.MFAEnabled = consoleUser.MFAEnabled
+	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)

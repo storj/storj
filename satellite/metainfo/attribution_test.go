@@ -103,10 +103,10 @@ func TestBucketAttribution(t *testing.T) {
 			require.NoError(t, err)
 
 			createBucketAndCheckAttribution := func(userID uuid.UUID, apiKeyName, bucketName string) {
-				authCtx, err := satellite.AuthenticatedContext(ctx, userID)
+				userCtx, err := satellite.UserContext(ctx, userID)
 				require.NoError(t, err, errTag)
 
-				_, apiKeyInfo, err := satellite.API.Console.Service.CreateAPIKey(authCtx, satProject.ID, apiKeyName)
+				_, apiKeyInfo, err := satellite.API.Console.Service.CreateAPIKey(userCtx, satProject.ID, apiKeyName)
 				require.NoError(t, err, errTag)
 
 				config := uplink.Config{
@@ -168,10 +168,10 @@ func TestQueryAttribution(t *testing.T) {
 		satProject, err := satellite.AddProject(ctx, user.ID, "test")
 		require.NoError(t, err)
 
-		authCtx, err := satellite.AuthenticatedContext(ctx, user.ID)
+		userCtx, err := satellite.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
-		_, apiKeyInfo, err := satellite.API.Console.Service.CreateAPIKey(authCtx, satProject.ID, "root")
+		_, apiKeyInfo, err := satellite.API.Console.Service.CreateAPIKey(userCtx, satProject.ID, "root")
 		require.NoError(t, err)
 
 		access, err := uplink.RequestAccessWithPassphrase(ctx, satellite.NodeURL().String(), apiKeyInfo.Serialize(), "mypassphrase")

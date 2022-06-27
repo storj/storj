@@ -7,6 +7,9 @@
             <div class="account-area__wrap__left">
                 <AccountIcon class="account-area__wrap__left__icon" />
                 <p class="account-area__wrap__left__label">My Account</p>
+                <p class="account-area__wrap__left__label-small">Account</p>
+                <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
+                <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
             </div>
             <ArrowImage class="account-area__wrap__arrow" />
         </div>
@@ -60,6 +63,8 @@ import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
+import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
+import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -73,6 +78,8 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
         ArrowImage,
         SettingsIcon,
         LogoutIcon,
+        TierBadgeFree,
+        TierBadgePro,
     }
 })
 export default class AccountArea extends Vue {
@@ -91,6 +98,7 @@ export default class AccountArea extends Vue {
      */
     public navigateToSettings(): void {
         this.closeDropdown();
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
     }
 
@@ -98,6 +106,7 @@ export default class AccountArea extends Vue {
      * Logouts user and navigates to login page.
      */
     public async onLogout(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.Login.path);
         await this.$router.push(RouteConfig.Login.path);
 
         try {
@@ -195,11 +204,31 @@ export default class AccountArea extends Vue {
                 align-items: center;
                 justify-content: space-between;
 
-                &__label {
+                &__label,
+                &__label-small {
                     font-size: 14px;
                     line-height: 20px;
                     color: #56606d;
-                    margin-left: 24px;
+                    margin: 0 6px 0 24px;
+                }
+
+                &__label-small {
+                    display: none;
+                    margin: 0;
+                }
+            }
+
+            &:hover {
+                background-color: #fafafb;
+                border-color: #fafafb;
+
+                p {
+                    color: #0149ff;
+                }
+
+                .account-area__wrap__arrow ::v-deep path,
+                .account-area__wrap__left__icon ::v-deep path {
+                    fill: #0149ff;
                 }
             }
         }
@@ -220,9 +249,11 @@ export default class AccountArea extends Vue {
                 background: #fafafb;
                 padding: 16px;
                 width: calc(100% - 32px);
+                border: 1px solid #ebeef1;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
+                border-radius: 8px 8px 0 0;
 
                 &__left,
                 &__right {
@@ -230,7 +261,6 @@ export default class AccountArea extends Vue {
                     align-items: center;
 
                     &__label {
-                        font-family: 'font_medium', sans-serif;
                         font-size: 14px;
                         line-height: 20px;
                         color: #56606d;
@@ -253,6 +283,7 @@ export default class AccountArea extends Vue {
             &__item {
                 display: flex;
                 align-items: center;
+                border-top: 1px solid #ebeef1;
                 padding: 16px;
                 width: calc(100% - 32px);
                 cursor: pointer;
@@ -264,39 +295,82 @@ export default class AccountArea extends Vue {
                     color: #56606d;
                 }
 
+                &:last-of-type {
+                    border-radius: 0 0 8px 8px;
+                }
+
                 &:hover {
                     background-color: #f7f8fb;
+
+                    p {
+                        color: #0149ff;
+                    }
+
+                    ::v-deep path {
+                        fill: #0149ff;
+                    }
                 }
             }
         }
     }
 
     .active {
+        border-color: #000;
+
+        p {
+            color: #091c45;
+            font-family: 'font_bold', sans-serif;
+        }
+
+        .account-area__wrap__arrow ::v-deep path,
+        .account-area__wrap__left__icon ::v-deep path {
+            fill: #000;
+        }
+    }
+
+    .active:hover {
         border-color: #0149ff;
         background-color: #f7f8fb;
 
-        .account-area__wrap {
+        p {
+            color: #0149ff;
+        }
 
-            &__left__label {
-                color: #0149ff;
-                font-weight: 600;
-            }
-
-            &__left__icon ::v-deep path,
-            &__arrow ::v-deep path {
-                fill: #0149ff;
-            }
+        .account-area__wrap__arrow ::v-deep path,
+        .account-area__wrap__left__icon ::v-deep path {
+            fill: #0149ff;
         }
     }
 
     @media screen and (max-width: 1280px) {
 
         .account-area__wrap {
+            padding: 10px 0;
+            align-items: center;
+            justify-content: center;
+
+            p {
+                font-family: 'font_medium', sans-serif;
+            }
 
             &__left__label,
             &__arrow {
                 display: none;
             }
+
+            &__left {
+                flex-direction: column;
+
+                &__label-small {
+                    display: block;
+                    margin-top: 10px;
+                    font-size: 9px;
+                }
+            }
+        }
+
+        .active p {
+            font-family: 'font_medium', sans-serif;
         }
     }
 </style>

@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -69,10 +70,13 @@ func TestAuth(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
+		var oldCookies []*http.Cookie
+
 		{ // Get_AccountInfo
 			resp, body := test.request(http.MethodGet, "/auth/account", nil)
 			require.Equal(test.t, http.StatusOK, resp.StatusCode)
 			require.Contains(test.t, body, "fullName")
+			oldCookies = resp.Cookies()
 
 			var userIdentifier struct{ ID string }
 			require.NoError(test.t, json.Unmarshal([]byte(body), &userIdentifier))
@@ -91,6 +95,16 @@ func TestAuth(t *testing.T) {
 			resp, body := test.request(http.MethodGet, "/auth/account", nil)
 			// TODO: wrong error text
 			// require.Contains(test.t, body, "unauthorized")
+			require.Contains(test.t, body, "error")
+			require.Equal(test.t, http.StatusUnauthorized, resp.StatusCode)
+		}
+
+		{ // Get_AccountInfo shouldn't succeed with reused session cookie
+			satURL, err := url.Parse(test.url(""))
+			require.NoError(t, err)
+			test.client.Jar.SetCookies(satURL, oldCookies)
+
+			resp, body := test.request(http.MethodGet, "/auth/account", nil)
 			require.Contains(test.t, body, "error")
 			require.Equal(test.t, http.StatusUnauthorized, resp.StatusCode)
 		}
@@ -821,7 +835,7 @@ func (test *test) defaultUser() registeredUser {
 
 func (test *test) defaultProjectID() string { return test.planet.Uplinks[0].Projects[0].ID.String() }
 
-func (test *test) login(email, password string) {
+func (test *test) login(email, password string) Response {
 	resp, body := test.request(
 		http.MethodPost, "/auth/token",
 		test.toJSON(map[string]string{
@@ -835,6 +849,8 @@ func (test *test) login(email, password string) {
 	require.NoError(test.t, json.Unmarshal([]byte(body), &rawToken))
 	require.Equal(test.t, http.StatusOK, resp.StatusCode)
 	require.Equal(test.t, rawToken, cookie.Value)
+
+	return resp
 }
 
 func (test *test) registerUser(email, password string) registeredUser {

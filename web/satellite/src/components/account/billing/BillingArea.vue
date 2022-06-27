@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -33,7 +33,7 @@
             <div class="account-billing-area__divider" />
             <router-view />
         </div>
-        <div v-if="!isNewBillingScreen">
+        <div v-if="isNewBillingScreen">
             <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
                 <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
                     <NegativeBalanceIcon />
