@@ -14,9 +14,9 @@
 
         <div class="grants-item-container__common-info menu-item-container">
             <p class="ellipses" @click.stop="togglePopupVisibility">...</p>
-            <div 
+            <div
                 v-if="popupVisible"
-                v-click-outside="togglePopupVisibility" 
+                v-click-outside="togglePopupVisibility"
                 class="popup-menu"
             >
                 <p
@@ -25,10 +25,10 @@
                     @mouseleave="isPopupHovered = false"
                     @click="toggleSelection"
                 >
-                    <TrashIconWhite 
+                    <TrashIconWhite
                         v-if="isPopupHovered"
                     />
-                    <TrashIconBlack 
+                    <TrashIconBlack
                         v-if="!isPopupHovered"
                     />
                     Delete Access
@@ -112,6 +112,7 @@ export default class AccessGrantsItem extends Vue {
     .name-container {
         max-width: calc(100% - 131px);
         margin-right: 15px;
+        min-width: 100px;
     }
 
     .name {

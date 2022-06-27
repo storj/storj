@@ -73,6 +73,7 @@ export default class AccessGrantsItem extends Vue {
     .name-container {
         max-width: calc(100% - 131px);
         margin-right: 15px;
+        min-width: 100px;
     }
 
     .name {
