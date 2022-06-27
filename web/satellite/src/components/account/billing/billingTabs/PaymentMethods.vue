@@ -4,8 +4,7 @@
 <template>
     <div class="payments-area">
         <div class="payments-area__top-container">
-            <h1 class="payments-area__title">Payment Methods</h1>
-            <VLoader v-if="ispaymentsFetching" />
+            <h1 class="payments-area__title">Payment Methods{{showTransactions? ' > Storj Tokens':null}}</h1>
             <div 
                 class="payments-area__container"
                 v-if="!showTransactions"
@@ -89,7 +88,6 @@
                 </div>
                 <div 
                     class="payments-area__container__new-payments"
-                    @click="toggleCreateModal"
                 >
                     <div class="payments-area__container__new-payments__text-area">
                         <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
@@ -98,12 +96,52 @@
                 </div>
             </div>
             <div v-if="showTransactions">
-                <div class="">
-                    <SortingHeader />
-                    <VList
-                        :data-set="depositHistoryItems"
-                        :item-component="itemComponent"
+                <div class="payments-area__container__transactions">
+                    <SortingHeader2
+                        @sortFunction='sortFunction'
                     />
+                    <token-transaction-item
+                        v-for="item in displayedHistory"
+                        :key="item.id"
+                        :billing-item="item"
+                    />
+                    <div class="divider"></div>
+                    <div class="pagination">
+                        <div class="pagination__total">
+                            <p>
+                                {{transactionCount}} transactions found
+                            </p>
+                        </div>
+                        <div class="pagination__right-container">
+                            <div class="pagination__right-container__count">
+                                <span
+                                    v-if="transactionCount > 10 && paginationLocation.end !== transactionCount"
+                                >
+                                   {{paginationLocation.start + 1}} - {{paginationLocation.end}} of {{transactionCount}}
+                                </span>
+                                <span
+                                    v-else
+                                >
+                                   {{paginationLocation.start + 1}} - {{transactionCount}} of {{transactionCount}}
+                                </span>
+                            </div>
+                            <div class="pagination__right-container__buttons"
+                                v-if="transactionCount > 10"
+                            >
+                                <ArrowIcon
+                                    class="pagination__right-container__buttons__left"
+                                    v-if="paginationLocation.start > 0"
+                                    @click="paginationController(-10)"
+                                />
+                                <ArrowIcon
+                                    class="pagination__right-container__buttons__right"    
+                                    v-if="paginationLocation.end < transactionCount - 1"
+                                    @click="paginationController(10)"
+                                />
+
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="">
                 </div>
@@ -118,18 +156,18 @@ import { Component, Vue } from 'vue-property-decorator';
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
-import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
-
+import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
 
 import TokenDepositSelection2 from '@/components/account/billing/paymentMethods/TokenDepositSelection2.vue';
 import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
 
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
+import ArrowIcon from '@/../static/images/common/arrowRight.svg'
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentsHistoryItem, PaymentsHistoryItemType, PaymentAmountOption } from '@/types/payments';
-
+import { SortDirection } from '@/types/common';
 import { RouteConfig } from '@/router';
 
 const {
@@ -147,7 +185,8 @@ const {
         StorjLarge,
         TokenTransactionItem,
         TokenDepositSelection2,
-        SortingHeader,
+        SortingHeader2,
+        ArrowIcon,
     },
 })
 export default class paymentsArea extends Vue {
@@ -158,8 +197,26 @@ export default class paymentsArea extends Vue {
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+    public paginationLocation: {start: number, end: number} = {start: 0, end: 10};
+    public tokenHistory: {amount: number, start: Date, status: string,}[] = []
+    public displayedHistory: {}[] = [];
+    public transactionCount: number = 0;
 
-    public testData = [{date: '12/01/2021', time: '3:15 PM'},{},{}]
+    public async mounted() {
+        try {
+            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        let array = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
+        }));
+        this.tokenHistory = array;
+        this.transactionCount = array.length
+        this.displayedHistory = array.slice(0,10)
+        console.log(array.length)
+    }
 
     public toggleTransactionsTable(): void {
         this.showTransactions = !this.showTransactions;
@@ -174,6 +231,66 @@ export default class paymentsArea extends Vue {
      */
     public get itemComponent(): typeof TokenTransactionItem {
         return TokenTransactionItem;
+    }
+
+    // controls sorting the table
+    public sortFunction(key) {
+        this.paginationLocation = {start: 0, end: 10}
+        this.displayedHistory = this.tokenHistory.slice(0,10)
+        switch (key) {
+            case 'date-ascending':
+                this.tokenHistory.sort((a,b) => {return a.start.getTime() - b.start.getTime()});
+                break;
+            case 'date-descending':
+                this.tokenHistory.sort((a,b) => {return b.start.getTime() - a.start.getTime()});
+                break;
+            case 'amount-ascending':
+                this.tokenHistory.sort((a,b) => {return a.amount - b.amount});
+                break;
+            case 'amount-descending':
+                this.tokenHistory.sort((a,b) => {return b.amount - a.amount});
+                break;
+            case 'status-ascending':
+                this.tokenHistory.sort((a, b) => {
+                    if (a.status < b.status) {return -1;}
+                    if (a.status > b.status) {return 1;}
+                    return 0});
+                break;
+            case 'status-descending':
+                this.tokenHistory.sort((a, b) => {
+                    if (b.status < a.status) {return -1;}
+                    if (b.status > a.status) {return 1;}
+                    return 0});
+                break;
+        }
+    }
+
+    //controls pagination
+    public paginationController(i): void {
+        let diff = this.transactionCount - this.paginationLocation.start
+        if (this.paginationLocation.start + i >= 0 && this.paginationLocation.end + i <= this.transactionCount && this.paginationLocation.end !== this.transactionCount){
+            this.paginationLocation = {
+                start: this.paginationLocation.start + i,
+                end: this.paginationLocation.end + i
+            }
+        } else if (this.paginationLocation.start + i < 0 ) {
+            this.paginationLocation = {
+                start: 0,
+                end: 10
+            }
+        } else if(this.paginationLocation.end + i > this.transactionCount) {
+            this.paginationLocation = {
+                start: this.paginationLocation.start + i,
+                end: this.transactionCount
+            }
+        }   else if(this.paginationLocation.end === this.transactionCount) {
+            this.paginationLocation = {
+                start: this.paginationLocation.start + i,
+                end: this.transactionCount - (diff)
+            }
+        }
+
+        this.displayedHistory = this.tokenHistory.slice(this.paginationLocation.start, this.paginationLocation.end)
     }
 
     /**
@@ -281,6 +398,13 @@ export default class paymentsArea extends Vue {
 
     .Rejected {
         color: #ac1a00;
+    }
+
+    .divider {
+        height: 1px;
+        width: calc(100% + 30px);
+        background-color: #E5E7EB;
+        align-self: center;
     }
 
     .payments-area {
@@ -448,6 +572,41 @@ export default class paymentsArea extends Vue {
                         font-size: 16px;
                         text-decoration: underline;
                     }
+                }
+            }
+            &__transactions {
+                margin: 20px 0;
+                background-color: #fff;
+                border-radius: 10px;
+                box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
+                padding: 0 15px;
+                display: flex;
+                flex-direction: column;
+            }
+        }
+    }
+    .pagination {
+        display: flex;
+        justify-content: space-between;
+        font-family: sans-serif;
+        padding: 15px 0;
+        color: #6B7280;
+        &__right-container {
+            display: flex;
+            width: 150px;
+            justify-content: space-between;
+            &__buttons {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 25%;
+                &__left {
+                    transform: rotate(180deg);
+                    cursor: pointer;
+                    padding: 1px 0 0 0;
+                }
+                &__right {
+                    cursor: pointer;
                 }
             }
         }

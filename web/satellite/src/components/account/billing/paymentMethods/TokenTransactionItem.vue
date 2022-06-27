@@ -3,32 +3,44 @@
 
 <template>
     <div class="container">
-        <PaymentsHistoryItemDate
-            class="container__item date"
+        <div class="divider"></div>
+        <!-- <PaymentsHistoryItemDate
+            class="container__row__item date"
             :start="billingItem.start"
             :expiration="billingItem.end"
             :type="billingItem.type"
             :status="billingItem.status"
-        />
-        <p class="container__item description">{{ billingItem.description }}</p>
-        <p class="container__item status">{{ billingItem.formattedStatus }}</p>
-        <p class="container__item amount">
-            <b>
-                {{ billingItem.quantity.currency }}
-                <span v-if="billingItem.type === 1">
-                    {{ billingItem.quantity.received.toFixed(2) }}
+        /> -->
+        <div class="container__row">
+            <div class="container__row__item__date-container">
+                <p class="container__row__item date">{{ billingItem.start.toLocaleDateString() }}</p>
+                <p class="container__row__item time">{{ billingItem.start.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) }}</p>
+            </div>
+            <div class="container__row__item__description"> 
+                <p class="container__row__item__description__text">CoinPayments {{ billingItem.description.includes("Deposit")? "Deposit": "Withdrawal"}}</p>
+                <p class="container__row__item__description__id">{{billingItem.id}}</p>
+            </div>
+            <p class="container__row__item amount">
+                <b>
+                    <span v-if="billingItem.type === 1">
+                        ${{ billingItem.quantity.received.toFixed(2) }}
+                    </span>
+                    <span v-else>
+                        ${{ billingItem.quantity.total.toFixed(2) }}
+                    </span>
+                    
+                </b>
+            </p>
+            <p class="container__row__item status">
+                <span :class="`container__row__item__circle-icon ${billingItem.status}`">
+                    &#9679;
                 </span>
-                <span v-else>
-                    {{ billingItem.quantity.total.toFixed(2) }}
-                </span>
-            </b>
-            <span v-if="billingItem.type === 1">
-                of <b>{{ billingItem.quantity.total.toFixed(2) }}</b>
-            </span>
-        </p>
-        <p class="container__item download">
-            <a v-if="billingItem.link" class="download-link" target="_blank" :href="billingItem.link">{{ billingItem.label }}</a>
-        </p>
+                {{ billingItem.status }}
+            </p>
+            <p class="container__row__item download">
+                <a v-if="billingItem.link" class="download-link" target="_blank" :href="billingItem.link">View On CoinPayments</a>
+            </p>
+        </div>
     </div>
 </template>
 
@@ -49,16 +61,33 @@ export default class TokenTransactionItem extends Vue {
     @Prop({default: () => new PaymentsHistoryItem()})
     private readonly billingItem: PaymentsHistoryItem;
 
-    public mounted() {
-        console.log(PaymentsHistoryItem)
-    }
 }
 </script>
 
 <style scoped lang="scss">
+    .pending {
+        color: #FFA800;
+    }
+
+    .confirmed {
+        color: #00ac26;
+    }
+
+    .rejected {
+        color: #ac1a00;
+    }
+
+    .divider {
+        height: 1px;
+        width: calc(100% + 30px);
+        background-color: #E5E7EB;
+        align-self: center;
+    }
+    
     .download-link {
         color: #2683ff;
         font-family: 'font_bold', sans-serif;
+        text-decoration: underline !important;
 
         &:hover {
             color: #0059d0;
@@ -67,50 +96,74 @@ export default class TokenTransactionItem extends Vue {
 
     .container {
         display: flex;
-        align-items: center;
-        width: 100%;
-        border-top: 1px solid #c7cdd2;
-
-        &__item {
-            min-width: 20%;
-            font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            text-align: left;
-            color: #768394;
-            margin: 30px 0;
-        }
+        flex-direction: column;
+        &__row {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            // border-top: 1px solid #c7cdd2;
+            &__item {
+                font-family: sans-serif;
+                font-weight: 300;
+                font-size: 16px;
+                text-align: left;
+                // color: #768394;
+                margin: 30px 0;
+                &__description {
+                    width: 35%;
+                    display: flex;
+                    flex-direction: column;
+                    text-align: left;
+                    &__text, &__id {
+                        font-family: 'font_medium', sans-serif;
+                    }
+                }
+                &__date-container {
+                    width: 15%;
+                    display: flex;
+                    flex-direction: column;
+                }
+            }
+        }  
     }
 
     .date {
         font-family: 'font_bold', sans-serif;
         margin: 0;
+        // width: 15%;
+    }
+
+    .time {
+        color: #6B7280;
+        margin: 0;
+        font-size: 14px;
     }
 
     .description {
-        min-width: 31%;
+        font-family: 'font_medium', sans-serif;
+        overflow: ellipse;
     }
 
     .status {
-        min-width: 17%;
+        width: 15%;
     }
 
     .amount {
-        min-width: 22%;
-        margin: 0;
+        width: 15%;
+        // margin: 0;
     }
 
     .download {
-        margin: 0;
-        text-align: right;
-        width: 10%;
-        min-width: 10%;
+        // margin: 0 5px;
+        text-align: left;
+        width: 20%;
     }
 
-    .row {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        width: 175px;
-    }
+    // .row {
+    //     display: flex;
+    //     flex-direction: row;
+    //     align-items: center;
+    //     justify-content: flex-start;
+    //     width: 175px;
+    // }
 </style>
