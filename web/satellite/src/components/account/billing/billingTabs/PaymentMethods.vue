@@ -9,6 +9,7 @@
             <div class="payments-area__container">
                 <div
                     class="payments-area__container__token"
+                    v-if="!showAddFunds"
                 >
                     <div class="payments-area__container__token__small-icon">   <StorjSmall />
                     </div>
@@ -25,31 +26,32 @@
                             </span>
                         </span>
                     </div>
-
-                    
                     <div class="payments-area__container__token__balance-container">
                         <p class="payments-area__container__token__balance-container__label">Total Balance</p>
-                        <span class="payments-area__container__token__balance-amount">USD $ {{ balanceAmount }}</span>
+                        <span class="payments-area__container__token__balance-container__text">USD ${{ balanceAmount }}</span>
                     </div>
-                    <div class="payments-area__container__token__button-container">
-                        <v-button
-                            label='See transactions'
-                            width="auto"
-                            height="30px"
-                            is-transparent="true"
-                            font-size="13px"
-                            class=""
-                        />
-                        <v-button
-                            label='Add funds'
-                            font-size="13px"
-                            width="auto"
-                            height="30px"
-                            class=""
-                        />
-                    </div>
+                    <VButton
+                        label='See transactions'
+                        width="120px"
+                        height="30px"
+                        is-transparent="true"
+                        font-size="13px"
+                        class="payments-area__container__token__transaction-button"
+                    />
+                    <VButton
+                        label='Add funds'
+                        font-size="13px"
+                        width="80px"
+                        height="30px"
+                        class="payments-area__container__token__funds-button"
+                    />
                 </div>
-                <div class="payments-area__container__cards" />
+                <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards" >
+                    <CreditCardContainer
+                        :credit-card="card"
+                        @remove="removePaymentMethodHandler"
+                    />
+                </div>
                 <div class="payments-area__container__new-payments">
                     <div v-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
                         <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
@@ -59,6 +61,9 @@
                         >Add New Payment Method</span>
                     </div>
                     <div v-if="isAddingPayment">
+                        <div class="close-add-payment" @click="closeAddPayment">
+                            <CloseCrossIcon />
+                        </div>
                         <div class="payments-area__create-header">Credit Card</div>
                         <div class="payments-area__create-subheader">Add Card Info</div>
                         <StripeCardInput
@@ -69,7 +74,7 @@
                         <div
                             v-if="!isAddCardClicked"
                             class="add-card-button"
-                            @click="addCard"
+                            @click="onConfirmAddStripe"
                         >
                             <img
                                 v-if="isLoading"
@@ -86,24 +91,64 @@
                     </div>
                 </div>
             </div>
-            <!-- Edit Credit Card Modal -->
-            <div v-if="isEditPaymentMethodsModalOpen" class="add_payment_method">
-                <div class="add_payment_method__container">
-                    <CreditCard  class="card-icon" />
-                    <div class="add_payment_method__header">Add Credit Card</div>
-                    <div class="add_payment_method__header-subtext">This is not your default payment card.</div>
-                    <div class="add_payment_method__container__close-cross-container" @click="onCloseClick">
-                        <CloseCrossIcon />
+            
+            <div v-if="isRemovePaymentMethodsModalOpen || isChangeDefaultPaymentModalOpen" class="edit_payment_method">
+                <!-- Change Default Card Modal -->
+                <div v-if="isChangeDefaultPaymentModalOpen" class="change-default-modal-container">
+                    <CreditCardImage class="card-icon-default" />
+                    <div class="edit_payment_method__container__close-cross-container-default" @click="onCloseClickDefault">
+                        <CloseCrossIcon class="close-icon" />
                     </div>
-                    <form>
-                        <label>Card Number</label>
+                    <div class="edit_payment_method__header">Select Default Card</div>
+                    <form v-for="card in creditCards" :key="card.id"> 
+                        <div class="change-default-input-container">
+                            <AmericanExpressIcon v-if="card.brand === 'amex' " class="cardIcons" />
+                            <DiscoverIcon v-if="card.brand === 'discover' " class="cardIcons" />
+                            <JCBIcon v-if="card.brand === 'jcb' " class="cardIcons jcb-icon" />
+                            <MastercardIcon v-if="card.brand === 'mastercard' " class="cardIcons mastercard-icon" />
+                            <UnionPayIcon v-if="card.brand === 'unionpay' " class="cardIcons union-icon" />
+                            <VisaIcon v-if="card.brand === 'visa' " class="cardIcons" />
+                            <DinersIcon v-if="card.brand === 'diners' " class="cardIcons diners-icon" />
+                            <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image"> 
+                            {{ card.last4 }}
+                            <input 
+                                :id="card.id" 
+                                v-model="defaultCreditCardSelection"  
+                                :value="card.id" 
+                                class="change-default-input" 
+                                type="radio" 
+                                name="defaultCreditCardSelection"
+                            >
+                        </div>
                     </form>
+                    <div class="default-card-button" @click="updatePaymentMethod">
+                        Update Default Card
+                    </div>
+                </div>
+                <!-- Remove Credit Card Modal -->
+                <div v-if="isRemovePaymentMethodsModalOpen" class="edit_payment_method__container">
+                    <CreditCardImage class="card-icon" />
+                    <div class="edit_payment_method__container__close-cross-container" @click="onCloseClick">
+                        <CloseCrossIcon class="close-icon" />
+                    </div>
+                    <div class="edit_payment_method__header">Remove Credit Card</div>
+                    <div v-if="!cardBeingEdited.isDefault" class="edit_payment_method__header-subtext">This is not your default payment card.</div>
+                    <div v-if="cardBeingEdited.isDefault" class="edit_payment_method__header-subtext-default">This is your default payment card.</div>
+                    <div class="edit_payment_method__header-change-default" @click="changeDefault">
+                        <a class="edit-card-text">Edit default card -></a>
+                    </div>
+                    <div 
+                        class="remove-card-button" 
+                        @click="removePaymentMethod"
+                        @mouseover="deleteHover = true"
+                        @mouseleave="deleteHover = false"
+                    >
+                        <Trash v-if="deleteHover === false" />
+                        <RedTrash v-if="deleteHover === true" />
+                        Remove
+                    </div>
                 </div>
             </div>
-            <Addpayments2 
-                v-if="showCreateCode"
-                @toggleMethod="toggleCreateModal"
-            />
         </div>
     </div>
 </template>
@@ -117,9 +162,24 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import SuccessImage from '@/../static/images/account/billing/success.svg';
 
+import AmericanExpressIcon from '@/../static/images/payments/cardIcons/smallamericanexpress.svg';
+import DinersIcon from '@/../static/images/payments/cardIcons/smalldinersclub.svg';
+import DiscoverIcon from '@/../static/images/payments/cardIcons/discover.svg';
+import JCBIcon from '@/../static/images/payments/cardIcons/smalljcb.svg';
+import MastercardIcon from '@/../static/images/payments/cardIcons/smallmastercard.svg';
+import UnionPayIcon from '@/../static/images/payments/cardIcons/smallunionpay.svg';
+import VisaIcon from '@/../static/images/payments/cardIcons/smallvisa.svg';
+
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
-import CreditCard from '@/../static/images/billing/credit-card.svg';
+import Trash from '@/../static/images/account/billing/trash.svg';
+import RedTrash from '@/../static/images/account/billing/redtrash.svg';
+
+import CreditCardImage from '@/../static/images/billing/credit-card.svg';
+import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
+
+
+import { CreditCard } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { USER_ACTIONS } from '@/store/modules/users';
 
@@ -132,24 +192,40 @@ interface StripeForm {
 const {
     ADD_CREDIT_CARD,
     GET_CREDIT_CARDS,
+    REMOVE_CARD,
+    MAKE_CARD_DEFAULT,
 } = PAYMENTS_ACTIONS;
 
 // @vue/component
 @Component({
     components: {
+        AmericanExpressIcon,
+        DiscoverIcon,
+        JCBIcon,
+        MastercardIcon,
+        UnionPayIcon,
+        VisaIcon,
         VLoader,
         StorjSmall,
         StorjLarge,
         VButton,
         CloseCrossIcon,
-        CreditCard,
+        CreditCardImage,
         StripeCardInput,
-        SuccessImage
+        DinersIcon,
+        SuccessImage,
+        Trash,
+        RedTrash,
+        CreditCardContainer
     },
 })
 export default class paymentsArea extends Vue {
+    public deleteHover = false;
+    public cardBeingEdited: any = {};
     public isAddingPayment = false;
-    public isEditPaymentMethodsModalOpen = false;
+    public isChangeDefaultPaymentModalOpen = false;
+    public defaultCreditCardSelection = "";
+    public isRemovePaymentMethodsModalOpen = false;
     public depositStatus = 'Confirmed';
     public balanceAmount = 0.00; 
     public testData = [{},{},{}];
@@ -164,20 +240,53 @@ export default class paymentsArea extends Vue {
     public async mounted() {
     }
 
-    
+    public async updatePaymentMethod() {
+        try {
+            await this.$store.dispatch(MAKE_CARD_DEFAULT, this.defaultCreditCardSelection);
+            await this.$notify.success('Default payment card updated');
+            this.isChangeDefaultPaymentModalOpen = false;
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
+
+    public async removePaymentMethod() {
+        if (!this.cardBeingEdited.isDefault) {
+            try {
+                await this.$store.dispatch(REMOVE_CARD, this.cardBeingEdited.id);
+                await this.$notify.success('Credit card removed');
+            } catch (error) {
+                await this.$notify.error(error.message);
+            }
+            this.isRemovePaymentMethodsModalOpen = false;
+
+        }
+        else {
+            this.$notify.error("You cannot delete the default payment method.");
+        }
+    }
+
+    public changeDefault() {
+        this.isChangeDefaultPaymentModalOpen = true;
+        this.isRemovePaymentMethodsModalOpen = false;
+    }
+
+    public closeAddPayment() {
+        this.isAddingPayment = false;
+    }
+
+    public get creditCards(): CreditCard[] {
+        return this.$store.state.paymentsModule.creditCards;
+    }
 
     public async addCard(token: string): Promise<void> {
         this.$emit('toggleIsLoading');
-        console.log('working');
-        console.log(token, 'token');
         try {
-        console.log('catch block firing');
             await this.$store.dispatch(ADD_CREDIT_CARD, token);
 
             // We fetch User one more time to update their Paid Tier status.
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
-            console.log('catching');
             await this.$notify.error(error.message);
 
             this.$emit('toggleIsLoading');
@@ -219,32 +328,180 @@ export default class paymentsArea extends Vue {
         this.isAddingPayment = true;
     }
 
-    public editPaymentMethodHandler() {
-        this.isEditPaymentMethodsModalOpen = true;
+    public removePaymentMethodHandler(creditCard) {
+        
+        this.cardBeingEdited = creditCard;
+        this.isRemovePaymentMethodsModalOpen = true;
     }
 
     public onCloseClick() {
-        this.isEditPaymentMethodsModalOpen = false;
+        this.isRemovePaymentMethodsModalOpen = false;
+    }
+
+    public onCloseClickDefault() {
+        this.isChangeDefaultPaymentModalOpen = false;
     }
 }
 </script>
 
 <style scoped lang="scss">
 
+    .union-icon {
+        margin-top: -6px;
+    }
+
+    .jcb-icon {
+        margin-top: -10px;
+    }
+
+    .mastercard-icon {
+        margin-top: -10px;
+    }
+    
+    .diners-icon {
+        margin-top: -10px;
+    }
+
+    .cardIcons {
+        flex: none;
+    }
+    .edit-card-text {
+        color: #0149FF;
+    }
+
+    .change-default-input-container {
+        margin: auto;
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        padding: 16px;
+        gap: 10px;
+        width: 300px;
+        height: 10px;
+        /* background: #e6edf7; */
+        border: 1px solid #C8D3DE;
+        border-radius: 8px;
+        margin-top: 7px;
+    }   
+    
+
+    .change-default-input {
+        margin-left: auto;
+        background: #FFFFFF;
+        border: 1px solid #C8D3DE;
+        border-radius: 24px;
+    }
+
+    .default-card-button {
+        margin-top: 20px;
+        margin-bottom: 20px;
+        cursor: pointer;
+        margin-left: 112px;
+        display: flex;
+        grid-column: 1;
+        grid-row: 5;
+        width: 132px;
+        height: 24px;
+        align-items: center;
+        padding: 16px;
+        gap: 8px;
+        background: #0149FF;
+        box-shadow: 0px 0px 1px rgba(9, 28, 69, 0.8);
+        border-radius: 8px;
+        font-family: sans-serif;
+        font-style: normal;
+        font-weight: 700;
+        font-size: 14px;
+        line-height: 24px;
+        display: flex;
+        align-items: center;
+        letter-spacing: -0.02em;
+        color: white;
+
+        &:hover {
+            background-color: #0059d0;
+        }   
+    }
+
+     @keyframes example {
+            from {
+                color: #56606d;
+                border: 1px solid #D8DEE3;
+            }
+            to {
+                border: 1px solid #e30011!important;
+                color: #e30011;
+            }
+        }
+
+
+    .remove-card-button {
+        cursor: pointer;
+        animation: example;
+        animation-duration: 4s;
+        margin-left: 130px;
+        margin-top: 15px;
+        margin-bottom: 21px;
+        display: flex;
+        grid-column: 1;
+        grid-row: 5;
+        width: 111px;
+        height: 24px;
+        align-items: center;
+        padding: 16px;
+        gap: 8px;
+        background: #FFFFFF;
+        border: 1px solid #D8DEE3;
+        box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.08);
+        border-radius: 8px;
+        font-family: sans-serif;
+        font-style: normal;
+        font-weight: 700;
+        font-size: 14px;
+        line-height: 24px;
+        display: flex;
+        align-items: center;
+        letter-spacing: -0.02em;
+        color: #56606D;
+
+       
+        &:hover {
+            border: 1px solid #e30011!important;
+            color: #e30011;
+        }
+        
+    }
+
     .payments-area__container__new-payments {
-        display: grid !important;
-        grid-template-columns:  6fr;
-        grid-template-rows: 1fr 1fr 1fr 1fr;
+        padding: 18px;
     }
 
-    .card-icon {
+    .close-add-payment {
         position: absolute;
-        left: 45.78%;
-        top: 14.00%;
-        bottom: 67.38%;
+        margin-left: 208px;
     }
 
-     .add_payment_method {
+    .card-icon { 
+        margin-top: 10px;
+        margin-left: 168px;
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .card-icon-default { 
+        margin-top: 35px;
+        margin-bottom: 10px;
+        margin-left: 168px;
+    }
+
+
+    .change-default-modal-container {
+        width: 400px;
+        background: #f5f6fa;
+        border-radius: 6px;
+    }
+
+    .edit_payment_method {
         // width: 546px;
         position: fixed;
         top: 0;
@@ -257,10 +514,16 @@ export default class paymentsArea extends Vue {
         align-items: center;
         justify-content: center;
 
+        &__header-change-default {
+            margin-top: -6px;
+            margin-left: 141px;
+            grid-column: 1;
+            grid-row: 4
+        }
+
         &__header {
-            position: absolute;
-            left: 36%;
-            top: 24%;
+            grid-column: 1;
+            grid-row: 2;
             font-family: sans-serif;
             font-style: normal;
             font-weight: 800;
@@ -274,9 +537,8 @@ export default class paymentsArea extends Vue {
             color: #1B2533;
         }
         &__header-subtext {
-            position: absolute;
-            left: 30%;
-            top: 29%;
+            grid-column: 1;
+            grid-row: 3;
             font-family: sans-serif;
             font-style: normal;
             font-weight: 400;
@@ -286,23 +548,45 @@ export default class paymentsArea extends Vue {
             color: #56606D;
         }
 
-        &__container {
-            width: 546px;
-            height: 550px;
+        &__header-subtext-default {
+            margin-left: 94px;
+            font-family: sans-serif;
+            font-style: normal;
+            font-weight: 400;
+            font-size: 14px;
+            line-height: 20px;
+            color: #56606D;
+        }
 
+        &__container {
+            display: grid;
+            grid-template-columns: auto;
+            grid-template-rows: 1fr 30px 30px auto auto;
+            width: 400px;
             background: #f5f6fa;
             border-radius: 6px;
-            display: flex;
-            align-items: flex-start;
-            position: relative;
-
+            // justify-content: center;
+           
             &__close-cross-container {
-                display: flex;
-                justify-content: center;
-                align-items: center;
+                margin-top: 22px;
+                margin-left: 357px;
+                grid-column: 1;
+                grid-row: 1;
+                height: 24px;
+                width: 24px;
+                cursor: pointer;
+
+                &:hover .close-cross-svg-path {
+                    fill: #2683ff;
+                }
+            }
+
+            &__close-cross-container-default {
                 position: absolute;
-                right: 30px;
-                top: 30px;
+                margin-top: -58px;
+                margin-left: 357px;
+                grid-column: 1;
+                grid-row: 1;
                 height: 24px;
                 width: 24px;
                 cursor: pointer;
@@ -319,7 +603,7 @@ export default class paymentsArea extends Vue {
         grid-column: 1;
         width: 115px;
         height: 30px;
-        margin-top: 16px;
+        margin-top: 2px;
         
         cursor: pointer;
         border-radius: 6px;
@@ -342,6 +626,7 @@ export default class paymentsArea extends Vue {
     }
 
     .add_card_button_text {
+        margin-top: 4px;
         margin-left: 9px;
         font-family: font-medium, sans-serif;
         font-style: normal;
@@ -372,8 +657,7 @@ export default class paymentsArea extends Vue {
     .stripe_input {
         grid-row: 3;
         grid-column: 1;
-        width: 260px;
-        margin-top: 10px;
+        width: 240px;
     }
 
     .payments-area {
@@ -411,22 +695,29 @@ export default class paymentsArea extends Vue {
             display: flex;
             flex-wrap: wrap;
 
-            &__token {
+            &__cards {
+                width: 227px;
+                height: 126px;
+                padding: 20px;
+                background: #FFFFFF;
+                box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.04);
                 border-radius: 10px;
-                max-width: 400px;
-                width: 18vw;
-                min-width: 227px;
-                max-height: 222px;
-                height: 10vw;
-                min-height: 126px;
+                margin: 0 10px 10px 0;   
+            }
+
+             &__token {
+                border-radius: 10px;
+                width: 227px;
+                height: 126px;
                 display: grid;
-                grid-template-columns: 2fr 1fr 1fr;
-                grid-template-rows: 1fr 1fr 1fr;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 4fr 1fr 1fr;
                 margin: 0 10px 10px 0;
                 padding: 20px;
                 box-shadow: 0 0 20px rgb(0 0 0 / 4%);
                 background: #fff;
                 overflow: hidden;
+                font-family: sans-serif;
                 &__small-icon{
                     grid-column: 1;
                     grid-row: 1;
@@ -439,7 +730,7 @@ export default class paymentsArea extends Vue {
                     align-items: center;
                 }
                 &__large-icon{
-                    grid-column: 1/3;
+                    grid-column: 1/2;
                     grid-row: 1/3;
                     margin: 0 0 auto 0;
                     position: relative;
@@ -452,30 +743,71 @@ export default class paymentsArea extends Vue {
                     grid-column: 1;
                     grid-row: 2;
                     z-index: 3;
+                    display: grid;
+                    grid-template-columns: 1fr 6fr;
+                    grid-template-rows: 1fr 1fr;
+                    &__label{
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #56606D;
+                        grid-column: 1/ span 2;
+                        grid-row: 1;
+                        margin: auto 0 0 0;
+                    }
+                    &__circle-icon{
+                        grid-column: 1;
+                        grid-row: 2;
+                        margin: auto;
+                    }
+                    &__text{
+                        font-size: 16px;
+                        font-weight: 700;
+                        grid-column: 2;
+                        grid-row: 2;
+                        margin: auto 0;
+                    }
                 }
                 &__balance-container {
                     grid-column: 2;
                     grid-row: 2;
                     z-index: 3;
+                    display: grid;
+                    grid-template-rows: 1fr 1fr;
+                    &__label{
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #56606D;
+                        grid-row: 1;
+                        margin: auto 0 0 0;
+                    }
+                    &__text{
+                        font-size: 16px;
+                        font-weight: 700;
+                        grid-row: 2;
+                        margin: auto 0;
+                    }
                 }
-                &__button-container{
-                    grid-column: 1/3;
+                &__transaction-button{
+                    grid-column: 1;
+                    grid-row: 4;
+                    z-index: 3;
+                }
+                &__funds-button{
+                    grid-column: 2;
                     grid-row: 4;
                     z-index: 3;
                 }
             }
 
             &__new-payments {
+                width: 227px;
+                height: 126px;
+                padding: 18px;
+                display: grid !important;
+                grid-template-columns:  6fr;
+                grid-template-rows: 1fr 1fr 1fr 1fr;
                 border: 2px dashed #929fb1;
                 border-radius: 10px;
-                max-width: 400px;
-                width: 18vw;
-                min-width: 227px;
-                max-height: 222px;
-                height: 10vw;
-                min-height: 126px;
-                padding: 18px;
-                display: flex;
                 align-items: center;
                 justify-content: center;
                 cursor: pointer;
@@ -501,4 +833,31 @@ export default class paymentsArea extends Vue {
             }
         }
     }
+    
+    @mixin reset-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    @mixin horizontal-list {
+    @include reset-list;
+
+        li {
+            display: inline-block;
+            margin: {
+            left: -2px;
+            right: 2em;
+            
+            
+            
+            }
+        }
+    }
+
+    nav ul {
+        @include horizontal-list;
+    }
+
+
 </style>
