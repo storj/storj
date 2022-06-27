@@ -121,6 +121,8 @@ import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from "@/api/errors/ErrorBadRequest";
 import { MetaUtils } from '@/utils/meta';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 interface ClearInput {
     clearInput(): void;
 }
@@ -156,6 +158,8 @@ export default class Login extends Vue {
     public isMFAError = false;
     public isRecoveryCodeState = false;
     public isBadLoginMessageShown = false;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     // Tardigrade logic
     public isDropdownShown = false;
@@ -320,6 +324,7 @@ export default class Login extends Vue {
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
 
+        this.analytics.pageVisit(this.returnURL);
         await this.$router.push(this.returnURL);
     }
 

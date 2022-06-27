@@ -182,6 +182,10 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 	}
 
 	addError := func(err error) {
+		if err == nil {
+			return
+		}
+
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -340,6 +344,10 @@ func (c *cmdCp) parallelCopy(
 	defer cancel()
 
 	addError := func(err error) {
+		if err == nil {
+			return
+		}
+
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -347,6 +355,12 @@ func (c *cmdCp) parallelCopy(
 
 		// abort all other concurrenty copies
 		cancel()
+	}
+
+	var readBufs *ulfs.BytesPool
+	if p > 1 && c.dest.Std() {
+		// Create the read buffer pool only for downloads to stdout with parallelism > 1.
+		readBufs = ulfs.NewBytesPool(int(chunkSize))
 	}
 
 	for i := 0; length != 0; i++ {
@@ -377,6 +391,13 @@ func (c *cmdCp) parallelCopy(
 		ok := limiter.Go(ctx, func() {
 			defer func() { _ = rh.Close() }()
 			defer func() { _ = wh.Abort() }()
+
+			if readBufs != nil {
+				buf := readBufs.Get()
+				defer readBufs.Put(buf)
+
+				rh = ulfs.NewBufferedReadHandle(ctx, rh, buf)
+			}
 
 			var w io.Writer = wh
 			if bar != nil {

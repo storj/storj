@@ -52,6 +52,8 @@ import { Project, ProjectsPage } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 const {
     FETCH_OWNED,
 } = PROJECTS_ACTIONS;
@@ -72,6 +74,8 @@ export default class Projects extends Vue {
     private isLoading = false;
 
     public areProjectsFetching = true;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render where list of existing owned projects is fetched.
@@ -103,6 +107,7 @@ export default class Projects extends Vue {
      * Redirects to create project page.
      */
     public onCreateClick(): void {
+        this.analytics.pageVisit(RouteConfig.CreateProject.path);
         this.$router.push(RouteConfig.CreateProject.path);
     }
 
@@ -127,6 +132,7 @@ export default class Projects extends Vue {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
 
+            this.analytics.pageVisit(RouteConfig.EditProjectDetails.path);
             await this.$router.push(RouteConfig.EditProjectDetails.path);
         } catch (error) {
             await this.$notify.error(`Unable to select project. ${error.message}`);

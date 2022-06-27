@@ -92,6 +92,8 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -124,6 +126,8 @@ export default class ResetPassword extends Vue {
 
     public readonly loginPath: string = RouteConfig.Login.path;
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     public $refs!: {
         mfaInput: ConfirmMFAInput;
     };
@@ -147,6 +151,7 @@ export default class ResetPassword extends Vue {
         if (this.$route.query.token) {
             this.token = this.$route.query.token.toString();
         } else {
+            this.analytics.pageVisit(RouteConfig.Login.path);
             this.$router.push(RouteConfig.Login.path);
         }
     }

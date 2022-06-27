@@ -44,14 +44,14 @@
                         <p>Type</p>
                         <div class="access-grant__modal-container__body-container__type__type-container">
                             <input 
-                                id="acess-grant-check"
+                                id="access-grant-check"
                                 v-model="checkedType"
                                 value="access" 
                                 type="radio"
                                 name="type" 
                                 :checked="checkedType === 'access'"
                             >
-                            <label for="acess-grant-check">
+                            <label for="access-grant-check">
                                 Access Grant
                             </label>
                             <img

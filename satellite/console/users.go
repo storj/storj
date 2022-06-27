@@ -21,7 +21,7 @@ type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
-	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder time.Time) ([]*User, error)
+	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) ([]*User, error)
 	// UpdateVerificationReminders increments verification_reminders.
 	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
@@ -33,7 +33,7 @@ type Users interface {
 	// Delete is a method for deleting user by Id from the database.
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity.
-	Update(ctx context.Context, user *User) error
+	Update(ctx context.Context, userID uuid.UUID, request UpdateUserRequest) error
 	// UpdatePaidTier sets whether the user is in the paid tier.
 	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int) error
 	// GetProjectLimit is a method to get the users project limit
@@ -117,6 +117,8 @@ type AuthUser struct {
 	Password        string `json:"password"`
 	MFAPasscode     string `json:"mfaPasscode"`
 	MFARecoveryCode string `json:"mfaRecoveryCode"`
+	IP              string `json:"-"`
+	UserAgent       string `json:"-"`
 }
 
 // UserStatus - is used to indicate status of the users account.
@@ -192,4 +194,64 @@ type ResponseUser struct {
 	PaidTier             bool      `json:"paidTier"`
 	MFAEnabled           bool      `json:"isMFAEnabled"`
 	MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
+}
+
+// key is a context value key type.
+type key int
+
+// userKey is context key for User.
+const userKey key = 0
+
+// WithUser creates new context with User.
+func WithUser(ctx context.Context, user *User) context.Context {
+	return context.WithValue(ctx, userKey, user)
+}
+
+// WithUserFailure creates new context with User failure.
+func WithUserFailure(ctx context.Context, err error) context.Context {
+	return context.WithValue(ctx, userKey, err)
+}
+
+// GetUser gets User from context.
+func GetUser(ctx context.Context) (*User, error) {
+	value := ctx.Value(userKey)
+
+	if user, ok := value.(*User); ok {
+		return user, nil
+	}
+
+	if err, ok := value.(error); ok {
+		return nil, Error.Wrap(err)
+	}
+
+	return nil, Error.New("user is not in context")
+}
+
+// UpdateUserRequest contains all columns which are optionally updatable by users.Update.
+type UpdateUserRequest struct {
+	FullName  *string
+	ShortName **string
+
+	Email        *string
+	PasswordHash []byte
+
+	Status *UserStatus
+
+	ProjectLimit          *int
+	ProjectStorageLimit   *int64
+	ProjectBandwidthLimit *int64
+	ProjectSegmentLimit   *int64
+	PaidTier              *bool
+
+	MFAEnabled       *bool
+	MFASecretKey     **string
+	MFARecoveryCodes *[]string
+
+	LastVerificationReminder **time.Time
+
+	// failed_login_count is nullable, but we don't really have a reason
+	// to set it to NULL, so it doesn't need to be a double pointer here.
+	FailedLoginCount *int
+
+	LoginLockoutExpiration **time.Time
 }

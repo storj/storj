@@ -59,6 +59,8 @@ import VLoader from "@/components/common/VLoader.vue";
 
 import BucketIcon from "@/../static/images/objects/bucketCreation.svg";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -72,6 +74,8 @@ export default class BucketCreationNameStep extends Vue {
     public name = '';
     public nameError = '';
     public isLoading = true;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public async mounted(): Promise<void> {
         try {
@@ -111,6 +115,7 @@ export default class BucketCreationNameStep extends Vue {
      */
     public onCancelClick(): void {
         LocalData.setDemoBucketCreatedStatus();
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
         this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     }
 

@@ -37,6 +37,7 @@
             :id="label"
             v-model="value"
             class="input"
+            :class="{'password-input' : isPassword}"
             :placeholder="placeholder"
             :type="type"
             :style="style.inputStyle"
@@ -300,6 +301,10 @@ export default class VInput extends Vue {
         width: 15px;
         height: 15px;
         animation: spin 2s linear infinite;
+    }
+
+    .password-input {
+        padding-right: 55px;
     }
 
     @keyframes spin {

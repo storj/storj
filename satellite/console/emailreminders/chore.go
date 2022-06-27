@@ -69,7 +69,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
 		now := time.Now()
-		users, err := chore.usersDB.GetUnverifiedNeedingReminder(ctx, now.Add(-chore.config.FirstVerificationReminder), now.Add(-chore.config.SecondVerificationReminder))
+
+		// cutoff to avoid emailing users multiple times due to email duplicates in the DB.
+		// TODO: remove cutoff once duplicates are removed.
+		cutoff := now.Add(30 * (-24 * time.Hour))
+
+		users, err := chore.usersDB.GetUnverifiedNeedingReminder(ctx, now.Add(-chore.config.FirstVerificationReminder), now.Add(-chore.config.SecondVerificationReminder), cutoff)
 		if err != nil {
 			chore.log.Error("error getting users in need of reminder", zap.Error(err))
 			return nil

@@ -88,6 +88,9 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -112,6 +115,8 @@ export default class EnableMFAPopup extends Vue {
     public $refs!: {
         canvas: HTMLCanvasElement;
     };
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Mounted lifecycle hook after initial render.
@@ -159,6 +164,7 @@ export default class EnableMFAPopup extends Vue {
             await this.$store.dispatch(USER_ACTIONS.ENABLE_USER_MFA, this.confirmPasscode);
             await this.$store.dispatch(USER_ACTIONS.GET);
             await this.showCodes();
+            this.analytics.eventTriggered(AnalyticsEvent.MFA_ENABLED);
             await this.$notify.success('MFA was enabled successfully');
         } catch (error) {
             await this.$notify.error(error.message);

@@ -374,7 +374,7 @@ func TestMFAEndpoints(t *testing.T) {
 			req.AddCookie(&http.Cookie{
 				Name:    "_tokenKey",
 				Path:    "/",
-				Value:   token,
+				Value:   token.String(),
 				Expires: time.Now().AddDate(0, 0, 1),
 			})
 
@@ -599,21 +599,19 @@ func TestResetPasswordEndpoint(t *testing.T) {
 		token = getNewResetToken()
 
 		// Enable MFA.
-		getNewAuthContext := func() context.Context {
-			authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
-			require.NoError(t, err)
-			return authCtx
-		}
-		authCtx := getNewAuthContext()
-
-		key, err := service.ResetMFASecretKey(authCtx)
+		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
-		authCtx = getNewAuthContext()
+
+		key, err := service.ResetMFASecretKey(userCtx)
+		require.NoError(t, err)
+
+		userCtx, err = sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
 
 		passcode, err := console.NewMFAPasscode(key, token.CreatedAt)
 		require.NoError(t, err)
 
-		err = service.EnableUserMFA(authCtx, passcode, token.CreatedAt)
+		err = service.EnableUserMFA(userCtx, passcode, token.CreatedAt)
 		require.NoError(t, err)
 
 		status, mfaError = tryPasswordReset(token.Secret.String(), newPass, "", "")
@@ -697,7 +695,9 @@ func TestRegistrationEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		user.Status = console.Active
-		require.NoError(t, sat.DB.Console().Users().Update(ctx, user))
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &user.Status,
+		}))
 
 		newUserID = register()
 		require.Equal(t, userID, newUserID)
@@ -742,7 +742,9 @@ func TestResendActivationEmail(t *testing.T) {
 
 		// Expect activation e-mail to be sent when using unverified e-mail address.
 		user.Status = console.Inactive
-		require.NoError(t, usersRepo.Update(ctx, user))
+		require.NoError(t, usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &user.Status,
+		}))
 
 		resendEmail()
 		body, err = sender.Data.Get(ctx)
