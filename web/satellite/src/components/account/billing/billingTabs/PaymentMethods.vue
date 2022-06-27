@@ -5,71 +5,81 @@
     <div class="payments-area">
         <div class="payments-area__top-container">
             <h1 class="payments-area__title">Payment Methods{{showTransactions? ' > Storj Tokens':null}}</h1>
-            <div 
-                class="payments-area__container"
-                v-if="!showTransactions"
+            <VButton
+                v-if="showTransactions"
+                label="Add Funds with CoinPayments"
+                font-size="13px"
+                height="40px"
+                width="220px"
+                :onPress="addFundsFromTable"
+            />
+        </div>
+        <div 
+            class="payments-area__container"
+            v-if="!showTransactions"
+        >
+            <div
+                class="payments-area__container__token"
             >
                 <div
-                    class="payments-area__container__token"
+                    class="payments-area__container__token__large-icon-container"
                 >
-                    <div
-                        class="payments-area__container__token__large-icon-container"
-                    >
-                        <div class="payments-area__container__token__large-icon">
-                            <StorjLarge />
-                        </div>
+                    <div class="payments-area__container__token__large-icon">
+                        <StorjLarge />
                     </div>
-                    <div class="payments-area__container__token__base"
-                    v-if="!showAddFunds"
-                    >
-                        <div class="payments-area__container__token__base__small-icon">   <StorjSmall />
-                        </div>
-                        <div class="payments-area__container__token__base__confirmation-container">
-                            <p class="payments-area__container__token__base__confirmation-container__label">STORJ Token Deposit</p>
-                            <span :class="`payments-area__container__token__base__confirmation-container__circle-icon ${depositStatus}`">
-                                &#9679;
-                            </span>
-                            <span class="payments-area__container__token__base__confirmation-container__text">
-                                <span>
-                                    {{ depositStatus }}
-                                </span>
-                            </span>
-                        </div>
-                        <div class="payments-area__container__token__base__balance-container">
-                            <p class="payments-area__container__token__base__balance-container__label">Total Balance</p>
-                            <span class="payments-area__container__token__base__balance-container__text">USD ${{ balanceAmount }}</span>
-                        </div>
-                        <VButton
-                            label='See transactions'
-                            width="120px"
-                            height="30px"
-                            is-transparent="true"
-                            font-size="13px"
-                            class="payments-area__container__token__base__transaction-button"
-                            :onPress="toggleTransactionsTable"
-                        />
-                        <VButton
-                            label='Add funds'
-                            font-size="13px"
-                            width="80px"
-                            height="30px"
-                            class="payments-area__container__token__base__funds-button"
-                            :onPress="toggleShowAddFunds"
-                        />
+                </div>
+                <div class="payments-area__container__token__base"
+                v-if="!showAddFunds"
+                >
+                    <div class="payments-area__container__token__base__small-icon">   <StorjSmall />
                     </div>
-                    <div
-                        class="payments-area__container__token__add-funds"
-                        v-if="showAddFunds"
-                    >
-                        <h3
-                            class="payments-area__container__token__add-funds__title"
-                        >STORJ Token</h3>
-                        <p class="payments-area__container__token__add-funds__label">Deposit STORJ Tokens via Coin Payments:</p>
-                        <TokenDepositSelection2
-                            class="payments-area__container__token__add-funds__dropdown"
-                            :payment-options="paymentOptions"
-                            @onChangeTokenValue="onChangeTokenValue"
-                        />
+                    <div class="payments-area__container__token__base__confirmation-container">
+                        <p class="payments-area__container__token__base__confirmation-container__label">STORJ Token Deposit</p>
+                        <span :class="`payments-area__container__token__base__confirmation-container__circle-icon ${depositStatus}`">
+                            &#9679;
+                        </span>
+                        <span class="payments-area__container__token__base__confirmation-container__text">
+                            <span>
+                                {{ depositStatus }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="payments-area__container__token__base__balance-container">
+                        <p class="payments-area__container__token__base__balance-container__label">Total Balance</p>
+                        <span class="payments-area__container__token__base__balance-container__text">USD ${{ balanceAmount }}</span>
+                    </div>
+                    <VButton
+                        label='See transactions'
+                        width="120px"
+                        height="30px"
+                        is-transparent="true"
+                        font-size="13px"
+                        class="payments-area__container__token__base__transaction-button"
+                        :onPress="toggleTransactionsTable"
+                    />
+                    <VButton
+                        label='Add funds'
+                        font-size="13px"
+                        width="80px"
+                        height="30px"
+                        class="payments-area__container__token__base__funds-button"
+                        :onPress="toggleShowAddFunds"
+                    />
+                </div>
+                <div
+                    class="payments-area__container__token__add-funds"
+                    v-if="showAddFunds"
+                >
+                    <h3
+                        class="payments-area__container__token__add-funds__title"
+                    >STORJ Token</h3>
+                    <p class="payments-area__container__token__add-funds__label">Deposit STORJ Tokens via Coin Payments:</p>
+                    <TokenDepositSelection2
+                        class="payments-area__container__token__add-funds__dropdown"
+                        :payment-options="paymentOptions"
+                        @onChangeTokenValue="onChangeTokenValue"
+                    />
+                    <div class="payments-area__container__token__add-funds__button-container">
                         <VButton
                             class="payments-area__container__token__add-funds__button"
                             label="Continue to CoinPayments"
@@ -78,156 +88,165 @@
                             font-size="11px"
                             :on-press="onConfirmAddSTORJ"
                         />
-                    </div>
-                </div>
-                <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards" >
-                    <CreditCardContainer
-                        :credit-card="card"
-                        @remove="removePaymentMethodHandler"
-                    />
-                </div>
-                <div class="payments-area__container__new-payments">
-                    <div v-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
-                        <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
-                        <span 
-                            class="payments-area__container__new-payments__text-area__text"
-                            @click="addPaymentMethodHandler"
-                        >Add New Payment Method</span>
-                    </div>
-                    <div v-if="isAddingPayment">
-                        <div class="close-add-payment" @click="closeAddPayment">
-                            <CloseCrossIcon />
-                        </div>
-                        <div class="payments-area__create-header">Credit Card</div>
-                        <div class="payments-area__create-subheader">Add Card Info</div>
-                        <StripeCardInput
-                            ref="stripeCardInput"
-                            class="add-card-area__stripe stripe_input"
-                            :on-stripe-response-callback="addCard"
+                        <VButton
+                            class="payments-area__container__token__add-funds__button"
+                            label="Back"
+                            is-transparent="true"
+                            width="50px"
+                            height="30px"
+                            font-size="11px"
+                            :on-press="toggleShowAddFunds"
                         />
-                        <div
-                            v-if="!isAddCardClicked"
-                            class="add-card-button"
-                            @click="onConfirmAddStripe"
-                        >
-                            <img
-                                v-if="isLoading"
-                                class="payment-loading-image"
-                                src="@/../static/images/account/billing/loading.gif"
-                                alt="loading gif"
-                            >
-                            <SuccessImage
-                                v-if="isLoaded"
-                                class="payment-loaded-image"
-                            />
-                            <span class="add_card_button_text">Add Credit Card</span>
-                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div v-if="isRemovePaymentMethodsModalOpen || isChangeDefaultPaymentModalOpen" class="edit_payment_method">
-                <!-- Change Default Card Modal -->
-                <div v-if="isChangeDefaultPaymentModalOpen" class="change-default-modal-container">
-                    <CreditCardImage class="card-icon-default" />
-                    <div class="edit_payment_method__container__close-cross-container-default" @click="onCloseClickDefault">
-                        <CloseCrossIcon class="close-icon" />
-                    </div>
-                    <div class="edit_payment_method__header">Select Default Card</div>
-                    <form v-for="card in creditCards" :key="card.id"> 
-                        <div class="change-default-input-container">
-                            <AmericanExpressIcon v-if="card.brand === 'amex' " class="cardIcons" />
-                            <DiscoverIcon v-if="card.brand === 'discover' " class="cardIcons" />
-                            <JCBIcon v-if="card.brand === 'jcb' " class="cardIcons jcb-icon" />
-                            <MastercardIcon v-if="card.brand === 'mastercard' " class="cardIcons mastercard-icon" />
-                            <UnionPayIcon v-if="card.brand === 'unionpay' " class="cardIcons union-icon" />
-                            <VisaIcon v-if="card.brand === 'visa' " class="cardIcons" />
-                            <DinersIcon v-if="card.brand === 'diners' " class="cardIcons diners-icon" />
-                            <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image"> 
-                            {{ card.last4 }}
-                            <input 
-                                :id="card.id" 
-                                v-model="defaultCreditCardSelection"  
-                                :value="card.id" 
-                                class="change-default-input" 
-                                type="radio" 
-                                name="defaultCreditCardSelection"
-                            >
-                        </div>
-                    </form>
-                    <div class="default-card-button" @click="updatePaymentMethod">
-                        Update Default Card
-                    </div>
+            <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards" >
+                <CreditCardContainer
+                    :credit-card="card"
+                    @remove="removePaymentMethodHandler"
+                />
+            </div>
+            <div class="payments-area__container__new-payments">
+                <div v-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
+                    <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
+                    <span 
+                        class="payments-area__container__new-payments__text-area__text"
+                        @click="addPaymentMethodHandler"
+                    >Add New Payment Method</span>
                 </div>
-                <!-- Remove Credit Card Modal -->
-                <div v-if="isRemovePaymentMethodsModalOpen" class="edit_payment_method__container">
-                    <CreditCardImage class="card-icon" />
-                    <div class="edit_payment_method__container__close-cross-container" @click="onCloseClick">
-                        <CloseCrossIcon class="close-icon" />
+                <div v-if="isAddingPayment">
+                    <div class="close-add-payment" @click="closeAddPayment">
+                        <CloseCrossIcon />
                     </div>
-                    <div class="edit_payment_method__header">Remove Credit Card</div>
-                    <div v-if="!cardBeingEdited.isDefault" class="edit_payment_method__header-subtext">This is not your default payment card.</div>
-                    <div v-if="cardBeingEdited.isDefault" class="edit_payment_method__header-subtext-default">This is your default payment card.</div>
-                    <div class="edit_payment_method__header-change-default" @click="changeDefault">
-                        <a class="edit-card-text">Edit default card -></a>
-                    </div>
-                    <div 
-                        class="remove-card-button" 
-                        @click="removePaymentMethod"
-                        @mouseover="deleteHover = true"
-                        @mouseleave="deleteHover = false"
+                    <div class="payments-area__create-header">Credit Card</div>
+                    <div class="payments-area__create-subheader">Add Card Info</div>
+                    <StripeCardInput
+                        ref="stripeCardInput"
+                        class="add-card-area__stripe stripe_input"
+                        :on-stripe-response-callback="addCard"
+                    />
+                    <div
+                        v-if="!isAddCardClicked"
+                        class="add-card-button"
+                        @click="onConfirmAddStripe"
                     >
-                        <Trash v-if="deleteHover === false" />
-                        <RedTrash v-if="deleteHover === true" />
-                        Remove
+                        <img
+                            v-if="isLoading"
+                            class="payment-loading-image"
+                            src="@/../static/images/account/billing/loading.gif"
+                            alt="loading gif"
+                        >
+                        <SuccessImage
+                            v-if="isLoaded"
+                            class="payment-loaded-image"
+                        />
+                        <span class="add_card_button_text">Add Credit Card</span>
                     </div>
                 </div>
             </div>
-            <div v-if="showTransactions">
-                <div class="payments-area__container__transactions">
-                    <SortingHeader2
-                        @sortFunction='sortFunction'
-                    />
-                    <token-transaction-item
-                        v-for="item in displayedHistory"
-                        :key="item.id"
-                        :billing-item="item"
-                    />
-                    <div class="divider"></div>
-                    <div class="pagination">
-                        <div class="pagination__total">
-                            <p>
-                                {{transactionCount}} transactions found
-                            </p>
-                        </div>
-                        <div class="pagination__right-container">
-                            <div class="pagination__right-container__count">
-                                <span
-                                    v-if="transactionCount > 10 && paginationLocation.end !== transactionCount"
-                                >
-                                   {{paginationLocation.start + 1}} - {{paginationLocation.end}} of {{transactionCount}}
-                                </span>
-                                <span
-                                    v-else
-                                >
-                                   {{paginationLocation.start + 1}} - {{transactionCount}} of {{transactionCount}}
-                                </span>
-                            </div>
-                            <div class="pagination__right-container__buttons"
-                                v-if="transactionCount > 10"
+        </div>
+        
+        <div v-if="isRemovePaymentMethodsModalOpen || isChangeDefaultPaymentModalOpen" class="edit_payment_method">
+            <!-- Change Default Card Modal -->
+            <div v-if="isChangeDefaultPaymentModalOpen" class="change-default-modal-container">
+                <CreditCardImage class="card-icon-default" />
+                <div class="edit_payment_method__container__close-cross-container-default" @click="onCloseClickDefault">
+                    <CloseCrossIcon class="close-icon" />
+                </div>
+                <div class="edit_payment_method__header">Select Default Card</div>
+                <form v-for="card in creditCards" :key="card.id"> 
+                    <div class="change-default-input-container">
+                        <AmericanExpressIcon v-if="card.brand === 'amex' " class="cardIcons" />
+                        <DiscoverIcon v-if="card.brand === 'discover' " class="cardIcons" />
+                        <JCBIcon v-if="card.brand === 'jcb' " class="cardIcons jcb-icon" />
+                        <MastercardIcon v-if="card.brand === 'mastercard' " class="cardIcons mastercard-icon" />
+                        <UnionPayIcon v-if="card.brand === 'unionpay' " class="cardIcons union-icon" />
+                        <VisaIcon v-if="card.brand === 'visa' " class="cardIcons" />
+                        <DinersIcon v-if="card.brand === 'diners' " class="cardIcons diners-icon" />
+                        <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image"> 
+                        {{ card.last4 }}
+                        <input 
+                            :id="card.id" 
+                            v-model="defaultCreditCardSelection"  
+                            :value="card.id" 
+                            class="change-default-input" 
+                            type="radio" 
+                            name="defaultCreditCardSelection"
+                        >
+                    </div>
+                </form>
+                <div class="default-card-button" @click="updatePaymentMethod">
+                    Update Default Card
+                </div>
+            </div>
+            <!-- Remove Credit Card Modal -->
+            <div v-if="isRemovePaymentMethodsModalOpen" class="edit_payment_method__container">
+                <CreditCardImage class="card-icon" />
+                <div class="edit_payment_method__container__close-cross-container" @click="onCloseClick">
+                    <CloseCrossIcon class="close-icon" />
+                </div>
+                <div class="edit_payment_method__header">Remove Credit Card</div>
+                <div v-if="!cardBeingEdited.isDefault" class="edit_payment_method__header-subtext">This is not your default payment card.</div>
+                <div v-if="cardBeingEdited.isDefault" class="edit_payment_method__header-subtext-default">This is your default payment card.</div>
+                <div class="edit_payment_method__header-change-default" @click="changeDefault">
+                    <a class="edit-card-text">Edit default card -></a>
+                </div>
+                <div 
+                    class="remove-card-button" 
+                    @click="removePaymentMethod"
+                    @mouseover="deleteHover = true"
+                    @mouseleave="deleteHover = false"
+                >
+                    <Trash v-if="deleteHover === false" />
+                    <RedTrash v-if="deleteHover === true" />
+                    Remove
+                </div>
+            </div>
+        </div>
+        <div v-if="showTransactions">
+            <div class="payments-area__container__transactions">
+                <SortingHeader2
+                    @sortFunction='sortFunction'
+                />
+                <token-transaction-item
+                    v-for="item in displayedHistory"
+                    :key="item.id"
+                    :billing-item="item"
+                />
+                <div class="divider"></div>
+                <div class="pagination">
+                    <div class="pagination__total">
+                        <p>
+                            {{transactionCount}} transactions found
+                        </p>
+                    </div>
+                    <div class="pagination__right-container">
+                        <div class="pagination__right-container__count">
+                            <span
+                                v-if="transactionCount > 10 && paginationLocation.end !== transactionCount"
                             >
-                                <ArrowIcon
-                                    class="pagination__right-container__buttons__left"
-                                    v-if="paginationLocation.start > 0"
-                                    @click="paginationController(-10)"
-                                />
-                                <ArrowIcon
-                                    class="pagination__right-container__buttons__right"    
-                                    v-if="paginationLocation.end < transactionCount - 1"
-                                    @click="paginationController(10)"
-                                />
+                                {{paginationLocation.start + 1}} - {{paginationLocation.end}} of {{transactionCount}}
+                            </span>
+                            <span
+                                v-else
+                            >
+                                {{paginationLocation.start + 1}} - {{transactionCount}} of {{transactionCount}}
+                            </span>
+                        </div>
+                        <div class="pagination__right-container__buttons"
+                            v-if="transactionCount > 10"
+                        >
+                            <ArrowIcon
+                                class="pagination__right-container__buttons__left"
+                                v-if="paginationLocation.start > 0"
+                                @click="paginationController(-10)"
+                            />
+                            <ArrowIcon
+                                class="pagination__right-container__buttons__right"    
+                                v-if="paginationLocation.end < transactionCount - 1"
+                                @click="paginationController(10)"
+                            />
 
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -337,7 +356,6 @@ export default class paymentsArea extends Vue {
     public isChangeDefaultPaymentModalOpen = false;
     public defaultCreditCardSelection = "";
     public isRemovePaymentMethodsModalOpen = false;
-    public testData = [{},{},{}];
     public isAddCardClicked = false;
     public $refs!: {
         stripeCardInput: StripeCardInput & StripeForm;
@@ -357,6 +375,11 @@ export default class paymentsArea extends Vue {
         this.transactionCount = array.length
         this.displayedHistory = array.slice(0,10)
         console.log(array.length)
+    }
+
+    public addFundsFromTable(): void {
+        this.showTransactions = false;
+        this.showAddFunds = true;
     }
 
     public toggleTransactionsTable(): void {
@@ -955,6 +978,12 @@ export default class paymentsArea extends Vue {
 
     .payments-area {
 
+        &__top-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         &__create-header {
             grid-row: 1;
             grid-column: 1;
@@ -1117,8 +1146,10 @@ export default class paymentsArea extends Vue {
                     &__dropdown{
                         margin-top: 10px;
                     }
-                    &__button{
+                    &__button-container{
                         margin-top: 10px;
+                        display: flex;
+                        justify-content: space-between;
                     }
                 }
                 &__confirmation-container {
