@@ -76,11 +76,6 @@ export default class CardComponent extends Vue {
 
     }
 
-    // TODO: move to CreditCard
-    /**
-     * Returns card logo depends of brand.
-     */
-
     public edit() {
         this.$emit('edit', this.creditCard);
     }
@@ -119,223 +114,208 @@ export default class CardComponent extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .bold {
-        font-family: 'font_bold', sans-serif;
-        font-size: 16px;
-        line-height: 21px;
-        color: #61666b;
-        margin-block-start: 0.5em;
-        margin-block-end: 0.5em;
-    }
+$white: #fff;
 
-    .medium {
-        font-family: 'font_regular', sans-serif;
-        font-size: 16px;
-        line-height: 21px;
-        color: #61666b;
-        margin-right: 5px;
-    }
-    .remove-button:hover  > .remove-button__text {
-            background-color: #2683ff;
-            color: white !important;
-    }
-        
-    .remove-button {
-        cursor: pointer;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-        background: #FFFFFF;
-        border: 1px solid #D8DEE3;
-        box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.08);
-        border-radius: 6px;
-        width: 70px;
-        height: 30px;
-        font-size: 13px;
-        line-height: 23px;
-        color: #fff;
-        margin: 0;
-        white-space: nowrap;
-        color: #354049;
-        margin-right: 7px;
-
-        &:hover {
-            background-color: #2683ff;
-            color: white;
-        }
-         
-        
-        &__text {
-            font-family: font_medium,sans-serif;
-            line-height: 23px;
-            color: #fff;
-            margin: 0;
-            white-space: nowrap;
-            color: #354049!important;
-            margin-left: 9px;
-            margin-top: 4px;
-        }
-    }
-    
-    .edit-button {
-        cursor: pointer;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-        width: 70px;
-        height: 30px;
-        background: #FFFFFF;
-        border: 1px solid #D8DEE3;
-        box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.08);
-        border-radius: 6px;
-        font-family: font_medium,sans-serif;
-        line-height: 23px;
-        color: #fff;
-        margin: 0;
-        white-space: nowrap;
-        color: #354049!important;
-
-        &__text {
-            font-family: font_medium,sans-serif;
-            line-height: 23px;
-            color: #fff;
-            margin: 0;
-            white-space: nowrap;
-            color: #354049!important;
-            margin-left: 22px;
-            margin-top: 4px;
-            font-size: 13px;
-        }
+.bold {
+    font-family: 'font_bold', sans-serif;
+    font-size: 16px;
+    line-height: 21px;
+    color: #61666b;
+    margin-block-start: 0.5em;
+    margin-block-end: 0.5em;
 }
 
-   
+.medium {
+    font-family: 'font_regular', sans-serif;
+    font-size: 16px;
+    line-height: 21px;
+    color: #61666b;
+    margin-right: 5px;
+}
 
+.remove-button:hover > .remove-button__text {
+    background-color: #2683ff;
+    color: white !important;
+}
 
-       
+.remove-button {
+    cursor: pointer;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    background: $white;
+    border: 1px solid #d8dee3;
+    box-shadow: 0 0 3px rgb(0 0 0 / 8%);
+    border-radius: 6px;
+    width: 70px;
+    height: 30px;
+    font-size: 13px;
+    line-height: 23px;
+    margin: 0;
+    white-space: nowrap;
+    color: #354049;
+    margin-right: 7px;
 
-    .payment-methods-container__card-container {
-        justify-content: space-between;
-        border-radius: 6px;
-        display: grid;
-        grid-template-columns: 4fr 2fr;
-        grid-template-rows: 1fr 0fr auto 0fr;
-        height: 126px;
-        height: 126px;
+    &:hover {
+        background-color: #2683ff;
+        color: $white;
+    }
 
-        &__function-buttons {
+    &__text {
+        font-family: 'font_medium', sans-serif;
+        line-height: 23px;
+        margin: 0;
+        white-space: nowrap;
+        color: #354049 !important;
+        margin-left: 9px;
+        margin-top: 4px;
+    }
+}
+
+.edit-button {
+    cursor: pointer;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    width: 70px;
+    height: 30px;
+    background: $white;
+    border: 1px solid #d8dee3;
+    box-shadow: 0 0 3px rgb(0 0 0 / 8%);
+    border-radius: 6px;
+    font-family: 'font_medium', sans-serif;
+    line-height: 23px;
+    margin: 0;
+    white-space: nowrap;
+    color: #354049 !important;
+
+    &__text {
+        font-family: 'font_medium', sans-serif;
+        line-height: 23px;
+        margin: 0;
+        white-space: nowrap;
+        color: #354049 !important;
+        margin-left: 22px;
+        margin-top: 4px;
+        font-size: 13px;
+    }
+}
+
+.payment-methods-container__card-container {
+    justify-content: space-between;
+    border-radius: 6px;
+    display: grid;
+    grid-template-columns: 4fr 2fr;
+    grid-template-rows: 1fr 0fr auto 0fr;
+    height: 126px;
+
+    &__function-buttons {
+        grid-column: 1;
+        grid-row: 4;
+        display: flex;
+    }
+
+    &__info-area {
+        width: 75%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+
+        &__card-logo {
             grid-column: 1;
-            grid-row: 4;
-            display: flex;
-        }
-
-        &__info-area {
-            width: 75%;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-
-            &__card-logo {
-                grid-column: 1;
-                grid-row: 1;
-            }
-
-            &__card-text {
-                grid-column: 1;
-                grid-row: 2;
-                font-family: sans-serif;
-                font-style: normal;
-                font-weight: 700;
-                font-size: 12px;
-                line-height: 18px;
-                color: #56606D;
-            }
-             &__expiration-text {
-                grid-column: 2;
-                grid-row: 2;
-                font-family: sans-serif;
-                font-style: normal;
-                font-weight: 700;
-                font-size: 12px;
-                line-height: 18px;
-                color: #56606D;
-             }
-
-             &__last-four {
-                 grid-row: 3;
-                 grid-column: 1;
-             }
-
-            &__info-container {
-                grid-row: 3;
-                grid-column: 1;
-                font-family: sans-serif;
-                font-style: normal;
-                font-weight: 700;
-                font-size: 16px;
-                line-height: 24px;
-                color: #000000;
-
-                &__image {
-                    width: 50%
-                }
-            }
-
-            &__expire-container {
-                grid-row: 3;
-                grid-column: 2;
-                font-family: sans-serif;
-                font-style: normal;
-                font-weight: 700;
-                font-size: 16px;
-                line-height: 24px;
-                color: #000000;
-            }
-        }
-
-        &__default-area {
             grid-row: 1;
-            grid-column: 2;
-            width: 58px;
-            height: 24px;
-            left: 950px;
-            top: 250px;
-            background: #E6EDF7;
-            border: 1px solid #D7E8FF;
-            border-radius: 4px;
         }
 
-        &__default-text {
+        &__card-text {
+            grid-column: 1;
+            grid-row: 2;
             font-family: sans-serif;
             font-style: normal;
             font-weight: 700;
             font-size: 12px;
-            line-height: 20px;
-            color: #003DC1;
-            margin-left: 8px;
-            margin-top: 3px;
+            line-height: 18px;
+            color: #56606d;
         }
 
-        &__default-button {
-            
+        &__expiration-text {
+            grid-column: 2;
+            grid-row: 2;
+            font-family: sans-serif;
+            font-style: normal;
+            font-weight: 700;
+            font-size: 12px;
+            line-height: 18px;
+            color: #56606d;
+        }
 
-            &__label {
-                
+        &__last-four {
+            grid-row: 3;
+            grid-column: 1;
+        }
+
+        &__info-container {
+            grid-row: 3;
+            grid-column: 1;
+            font-family: sans-serif;
+            font-style: normal;
+            font-weight: 700;
+            font-size: 16px;
+            line-height: 24px;
+            color: #000;
+
+            &__image {
+                width: 50%;
             }
         }
 
-        &__dots-container {
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-left: 10px;
-            cursor: pointer;
-            position: relative;
+        &__expire-container {
+            grid-row: 3;
+            grid-column: 2;
+            font-family: sans-serif;
+            font-style: normal;
+            font-weight: 700;
+            font-size: 16px;
+            line-height: 24px;
+            color: #000;
         }
     }
 
-    .discover-svg-path {
-        max-width: 80px;
+    &__default-area {
+        grid-row: 1;
+        grid-column: 2;
+        width: 58px;
+        height: 24px;
+        left: 950px;
+        top: 250px;
+        background: #e6edf7;
+        border: 1px solid #d7e8ff;
+        border-radius: 4px;
     }
+
+    &__default-text {
+        font-family: sans-serif;
+        font-style: normal;
+        font-weight: 700;
+        font-size: 12px;
+        line-height: 20px;
+        color: #003dc1;
+        margin-left: 8px;
+        margin-top: 3px;
+    }
+
+    &__dots-container {
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 10px;
+        cursor: pointer;
+        position: relative;
+    }
+}
+
+.discover-svg-path {
+    max-width: 80px;
+}
 </style>
