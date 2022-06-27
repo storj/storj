@@ -343,7 +343,7 @@ export default class paymentsArea extends Vue {
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
     public paginationLocation: {start: number, end: number} = {start: 0, end: 10};
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
-    public displayedHistory:[] = [];
+    public displayedHistory: Record<string, unknown>[] = [];
     public transactionCount = 0;
 
     // controls card inputs
