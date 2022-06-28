@@ -48,9 +48,11 @@ type Auth struct {
 	LetUsKnowURL              string
 	TermsAndConditionsURL     string
 	ContactInfoURL            string
+	GeneralRequestURL         string
 	PasswordRecoveryURL       string
 	CancelPasswordRecoveryURL string
 	ActivateAccountURL        string
+	SatelliteName             string
 	service                   *console.Service
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
@@ -59,13 +61,15 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
 		LetUsKnowURL:              letUsKnowURL,
 		TermsAndConditionsURL:     termsAndConditionsURL,
 		ContactInfoURL:            contactInfoURL,
+		GeneralRequestURL:         generalRequestURL,
+		SatelliteName:             satelliteName,
 		PasswordRecoveryURL:       externalAddress + "password-recovery/",
 		CancelPasswordRecoveryURL: externalAddress + "cancel-password-recovery/",
 		ActivateAccountURL:        externalAddress + "activation/",
@@ -522,6 +526,27 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, email)
 	if err != nil || user == nil {
+		satelliteAddress := a.ExternalAddress
+
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+		resetPasswordLink := satelliteAddress + "forgot-password"
+		doubleCheckLink := satelliteAddress + "login"
+		createAccountLink := satelliteAddress + "signup"
+
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: email, Name: ""}},
+			&consoleql.UnknownResetPasswordEmail{
+				Satellite:           a.SatelliteName,
+				Email:               email,
+				DoubleCheckLink:     doubleCheckLink,
+				ResetPasswordLink:   resetPasswordLink,
+				CreateAnAccountLink: createAccountLink,
+				SupportTeamLink:     a.GeneralRequestURL,
+			},
+		)
 		return
 	}
 

@@ -206,7 +206,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.optional-signup-success-url: ""
 
 # names and addresses of partnered satellites in JSON list format
-# console.partnered-satellites: '[["US1","https://us1.storj.io"],["EU1","https://eu1.storj.io"],["AP1","https://ap1.storj.io"]]'
+# console.partnered-satellites: '[{"name":"US1","address":"https://us1.storj.io"},{"name":"EU1","address":"https://eu1.storj.io"},{"name":"AP1","address":"https://ap1.storj.io"}]'
 
 # password hashing cost (0=automatic)
 # console.password-cost: 0
@@ -251,7 +251,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.static-dir: ""
 
 # url link to terms and conditions page
-# console.terms-and-conditions-url: https://storj.io/storage-sla/
+# console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
 
 # the default free-tier bandwidth usage limit
 # console.usage-limits.bandwidth.free: 150.00 GB

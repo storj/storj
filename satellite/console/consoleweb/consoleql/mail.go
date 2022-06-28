@@ -70,3 +70,21 @@ func (*ProjectInvitationEmail) Template() string { return "Invite" }
 func (email *ProjectInvitationEmail) Subject() string {
 	return "You were invited to join the Project " + email.ProjectName
 }
+
+// UnknownResetPasswordEmail is mailservice template with unknown password reset data.
+type UnknownResetPasswordEmail struct {
+	Satellite           string
+	Email               string
+	DoubleCheckLink     string
+	ResetPasswordLink   string
+	CreateAnAccountLink string
+	SupportTeamLink     string
+}
+
+// Template returns email template name.
+func (*UnknownResetPasswordEmail) Template() string { return "UnknownReset" }
+
+// Subject gets email subject.
+func (*UnknownResetPasswordEmail) Subject() string {
+	return "You have requested to reset your password, but..."
+}
