@@ -41,21 +41,21 @@ require (
 	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+	golang.org/x/net v0.0.0-20220526153639-5463443f8c37
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27
-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
-	golang.org/x/text v0.3.6
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
+	golang.org/x/text v0.3.7
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
-	storj.io/common v0.0.0-20220518091716-ec9c16f58d50
-	storj.io/drpc v0.0.30
+	storj.io/common v0.0.0-20220621110021-1cde7e384e77
+	storj.io/drpc v0.0.32
 	storj.io/monkit-jaeger v0.0.0-20220614151325-3ae4cae696b8
 	storj.io/private v0.0.0-20220614154538-e18b72a55f43
-	storj.io/uplink v1.8.2-0.20220406151905-7305e5b6da85
+	storj.io/uplink v1.9.1-0.20220623122820-25d79c31a876
 )
 
 require (
@@ -70,7 +70,7 @@ require (
 	github.com/cloudfoundry/gosigar v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7 // indirect
@@ -87,17 +87,17 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
-	github.com/lucas-clemente/quic-go v0.25.0 // indirect
+	github.com/lucas-clemente/quic-go v0.27.1 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
-	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
-	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.0-beta.1 // indirect
+	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
+	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mattn/go-runewidth v0.0.7 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
-	github.com/onsi/ginkgo v1.16.4 // indirect
+	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/pelletier/go-toml v1.9.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -121,9 +121,9 @@ require (
 	go.opentelemetry.io/otel/trace v0.18.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/tools v0.1.1 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
+	golang.org/x/tools v0.1.10 // indirect
+	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
