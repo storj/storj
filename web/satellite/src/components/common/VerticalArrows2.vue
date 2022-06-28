@@ -57,5 +57,4 @@ export default class VerticalArrows extends Vue {
         }
     }
 
-
 </style>
