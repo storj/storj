@@ -5,12 +5,12 @@ package overlay
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 )
 
 // DownloadSelectionDB implements the database for download selection cache.
@@ -35,83 +35,67 @@ type DownloadSelectionCache struct {
 	db     DownloadSelectionDB
 	config DownloadSelectionCacheConfig
 
-	mu          sync.RWMutex
-	lastRefresh time.Time
-	state       *DownloadSelectionCacheState
+	cache sync2.ReadCache
 }
 
 // NewDownloadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to download data from.
-func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, config DownloadSelectionCacheConfig) *DownloadSelectionCache {
-	return &DownloadSelectionCache{
+func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, config DownloadSelectionCacheConfig) (*DownloadSelectionCache, error) {
+	cache := &DownloadSelectionCache{
 		log:    log,
 		db:     db,
 		config: config,
 	}
+	return cache, cache.cache.Init(config.Staleness/2, config.Staleness, cache.read)
+}
+
+// Run runs the background task for cache.
+func (cache *DownloadSelectionCache) Run(ctx context.Context) (err error) {
+	return cache.cache.Run(ctx)
 }
 
 // Refresh populates the cache with all of the reputableNodes and newNode nodes
 // This method is useful for tests.
 func (cache *DownloadSelectionCache) Refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = cache.refresh(ctx)
+	_, err = cache.cache.RefreshAndGet(ctx, time.Now())
 	return err
 }
 
-// refresh calls out to the database and refreshes the cache with the most up-to-date
-// data from the nodes table, then sets time that the last refresh occurred so we know when
-// to refresh again in the future.
-func (cache *DownloadSelectionCache) refresh(ctx context.Context) (state *DownloadSelectionCacheState, err error) {
+// read loads the latest download selection state.
+func (cache *DownloadSelectionCache) read(ctx context.Context) (_ interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	if cache.state != nil && time.Since(cache.lastRefresh) <= cache.config.Staleness {
-		return cache.state, nil
-	}
 
 	onlineNodes, err := cache.db.SelectAllStorageNodesDownload(ctx, cache.config.OnlineWindow, cache.config.AsOfSystemTime)
 	if err != nil {
-		return cache.state, err
+		return nil, Error.Wrap(err)
 	}
 
-	cache.lastRefresh = time.Now().UTC()
-	cache.state = NewDownloadSelectionCacheState(onlineNodes)
-
 	mon.IntVal("refresh_cache_size_online").Observe(int64(len(onlineNodes)))
-	return cache.state, nil
+
+	return NewDownloadSelectionCacheState(onlineNodes), nil
 }
 
 // GetNodeIPs gets the last node ip:port from the cache, refreshing when needed.
 func (cache *DownloadSelectionCache) GetNodeIPs(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	cache.mu.RLock()
-	lastRefresh := cache.lastRefresh
-	state := cache.state
-	cache.mu.RUnlock()
-
-	// if the cache is stale, then refresh it before we get nodes
-	if state == nil || time.Since(lastRefresh) > cache.config.Staleness {
-		state, err = cache.refresh(ctx)
-		if err != nil {
-			return nil, err
-		}
+	stateAny, err := cache.cache.Get(ctx, time.Now())
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
+	state := stateAny.(*DownloadSelectionCacheState)
 
 	return state.IPs(nodes), nil
 }
 
 // Size returns how many nodes are in the cache.
-func (cache *DownloadSelectionCache) Size() int {
-	cache.mu.RLock()
-	state := cache.state
-	cache.mu.RUnlock()
-
-	if state == nil {
-		return 0
+func (cache *DownloadSelectionCache) Size(ctx context.Context) (int, error) {
+	stateAny, err := cache.cache.Get(ctx, time.Now())
+	if stateAny == nil || err != nil {
+		return 0, Error.Wrap(err)
 	}
-
-	return state.Size()
+	state := stateAny.(*DownloadSelectionCacheState)
+	return state.Size(), nil
 }
 
 // DownloadSelectionCacheState contains state of download selection cache.

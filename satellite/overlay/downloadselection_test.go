@@ -4,6 +4,7 @@
 package overlay_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -27,15 +28,22 @@ var downloadSelectionCacheConfig = overlay.DownloadSelectionCacheConfig{
 
 func TestDownloadSelectionCacheState_Refresh(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := overlay.NewDownloadSelectionCache(zap.NewNop(),
+		cache, err := overlay.NewDownloadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			downloadSelectionCacheConfig,
 		)
+		require.NoError(t, err)
+
+		cacheCtx, cacheCancel := context.WithCancel(ctx)
+		defer cacheCancel()
+		ctx.Go(func() error { return cache.Run(cacheCtx) })
 
 		// the cache should have no nodes to start
-		err := cache.Refresh(ctx)
+		err = cache.Refresh(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 0, cache.Size())
+		count, err := cache.Size(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
 
 		// add some nodes to the database
 		const nodeCount = 2
@@ -44,16 +52,23 @@ func TestDownloadSelectionCacheState_Refresh(t *testing.T) {
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
 		require.NoError(t, err)
-		require.Equal(t, nodeCount, cache.Size())
+		count, err = cache.Size(ctx)
+		require.NoError(t, err)
+		require.Equal(t, nodeCount, count)
 	})
 }
 
 func TestDownloadSelectionCacheState_GetNodeIPs(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := overlay.NewDownloadSelectionCache(zap.NewNop(),
+		cache, err := overlay.NewDownloadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			downloadSelectionCacheConfig,
 		)
+		require.NoError(t, err)
+
+		cacheCtx, cacheCancel := context.WithCancel(ctx)
+		defer cacheCancel()
+		ctx.Go(func() error { return cache.Run(cacheCtx) })
 
 		// add some nodes to the database
 		const nodeCount = 2
