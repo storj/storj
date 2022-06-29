@@ -22,7 +22,6 @@
                 :show-add-funds="showAddFunds"
                 @showTransactions="toggleTransactionsTable"
             />
-            <!-- Andrew's changes -->
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
                 <CreditCardContainer
                     :credit-card="card"
@@ -70,7 +69,6 @@
         </div>
         
         <div v-if="isRemovePaymentMethodsModalOpen || isChangeDefaultPaymentModalOpen" class="edit_payment_method">
-            <!-- Change Default Card Modal -->
             <div v-if="isChangeDefaultPaymentModalOpen" class="change-default-modal-container">
                 <CreditCardImage class="card-icon-default" />
                 <div class="edit_payment_method__container__close-cross-container-default" @click="onCloseClickDefault">
@@ -102,7 +100,6 @@
                     Update Default Card
                 </div>
             </div>
-            <!-- Remove Credit Card Modal -->
             <div v-if="isRemovePaymentMethodsModalOpen" class="edit_payment_method__container">
                 <CreditCardImage class="card-icon" />
                 <div class="edit_payment_method__container__close-cross-container" @click="onCloseClick">
