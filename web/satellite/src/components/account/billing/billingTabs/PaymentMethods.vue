@@ -16,9 +16,10 @@
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
             <token-card 
-                v-if="mostRecentTransaction !== {}"
+                v-for="item in mostRecentTransaction"
+                :key="item.id"
+                :billing-item="item"
                 :show-add-funds="showAddFunds"
-                :billing-item="mostRecentTransaction"
                 @showTransactions="toggleTransactionsTable"
             />
             <!-- Andrew's changes -->
@@ -252,9 +253,9 @@ export default class paymentsArea extends Vue {
     /**
      * controls token inputs and transaction table
      */
-    public showTransactions = false;
-    public showAddFunds = false;
-    public mostRecentTransaction: object = {};
+    public showTransactions: boolean = false;
+    public showAddFunds: boolean = false;
+    public mostRecentTransaction: {}[] = [];
     public paginationLocation: {start: number, end: number} = {start: 0, end: 10};
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
@@ -274,19 +275,19 @@ export default class paymentsArea extends Vue {
         stripeCardInput: StripeCardInput & StripeForm;
     };
 
-    public async mounted() {
+    public async beforeMount() {
         try {
             await this.$store.dispatch(GET_PAYMENTS_HISTORY);
         } catch (error) {
             await this.$notify.error(error.message);
         }
-        let array = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+        let tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }));
-        this.mostRecentTransaction = array[0];
-        this.tokenHistory = array;
-        this.transactionCount = array.length;
-        this.displayedHistory = array.slice(0,10);
+        this.mostRecentTransaction.push(tokenArray[0])
+        this.tokenHistory = tokenArray;
+        this.transactionCount = tokenArray.length;
+        this.displayedHistory = tokenArray.slice(0,10);
     }
 
     public addFundsFromTable(): void {
