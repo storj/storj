@@ -5,12 +5,12 @@
     <div class="sort-header-container">
         <div
             class="sort-header-container__item date"
-            @click="sortDate"
+            @click="sortFunction('date')"
         >
             <p class="sort-header-container__item__name">DATE</p>
             <VerticalArrows2
                 :is-active="arrowController.date"
-                :direction="dateDirection"
+                :direction="DATE_DIRECTION"
             />
         </div>
         <div class="sort-header-container__item transaction">
@@ -18,22 +18,22 @@
         </div>
         <div
             class="sort-header-container__item amount"
-            @click="sortAmount"
+            @click="sortFunction('amount')"
         >
             <p class="sort-header-container__item__name">AMOUNT(USD)</p>
             <VerticalArrows2
                 :is-active="arrowController.amount"
-                :direction="amountDirection"
+                :direction="AMOUNT_DIRECTION"
             />
         </div>
         <div
             class="sort-header-container__item status"
-            @click="sortStatus"
+            @click="sortFunction('status')"
         >
             <p class="sort-header-container__item__name">STATUS</p>
             <VerticalArrows2
                 :is-active="arrowController.status"
-                :direction="statusDirection"
+                :direction="STATUS_DIRECTION"
             />
         </div>
         <div class="sort-header-container__item details">
@@ -47,7 +47,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VerticalArrows2 from '@/components/common/VerticalArrows2.vue';
 
-
 // @vue/component
 @Component({
     components: {
@@ -56,36 +55,35 @@ import VerticalArrows2 from '@/components/common/VerticalArrows2.vue';
 })
 export default class SortingHeader2 extends Vue {
 
-    public dateDirection = 'date-descending'
-    public amountDirection = 'amount-descending'
-    public statusDirection = 'status-descending'
-
-    // public arePaymentsSortedByDate: boolean = false;
-    // public arePaymentsSortedByAmount: boolean = false;
-    // public arePaymentsSortedByStatus: boolean = false;
+    public DATE_DIRECTION = 'date-descending'
+    public AMOUNT_DIRECTION = 'amount-descending'
+    public STATUS_DIRECTION = 'status-descending'
 
     public arrowController: {date: boolean, amount: boolean, status: boolean} = {date: false, amount: false, status: false}
 
-
-    // sorts table by date
-    public sortDate(): void {
-        this.$emit('sortFunction', this.dateDirection);
-        this.dateDirection === 'date-ascending'? this.dateDirection = 'date-descending' : this.dateDirection = 'date-ascending';
-        this.arrowController = {date: true, amount: false, status: false};
-    }
-
-    // sorts table by amount
-    public sortAmount(): void {
-        this.$emit('sortFunction', this.amountDirection);
-        this.amountDirection === 'amount-ascending'? this.amountDirection = 'amount-descending' : this.amountDirection = 'amount-ascending';
-        this.arrowController = {date: false, amount: true, status: false};
-    }
-
-    // sorts table by status
-    public sortStatus(): void {
-        this.$emit('sortFunction', this.statusDirection);
-        this.statusDirection === 'status-ascending'? this.statusDirection = 'status-descending' : this.statusDirection = 'status-ascending';
-        this.arrowController = {date: false, amount: false, status: true};
+    /**
+     * sorts table by date
+     */ 
+    public sortFunction(key): void {
+        switch (key) {
+            case 'date':
+                this.$emit('sortFunction', this.DATE_DIRECTION);
+                this.DATE_DIRECTION = this.DATE_DIRECTION === 'date-ascending' ? 'date-descending' : 'date-ascending';
+                this.arrowController = {date: true, amount: false, status: false};
+                break;
+            case 'amount':
+                this.$emit('sortFunction', this.AMOUNT_DIRECTION);
+                this.AMOUNT_DIRECTION = this.AMOUNT_DIRECTION === 'amount-ascending' ? 'amount-descending' : 'amount-ascending';
+                this.arrowController = {date: false, amount: true, status: false};
+                break
+            case 'status':
+                this.$emit('sortFunction', this.STATUS_DIRECTION);
+                this.STATUS_DIRECTION = this.STATUS_DIRECTION === 'status-ascending' ? 'status-descending' : 'status-ascending';
+                this.arrowController = {date: false, amount: false, status: true};
+                break;
+            default:
+                break;
+        }
     }
 }
 </script>

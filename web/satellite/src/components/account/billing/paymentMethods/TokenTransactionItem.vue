@@ -20,15 +20,14 @@
                     </span>
                     <span v-else>
                         ${{ billingItem.quantity.total.toFixed(2) }}
-                    </span>
-                    
+                    </span>     
                 </b>
             </p>
             <p class="container__row__item status">
                 <span :class="`container__row__item__circle-icon ${billingItem.status}`">
                     &#9679;
                 </span>
-                {{ billingItem.status }}
+                {{ billingItem.formattedStatus }}
             </p>
             <p class="container__row__item download">
                 <a v-if="billingItem.link" class="download-link" target="_blank" :href="billingItem.link">View On CoinPayments</a>
@@ -50,7 +49,6 @@ import { PaymentsHistoryItem } from '@/types/payments';
 export default class TokenTransactionItem extends Vue {
     @Prop({default: () => new PaymentsHistoryItem()})
     private readonly billingItem: PaymentsHistoryItem;
-
 }
 </script>
 
@@ -93,15 +91,11 @@ export default class TokenTransactionItem extends Vue {
             align-items: center;
             width: 100%;
 
-            // border-top: 1px solid #c7cdd2;
-
             &__item {
                 font-family: sans-serif;
                 font-weight: 300;
                 font-size: 16px;
                 text-align: left;
-
-                // color: #768394;
                 margin: 30px 0;
 
                 &__description {
@@ -128,8 +122,6 @@ export default class TokenTransactionItem extends Vue {
     .date {
         font-family: 'font_bold', sans-serif;
         margin: 0;
-
-        // width: 15%;
     }
 
     .time {
@@ -149,21 +141,10 @@ export default class TokenTransactionItem extends Vue {
 
     .amount {
         width: 15%;
-
-        // margin: 0;
     }
 
     .download {
-        // margin: 0 5px;
         text-align: left;
         width: 20%;
     }
-
-    // .row {
-    //     display: flex;
-    //     flex-direction: row;
-    //     align-items: center;
-    //     justify-content: flex-start;
-    //     width: 175px;
-    // }
 </style>

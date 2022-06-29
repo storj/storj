@@ -20,7 +20,6 @@
                 :billing-item="mostRecentTransaction"
                 @showTransactions="toggleTransactionsTable"
             />
-
             <!-- Andrew's changes -->
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
                 <CreditCardContainer
@@ -143,7 +142,10 @@
                         </p>
                     </div>
                     <div class="pagination__right-container">
-                        <div class="pagination__right-container__count">
+                        <div    
+                            class="pagination__right-container__count"
+                            v-if="transactionCount > 0"
+                        >
                             <span
                                 v-if="transactionCount > 10 && paginationLocation.end !== transactionCount"
                             >
@@ -181,7 +183,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
-
 import ArrowIcon from '@/../static/images/common/arrowRight.svg'
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import SuccessImage from '@/../static/images/account/billing/success.svg';
@@ -195,7 +196,6 @@ import VisaIcon from '@/../static/images/payments/cardIcons/smallvisa.svg';
 import Trash from '@/../static/images/account/billing/trash.svg';
 import RedTrash from '@/../static/images/account/billing/redtrash.svg';
 import CreditCardImage from '@/../static/images/billing/credit-card.svg';
-
 import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
@@ -211,12 +211,10 @@ import { RouteConfig } from '@/router';
 interface StripeForm {
     onSubmit(): Promise<void>;
 }
-
 interface CardEdited {
     id?: number,
     isDefault?: boolean
 }
-
 const {
     ADD_CREDIT_CARD,
     GET_CREDIT_CARDS,
@@ -250,17 +248,20 @@ const {
     },
 })
 export default class paymentsArea extends Vue {
-
-    //controls token inputs and table
+    /**
+     * controls token inputs and transaction table
+     */
     public showTransactions = false;
     public showAddFunds = false;
-    public mostRecentTransaction: object = {};
+    public mostRecentTransaction: {received: number, status: string};
     public paginationLocation: {start: number, end: number} = {start: 0, end: 10};
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
     public transactionCount = 0;
 
-    // controls card inputs
+    /**
+     * controls card inputs
+     */
     public deleteHover = false;
     public cardBeingEdited: CardEdited = {};
     public isAddingPayment = false;
@@ -387,7 +388,6 @@ export default class paymentsArea extends Vue {
 
     public addPaymentMethodHandler() {
         this.isAddingPayment = true;
-        console.log(this.showAddFunds)
     }
 
     public removePaymentMethodHandler(creditCard) {
@@ -403,13 +403,17 @@ export default class paymentsArea extends Vue {
     public onCloseClickDefault() {
         this.isChangeDefaultPaymentModalOpen = false;
     }
+
     /**
      * Indicates if user has own project.
      */
     private get userHasOwnProject(): boolean {
         return this.$store.getters.projectsCount > 0;
     }
-    // controls sorting the table
+
+    /**
+     * controls sorting the transaction table
+     */
     public sortFunction(key) {
         this.paginationLocation = {start: 0, end: 10}
         this.displayedHistory = this.tokenHistory.slice(0,10)
@@ -441,7 +445,9 @@ export default class paymentsArea extends Vue {
         }
     }
 
-    //controls pagination
+    /**
+     * controls transaction table pagination
+     */
     public paginationController(i): void {
         let diff = this.transactionCount - this.paginationLocation.start
         if (this.paginationLocation.start + i >= 0 && this.paginationLocation.end + i <= this.transactionCount && this.paginationLocation.end !== this.transactionCount){
@@ -648,9 +654,6 @@ $align: center;
         font-weight: 800;
         font-size: 24px;
         line-height: 31px;
-
-        /* or 129% */
-
         text-align: $align;
         letter-spacing: -0.02em;
         color: #1b2533;
@@ -751,9 +754,6 @@ $align: center;
     font-weight: 700;
     font-size: 13px;
     line-height: 29px;
-
-    /* identical to box height, or 154% */
-
     display: $flex;
     align-items: $align;
     letter-spacing: -0.02em;

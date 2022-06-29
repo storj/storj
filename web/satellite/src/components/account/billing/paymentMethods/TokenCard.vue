@@ -14,18 +14,20 @@
             </div>
             <div class="token__base__confirmation-container">
                 <p class="token__base__confirmation-container__label">STORJ Token Deposit</p>
-                <span :class="`token__base__confirmation-container__circle-icon ${billingItem.status}`">
+                <span :class="`token__base__confirmation-container__circle-icon ${billingItem.formattedStatus}`">
                     &#9679;
                 </span>
                 <span class="token__base__confirmation-container__text">
                     <span>
-                        {{ billingItem.status }}
+                        {{ billingItem.formattedStatus }}
                     </span>
                 </span>
             </div>
             <div class="token__base__balance-container">
                 <p class="token__base__balance-container__label">Total Balance</p>
-                <span class="token__base__balance-container__text">USD ${{ billingItem.quantity.received.toFixed(2) }}</span>
+                <span class="token__base__balance-container__text">
+                    USD ${{ billingItem.quantity.received.toFixed(2) }}
+                </span>
             </div>
             <VButton
                 label="See transactions"
@@ -118,9 +120,19 @@ export default class TokenCard extends Vue {
     @Prop({default: () => new PaymentsHistoryItem()})
     private readonly billingItem: PaymentsHistoryItem;
 
+    @Prop({default: ''})
+    private readonly billingStatus: string;
+
+    @Prop({default: -1})
+    private readonly billingReceived: number;
+
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+
+    public mounted(): void {
+        console.log({status: this.billingStatus, received: this.billingReceived})
+    }
 
     public toggleShowAddFunds(): void {
         this.showAddFunds = !this.showAddFunds ;
@@ -215,15 +227,15 @@ export default class TokenCard extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .confirmed {
+    .Confirmed {
         color: #00ac26;
     }
 
-    .rejected {
+    .Rejected {
         color: #ac1a00;
     }
 
-    .pending {
+    .Pending {
         color: #ffa800;
     }
 

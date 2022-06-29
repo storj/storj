@@ -68,7 +68,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 // @vue/component
 @Component
-export default class TokenDepositSelection extends Vue {
+export default class TokenDepositSelection2 extends Vue {
     @Prop({default: () => []})
     public readonly paymentOptions: PaymentAmountOption[];
 

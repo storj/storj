@@ -14,7 +14,6 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import BottomArrowIcon from '@/../static/images/common/bottomArrow.svg';
 import TopArrowIcon from '@/../static/images/common/topArrow.svg';
 
-
 // @vue/component
 @Component({
     components: {
