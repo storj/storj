@@ -4,25 +4,25 @@
 <template>
     <div class="billing-history">
         <div class="billing-history__common-info">
-            <span class="name-container" :title="itemData.date">
+            <span class="name-container" :title="historyItem.start">
                 <Calendar />
-                <p class="name_date">{{ itemData.date }}</p>
+                <p class="name_date">{{ historyItem.start }}</p>
             </span>
         </div>
         <div class="billing-history__common-info">
-            <span class="name-container" :title="itemData.status">
+            <span class="name-container" :title="historyItem.status">
                 <CheckIcon class="checkmark" />
-                <p class="name_status">{{ itemData.status }}</p>
+                <p class="name_status">{{ historyItem.status }}</p>
             </span>
         </div>
         <div class="billing-history__common-info">
-            <div class="name-container" :title="itemData.amount">
-                <p class="name_amount">{{ itemData.amount }}</p>
+            <div class="name-container" :title="historyItem.amount">
+                <p class="name_amount">{{ historyItem.amount }}</p>
             </div>
         </div>
-        <div class="billing-history__common-info">
-            <a href="/images/myw3schoolsimage.jpg" download>
-                <div class="name-container" :title="itemData.download">
+        <div v-if="historyItem.link" class="billing-history__common-info">
+            <a href="historyItem.link" download>
+                <div class="name-container" :title="historyItem.link">
                     <p class="name_download">Invoice PDF</p>
                 </div>
             </a>
@@ -32,6 +32,8 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
 import { AccessGrant } from '@/types/accessGrants';
 import CheckIcon from '@/../static/images/billing/check-green-circle.svg';
@@ -45,8 +47,9 @@ import Calendar from '@/../static/images/billing/calendar.svg';
     },
 })
 export default class BillingHistoryShape extends Vue {
+    @Prop({ default: new PaymentsHistoryItem('', '', 0, 0, '', '', new Date(), new Date(), 0, 0) })
     @Prop({ default: new AccessGrant('', '', new Date(), '') })
-    private readonly itemData: AccessGrant;
+    private readonly historyItem: PaymentsHistoryItem;
     private popupVisible = false;
 
     public togglePopupVisibility(): void {
@@ -66,7 +69,7 @@ export default class BillingHistoryShape extends Vue {
         transition: 100ms;
     }
     .checkmark {
-        margin-top: 5px;
+        margin-top: 3px;
         margin-left: 37px;
     }
     .billing-history {
