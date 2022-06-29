@@ -72,15 +72,11 @@ export default class CardComponent extends Vue {
     private readonly creditCard: CreditCard;
     public isEditPaymentMethodsModalOpen = false;
 
-    public mounted() {
-
-    }
-
-    public edit() {
+    public edit(): void {
         this.$emit('edit', this.creditCard);
     }
 
-    public remove() {
+    public remove(): void {
         this.$emit('remove', this.creditCard);
     }
     public get cardIcon(): VueConstructor<Vue> {
@@ -114,16 +110,6 @@ export default class CardComponent extends Vue {
 </script>
 
 <style scoped lang="scss">
-$white: #fff;
-
-.bold {
-    font-family: 'font_bold', sans-serif;
-    font-size: 16px;
-    line-height: 21px;
-    color: #61666b;
-    margin-block-start: 0.5em;
-    margin-block-end: 0.5em;
-}
 
 .medium {
     font-family: 'font_regular', sans-serif;
@@ -143,7 +129,7 @@ $white: #fff;
     justify-content: center;
     align-items: center;
     gap: 8px;
-    background: $white;
+    background: white;
     border: 1px solid #d8dee3;
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 6px;
@@ -151,14 +137,13 @@ $white: #fff;
     height: 30px;
     font-size: 13px;
     line-height: 23px;
-    margin: 0;
+    margin: 0 7px 0 0;
     white-space: nowrap;
     color: #354049;
-    margin-right: 7px;
 
     &:hover {
         background-color: #2683ff;
-        color: $white;
+        color: white;
     }
 
     &__text {
@@ -167,8 +152,7 @@ $white: #fff;
         margin: 0;
         white-space: nowrap;
         color: #354049 !important;
-        margin-left: 9px;
-        margin-top: 4px;
+        margin: 4px 0 0 9px;
     }
 }
 
@@ -179,7 +163,7 @@ $white: #fff;
     gap: 8px;
     width: 70px;
     height: 30px;
-    background: $white;
+    background: white;
     border: 1px solid #d8dee3;
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 6px;
@@ -195,9 +179,8 @@ $white: #fff;
         margin: 0;
         white-space: nowrap;
         color: #354049 !important;
-        margin-left: 22px;
-        margin-top: 4px;
         font-size: 13px;
+        margin: 4px 0 0 22px;
     }
 }
 
