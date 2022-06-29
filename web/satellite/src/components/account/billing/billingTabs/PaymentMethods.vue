@@ -16,6 +16,7 @@
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
             <token-card 
+                v-if="mostRecentTransaction !== {}"
                 :show-add-funds="showAddFunds"
                 :billing-item="mostRecentTransaction"
                 @showTransactions="toggleTransactionsTable"
@@ -253,7 +254,7 @@ export default class paymentsArea extends Vue {
      */
     public showTransactions = false;
     public showAddFunds = false;
-    public mostRecentTransaction: {received: number, status: string};
+    public mostRecentTransaction: object = {};
     public paginationLocation: {start: number, end: number} = {start: 0, end: 10};
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
@@ -279,7 +280,6 @@ export default class paymentsArea extends Vue {
         } catch (error) {
             await this.$notify.error(error.message);
         }
-
         let array = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }));

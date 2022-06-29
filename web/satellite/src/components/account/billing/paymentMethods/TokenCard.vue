@@ -90,14 +90,11 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
-
 import VButton from '@/components/common/VButton.vue';
-
 import TokenDepositSelection2 from '@/components/account/billing/paymentMethods/TokenDepositSelection2.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentAmountOption, PaymentsHistoryItem } from '@/types/payments';
-
 
 const {
     MAKE_TOKEN_DEPOSIT,
@@ -116,23 +113,11 @@ const {
 export default class TokenCard extends Vue {
     @Prop({default: false})
     private showAddFunds: boolean;
-
     @Prop({default: () => new PaymentsHistoryItem()})
     private readonly billingItem: PaymentsHistoryItem;
-
-    @Prop({default: ''})
-    private readonly billingStatus: string;
-
-    @Prop({default: -1})
-    private readonly billingReceived: number;
-
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-
-    public mounted(): void {
-        console.log({status: this.billingStatus, received: this.billingReceived})
-    }
 
     public toggleShowAddFunds(): void {
         this.showAddFunds = !this.showAddFunds ;
@@ -222,7 +207,6 @@ export default class TokenCard extends Vue {
     private get userHasOwnProject(): boolean {
         return this.$store.getters.projectsCount > 0;
     }
-
 }
 </script>
 

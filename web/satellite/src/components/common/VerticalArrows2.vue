@@ -26,9 +26,6 @@ export default class VerticalArrows extends Vue {
     private isActive: boolean;
     @Prop({default: ''})
     private direction: string;
-
-
-
 }
 </script>
 
