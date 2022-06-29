@@ -15,13 +15,22 @@
             />
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
-            <token-card 
-                v-for="item in mostRecentTransaction"
-                :key="item.id"
-                :billing-item="item"
-                :show-add-funds="showAddFunds"
-                @showTransactions="toggleTransactionsTable"
-            />
+            <div v-if="transactionCount > 0 && !showAddFunds">
+                <balance-token-card
+                    v-for="item in mostRecentTransaction"
+                    :key="item.id"
+                    :billing-item="item"
+                    :show-add-funds="showAddFunds"
+                    @showTransactions="toggleTransactionsTable"
+                    @showAddFunds="toggleShowAddFunds"
+                />
+            </div>
+            <div v-else>
+                <add-token-card
+                    :total-count="transactionCount"
+                    @showAddFunds="toggleShowAddFunds"
+                />
+            </div>
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
                 <CreditCardContainer
                     :credit-card="card"
@@ -198,7 +207,8 @@ import CreditCardImage from '@/../static/images/billing/credit-card.svg';
 import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
-import TokenCard from '@/components/account/billing/paymentMethods/TokenCard.vue'
+import BalanceTokenCard from '@/components/account/billing/paymentMethods/BalanceTokenCard.vue'
+import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue'
 import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
 
 import { CreditCard } from '@/types/payments';
@@ -243,7 +253,8 @@ const {
         Trash,
         RedTrash,
         CreditCardContainer,
-        TokenCard,
+        BalanceTokenCard,
+        AddTokenCard,
     },
 })
 export default class paymentsArea extends Vue {
@@ -278,14 +289,23 @@ export default class paymentsArea extends Vue {
         } catch (error) {
             await this.$notify.error(error.message);
         }
+        this.fetchTokenHistory()
+    }
+
+    public async fetchTokenHistory() {
         let tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }));
-        this.mostRecentTransaction.push(tokenArray[0])
+        this.mostRecentTransaction = [tokenArray[0]]
         this.tokenHistory = tokenArray;
         this.transactionCount = tokenArray.length;
         this.displayedHistory = tokenArray.slice(0,10);
     }
+
+    public toggleShowAddFunds(): void {
+        this.showAddFunds = !this.showAddFunds ;
+    }
+
 
     public addFundsFromTable(): void {
         this.showTransactions = false;

@@ -93,13 +93,7 @@ import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 import VButton from '@/components/common/VButton.vue';
 import TokenDepositSelection2 from '@/components/account/billing/paymentMethods/TokenDepositSelection2.vue';
 
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PaymentAmountOption, PaymentsHistoryItem } from '@/types/payments';
-
-const {
-    MAKE_TOKEN_DEPOSIT,
-    GET_PAYMENTS_HISTORY,
-} = PAYMENTS_ACTIONS;
+import { PaymentsHistoryItem } from '@/types/payments';
 
 // @vue/component
 @Component({
@@ -110,102 +104,16 @@ const {
         TokenDepositSelection2,
     },
 })
-export default class TokenCard extends Vue {
-    @Prop({default: false})
-    private showAddFunds: boolean;
+export default class BalanceTokenCard extends Vue {
     @Prop({default: () => new PaymentsHistoryItem()})
     private readonly billingItem: PaymentsHistoryItem;
-    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
-    private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
-    private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public toggleShowAddFunds(): void {
-        this.showAddFunds = !this.showAddFunds ;
+        this.$emit("showAddFunds")
     }
 
     public toggleTransactionsTable(): void {
         this.$emit("showTransactions")
-    }
-
-    /**
-     * Set of default payment options.
-     */
-    public paymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(10, `USD $10`),
-        new PaymentAmountOption(20, `USD $20`),
-        new PaymentAmountOption(50, `USD $50`),
-        new PaymentAmountOption(100, `USD $100`),
-        new PaymentAmountOption(1000, `USD $1000`),
-    ];
-
-    /**
-     * onConfirmAddSTORJ checks if amount is valid.
-     * If so processes token payment and returns state to default.
-     */
-    public async onConfirmAddSTORJ(): Promise<void> {
-
-        if (!this.isDepositValueValid) return;
-
-        try {
-            const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
-            await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
-            const depositWindow = window.open(tokenResponse.link, '_blank');
-            if (depositWindow) {
-                depositWindow.focus();
-            }
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.$emit('toggleIsLoading');
-        }
-
-        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-        try {
-            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.$emit('toggleIsLoading');
-        }
-    }
-
-    /**
-     * Event for changing token deposit value.
-     */
-    public onChangeTokenValue(value: number): void {
-        this.tokenDepositValue = value;
-    }
-
-    /**
-     * Indicates if deposit value is valid.
-     */
-    private get isDepositValueValid(): boolean {
-        switch (true) {
-        case (this.tokenDepositValue < this.DEFAULT_TOKEN_DEPOSIT_VALUE || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject:
-            this.$notify.error('First deposit amount must be more than $10 and less than $1000000');
-            this.setDefault();
-
-            return false;
-        case this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT || this.tokenDepositValue === 0:
-            this.$notify.error('Deposit amount must be more than $0 and less than $1000000');
-            this.setDefault();
-
-            return false;
-        default:
-            return true;
-        }
-    }
-
-    /**
-     * Sets adding payment method state to default.
-     */
-    private setDefault(): void {
-        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-    }
-
-    /**
-     * Indicates if user has own project.
-     */
-    private get userHasOwnProject(): boolean {
-        return this.$store.getters.projectsCount > 0;
     }
 }
 </script>
@@ -334,36 +242,6 @@ export default class TokenCard extends Vue {
             &__funds-button {
                 grid-column: 2;
                 grid-row: 4;
-            }
-        }
-
-        &__add-funds {
-            display: flex;
-            flex-direction: column;
-            z-index: 5;
-            position: relative;
-            height: 100%;
-            width: 100%;
-
-            &__title {
-                font-family: sans-serif;
-            }
-
-            &__label {
-                font-family: sans-serif;
-                color: #56606d;
-                font-size: 11px;
-                margin-top: 5px;
-            }
-
-            &__dropdown {
-                margin-top: 10px;
-            }
-
-            &__button-container {
-                margin-top: 10px;
-                display: flex;
-                justify-content: space-between;
             }
         }
 
