@@ -246,7 +246,7 @@ func TestFinishCopyObject(t *testing.T) {
 				},
 				// validation pass without EncryptedMetadataKey and EncryptedMetadataKeyNonce
 				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "metabase: sql: no rows in result set",
+				ErrText:  "source object not found",
 			}.Check(ctx, t, db)
 		})
 
@@ -311,7 +311,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
 				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "metabase: sql: no rows in result set",
+				ErrText:  "source object not found",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -361,7 +361,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "wrong amount of segments keys received (received 10, need 9)",
+				ErrText:  "wrong number of segments keys received (received 9, need 10)",
 			}.Check(ctx, t, db)
 		})
 
@@ -722,6 +722,159 @@ func TestFinishCopyObject(t *testing.T) {
 				Copies: []metabase.RawCopy{{
 					StreamID:         objCprime.StreamID,
 					AncestorStreamID: objC.StreamID,
+				}},
+			}.Check(ctx, t, db)
+		})
+
+		// checks that a copy can be copied to it's ancestor location
+		t.Run("Copy child to ancestor", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			originalObjStream := metabasetest.RandObjectStream()
+			copyObjStream := metabasetest.RandObjectStream()
+			// Copy back to original object key.
+			// StreamID is independent of key.
+			copyBackObjStream := originalObjStream
+			copyBackObjStream.StreamID = testrand.UUID()
+
+			originalObj, originalSegments := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  originalObjStream,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, originalObjStream, 4)
+
+			copyObj, _, copySegments := metabasetest.CreateObjectCopy{
+				OriginalObject:   originalObj,
+				CopyObjectStream: &copyObjStream,
+			}.Run(ctx, t, db)
+
+			// Copy the copy back to the source location
+			opts := metabase.FinishCopyObject{
+				// source
+				ObjectStream: copyObj.ObjectStream,
+				// destination
+				NewBucket:             originalObj.BucketName,
+				NewEncryptedObjectKey: originalObj.ObjectKey,
+				NewStreamID:           copyBackObjStream.StreamID,
+				OverrideMetadata:      false,
+				NewSegmentKeys: []metabase.EncryptedKeyAndNonce{
+					metabasetest.RandEncryptedKeyAndNonce(0),
+					metabasetest.RandEncryptedKeyAndNonce(1),
+					metabasetest.RandEncryptedKeyAndNonce(2),
+					metabasetest.RandEncryptedKeyAndNonce(3),
+				},
+			}
+			metabasetest.CreateObjectCopy{
+				OriginalObject:   copyObj,
+				CopyObjectStream: &copyBackObjStream,
+				FinishObject:     &opts,
+			}.Run(ctx, t, db)
+
+			// expected object at the location which was previously the original object
+			copyBackObj := originalObj
+			copyBackObj.StreamID = opts.NewStreamID
+
+			for i := 0; i < 4; i++ {
+				copySegments[i].Pieces = originalSegments[i].Pieces
+				copySegments[i].InlineData = originalSegments[i].InlineData
+				copySegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
+
+				originalSegments[i].StreamID = opts.NewStreamID
+				originalSegments[i].Pieces = nil
+				originalSegments[i].InlineData = nil
+				originalSegments[i].EncryptedKey = opts.NewSegmentKeys[i].EncryptedKey
+				originalSegments[i].EncryptedKeyNonce = opts.NewSegmentKeys[i].EncryptedKeyNonce
+				originalSegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
+			}
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(copyObj),
+					metabase.RawObject(copyBackObj),
+				},
+				Segments: append(metabasetest.SegmentsToRaw(originalSegments), copySegments...),
+				Copies: []metabase.RawCopy{{
+					StreamID:         opts.NewStreamID,
+					AncestorStreamID: copyObjStream.StreamID,
+				}},
+			}.Check(ctx, t, db)
+		})
+
+		// checks that a copy ancestor can be copied to itself
+		t.Run("Copy ancestor to itself", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			originalObjStream := metabasetest.RandObjectStream()
+			copyObjStream := metabasetest.RandObjectStream()
+			// Copy back to same object key.
+			// StreamID is independent of key.
+			copyBackObjStream := originalObjStream
+			copyBackObjStream.StreamID = testrand.UUID()
+
+			originalObj, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  originalObjStream,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, originalObjStream, 4)
+
+			copyObj, originalSegments, copySegments := metabasetest.CreateObjectCopy{
+				OriginalObject:   originalObj,
+				CopyObjectStream: &copyObjStream,
+			}.Run(ctx, t, db)
+
+			opts := metabase.FinishCopyObject{
+				// source
+				ObjectStream: copyObj.ObjectStream,
+				// destination
+				NewBucket:             originalObj.BucketName,
+				NewEncryptedObjectKey: originalObj.ObjectKey,
+				NewStreamID:           copyBackObjStream.StreamID,
+				OverrideMetadata:      false,
+				NewSegmentKeys: []metabase.EncryptedKeyAndNonce{
+					metabasetest.RandEncryptedKeyAndNonce(0),
+					metabasetest.RandEncryptedKeyAndNonce(1),
+					metabasetest.RandEncryptedKeyAndNonce(2),
+					metabasetest.RandEncryptedKeyAndNonce(3),
+				},
+			}
+			// Copy the copy back to the source location
+			metabasetest.CreateObjectCopy{
+				OriginalObject:   originalObj,
+				CopyObjectStream: &copyBackObjStream,
+				FinishObject:     &opts,
+			}.Run(ctx, t, db)
+
+			copyBackObj := originalObj
+			copyBackObj.StreamID = copyBackObjStream.StreamID
+
+			for i := 0; i < 4; i++ {
+				copySegments[i].Pieces = originalSegments[i].Pieces
+				copySegments[i].InlineData = originalSegments[i].InlineData
+				copySegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
+
+				originalSegments[i].StreamID = opts.NewStreamID
+				originalSegments[i].Pieces = nil
+				originalSegments[i].InlineData = nil
+				originalSegments[i].EncryptedKey = opts.NewSegmentKeys[i].EncryptedKey
+				originalSegments[i].EncryptedKeyNonce = opts.NewSegmentKeys[i].EncryptedKeyNonce
+				originalSegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
+			}
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(copyObj),
+					metabase.RawObject(copyBackObj),
+				},
+				Segments: append(originalSegments, copySegments...),
+				Copies: []metabase.RawCopy{{
+					StreamID:         copyBackObjStream.StreamID,
+					AncestorStreamID: copyObjStream.StreamID,
 				}},
 			}.Check(ctx, t, db)
 		})

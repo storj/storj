@@ -32,6 +32,15 @@ func RandObjectKey() metabase.ObjectKey {
 	return metabase.ObjectKey(testrand.Bytes(16))
 }
 
+// RandEncryptedKeyAndNonce generates random segment metadata.
+func RandEncryptedKeyAndNonce(position int) metabase.EncryptedKeyAndNonce {
+	return metabase.EncryptedKeyAndNonce{
+		Position:          metabase.SegmentPosition{Index: uint32(position)},
+		EncryptedKeyNonce: testrand.Nonce().Bytes(),
+		EncryptedKey:      testrand.Bytes(32),
+	}
+}
+
 // CreatePendingObject creates a new pending object with the specified number of segments.
 func CreatePendingObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) {
 	BeginObjectExactVersion{
@@ -324,11 +333,7 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	expectedEncryptedSize := 1060
 
 	for i := 0; i < int(cc.OriginalObject.SegmentCount); i++ {
-		newEncryptedKeysNonces[i] = metabase.EncryptedKeyAndNonce{
-			Position:          metabase.SegmentPosition{Index: uint32(i)},
-			EncryptedKeyNonce: testrand.Nonce().Bytes(),
-			EncryptedKey:      testrand.Bytes(32),
-		}
+		newEncryptedKeysNonces[i] = RandEncryptedKeyAndNonce(i)
 
 		expectedOriginalSegments[i] = DefaultRawSegment(cc.OriginalObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
 
@@ -358,9 +363,9 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	opts := cc.FinishObject
 	if opts == nil {
 		opts = &metabase.FinishCopyObject{
+			ObjectStream:                 cc.OriginalObject.ObjectStream,
 			NewStreamID:                  copyStream.StreamID,
 			NewBucket:                    copyStream.BucketName,
-			ObjectStream:                 cc.OriginalObject.ObjectStream,
 			NewSegmentKeys:               newEncryptedKeysNonces,
 			NewEncryptedObjectKey:        copyStream.ObjectKey,
 			NewEncryptedMetadataKeyNonce: testrand.Nonce(),
