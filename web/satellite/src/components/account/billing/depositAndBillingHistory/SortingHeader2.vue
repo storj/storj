@@ -66,23 +66,23 @@ export default class SortingHeader2 extends Vue {
      */ 
     public sortFunction(key): void {
         switch (key) {
-            case 'date':
-                this.$emit('sortFunction', this.DATE_DIRECTION);
-                this.DATE_DIRECTION = this.DATE_DIRECTION === 'date-ascending' ? 'date-descending' : 'date-ascending';
-                this.arrowController = {date: true, amount: false, status: false};
-                break;
-            case 'amount':
-                this.$emit('sortFunction', this.AMOUNT_DIRECTION);
-                this.AMOUNT_DIRECTION = this.AMOUNT_DIRECTION === 'amount-ascending' ? 'amount-descending' : 'amount-ascending';
-                this.arrowController = {date: false, amount: true, status: false};
-                break
-            case 'status':
-                this.$emit('sortFunction', this.STATUS_DIRECTION);
-                this.STATUS_DIRECTION = this.STATUS_DIRECTION === 'status-ascending' ? 'status-descending' : 'status-ascending';
-                this.arrowController = {date: false, amount: false, status: true};
-                break;
-            default:
-                break;
+        case 'date':
+            this.$emit('sortFunction', this.DATE_DIRECTION);
+            this.DATE_DIRECTION = this.DATE_DIRECTION === 'date-ascending' ? 'date-descending' : 'date-ascending';
+            this.arrowController = {date: true, amount: false, status: false};
+            break;
+        case 'amount':
+            this.$emit('sortFunction', this.AMOUNT_DIRECTION);
+            this.AMOUNT_DIRECTION = this.AMOUNT_DIRECTION === 'amount-ascending' ? 'amount-descending' : 'amount-ascending';
+            this.arrowController = {date: false, amount: true, status: false};
+            break
+        case 'status':
+            this.$emit('sortFunction', this.STATUS_DIRECTION);
+            this.STATUS_DIRECTION = this.STATUS_DIRECTION === 'status-ascending' ? 'status-descending' : 'status-ascending';
+            this.arrowController = {date: false, amount: false, status: true};
+            break;
+        default:
+            break;
         }
     }
 }

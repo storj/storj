@@ -142,8 +142,8 @@
                     </div>
                     <div class="pagination__right-container">
                         <div    
-                            class="pagination__right-container__count"
                             v-if="transactionCount > 0"
+                            class="pagination__right-container__count"
                         >
                             <span
                                 v-if="transactionCount > 10 && paginationLocation.end !== transactionCount"
@@ -250,9 +250,9 @@ export default class paymentsArea extends Vue {
     /**
      * controls token inputs and transaction table
      */
-    public showTransactions: boolean = false;
-    public showAddFunds: boolean = false;
-    public mostRecentTransaction: {}[] = [];
+    public showTransactions = false;
+    public showAddFunds = false;
+    public mostRecentTransaction: Record<string, unknown>[] = [];
     public paginationLocation: {start: number, end: number} = {start: 0, end: 10};
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];

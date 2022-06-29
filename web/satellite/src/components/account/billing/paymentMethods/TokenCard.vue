@@ -96,10 +96,6 @@ import TokenDepositSelection2 from '@/components/account/billing/paymentMethods/
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentAmountOption, PaymentsHistoryItem } from '@/types/payments';
 
-interface tokenValue {
-    
-}
-
 const {
     MAKE_TOKEN_DEPOSIT,
     GET_PAYMENTS_HISTORY,
