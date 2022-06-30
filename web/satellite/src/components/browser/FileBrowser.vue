@@ -629,6 +629,7 @@ export default class FileBrowser extends Vue {
             const path = this.isNewObjectsFlow ? RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path :
                 RouteConfig.Buckets.with(RouteConfig.EncryptData).path;
 
+            this.analytics.pageVisit(path);
             await this.$router.push(path);
 
             return;
@@ -639,6 +640,7 @@ export default class FileBrowser extends Vue {
 
         if (!this.routePath) {
             try {
+                this.analytics.pageVisit(`${this.$store.state.files.browserRoot}${this.path}`);
                 await this.$router.push({
                     path: `${this.$store.state.files.browserRoot}${this.path}`
                 });
@@ -908,7 +910,7 @@ tbody {
     transform: translateY(-50%);
     margin: unset;
 
-    & path {
+    ::v-deep path {
         fill: white;
     }
 }

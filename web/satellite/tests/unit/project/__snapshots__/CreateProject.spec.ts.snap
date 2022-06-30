@@ -17,7 +17,9 @@ exports[`CreateProject.vue renders correctly 1`] = `
         <h3 class="label-container__limit">0/20</h3>
       </div>
       <!---->
-      <!----> <input id="Project Name" placeholder="Enter Project Name" type="text" class="headered-input" style="width: 100%; height: 48px;">
+      <!----> <input id="Project Name" placeholder="Enter Project Name" maxlength="20" type="text" class="input" style="width: 100%; height: 48px;">
+      <!---->
+      <!---->
     </div>
     <div aria-roledescription="input-container" class="input-container full-input">
       <div class="label-container">
@@ -30,7 +32,9 @@ exports[`CreateProject.vue renders correctly 1`] = `
         </div>
         <h3 class="label-container__limit">0/100</h3>
       </div>
-      <!----> <textarea id="Description" placeholder="Enter Project Description" rows="5" cols="40" wrap="hard" class="headered-textarea" style="width: 100%; height: 100px;"></textarea>
+      <!----> <textarea id="Description" placeholder="Enter Project Description" rows="5" cols="40" maxlength="100" wrap="hard" class="textarea" style="width: 100%; height: 100px;"></textarea>
+      <!---->
+      <!---->
       <!---->
     </div>
     <div class="create-project__container__button-container">

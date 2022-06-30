@@ -438,10 +438,7 @@ export default class PayoutPeriodCalendar extends Vue {
         }
     }
 
-    .arrow-icon {
-
-        path {
-            fill: var(--year-selection-arrow-color);
-        }
+    .arrow-icon ::v-deep path {
+        fill: var(--year-selection-arrow-color);
     }
 </style>

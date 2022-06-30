@@ -59,6 +59,8 @@ import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 import { Download } from "@/utils/download";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -74,12 +76,15 @@ export default class ResultStep extends Vue {
     public access = '';
     public isGatewayLinkVisible = false;
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Lifecycle hook after initial render.
      * Sets local access from props value.
      */
     public mounted(): void {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -121,6 +126,7 @@ export default class ResultStep extends Vue {
      */
     public onBackClick(): void {
         if (this.accessGrantsAmount > 1) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).path);
             this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
                 params: {
@@ -132,6 +138,7 @@ export default class ResultStep extends Vue {
             return;
         }
 
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
             params: {
@@ -146,6 +153,7 @@ export default class ResultStep extends Vue {
      * Proceed to upload data step.
      */
     public onDoneClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.path);
         this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
     }
 
@@ -154,6 +162,7 @@ export default class ResultStep extends Vue {
      * Proceed to gateway step.
      */
     public navigateToGatewayStep(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.GatewayStep)).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.GatewayStep)).name,
             params: {

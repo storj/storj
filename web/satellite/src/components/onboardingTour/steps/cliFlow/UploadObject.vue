@@ -45,6 +45,8 @@ import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vu
 
 import Icon from "@/../static/images/onboardingTour/uploadStep.svg";
 
+import { AnalyticsHttpApi } from "@/api/analytics";
+
 // @vue/component
 @Component({
     components: {
@@ -55,10 +57,14 @@ import Icon from "@/../static/images/onboardingTour/uploadStep.svg";
     }
 })
 export default class UploadObject extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
     }
 
@@ -66,6 +72,7 @@ export default class UploadObject extends Vue {
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ListObject)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ListObject)).path);
     }
 }

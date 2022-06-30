@@ -43,6 +43,12 @@ const (
 	eventUploadInWebClicked         = "Upload In Web Clicked"
 	eventNewProjectClicked          = "New Project Clicked"
 	eventLogoutClicked              = "Logout Clicked"
+	eventProfileUpdated             = "Profile Updated"
+	eventPasswordChanged            = "Password Changed"
+	eventMfaEnabled                 = "MFA Enabled"
+	eventBucketCreated              = "Bucket Created"
+	eventBucketDeleted              = "Bucket Deleted"
+	eventProjectLimitError          = "Project Limit Error"
 )
 
 var (
@@ -86,7 +92,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventPathSelected, eventLinkShared, eventObjectUploaded, eventAPIKeyGenerated, eventUpgradeBannerClicked,
 		eventModalAddCard, eventModalAddTokens, eventSearchBuckets, eventNavigateProjects, eventManageProjectsClicked,
 		eventCreateNewClicked, eventViewDocsClicked, eventViewForumClicked, eventViewSupportClicked, eventCreateAnAccessGrantClicked,
-		eventUploadUsingCliClicked, eventUploadInWebClicked, eventNewProjectClicked, eventLogoutClicked} {
+		eventUploadUsingCliClicked, eventUploadInWebClicked, eventNewProjectClicked, eventLogoutClicked, eventProfileUpdated,
+		eventPasswordChanged, eventMfaEnabled, eventBucketCreated, eventBucketDeleted} {
 		service.clientEvents[name] = true
 	}
 
@@ -370,6 +377,44 @@ func (service *Service) TrackCreditCardAdded(userID uuid.UUID, email string) {
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventCreditCardAdded,
+		Properties: props,
+	})
+
+}
+
+// PageVisitEvent sends a page visit event associated with user ID to Segment.
+// It is used for tracking occurrences of client-side events.
+func (service *Service) PageVisitEvent(pageName string, userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+	props.Set("path", pageName)
+	props.Set("user_id", userID.String())
+	props.Set("satellite", service.satelliteName)
+
+	service.enqueueMessage(segment.Page{
+		UserId:     userID.String(),
+		Name:       "Page Requested",
+		Properties: props,
+	})
+
+}
+
+// TrackProjectLimitError sends an "Project Limit Error" event to Segment.
+func (service *Service) TrackProjectLimitError(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventProjectLimitError,
 		Properties: props,
 	})
 

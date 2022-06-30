@@ -37,6 +37,8 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -48,6 +50,7 @@ import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 })
 export default class DetailedHistory extends Vue {
     public isDataFetching = true;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -89,6 +92,7 @@ export default class DetailedHistory extends Vue {
      * Replaces location to root billing route.
      */
     public onBackToBillingClick(): void {
+        this.analytics.pageVisit(RouteConfig.Billing.path);
         this.$router.push(RouteConfig.Billing.path);
     }
 }

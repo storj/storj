@@ -30,7 +30,7 @@
                         <p>Automatically send updates to:</p>
 
                         <div class="authorize-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Project"
                                 role-description="project"
                                 :error="projectErr"
@@ -40,7 +40,7 @@
                         </div>
 
                         <div class="authorize-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Bucket"
                                 role-description="bucket"
                                 :error="bucketErr"
@@ -56,7 +56,7 @@
                         </div>
 
                         <div class="authorize-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Passphrase"
                                 role-description="passphrase"
                                 placeholder="Passphrase"
@@ -89,7 +89,7 @@
 
 <script lang="ts">
 import {Component, Vue} from 'vue-property-decorator';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import LogoIcon from '@/../static/images/logo.svg';
 import {Validator} from '@/utils/validation';
 import {RouteConfig} from '@/router';
@@ -104,12 +104,14 @@ import {ACCESS_GRANTS_ACTIONS} from '@/store/modules/accessGrants';
 import {OAuthClient, OAuthClientsAPI} from '@/api/oauthClients';
 import {URLSearchParams} from "url";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 const oauthClientsAPI = new OAuthClientsAPI();
 
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
+        VInput,
         LogoIcon,
     },
 })
@@ -150,6 +152,8 @@ export default class Authorize extends Vue {
 
     private worker: Worker;
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     private async ensureLogin(): Promise<void> {
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
@@ -162,6 +166,7 @@ export default class Authorize extends Vue {
             const query = new URLSearchParams(this.oauthData).toString();
             const path = `${RouteConfig.Authorize.path}?${query}#${this.clientKey}`;
 
+            this.analytics.pageVisit(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
             await this.$router.push(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
             return;
         }

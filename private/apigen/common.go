@@ -19,9 +19,8 @@ type API struct {
 // Group adds new endpoints group to API.
 func (a *API) Group(name, prefix string) *EndpointGroup {
 	group := &EndpointGroup{
-		Name:      name,
-		Prefix:    prefix,
-		Endpoints: make(map[PathMethod]*Endpoint),
+		Name:   name,
+		Prefix: prefix,
 	}
 
 	a.EndpointGroups = append(a.EndpointGroups, group)

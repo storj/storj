@@ -2,13 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="bucket-item">
-        <div class="bucket-item__name">
-            <bucket-icon />
-            <p class="bucket-item__name__value">{{ itemData.name }}</p>
-        </div>
-        <p class="bucket-item__date">{{ formattedDate }}</p>
-        <div v-click-outside="closeDropdown" class="bucket-item__functional" @click.stop="openDropdown(dropdownKey)">
+    <table-item
+        :item="{ name: itemData.name, date: formattedDate }"
+        :on-click="onClick"
+        @setSelected="(value) => $parent.$emit('checkItem', value)"
+    >
+        <th slot="options" v-click-outside="closeDropdown" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
             <dots-icon />
             <div v-if="isDropdownOpen" class="bucket-item__functional__dropdown">
                 <div class="bucket-item__functional__dropdown__item" @click.stop="onDetailsClick">
@@ -20,24 +19,24 @@
                     <p class="bucket-item__functional__dropdown__item__label">Delete Bucket</p>
                 </div>
             </div>
-        </div>
-    </div>
+        </th>
+    </table-item>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import BucketIcon from '@/../static/images/objects/bucketItem.svg';
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
 import {RouteConfig} from "@/router";
 import {Bucket} from "@/types/buckets";
+import TableItem from "@/components/common/TableItem.vue";
 
 // @vue/component
 @Component({
     components: {
-        BucketIcon,
+        TableItem,
         DotsIcon,
         DeleteIcon,
         DetailsIcon,
@@ -50,6 +49,8 @@ export default class BucketItem extends Vue {
     public readonly showDeleteBucketPopup: () => void;
     @Prop({ default: () => () => {} })
     public readonly openDropdown;
+    @Prop({ default: () => (_: string) => {} })
+    public readonly onClick: (bucket: string) => void;
     @Prop({ default: false })
     public readonly isDropdownOpen: boolean;
     @Prop({ default: -1 })
@@ -94,32 +95,6 @@ export default class BucketItem extends Vue {
 
 <style scoped lang="scss">
     .bucket-item {
-        font-family: 'font_regular', sans-serif;
-        font-style: normal;
-        display: flex;
-        align-items: center;
-        padding: 25px 20px;
-        width: calc(100% - 40px);
-        font-weight: normal;
-        font-size: 14px;
-        line-height: 19px;
-        color: #1b2533;
-        cursor: pointer;
-
-        &__name {
-            display: flex;
-            align-items: center;
-            width: 70%;
-
-            &__value {
-                margin: 0 0 0 17px;
-            }
-        }
-
-        &__date {
-            width: 30%;
-            margin: 0;
-        }
 
         &__functional {
             padding: 0 10px;
@@ -151,7 +126,7 @@ export default class BucketItem extends Vue {
                         background-color: #f4f5f7;
                         font-family: 'font_medium', sans-serif;
 
-                        & svg path {
+                        svg ::v-deep path {
                             fill: #0068dc;
                             stroke: #0068dc;
                         }

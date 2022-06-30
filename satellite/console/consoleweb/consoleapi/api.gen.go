@@ -26,12 +26,12 @@ var ErrApikeysAPI = errs.Class("consoleapi apikeys api")
 var ErrUsersAPI = errs.Class("consoleapi users api")
 
 type ProjectManagementService interface {
-	GenGetSingleBucketUsageRollup(context.Context, uuid.UUID, string, time.Time, time.Time) (*accounting.BucketUsageRollup, api.HTTPError)
-	GenGetBucketUsageRollups(context.Context, uuid.UUID, time.Time, time.Time) ([]accounting.BucketUsageRollup, api.HTTPError)
 	GenCreateProject(context.Context, console.ProjectInfo) (*console.Project, api.HTTPError)
 	GenUpdateProject(context.Context, uuid.UUID, console.ProjectInfo) (*console.Project, api.HTTPError)
 	GenDeleteProject(context.Context, uuid.UUID) api.HTTPError
 	GenGetUsersProjects(context.Context) ([]console.Project, api.HTTPError)
+	GenGetSingleBucketUsageRollup(context.Context, uuid.UUID, string, time.Time, time.Time) (*accounting.BucketUsageRollup, api.HTTPError)
+	GenGetBucketUsageRollups(context.Context, uuid.UUID, time.Time, time.Time) ([]accounting.BucketUsageRollup, api.HTTPError)
 }
 
 type APIKeyManagementService interface {
@@ -107,6 +107,138 @@ func NewUserManagement(log *zap.Logger, service UserManagementService, router *m
 	return handler
 }
 
+func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	projectInfo := &console.ProjectInfo{}
+	if err = json.NewDecoder(r.Body).Decode(&projectInfo); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenCreateProject(ctx, *projectInfo)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenCreateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	projectInfo := &console.ProjectInfo{}
+	if err = json.NewDecoder(r.Body).Decode(&projectInfo); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenUpdateProject(ctx, id, *projectInfo)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenUpdateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleGenDeleteProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	httpErr := h.service.GenDeleteProject(ctx, id)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenGetUsersProjects(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenGetUsersProjects response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
 func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -116,6 +248,7 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -165,6 +298,7 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -199,136 +333,6 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 	}
 }
 
-func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	projectInfo := &console.ProjectInfo{}
-	if err = json.NewDecoder(r.Body).Decode(&projectInfo); err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	retVal, httpErr := h.service.GenCreateProject(ctx, *projectInfo)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(retVal)
-	if err != nil {
-		h.log.Debug("failed to write json GenCreateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
-	}
-}
-
-func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	idParam, ok := mux.Vars(r)["id"]
-	if !ok {
-		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
-		return
-	}
-
-	id, err := uuid.FromString(idParam)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	projectInfo := &console.ProjectInfo{}
-	if err = json.NewDecoder(r.Body).Decode(&projectInfo); err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	retVal, httpErr := h.service.GenUpdateProject(ctx, id, *projectInfo)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(retVal)
-	if err != nil {
-		h.log.Debug("failed to write json GenUpdateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
-	}
-}
-
-func (h *ProjectManagementHandler) handleGenDeleteProject(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	idParam, ok := mux.Vars(r)["id"]
-	if !ok {
-		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
-		return
-	}
-
-	id, err := uuid.FromString(idParam)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	httpErr := h.service.GenDeleteProject(ctx, id)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-	}
-}
-
-func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	retVal, httpErr := h.service.GenGetUsersProjects(ctx)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(retVal)
-	if err != nil {
-		h.log.Debug("failed to write json GenGetUsersProjects response", zap.Error(ErrProjectsAPI.Wrap(err)))
-	}
-}
-
 func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -338,6 +342,7 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -369,6 +374,7 @@ func (h *UserManagementHandler) handleGenGetUser(w http.ResponseWriter, r *http.
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}

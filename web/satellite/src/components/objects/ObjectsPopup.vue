@@ -10,7 +10,7 @@
                 <WarningIcon />
                 <p class="objects-popup__container__info__msg">Only lowercase alphanumeric characters are allowed.</p>
             </div>
-            <HeaderedInput
+            <VInput
                 class="objects-popup__container__input"
                 label="Bucket Name"
                 placeholder="Enter bucket name"
@@ -35,7 +35,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
@@ -44,7 +44,7 @@ import WarningIcon from '@/../static/images/objects/warning.svg';
 // @vue/component
 @Component({
     components: {
-        HeaderedInput,
+        VInput,
         VButton,
         CloseCrossIcon,
         WarningIcon,

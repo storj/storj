@@ -71,7 +71,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 				)
 				return nil
 			}
-			statement := containment.db.Rebind(
+			statement := tx.Rebind(
 				`UPDATE segment_pending_audits SET reverify_count = segment_pending_audits.reverify_count + 1
 				WHERE segment_pending_audits.node_id=?`,
 			)

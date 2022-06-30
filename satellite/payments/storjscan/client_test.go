@@ -30,6 +30,7 @@ func TestClientMocked(t *testing.T) {
 			From:        blockchaintest.NewAddress(),
 			To:          blockchaintest.NewAddress(),
 			TokenValue:  new(big.Int).SetInt64(int64(i)),
+			USDValue:    float64(i) + 0.1,
 			BlockHash:   blockchaintest.NewHash(),
 			BlockNumber: int64(i),
 			Transaction: blockchaintest.NewHash(),

@@ -296,6 +296,11 @@ func (dbc *satelliteDBCollection) Buckets() buckets.DB {
 	return &bucketsDB{db: dbc.getByName("buckets")}
 }
 
+// StorjscanPayments returns database for storjscan payments.
+func (dbc *satelliteDBCollection) StorjscanPayments() storjscan.PaymentsDB {
+	return &storjscanPayments{db: dbc.getByName("storjscan_payments")}
+}
+
 // CheckVersion confirms all databases are at the desired version.
 func (dbc *satelliteDBCollection) CheckVersion(ctx context.Context) error {
 	var eg errs.Group

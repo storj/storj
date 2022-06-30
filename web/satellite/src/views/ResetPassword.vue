@@ -38,7 +38,7 @@
                 <template v-else>
                     <p class="reset-area__content-area__container__message">Please enter your new password.</p>
                     <div class="reset-area__content-area__container__input-wrapper password">
-                        <HeaderlessInput
+                        <VInput
                             label="Password"
                             placeholder="Enter Password"
                             :error="passwordError"
@@ -53,7 +53,7 @@
                         />
                     </div>
                     <div class="reset-area__content-area__container__input-wrapper">
-                        <HeaderlessInput
+                        <VInput
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
@@ -78,7 +78,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
@@ -92,11 +92,13 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
         LogoIcon,
-        HeaderlessInput,
+        VInput,
         PasswordStrength,
         KeyIcon,
         ConfirmMFAInput,
@@ -124,6 +126,8 @@ export default class ResetPassword extends Vue {
 
     public readonly loginPath: string = RouteConfig.Login.path;
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     public $refs!: {
         mfaInput: ConfirmMFAInput;
     };
@@ -147,6 +151,7 @@ export default class ResetPassword extends Vue {
         if (this.$route.query.token) {
             this.token = this.$route.query.token.toString();
         } else {
+            this.analytics.pageVisit(RouteConfig.Login.path);
             this.$router.push(RouteConfig.Login.path);
         }
     }

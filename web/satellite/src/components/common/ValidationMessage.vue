@@ -3,7 +3,7 @@
 
 <template>
     <div v-if="showMessage" class="validation-message__wrapper" :class="{'success-message__wrapper' : isValid, 'error-message__wrapper' : !isValid}">
-        <ErrorIcon v-if="invalid" class="error-message__icon" />
+        <ErrorIcon v-if="!isValid" class="error-message__icon" />
         <p v-if="isValid" class="success-message__text validation-message__text">{{ successMessage }}</p>
         <p v-if="!isValid" class="error-message__text validation-message__text">{{ errorMessage }}</p>
     </div>
@@ -21,7 +21,6 @@ import ErrorIcon from '@/../static/images/common/errorNotice.svg';
     },
 })
 export default class ValidationMessage extends Vue {
-
     @Prop({default: 'Valid!'})
     protected readonly successMessage: string;
     @Prop({default: 'Invalid. Please Try again'})
@@ -30,7 +29,6 @@ export default class ValidationMessage extends Vue {
     protected readonly isValid: boolean;
     @Prop({default: false})
     protected readonly showMessage: boolean;
-
 }
 </script>
 

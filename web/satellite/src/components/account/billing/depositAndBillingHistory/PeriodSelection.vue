@@ -40,6 +40,8 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -56,6 +58,8 @@ export default class PeriodSelection extends Vue {
         'Previous Billing Period',
     ];
     public currentOption: string = this.periodOptions[0];
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Indicates if periods dropdown is shown.
@@ -123,6 +127,7 @@ export default class PeriodSelection extends Vue {
      * Holds logic to redirect user to billing history page.
      */
     public redirect(): void {
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
         this.$router.push(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
     }
 
