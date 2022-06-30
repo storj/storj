@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -43,7 +43,7 @@ import Calendar from '@/../static/images/billing/calendar.svg';
 @Component({
     components: {
         Calendar,
-        CheckIcon
+        CheckIcon,
     },
 })
 export default class BillingHistoryShape extends Vue {

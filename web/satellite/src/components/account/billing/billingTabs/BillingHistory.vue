@@ -23,7 +23,7 @@ import { PaymentsHistoryItem } from '@/types/payments';
 @Component({
     components: {
         VList,
-        BillingHistoryHeader
+        BillingHistoryHeader,
     },
 })
 

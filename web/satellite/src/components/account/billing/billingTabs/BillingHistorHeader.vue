@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -45,15 +45,17 @@ export default class BillingHistoryHeader extends Vue {
         return this.sortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
     }
 
+    /**
+    * Sets sorting kind if different from current.
+    * If same, changes sort direction.
+    * @param sortBy
+    */
+
     public get areAccessGrantsSortedByName(): boolean {
         return this.sortBy === AccessGrantsOrderBy.NAME;
     }
 
-    /**
-     * Sets sorting kind if different from current.
-     * If same, changes sort direction.
-     * @param sortBy
-     */
+   
 }
 </script>
 
@@ -110,7 +112,7 @@ export default class BillingHistoryHeader extends Vue {
 
         &__download-item {
             padding-bottom: 13px;
-            font-family: 'Inter';
+            font-family: 'font_regular', 'Inter';
             font-style: normal;
             font-weight: 500;
             font-size: 12px;

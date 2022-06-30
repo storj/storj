@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -20,7 +20,3 @@ export default class BillingArea extends Vue {
 
 }
 </script>
-
-<style scoped lang="scss">
-
-</style>

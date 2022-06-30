@@ -375,7 +375,6 @@ export default class AccessGrants extends Vue {
      * Returns AccessGrant2 item component.
      */
     public get itemComponent2(): typeof AccessGrantsItem2 {
-        console.log(AccessGrantsItem2);
         return AccessGrantsItem2;
     }
     /**
