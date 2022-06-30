@@ -55,6 +55,7 @@ import { OBJECTS_ACTIONS } from "@/store/modules/objects";
 import { MetaUtils } from "@/utils/meta";
 import { AccessGrant, EdgeCredentials } from "@/types/accessGrants";
 import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
+import { AnalyticsHttpApi } from "@/api/analytics";
 
 import VModal from "@/components/common/VModal.vue";
 import VInput from "@/components/common/VInput.vue";
@@ -74,6 +75,7 @@ import Icon from "@/../static/images/objects/openBucket.svg";
 export default class OpenBucketModal extends Vue {
     private worker: Worker;
     private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public enterError = '';
     public passphrase = '';
@@ -99,7 +101,10 @@ export default class OpenBucketModal extends Vue {
             await this.setAccess();
             this.isLoading = false;
 
+            if (this.enterError) return;
+
             this.closeModal();
+            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
             await this.$router.push(RouteConfig.UploadFile.path);
         } catch (e) {
             await this.$notify.error(e.message);
@@ -113,6 +118,8 @@ export default class OpenBucketModal extends Vue {
     public async setAccess(): Promise<void> {
         if (!this.passphrase) {
             this.enterError = 'Passphrase can\'t be empty';
+
+            return;
         }
 
         if (!this.apiKey) {
