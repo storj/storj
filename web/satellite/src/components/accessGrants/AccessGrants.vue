@@ -124,11 +124,11 @@
                 </div>
             </div>
         </div>
-        <div v-if="isNewAccessGrantFlow"> 
+        <div v-if="isNewAccessGrantFlow">
             <div class="access-grants__header-container">
                 <h3 class="access-grants__header-container__title">My Accesses</h3>
                 <div class="access-grants__header-container__divider" />
-                <VHeader 
+                <VHeader
                     class="access-header-component"
                     placeholder="Accesses"
                     :search="fetch"
@@ -163,7 +163,7 @@
             <div
                 v-if="!accessGrantsList.length && !areGrantsFetching"
                 class="access-grants-items2__empty-state"
-            > 
+            >
                 <span class="access-grants-items2__empty-state__text">
                     No Results Found
                 </span>
@@ -204,7 +204,7 @@
                 @resetPagination="resetPagination"
             />
         </div>
-        <CreateAccessModal 
+        <CreateAccessModal
             v-if="showAccessModal"
             :default-type="modalAccessType"
             @close-modal="toggleAccessModal"
@@ -455,15 +455,17 @@ export default class AccessGrants extends Vue {
 </script>
 <style scoped lang="scss">
     @mixin grant-flow-card {
-        display: inline-block;
-        padding: 28px;
-        width: 26%;
-        height: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 10px 28px;
+        width: 300px;
+        height: 220px;
         background: #fff;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         border-radius: 10px;
         min-width: 175px;
-        margin-bottom: 10px;
     }
 
     .access-grants {
@@ -501,27 +503,40 @@ export default class AccessGrants extends Vue {
             -webkit-box-align: center;
             align-items: center;
             -webkit-box-pack: justify;
-            justify-content: space-between;
             margin-top: 20px;
+            column-gap: 16px;
+            row-gap: 16px;
 
             &__access-grant,
             &__s3-credentials,
             &__cli-credentials {
                 @include grant-flow-card;
+
+                @media screen and (max-width: 448px) {
+                    height: auto;
+
+                    .access-grants__flows-area__create-button {
+                        padding: 20px 10px;
+                        margin: 8px 0 0;
+                    }
+                }
             }
 
-            &__learn-button {
-                margin: 2px 2% 0 0;
+            &__learn-button,
+            &__create-button {
+                box-sizing: border-box;
                 padding: 0 10px;
+                height: 30px;
             }
 
             &__create-button {
-                padding: 0 10px;
-                margin-top: 2px;
+                margin-left: 8px;
             }
 
             &__button-container {
                 display: flex;
+                align-items: center;
+                justify-content: flex-start;
                 margin-top: 8px;
                 flex-wrap: wrap;
             }

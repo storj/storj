@@ -93,7 +93,7 @@ type Config struct {
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
-	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"false"`
+	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"true"`
 	NewBillingScreen                bool    `help:"indicates if new billing screens should be used" default:"false"`
 	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
 	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
