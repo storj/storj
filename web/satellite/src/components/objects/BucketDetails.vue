@@ -21,14 +21,16 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import BucketDetailsOverview from "@/components/objects/BucketDetailsOverview.vue";
-import ArrowRightIcon from '@/../static/images/common/arrowRight.svg'
 
 import { Bucket } from "@/types/buckets";
 import { RouteConfig } from "@/router";
 import { MONTHS_NAMES } from "@/utils/constants/date";
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+
+import BucketDetailsOverview from "@/components/objects/BucketDetailsOverview.vue";
+import ArrowRightIcon from '@/../static/images/common/arrowRight.svg'
 
 // @vue/component
 @Component({
@@ -38,12 +40,22 @@ import { AnalyticsHttpApi } from '@/api/analytics';
     },
 })
 export default class BucketDetails extends Vue {
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+    /**
+     * Lifecycle hook before initial render.
+     * Checks if bucket name was passed as route param.
+     */
+    public async beforeMount(): Promise<void> {
+        if (!this.$route.params.bucketName) {
+            await this.redirectToBucketsPage();
+        }
+    }
 
     /**
      * Bucket from store found by router prop.
      */
-    public get bucket(): Bucket | undefined {
+    public get bucket(): Bucket {
         const data = this.$store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === this.$route.params.bucketName);
 
         if (!data) {
@@ -56,13 +68,15 @@ export default class BucketDetails extends Vue {
     }
 
     public get creationDate(): string {
-        return !this.bucket ?
-            '' :
-            `${this.bucket.since.getUTCDate()} ${MONTHS_NAMES[this.bucket.since.getUTCMonth()]} ${this.bucket.since.getUTCFullYear()}`;
+        return `${this.bucket.since.getUTCDate()} ${MONTHS_NAMES[this.bucket.since.getUTCMonth()]} ${this.bucket.since.getUTCFullYear()}`;
     }
 
-    public redirectToBucketsPage(): void {
-        this.$router.push({ name: RouteConfig.Buckets.with(RouteConfig.BucketsManagement).name });
+    public async redirectToBucketsPage(): Promise<void> {
+        try {
+            await this.$router.push({ name: RouteConfig.BucketsManagement.name });
+        } catch (_) {
+            return;
+        }
     }
 
     /**
@@ -70,8 +84,24 @@ export default class BucketDetails extends Vue {
      */
     public openBucket(): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucket?.name);
+
+        if (this.$route.params.backRoute === RouteConfig.BucketsManagement.name) {
+            this.isNewObjectsFlow
+                ? this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN)
+                : this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+
+            return;
+        }
+
         this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+    }
+
+    /**
+     * Returns objects flow status from store.
+     */
+    private get isNewObjectsFlow(): string {
+        return this.$store.state.appStateModule.isNewObjectsFlow;
     }
 }
 </script>
