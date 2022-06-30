@@ -127,7 +127,6 @@
                         :data-set="accessGrantsList"
                         :item-component="itemComponent2"
                     />
-
                 </div>
                 <div class="access-grants-items2__footer">
                     <span class="access-grants-items2__footer__total-accesses">

@@ -33,7 +33,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { PaymentsHistoryItem } from '@/types/payments';
 
 import { AccessGrant } from '@/types/accessGrants';
 import CheckIcon from '@/../static/images/billing/check-green-circle.svg';
@@ -68,10 +68,12 @@ export default class BillingHistoryShape extends Vue {
         color: #1b2533;
         transition: 100ms;
     }
+
     .checkmark {
         margin-top: 3px;
         margin-left: 37px;
     }
+
     .billing-history {
         display: flex;
         align-items: center;
@@ -120,13 +122,13 @@ export default class BillingHistoryShape extends Vue {
         overflow: hidden;
         text-overflow: ellipsis;
     }
+
     .name_status {
         font-family: 'Inter';
         font-style: normal;
         font-weight: 400;
         font-size: 14px;
         line-height: 20px;
-
         color: #111827;
         margin-left: 6px;
         white-space: nowrap;
@@ -141,7 +143,6 @@ export default class BillingHistoryShape extends Vue {
         font-size: 14px;
         line-height: 20px;
         color: #111827;
-       
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

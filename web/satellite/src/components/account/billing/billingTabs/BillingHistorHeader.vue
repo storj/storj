@@ -21,15 +21,12 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VerticalArrows from '@/components/common/VerticalArrows.vue';
-
 import { AccessGrantsOrderBy, OnHeaderClickCallback } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 
 // @vue/component
 @Component({
     components: {
-        VerticalArrows,
     },
 })
 export default class BillingHistoryHeader extends Vue {
@@ -78,17 +75,19 @@ export default class BillingHistoryHeader extends Vue {
             font-weight: 500;
             font-size: 12px;
             line-height: 16px;
+
             /* identical to box height, or 133% */
 
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            color: #6B7280;
+            color: #6b7280;
             width: 20%;
             display: flex;
             align-items: center;
             margin: 0;
             cursor: pointer;
         }
+
         &__amount-item {
             padding-bottom: 13px;
             font-family: 'Inter';
@@ -96,17 +95,19 @@ export default class BillingHistoryHeader extends Vue {
             font-weight: 500;
             font-size: 12px;
             line-height: 16px;
+
             /* identical to box height, or 133% */
 
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            color: #6B7280;
+            color: #6b7280;
             width: 20%;
             display: flex;
             align-items: center;
             margin: 0;
             cursor: pointer;
         }
+
         &__download-item {
             padding-bottom: 13px;
             font-family: 'Inter';
@@ -115,11 +116,12 @@ export default class BillingHistoryHeader extends Vue {
             font-size: 12px;
             line-height: 16px;
             margin-left: 53px;
+
             /* identical to box height, or 133% */
 
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            color: #6B7280;
+            color: #6b7280;
             width: 24%;
             display: flex;
             align-items: center;
@@ -130,6 +132,7 @@ export default class BillingHistoryHeader extends Vue {
                 margin-left: 46px;
             }
         }
+
         &__date-item {
             padding-bottom: 13px;
             font-family: 'Inter';
@@ -137,12 +140,12 @@ export default class BillingHistoryHeader extends Vue {
             font-weight: 500;
             font-size: 12px;
             line-height: 16px;
+
             /* identical to box height, or 133% */
 
             letter-spacing: 0.05em;
             text-transform: uppercase;
-
-            color: #6B7280;
+            color: #6b7280;
             width: 30%;
             display: flex;
             align-items: center;

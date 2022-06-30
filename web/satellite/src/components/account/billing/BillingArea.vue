@@ -30,7 +30,7 @@
                     <p>Coupons</p>
                 </div>      
             </div>
-            <div class="account-billing-area__divider"></div>
+            <div class="account-billing-area__divider" />
             <router-view />
         </div>
         <div v-if="isNewBillingScreen">
@@ -50,7 +50,8 @@
                 </div>
             </div>
             <div v-if="userHasOwnProject" class="account-billing-area__title-area" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
-                <div class="account-billing-area__title-area__balance-area">TESTSTSTSTSTSSTSTSTST
+                <div class="account-billing-area__title-area__balance-area">
+                    TESTSTSTSTSTSSTSTSTST
                     <div class="account-billing-area__title-area__balance-area__free-credits">
                         <p class="account-billing-area__title-area__balance-area__free-credits__label">Free Credits:</p>
                         <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
@@ -94,7 +95,6 @@ import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCost
 import CouponArea from '@/components/account/billing/coupons/CouponArea.vue';
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
-import BillingOverview from '@/components/account/billing/billingTabs/Overview.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import ExpandIcon from '@/../static/images/account/billing/expand.svg';
@@ -123,7 +123,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         HideIcon,
         CouponArea,
         VLoader,
-        BillingOverview,
     },
 })
 export default class BillingArea extends Vue {
@@ -349,7 +348,7 @@ export default class BillingArea extends Vue {
 
         &__divider {
             width: 100%;
-            border-bottom: 1px solid #DADFE7;
+            border-bottom: 1px solid #dadfe7;
         }
 
         &__header {
@@ -360,16 +359,17 @@ export default class BillingArea extends Vue {
             align-content: center;
             justify-content: space-between;
             padding-top: 25px;
+
             &__tab {
                 font-family: sans-serif;
-                color: #56606D;
+                color: #56606d;
                 font-size: 16px;
                 height: auto;
                 width: auto;
                 transition-duration: 50ms;
             }
 
-            &__tab:hover{
+            &__tab:hover {
                 border-bottom: 5px solid black;
                 cursor: pointer;
             }
