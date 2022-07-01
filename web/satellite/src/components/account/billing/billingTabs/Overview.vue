@@ -69,6 +69,7 @@ import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstima
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
 import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
 
+import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { AccountBalance } from '@/types/payments';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -108,13 +109,12 @@ export default class BillingArea extends Vue {
             this.isDataFetching = false;
         } catch (error) {
             await this.$notify.error(error.message);
+            this.isDataFetching = false;
         }
 
         const rawDate = new Date();
         let currentYear = rawDate.getFullYear();
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        this.currentDate = `${monthNames[rawDate.getMonth()]} ${currentYear}`
+        this.currentDate = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`
     }
 
     /**
