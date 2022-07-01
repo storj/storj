@@ -22,7 +22,6 @@ import { PaymentsHistoryItem } from '@/types/payments';
 // @vue/component
 @Component({
     components: {
-        billingHistoryTab
         VList,
         BillingHistoryHeader,
     },
