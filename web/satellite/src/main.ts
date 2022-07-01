@@ -3,6 +3,7 @@
 
 import Vue from 'vue';
 import VueClipboard from 'vue-clipboard2';
+import VueSanitize from "vue-sanitize";
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { Size } from "@/utils/bytesSize";
@@ -21,6 +22,7 @@ Vue.config.productionTip = false;
 
 Vue.use(new NotificatorPlugin(store));
 Vue.use(VueClipboard);
+Vue.use(VueSanitize);
 
 /**
  * Click outside handlers.
