@@ -170,17 +170,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userID uuid.UUID
-	defer func() {
-		if err == nil {
-			w.Header().Set("Content-Type", "application/json")
-			err = json.NewEncoder(w).Encode(userID)
-			if err != nil {
-				a.log.Error("registration handler could not encode userID", zap.Error(ErrAuthAPI.Wrap(err)))
-			}
-		}
-	}()
-
 	var registerData struct {
 		FullName         string `json:"fullName"`
 		ShortName        string `json:"shortName"`
@@ -226,31 +215,21 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified.ID)
-		if err != nil {
-			a.serveJSONError(w, err)
-			return
+		satelliteAddress := a.ExternalAddress
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
 		}
-
-		userName := verified.ShortName
-		if verified.ShortName == "" {
-			userName = verified.FullName
-		}
-
 		a.mailService.SendRenderedAsync(
 			ctx,
-			[]post.Address{{Address: verified.Email, Name: userName}},
-			&consoleql.ForgotPasswordEmail{
-				Origin:                     a.ExternalAddress,
-				UserName:                   userName,
-				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
-				CancelPasswordRecoveryLink: a.CancelPasswordRecoveryURL + "?token=" + recoveryToken,
-				LetUsKnowURL:               a.LetUsKnowURL,
-				ContactInfoURL:             a.ContactInfoURL,
-				TermsAndConditionsURL:      a.TermsAndConditionsURL,
+			[]post.Address{{Address: verified.Email}},
+			&consoleql.AccountAlreadyExistsEmail{
+				Origin:            satelliteAddress,
+				SatelliteName:     a.SatelliteName,
+				SignInLink:        satelliteAddress + "login",
+				ResetPasswordLink: satelliteAddress + "forgot-password",
+				CreateAccountLink: satelliteAddress + "signup",
 			},
 		)
-		userID = verified.ID
 		return
 	}
 
@@ -334,7 +313,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		}
 		a.analytics.TrackCreateUser(trackCreateUserFields)
 	}
-	userID = user.ID
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {

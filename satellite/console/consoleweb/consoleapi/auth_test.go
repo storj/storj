@@ -26,7 +26,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -97,16 +96,9 @@ func TestAuth_Register(t *testing.T) {
 				}()
 				require.Equal(t, http.StatusOK, result.StatusCode)
 
-				body, err := ioutil.ReadAll(result.Body)
+				_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 				require.NoError(t, err)
-
-				var userID uuid.UUID
-				err = json.Unmarshal(body, &userID)
-				require.NoError(t, err)
-
-				user, err := planet.Satellites[0].API.Console.Service.GetUser(ctx, userID)
-				require.NoError(t, err)
-				require.Equal(t, []byte(test.Partner), user.UserAgent)
+				require.Equal(t, []byte(test.Partner), users[0].UserAgent)
 			}()
 		}
 	})
@@ -122,8 +114,9 @@ func TestAuth_Register_CORS(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		jsonBody := []byte(`{"email":"user@test.com","fullName":"testuser","password":"abc123","shortName":"test"}`)
-
+		email := "user@test.com"
+		fullName := "testuser"
+		jsonBody := []byte(fmt.Sprintf(`{"email":"%s","fullName":"%s","password":"abc123","shortName":"test"}`, email, fullName))
 		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 		require.NoError(t, err)
@@ -198,15 +191,9 @@ func TestAuth_Register_CORS(t *testing.T) {
 			"Authorization",
 		})
 
-		body, err := ioutil.ReadAll(resp.Body)
+		_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, email)
 		require.NoError(t, err)
-
-		var userID uuid.UUID
-		err = json.Unmarshal(body, &userID)
-		require.NoError(t, err)
-
-		_, err = planet.Satellites[0].API.Console.Service.GetUser(ctx, userID)
-		require.NoError(t, err)
+		require.Equal(t, fullName, users[0].FullName)
 	})
 }
 
@@ -647,16 +634,16 @@ func TestRegistrationEmail(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-
+		email := "test@mail.test"
 		jsonBody, err := json.Marshal(map[string]interface{}{
 			"fullName":  "Test User",
 			"shortName": "Test",
-			"email":     "test@mail.test",
+			"email":     email,
 			"password":  "123a123",
 		})
 		require.NoError(t, err)
 
-		register := func() string {
+		register := func() {
 			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
 			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 			require.NoError(t, err)
@@ -665,46 +652,39 @@ func TestRegistrationEmail(t *testing.T) {
 			result, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, result.StatusCode)
-
-			var userID string
-			require.NoError(t, json.NewDecoder(result.Body).Decode(&userID))
 			require.NoError(t, result.Body.Close())
-
-			return userID
 		}
 
 		sender := &EmailVerifier{Context: ctx}
 		sat.API.Mail.Service.Sender = sender
 
 		// Registration attempts using new e-mail address should send activation e-mail.
-		userID := register()
+		register()
 		body, err := sender.Data.Get(ctx)
 		require.NoError(t, err)
 		require.Contains(t, body, "/activation")
 
 		// Registration attempts using existing but unverified e-mail address should send activation e-mail.
-		newUserID := register()
-		require.Equal(t, userID, newUserID)
+		register()
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
 		require.Contains(t, body, "/activation")
 
-		// Registration attempts using existing and verified e-mail address should send password reset e-mail.
-		userUUID, err := uuid.FromString(userID)
-		require.NoError(t, err)
-		user, err := sat.DB.Console().Users().Get(ctx, userUUID)
+		// Registration attempts using existing and verified e-mail address should send account already exists e-mail.
+		_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
 		require.NoError(t, err)
 
-		user.Status = console.Active
-		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
-			Status: &user.Status,
+		users[0].Status = console.Active
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, users[0].ID, console.UpdateUserRequest{
+			Status: &users[0].Status,
 		}))
 
-		newUserID = register()
-		require.Equal(t, userID, newUserID)
+		register()
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
-		require.Contains(t, body, "/password-recovery")
+		require.Contains(t, body, "/login")
+		require.Contains(t, body, "/forgot-password")
+		require.Contains(t, body, "/signup")
 	})
 }
 
@@ -760,7 +740,7 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		inputName := "The website has been changed to https://evil.com/login.html - Enter Login Details,"
 		filteredName := "The website has been changed to https---evil-com-login-html - Enter Login Details,"
-
+		email := "user@mail.test"
 		registerData := struct {
 			FullName  string `json:"fullName"`
 			ShortName string `json:"shortName"`
@@ -769,7 +749,7 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 		}{
 			FullName:  inputName,
 			ShortName: inputName,
-			Email:     "user@mail.test",
+			Email:     email,
 			Password:  "abc123",
 		}
 
@@ -788,17 +768,10 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 		}()
 		require.Equal(t, http.StatusOK, result.StatusCode)
 
-		body, err := ioutil.ReadAll(result.Body)
+		_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, email)
 		require.NoError(t, err)
-
-		var userID uuid.UUID
-		err = json.Unmarshal(body, &userID)
-		require.NoError(t, err)
-
-		user, err := planet.Satellites[0].API.Console.Service.GetUser(ctx, userID)
-		require.NoError(t, err)
-		require.Equal(t, filteredName, user.FullName)
-		require.Equal(t, filteredName, user.ShortName)
+		require.Equal(t, filteredName, users[0].FullName)
+		require.Equal(t, filteredName, users[0].ShortName)
 	})
 }
 
