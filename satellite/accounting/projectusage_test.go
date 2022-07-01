@@ -694,7 +694,7 @@ func TestUsageRollups(t *testing.T) {
 
 		usageRollups := db.ProjectAccounting()
 
-		t.Run("test project total", func(t *testing.T) {
+		t.Run("project total", func(t *testing.T) {
 			projTotal1, err := usageRollups.GetProjectTotal(ctx, project1, start, now)
 			require.NoError(t, err)
 			require.NotNil(t, projTotal1)
@@ -718,7 +718,7 @@ func TestUsageRollups(t *testing.T) {
 			require.NotZero(t, projTotal3Prev3Hours.Egress)
 		})
 
-		t.Run("test bucket usage rollups", func(t *testing.T) {
+		t.Run("bucket usage rollups", func(t *testing.T) {
 			rollups1, err := usageRollups.GetBucketUsageRollups(ctx, project1, start, now)
 			require.NoError(t, err)
 			require.NotNil(t, rollups1)
@@ -740,7 +740,7 @@ func TestUsageRollups(t *testing.T) {
 			require.NotNil(t, rollups3Prev3Hours)
 		})
 
-		t.Run("test bucket totals", func(t *testing.T) {
+		t.Run("bucket totals", func(t *testing.T) {
 			cursor := accounting.BucketUsageCursor{
 				Limit: 20,
 				Page:  1,

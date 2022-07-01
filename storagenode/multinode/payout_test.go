@@ -195,7 +195,7 @@ func TestPayoutsEndpointEstimations(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		t.Run("test EstimatedPayoutTotal", func(t *testing.T) {
+		t.Run("EstimatedPayoutTotal", func(t *testing.T) {
 			estimation, err := estimatedPayoutsService.GetAllSatellitesEstimatedPayout(ctx, time.Now())
 			require.NoError(t, err)
 

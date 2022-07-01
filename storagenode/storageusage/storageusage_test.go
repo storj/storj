@@ -55,12 +55,12 @@ func TestStorageUsage(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		storageUsageDB := db.StorageUsage()
 
-		t.Run("test store", func(t *testing.T) {
+		t.Run("store", func(t *testing.T) {
 			err := storageUsageDB.Store(ctx, stamps)
 			assert.NoError(t, err)
 		})
 
-		t.Run("test get daily", func(t *testing.T) {
+		t.Run("get daily", func(t *testing.T) {
 			res, err := storageUsageDB.GetDaily(ctx, satelliteID, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, res)
@@ -72,7 +72,7 @@ func TestStorageUsage(t *testing.T) {
 			}
 		})
 
-		t.Run("test get daily total", func(t *testing.T) {
+		t.Run("get daily total", func(t *testing.T) {
 			res, err := storageUsageDB.GetDailyTotal(ctx, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, res)
@@ -83,13 +83,13 @@ func TestStorageUsage(t *testing.T) {
 			}
 		})
 
-		t.Run("test summary satellite", func(t *testing.T) {
+		t.Run("summary satellite", func(t *testing.T) {
 			summ, err := storageUsageDB.SatelliteSummary(ctx, satelliteID, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, summary[satelliteID], summ)
 		})
 
-		t.Run("test summary", func(t *testing.T) {
+		t.Run("summary", func(t *testing.T) {
 			summ, err := storageUsageDB.Summary(ctx, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, totalSummary, summ)
@@ -104,25 +104,25 @@ func TestEmptyStorageUsage(t *testing.T) {
 
 		storageUsageDB := db.StorageUsage()
 
-		t.Run("test get daily", func(t *testing.T) {
+		t.Run("get daily", func(t *testing.T) {
 			res, err := storageUsageDB.GetDaily(ctx, storj.NodeID{}, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Nil(t, res)
 		})
 
-		t.Run("test get daily total", func(t *testing.T) {
+		t.Run("get daily total", func(t *testing.T) {
 			res, err := storageUsageDB.GetDailyTotal(ctx, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Nil(t, res)
 		})
 
-		t.Run("test summary satellite", func(t *testing.T) {
+		t.Run("summary satellite", func(t *testing.T) {
 			summ, err := storageUsageDB.SatelliteSummary(ctx, storj.NodeID{}, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, emptySummary, summ)
 		})
 
-		t.Run("test summary", func(t *testing.T) {
+		t.Run("summary", func(t *testing.T) {
 			summ, err := storageUsageDB.Summary(ctx, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, emptySummary, summ)
