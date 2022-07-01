@@ -72,14 +72,11 @@ export default class BillingHistoryHeader extends Vue {
         &__name-item,
         &__status-item {
             padding-bottom: 13px;
-            font-family: 'Inter';
+            font-family: 'font_medium', 'sans-serif';
             font-style: normal;
             font-weight: 500;
             font-size: 12px;
             line-height: 16px;
-
-            /* identical to box height, or 133% */
-
             letter-spacing: 0.05em;
             text-transform: uppercase;
             color: #6b7280;
@@ -92,14 +89,11 @@ export default class BillingHistoryHeader extends Vue {
 
         &__amount-item {
             padding-bottom: 13px;
-            font-family: 'Inter';
+            font-family: 'font_medium', 'sans-serif';
             font-style: normal;
             font-weight: 500;
             font-size: 12px;
             line-height: 16px;
-
-            /* identical to box height, or 133% */
-
             letter-spacing: 0.05em;
             text-transform: uppercase;
             color: #6b7280;
@@ -112,22 +106,18 @@ export default class BillingHistoryHeader extends Vue {
 
         &__download-item {
             padding-bottom: 13px;
-            font-family: 'font_regular', 'Inter';
+            font-family: 'font_medium', 'Inter';
             font-style: normal;
             font-weight: 500;
             font-size: 12px;
             line-height: 16px;
-            margin-left: 53px;
-
-            /* identical to box height, or 133% */
-
+            margin-left: 0 0 0 53px;
             letter-spacing: 0.05em;
             text-transform: uppercase;
             color: #6b7280;
             width: 24%;
             display: flex;
             align-items: center;
-            margin: 0;
             cursor: pointer;
 
             &__title {
@@ -137,14 +127,11 @@ export default class BillingHistoryHeader extends Vue {
 
         &__date-item {
             padding-bottom: 13px;
-            font-family: 'Inter';
+            font-family: 'font_medium', 'sans-serif';
             font-style: normal;
             font-weight: 500;
             font-size: 12px;
             line-height: 16px;
-
-            /* identical to box height, or 133% */
-
             letter-spacing: 0.05em;
             text-transform: uppercase;
             color: #6b7280;

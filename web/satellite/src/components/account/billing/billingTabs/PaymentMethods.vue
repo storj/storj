@@ -20,6 +20,3 @@ export default class BillingArea extends Vue {
 
 }
 </script>
-
-<style scoped lang="scss">
-</style>
