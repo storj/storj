@@ -124,7 +124,7 @@ export default class BillingHistoryShape extends Vue {
     }
 
     .name_status {
-        font-family: 'font_bold', 'sans-serif';
+        font-family: 'font_bold', sans-serif;
         font-style: normal;
         font-weight: 400;
         font-size: 14px;
@@ -137,7 +137,7 @@ export default class BillingHistoryShape extends Vue {
     }
 
     .name_amount {
-        font-family: 'font_bold', 'sans-serif';
+        font-family: 'font_bold', sans-serif;
         font-style: normal;
         font-weight: 400;
         font-size: 14px;
