@@ -29,7 +29,7 @@ import { PaymentsHistoryItem } from '@/types/payments';
 
 export default class BillingArea extends Vue {
     public get historyItems(): PaymentsHistoryItem[] {
-        return this.$store.state.paymentsModule.paymentsHistorly;
+        return this.$store.state.paymentsModule.paymentsHistory;
     }
 
     public get billingHistoryStructure() {
