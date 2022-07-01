@@ -5,6 +5,7 @@ package contact
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -68,10 +69,14 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, errCheckInIdentity.New("failed to add peer identity entry for ID: %v", err).Error())
 	}
 
-	resolvedIPPort, resolvedNetwork, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
+	resolvedIP, port, resolvedNetwork, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
 		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
+	}
+	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || isPrivateIP(resolvedIP)) {
+		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
 	}
 
 	nodeurl := storj.NodeURL{
@@ -102,7 +107,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 		},
 		LastNet:    resolvedNetwork,
-		LastIPPort: resolvedIPPort,
+		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),
 		IsUp:       pingNodeSuccess,
 		Capacity:   req.Capacity,
 		Operator:   req.Operator,
@@ -157,6 +162,16 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 		Address: req.Address,
 	}
 
+	resolvedIP, _, _, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
+	if err != nil {
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
+	}
+	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || isPrivateIP(resolvedIP)) {
+		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
+	}
+
 	if endpoint.service.timeout > 0 {
 		var cancel func()
 		ctx, cancel = context.WithTimeout(ctx, endpoint.service.timeout)
@@ -198,4 +213,26 @@ func (endpoint *Endpoint) checkPingRPCErr(err error, nodeURL storj.NodeURL) erro
 	}
 	err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeURL.ID, nodeURL.Address, err)
 	return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+}
+
+// isPrivateIP is copied Go 1.17's net.IP.IsPrivate. We copied it to ensure we
+// can compile for the Go version earlier than 1.17.
+//
+// TODO(artur): Swap isPrivateIP usages with net.IP.IsPrivate when we no longer
+// need to build for earlier than Go 1.17. Keep this in sync with stdlib until.
+func isPrivateIP(ip net.IP) bool {
+	if ip4 := ip.To4(); ip4 != nil {
+		// Following RFC 1918, Section 3. Private Address Space which says:
+		//   The Internet Assigned Numbers Authority (IANA) has reserved the
+		//   following three blocks of the IP address space for private internets:
+		//     10.0.0.0        -   10.255.255.255  (10/8 prefix)
+		//     172.16.0.0      -   172.31.255.255  (172.16/12 prefix)
+		//     192.168.0.0     -   192.168.255.255 (192.168/16 prefix)
+		return ip4[0] == 10 ||
+			(ip4[0] == 172 && ip4[1]&0xf0 == 16) ||
+			(ip4[0] == 192 && ip4[1] == 168)
+	}
+	// Following RFC 4193, Section 8. IANA Considerations which says:
+	//   The IANA has assigned the FC00::/7 prefix to "Unique Local Unicast".
+	return len(ip) == net.IPv6len && ip[0]&0xfe == 0xfc
 }

@@ -6,68 +6,41 @@
         <div v-if="isLoading" class="loading-overlay active">
             <LoaderImage class="loading-icon" />
         </div>
-        <div v-if="!isLoading" class="dashboard__wrap">
-            <template v-if="!isNewNavStructure">
-                <BetaSatBar v-if="isBetaSatellite" />
-                <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
-                <ProjectInfoBar v-if="isProjectListPage" />
-                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-            </template>
-            <template v-if="isNewNavStructure">
-                <div class="dashboard__wrap__new-main-area">
-                    <NewNavigationArea v-if="!isNavigationHidden" />
-                    <div
-                        class="dashboard__wrap__new-main-area__content-wrap"
-                        :class="{
-                            'with-one-bar': amountOfInfoBars === 1,
-                            'with-two-bars': amountOfInfoBars === 2,
-                            'with-three-bars': amountOfInfoBars === 3,
-                            'with-four-bars': amountOfInfoBars === 4,
-                        }"
-                    >
-                        <BetaSatBar v-if="isBetaSatellite" />
-                        <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
-                        <ProjectInfoBar v-if="isProjectListPage" />
-                        <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-                        <router-view class="dashboard__wrap__new-main-area__content-wrap__content" />
-                    </div>
-                </div>
-            </template>
-            <template v-else>
-                <DashboardHeader />
+        <div v-else class="dashboard__wrap">
+            <div class="dashboard__wrap__main-area">
+                <NavigationArea v-if="!isNavigationHidden" />
                 <div
-                    class="dashboard__wrap__main-area"
+                    class="dashboard__wrap__main-area__content-wrap"
                     :class="{
-                        'with-one-bar-old': amountOfInfoBars === 1,
-                        'with-two-bars-old': amountOfInfoBars === 2,
-                        'with-three-bars-old': amountOfInfoBars === 3,
-                        'with-four-bars-old': amountOfInfoBars === 4,
+                        'with-one-bar': amountOfInfoBars === 1,
+                        'with-two-bars': amountOfInfoBars === 2,
+                        'with-three-bars': amountOfInfoBars === 3,
+                        'with-four-bars': amountOfInfoBars === 4,
+                        'no-nav': isNavigationHidden,
                     }"
                 >
-                    <NavigationArea class="regular-navigation" />
-                    <router-view class="dashboard__wrap__main-area__content" />
+                    <BetaSatBar v-if="isBetaSatellite" />
+                    <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
+                    <ProjectInfoBar v-if="isProjectListPage" />
+                    <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                    <router-view class="dashboard__wrap__main-area__content-wrap__content" />
                 </div>
-            </template>
+            </div>
         </div>
-        <!-- TODO: put all the modals to one single wrapper component and move out all the logic from here -->
-        <CreateProjectPromptModal v-if="isCreateProjectPromptModal" :on-close="toggleCreateProjectPromptModal" />
-        <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal" />
         <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
+        <AllModals />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import AddPaymentMethodModal from '@/components/account/billing/paidTier/AddPaymentMethodModal.vue';
-import CreateProjectPromptModal from "@/components/account/billing/paidTier/CreateProjectPromptModal.vue";
+import AllModals from "@/components/modals/AllModals.vue";
 import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
-import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import NewNavigationArea from '@/components/navigation/newNavigationStructure/NewNavigationArea.vue';
 import ProjectInfoBar from "@/components/infoBars/ProjectInfoBar.vue";
 
 import LoaderImage from '@/../static/images/common/loader.svg';
@@ -75,7 +48,7 @@ import LoaderImage from '@/../static/images/common/loader.svg';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
@@ -89,6 +62,8 @@ import { User } from "@/types/users";
 import { AuthHttpApi } from "@/api/auth";
 import { MetaUtils } from "@/utils/meta";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 const {
     SETUP_ACCOUNT,
     GET_CREDIT_CARDS,
@@ -97,17 +72,14 @@ const {
 // @vue/component
 @Component({
     components: {
-        CreateProjectPromptModal,
+        AllModals,
         NavigationArea,
-        NewNavigationArea,
-        DashboardHeader,
         LoaderImage,
         PaidTierBar,
         MFARecoveryCodeBar,
         BetaSatBar,
         ProjectInfoBar,
         MFARecoveryCodesPopup,
-        AddPaymentMethodModal,
     },
 })
 export default class DashboardArea extends Vue {
@@ -119,6 +91,8 @@ export default class DashboardArea extends Vue {
     public recoveryCodeWarningThreshold = 4;
 
     public isMFACodesPopup = false;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -177,6 +151,7 @@ export default class DashboardArea extends Vue {
             try {
                 await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
 
+                this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
                 await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
@@ -208,14 +183,7 @@ export default class DashboardArea extends Vue {
      * Opens add payment method modal.
      */
     public togglePMModal(): void {
-        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
-    }
-
-    /**
-     * Toggles create project prompt modal.
-     */
-    public toggleCreateProjectPromptModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
     }
 
     /**
@@ -275,20 +243,6 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Indicates if add payment method modal is shown.
-     */
-    public get isAddPMModal(): boolean {
-        return this.$store.state.paymentsModule.isAddPMModalShown;
-    }
-
-    /**
-     * Indicates if create project prompt modal is shown.
-     */
-    public get isCreateProjectPromptModal(): boolean {
-        return this.$store.state.appStateModule.appState.isCreateProjectPromptModalShown;
-    }
-
-    /**
      * Returns credit cards from store.
      */
     public get creditCards(): CreditCard[] {
@@ -320,19 +274,12 @@ export default class DashboardArea extends Vue {
      * Indicates whether the MFA recovery code warning bar should be shown.
      */
     public get showMFARecoveryCodeBar(): boolean {
-        const user : User = this.$store.getters.user;
+        const user: User = this.$store.getters.user;
         return user.isMFAEnabled && user.mfaRecoveryCodeCount < this.recoveryCodeWarningThreshold;
     }
 
     /**
-     * Indicates if new navigation structure is used.
-     */
-    public get isNewNavStructure(): boolean {
-        return this.$store.state.appStateModule.isNewNavStructure;
-    }
-
-    /**
-     * Indicates if navigation side bar is hidden.
+     * Indicates if navigation sidebar is hidden.
      */
     public get isNavigationHidden(): boolean {
         return this.isOnboardingTour || this.isCreateProjectPage;
@@ -363,6 +310,7 @@ export default class DashboardArea extends Vue {
             this.resetActivityEvents.forEach((eventName: string) => {
                 document.removeEventListener(eventName, this.resetInactivityTimer);
             });
+            this.analytics.pageVisit(RouteConfig.Login.path);
             await this.$router.push(RouteConfig.Login.path);
             await this.$notify.notify('Your session was timed out.');
         } catch (error) {
@@ -434,22 +382,11 @@ export default class DashboardArea extends Vue {
 
             &__main-area {
                 display: flex;
-                height: calc(100% - 62px);
-
-                &__content {
-                    overflow-y: auto;
-                    width: 100%;
-                    position: relative;
-                }
-            }
-
-            &__new-main-area {
-                display: flex;
                 width: 100%;
                 height: 100%;
 
                 &__content-wrap {
-                    width: 100%;
+                    width: calc(100% - 280px);
 
                     &__content {
                         overflow-y: auto;
@@ -475,26 +412,22 @@ export default class DashboardArea extends Vue {
         height: calc(100% - 104px);
     }
 
-    .with-one-bar-old {
-        height: calc(100% - 62px - 26px);
-    }
-
-    .with-two-bars-old {
-        height: calc(100% - 62px - 52px);
-    }
-
-    .with-three-bars-old {
-        height: calc(100% - 62px - 78px);
-    }
-
-    .with-four-bars-old {
-        height: calc(100% - 62px - 104px);
+    .no-nav {
+        width: 100%;
     }
 
     @media screen and (max-width: 1280px) {
 
         .regular-navigation {
             display: none;
+        }
+
+        .dashboard__wrap__main-area__content-wrap {
+            width: calc(100% - 86px);
+        }
+
+        .no-nav {
+            width: 100%;
         }
     }
 </style>

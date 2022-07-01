@@ -134,6 +134,8 @@ import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vu
 
 import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
 
+import { AnalyticsHttpApi } from "@/api/analytics";
+
 // @vue/component
 @Component({
     components: {
@@ -144,10 +146,14 @@ import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
     }
 })
 export default class CLIInstall extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
     }
 
@@ -155,6 +161,7 @@ export default class CLIInstall extends Vue {
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
     }
 }

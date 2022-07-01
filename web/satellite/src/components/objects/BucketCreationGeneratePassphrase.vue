@@ -67,7 +67,7 @@
                 />
             </div>
             <div v-else class="encrypt-container__functional__enter">
-                <headerless-input
+                <v-input
                     label="Your Passphrase"
                     placeholder="Enter a passphrase here..."
                     :error="enterError"
@@ -120,7 +120,7 @@ import { generateMnemonic } from "bip39";
 import { Download } from "@/utils/download";
 
 import VButton from '@/components/common/VButton.vue';
-import HeaderlessInput from "@/components/common/HeaderlessInput.vue";
+import VInput from "@/components/common/VInput.vue";
 import VCheckbox from "@/components/common/VCheckbox.vue";
 
 import BucketIcon from "@/../static/images/objects/bucketCreation.svg";
@@ -140,7 +140,7 @@ enum GenerationSteps {
         KeyIcon,
         FingerprintIcon,
         VButton,
-        HeaderlessInput,
+        VInput,
         VCheckbox,
     },
 })

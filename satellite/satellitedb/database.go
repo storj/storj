@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/queue"
@@ -265,6 +266,11 @@ func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
 	return &stripeCoinPaymentsDB{db: dbc.getByName("stripecoinpayments")}
 }
 
+// Billing returns database for billing and payment transactions.
+func (dbc *satelliteDBCollection) Billing() billing.TransactionsDB {
+	return &billingDB{db: dbc.getByName("billing")}
+}
+
 // Wallets returns database for storjscan wallets.
 func (dbc *satelliteDBCollection) Wallets() storjscan.WalletsDB {
 	return &storjscanWalletsDB{db: dbc.getByName("storjscan")}
@@ -288,6 +294,11 @@ func (dbc *satelliteDBCollection) NodeAPIVersion() nodeapiversion.DB {
 // Buckets returns database for interacting with buckets.
 func (dbc *satelliteDBCollection) Buckets() buckets.DB {
 	return &bucketsDB{db: dbc.getByName("buckets")}
+}
+
+// StorjscanPayments returns database for storjscan payments.
+func (dbc *satelliteDBCollection) StorjscanPayments() storjscan.PaymentsDB {
+	return &storjscanPayments{db: dbc.getByName("storjscan_payments")}
 }
 
 // CheckVersion confirms all databases are at the desired version.

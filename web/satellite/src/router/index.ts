@@ -57,6 +57,7 @@ import BucketCreation from "@/components/objects/BucketCreation.vue";
 
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from "@/utils/meta";
+import BucketDetails from "@/components/objects/BucketDetails.vue";
 
 const ActivateAccount = () => import('@/views/ActivateAccount.vue');
 const AuthorizeArea = () => import('@/views/AuthorizeArea.vue');
@@ -82,8 +83,8 @@ export abstract class RouteConfig {
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Authorize = new NavigationLink('/oauth/v2/authorize', 'Authorize')
     public static Account = new NavigationLink('/account', 'Account');
-    public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
-    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', 'Dashboard ');
+    public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Project Overview');
+    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', ' Project Overview');
     public static Users = new NavigationLink('/project-members', 'Users');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
@@ -132,6 +133,7 @@ export abstract class RouteConfig {
     // objects child paths.
     public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
+    public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
     public static BucketCreation = new NavigationLink('creation', 'Bucket Creation')
@@ -443,6 +445,12 @@ export const router = new Router({
                             path: RouteConfig.BucketsManagement.path,
                             name: RouteConfig.BucketsManagement.name,
                             component: BucketsView,
+                            props: true,
+                        },
+                        {
+                            path: RouteConfig.BucketsDetails.path,
+                            name: RouteConfig.BucketsDetails.name,
+                            component: BucketDetails,
                             props: true,
                         },
                         {

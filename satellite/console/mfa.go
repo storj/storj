@@ -86,12 +86,12 @@ func NewMFASecretKey() (string, error) {
 func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := s.getAuthAndAuditLog(ctx, "enable MFA")
+	user, err := s.getUserAndAuditLog(ctx, "enable MFA")
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	valid, err := ValidateMFAPasscode(passcode, auth.User.MFASecretKey, t)
+	valid, err := ValidateMFAPasscode(passcode, user.MFASecretKey, t)
 	if err != nil {
 		return ErrValidation.Wrap(ErrMFAPasscode.Wrap(err))
 	}
@@ -99,8 +99,10 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 		return ErrValidation.Wrap(ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg))
 	}
 
-	auth.User.MFAEnabled = true
-	err = s.store.Users().Update(ctx, &auth.User)
+	user.MFAEnabled = true
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		MFAEnabled: &user.MFAEnabled,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -112,12 +114,10 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Time, recoveryCode string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := s.getAuthAndAuditLog(ctx, "disable MFA")
+	user, err := s.getUserAndAuditLog(ctx, "disable MFA")
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	user := &auth.User
 
 	if !user.MFAEnabled {
 		return nil
@@ -139,7 +139,7 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 			return ErrUnauthorized.Wrap(ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg))
 		}
 	} else if passcode != "" {
-		valid, err := ValidateMFAPasscode(passcode, auth.User.MFASecretKey, t)
+		valid, err := ValidateMFAPasscode(passcode, user.MFASecretKey, t)
 		if err != nil {
 			return ErrValidation.Wrap(ErrMFAPasscode.Wrap(err))
 		}
@@ -150,10 +150,17 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 		return ErrMFAMissing.New(mfaRequiredErrMsg)
 	}
 
-	auth.User.MFAEnabled = false
-	auth.User.MFASecretKey = ""
-	auth.User.MFARecoveryCodes = nil
-	err = s.store.Users().Update(ctx, &auth.User)
+	user.MFAEnabled = false
+	user.MFASecretKey = ""
+	user.MFARecoveryCodes = nil
+
+	secretKeyPtr := &user.MFASecretKey
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		MFAEnabled:       &user.MFAEnabled,
+		MFASecretKey:     &secretKeyPtr,
+		MFARecoveryCodes: &user.MFARecoveryCodes,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -185,7 +192,7 @@ func NewMFARecoveryCode() (string, error) {
 func (s *Service) ResetMFASecretKey(ctx context.Context) (key string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := s.getAuthAndAuditLog(ctx, "reset MFA secret key")
+	user, err := s.getUserAndAuditLog(ctx, "reset MFA secret key")
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
@@ -195,8 +202,12 @@ func (s *Service) ResetMFASecretKey(ctx context.Context) (key string, err error)
 		return "", Error.Wrap(err)
 	}
 
-	auth.User.MFASecretKey = key
-	err = s.store.Users().Update(ctx, &auth.User)
+	user.MFASecretKey = key
+	mfaSecretKeyPtr := &user.MFASecretKey
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		MFASecretKey: &mfaSecretKeyPtr,
+	})
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
@@ -208,12 +219,12 @@ func (s *Service) ResetMFASecretKey(ctx context.Context) (key string, err error)
 func (s *Service) ResetMFARecoveryCodes(ctx context.Context) (codes []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := s.getAuthAndAuditLog(ctx, "reset MFA recovery codes")
+	user, err := s.getUserAndAuditLog(ctx, "reset MFA recovery codes")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	if !auth.User.MFAEnabled {
+	if !user.MFAEnabled {
 		return nil, ErrUnauthorized.New(mfaRecoveryGenerationErrMsg)
 	}
 
@@ -225,9 +236,10 @@ func (s *Service) ResetMFARecoveryCodes(ctx context.Context) (codes []string, er
 		}
 		codes[i] = code
 	}
-	auth.User.MFARecoveryCodes = codes
 
-	err = s.store.Users().Update(ctx, &auth.User)
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		MFARecoveryCodes: &codes,
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

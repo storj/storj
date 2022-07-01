@@ -27,7 +27,7 @@ type Config struct {
 	FirstVerificationReminder  time.Duration `help:"amount of time before sending first reminder to users who need to verify their email" default:"24h"`
 	SecondVerificationReminder time.Duration `help:"amount of time before sending second reminder to users who need to verify their email" default:"120h"`
 	ChoreInterval              time.Duration `help:"how often to send reminders to users who need to verify their email" default:"24h"`
-	Enable                     bool          `help:"enable sending emails reminding users to verify their email" default:"true"`
+	Enable                     bool          `help:"enable sending emails reminding users to verify their email" releaseDefault:"false" devDefault:"true"`
 }
 
 // Chore checks whether any emails need to be re-sent.
@@ -69,7 +69,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
 		now := time.Now()
-		users, err := chore.usersDB.GetUnverifiedNeedingReminder(ctx, now.Add(-chore.config.FirstVerificationReminder), now.Add(-chore.config.SecondVerificationReminder))
+
+		// cutoff to avoid emailing users multiple times due to email duplicates in the DB.
+		// TODO: remove cutoff once duplicates are removed.
+		cutoff := now.Add(30 * (-24 * time.Hour))
+
+		users, err := chore.usersDB.GetUnverifiedNeedingReminder(ctx, now.Add(-chore.config.FirstVerificationReminder), now.Add(-chore.config.SecondVerificationReminder), cutoff)
 		if err != nil {
 			chore.log.Error("error getting users in need of reminder", zap.Error(err))
 			return nil

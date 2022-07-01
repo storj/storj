@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-billing-area">
-        <div v-if="!isNewBillingScreen">
+        <div v-if="isNewBillingScreen">
             <div class="account-billing-area__header">
                 <div 
                     :class="`account-billing-area__header__tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
@@ -33,7 +33,7 @@
             <div class="account-billing-area__divider" />
             <router-view />
         </div>
-        <div v-if="isNewBillingScreen">
+        <div v-if="!isNewBillingScreen">
             <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
                 <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
                     <NegativeBalanceIcon />
@@ -51,7 +51,6 @@
             </div>
             <div v-if="userHasOwnProject" class="account-billing-area__title-area" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
                 <div class="account-billing-area__title-area__balance-area">
-                    TESTSTSTSTSTSSTSTSTST
                     <div class="account-billing-area__title-area__balance-area__free-credits">
                         <p class="account-billing-area__title-area__balance-area__free-credits__label">Free Credits:</p>
                         <VLoader v-if="isBalanceFetching" width="20px" height="20px" />

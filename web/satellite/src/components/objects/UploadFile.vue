@@ -67,6 +67,7 @@ export default class UploadFile extends Vue {
      * Redirects to buckets list view.
      */
     public goToBuckets(): void {
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
         this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     }
 

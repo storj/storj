@@ -212,18 +212,12 @@ export default class SNOHeader extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .svg {
-
-        path {
-            fill: var(--node-id-copy-icon-color);
-        }
+    .svg ::v-deep path {
+        fill: var(--node-id-copy-icon-color);
     }
 
-    .storj-logo {
-
-        path {
-            fill: var(--icon-color) !important;
-        }
+    .storj-logo ::v-deep path {
+        fill: var(--icon-color) !important;
     }
 
     .settings-icon {
@@ -233,11 +227,8 @@ export default class SNOHeader extends Vue {
         }
     }
 
-    .notifications-bell-icon {
-
-        path {
-            fill: var(--regular-icon-color) !important;
-        }
+    .notifications-bell-icon ::v-deep path {
+        fill: var(--regular-icon-color) !important;
     }
 
     .header {
@@ -329,11 +320,8 @@ export default class SNOHeader extends Vue {
                         border-color: var(--node-id-border-hover-color);
                         color: var(--node-id-hover-text-color);
 
-                        .svg {
-
-                            path {
-                                fill: var(--node-id-border-hover-color) !important;
-                            }
+                        .svg ::v-deep path {
+                            fill: var(--node-id-border-hover-color) !important;
                         }
                     }
                 }

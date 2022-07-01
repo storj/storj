@@ -175,9 +175,10 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PROJECTS_ACTIONS } from "@/store/modules/projects";
-import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from "@/store/modules/payments";
+import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 import { RouteConfig } from "@/router";
 import { DataStamp, ProjectLimits } from "@/types/projects";
 import { Dimensions, Size } from "@/utils/bytesSize";
@@ -194,6 +195,8 @@ import BucketArea from '@/components/project/buckets/BucketArea.vue';
 
 import NewProjectIcon from "@/../static/images/project/newProject.svg";
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
+
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({
@@ -221,12 +224,15 @@ export default class NewProjectDashboard extends Vue {
         dashboard: HTMLDivElement;
     }
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Lifecycle hook after initial render.
      * Fetches project limits.
      */
     public async mounted(): Promise<void> {
         if (!this.$store.getters.selectedProject.id) {
+            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
             return;
@@ -281,13 +287,14 @@ export default class NewProjectDashboard extends Vue {
      * Holds on upgrade button click logic.
      */
     public onUpgradeClick(): void {
-        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
     }
 
     /**
      * Holds on create project button click logic.
      */
     public onCreateProjectClick(): void {
+        this.analytics.pageVisit(RouteConfig.CreateProject.path);
         this.$router.push(RouteConfig.CreateProject.path);
     }
 
@@ -295,6 +302,7 @@ export default class NewProjectDashboard extends Vue {
      * Holds on upload button click logic.
      */
     public onUploadClick(): void {
+        this.analytics.pageVisit(RouteConfig.Buckets.path);
         this.$router.push(RouteConfig.Buckets.path).catch(() => {return;})
     }
 
@@ -612,11 +620,8 @@ export default class NewProjectDashboard extends Vue {
             margin-right: 9px;
         }
 
-        &:hover {
-
-            svg path {
-                fill: #fff;
-            }
+        &:hover svg ::v-deep path {
+            fill: #fff;
         }
     }
 

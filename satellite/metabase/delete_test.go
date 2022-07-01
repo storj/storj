@@ -1131,19 +1131,42 @@ func TestDeleteCopy(t *testing.T) {
 					})
 					require.NoError(t, err)
 
-					remainingStreamIDs := []uuid.UUID{copyObject1.StreamID, copyObject2.StreamID}
-					uuid.SortAscending(remainingStreamIDs)
+					var expectedAncestorStreamID uuid.UUID
+					var expectedCopyStreamID uuid.UUID
 
 					var copies []metabase.RawCopy
+
 					if numberOfSegments > 0 {
+						segments, err := db.TestingAllSegments(ctx)
+						require.NoError(t, err)
+						require.NotEmpty(t, segments)
+
+						if segments[0].PiecesInAncestorSegment() {
+							if segments[0].StreamID == copyObject1.StreamID {
+								expectedCopyStreamID = copyObject1.StreamID
+								expectedAncestorStreamID = copyObject2.StreamID
+							} else {
+								expectedCopyStreamID = copyObject2.StreamID
+								expectedAncestorStreamID = copyObject1.StreamID
+							}
+
+						} else {
+
+							if segments[0].StreamID == copyObject1.StreamID {
+								expectedCopyStreamID = copyObject2.StreamID
+								expectedAncestorStreamID = copyObject1.StreamID
+							} else {
+								expectedCopyStreamID = copyObject1.StreamID
+								expectedAncestorStreamID = copyObject2.StreamID
+							}
+						}
+
 						copies = []metabase.RawCopy{
 							{
-								StreamID:         remainingStreamIDs[1],
-								AncestorStreamID: remainingStreamIDs[0],
+								StreamID:         expectedCopyStreamID,
+								AncestorStreamID: expectedAncestorStreamID,
 							}}
 					}
-
-					expectedAncestorStreamID := remainingStreamIDs[0]
 
 					// set pieces in expected ancestor for verifcation
 					for _, segments := range [][]metabase.RawSegment{copySegments1, copySegments2} {

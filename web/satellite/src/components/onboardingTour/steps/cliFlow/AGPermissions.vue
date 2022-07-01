@@ -120,6 +120,7 @@ export default class AGPermissions extends Vue {
     public async onBackClick(): Promise<void> {
         if (this.isLoading) return;
 
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
         await this.$router.push({name: RouteConfig.AGName.name})
     }
 
@@ -144,6 +145,7 @@ export default class AGPermissions extends Vue {
         }
 
         await this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE, this.$route.path)
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
         await this.$router.push({name: RouteConfig.APIKey.name});
     }
 

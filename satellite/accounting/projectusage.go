@@ -18,10 +18,8 @@ import (
 
 var mon = monkit.Package()
 
-var (
-	// ErrProjectUsage general error for project usage.
-	ErrProjectUsage = errs.Class("project usage")
-)
+// ErrProjectUsage general error for project usage.
+var ErrProjectUsage = errs.Class("project usage")
 
 // Service is handling project usage related logic.
 //
@@ -59,9 +57,10 @@ func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, lim
 func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var group errgroup.Group
-	var bandwidthGetTotal int64
-	var bandwidthUsage int64
+	var (
+		group          errgroup.Group
+		bandwidthUsage int64
+	)
 
 	group.Go(func() error {
 		var err error
@@ -79,18 +78,16 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 
 				// Get current bandwidth value from database.
 				now := usage.nowFn()
-				bandwidthGetTotal, err = usage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
+				bandwidthUsage, err = usage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
 				if err != nil {
 					return err
 				}
 
 				// Create cache key with database value.
-				err = usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, bandwidthGetTotal, usage.bandwidthCacheTTL, usage.nowFn())
+				_, err = usage.liveAccounting.InsertProjectBandwidthUsage(ctx, projectID, bandwidthUsage, usage.bandwidthCacheTTL, usage.nowFn())
 				if err != nil {
 					return err
 				}
-
-				bandwidthUsage = bandwidthGetTotal
 			}
 		}
 		return err

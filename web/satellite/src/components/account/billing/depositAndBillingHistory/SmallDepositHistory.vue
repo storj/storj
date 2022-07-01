@@ -25,6 +25,8 @@ import SortingHeader from '@/components/account/billing/depositAndBillingHistory
 import { RouteConfig } from '@/router';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -33,10 +35,13 @@ import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
     },
 })
 export default class SmallDepositHistory extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
     /**
      * Changes location to deposit history route.
      */
     public onViewAllClick(): void {
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.DepositHistory).path);
         this.$router.push(RouteConfig.Account.with(RouteConfig.DepositHistory).path);
     }
 

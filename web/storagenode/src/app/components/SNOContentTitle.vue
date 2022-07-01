@@ -181,11 +181,8 @@ export default class SNOContentTitle extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .svg {
-
-        path {
-            fill: var(--node-id-copy-icon-color);
-        }
+    .svg ::v-deep path {
+        fill: var(--node-id-copy-icon-color);
     }
 
     .title-area {
@@ -224,11 +221,8 @@ export default class SNOContentTitle extends Vue {
                 border-color: var(--node-id-border-hover-color);
                 color: var(--node-id-hover-text-color);
 
-                .svg {
-
-                    path {
-                        fill: var(--node-id-border-hover-color) !important;
-                    }
+                .svg ::v-deep path {
+                    fill: var(--node-id-border-hover-color) !important;
                 }
             }
         }

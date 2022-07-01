@@ -59,7 +59,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	query := `
 		SELECT id, address, last_net, last_ip_port, vetted_at, country_code
 			FROM nodes
-			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.DefaultInterval) + `
+			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND offline_suspended IS NULL
@@ -141,7 +141,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	query := `
 		SELECT id, address, last_net, last_ip_port
 			FROM nodes
-			` + cache.db.impl.AsOfSystemInterval(asOfConfig.DefaultInterval) + `
+			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
 			WHERE disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $1
@@ -235,9 +235,9 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *o
 }
 
 // GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs.
-func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.SelectedNode, err error) {
+func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes map[storj.NodeID]*overlay.SelectedNode, err error) {
 	for {
-		nodes, err = cache.getOnlineNodesForGetDelete(ctx, nodeIDs, onlineWindow)
+		nodes, err = cache.getOnlineNodesForGetDelete(ctx, nodeIDs, onlineWindow, asOf)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
@@ -250,13 +250,14 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 	return nodes, err
 }
 
-func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
+func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT last_net, id, address, last_ip_port
 		FROM nodes
+		`+cache.db.impl.AsOfSystemInterval(asOf.Interval())+`
 		WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL

@@ -9,7 +9,7 @@
                     <ChangePasswordIcon class="change-password-popup__form-container__svg" />
                     <h2 class="change-password-popup__form-container__main-label-text">Change Password</h2>
                 </div>
-                <HeaderlessInput
+                <VInput
                     class="full-input"
                     label="Old Password"
                     placeholder="Enter Old Password"
@@ -18,7 +18,7 @@
                     @setData="setOldPassword"
                 />
                 <div class="password-input">
-                    <HeaderlessInput
+                    <VInput
                         class="full-input"
                         label="New Password"
                         placeholder="Enter New Password"
@@ -33,7 +33,7 @@
                         :is-shown="isPasswordStrengthShown"
                     />
                 </div>
-                <HeaderlessInput
+                <VInput
                     class="full-input"
                     label="Confirm Password"
                     placeholder="Confirm Password"
@@ -67,7 +67,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VButton from '@/components/common/VButton.vue';
 
@@ -78,12 +78,15 @@ import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
         ChangePasswordIcon,
         CloseCrossIcon,
-        HeaderlessInput,
+        VInput,
         VButton,
         PasswordStrength,
     },
@@ -98,6 +101,8 @@ export default class ChangePasswordPopup extends Vue {
     private confirmationPasswordError = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Indicates if hint popup needs to be shown while creating new password.
@@ -164,6 +169,7 @@ export default class ChangePasswordPopup extends Vue {
             return;
         }
 
+        this.analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
         await this.$notify.success('Password successfully changed!');
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
     }

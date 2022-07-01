@@ -161,11 +161,8 @@ export default class SatelliteSelection extends Vue {
                     cursor: pointer;
                     color: #133e9c;
 
-                    .svg {
-
-                        path {
-                            fill: #133e9c !important;
-                        }
+                    .svg ::v-deep path {
+                        fill: #133e9c !important;
                     }
                 }
             }

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"text/tabwriter"
 	"time"
@@ -137,9 +138,9 @@ var (
 		RunE:  cmdNodeUsage,
 	}
 	partnerAttributionCmd = &cobra.Command{
-		Use:   "partner-attribution [start] [end]",
+		Use:   "partner-attribution [start] [end] [user-agent,...]",
 		Short: "Generate a partner attribution report for a given period to use for payments",
-		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
+		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive. Optionally filter using a comma-separated list of user agents.",
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdValueAttribution,
 	}
@@ -675,9 +676,14 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	var userAgents []string
+	if len(args) > 2 {
+		userAgents = strings.Split(args[2], ",")
+	}
+
 	// send output to stdout
 	if partnerAttribtionCfg.Output == "" {
-		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, os.Stdout)
+		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, os.Stdout)
 	}
 
 	// send output to file
@@ -696,7 +702,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, file)
+	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, file)
 }
 
 func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {

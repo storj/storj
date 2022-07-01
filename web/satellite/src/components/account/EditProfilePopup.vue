@@ -11,7 +11,7 @@
                     </div>
                     <h2 class="edit-profile-popup__form-container__main-label-text">Edit Profile</h2>
                 </div>
-                <HeaderedInput
+                <VInput
                     label="Full Name"
                     placeholder="Enter Full Name"
                     :error="fullNameError"
@@ -44,7 +44,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
@@ -53,11 +53,14 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
         CloseCrossIcon,
-        HeaderedInput,
+        VInput,
         VButton,
     },
 })
@@ -71,6 +74,8 @@ export default class EditProfilePopup extends Vue {
         this.userInfo.setFullName(value);
         this.fullNameError = '';
     }
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Validates name and tries to update user info and close popup.
@@ -89,6 +94,8 @@ export default class EditProfilePopup extends Vue {
 
             return;
         }
+
+        this.analytics.eventTriggered(AnalyticsEvent.PROFILE_UPDATED);
 
         await this.$notify.success('Account info successfully updated!');
 

@@ -46,7 +46,7 @@
                     />
                 </div>
                 <div v-else class="create-passphrase__container__value-area__password">
-                    <HeaderedInput
+                    <VInput
                         placeholder="Enter encryption passphrase here"
                         :error="errorMessage"
                         @setData="onChangePassphrase"
@@ -92,7 +92,7 @@ import { AnalyticsEvent } from "@/utils/constants/analyticsEventNames";
 import { AnalyticsHttpApi } from "@/api/analytics";
 
 import VButton from "@/components/common/VButton.vue";
-import HeaderedInput from "@/components/common/HeaderedInput.vue";
+import VInput from "@/components/common/VInput.vue";
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import GreenWarningIcon from '@/../static/images/accessGrants/greenWarning.svg';
@@ -103,7 +103,7 @@ import GreenWarningIcon from '@/../static/images/accessGrants/greenWarning.svg';
         BackIcon,
         GreenWarningIcon,
         VButton,
-        HeaderedInput,
+        VInput,
     },
 })
 export default class CreatePassphraseStep extends Vue {
@@ -128,6 +128,7 @@ export default class CreatePassphraseStep extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$route.params.key && !this.$route.params.restrictedKey) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
             await this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -207,6 +208,7 @@ export default class CreatePassphraseStep extends Vue {
 
         this.isLoading = false;
 
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).path);
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
             params: {
@@ -272,6 +274,7 @@ export default class CreatePassphraseStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {

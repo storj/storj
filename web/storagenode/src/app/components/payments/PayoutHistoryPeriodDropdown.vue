@@ -102,10 +102,7 @@ export default class PayoutHistoryPeriodDropdown extends Vue {
         }
     }
 
-    .arrow {
-
-        path {
-            fill: var(--period-selection-arrow-color);
-        }
+    .arrow ::v-deep path {
+        fill: var(--period-selection-arrow-color);
     }
 </style>

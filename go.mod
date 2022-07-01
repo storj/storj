@@ -53,8 +53,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	storj.io/common v0.0.0-20220518091716-ec9c16f58d50
 	storj.io/drpc v0.0.30
-	storj.io/monkit-jaeger v0.0.0-20220131130547-dc4cb5a0d97a
-	storj.io/private v0.0.0-20220512110458-f0ade82ff3db
+	storj.io/monkit-jaeger v0.0.0-20220614151325-3ae4cae696b8
+	storj.io/private v0.0.0-20220614154538-e18b72a55f43
 	storj.io/uplink v1.8.2-0.20220406151905-7305e5b6da85
 )
 

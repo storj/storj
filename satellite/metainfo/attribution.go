@@ -23,17 +23,17 @@ import (
 // MaxUserAgentLength is the maximum allowable length of the User Agent.
 const MaxUserAgentLength = 500
 
-// ensureAttribution ensures that the bucketName has the partner information specified by keyInfo partner ID or the header user agent.
+// ensureAttribution ensures that the bucketName has the partner information specified by project-level user agent, header user agent, or keyInfo partner ID.
 // PartnerID from keyInfo is a value associated with registered user and prevails over header user agent.
 //
 // Assumes that the user has permissions sufficient for authenticating.
-func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName []byte) (err error) {
+func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName, projectUserAgent []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if header == nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
 	}
-	if len(header.UserAgent) == 0 && keyInfo.PartnerID.IsZero() && keyInfo.UserAgent == nil {
+	if keyInfo.PartnerID.IsZero() && len(header.UserAgent) == 0 && len(keyInfo.UserAgent) == 0 && len(projectUserAgent) == 0 {
 		return nil
 	}
 
@@ -49,13 +49,14 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 
 	partnerID := keyInfo.PartnerID
 	userAgent := keyInfo.UserAgent
+	if len(projectUserAgent) > 0 {
+		userAgent = projectUserAgent
+	}
+
 	// first check keyInfo (user) attribution
 	if partnerID.IsZero() && userAgent == nil {
 		// otherwise, use header (partner tool) as attribution
 		userAgent = header.UserAgent
-		if userAgent == nil {
-			return nil
-		}
 	}
 
 	userAgent, err = TrimUserAgent(userAgent)

@@ -99,8 +99,8 @@ func TestApplyAudit(t *testing.T) {
 
 		expectedAuditAlpha := config.AuditLambda*auditAlpha + config.AuditWeight
 		expectedAuditBeta := config.AuditLambda * auditBeta
-		require.EqualValues(t, stats.AuditReputationAlpha, expectedAuditAlpha)
-		require.EqualValues(t, stats.AuditReputationBeta, expectedAuditBeta)
+		require.InDelta(t, stats.AuditReputationAlpha, expectedAuditAlpha, 1e-8)
+		require.InDelta(t, stats.AuditReputationBeta, expectedAuditBeta, 1e-8)
 
 		auditAlpha = expectedAuditAlpha
 		auditBeta = expectedAuditBeta
@@ -113,8 +113,8 @@ func TestApplyAudit(t *testing.T) {
 
 		expectedAuditAlpha = config.AuditLambda * auditAlpha
 		expectedAuditBeta = config.AuditLambda*auditBeta + config.AuditWeight
-		require.EqualValues(t, stats.AuditReputationAlpha, expectedAuditAlpha)
-		require.EqualValues(t, stats.AuditReputationBeta, expectedAuditBeta)
+		require.InDelta(t, stats.AuditReputationAlpha, expectedAuditAlpha, 1e-8)
+		require.InDelta(t, stats.AuditReputationBeta, expectedAuditBeta, 1e-8)
 
 	})
 }
@@ -131,8 +131,8 @@ func TestGet(t *testing.T) {
 		node, err := service.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.Zero(t, node.TotalAuditCount)
-		require.EqualValues(t, 1, node.AuditReputationAlpha)
-		require.EqualValues(t, 1, node.UnknownAuditReputationAlpha)
+		require.InDelta(t, 1, node.AuditReputationAlpha, 1e-8)
+		require.InDelta(t, 1, node.UnknownAuditReputationAlpha, 1e-8)
 		require.EqualValues(t, 1, node.OnlineScore)
 
 		// if a node has no entry in reputation store, it should have default
@@ -140,8 +140,8 @@ func TestGet(t *testing.T) {
 		newNode, err := service.Get(ctx, testrand.NodeID())
 		require.NoError(t, err)
 		require.Zero(t, newNode.TotalAuditCount)
-		require.EqualValues(t, 1, newNode.AuditReputationAlpha)
-		require.EqualValues(t, 1, newNode.UnknownAuditReputationAlpha)
+		require.InDelta(t, 1, newNode.AuditReputationAlpha, 1e-8)
+		require.InDelta(t, 1, newNode.UnknownAuditReputationAlpha, 1e-8)
 		require.EqualValues(t, 1, newNode.OnlineScore)
 	})
 }

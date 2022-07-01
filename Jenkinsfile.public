@@ -31,14 +31,10 @@ pipeline {
 
                 // download dependencies
                 sh 'go mod download'
-                sh 'cd testsuite && go mod download'
+                sh 'cd testsuite/ui && go mod download'
 
                 // pre-check that we cannot do at a later stage reliably
                 sh 'check-large-files'
-
-                // add a stub go.mod file to node projects to prevent go build ./... from scanning them
-                sh 'mkdir -p web/satellite/node_modules web/storagenode/node_modules web/multinode/node_modules'
-                sh 'touch web/satellite/node_modules/go.mod web/storagenode/node_modules/go.mod web/multinode/node_modules/go.mod'
             }
         }
         stage('Build Web') {
@@ -47,7 +43,7 @@ pipeline {
                 stage('web/satellite') {
                     steps {
                         dir('web/satellite') {
-                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm install --prefer-offline --no-audit --loglevel timing'
                             sh './scripts/build-wasm.sh'
                             sh 'npm run build'
                         }
@@ -56,7 +52,7 @@ pipeline {
                 stage('web/storagenode') {
                     steps {
                         dir('web/storagenode') {
-                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm install --prefer-offline --no-audit --loglevel timing'
                             sh 'npm run build'
                         }
                     }
@@ -64,7 +60,7 @@ pipeline {
                 stage('web/multinode') {
                     steps {
                         dir('web/multinode') {
-                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm install --prefer-offline --no-audit --loglevel timing'
                             sh 'npm run build'
                         }
                     }
@@ -72,7 +68,7 @@ pipeline {
                 stage('satellite/admin/ui') {
                     steps {
                         dir('satellite/admin/ui') {
-                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm install --prefer-offline --no-audit --loglevel timing'
                             sh 'npm run build'
                         }
                     }
@@ -143,7 +139,7 @@ pipeline {
 
                         sh 'protolock status'
 
-                        dir("testsuite") {
+                        dir("testsuite/ui") {
                             sh 'check-imports ./...'
                             sh 'check-atomic-align ./...'
                             sh 'check-monkit ./...'
@@ -386,7 +382,7 @@ pipeline {
             steps {
                 sh 'psql -U postgres -c \'create database testui;\''
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'cd testsuite && go test -parallel 1 -p 1 -short -vet=off -timeout 5m -json -race ./... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
+                    sh 'cd testsuite/ui && go test -parallel 1 -p 1 -short -vet=off -timeout 5m -json -race ./... 2>&1 | tee ../../.build/ui-tests.json | xunit -out ../../.build/ui-tests.xml'
                 }
             }
             post {
