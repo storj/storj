@@ -65,7 +65,6 @@ type Config struct {
 	Watch           bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
-	// TODO: remove after Vanguard release
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
