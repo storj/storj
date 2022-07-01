@@ -106,7 +106,7 @@ export default class BillingHistoryHeader extends Vue {
 
         &__download-item {
             padding-bottom: 13px;
-            font-family: 'font_medium', Inter;
+            font-family: 'font_medium', sans-serif;
             font-style: normal;
             font-weight: 500;
             font-size: 12px;
