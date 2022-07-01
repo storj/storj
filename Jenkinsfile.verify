@@ -99,7 +99,7 @@ pipeline {
                     }
                     steps {
                         dir('web/satellite') {
-                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm install --prefer-offline --no-audit --loglevel timing'
                             sh './scripts/build-wasm.sh'
                             sh 'npm run build'
 
@@ -122,7 +122,7 @@ pipeline {
                     }
                     steps {
                         dir("web/storagenode") {
-                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm install --prefer-offline --no-audit --loglevel timing'
                             sh 'npm run build'
                             sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
@@ -137,7 +137,7 @@ pipeline {
                     }
                     steps {
                         dir("web/multinode") {
-                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm install --prefer-offline --no-audit --loglevel timing'
                             sh 'npm run build'
                             sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
@@ -152,7 +152,7 @@ pipeline {
                     }
                     steps {
                         dir("satellite/admin/ui") {
-                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm install --prefer-offline --no-audit --loglevel timing'
                             sh 'npm run build'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run check'
