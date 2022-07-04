@@ -526,9 +526,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
 
-# whether segment limit validation is enabled.
-# metainfo.project-limits.validate-segment-limit: true
-
 # number of projects to cache.
 # metainfo.rate-limiter.cache-capacity: 10000
 
