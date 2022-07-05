@@ -265,7 +265,22 @@ var updateSegmentsWithAncestor = `
 // Result will contain only those segments which needs to be deleted
 // from storage nodes. If object is an ancestor for copied object its
 // segments pieces cannot be deleted because copy still needs it.
-func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+func (db *DB) DeleteObjectExactVersion(
+	ctx context.Context, opts DeleteObjectExactVersion,
+) (result DeleteObjectResult, err error) {
+	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		result, err = db.deleteObjectExactVersion(ctx, opts, tx)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	return result, err
+}
+
+// implementation of DB.DeleteObjectExactVersion for re-use internally in metabase package.
+func (db *DB) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion, tx tagsql.Tx) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
@@ -273,10 +288,30 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	}
 
 	if db.config.ServerSideCopy {
-		result, err = db.deleteObjectExactVersionServerSideCopy(ctx, opts)
+		objects, err := db.deleteObjectExactVersionServerSideCopy(ctx, opts, tx)
+		if err != nil {
+			return DeleteObjectResult{}, err
+		}
+
+		for _, object := range objects {
+			result.Objects = append(result.Objects, object.Object)
+
+			// if object is ancestor for copied object we cannot delete its
+			// segments pieces from storage nodes so we are not returning it
+			// as an object deletion result
+			if object.PromotedAncestor != nil {
+				continue
+			}
+			for _, segment := range object.Segments {
+				result.Segments = append(result.Segments, DeletedSegmentInfo{
+					RootPieceID: segment.RootPieceID,
+					Pieces:      segment.Pieces,
+				})
+			}
+		}
 	} else {
 		err = withRows(
-			db.db.QueryContext(ctx, deleteObjectExactVersionWithoutCopyFeatureSQL,
+			tx.QueryContext(ctx, deleteObjectExactVersionWithoutCopyFeatureSQL,
 				opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version),
 		)(func(rows tagsql.Rows) error {
 			result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
@@ -293,44 +328,25 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	return result, nil
 }
 
-func (db *DB) deleteObjectExactVersionServerSideCopy(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+func (db *DB) deleteObjectExactVersionServerSideCopy(ctx context.Context, opts DeleteObjectExactVersion, tx tagsql.Tx) (objects []deletedObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	objects := []deletedObjectInfo{}
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-		err = withRows(
-			tx.QueryContext(ctx, deleteObjectExactVersionWithCopyFeatureSQL, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version),
-		)(func(rows tagsql.Rows) error {
-			objects, err = db.scanObjectDeletionServerSideCopy(ctx, opts.ObjectLocation, rows)
-			return err
-		})
-		if err != nil {
-			return err
-		}
-
-		return db.promoteNewAncestors(ctx, tx, objects)
+	err = withRows(
+		tx.QueryContext(ctx, deleteObjectExactVersionWithCopyFeatureSQL, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version),
+	)(func(rows tagsql.Rows) error {
+		objects, err = db.scanObjectDeletionServerSideCopy(ctx, opts.ObjectLocation, rows)
+		return err
 	})
 	if err != nil {
-		return DeleteObjectResult{}, err
+		return nil, err
 	}
 
-	for _, object := range objects {
-		result.Objects = append(result.Objects, object.Object)
-
-		// if object is ancestor for copied object we cannot delete its
-		// segments pieces from storage nodes so we are not returning it
-		// as an object deletion result
-		if object.PromotedAncestor != nil {
-			continue
-		}
-		for _, segment := range object.Segments {
-			result.Segments = append(result.Segments, DeletedSegmentInfo{
-				RootPieceID: segment.RootPieceID,
-				Pieces:      segment.Pieces,
-			})
-		}
+	err = db.promoteNewAncestors(ctx, tx, objects)
+	if err != nil {
+		return nil, err
 	}
-	return result, nil
+
+	return objects, nil
 }
 
 func (db *DB) promoteNewAncestors(ctx context.Context, tx tagsql.Tx, objects []deletedObjectInfo) (err error) {

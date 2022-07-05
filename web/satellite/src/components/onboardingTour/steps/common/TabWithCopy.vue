@@ -11,7 +11,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import CopyIcon from '@/../static/images/onboardingTour/copy.svg';
+import CopyIcon from '@/../static/images/common/copy.svg';
 
 // @vue/component
 @Component({

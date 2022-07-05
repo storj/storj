@@ -179,7 +179,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.login-attempts-without-penalty: 3
 
 # indicates if new access grant flow should be used
-# console.new-access-grant-flow: false
+# console.new-access-grant-flow: true
 
 # indicates if new billing screens should be used
 # console.new-billing-screen: false

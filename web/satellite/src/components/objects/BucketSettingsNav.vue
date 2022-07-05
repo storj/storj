@@ -8,7 +8,7 @@
             <arrow-down-icon />
         </div>
         <div v-show="isDropdownOpen" v-click-outside="closeDropdown" class="bucket-settings-nav__dropdown">
-            <!--                TODO: add other options and place objects popup in common place and trigger from store-->
+            <!-- TODO: add other options and place objects popup in common place and trigger from store -->
             <div class="bucket-settings-nav__dropdown__item" @click.stop="onDetailsClick">
                 <details-icon class="bucket-settings-nav__dropdown__item__icon" />
                 <p class="bucket-settings-nav__dropdown__item__label">View Bucket Details</p>
@@ -33,7 +33,7 @@ import { RouteConfig } from "@/router";
         DetailsIcon,
     },
 })
-export default class BucketItem extends Vue {
+export default class BucketSettingsNav extends Vue {
     @Prop({ default: "" })
     public readonly bucketName: string;
 
@@ -50,8 +50,11 @@ export default class BucketItem extends Vue {
      */
     public onDetailsClick(): void {
         this.$router.push({
-            name: RouteConfig.Buckets.with(RouteConfig.BucketsDetails).name,
-            params: { bucketName: this.bucketName },
+            name: RouteConfig.BucketsDetails.name,
+            params: {
+                bucketName: this.bucketName,
+                backRoute: this.$route.name ? this.$route.name : ''
+            },
         });
         this.isDropdownOpen = false;
     }

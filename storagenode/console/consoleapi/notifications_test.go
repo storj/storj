@@ -55,7 +55,7 @@ func TestNotificationsApi(t *testing.T) {
 			require.Equal(t, newNotification2.Type, notif2.Type)
 			require.Equal(t, newNotification2.SenderID, notif2.SenderID)
 
-			t.Run("test ListNotifications", func(t *testing.T) {
+			t.Run("ListNotifications", func(t *testing.T) {
 				// should return notifications list.
 				url := fmt.Sprintf("%s/list?limit=3&page=1", baseURL)
 				res, err := httpGet(ctx, url)
@@ -76,7 +76,7 @@ func TestNotificationsApi(t *testing.T) {
 				require.Equal(t, "{\"page\":{\"notifications\":"+string(expected)+",\"offset\":0,\"limit\":3,\"currentPage\":1,\"pageCount\":1},\"unreadCount\":2,\"totalCount\":2}"+"\n", string(body))
 			})
 
-			t.Run("test ReadNotification", func(t *testing.T) {
+			t.Run("ReadNotification", func(t *testing.T) {
 				// should change status of notification by id to read.
 				url := fmt.Sprintf("%s/%s/read", baseURL, notif1.ID.String())
 				res, err := httpPost(ctx, url, "application/json", nil)
@@ -97,7 +97,7 @@ func TestNotificationsApi(t *testing.T) {
 				require.NotEqual(t, nil, notificationList.Notifications[1].ReadAt)
 			})
 
-			t.Run("test ReadAllNotifications", func(t *testing.T) {
+			t.Run("ReadAllNotifications", func(t *testing.T) {
 				// should change status of notification by id to read.
 				url := fmt.Sprintf("%s/readall", baseURL)
 				res, err := httpPost(ctx, url, "application/json", nil)
