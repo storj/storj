@@ -15,7 +15,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import VList from '@/components/common/VList.vue';
-import BillingHistoryHeader from '@/components/account/billing/billingTabs/BillingHistorHeader.vue';
+import BillingHistoryHeader from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
 import BillingHistoryShape from '@/components/account/billing/billingTabs/BillingHistoryShape.vue';
 import { PaymentsHistoryItem } from '@/types/payments';
 
