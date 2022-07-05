@@ -1973,6 +1973,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add projects.public_id",
+				Version:     201,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN public_id bytea;`,
+					`CREATE INDEX IF NOT EXISTS projects_public_id_index ON projects ( public_id );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
