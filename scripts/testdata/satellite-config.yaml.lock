@@ -85,7 +85,7 @@ compensation.rates.put-tb: "0"
 # comma separated monthly withheld percentage rates
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
-# expiration time for auth tokens, account recovery tokens, and activation tokens
+# expiration time for account recovery and activation tokens
 # console-auth.token-expiration-time: 24h0m0s
 
 # url link for account activation redirect
@@ -179,13 +179,13 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.login-attempts-without-penalty: 3
 
 # indicates if new access grant flow should be used
-# console.new-access-grant-flow: false
+# console.new-access-grant-flow: true
 
-# indicates if new navigation structure should be rendered
-# console.new-navigation: true
+# indicates if new billing screens should be used
+# console.new-billing-screen: false
 
 # indicates if new objects flow should be used
-# console.new-objects-flow: false
+# console.new-objects-flow: true
 
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: false
@@ -244,6 +244,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
+# duration a session is valid for
+# console.session-duration: 168h0m0s
+
 # path to static resources
 # console.static-dir: ""
 
@@ -276,6 +279,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether to load templates on each request
 # console.watch: false
+
+# allow private IPs in CheckIn and PingMe
+# contact.allow-private-ip: false
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
@@ -332,7 +338,7 @@ contact.external-address: ""
 # email-reminders.chore-interval: 24h0m0s
 
 # enable sending emails reminding users to verify their email
-# email-reminders.enable: true
+# email-reminders.enable: false
 
 # amount of time before sending first reminder to users who need to verify their email
 # email-reminders.first-verification-reminder: 24h0m0s
@@ -553,8 +559,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # ratio where to consider processed count as supicious
 # metainfo.segment-loop.suspicious-processed-ratio: 0.03
 
-# enable code for server-side copy
+# enable code for server-side copy, deprecated. please leave this to true.
 # metainfo.server-side-copy: true
+
+# disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy
+# metainfo.server-side-copy-disabled: false
 
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
@@ -660,6 +669,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"
+
+# basic auth identifier
+# payments.storjscan.auth.identifier: ""
+
+# basic auth secret
+# payments.storjscan.auth.secret: ""
+
+# required number of following blocks in the chain to accept payment as confirmed
+# payments.storjscan.confirmations: 12
+
+# storjscan API endpoint
+# payments.storjscan.endpoint: ""
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 2m0s

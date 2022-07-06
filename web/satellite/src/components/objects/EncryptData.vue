@@ -72,6 +72,8 @@ import { MetaUtils } from "@/utils/meta";
 import GeneratePassphrase from "@/components/common/GeneratePassphrase.vue";
 import FAQBullet from "@/components/objects/FAQBullet.vue";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -85,11 +87,14 @@ export default class EncryptData extends Vue {
     public isLoading = false;
     public passphrase = '';
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Sets passphrase from child component.
      */
     public navigateToCLIFlow(): void {
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
         this.$router.push({name: RouteConfig.AGName.name});
     }
 
@@ -99,6 +104,7 @@ export default class EncryptData extends Vue {
      */
     public mounted(): void {
         if (!this.apiKey) {
+            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
             this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path)
         }
 
@@ -147,6 +153,7 @@ export default class EncryptData extends Vue {
 
         try {
             await this.setAccess();
+            this.analytics.pageVisit(RouteConfig.UploadFile.path);
             await this.$router.push(RouteConfig.UploadFile.path);
         } catch (e) {
             await this.$notify.error(e.message);
@@ -159,6 +166,7 @@ export default class EncryptData extends Vue {
      * Holds on back button click logic.
      */
     public onBackClick(): void {
+        this.analytics.pageVisit(RouteConfig.BucketsManagement.path);
         this.$router.push(RouteConfig.BucketsManagement.path);
     }
 

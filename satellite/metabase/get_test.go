@@ -133,6 +133,28 @@ func TestGetObjectExactVersion(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("Get expired object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			expiresAt := now.Add(-2 * time.Hour)
+			metabasetest.CreateExpiredObject(ctx, t, db, obj, 0, expiresAt)
+			metabasetest.GetObjectExactVersion{
+				Opts: metabase.GetObjectExactVersion{
+					ObjectLocation: location,
+					Version:        1,
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				{
+					ObjectStream: obj,
+					CreatedAt:    now,
+					Status:       metabase.Committed,
+					ExpiresAt:    &expiresAt,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}}.Check(ctx, t, db)
+		})
+
 		t.Run("Get object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 

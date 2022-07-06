@@ -126,13 +126,13 @@ lint:
 		-v ${GOPATH}/pkg:/go/pkg \
 		-v ${PWD}:/storj \
 		-w /storj \
-		storjlabs/ci \
+		storjlabs/ci-slim \
 		make .lint LINT_TARGET="$(LINT_TARGET)"
 
-.PHONY: .lint/testsuite
-.lint/testsuite:
+.PHONY: .lint/testsuite/ui
+.lint/testsuite/ui:
 	go run ./scripts/lint.go \
-		-work-dir testsuite \
+		-work-dir testsuite/ui \
 		-parallel 4 \
 		-imports \
 		-atomic-align \
@@ -141,14 +141,14 @@ lint:
 		-golangci \
 		$(LINT_TARGET)
 
-.PHONY: lint/testsuite
-lint/testsuite:
+.PHONY: lint/testsuite/ui
+lint/testsuite/ui:
 	docker run --rm -it \
 		-v ${GOPATH}/pkg:/go/pkg \
 		-v ${PWD}:/storj \
 		-w /storj \
 		storjlabs/ci \
-		make .lint/testsuite LINT_TARGET="$(LINT_TARGET)"
+		make .lint/testsuite/ui LINT_TARGET="$(LINT_TARGET)"
 
 ##@ Test
 
@@ -159,15 +159,15 @@ test/setup:
 	@docker compose -f docker-compose.tests.yaml down -v --remove-orphans ## cleanup previous data
 	@docker compose -f docker-compose.tests.yaml up -d
 	@sleep 3
-	@docker exec -it storj-crdb1-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
-	@docker exec -it storj-crdb2-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
-	@docker exec -it storj-crdb3-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
-	@docker exec -it storj-crdb4-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
-	@docker exec -it storj-crdb5-1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
-	@docker exec -it storj-crdb4-1 bash -c 'cockroach sql --insecure -e "create database testmetabase;"'
-	@docker exec -it storj-postgres-1 bash -c 'echo "postgres" | psql -U postgres -c "create database teststorj;"'
-	@docker exec -it storj-postgres-1 bash -c 'echo "postgres" | psql -U postgres -c "create database testmetabase;"'
-	@docker exec -it storj-postgres-1 bash -c 'echo "postgres" | psql -U postgres -c "ALTER ROLE postgres CONNECTION LIMIT -1;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb2 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb3 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb4 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb5 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb4 bash -c 'cockroach sql --insecure -e "create database testmetabase;"'
+	@docker compose -f docker-compose.tests.yaml exec postgres bash -c 'echo "postgres" | psql -U postgres -c "create database teststorj;"'
+	@docker compose -f docker-compose.tests.yaml exec postgres bash -c 'echo "postgres" | psql -U postgres -c "create database testmetabase;"'
+	@docker compose -f docker-compose.tests.yaml exec postgres bash -c 'echo "postgres" | psql -U postgres -c "ALTER ROLE postgres CONNECTION LIMIT -1;"'
 
 .PHONY: test/postgres
 test/postgres: test/setup ## Run tests against Postgres (developer)
@@ -568,7 +568,7 @@ diagrams-graphml:
 bump-dependencies:
 	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
-	cd testsuite;\
+	cd testsuite/ui;\
 		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
 		go mod tidy;
 

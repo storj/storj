@@ -26,7 +26,9 @@
                     @click.stop="toggleBucketSelection(name)"
                 >
                     <div class="buckets-dropdown__container__choices__item__left">
-                        <SelectionIcon class="buckets-dropdown__container__choices__item__left__icon" />
+                        <div class="check-icon">
+                            <SelectionIcon v-if="isNameSelected(name)" />
+                        </div>
                         <p class="buckets-dropdown__container__choices__item__left__label">{{ name }}</p>
                     </div>
                     <UnselectIcon
@@ -196,10 +198,6 @@ export default class BucketsDropdown extends Vue {
                 .selected {
                     background-color: #f5f6fa;
 
-                    .bucket-name-selection-path {
-                        stroke: #0068dc !important;
-                    }
-
                     &:hover {
 
                         .buckets-dropdown__container__choices__item__unselect-icon {
@@ -221,10 +219,6 @@ export default class BucketsDropdown extends Vue {
                         align-items: center;
                         max-width: 100%;
 
-                        &__icon {
-                            min-width: 14px;
-                        }
-
                         &__label {
                             margin: 0 0 0 15px;
                             text-overflow: ellipsis;
@@ -235,14 +229,20 @@ export default class BucketsDropdown extends Vue {
 
                     &:hover {
                         background-color: #ecedf2;
-
-                        .bucket-name-selection-path {
-                            stroke: #d4d9e1;
-                        }
                     }
                 }
             }
         }
+    }
+
+    .check-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 11px;
+        max-width: 14px;
+        max-height: 11px;
     }
 
     .show-scroll {

@@ -15,6 +15,14 @@ import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue
 import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
+
+// new payment screen routes
+import BillingOverview from '@/components/account/billing/billingTabs/Overview.vue';
+import BillingPaymentMethods from '@/components/account/billing/billingTabs/PaymentMethods.vue';
+import BillingHistory2 from '@/components/account/billing/billingTabs/BillingHistory.vue';
+import BillingCoupons from '@/components/account/billing/billingTabs/Coupons.vue';
+
+
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
 import AddCouponCode from '@/components/account/billing/coupons/AddCouponCode.vue';
 import CreditsHistory from '@/components/account/billing/coupons/CouponArea.vue';
@@ -49,6 +57,7 @@ import BucketCreation from "@/components/objects/BucketCreation.vue";
 
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from "@/utils/meta";
+import BucketDetails from "@/components/objects/BucketDetails.vue";
 
 const ActivateAccount = () => import('@/views/ActivateAccount.vue');
 const AuthorizeArea = () => import('@/views/AuthorizeArea.vue');
@@ -74,8 +83,8 @@ export abstract class RouteConfig {
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Authorize = new NavigationLink('/oauth/v2/authorize', 'Authorize')
     public static Account = new NavigationLink('/account', 'Account');
-    public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
-    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', 'Dashboard ');
+    public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Project Overview');
+    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', ' Project Overview');
     public static Users = new NavigationLink('/project-members', 'Users');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
@@ -89,6 +98,10 @@ export abstract class RouteConfig {
     public static Billing = new NavigationLink('billing', 'Billing');
     public static AddCouponCode = new NavigationLink('add-coupon', 'Get Free Credits');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    public static BillingOverview = new NavigationLink('overview', 'Overview');
+    public static BillingPaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
+    public static BillingHistory2 = new NavigationLink('billing-history2', 'Billing History 2');
+    public static BillingCoupons = new NavigationLink('coupons', 'Coupons');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
 
@@ -120,6 +133,7 @@ export abstract class RouteConfig {
     // objects child paths.
     public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
+    public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
     public static BucketCreation = new NavigationLink('creation', 'Bucket Creation')
@@ -140,6 +154,10 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Authorize.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
+    RouteConfig.BillingOverview.name,
+    RouteConfig.BillingPaymentMethods.name,
+    RouteConfig.BillingHistory2.name,
+    RouteConfig.BillingCoupons.name,
     RouteConfig.DepositHistory.name,
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
@@ -214,6 +232,26 @@ export const router = new Router({
                                     path: RouteConfig.AddCouponCode.path,
                                     name: RouteConfig.AddCouponCode.name,
                                     component: AddCouponCode,
+                                },
+                                {
+                                    path: RouteConfig.BillingOverview.path,
+                                    name: RouteConfig.BillingOverview.name,
+                                    component: BillingOverview,
+                                },
+                                {
+                                    path: RouteConfig.BillingPaymentMethods.path,
+                                    name: RouteConfig.BillingPaymentMethods.name,
+                                    component: BillingPaymentMethods,
+                                },
+                                {
+                                    path: RouteConfig.BillingHistory2.path,
+                                    name: RouteConfig.BillingHistory2.name,
+                                    component: BillingHistory2,
+                                },
+                                {
+                                    path: RouteConfig.BillingCoupons.path,
+                                    name: RouteConfig.BillingCoupons.name,
+                                    component: BillingCoupons,
                                 },
                             ],
                         },
@@ -407,6 +445,12 @@ export const router = new Router({
                             path: RouteConfig.BucketsManagement.path,
                             name: RouteConfig.BucketsManagement.name,
                             component: BucketsView,
+                            props: true,
+                        },
+                        {
+                            path: RouteConfig.BucketsDetails.path,
+                            name: RouteConfig.BucketsDetails.name,
+                            component: BucketDetails,
                             props: true,
                         },
                         {

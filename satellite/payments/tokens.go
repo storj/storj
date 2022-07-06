@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite/payments/monetary"
 )
 
@@ -23,6 +24,16 @@ type StorjTokens interface {
 	ListTransactionInfos(ctx context.Context, userID uuid.UUID) ([]TransactionInfo, error)
 	// ListDepositBonuses returns all deposit bonuses associated with user.
 	ListDepositBonuses(ctx context.Context, userID uuid.UUID) ([]DepositBonus, error)
+}
+
+// DepositWallets exposes all needed functionality to manage token deposit wallets.
+//
+// architecture: Service
+type DepositWallets interface {
+	// Claim gets a new crypto wallet and associates it with a user.
+	Claim(ctx context.Context, userID uuid.UUID) (blockchain.Address, error)
+	// Get returns the crypto wallet address associated with the given user.
+	Get(ctx context.Context, userID uuid.UUID) (blockchain.Address, error)
 }
 
 // TransactionStatus defines allowed statuses

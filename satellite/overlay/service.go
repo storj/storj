@@ -42,7 +42,7 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 // architecture: Database
 type DB interface {
 	// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
-	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*SelectedNode, error)
+	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) (map[storj.NodeID]*SelectedNode, error)
 	// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
 	// The return value contains necessary information to create orders as well as nodes'
 	// current reputation status.
@@ -348,7 +348,7 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow)
+	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.Node.AsOfSystemTime)
 }
 
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
@@ -648,31 +648,31 @@ func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID,
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.
-func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
+func ResolveIPAndNetwork(ctx context.Context, target string) (ip net.IP, port, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	host, port, err := net.SplitHostPort(target)
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 	ipAddr, err := net.ResolveIPAddr("ip", host)
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 
 	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
 	if ipv4 := ipAddr.IP.To4(); ipv4 != nil {
 		// Filter all IPv4 Addresses into /24 Subnet's
 		mask := net.CIDRMask(24, 32)
-		return net.JoinHostPort(ipAddr.String(), port), ipv4.Mask(mask).String(), nil
+		return ipAddr.IP, port, ipv4.Mask(mask).String(), nil
 	}
 	if ipv6 := ipAddr.IP.To16(); ipv6 != nil {
 		// Filter all IPv6 Addresses into /64 Subnet's
 		mask := net.CIDRMask(64, 128)
-		return net.JoinHostPort(ipAddr.String(), port), ipv6.Mask(mask).String(), nil
+		return ipAddr.IP, port, ipv6.Mask(mask).String(), nil
 	}
 
-	return "", "", errors.New("unable to get network for address " + ipAddr.String())
+	return nil, "", "", errors.New("unable to get network for address " + ipAddr.String())
 }
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.

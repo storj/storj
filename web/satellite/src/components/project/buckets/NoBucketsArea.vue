@@ -29,6 +29,8 @@ import { RouteConfig } from "@/router";
 
 import VButton from "@/components/common/VButton.vue";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
@@ -36,10 +38,14 @@ import VButton from "@/components/common/VButton.vue";
     }
 })
 export default class NoBucketArea extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Navigates user to welcome screen.
      */
     public navigateToWelcomeScreen(): void {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
     }
 }

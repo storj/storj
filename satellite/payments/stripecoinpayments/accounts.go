@@ -5,10 +5,10 @@ package stripecoinpayments
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/stripe/stripe-go/v72"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
@@ -147,50 +147,65 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 	return charges, nil
 }
 
-// CheckProjectInvoicingStatus returns true if for the given project there are outstanding project records and/or usage
+// CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 // which have not been applied/invoiced yet (meaning sent over to stripe).
-func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (unpaidUsage bool, err error) {
+func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// we do not want to delete projects that have usage for the current month.
 	year, month, _ := accounts.service.nowFn().UTC().Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
+	// Check if an invoice project record exists already
+	err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+	if errs.Is(err, ErrProjectRecordExists) {
+		record, err := accounts.service.db.ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+		if err != nil {
+			return err
+		}
+		// state = 0 means unapplied and not invoiced yet.
+		if record.State == 0 {
+			return errs.New("unapplied project invoice record exist")
+		}
+		// Record has been applied, so project can be deleted.
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
+func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) error {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	year, month, _ := accounts.service.nowFn().UTC().Date()
+	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+	// check current month usage and do not allow deletion if usage exists
 	currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
 	if err != nil {
-		return false, err
+		return err
 	}
 	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
-		return true, errors.New("usage for current month exists")
+		return errs.New("usage for current month exists")
 	}
 
-	// if usage of last month exist, make sure to look for billing records
+	// check usage for last month, if exists, ensure we have an invoice item created.
 	lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
 	if err != nil {
-		return false, err
+		return err
+	}
+	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
+		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+		if !errs.Is(err, ErrProjectRecordExists) {
+			return errs.New("usage for last month exist, but is not billed yet")
+		}
 	}
 
-	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
-		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
-		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
-		if errors.Is(err, ErrProjectRecordExists) {
-			record, err := accounts.service.db.ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
-			if err != nil {
-				return true, err
-			}
-			// state = 0 means unapplied and not invoiced yet.
-			if record.State == 0 {
-				return true, errors.New("unapplied project invoice record exist")
-			}
-			// Record has been applied, so project can be deleted.
-			return false, nil
-		}
-		if err != nil {
-			return true, err
-		}
-		return true, errors.New("usage for last month exist, but is not billed yet")
-	}
-	return false, nil
+	return nil
 }
 
 // Charges returns list of all credit card charges related to account.

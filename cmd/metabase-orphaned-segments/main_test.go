@@ -122,7 +122,7 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 			require.NoError(t, err)
 			defer ctx.Check(metabaseDB.Close)
 
-			err = metabaseDB.MigrateToLatest(ctx)
+			err = metabaseDB.TestMigrateToLatest(ctx)
 			require.NoError(t, err)
 
 			prepare(t, ctx, metabaseTempDB, metabaseDB)

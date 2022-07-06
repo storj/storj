@@ -35,7 +35,6 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -66,7 +65,6 @@ type Config struct {
 	Watch           bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
-	// TODO: remove after Vanguard release
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
@@ -93,9 +91,9 @@ type Config struct {
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:""`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
-	NewNavigation                   bool    `help:"indicates if new navigation structure should be rendered" default:"true"`
-	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"false"`
-	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"false"`
+	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
+	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"true"`
+	NewBillingScreen                bool    `help:"indicates if new billing screens should be used" default:"false"`
 	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
 	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
 	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`
@@ -180,6 +178,62 @@ type templates struct {
 	usageReport         *template.Template
 }
 
+// apiAuth exposes methods to control authentication process for each generated API endpoint.
+type apiAuth struct {
+	server *Server
+}
+
+// IsAuthenticated checks if request is performed with all needed authorization credentials.
+func (a *apiAuth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth, isKeyAuth bool) (_ context.Context, err error) {
+	if isCookieAuth && isKeyAuth {
+		ctx, err = a.cookieAuth(ctx, r)
+		if err != nil {
+			ctx, err = a.keyAuth(ctx, r)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else if isCookieAuth {
+		ctx, err = a.cookieAuth(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+	} else if isKeyAuth {
+		ctx, err = a.keyAuth(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ctx, nil
+}
+
+// cookieAuth returns an authenticated context by session cookie.
+func (a *apiAuth) cookieAuth(ctx context.Context, r *http.Request) (context.Context, error) {
+	token, err := a.server.cookieAuth.GetToken(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.server.service.TokenAuth(ctx, token, time.Now())
+}
+
+// cookieAuth returns an authenticated context by api key.
+func (a *apiAuth) keyAuth(ctx context.Context, r *http.Request) (context.Context, error) {
+	authToken := r.Header.Get("Authorization")
+	split := strings.Split(authToken, "Bearer ")
+	if len(split) != 2 {
+		return ctx, errs.New("authorization key format is incorrect. Should be 'Bearer <key>'")
+	}
+
+	return a.server.service.KeyAuth(ctx, split[1], time.Now())
+}
+
+// RemoveAuthCookie indicates to the client that the authentication cookie should be removed.
+func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
+	a.server.cookieAuth.RemoveTokenCookie(w)
+}
+
 // NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
@@ -219,8 +273,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router := mux.NewRouter()
 
 	if server.config.GeneratedAPIEnabled {
-		consoleapi.NewProjectManagement(logger, server.service, router, server.service)
-		consoleapi.NewAPIKeyManagement(logger, server.service, router, server.service)
+		consoleapi.NewProjectManagement(logger, server.service, router, &apiAuth{&server})
+		consoleapi.NewAPIKeyManagement(logger, server.service, router, &apiAuth{&server})
+		consoleapi.NewUserManagement(logger, server.service, router, &apiAuth{&server})
 	}
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
@@ -292,6 +347,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()
 	analyticsRouter.Use(server.withAuth)
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost)
+	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
 		oidc := oidc.NewEndpoint(server.config.ExternalAddress, logger, oidcService, service,
@@ -370,7 +426,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		cspValues := []string{
 			"default-src 'self'",
 			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
-			"script-src-elem 'self' *.stripe.com https://hcaptcha.com *.hcaptcha.com",
 			"connect-src 'self' *.tardigradeshare.io *.storjshare.io https://hcaptcha.com *.hcaptcha.com " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ https://hcaptcha.com *.hcaptcha.com",
@@ -416,9 +471,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NewProjectDashboard             bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
-		NewNavigation                   bool
 		NewObjectsFlow                  bool
 		NewAccessGrantFlow              bool
+		NewBillingScreen                bool
 		InactivityTimerEnabled          bool
 		InactivityTimerDelay            int
 		OptionalSignupSuccessURL        string
@@ -453,9 +508,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.HcaptchaEnabled = server.config.Hcaptcha.Enabled
 	data.HcaptchaSiteKey = server.config.Hcaptcha.SiteKey
 	data.NewProjectDashboard = server.config.NewProjectDashboard
-	data.NewNavigation = server.config.NewNavigation
 	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
+	data.NewBillingScreen = server.config.NewBillingScreen
 	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
 	data.InactivityTimerDelay = server.config.InactivityTimerDelay
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
@@ -485,17 +540,15 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 		ctxWithAuth := func(ctx context.Context) context.Context {
 			token, err := server.cookieAuth.GetToken(r)
 			if err != nil {
-				return console.WithAuthFailure(ctx, err)
+				return console.WithUserFailure(ctx, console.ErrUnauthorized.Wrap(err))
 			}
 
-			ctx = consoleauth.WithAPIKey(ctx, []byte(token))
-
-			auth, err := server.service.Authorize(ctx)
+			newCtx, err := server.service.TokenAuth(ctx, token, time.Now())
 			if err != nil {
-				return console.WithAuthFailure(ctx, err)
+				return console.WithUserFailure(ctx, err)
 			}
 
-			return console.WithAuth(ctx, auth)
+			return newCtx
 		}
 
 		ctx = ctxWithAuth(r.Context())
@@ -523,13 +576,11 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	auth, err := server.service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
+	ctx, err = server.service.TokenAuth(ctx, token, time.Now())
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
-
-	ctx = console.WithAuth(ctx, auth)
 
 	// parse query params
 	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
@@ -624,23 +675,58 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	defer mon.Task()(&ctx)(nil)
 	activationToken := r.URL.Query().Get("token")
 
-	token, err := server.service.ActivateAccount(ctx, activationToken)
+	user, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
-		server.log.Error("activation: failed to activate account",
-			zap.String("token", activationToken),
-			zap.Error(err))
+		if console.ErrTokenInvalid.Has(err) {
+			server.log.Debug("account activation",
+				zap.String("token", activationToken),
+				zap.Error(err),
+			)
+			server.serveError(w, http.StatusBadRequest)
+			return
+		}
+
+		if console.ErrTokenExpiration.Has(err) {
+			server.log.Debug("account activation",
+				zap.String("token", activationToken),
+				zap.Error(err),
+			)
+			server.serveError(w, http.StatusNotFound)
+			return
+		}
 
 		if console.ErrEmailUsed.Has(err) {
+			server.log.Debug("account activation",
+				zap.String("token", activationToken),
+				zap.Error(err),
+			)
 			http.Redirect(w, r, server.config.ExternalAddress+"login?activated=false", http.StatusTemporaryRedirect)
 			return
 		}
 
 		if console.Error.Has(err) {
+			server.log.Error("activation: failed to activate account with a valid token",
+				zap.Error(err))
 			server.serveError(w, http.StatusInternalServerError)
 			return
 		}
 
-		server.serveError(w, http.StatusNotFound)
+		server.log.Error(
+			"activation: failed to activate account with a valid token and unknown error type. BUG: missed error type check",
+			zap.Error(err))
+		server.serveError(w, http.StatusInternalServerError)
+		return
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		server.serveError(w, http.StatusInternalServerError)
+		return
+	}
+
+	token, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
+	if err != nil {
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -896,10 +982,10 @@ func (server *Server) parseTemplates() (_ *templates, err error) {
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
 func NewUserIDRateLimiter(config web.RateLimiterConfig) *web.RateLimiter {
 	return web.NewRateLimiter(config, func(r *http.Request) (string, error) {
-		auth, err := console.GetAuth(r.Context())
+		user, err := console.GetUser(r.Context())
 		if err != nil {
 			return "", err
 		}
-		return auth.User.ID.String(), nil
+		return user.ID.String(), nil
 	})
 }

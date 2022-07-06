@@ -233,7 +233,14 @@ func TestDisableMFA(t *testing.T) {
 		user.MFAEnabled = true
 		user.MFASecretKey = "randomtext"
 		user.MFARecoveryCodes = []string{"0123456789"}
-		err = planet.Satellites[0].DB.Console().Users().Update(ctx, user)
+
+		secretKeyPtr := &user.MFASecretKey
+
+		err = planet.Satellites[0].DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			MFAEnabled:       &user.MFAEnabled,
+			MFASecretKey:     &secretKeyPtr,
+			MFARecoveryCodes: &user.MFARecoveryCodes,
+		})
 		require.NoError(t, err)
 
 		// Ensure MFA is enabled.

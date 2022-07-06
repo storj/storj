@@ -48,6 +48,8 @@ import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowCo
 import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
 import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vue";
 
+import { AnalyticsHttpApi } from "@/api/analytics";
+
 // @vue/component
 @Component({
     components: {
@@ -57,10 +59,14 @@ import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vu
     }
 })
 export default class ShareObject extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
     }
 
@@ -68,6 +74,7 @@ export default class ShareObject extends Vue {
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.SuccessScreen)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.SuccessScreen)).path);
     }
 }

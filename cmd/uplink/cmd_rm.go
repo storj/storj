@@ -63,6 +63,10 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdRm) Execute(ctx clingy.Context) error {
+	if c.location.Local() {
+		return errs.New("remove %v skipped: local delete", c.location)
+	}
+
 	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err

@@ -15,9 +15,9 @@
                         Buckets are used to store your files. It’s recommended that every bucket should have it’s own encryption passphrase.
                     </p>
                 </div>
-                <headered-input
+                <v-input
                     label="Bucket Name"
-                    placeholder="Enter a passphrase here..."
+                    placeholder="Enter a name here..."
                     :error="nameError"
                     role-description="name"
                     :init-value="name"
@@ -53,16 +53,18 @@ import { Validator } from "@/utils/validation";
 import { LocalData } from "@/utils/localData";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
+import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from "@/components/common/VLoader.vue";
 
 import BucketIcon from "@/../static/images/objects/bucketCreation.svg";
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component({
     components: {
-        HeaderedInput,
+        VInput,
         VButton,
         BucketIcon,
         VLoader,
@@ -72,6 +74,8 @@ export default class BucketCreationNameStep extends Vue {
     public name = '';
     public nameError = '';
     public isLoading = true;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public async mounted(): Promise<void> {
         try {
@@ -111,6 +115,7 @@ export default class BucketCreationNameStep extends Vue {
      */
     public onCancelClick(): void {
         LocalData.setDemoBucketCreatedStatus();
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
         this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     }
 

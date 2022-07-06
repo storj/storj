@@ -42,7 +42,7 @@
                         </p>
                     </div>
                     <div class="login-area__input-wrapper">
-                        <HeaderlessInput
+                        <VInput
                             label="Email Address"
                             placeholder="user@example.com"
                             :error="emailError"
@@ -51,7 +51,7 @@
                         />
                     </div>
                     <div class="login-area__input-wrapper">
-                        <HeaderlessInput
+                        <VInput
                             label="Password"
                             placeholder="Password"
                             :error="passwordError"
@@ -102,7 +102,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import VInput from '@/components/common/VInput.vue';
 
 import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
@@ -121,6 +121,8 @@ import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from "@/api/errors/ErrorBadRequest";
 import { MetaUtils } from '@/utils/meta';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 interface ClearInput {
     clearInput(): void;
 }
@@ -128,7 +130,7 @@ interface ClearInput {
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
+        VInput,
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,
@@ -156,6 +158,8 @@ export default class Login extends Vue {
     public isMFAError = false;
     public isRecoveryCodeState = false;
     public isBadLoginMessageShown = false;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     // Tardigrade logic
     public isDropdownShown = false;
@@ -320,6 +324,7 @@ export default class Login extends Vue {
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
 
+        this.analytics.pageVisit(this.returnURL);
         await this.$router.push(this.returnURL);
     }
 

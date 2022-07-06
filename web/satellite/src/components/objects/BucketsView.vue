@@ -16,23 +16,36 @@
             height="100px"
             class="buckets-view__loader"
         />
-        <p v-if="!(isLoading || bucketsList.length)" class="buckets-view__no-buckets">No Buckets</p>
-        <div v-if="!isLoading && bucketsList.length" class="buckets-view__list">
-            <div class="buckets-view__list__sorting-header">
-                <p class="buckets-view__list__sorting-header__name">Name</p>
-                <p class="buckets-view__list__sorting-header__date">Date Added</p>
-                <p class="buckets-view__list__sorting-header__empty" />
-            </div>
-            <div v-for="(bucket, key) in bucketsList" :key="key" class="buckets-view__list__item" @click.stop="openBucket(bucket.Name)">
+        <p v-if="!(isLoading || (bucketsPage.buckets && bucketsPage.buckets.length))" class="buckets-view__no-buckets">No Buckets</p>
+        <v-table
+            v-if="!isLoading && bucketsPage.buckets && bucketsPage.buckets.length"
+            class="buckets-view__list"
+            :limit="bucketsPage.limit"
+            :total-page-count="bucketsPage.pageCount"
+            :items="bucketsPage.buckets"
+            items-label="buckets"
+            :on-page-click-callback="fetchBuckets"
+            :total-items-count="bucketsPage.totalCount"
+        >
+            <template #head>
+                <th class="buckets-view__list__sorting-header__name align-left">Name</th>
+                <th class="buckets-view__list__sorting-header__date align-left">Date Added</th>
+                <th class="buckets-view__list__sorting-header__empty" />
+            </template>
+            <template #body>
                 <BucketItem
+                    v-for="(bucket, key) in bucketsPage.buckets"
+                    :key="key"
                     :item-data="bucket"
                     :show-delete-bucket-popup="showDeleteBucketPopup"
                     :dropdown-key="key"
                     :open-dropdown="openDropdown"
                     :is-dropdown-open="activeDropdown === key"
+                    :on-click="() => openBucket(bucket.name)"
+                    @checkItem="(value) => $parent.$emit('checkItem', { value, key })"
                 />
-            </div>
-        </div>
+            </template>
+        </v-table>
         <ObjectsPopup
             v-if="isCreatePopupVisible"
             :on-click="onCreateBucketClick"
@@ -59,8 +72,7 @@
 </template>
 
 <script lang="ts">
-import { Bucket } from 'aws-sdk/clients/s3';
-import { Component, Vue, Watch } from 'vue-property-decorator';
+import {Component, Prop, Vue, Watch} from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -69,6 +81,9 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 import { LocalData } from "@/utils/localData";
+import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import {Bucket, BucketPage} from "@/types/buckets";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -76,9 +91,14 @@ import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
 
 import BucketIcon from '@/../static/images/objects/bucket.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import VTable, { SelectableItem } from "@/components/common/VTable.vue";
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
+        VTable,
         BucketIcon,
         ObjectsPopup,
         BucketItem,
@@ -86,6 +106,8 @@ import BucketIcon from '@/../static/images/objects/bucket.svg';
     },
 })
 export default class BucketsView extends Vue {
+    @Prop({ default: () => [] })
+    public readonly selectableItems: SelectableItem<Bucket>[];
     private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
     private worker: Worker;
     private grantWithPermissions = '';
@@ -98,6 +120,8 @@ export default class BucketsView extends Vue {
     public isRequestProcessing = false;
     public errorMessage = '';
     public activeDropdown = -1;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -127,20 +151,21 @@ export default class BucketsView extends Vue {
 
             const wasDemoBucketCreated = LocalData.getDemoBucketCreatedStatus();
 
-            if (this.bucketsList.length && !wasDemoBucketCreated) {
+            if (this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
                 LocalData.setDemoBucketCreatedStatus();
 
                 return;
             }
 
-            if (!this.bucketsList.length && wasDemoBucketCreated) {
+            if (!this.bucketsPage.buckets.length && wasDemoBucketCreated) {
                 await this.removeTemporaryAccessGrant();
 
                 return;
             }
 
-            if (!this.bucketsList.length && !wasDemoBucketCreated) {
+            if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
                 if (this.isNewObjectsFlow) {
+                    this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
                     await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
                     return;
                 }
@@ -203,10 +228,14 @@ export default class BucketsView extends Vue {
     }
 
     /**
-     * Fetches bucket using S3 client.
+     * Fetches bucket using api.
      */
-    public async fetchBuckets(): Promise<void> {
-        await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+    public async fetchBuckets(page = 1): Promise<void> {
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, page);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
+        }
     }
 
     /**
@@ -220,6 +249,7 @@ export default class BucketsView extends Vue {
     }
 
     public onNewBucketButtonClick(): void {
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
         this.isNewObjectsFlow
             ? this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path)
             : this.showCreateBucketPopup();
@@ -240,7 +270,7 @@ export default class BucketsView extends Vue {
                 await this.setAccess();
             }
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            await this.fetchBuckets();
             this.createBucketName = '';
             this.hideCreateBucketPopup();
         } catch (error) {
@@ -266,7 +296,7 @@ export default class BucketsView extends Vue {
 
         try {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_DEMO_BUCKET);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            await this.fetchBuckets();
 
             LocalData.setDemoBucketCreatedStatus();
         } catch (error) {
@@ -291,13 +321,15 @@ export default class BucketsView extends Vue {
                 await this.setAccess();
             }
             await this.$store.dispatch(OBJECTS_ACTIONS.DELETE_BUCKET, this.deleteBucketName);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            await this.fetchBuckets();
         } catch (error) {
             await this.$notify.error(error.message);
             return;
         } finally {
             this.isRequestProcessing = false;
         }
+
+        this.analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
 
         this.deleteBucketName = '';
         this.hideDeleteBucketPopup();
@@ -381,14 +413,17 @@ export default class BucketsView extends Vue {
      */
     public openBucket(bucketName: string): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+        this.isNewObjectsFlow
+            ? this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN)
+            : this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
     }
 
     /**
-     * Returns fetched buckets from store.
+     * Returns fetched buckets page from store.
      */
-    public get bucketsList(): Bucket[] {
-        return this.$store.state.objectsModule.bucketsList;
+    public get bucketsPage(): BucketPage {
+        return this.$store.state.bucketUsageModule.page;
     }
 
     /**
@@ -498,36 +533,6 @@ export default class BucketsView extends Vue {
         &__list {
             margin-top: 40px;
             width: 100%;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            padding-bottom: 100px;
-
-            &__sorting-header {
-                display: flex;
-                align-items: center;
-                padding: 0 20px 5px;
-                width: calc(100% - 40px);
-                font-weight: bold;
-                font-size: 14px;
-                line-height: 20px;
-                color: #768394;
-                border-bottom: 1px solid rgb(169 181 193 / 40%);
-
-                &__name {
-                    width: calc(70% - 16px);
-                    margin: 0;
-                }
-
-                &__date {
-                    width: 30%;
-                    margin: 0;
-                }
-
-                &__empty {
-                    margin: 0;
-                }
-            }
         }
     }
 

@@ -10,19 +10,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
 )
 
 func Test_DailyUsage(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			const (
-				bucketName = "testbucket"
-				firstPath  = "path"
-				secondPath = "another_path"
+				firstBucketName  = "testbucket0"
+				secondBucketName = "testbucket1"
 			)
 
 			now := time.Now()
@@ -46,38 +48,49 @@ func Test_DailyUsage(t *testing.T) {
 			_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, user.ID, projectID)
 			require.NoError(t, err)
 
-			planet.Satellites[0].Orders.Chore.Loop.Pause()
-			satelliteSys.Accounting.Tally.Loop.Pause()
-
 			usage0, err := satelliteSys.DB.ProjectAccounting().GetProjectDailyUsageByDateRange(ctx, projectID, now, inFiveMinutes, 0)
 			require.NoError(t, err)
 			require.Zero(t, len(usage0.AllocatedBandwidthUsage))
 			require.Zero(t, len(usage0.SettledBandwidthUsage))
 			require.Zero(t, len(usage0.StorageUsage))
 
-			firstSegment := testrand.Bytes(5 * memory.KiB)
-			secondSegment := testrand.Bytes(10 * memory.KiB)
+			segment := int64(15000)
 
-			err = uplink.Upload(ctx, satelliteSys, bucketName, firstPath, firstSegment)
+			firstBucketLocation := metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: firstBucketName,
+			}
+			secondBucketLocation := metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: secondBucketName,
+			}
+			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
+				firstBucketLocation: {
+					BucketLocation: firstBucketLocation,
+					TotalBytes:     segment,
+				},
+				secondBucketLocation: {
+					BucketLocation: secondBucketLocation,
+					TotalBytes:     segment,
+				},
+			}
+
+			err = satelliteSys.DB.ProjectAccounting().SaveTallies(ctx, now, tallies)
 			require.NoError(t, err)
-			err = uplink.Upload(ctx, satelliteSys, bucketName, secondPath, secondSegment)
+			err = satelliteSys.DB.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, []byte(firstBucketName), pb.PieceAction_GET, segment, inFiveMinutes)
 			require.NoError(t, err)
-
-			_, err = uplink.Download(ctx, satelliteSys, bucketName, firstPath)
+			err = satelliteSys.DB.Orders().UpdateBucketBandwidthSettle(ctx, projectID, []byte(firstBucketName), pb.PieceAction_GET, segment, 0, inFiveMinutes)
 			require.NoError(t, err)
-
-			require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
-			tomorrow := time.Now().Add(24 * time.Hour)
-			planet.StorageNodes[0].Storage2.Orders.SendOrders(ctx, tomorrow)
-
-			planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
-			satelliteSys.Accounting.Tally.Loop.TriggerWait()
+			err = satelliteSys.DB.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, []byte(secondBucketName), pb.PieceAction_GET, segment, inFiveMinutes)
+			require.NoError(t, err)
+			err = planet.Satellites[0].DB.Orders().UpdateBucketBandwidthSettle(ctx, projectID, []byte(secondBucketName), pb.PieceAction_GET, segment, 0, inFiveMinutes)
+			require.NoError(t, err)
 
 			usage1, err := satelliteSys.DB.ProjectAccounting().GetProjectDailyUsageByDateRange(ctx, projectID, now, inFiveMinutes, 0)
 			require.NoError(t, err)
-			require.GreaterOrEqual(t, usage1.StorageUsage[0].Value, 15*memory.KiB)
-			require.GreaterOrEqual(t, usage1.AllocatedBandwidthUsage[0].Value, 5*memory.KiB)
-			require.GreaterOrEqual(t, usage1.SettledBandwidthUsage[0].Value, 5*memory.KiB)
+			require.Equal(t, 2*segment, usage1.StorageUsage[0].Value)
+			require.Equal(t, 2*segment, usage1.AllocatedBandwidthUsage[0].Value)
+			require.Equal(t, 2*segment, usage1.SettledBandwidthUsage[0].Value)
 		},
 	)
 }
