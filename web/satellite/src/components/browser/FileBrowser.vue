@@ -92,7 +92,7 @@
                     </div>
 
                     <div>
-                        <table class="table table-hover no-selection">
+                        <table class="table table-fixed table-hover no-selection">
                             <file-browser-header />
 
                             <tbody>
@@ -822,6 +822,10 @@ export default class FileBrowser extends Vue {
 
 tbody {
     user-select: none;
+}
+
+.table-fixed {
+    table-layout: fixed;
 }
 
 .table-heading {
