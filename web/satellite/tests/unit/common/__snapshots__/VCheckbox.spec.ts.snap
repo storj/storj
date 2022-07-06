@@ -1,5 +1,13 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Checkbox.vue renders correctly 1`] = `<div class="wrap"><label class="container"><input id="checkbox" type="checkbox" class="checkmark-input"> <span class="checkmark"></span></label> <label for="checkbox" class="label"></label></div>`;
+exports[`Checkbox.vue renders correctly 1`] = `
+<div class="wrap"><label class="container"><input id="checkbox" type="checkbox" class="checkmark-input"> <span class="checkmark"></span></label>
+  <!---->
+</div>
+`;
 
-exports[`Checkbox.vue renders correctly with error 1`] = `<div class="wrap"><label class="container"><input id="checkbox" type="checkbox" class="checkmark-input"> <span class="checkmark error"></span></label> <label for="checkbox" class="label"></label></div>`;
+exports[`Checkbox.vue renders correctly with error 1`] = `
+<div class="wrap"><label class="container"><input id="checkbox" type="checkbox" class="checkmark-input"> <span class="checkmark error"></span></label>
+  <!---->
+</div>
+`;

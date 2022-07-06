@@ -32,6 +32,8 @@ import BucketCreationNameStep from "@/components/objects/BucketCreationNameStep.
 import BucketCreationProgress from "@/components/objects/BucketCreationProgress.vue";
 
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 
 export enum BucketCreationSteps {
     Name = 0,
@@ -72,6 +74,7 @@ export default class BucketCreation extends Vue {
      */
     public setPassphrase(passphrase: string): void {
         this.passphrase = passphrase;
+        this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
     }
 
     /**
@@ -96,8 +99,9 @@ export default class BucketCreation extends Vue {
             this.setWorker();
             await this.setAccess();
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.bucketName);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            await this.fetchBuckets();
             await this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucketName);
+            this.analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
             this.analytics.pageVisit(RouteConfig.UploadFile.path);
             await this.$router.push(RouteConfig.UploadFile.path);
         } catch (e) {
@@ -122,6 +126,17 @@ export default class BucketCreation extends Vue {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
         } catch (error) {
             await this.$notify.error(error.message);
+        }
+    }
+
+    /**
+     * Fetches bucket using api.
+     */
+    public async fetchBuckets(page = 1): Promise<void> {
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, page);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
         }
     }
 
@@ -173,13 +188,6 @@ export default class BucketCreation extends Vue {
         const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-    }
-
-    /**
-     * Returns edge credentials from store.
-     */
-    private get edgeCredentials(): EdgeCredentials {
-        return this.$store.state.objectsModule.gatewayCredentials;
     }
 
     /**

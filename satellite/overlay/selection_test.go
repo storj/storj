@@ -384,6 +384,7 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditCount = 5 // need 5 audits to be vetted
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -412,6 +413,8 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 			}
 		}
 
+		// There are now 5 new nodes, and 5 reputable (vetted) nodes. 3 of the
+		// new nodes are gracefully exiting, and 2 of the reputable nodes.
 		type test struct {
 			Preferences    overlay.NodeSelectionConfig
 			ExcludeCount   int
@@ -424,34 +427,34 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 			{ // reputable and new nodes, happy path
 				Preferences:   testNodeSelectionConfig(0.5, false),
 				RequestCount:  5,
-				ExpectedCount: 5,
+				ExpectedCount: 5, // 2 new + 3 vetted
 			},
 			{ // all reputable nodes, happy path
-				Preferences:   testNodeSelectionConfig(1, false),
-				RequestCount:  5,
-				ExpectedCount: 5,
+				Preferences:   testNodeSelectionConfig(0, false),
+				RequestCount:  3,
+				ExpectedCount: 3,
 			},
 			{ // all new nodes, happy path
 				Preferences:   testNodeSelectionConfig(1, false),
-				RequestCount:  5,
-				ExpectedCount: 5,
+				RequestCount:  2,
+				ExpectedCount: 2,
 			},
 			{ // reputable and new nodes, requested too many
 				Preferences:    testNodeSelectionConfig(0.5, false),
 				RequestCount:   10,
-				ExpectedCount:  5,
+				ExpectedCount:  5, // 2 new + 3 vetted
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all reputable nodes, requested too many
-				Preferences:    testNodeSelectionConfig(1, false),
+				Preferences:    testNodeSelectionConfig(0, false),
 				RequestCount:   10,
-				ExpectedCount:  5,
+				ExpectedCount:  3,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all new nodes, requested too many
 				Preferences:    testNodeSelectionConfig(1, false),
 				RequestCount:   10,
-				ExpectedCount:  5,
+				ExpectedCount:  2,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 		} {

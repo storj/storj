@@ -212,6 +212,7 @@ func TestAuth_Register_CORS(t *testing.T) {
 
 func TestDeleteAccount(t *testing.T) {
 	ctx := testcontext.New(t)
+	log := testplanet.NewLogger(t)
 
 	// We do a black box testing because currently we don't allow to delete
 	// accounts through the API hence we must always return an error response.
@@ -298,7 +299,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	actualHandler := func(r *http.Request) (status int, body []byte) {
 		rr := httptest.NewRecorder()
-		authController := consoleapi.NewAuth(zap.L(), nil, nil, nil, nil, nil, "", "", "", "")
+		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, "", "", "", "")
 		authController.DeleteAccount(rr, r)
 
 		//nolint:bodyclose
@@ -695,7 +696,9 @@ func TestRegistrationEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		user.Status = console.Active
-		require.NoError(t, sat.DB.Console().Users().Update(ctx, user))
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &user.Status,
+		}))
 
 		newUserID = register()
 		require.Equal(t, userID, newUserID)
@@ -740,7 +743,9 @@ func TestResendActivationEmail(t *testing.T) {
 
 		// Expect activation e-mail to be sent when using unverified e-mail address.
 		user.Status = console.Inactive
-		require.NoError(t, usersRepo.Update(ctx, user))
+		require.NoError(t, usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &user.Status,
+		}))
 
 		resendEmail()
 		body, err = sender.Data.Get(ctx)

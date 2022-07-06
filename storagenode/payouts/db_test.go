@@ -49,7 +49,7 @@ func TestHeldAmountDB(t *testing.T) {
 		paystub2.Period = "2020-02"
 		paystub2.Created = paystub.Created.Add(time.Hour * 24 * 30)
 
-		t.Run("Test StorePayStub", func(t *testing.T) {
+		t.Run("StorePayStub", func(t *testing.T) {
 			err := payout.StorePayStub(ctx, paystub)
 			assert.NoError(t, err)
 		})
@@ -60,7 +60,7 @@ func TestHeldAmountDB(t *testing.T) {
 			Receipt:     "test",
 		}
 
-		t.Run("Test GetPayStub", func(t *testing.T) {
+		t.Run("GetPayStub", func(t *testing.T) {
 			err := payout.StorePayment(ctx, payment)
 			assert.NoError(t, err)
 
@@ -107,7 +107,7 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.NotNil(t, receipt)
 		})
 
-		t.Run("Test AllPayStubs", func(t *testing.T) {
+		t.Run("AllPayStubs", func(t *testing.T) {
 			stubs, err := payout.AllPayStubs(ctx, period)
 			assert.NoError(t, err)
 			assert.NotNil(t, stubs)
@@ -149,19 +149,19 @@ func TestHeldAmountDB(t *testing.T) {
 			Notes:       "notes",
 		}
 
-		t.Run("Test StorePayment", func(t *testing.T) {
+		t.Run("StorePayment", func(t *testing.T) {
 			err := payout.StorePayment(ctx, payment)
 			assert.NoError(t, err)
 		})
 
-		t.Run("Test SatellitesHeldbackHistory", func(t *testing.T) {
+		t.Run("SatellitesHeldbackHistory", func(t *testing.T) {
 			heldback, err := payout.SatellitesHeldbackHistory(ctx, satelliteID)
 			assert.NoError(t, err)
 			assert.Equal(t, heldback[0].Amount, paystub.Held)
 			assert.Equal(t, heldback[0].Period, paystub.Period)
 		})
 
-		t.Run("Test SatellitePeriods", func(t *testing.T) {
+		t.Run("SatellitePeriods", func(t *testing.T) {
 			periods, err := payout.SatellitePeriods(ctx, paystub.SatelliteID)
 			assert.NoError(t, err)
 			assert.NotNil(t, periods)
@@ -179,7 +179,7 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.Equal(t, paystub2.Period, periods[1])
 		})
 
-		t.Run("Test AllPeriods", func(t *testing.T) {
+		t.Run("AllPeriods", func(t *testing.T) {
 			periods, err := payout.AllPeriods(ctx)
 			assert.NoError(t, err)
 			assert.NotNil(t, periods)
@@ -318,7 +318,7 @@ func TestAllPayStubPeriodCached(t *testing.T) {
 func TestPayouts(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		payout := db.Payout()
-		t.Run("Test SatelliteIDs", func(t *testing.T) {
+		t.Run("SatelliteIDs", func(t *testing.T) {
 			id1 := testrand.NodeID()
 			id2 := testrand.NodeID()
 			id3 := testrand.NodeID()
@@ -350,7 +350,7 @@ func TestPayouts(t *testing.T) {
 			require.Equal(t, len(listIDs), 3)
 			require.NoError(t, err)
 		})
-		t.Run("Test GetSatelliteEarned", func(t *testing.T) {
+		t.Run("GetSatelliteEarned", func(t *testing.T) {
 			id1 := testrand.NodeID()
 			id2 := testrand.NodeID()
 			id3 := testrand.NodeID()
@@ -407,7 +407,7 @@ func TestPayouts(t *testing.T) {
 			require.NoError(t, err)
 		})
 
-		t.Run("Test GetSatelliteSummary", func(t *testing.T) {
+		t.Run("GetSatelliteSummary", func(t *testing.T) {
 			id1 := testrand.NodeID()
 			id2 := testrand.NodeID()
 

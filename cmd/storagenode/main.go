@@ -90,7 +90,7 @@ var (
 	}
 	issueAPITokenCmd = &cobra.Command{
 		Use:   "issue-apikey",
-		Short: "Issue apikey for mnd",
+		Short: "Issue apikey for multinode",
 		RunE:  cmdIssue,
 	}
 

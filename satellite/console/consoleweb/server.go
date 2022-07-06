@@ -65,7 +65,6 @@ type Config struct {
 	Watch           bool   `help:"whether to load templates on each request" default:"false" devDefault:"true"`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
-	// TODO: remove after Vanguard release
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
@@ -93,7 +92,7 @@ type Config struct {
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
 	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
-	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"false"`
+	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"true"`
 	NewBillingScreen                bool    `help:"indicates if new billing screens should be used" default:"false"`
 	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
 	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
@@ -678,21 +677,44 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 
 	user, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
-		server.log.Error("activation: failed to activate account",
-			zap.String("token", activationToken),
-			zap.Error(err))
+		if console.ErrTokenInvalid.Has(err) {
+			server.log.Debug("account activation",
+				zap.String("token", activationToken),
+				zap.Error(err),
+			)
+			server.serveError(w, http.StatusBadRequest)
+			return
+		}
+
+		if console.ErrTokenExpiration.Has(err) {
+			server.log.Debug("account activation",
+				zap.String("token", activationToken),
+				zap.Error(err),
+			)
+			server.serveError(w, http.StatusNotFound)
+			return
+		}
 
 		if console.ErrEmailUsed.Has(err) {
+			server.log.Debug("account activation",
+				zap.String("token", activationToken),
+				zap.Error(err),
+			)
 			http.Redirect(w, r, server.config.ExternalAddress+"login?activated=false", http.StatusTemporaryRedirect)
 			return
 		}
 
 		if console.Error.Has(err) {
+			server.log.Error("activation: failed to activate account with a valid token",
+				zap.Error(err))
 			server.serveError(w, http.StatusInternalServerError)
 			return
 		}
 
-		server.serveError(w, http.StatusNotFound)
+		server.log.Error(
+			"activation: failed to activate account with a valid token and unknown error type. BUG: missed error type check",
+			zap.Error(err))
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 

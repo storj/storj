@@ -865,8 +865,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 		slowNode := planet.FindNode(segment.Pieces[0].StorageNode)
 		slowNodeDB := slowNode.DB.(*testblobs.SlowDB)
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
-		delay := 1 * time.Second
-		slowNodeDB.SetLatency(delay)
+		slowNodeDB.SetLatency(3 * time.Second)
 
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)

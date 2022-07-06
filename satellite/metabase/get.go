@@ -57,7 +57,7 @@ type GetObjectExactVersion struct {
 	ObjectLocation
 }
 
-// Verify verifies get object reqest fields.
+// Verify verifies get object request fields.
 func (obj *GetObjectExactVersion) Verify() error {
 	if err := obj.ObjectLocation.Verify(); err != nil {
 		return err
@@ -91,7 +91,8 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			bucket_name  = $2 AND
 			object_key   = $3 AND
 			version      = $4 AND
-			status       = `+committedStatus,
+			status       = `+committedStatus+` AND
+			(expires_at IS NULL OR expires_at > now())`,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
 		Scan(
 			&object.StreamID,

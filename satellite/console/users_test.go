@@ -114,7 +114,9 @@ func TestUserEmailCase(t *testing.T) {
 
 			createdUser.Status = console.Active
 
-			err = db.Console().Users().Update(ctx, createdUser)
+			err = db.Console().Users().Update(ctx, createdUser.ID, console.UpdateUserRequest{
+				Status: &createdUser.Status,
+			})
 			assert.NoError(t, err)
 
 			retrievedUser, err := db.Console().Users().GetByEmail(ctx, testCase.email)
@@ -178,7 +180,9 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 
 		insertedUser.Status = console.Active
 
-		err = repository.Update(ctx, insertedUser)
+		err = repository.Update(ctx, insertedUser.ID, console.UpdateUserRequest{
+			Status: &insertedUser.Status,
+		})
 		assert.NoError(t, err)
 	})
 
@@ -266,7 +270,22 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 			LastVerificationReminder: date,
 		}
 
-		err = repository.Update(ctx, newUserInfo)
+		shortNamePtr := &newUserInfo.ShortName
+		secretKeyPtr := &newUserInfo.MFASecretKey
+		lastVerificationReminderPtr := &newUserInfo.LastVerificationReminder
+
+		err = repository.Update(ctx, newUserInfo.ID, console.UpdateUserRequest{
+			FullName:                 &newUserInfo.FullName,
+			ShortName:                &shortNamePtr,
+			Email:                    &newUserInfo.Email,
+			Status:                   &newUserInfo.Status,
+			PaidTier:                 &newUserInfo.PaidTier,
+			MFAEnabled:               &newUserInfo.MFAEnabled,
+			MFASecretKey:             &secretKeyPtr,
+			MFARecoveryCodes:         &newUserInfo.MFARecoveryCodes,
+			PasswordHash:             newUserInfo.PasswordHash,
+			LastVerificationReminder: &lastVerificationReminderPtr,
+		})
 		assert.NoError(t, err)
 
 		newUser, err := repository.Get(ctx, oldUser.ID)
@@ -333,7 +352,9 @@ func TestGetUserByEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		// Required to set the active status.
-		err = usersRepo.Update(ctx, &activeUser)
+		err = usersRepo.Update(ctx, activeUser.ID, console.UpdateUserRequest{
+			Status: &activeUser.Status,
+		})
 		require.NoError(t, err)
 
 		dbUser, err := usersRepo.GetByEmail(ctx, email)

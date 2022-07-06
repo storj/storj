@@ -26,12 +26,12 @@ var ErrApikeysAPI = errs.Class("consoleapi apikeys api")
 var ErrUsersAPI = errs.Class("consoleapi users api")
 
 type ProjectManagementService interface {
-	GenGetSingleBucketUsageRollup(context.Context, uuid.UUID, string, time.Time, time.Time) (*accounting.BucketUsageRollup, api.HTTPError)
-	GenGetBucketUsageRollups(context.Context, uuid.UUID, time.Time, time.Time) ([]accounting.BucketUsageRollup, api.HTTPError)
 	GenCreateProject(context.Context, console.ProjectInfo) (*console.Project, api.HTTPError)
 	GenUpdateProject(context.Context, uuid.UUID, console.ProjectInfo) (*console.Project, api.HTTPError)
 	GenDeleteProject(context.Context, uuid.UUID) api.HTTPError
 	GenGetUsersProjects(context.Context) ([]console.Project, api.HTTPError)
+	GenGetSingleBucketUsageRollup(context.Context, uuid.UUID, string, time.Time, time.Time) (*accounting.BucketUsageRollup, api.HTTPError)
+	GenGetBucketUsageRollups(context.Context, uuid.UUID, time.Time, time.Time) ([]accounting.BucketUsageRollup, api.HTTPError)
 }
 
 type APIKeyManagementService interface {
@@ -107,99 +107,6 @@ func NewUserManagement(log *zap.Logger, service UserManagementService, router *m
 	return handler
 }
 
-func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	bucket := r.URL.Query().Get("bucket")
-	if bucket == "" {
-		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'bucket' can't be empty"))
-		return
-	}
-
-	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	retVal, httpErr := h.service.GenGetSingleBucketUsageRollup(ctx, projectID, bucket, since, before)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(retVal)
-	if err != nil {
-		h.log.Debug("failed to write json GenGetSingleBucketUsageRollup response", zap.Error(ErrProjectsAPI.Wrap(err)))
-	}
-}
-
-func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	retVal, httpErr := h.service.GenGetBucketUsageRollups(ctx, projectID, since, before)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-		return
-	}
-
-	err = json.NewEncoder(w).Encode(retVal)
-	if err != nil {
-		h.log.Debug("failed to write json GenGetBucketUsageRollups response", zap.Error(ErrProjectsAPI.Wrap(err)))
-	}
-}
-
 func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -209,7 +116,6 @@ func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter,
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
-		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -317,7 +223,6 @@ func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWrit
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
-		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -331,6 +236,100 @@ func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWrit
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GenGetUsersProjects response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	bucket := r.URL.Query().Get("bucket")
+	if bucket == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'bucket' can't be empty"))
+		return
+	}
+
+	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenGetSingleBucketUsageRollup(ctx, projectID, bucket, since, before)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenGetSingleBucketUsageRollup response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenGetBucketUsageRollups(ctx, projectID, since, before)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenGetBucketUsageRollups response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 

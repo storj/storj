@@ -100,7 +100,9 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 	}
 
 	user.MFAEnabled = true
-	err = s.store.Users().Update(ctx, user)
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		MFAEnabled: &user.MFAEnabled,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -151,7 +153,14 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 	user.MFAEnabled = false
 	user.MFASecretKey = ""
 	user.MFARecoveryCodes = nil
-	err = s.store.Users().Update(ctx, user)
+
+	secretKeyPtr := &user.MFASecretKey
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		MFAEnabled:       &user.MFAEnabled,
+		MFASecretKey:     &secretKeyPtr,
+		MFARecoveryCodes: &user.MFARecoveryCodes,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -194,7 +203,11 @@ func (s *Service) ResetMFASecretKey(ctx context.Context) (key string, err error)
 	}
 
 	user.MFASecretKey = key
-	err = s.store.Users().Update(ctx, user)
+	mfaSecretKeyPtr := &user.MFASecretKey
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		MFASecretKey: &mfaSecretKeyPtr,
+	})
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
@@ -223,9 +236,10 @@ func (s *Service) ResetMFARecoveryCodes(ctx context.Context) (codes []string, er
 		}
 		codes[i] = code
 	}
-	user.MFARecoveryCodes = codes
 
-	err = s.store.Users().Update(ctx, user)
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		MFARecoveryCodes: &codes,
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
