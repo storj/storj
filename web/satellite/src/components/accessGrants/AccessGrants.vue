@@ -218,8 +218,8 @@ import { MetaUtils } from '@/utils/meta';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import AccessGrantsItem2 from '@/components/accessGrants/AccessGrantsItem2.vue';
-import ConfirmDeletePopup2 from '@/components/accessGrants/ConfirmDeletePopup.vue';
-import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup2.vue';
+import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
+import ConfirmDeletePopup2 from '@/components/accessGrants/ConfirmDeletePopup2.vue';
 import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
 import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
