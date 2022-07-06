@@ -45,7 +45,7 @@
                     :on-press="onDeleteClick"
                     :is-disabled="isLoading || confirmedInput !== selectedAccessGrants[0].name"
                     is-solid-delete="true"
-                    icon="trash"
+                    has-trash-icon="true"
                 />
             </div>
             <div class="confirm-delete__container__close-cross-container" @click="onCancelClick">
