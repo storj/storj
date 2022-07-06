@@ -38,7 +38,6 @@
                 @toggleIsLoading="toggleIsLoading"
                 @cancel="onCancel"
             />
-            <!-- Use this component -->
             <AddCardForm
                 v-if="isAddingCardState"
                 ref="addCard"

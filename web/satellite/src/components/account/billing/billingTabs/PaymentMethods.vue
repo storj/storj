@@ -538,6 +538,7 @@ $align: center;
 
 .edit-card-text {
     color: #0149ff;
+    font-family: sans-serif
 }
 
 .change-default-input-container {
@@ -627,7 +628,7 @@ $align: center;
 }
 
 .card-icon {
-    margin-top: 10px;
+    margin-top: 20px;
     margin-left: 168px;
     grid-column: 1;
     grid-row: 1;
