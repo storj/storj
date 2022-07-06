@@ -538,7 +538,7 @@ $align: center;
 
 .edit-card-text {
     color: #0149ff;
-    font-family: sans-serif
+    font-family: sans-serif;
 }
 
 .change-default-input-container {

@@ -148,7 +148,6 @@ export default class CardComponent extends Vue {
     &__text {
         font-family: 'font_medium', sans-serif;
         line-height: 23px;
-        margin: 0;
         white-space: nowrap;
         color: #354049 !important;
         margin: 4px 0 0 9px;
@@ -175,7 +174,6 @@ export default class CardComponent extends Vue {
     &__text {
         font-family: 'font_medium', sans-serif;
         line-height: 23px;
-        margin: 0;
         white-space: nowrap;
         color: #354049 !important;
         font-size: 13px;
