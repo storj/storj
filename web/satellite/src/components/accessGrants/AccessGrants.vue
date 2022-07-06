@@ -269,18 +269,18 @@ declare interface ResetPagination {
     },
 })
 export default class AccessGrants extends Vue {
-    private FIRST_PAGE = 1;
-    private isDeleteClicked = false;
+    private FIRST_PAGE: number = 1;
+    private isDeleteClicked: boolean = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Indicates if the access modal should be shown and what the defaulted type of access should be defaulted.
      */
-    private showAccessModal = false;
-    private modalAccessType = '';
+    private showAccessModal: boolean = false;
+    private modalAccessType: string = '';
 
-    public areGrantsFetching = true;
+    public areGrantsFetching: boolean = true;
 
     public $refs!: {
         pagination: HTMLElement & ResetPagination;

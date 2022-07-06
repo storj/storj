@@ -634,64 +634,64 @@ export default class CreateAccessModal extends Vue {
     private readonly defaultType: string;
 
     private accessGrantList = this.accessGrantsList;
-    private accessGrantStep = "create";
+    private accessGrantStep: string = "create";
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-    public areKeysVisible = false;
-    private readonly FIRST_PAGE = 1;
+    public areKeysVisible: boolean = false;
+    private readonly FIRST_PAGE: number = 1;
 
     /**
      * Stores access type that is selected and text changes based on type.
      */
-    private checkedType = '';
-    private checkedText = {access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.']};
-    private areCredentialsDownloaded = false;
-    private isAccessGrantCopied = false;
+    private checkedType: string = '';
+    private checkedText: {} = {access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.']};
+    private areCredentialsDownloaded: boolean = false;
+    private isAccessGrantCopied: boolean = false;
 
     /**
      * Global isLoading Variable
      **/
-    private isLoading = false;
+    private isLoading: boolean = false;
 
     /**
      * Handles which tooltip is hovered over and set/clear timeout when leaving hover.
      */
-    public tooltipHover = '';
+    public tooltipHover: string = '';
     public tooltipVisibilityTimer;
 
     /**
      * Handles permission types, which have been selected, and determining if all have been selected.
      */
-    private showAllPermissions = {show: false, position: "up"};
-    private permissionsList = ["Read","Write","List","Delete"];
-    private checkedPermissions = {Read: false, Write: false, List: false, Delete: false};
-    private selectedPermissions : string[] = [];
-    private allPermissionsClicked = false;
-    private acknowledgementCheck = false;
+    private showAllPermissions: {} = {show: false, position: "up"};
+    private permissionsList: string[] = ["Read","Write","List","Delete"];
+    private checkedPermissions: {} = {Read: false, Write: false, List: false, Delete: false};
+    private selectedPermissions: string[] = [];
+    private allPermissionsClicked: boolean = false;
+    private acknowledgementCheck: boolean = false;
 
     /**
      * Handles business logic for options on each step after create access.
      */
-    private encryptSelect = "create";
-    private passphrase = "";
-    private isPassphraseCopied = false;
-    private isPassphraseDownloaded = false;
-    public isGenerateState = false;
+    private encryptSelect: string = "create";
+    private passphrase:string = "";
+    private isPassphraseCopied:boolean = false;
+    private isPassphraseDownloaded:boolean = false;
+    public isGenerateState:boolean = false;
 
-    private accessName = '';
-    public areBucketNamesFetching = true;
-    private addDateSelected = false;
+    private accessName:string = '';
+    public areBucketNamesFetching:boolean = true;
+    private addDateSelected:boolean = false;
 
     /**
      * Created Access Grant
      */
     private createdAccessGrant;
-    private createdAccessGrantName = "";
-    private createdAccessGrantSecret = "";
-    private access = "";
+    private createdAccessGrantName: string = "";
+    private createdAccessGrantSecret: string = "";
+    private access:string = "";
 
     public currentDate = new Date().toISOString();
     private worker: Worker;
-    private restrictedKey = '';
+    private restrictedKey: string = '';
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
 
