@@ -81,7 +81,7 @@ func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (result
 		return BeginMoveObjectResult{}, Error.New("unable to query object status: %w", err)
 	}
 
-	if segmentCount > MoveLimit {
+	if segmentCount > MoveSegmentLimit {
 		return BeginMoveObjectResult{}, Error.New("segment count of chosen object is beyond limit")
 	}
 

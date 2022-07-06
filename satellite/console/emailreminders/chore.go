@@ -82,14 +82,13 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		mon.IntVal("unverified_needing_reminder").Observe(int64(len(users)))
 
 		for _, u := range users {
-
 			token, err := chore.tokens.CreateToken(ctx, u.ID, u.Email)
 
 			if err != nil {
 				chore.log.Error("error generating activation token", zap.Error(err))
 				return nil
 			}
-			authController := consoleapi.NewAuth(zap.L(), nil, nil, nil, nil, nil, chore.address, "", "", "")
+			authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, chore.address, "", "", "")
 
 			link := authController.ActivateAccountURL + "?token=" + token
 			userName := u.ShortName

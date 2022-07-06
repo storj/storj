@@ -52,7 +52,7 @@ func TestService(t *testing.T) {
 			userCtx2, err := sat.UserContext(ctx, up2Pro1.OwnerID)
 			require.NoError(t, err)
 
-			t.Run("TestGetProject", func(t *testing.T) {
+			t.Run("GetProject", func(t *testing.T) {
 				// Getting own project details should work
 				project, err := service.GetProject(userCtx1, up1Pro1.ID)
 				require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestService(t *testing.T) {
 				require.Nil(t, project)
 			})
 
-			t.Run("TestUpdateProject", func(t *testing.T) {
+			t.Run("UpdateProject", func(t *testing.T) {
 				updatedName := "newName"
 				updatedDescription := "newDescription"
 				updatedStorageLimit := memory.Size(100)
@@ -161,7 +161,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, updateInfo.BandwidthLimit, *project.BandwidthLimit)
 			})
 
-			t.Run("TestAddProjectMembers", func(t *testing.T) {
+			t.Run("AddProjectMembers", func(t *testing.T) {
 				// Adding members to own project should work
 				addedUsers, err := service.AddProjectMembers(userCtx1, up1Pro1.ID, []string{up2User.Email})
 				require.NoError(t, err)
@@ -174,7 +174,7 @@ func TestService(t *testing.T) {
 				require.Nil(t, addedUsers)
 			})
 
-			t.Run("TestGetProjectMembers", func(t *testing.T) {
+			t.Run("GetProjectMembers", func(t *testing.T) {
 				// Getting the project members of an own project that one is a part of should work
 				userPage, err := service.GetProjectMembers(userCtx1, up1Pro1.ID, console.ProjectMembersCursor{Page: 1, Limit: 10})
 				require.NoError(t, err)
@@ -191,7 +191,7 @@ func TestService(t *testing.T) {
 				require.Nil(t, userPage)
 			})
 
-			t.Run("TestDeleteProjectMembers", func(t *testing.T) {
+			t.Run("DeleteProjectMembers", func(t *testing.T) {
 				// Deleting project members of an own project should work
 				err := service.DeleteProjectMembers(userCtx1, up1Pro1.ID, []string{up2User.Email})
 				require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestService(t *testing.T) {
 				require.Error(t, err)
 			})
 
-			t.Run("TestDeleteProject", func(t *testing.T) {
+			t.Run("DeleteProject", func(t *testing.T) {
 				// Deleting the own project should not work before deleting the API-Key
 				err := service.DeleteProject(userCtx1, up1Pro1.ID)
 				require.Error(t, err)
@@ -230,7 +230,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, "console service: project usage: some buckets still exist", err.Error())
 			})
 
-			t.Run("TestChangeEmail", func(t *testing.T) {
+			t.Run("ChangeEmail", func(t *testing.T) {
 				const newEmail = "newEmail@example.com"
 
 				err = service.ChangeEmail(userCtx2, newEmail)
@@ -244,7 +244,7 @@ func TestService(t *testing.T) {
 				require.Error(t, err)
 			})
 
-			t.Run("TestGetAllBucketNames", func(t *testing.T) {
+			t.Run("GetAllBucketNames", func(t *testing.T) {
 				bucket1 := storj.Bucket{
 					ID:        testrand.UUID(),
 					Name:      "testBucket1",
@@ -274,7 +274,7 @@ func TestService(t *testing.T) {
 				require.Nil(t, bucketsForUnauthorizedUser)
 			})
 
-			t.Run("TestDeleteAPIKeyByNameAndProjectID", func(t *testing.T) {
+			t.Run("DeleteAPIKeyByNameAndProjectID", func(t *testing.T) {
 				secret, err := macaroon.NewSecret()
 				require.NoError(t, err)
 
@@ -405,7 +405,7 @@ func TestMFA(t *testing.T) {
 		userCtx, user := updateContext()
 
 		var key string
-		t.Run("TestResetMFASecretKey", func(t *testing.T) {
+		t.Run("ResetMFASecretKey", func(t *testing.T) {
 			key, err = service.ResetMFASecretKey(userCtx)
 			require.NoError(t, err)
 
@@ -413,7 +413,7 @@ func TestMFA(t *testing.T) {
 			require.NotEmpty(t, user.MFASecretKey)
 		})
 
-		t.Run("TestEnableUserMFABadPasscode", func(t *testing.T) {
+		t.Run("EnableUserMFABadPasscode", func(t *testing.T) {
 			// Expect MFA-enabling attempt to be rejected when providing stale passcode.
 			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
 			require.NoError(t, err)
@@ -429,7 +429,7 @@ func TestMFA(t *testing.T) {
 			require.False(t, user.MFAEnabled)
 		})
 
-		t.Run("TestEnableUserMFAGoodPasscode", func(t *testing.T) {
+		t.Run("EnableUserMFAGoodPasscode", func(t *testing.T) {
 			// Expect MFA-enabling attempt to succeed when providing valid passcode.
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
@@ -443,7 +443,7 @@ func TestMFA(t *testing.T) {
 			require.Equal(t, user.MFASecretKey, key)
 		})
 
-		t.Run("TestMFAGetToken", func(t *testing.T) {
+		t.Run("MFAGetToken", func(t *testing.T) {
 			request := console.AuthUser{Email: user.Email, Password: user.FullName}
 
 			// Expect no token due to lack of MFA passcode.
@@ -470,7 +470,7 @@ func TestMFA(t *testing.T) {
 			require.NotEmpty(t, token)
 		})
 
-		t.Run("TestMFARecoveryCodes", func(t *testing.T) {
+		t.Run("MFARecoveryCodes", func(t *testing.T) {
 			_, err = service.ResetMFARecoveryCodes(userCtx)
 			require.NoError(t, err)
 
@@ -500,7 +500,7 @@ func TestMFA(t *testing.T) {
 			require.NoError(t, err)
 		})
 
-		t.Run("TestDisableUserMFABadPasscode", func(t *testing.T) {
+		t.Run("DisableUserMFABadPasscode", func(t *testing.T) {
 			// Expect MFA-disabling attempt to fail when providing valid passcode.
 			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
 			require.NoError(t, err)
@@ -515,7 +515,7 @@ func TestMFA(t *testing.T) {
 			require.NotEmpty(t, user.MFARecoveryCodes)
 		})
 
-		t.Run("TestDisableUserMFAConflict", func(t *testing.T) {
+		t.Run("DisableUserMFAConflict", func(t *testing.T) {
 			// Expect MFA-disabling attempt to fail when providing both recovery code and passcode.
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
@@ -530,7 +530,7 @@ func TestMFA(t *testing.T) {
 			require.NotEmpty(t, user.MFARecoveryCodes)
 		})
 
-		t.Run("TestDisableUserMFAGoodPasscode", func(t *testing.T) {
+		t.Run("DisableUserMFAGoodPasscode", func(t *testing.T) {
 			// Expect MFA-disabling attempt to succeed when providing valid passcode.
 			goodCode, err := console.NewMFAPasscode(key, time.Time{})
 			require.NoError(t, err)
@@ -545,7 +545,7 @@ func TestMFA(t *testing.T) {
 			require.Empty(t, user.MFARecoveryCodes)
 		})
 
-		t.Run("TestDisableUserMFAGoodRecoveryCode", func(t *testing.T) {
+		t.Run("DisableUserMFAGoodRecoveryCode", func(t *testing.T) {
 			// Expect MFA-disabling attempt to succeed when providing valid recovery code.
 			// Enable MFA
 			key, err = service.ResetMFASecretKey(userCtx)

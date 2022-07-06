@@ -7,7 +7,7 @@
         :class="{ 'selected-row': isFileSelected }"
         @click.stop="selectFile"
     >
-        <td class="w-50" data-ls-disabled>
+        <td data-ls-disabled>
             <span v-if="fileTypeIsFolder" class="folder-name">
                 <svg
                     class="ml-2 mr-1"
@@ -46,7 +46,7 @@
                     width="1.5em"
                     height="1.5em"
                     viewBox="0 0 16 16"
-                    class="bi bi-file-earmark ml-1 mr-1 mb-1"
+                    class="bi bi-file-earmark mx-1 flex-shrink-0"
                     fill="#768394"
                     xmlns="http://www.w3.org/2000/svg"
                 >
@@ -55,11 +55,10 @@
                     />
                     <path d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z" />
                 </svg>
-
-                {{ filename }}
+                <middle-truncate :text="filename" />
             </span>
         </td>
-        <td class="w-25">
+        <td>
             <span v-if="fileTypeIsFile" aria-roledescription="file-size">{{
                 size
             }}</span>
@@ -370,9 +369,14 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import type { BrowserFile } from "@/types/browser";
 import prettyBytes from "pretty-bytes";
+import MiddleTruncate from "./MiddleTruncate.vue";
 
 // @vue/component
-@Component
+@Component({
+    components: {
+        MiddleTruncate,
+    }
+})
 export default class FileEntry extends Vue {
     public deleteConfirmation = false;
 
@@ -385,9 +389,7 @@ export default class FileEntry extends Vue {
      * Return the name of file/folder formatted.
      */
     public get filename(): string {
-        return this.file.Key.length > 25
-            ? this.file.Key.slice(0, 25) + "..."
-            : this.file.Key;
+        return this.file.Key
     }
 
     /**
@@ -768,9 +770,12 @@ a {
 }
 
 .file-name {
+    position: relative;
     margin-left: 5px;
     cursor: pointer;
     color: #000;
+    display: flex;
+    align-items: center;
 }
 
 .file-name:hover {
