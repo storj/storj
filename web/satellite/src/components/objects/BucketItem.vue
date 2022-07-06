@@ -86,7 +86,10 @@ export default class BucketItem extends Vue {
     public onDetailsClick(): void {
         this.$router.push({
             name: RouteConfig.Buckets.with(RouteConfig.BucketsDetails).name,
-            params: { bucketName: this.itemData.name },
+            params: {
+                bucketName: this.itemData.name,
+                backRoute: this.$route.name ? this.$route.name : ''
+            },
         });
         this.closeDropdown();
     }

@@ -5,6 +5,7 @@ package metabase_test
 
 import (
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -812,6 +813,100 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.NotNil(t, entry.EncryptedMetadataNonce)
 				require.NotNil(t, entry.EncryptedMetadata)
 				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
+			}
+		})
+
+		t.Run("verify-cursor-continuation", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+			createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+				"1",
+				"a/a",
+				"a/0",
+			})
+			var collector metabasetest.IterateCollector
+			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				Prefix:     metabase.ObjectKey("a/"),
+				Status:     metabase.Committed,
+				BatchSize:  1,
+			}, collector.Add)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(collector))
+		})
+		t.Run("skip-expired-objects", func(t *testing.T) {
+			now := time.Now()
+			type test struct {
+				notExpired []metabase.ObjectKey
+				expired    []metabase.ObjectKey
+			}
+			testCases := []test{
+				{
+					notExpired: []metabase.ObjectKey{"1"},
+					expired:    []metabase.ObjectKey{"2"},
+				},
+				{
+					notExpired: []metabase.ObjectKey{"2"},
+					expired:    []metabase.ObjectKey{"1"},
+				},
+				{
+					notExpired: []metabase.ObjectKey{"2"},
+					expired:    []metabase.ObjectKey{"1", "3"},
+				},
+				{
+					notExpired: []metabase.ObjectKey{"2", "4"},
+					expired:    []metabase.ObjectKey{"1", "3"},
+				},
+				{
+					expired: []metabase.ObjectKey{"1", "2", "3", "4"},
+				},
+			}
+			stream := metabase.ObjectStream{
+				ProjectID:  uuid.UUID{1},
+				BucketName: "bucket",
+				Version:    1,
+				StreamID:   testrand.UUID(),
+			}
+			for i, tc := range testCases {
+				tc := tc
+				t.Run(strconv.Itoa(i), func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+					expectedResult := []metabase.ObjectEntry{}
+					if len(tc.notExpired) == 0 {
+						expectedResult = nil
+					}
+					for _, key := range tc.notExpired {
+						stream.ObjectKey = key
+						object := metabasetest.CreateObject(ctx, t, db, stream, 0)
+						expectedResult = append(expectedResult, objectEntryFromRaw(metabase.RawObject(object)))
+					}
+					for _, key := range tc.expired {
+						stream.ObjectKey = key
+						metabasetest.CreateExpiredObject(ctx, t, db, stream, 0, now.Add(-2*time.Hour))
+					}
+					for _, batchSize := range []int{1, 2, 3} {
+						opts := metabase.IterateObjectsWithStatus{
+							ProjectID:             stream.ProjectID,
+							BucketName:            stream.BucketName,
+							BatchSize:             batchSize,
+							Status:                3,
+							IncludeSystemMetadata: true,
+						}
+						metabasetest.IterateObjectsWithStatus{
+							Opts:   opts,
+							Result: expectedResult,
+						}.Check(ctx, t, db)
+						{
+							opts := opts
+							opts.Recursive = true
+							metabasetest.IterateObjectsWithStatus{
+								Opts:   opts,
+								Result: expectedResult,
+							}.Check(ctx, t, db)
+						}
+					}
+				})
 			}
 		})
 	})

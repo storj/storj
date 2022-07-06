@@ -110,7 +110,6 @@ export default class CardComponent extends Vue {
 </script>
 
 <style scoped lang="scss">
-
 .medium {
     font-family: 'font_regular', sans-serif;
     font-size: 16px;
