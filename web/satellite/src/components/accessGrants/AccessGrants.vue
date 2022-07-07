@@ -274,6 +274,8 @@ export default class AccessGrants extends Vue {
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Indicates if the access modal should be shown and what the defaulted type of access should be defaulted.
      */

@@ -371,10 +371,18 @@ read one (
     where webapp_session.id = ?
 )
 
+//--- projects ---//
+
 model project (
     key id
 
+	index (
+		name projects_public_id_index
+		fields public_id
+	)
+
     field id              blob
+	field public_id       blob ( nullable )
 
     field name            text      ( updatable )
     field description     text      ( updatable )
@@ -395,6 +403,10 @@ create project ( )
 update project ( where project.id = ? )
 delete project ( where project.id = ? )
 
+read one (
+	select project
+	where project.public_id = ?
+)
 read one (
     select project
     where project.id = ?

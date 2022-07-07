@@ -5,7 +5,7 @@
     <thead>
         <tr>
             <th
-                class="table-heading"
+                class="table-heading w-50"
                 scope="col"
                 @mouseover="mouseOverName"
                 @mouseleave="mouseLeave"
@@ -46,7 +46,7 @@
                 </span>
             </th>
             <th
-                class="table-heading"
+                class="table-heading w-25"
                 scope="col"
                 @mouseover="mouseOverSize"
                 @mouseleave="mouseLeave"
