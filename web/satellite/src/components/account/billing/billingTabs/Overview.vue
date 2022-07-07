@@ -214,6 +214,12 @@ export default class BillingArea extends Vue {
                 cursor: pointer;
             }
 
+            &__main-icon {
+                ::v-deep g {
+                    filter: none;
+                }
+            }
+
             &__charges-tooltip {
                 top: 5px;
                 left: 86px;
