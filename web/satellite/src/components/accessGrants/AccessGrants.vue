@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 <template>
     <div class="access-grants">
@@ -27,7 +27,7 @@
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Management</h2>
             <div class="access-grants__title-area__title-subtext" aria-roledescription="title">Create encryption keys to setup permissions to access your objects.</div>
         </div>
-        <div v-if="!isNewAccessGrantFlow" class="access-grants__flows-area">
+        <div v-if="isNewAccessGrantFlow" class="access-grants__flows-area">
             <div class="access-grants__flows-area__access-grant">
                 <div class="access-grants__flows-area__icon-container">
                     <AccessGrantsIcon />
@@ -169,7 +169,7 @@
                 </span>
             </div>
         </div>
-        <div v-if="isNewAccessGrantFlow">
+        <div v-if="!isNewAccessGrantFlow">
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
             <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
                 <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />

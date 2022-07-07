@@ -4,30 +4,6 @@
 <template>
     <div class="access-grant">
         <div class="access-grant__modal-container">
-            <div
-                v-if="tooltipHover === 'access'"
-                class="access-tooltip"
-                @mouseover="toggleTooltipHover('access','over')"
-                @mouseleave="toggleTooltipHover('access','leave')"
-            >
-                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
-            </div>
-            <div
-                v-if="tooltipHover === 's3'"
-                class="s3-tooltip"
-                @mouseover="toggleTooltipHover('s3','over')"
-                @mouseleave="toggleTooltipHover('s3','leave')"
-            >
-                <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener">Learn More</a></span>
-            </div>
-            <div
-                v-if="tooltipHover === 'api'"
-                class="api-tooltip"
-                @mouseover="toggleTooltipHover('api','over')"
-                @mouseleave="toggleTooltipHover('api','leave')"
-            >
-                <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener">Learn More</a></span>
-            </div>
             <!-- ********* Create Form Modal ********* -->
             <form v-if="accessGrantStep === 'create'">
                 <div class="access-grant__modal-container__header-container">
@@ -61,6 +37,14 @@
                                 @mouseover="toggleTooltipHover('access','over')"
                                 @mouseleave="toggleTooltipHover('access','leave')"
                             >
+                            <div
+                                v-if="tooltipHover === 'access'"
+                                class="access-tooltip"
+                                @mouseover="toggleTooltipHover('access','over')"
+                                @mouseleave="toggleTooltipHover('access','leave')"
+                            >
+                                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                            </div>
                         </div>
                         <div class="access-grant__modal-container__body-container__type__type-container">
                             <input
@@ -79,6 +63,14 @@
                                 @mouseover="toggleTooltipHover('s3','over')"
                                 @mouseleave="toggleTooltipHover('s3','leave')"
                             >
+                            <div
+                                v-if="tooltipHover === 's3'"
+                                class="s3-tooltip"
+                                @mouseover="toggleTooltipHover('s3','over')"
+                                @mouseleave="toggleTooltipHover('s3','leave')"
+                            >
+                                <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                            </div>
                         </div>
                         <div class="access-grant__modal-container__body-container__type__type-container">
                             <input
@@ -98,6 +90,14 @@
                                 @mouseover="toggleTooltipHover('api','over')"
                                 @mouseleave="toggleTooltipHover('api','leave')"
                             >
+                            <div
+                                v-if="tooltipHover === 'api'"
+                                class="api-tooltip"
+                                @mouseover="toggleTooltipHover('api','over')"
+                                @mouseleave="toggleTooltipHover('api','leave')"
+                            >
+                                <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                            </div>
                         </div>
                     </div>
                     <NameIcon class="access-grant__modal-container__body-container__name-icon" />
@@ -661,9 +661,9 @@ export default class CreateAccessModal extends Vue {
     /**
      * Handles permission types, which have been selected, and determining if all have been selected.
      */
-    private showAllPermissions: {} = {show: false, position: "up"};
+    private showAllPermissions: {show: boolean, position: string} = {show: false, position: "up"};
     private permissionsList: string[] = ["Read","Write","List","Delete"];
-    private checkedPermissions: {} = {Read: false, Write: false, List: false, Delete: false};
+    private checkedPermissions: {Read: boolean, Write: boolean, List: boolean, Delete: boolean} = {Read: false, Write: false, List: false, Delete: false};
     private selectedPermissions: string[] = [];
     private allPermissionsClicked: boolean = false;
     private acknowledgementCheck: boolean = false;
@@ -1544,8 +1544,8 @@ export default class CreateAccessModal extends Vue {
     }
 
     .access-tooltip {
-        top: 52px;
-        left: 109px;
+        top: 80px;
+        left: 112px;
 
         @include tooltip-container;
 
@@ -1558,8 +1558,8 @@ export default class CreateAccessModal extends Vue {
     }
 
     .s3-tooltip {
-        top: 158px;
-        left: 118px;
+        top: 188px;
+        left: 121px;
 
         @include tooltip-container;
 
@@ -1573,8 +1573,8 @@ export default class CreateAccessModal extends Vue {
     }
 
     .api-tooltip {
-        top: 186px;
-        left: 94px;
+        top: 215px;
+        left: 96px;
 
         @include tooltip-container;
 
