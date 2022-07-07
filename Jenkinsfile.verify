@@ -91,6 +91,10 @@ pipeline {
         }
 
         stage('Build and Lint Web') {
+            options {
+                timeout(time: 6, unit: "MINUTES")
+            }
+
             // The build code depends on the following assets being loaded.
             parallel {
                 stage('web/satellite') {
@@ -99,7 +103,7 @@ pipeline {
                     }
                     steps {
                         dir('web/satellite') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
                             sh './scripts/build-wasm.sh'
                             sh 'npm run build'
 
@@ -122,7 +126,7 @@ pipeline {
                     }
                     steps {
                         dir("web/storagenode") {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
                             sh 'npm run build'
                             sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
@@ -137,7 +141,7 @@ pipeline {
                     }
                     steps {
                         dir("web/multinode") {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
                             sh 'npm run build'
                             sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
@@ -152,7 +156,7 @@ pipeline {
                     }
                     steps {
                         dir("satellite/admin/ui") {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
                             sh 'npm run build'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run check'
