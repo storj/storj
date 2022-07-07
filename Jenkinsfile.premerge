@@ -311,5 +311,10 @@ pipeline {
                 sh './scripts/gerrit-status.sh pre-merge failure -2'
             }
         }
+        aborted {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh pre-merge failure -2'
+            }
+        }
     }
 }
