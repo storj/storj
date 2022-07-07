@@ -5,7 +5,7 @@
     <div class="access-grant">
         <div class="access-grant__modal-container">
             <!-- ********* Create Form Modal ********* -->
-            <form v-if="accessGrantStep === 'create'">
+            <form v-if="isCreateStep">
                 <div class="access-grant__modal-container__header-container">
                     <h2 class="access-grant__modal-container__header-container__title">Create Access</h2>
                     <div
@@ -204,7 +204,7 @@
                 </div>
             </form>
             <!-- *********   Encrypt Form Modal  ********* -->
-            <form v-if="accessGrantStep === 'encrypt'">
+            <form v-if="isEncryptStep">
                 <div class="access-grant__modal-container__header-container">
                     <h2 class="access-grant__modal-container__header-container__title">Select Encryption</h2>
                     <div
@@ -352,7 +352,7 @@
                 </div>
             </form>
             <!-- *********   Grant Created Modal  ********* -->
-            <form v-if="accessGrantStep === 'grantCreated'">
+            <form v-if="isGrantCreatedStep">
                 <div class="access-grant__modal-container__header-container">
                     <AccessGrantsIcon v-if="checkedType === 'access'" />
                     <S3Icon v-if="checkedType === 's3'" />
@@ -374,11 +374,13 @@
                             href="https://docs.storj.io/dcs/concepts/access/access-grants/"
                             target="_blank"
                         >
-                            <img
-                                class="tooltip-icon"
-                                alt="tooltip icon"
-                                src="../../../static/images/accessGrants/create-access_information.png"
-                            >
+                            <div>
+                                <img
+                                    class="tooltip-icon"
+                                    alt="tooltip icon"
+                                    src="../../../static/images/accessGrants/create-access_information.png"
+                                >
+                            </div>
                         </a>
                     </div>
                     <div
@@ -694,7 +696,6 @@ export default class CreateAccessModal extends Vue {
     private restrictedKey: string = '';
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
-
     /**
      * Checks which type was selected and retrieves buckets on mount.
      */
@@ -793,7 +794,6 @@ export default class CreateAccessModal extends Vue {
         this.access = accessEvent.data.value;
         await this.$notify.success('Access Grant was generated successfully');
 
-
         if (this.checkedType === 's3') {
             try {
                 await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
@@ -807,7 +807,6 @@ export default class CreateAccessModal extends Vue {
                 await this.$notify.error(error.message);
             }
         }
-
         this.accessGrantStep = 'grantCreated';
     }
 
@@ -832,14 +831,18 @@ export default class CreateAccessModal extends Vue {
         Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`)
     }
 
+    
+
     public onRadioInput(): void {
         this.isPassphraseCopied = false;
         this.isPassphraseDownloaded = false;
-        if (this.encryptSelect === "generate") {
+        switch (this.encryptSelect) {
+        case "generate":
             this.passphrase = generateMnemonic();
-        }
-        else {
+            break;
+        default:
             this.passphrase = "";
+            break;
         }
     }
 
@@ -973,6 +976,21 @@ export default class CreateAccessModal extends Vue {
      */
     public get gatewayCredentials(): EdgeCredentials {
         return this.$store.state.accessGrantsModule.gatewayCredentials;
+    }
+
+    /**
+     * Returns which step should be rendered.
+     */
+    public get isCreateStep(): boolean {
+        return this.accessGrantStep === 'create';
+    }
+
+    public get isEncryptStep(): boolean {
+        return this.accessGrantStep === 'encrypt';
+    }
+
+    public get isGrantCreatedStep(): boolean {
+        return this.accessGrantStep === 'grantCreated';
     }
 }
 </script>
