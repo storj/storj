@@ -262,5 +262,10 @@ pipeline {
                 sh './scripts/gerrit-status.sh verify failure -1'
             }
         }
+        aborted {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh verify failure -1'
+            }
+        }
     }
 }
