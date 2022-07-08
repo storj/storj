@@ -6,3 +6,6 @@ node_modules
 /package
 .env
 .env.*
+
+# Stub for Go to avoid scanning node_modules.
+!node_modules/go.mod

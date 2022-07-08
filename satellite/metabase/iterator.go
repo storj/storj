@@ -138,7 +138,6 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 	}
 
 	// TODO: implement this on the database side
-
 	ok := it.next(ctx, item)
 	if !ok {
 		return false
@@ -263,6 +262,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
 				AND (project_id, bucket_name) < ($1, $7)
 				AND status = $3
+				AND (expires_at IS NULL OR expires_at > now())
 				ORDER BY (project_id, bucket_name, object_key, version) ASC
 			LIMIT $6
 			`, it.projectID, it.bucketName,
@@ -283,6 +283,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
 			AND (project_id, bucket_name, object_key) < ($1, $2, $6)
 			AND status = $3
+			AND (expires_at IS NULL OR expires_at > now())
 			ORDER BY (project_id, bucket_name, object_key, version) ASC
 		LIMIT $7
 	`, it.projectID, it.bucketName,

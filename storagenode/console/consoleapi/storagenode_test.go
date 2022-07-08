@@ -72,10 +72,11 @@ func TestStorageNodeApi(t *testing.T) {
 			// pause nodestats reputation cache because later tests assert a specific joinedat.
 			sno.NodeStats.Cache.Reputation.Pause()
 
-			now := time.Now().UTC().Add(-2 * time.Hour)
+			now := time.Now().UTC()
+			startingPoint := now.Add(-2 * time.Hour)
 
 			for _, action := range actions {
-				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, now)
+				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, startingPoint)
 				require.NoError(t, err)
 			}
 			var satellites []storj.NodeID
@@ -88,7 +89,7 @@ func TestStorageNodeApi(t *testing.T) {
 
 			err = reputationdb.Store(ctx, reputation.Stats{
 				SatelliteID: satellite.ID(),
-				JoinedAt:    now.AddDate(0, -2, 0),
+				JoinedAt:    startingPoint.AddDate(0, -2, 0),
 			})
 			require.NoError(t, err)
 
@@ -103,7 +104,7 @@ func TestStorageNodeApi(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			t.Run("test EstimatedPayout", func(t *testing.T) {
+			t.Run("EstimatedPayout", func(t *testing.T) {
 				// should return estimated payout for both satellites in current month and empty for previous
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/estimated-payout", baseURL), nil)
 				require.NoError(t, err)
@@ -122,7 +123,7 @@ func TestStorageNodeApi(t *testing.T) {
 				bodyPayout := &estimatedpayouts.EstimatedPayout{}
 				require.NoError(t, json.Unmarshal(body, bodyPayout))
 
-				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, time.Now())
+				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, now)
 				require.NoError(t, err)
 				expectedPayout := &estimatedpayouts.EstimatedPayout{
 					CurrentMonth:             estimation.CurrentMonth,
@@ -143,14 +144,15 @@ func makeStorageUsageStamps(satellites []storj.NodeID) ([]storageusage.Stamp, ma
 	var stamps []storageusage.Stamp
 	summary := make(map[storj.NodeID]float64)
 
-	now := time.Now().UTC().Day()
+	now := time.Now().UTC()
+	currentDay := now.Day()
 
 	for _, satellite := range satellites {
-		for i := 0; i < now; i++ {
+		for i := 0; i < currentDay; i++ {
 			stamp := storageusage.Stamp{
 				SatelliteID:   satellite,
 				AtRestTotal:   30000000000000,
-				IntervalStart: time.Now().UTC().Add(time.Hour * -24 * time.Duration(i)),
+				IntervalStart: now.Add(time.Hour * -24 * time.Duration(i)),
 			}
 
 			summary[satellite] += stamp.AtRestTotal

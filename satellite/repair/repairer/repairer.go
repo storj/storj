@@ -163,11 +163,10 @@ func (service *Service) worker(ctx context.Context, seg *queue.InjuredSegment) (
 		} else {
 			service.log.Debug("removing repaired segment from repair queue")
 		}
-		if shouldDelete {
-			delErr := service.queue.Delete(ctx, seg)
-			if delErr != nil {
-				err = errs.Combine(err, Error.New("failed to remove segment from queue: %v", delErr))
-			}
+
+		delErr := service.queue.Delete(ctx, seg)
+		if delErr != nil {
+			err = errs.Combine(err, Error.New("failed to remove segment from queue: %v", delErr))
 		}
 	}
 	if err != nil {

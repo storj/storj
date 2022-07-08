@@ -16,6 +16,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { MetaUtils } from '@/utils/meta';
+import { LoadScript } from '@/utils/loadScript';
 
 interface StripeResponse {
     error: string
@@ -46,16 +47,10 @@ export default class StripeCardInput extends Vue {
      */
     private stripe: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-    /**
-     * Stripe initialization after initial render.
+    /** 
+     * Stripe initialization.
      */
-    public async mounted(): Promise<void> {
-        if (!window['Stripe']) {
-            await this.$notify.error('Stripe library not loaded');
-
-            return;
-        }
-
+    private async initStripe() {
         const stripePublicKey = MetaUtils.getMetaContent('stripe-public-key');
 
         this.stripe = window['Stripe'](stripePublicKey);
@@ -94,6 +89,23 @@ export default class StripeCardInput extends Vue {
     }
 
     /**
+     * Stripe library loading and initialization.
+     */
+    public async mounted(): Promise<void> {
+        if (!window['Stripe']){
+            const script = new LoadScript("https://js.stripe.com/v3/",
+                () => { this.initStripe(); },
+                () => { this.$notify.error('Stripe library not loaded');
+                    script.remove(); }
+            )
+
+            return;
+        }
+
+        this.initStripe();
+    }
+
+    /**
      * Event after card adding.
      * Returns token to callback and clears card input
      *
@@ -118,7 +130,7 @@ export default class StripeCardInput extends Vue {
      * Clears listeners.
      */
     public beforeDestroy(): void {
-        this.cardElement.removeEventListener('change');
+        this.cardElement?.removeEventListener('change');
     }
 
     /**
