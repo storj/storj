@@ -679,8 +679,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # required number of following blocks in the chain to accept payment as confirmed
 # payments.storjscan.confirmations: 12
 
+# flag to disable querying new storjscan payments by storjscan chore
+# payments.storjscan.disable-loop: true
+
 # storjscan API endpoint
 # payments.storjscan.endpoint: ""
+
+# storjscan chore interval to query new payments for all satellite deposit wallets
+# payments.storjscan.interval: 1m0s
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 2m0s

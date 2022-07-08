@@ -3,7 +3,11 @@
 
 package storjscan
 
-import "github.com/spacemonkeygo/monkit/v3"
+import (
+	"time"
+
+	"github.com/spacemonkeygo/monkit/v3"
+)
 
 var mon = monkit.Package()
 
@@ -14,5 +18,7 @@ type Config struct {
 		Identifier string `help:"basic auth identifier"`
 		Secret     string `help:"basic auth secret"`
 	}
-	Confirmations int `help:"required number of following blocks in the chain to accept payment as confirmed" default:"12"`
+	Interval      time.Duration `help:"storjscan chore interval to query new payments for all satellite deposit wallets" default:"1m"`
+	Confirmations int           `help:"required number of following blocks in the chain to accept payment as confirmed" default:"12"`
+	DisableLoop   bool          `help:"flag to disable querying new storjscan payments by storjscan chore" default:"true"`
 }

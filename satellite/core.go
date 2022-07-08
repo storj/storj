@@ -45,6 +45,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/reputation"
@@ -134,8 +135,10 @@ type Core struct {
 	}
 
 	Payments struct {
-		Accounts payments.Accounts
-		Chore    *stripecoinpayments.Chore
+		Accounts        payments.Accounts
+		Chore           *stripecoinpayments.Chore
+		StorjscanClient *storjscan.Client
+		StorjscanChore  *storjscan.Chore
 	}
 
 	GracefulExit struct {
@@ -538,6 +541,27 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
 			debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
+		)
+
+		peer.Payments.StorjscanClient = storjscan.NewClient(
+			pc.Storjscan.Endpoint,
+			pc.Storjscan.Auth.Identifier,
+			pc.Storjscan.Auth.Secret)
+
+		peer.Payments.StorjscanChore = storjscan.NewChore(
+			peer.Log.Named("payments.storjscan:chore"),
+			peer.Payments.StorjscanClient,
+			peer.DB.StorjscanPayments(),
+			config.Payments.Storjscan.Confirmations,
+			config.Payments.Storjscan.Interval,
+			config.Payments.Storjscan.DisableLoop,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "payments.storjscan:chore",
+			Run:  peer.Payments.StorjscanChore.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Payments Storjscan", peer.Payments.StorjscanChore.TransactionCycle),
 		)
 	}
 
