@@ -1550,7 +1550,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 }
 
 // UpdateProject is a method for updating project name and description by id.
-func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projectInfo ProjectInfo) (p *Project, err error) {
+func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, updatedProject ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
@@ -1558,7 +1558,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		return nil, Error.Wrap(err)
 	}
 
-	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
+	err = ValidateNameAndDescription(updatedProject.Name, updatedProject.Description)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1568,8 +1568,8 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		return nil, Error.Wrap(err)
 	}
 	project := isMember.project
-	project.Name = projectInfo.Name
-	project.Description = projectInfo.Description
+	project.Name = updatedProject.Name
+	project.Description = updatedProject.Description
 
 	if user.PaidTier {
 		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
@@ -1578,15 +1578,15 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		if project.StorageLimit != nil && *project.StorageLimit == 0 {
 			return nil, Error.New("current storage limit for project is set to 0 (updating disabled)")
 		}
-		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 {
+		if updatedProject.StorageLimit <= 0 || updatedProject.BandwidthLimit <= 0 {
 			return nil, Error.New("project limits must be greater than 0")
 		}
 
-		if projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid {
+		if updatedProject.StorageLimit > s.config.UsageLimits.Storage.Paid && updatedProject.StorageLimit > *project.StorageLimit {
 			return nil, Error.New("specified storage limit exceeds allowed maximum for current tier")
 		}
 
-		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid {
+		if updatedProject.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && updatedProject.BandwidthLimit > *project.BandwidthLimit {
 			return nil, Error.New("specified bandwidth limit exceeds allowed maximum for current tier")
 		}
 
@@ -1594,7 +1594,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		if projectInfo.StorageLimit.Int64() < storageUsed {
+		if updatedProject.StorageLimit.Int64() < storageUsed {
 			return nil, Error.New("cannot set storage limit below current usage")
 		}
 
@@ -1602,14 +1602,14 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, projec
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		if projectInfo.BandwidthLimit.Int64() < bandwidthUsed {
+		if updatedProject.BandwidthLimit.Int64() < bandwidthUsed {
 			return nil, Error.New("cannot set bandwidth limit below current usage")
 		}
 
 		project.StorageLimit = new(memory.Size)
-		*project.StorageLimit = projectInfo.StorageLimit
+		*project.StorageLimit = updatedProject.StorageLimit
 		project.BandwidthLimit = new(memory.Size)
-		*project.BandwidthLimit = projectInfo.BandwidthLimit
+		*project.BandwidthLimit = updatedProject.BandwidthLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
@@ -1672,14 +1672,14 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 			}
 		}
 
-		if projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid {
+		if projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid && projectInfo.StorageLimit > *project.StorageLimit {
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("specified storage limit exceeds allowed maximum for current tier"),
 			}
 		}
 
-		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid {
+		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && projectInfo.BandwidthLimit > *project.BandwidthLimit {
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("specified bandwidth limit exceeds allowed maximum for current tier"),
