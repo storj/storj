@@ -92,7 +92,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 
 			// Sanity check: it should work before revoke
 			_, err = client.ListBuckets(ctx, metaclient.ListBucketsParams{
-				ListOpts: storj.BucketListOptions{
+				ListOpts: metaclient.BucketListOptions{
 					Cursor:    "",
 					Direction: storj.Forward,
 					Limit:     10,
