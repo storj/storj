@@ -11,6 +11,3 @@ import { Vue } from 'vue-property-decorator';
 export default class SortingHeader2 extends Vue {
 }
 </script>
-
-<style scoped lang="scss">
-</style>

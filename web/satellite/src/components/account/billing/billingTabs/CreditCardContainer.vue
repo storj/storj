@@ -12,6 +12,3 @@ export default class CardComponent extends Vue {
 
 }
 </script>
-
-<style scoped lang="scss">
-</style>
