@@ -127,7 +127,7 @@
                     @mouseleave="deleteHover = false"
                 >
                     <Trash v-if="deleteHover === false" />
-                    <RedTrash v-if="deleteHover === true" />
+                    <Trash v-if="deleteHover === true" class='red-trash'/>
                     Remove
                 </div>
             </div>
@@ -202,7 +202,6 @@ import MastercardIcon from '@/../static/images/payments/cardIcons/smallmastercar
 import UnionPayIcon from '@/../static/images/payments/cardIcons/smallunionpay.svg';
 import VisaIcon from '@/../static/images/payments/cardIcons/smallvisa.svg';
 import Trash from '@/../static/images/account/billing/trash.svg';
-import RedTrash from '@/../static/images/account/billing/redtrash.svg';
 import CreditCardImage from '@/../static/images/billing/credit-card.svg';
 import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
@@ -251,7 +250,6 @@ const {
         DinersIcon,
         SuccessImage,
         Trash,
-        RedTrash,
         CreditCardContainer,
         BalanceTokenCard,
         AddTokenCard,
@@ -539,6 +537,12 @@ $align: center;
 .edit-card-text {
     color: #0149ff;
     font-family: sans-serif;
+}
+
+.red-trash {
+    ::v-deep path {
+        fill: #ac1a00;
+    }
 }
 
 .change-default-input-container {
