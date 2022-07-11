@@ -79,7 +79,6 @@ export default class ValidationMessage extends Vue {
             text-overflow: ellipsis;
         }
 
-        
         &__icon-container {
             display: flex;
             align-items: center;
