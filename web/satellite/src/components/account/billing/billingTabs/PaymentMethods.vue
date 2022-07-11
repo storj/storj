@@ -501,6 +501,7 @@ export default class paymentsArea extends Vue {
 
 }
 </script>
+<<<<<<< HEAD
 
 <style scoped lang="scss">
 $flex: flex;
@@ -940,3 +941,5 @@ nav ul {
 }
 
 </style>
+=======
+>>>>>>> 81ae137e37f1703e7f7d00dba245f3bcafbc0951

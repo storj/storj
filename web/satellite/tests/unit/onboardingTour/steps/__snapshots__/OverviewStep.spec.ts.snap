@@ -11,8 +11,7 @@ exports[`OverviewStep.vue renders correctly 1`] = `
       <p class="overview-container__info">Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world.</p>
       <div class="container" style="width: 240px; height: 48px; border-radius: 8px; font-size: 16px;">
         <!---->
-        <!---->
-        <!----> <span class="label">Continue in web -&gt;</span>
+        <!----> <span class="label"><!----> <!----> <!----> <!----> <!---->Continue in web -&gt;</span>
       </div>
       <p class="overview-container__encryption-container">
         By using the web browser you are opting in to
@@ -25,8 +24,7 @@ exports[`OverviewStep.vue renders correctly 1`] = `
       <p class="overview-container__info">The Uplink CLI is a command-line interface tool which allows you to upload and download files from the network, manage permissions and share files.</p>
       <div class="container" style="width: 240px; height: 48px; border-radius: 8px; font-size: 16px;">
         <!---->
-        <!---->
-        <!----> <span class="label">Continue in cli -&gt;</span>
+        <!----> <span class="label"><!----> <!----> <!----> <!----> <!---->Continue in cli -&gt;</span>
       </div>
       <p class="overview-container__encryption-container">
         The Uplink CLI uses
