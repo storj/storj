@@ -2,13 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
-    </div>
+    <div />
 </template>
 
 <script lang="ts">
-import Vue, { VueConstructor } from 'vue';
-import { Component, Prop } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 // @vue/component
 @Component({
@@ -18,6 +16,3 @@ import { Component, Prop } from 'vue-property-decorator';
 export default class CardComponent extends Vue {
 }
 </script>
-
-<style scoped lang="scss">
-</style>

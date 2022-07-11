@@ -157,7 +157,6 @@ export default class TokenDepositSelection3 extends Vue {
 </script>
 
 <style scoped lang="scss">
-
     .up {
         transform: rotate(-90deg);
         transform-origin: center;
@@ -169,6 +168,7 @@ export default class TokenDepositSelection3 extends Vue {
     }
 
     .old {
+
         &__custom-input {
             width: 200px;
             height: 48px;

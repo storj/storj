@@ -2,12 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="container">
-    </div>
+    <div class="container" />
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 // @vue/component
 @Component({
@@ -18,6 +17,3 @@ export default class TokenTransactionItem extends Vue {
 
 }
 </script>
-
-<style scoped lang="scss">
-</style>
