@@ -176,6 +176,9 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	traits.Set("origin_header", fields.OriginHeader)
 	traits.Set("signup_referrer", fields.Referrer)
 	traits.Set("account_created", true)
+	if fields.Type == Professional {
+		traits.Set("have_sales_contact", fields.HaveSalesContact)
+	}
 
 	service.enqueueMessage(segment.Identify{
 		UserId:      fields.ID.String(),
@@ -196,7 +199,6 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		props.Set("company_size", fields.EmployeeCount)
 		props.Set("company_name", fields.CompanyName)
 		props.Set("job_title", fields.JobTitle)
-		props.Set("have_sales_contact", fields.HaveSalesContact)
 	}
 
 	service.enqueueMessage(segment.Track{
