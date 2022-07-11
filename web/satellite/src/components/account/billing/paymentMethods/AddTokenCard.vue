@@ -17,9 +17,10 @@
                 STORJ Token
             </h3>
             <p class="token__add-funds__label">Deposit STORJ Tokens via Coin Payments:</p>
-            <TokenDepositSelection2
+            <TokenDepositSelection
                 class="token__add-funds__dropdown"
                 :payment-options="paymentOptions"
+                selection-style="new"
                 @onChangeTokenValue="onChangeTokenValue"
             />
             <div class="token__add-funds__button-container">
@@ -51,7 +52,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 import VButton from '@/components/common/VButton.vue';
-import TokenDepositSelection2 from '@/components/account/billing/paymentMethods/TokenDepositSelection2.vue';
+import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentAmountOption } from '@/types/payments';
@@ -66,7 +67,7 @@ const {
     components: {
         StorjLarge,
         VButton,
-        TokenDepositSelection2,
+        TokenDepositSelection,
     },
 })
 export default class AddTokenCard extends Vue {
