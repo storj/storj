@@ -127,7 +127,7 @@
                     @mouseleave="deleteHover = false"
                 >
                     <Trash v-if="deleteHover === false" />
-                    <Trash v-if="deleteHover === true" class='red-trash'/>
+                    <Trash v-if="deleteHover === true" class="red-trash" />
                     Remove
                 </div>
             </div>
@@ -502,7 +502,6 @@ export default class paymentsArea extends Vue {
 
 }
 </script>
-<<<<<<< HEAD
 
 <style scoped lang="scss">
 $flex: flex;
@@ -541,6 +540,7 @@ $align: center;
 }
 
 .red-trash {
+
     ::v-deep path {
         fill: #ac1a00;
     }
@@ -948,5 +948,3 @@ nav ul {
 }
 
 </style>
-=======
->>>>>>> 61649d28508131e1bdfdabf84f36b3cf702d2009
