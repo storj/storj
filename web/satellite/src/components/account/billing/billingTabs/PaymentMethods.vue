@@ -127,7 +127,7 @@
                     @mouseleave="deleteHover = false"
                 >
                     <Trash v-if="deleteHover === false" />
-                    <Trash v-if="deleteHover === true" class='red-trash'/>
+                    <Trash v-if="deleteHover === true" class="red-trash" />
                     Remove
                 </div>
             </div>
@@ -540,6 +540,7 @@ $align: center;
 }
 
 .red-trash {
+
     ::v-deep path {
         fill: #ac1a00;
     }
