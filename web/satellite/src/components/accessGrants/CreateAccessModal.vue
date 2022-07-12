@@ -674,7 +674,7 @@ export default class CreateAccessModal extends Vue {
      * Handles business logic for options on each step after create access.
      */
     private encryptSelect: string = "create";
-    private passphrase:string = "";
+    private passphrase: string = "";
     private isPassphraseCopied:boolean = false;
     private isPassphraseDownloaded:boolean = false;
     public isGenerateState:boolean = false;
@@ -794,10 +794,6 @@ export default class CreateAccessModal extends Vue {
         this.access = accessEvent.data.value;
         await this.$notify.success('Access Grant was generated successfully');
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 96c3816313150c0ecd47f45b6b02023df7418540
         if (this.checkedType === 's3') {
             try {
                 await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
@@ -846,7 +842,6 @@ export default class CreateAccessModal extends Vue {
             break;
         default:
             this.passphrase = "";
-            break;
         }
     }
 
@@ -888,8 +883,6 @@ export default class CreateAccessModal extends Vue {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
         this.$emit('close-modal')
     }
-
-    
 
     /**
      * Toggles tooltip visibility.
