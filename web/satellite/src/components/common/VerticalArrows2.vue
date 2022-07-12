@@ -2,8 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="container">
-    </div>
+    <div class="container" />
 </template>
 
 <script lang="ts">
