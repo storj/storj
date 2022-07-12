@@ -12,6 +12,7 @@
         <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
         <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
         <span class="label" :class="{uppercase: isUppercase}">
+            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
             <LockIcon v-if="icon.toLowerCase() === 'lock'" />
             <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
             <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
@@ -22,8 +23,9 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 
+import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
+import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
@@ -34,6 +36,7 @@ import DocumentIcon from '@/../static/images/common/documentIcon.svg';
 // @vue/component
 @Component({
     components: {
+        CopyIcon,
         LockIcon,
         CreditCardIcon,
         DocumentIcon,

@@ -12,11 +12,13 @@ import {
     PaymentsHistoryItemType,
     ProjectUsageAndCharges,
     TokenDeposit,
+    Wallet,
 } from '@/types/payments';
 import {StoreModule} from "@/types/store";
 
 export const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
+    SET_WALLET: 'SET_WALLET',
     SET_CREDIT_CARDS: 'SET_CREDIT_CARDS',
     SET_DATE: 'SET_DATE',
     CLEAR: 'CLEAR_PAYMENT_INFO',
@@ -33,6 +35,8 @@ export const PAYMENTS_MUTATIONS = {
 
 export const PAYMENTS_ACTIONS = {
     GET_BALANCE: 'getBalance',
+    GET_WALLET: 'getWallet',
+    CLAIM_WALLET: 'claimWallet',
     SETUP_ACCOUNT: 'setupAccount',
     GET_CREDIT_CARDS: 'getCreditCards',
     ADD_CREDIT_CARD: 'addCreditCard',
@@ -52,6 +56,7 @@ export const PAYMENTS_ACTIONS = {
 
 const {
     SET_BALANCE,
+    SET_WALLET,
     SET_CREDIT_CARDS,
     SET_DATE,
     CLEAR,
@@ -66,6 +71,8 @@ const {
 
 const {
     GET_BALANCE,
+    GET_WALLET,
+    CLAIM_WALLET,
     SETUP_ACCOUNT,
     GET_CREDIT_CARDS,
     ADD_CREDIT_CARD,
@@ -95,6 +102,7 @@ export class PaymentsState {
     public startDate: Date = new Date();
     public endDate: Date = new Date();
     public coupon: Coupon | null = null;
+    public wallet: Wallet = new Wallet();
 }
 
 interface PaymentsContext {
@@ -118,6 +126,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
         mutations: {
             [SET_BALANCE](state: PaymentsState, balance: AccountBalance): void {
                 state.balance = balance;
+            },
+            [SET_WALLET](state: PaymentsState, wallet: Wallet): void {
+                state.wallet = wallet;
             },
             [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]): void {
                 state.creditCards = creditCards;
@@ -203,6 +214,16 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
                 commit(SET_BALANCE, balance);
 
                 return balance;
+            },
+            [GET_WALLET]: async function({commit}: PaymentsContext): Promise<void> {
+                const wallet: Wallet = await api.getWallet();
+
+                commit(SET_WALLET, wallet);
+            },
+            [CLAIM_WALLET]: async function({commit}: PaymentsContext): Promise<void> {
+                const wallet: Wallet = await api.claimWallet();
+
+                commit(SET_WALLET, wallet);
             },
             [SETUP_ACCOUNT]: async function(): Promise<string> {
                 const couponType = await api.setupAccount();

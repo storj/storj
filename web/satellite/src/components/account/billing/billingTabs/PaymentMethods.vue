@@ -17,27 +17,30 @@
             />
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
-            <v-loader
-                v-if="!tokensAreLoaded"
-            />
-            <div v-else-if="!showAddFunds">
-                <balance-token-card
-                    v-for="item in mostRecentTransaction"
-                    :key="item.id"
-                    :v-if="tokensAreLoaded"
-                    :billing-item="item"
-                    :show-add-funds="showAddFunds"
-                    @showTransactions="toggleTransactionsTable"
-                    @toggleShowAddFunds="toggleShowAddFunds"
+            <add-token-card-native v-if="nativeTokenPaymentsEnabled" />
+            <template v-else>
+                <v-loader
+                    v-if="!tokensAreLoaded"
                 />
-            </div>
-            <div v-else>
-                <add-token-card
-                    :total-count="transactionCount"
-                    @toggleShowAddFunds="toggleShowAddFunds"
-                    @fetchHistory="addTokenHelper"
-                />
-            </div>
+                <div v-else-if="!showAddFunds">
+                    <balance-token-card
+                        v-for="item in mostRecentTransaction"
+                        :key="item.id"
+                        :v-if="tokensAreLoaded"
+                        :billing-item="item"
+                        :show-add-funds="showAddFunds"
+                        @showTransactions="toggleTransactionsTable"
+                        @toggleShowAddFunds="toggleShowAddFunds"
+                    />
+                </div>
+                <div v-else>
+                    <add-token-card
+                        :total-count="transactionCount"
+                        @toggleShowAddFunds="toggleShowAddFunds"
+                        @fetchHistory="addTokenHelper"
+                    />
+                </div>
+            </template>
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
                 <CreditCardContainer
                     :credit-card="card"
@@ -48,7 +51,7 @@
                 <v-loader v-if="isLoading" class="payments-area__container__new-payments__payment-loading-image" />
                 <div v-else-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
                     <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
-                    <span 
+                    <span
                         class="payments-area__container__new-payments__text-area__text"
                         @click="addPaymentMethodHandler"
                     >Add New Payment Method</span>
@@ -201,6 +204,7 @@ import StripeCardInput from '@/components/account/billing/paymentMethods/StripeC
 import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
 import BalanceTokenCard from '@/components/account/billing/paymentMethods/BalanceTokenCard.vue'
 import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue'
+import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddTokenCardNative.vue'
 import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
 
 import { CreditCard } from '@/types/payments';
@@ -208,6 +212,7 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { RouteConfig } from '@/router';
+import { MetaUtils } from "@/utils/meta";
 
 interface StripeForm {
     onSubmit(): Promise<void>;
@@ -248,10 +253,13 @@ const paginationEndNumber = 10;
         CreditCardContainer,
         BalanceTokenCard,
         AddTokenCard,
+        AddTokenCardNative,
         VLoader,
     },
 })
 export default class PaymentMethods extends Vue {
+    public nativeTokenPaymentsEnabled = MetaUtils.getMetaContent('native-token-payments-enabled') === 'true';
+
     /**
      * controls token inputs and transaction table
      */

@@ -9,7 +9,8 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
-    TokenDeposit
+    TokenDeposit,
+    Wallet,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -329,5 +330,57 @@ export class PaymentsHttpApi implements PaymentsApi {
             coupon.expiresAt ? new Date(coupon.expiresAt) : null,
             coupon.duration
         );
+    }
+
+    /**
+     * Get native storj token wallet.
+     *
+     * @returns wallet
+     * @throws Error
+     */
+    public async getWallet(): Promise<Wallet> {
+        const path = `${this.ROOT_PATH}/wallet`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('Can not get wallet');
+        }
+
+        const wallet = await response.json();
+        if (wallet) {
+            return new Wallet(wallet.address, wallet.balance);
+        }
+
+        return new Wallet();
+    }
+
+    /**
+     * Claim new native storj token wallet.
+     *
+     * @returns wallet
+     * @throws Error
+     */
+    public async claimWallet(): Promise<Wallet> {
+        const path = `${this.ROOT_PATH}/wallet`;
+        const response = await this.client.post(path, null);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('Can not claim new wallet');
+        }
+
+        const wallet = await response.json();
+        if (wallet) {
+            return new Wallet(wallet.address, wallet.balance);
+        }
+
+        return new Wallet();
     }
 }

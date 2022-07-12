@@ -13,6 +13,7 @@
         <EditProfileModal v-if="isEditProfileModal" />
         <ChangePasswordModal v-if="isChangePasswordModal" />
         <AddTeamMemberModal v-if="isAddTeamMembersModal" />
+        <AddTokenFundsModal v-if="isAddTokenFundsModal" />
     </div>
 </template>
 
@@ -29,6 +30,7 @@ import DisableMFAModal from "@/components/modals/DisableMFAModal.vue";
 import EditProfileModal from "@/components/modals/EditProfileModal.vue";
 import ChangePasswordModal from "@/components/modals/ChangePasswordModal.vue";
 import AddTeamMemberModal from "@/components/modals/AddTeamMemberModal.vue";
+import AddTokenFundsModal from "@/components/modals/AddTokenFundsModal.vue";
 
 // @vue/component
 @Component({
@@ -43,6 +45,7 @@ import AddTeamMemberModal from "@/components/modals/AddTeamMemberModal.vue";
         EditProfileModal,
         ChangePasswordModal,
         AddTeamMemberModal,
+        AddTokenFundsModal,
     },
 })
 export default class AllModals extends Vue {
@@ -114,6 +117,13 @@ export default class AllModals extends Vue {
      */
     public get isAddTeamMembersModal(): boolean {
         return this.$store.state.appStateModule.appState.isAddTeamMembersModalShown;
+    }
+
+    /**
+     * Indicates if add token funds modal is shown.
+     */
+    public get isAddTokenFundsModal(): boolean {
+        return this.$store.state.appStateModule.appState.isAddTokenFundsModalShown;
     }
 }
 </script>

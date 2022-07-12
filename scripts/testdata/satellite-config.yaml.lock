@@ -205,6 +205,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
 
+# indicates if storj native token payments system is enabled
+# console.native-token-payments-enabled: false
+
 # indicates if new access grant flow should be used
 # console.new-access-grant-flow: true
 

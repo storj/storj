@@ -100,6 +100,7 @@ type Config struct {
 	InactivityTimerDelay            int                `help:"inactivity timer delay in seconds" default:"600"`
 	OptionalSignupSuccessURL        string             `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	NativeTokenPaymentsEnabled      bool               `help:"indicates if storj native token payments system is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -453,6 +454,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		InactivityTimerDelay            int
 		OptionalSignupSuccessURL        string
 		HomepageURL                     string
+		NativeTokenPaymentsEnabled      bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -494,6 +496,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.InactivityTimerDelay = server.config.InactivityTimerDelay
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
 	data.HomepageURL = server.config.HomepageURL
+	data.NativeTokenPaymentsEnabled = server.config.NativeTokenPaymentsEnabled
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {

@@ -36,6 +36,7 @@ class ViewsState {
         public isMFARecoveryModalShown = false,
         public isEnableMFAModalShown = false,
         public isDisableMFAModalShown = false,
+        public isAddTokenFundsModalShown = false,
 
         public onbAGStepBackRoute = "",
         public onbAPIKeyStepBackRoute = "",
@@ -142,6 +143,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_DISABLE_MFA_MODAL_SHOWN](state: State): void {
             state.appState.isDisableMFAModalShown = !state.appState.isDisableMFAModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_ADD_TOKEN_FUNDS_MODAL_SHOWN](state: State): void {
+            state.appState.isAddTokenFundsModalShown = !state.appState.isAddTokenFundsModalShown;
         },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;

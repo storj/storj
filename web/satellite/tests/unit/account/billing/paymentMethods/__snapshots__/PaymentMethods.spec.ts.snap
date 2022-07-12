@@ -43,7 +43,7 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 2`] =
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
           <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
             <!---->
-            <!----> <span class="label"><!----> <!----> <!----> <!----> <!---->Add STORJ</span>
+            <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Add STORJ</span>
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ exports[`PaymentMethods renders correctly with card 1`] = `
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
           <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
             <!---->
-            <!----> <span class="label"><!----> <!----> <!----> <!----> <!---->Add STORJ</span>
+            <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Add STORJ</span>
           </div>
         </div>
       </div>
@@ -193,7 +193,7 @@ exports[`PaymentMethods renders correctly without card 1`] = `
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
           <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
             <!---->
-            <!----> <span class="label"><!----> <!----> <!----> <!----> <!---->Add STORJ</span>
+            <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Add STORJ</span>
           </div>
         </div>
       </div>
