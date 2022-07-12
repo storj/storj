@@ -55,7 +55,7 @@ func testAuditHistoryConfig() reputation.AuditHistoryConfig {
 	}
 }
 
-func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
+func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB) {
 	valid1ID := testrand.NodeID()
 	valid2ID := testrand.NodeID()
 	valid3ID := testrand.NodeID()
@@ -64,9 +64,21 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	lastNet := "127.0.0"
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, false)
-	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100}
+	serviceConfig := overlay.Config{
+		Node: nodeSelectionConfig,
+		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
+			Staleness: lowStaleness,
+		},
+		UpdateStatsBatchSize: 100,
+	}
+
+	serviceCtx, serviceCancel := context.WithCancel(ctx)
+	defer serviceCancel()
 	service, err := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
 	require.NoError(t, err)
+	ctx.Go(func() error { return service.Run(serviceCtx) })
+	defer ctx.Check(service.Close)
+
 	d := overlay.NodeCheckInInfo{
 		Address:    address,
 		LastIPPort: address.Address,
@@ -250,7 +262,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.NodeSelectionCache.Staleness = -time.Hour
+				config.Overlay.NodeSelectionCache.Staleness = lowStaleness
 				config.Overlay.Node.NewNodeFraction = 0.5 // select 50% new nodes
 				config.Reputation.AuditCount = 1
 				config.Reputation.AuditLambda = 1
@@ -308,7 +320,8 @@ func TestRandomizedSelectionCache(t *testing.T) {
 
 		err := uploadSelectionCache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new := uploadSelectionCache.Size()
+		reputable, new, err := uploadSelectionCache.Size(ctx)
+		require.NoError(t, err)
 		require.Equal(t, totalNodes-expectedNewCount, reputable)
 		require.Equal(t, expectedNewCount, new)
 

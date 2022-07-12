@@ -24,6 +24,3 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw*
-
-# Stub for Go to avoid scanning node_modules.
-!node_modules/go.mod

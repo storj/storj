@@ -21,7 +21,7 @@ exports[`GeneratePassphrase.vue renders correctly with default props 1`] = `
     </div>
     <div class="encrypt-container__functional__generate">
       <p class="encrypt-container__functional__generate__value"></p>
-      <vbutton-stub label="Copy" width="66px" height="30px" fontsize="16px" borderradius="6px" isbluewhite="true" isuppercase="true" onpress="[Function]" class="encrypt-container__functional__generate__button"></vbutton-stub>
+      <vbutton-stub label="Copy" width="66px" height="30px" fontsize="16px" borderradius="6px" icon="none" isbluewhite="true" isuppercase="true" onpress="[Function]" class="encrypt-container__functional__generate__button"></vbutton-stub>
     </div>
     <h2 aria-roledescription="warning-title" class="encrypt-container__functional__warning-title">
       Save your encryption passphrase
@@ -35,7 +35,7 @@ exports[`GeneratePassphrase.vue renders correctly with default props 1`] = `
   </div>
   <div class="encrypt-container__buttons">
     <!---->
-    <vbutton-stub label="Next >" width="inherit" height="64px" fontsize="16px" borderradius="62px" isdisabled="true" onpress="[Function]"></vbutton-stub>
+    <vbutton-stub label="Next >" width="inherit" height="64px" fontsize="16px" borderradius="62px" icon="none" isdisabled="true" onpress="[Function]"></vbutton-stub>
   </div>
 </div>
 `;

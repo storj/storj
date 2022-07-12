@@ -4,6 +4,9 @@
 <template>
     <div class="account-billing-area">
         <div v-if="isNewBillingScreen">
+            <div class="account-billing-area__title">
+                <h1 class="account-billing-area__title__text">Billing</h1>
+            </div>
             <div class="account-billing-area__header">
                 <div 
                     :class="`account-billing-area__header__tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
@@ -80,7 +83,6 @@
             <PaymentMethods />
             <SmallDepositHistory />
             <CouponArea />
-            <router-view />
         </div>
     </div>
 </template>
@@ -344,6 +346,14 @@ export default class BillingArea extends Vue {
 
     .account-billing-area {
         padding-bottom: 40px;
+
+        &__title {
+            padding-top: 20px;
+
+            &__text {
+                font-family: sans-serif;
+            }
+        }
 
         &__divider {
             width: 100%;

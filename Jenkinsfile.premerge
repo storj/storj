@@ -49,12 +49,17 @@ pipeline {
             }
         }
         stage('Build Web') {
+            options {
+                timeout(time: 6, unit: "MINUTES")
+            }
+
             // The build code depends on the following assets being loaded.
             parallel {
                 stage('web/satellite') {
                     steps {
                         dir('web/satellite') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
+                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
                             sh './scripts/build-wasm.sh'
                             sh 'npm run build'
                         }
@@ -63,7 +68,8 @@ pipeline {
                 stage('web/storagenode') {
                     steps {
                         dir('web/storagenode') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
+                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
                             sh 'npm run build'
                         }
                     }
@@ -71,7 +77,8 @@ pipeline {
                 stage('web/multinode') {
                     steps {
                         dir('web/multinode') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
+                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
                             sh 'npm run build'
                         }
                     }
@@ -79,7 +86,8 @@ pipeline {
                 stage('satellite/admin/ui') {
                     steps {
                         dir('satellite/admin/ui') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
+                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
                             sh 'npm run build'
                         }
                     }
@@ -307,6 +315,11 @@ pipeline {
             }
         }
         failure {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh pre-merge failure -2'
+            }
+        }
+        aborted {
             withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                 sh './scripts/gerrit-status.sh pre-merge failure -2'
             }

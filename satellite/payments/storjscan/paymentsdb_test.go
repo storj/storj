@@ -15,6 +15,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
@@ -26,22 +27,22 @@ func TestPaymentsDBInsertBatch(t *testing.T) {
 		paymentsDB := db.StorjscanPayments()
 		now := time.Now().Truncate(time.Second)
 
-		var payments []storjscan.CachedPayment
+		var cachedPayments []storjscan.CachedPayment
 		for i := 0; i < 100; i++ {
-			payments = append(payments, storjscan.CachedPayment{
+			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
 				TokenValue:  monetary.AmountFromBaseUnits(1000, monetary.StorjToken),
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: int64(i),
 				Transaction: blockchaintest.NewHash(),
-				Status:      storjscan.PaymentStatusConfirmed,
+				Status:      payments.PaymentStatusConfirmed,
 				LogIndex:    i,
 				Timestamp:   now.Add(time.Duration(i) * time.Second),
 			})
 		}
 
-		err := paymentsDB.InsertBatch(ctx, payments)
+		err := paymentsDB.InsertBatch(ctx, cachedPayments)
 		require.NoError(t, err)
 	})
 }
@@ -71,70 +72,70 @@ func TestPaymentsDBList(t *testing.T) {
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: tx1,
 				Index:       0,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[0].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: tx1,
 				Index:       1,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[0].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       2,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[1].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[1].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet2,
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       1,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[2].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet2,
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[3].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[4].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusPending),
+			}, payments.PaymentStatusPending),
 			blocks[4].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet2,
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: tx2,
 				Index:       1,
-			}, storjscan.PaymentStatusPending),
+			}, payments.PaymentStatusPending),
 			blocks[4].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet2,
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: tx2,
 				Index:       2,
-			}, storjscan.PaymentStatusPending),
+			}, payments.PaymentStatusPending),
 		}
 
 		err := paymentsDB.InsertBatch(ctx, expected)
@@ -162,13 +163,13 @@ func TestPaymentsDBLastBlock(t *testing.T) {
 		paymentsDB := db.StorjscanPayments()
 		now := time.Now().Truncate(time.Second)
 
-		var payments []storjscan.CachedPayment
+		var cachedPayments []storjscan.CachedPayment
 		for i := 0; i < 10; i++ {
-			payments = append(payments, storjscan.CachedPayment{
+			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
 				TokenValue:  monetary.AmountFromBaseUnits(1000, monetary.StorjToken),
-				Status:      storjscan.PaymentStatusConfirmed,
+				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: int64(i),
 				Transaction: blockchaintest.NewHash(),
@@ -176,11 +177,11 @@ func TestPaymentsDBLastBlock(t *testing.T) {
 				Timestamp:   now.Add(time.Duration(i) * time.Second),
 			})
 		}
-		payments = append(payments, storjscan.CachedPayment{
+		cachedPayments = append(cachedPayments, storjscan.CachedPayment{
 			From:        blockchaintest.NewAddress(),
 			To:          blockchaintest.NewAddress(),
 			TokenValue:  monetary.AmountFromBaseUnits(1000, monetary.StorjToken),
-			Status:      storjscan.PaymentStatusPending,
+			Status:      payments.PaymentStatusPending,
 			BlockHash:   blockchaintest.NewHash(),
 			BlockNumber: int64(10),
 			Transaction: blockchaintest.NewHash(),
@@ -188,16 +189,16 @@ func TestPaymentsDBLastBlock(t *testing.T) {
 			Timestamp:   now.Add(time.Duration(10) * time.Second),
 		})
 
-		err := paymentsDB.InsertBatch(ctx, payments)
+		err := paymentsDB.InsertBatch(ctx, cachedPayments)
 		require.NoError(t, err)
 
 		t.Run("payment status confirmed", func(t *testing.T) {
-			last, err := paymentsDB.LastBlock(ctx, storjscan.PaymentStatusConfirmed)
+			last, err := paymentsDB.LastBlock(ctx, payments.PaymentStatusConfirmed)
 			require.NoError(t, err)
 			require.EqualValues(t, 9, last)
 		})
 		t.Run("payment status pending", func(t *testing.T) {
-			last, err := paymentsDB.LastBlock(ctx, storjscan.PaymentStatusPending)
+			last, err := paymentsDB.LastBlock(ctx, payments.PaymentStatusPending)
 			require.NoError(t, err)
 			require.EqualValues(t, 10, last)
 		})
@@ -206,7 +207,7 @@ func TestPaymentsDBLastBlock(t *testing.T) {
 
 func TestPaymentsDBLastBlockNoPayments(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		_, err := db.StorjscanPayments().LastBlock(ctx, storjscan.PaymentStatusConfirmed)
+		_, err := db.StorjscanPayments().LastBlock(ctx, payments.PaymentStatusConfirmed)
 		require.True(t, errs.Is(err, storjscan.ErrNoPayments))
 	})
 }
@@ -232,42 +233,42 @@ func TestPaymentsDBDeletePending(t *testing.T) {
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[1].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[2].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[3].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusConfirmed),
+			}, payments.PaymentStatusConfirmed),
 			blocks[4].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusPending),
+			}, payments.PaymentStatusPending),
 			blocks[5].NewPayment(paymentLog{
 				From:        blockchaintest.NewAddress(),
 				To:          blockchaintest.NewAddress(),
 				TokenValue:  new(big.Int).SetInt64(testrand.Int63n(1000)),
 				Transaction: blockchaintest.NewHash(),
 				Index:       0,
-			}, storjscan.PaymentStatusPending),
+			}, payments.PaymentStatusPending),
 		}
 		require.NoError(t, paymentsDB.InsertBatch(ctx, payments))
 
@@ -293,7 +294,7 @@ type blockHeader struct {
 	Timestamp time.Time
 }
 
-func (block blockHeader) NewPayment(log paymentLog, status storjscan.PaymentStatus) storjscan.CachedPayment {
+func (block blockHeader) NewPayment(log paymentLog, status payments.PaymentStatus) storjscan.CachedPayment {
 	return storjscan.CachedPayment{
 		From:        log.From,
 		To:          log.To,

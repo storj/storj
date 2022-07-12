@@ -9,6 +9,7 @@ import (
 
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/private/blockchain"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -126,7 +127,7 @@ func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wall
 }
 
 // LastBlock returns the highest block known to DB.
-func (storjscanPayments *storjscanPayments) LastBlock(ctx context.Context, status storjscan.PaymentStatus) (_ int64, err error) {
+func (storjscanPayments *storjscanPayments) LastBlock(ctx context.Context, status payments.PaymentStatus) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	blockNumber, err := storjscanPayments.db.First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(
@@ -144,7 +145,7 @@ func (storjscanPayments *storjscanPayments) LastBlock(ctx context.Context, statu
 // DeletePending removes all pending transactions from the DB.
 func (storjscanPayments storjscanPayments) DeletePending(ctx context.Context) error {
 	_, err := storjscanPayments.db.Delete_StorjscanPayment_By_Status(ctx,
-		dbx.StorjscanPayment_Status(storjscan.PaymentStatusPending))
+		dbx.StorjscanPayment_Status(payments.PaymentStatusPending))
 	return err
 }
 
@@ -152,7 +153,7 @@ func (storjscanPayments storjscanPayments) DeletePending(ctx context.Context) er
 func fromDBXPayment(dbxPmnt *dbx.StorjscanPayment) storjscan.CachedPayment {
 	payment := storjscan.CachedPayment{
 		TokenValue:  monetary.AmountFromBaseUnits(dbxPmnt.TokenValue, monetary.StorjToken),
-		Status:      storjscan.PaymentStatus(dbxPmnt.Status),
+		Status:      payments.PaymentStatus(dbxPmnt.Status),
 		BlockNumber: dbxPmnt.BlockNumber,
 		LogIndex:    dbxPmnt.LogIndex,
 		Timestamp:   dbxPmnt.Timestamp,
