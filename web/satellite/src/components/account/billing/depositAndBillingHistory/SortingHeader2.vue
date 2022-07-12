@@ -8,9 +8,9 @@
             @click="sortFunction('date')"
         >
             <p class="sort-header-container__item__name">DATE</p>
-            <VerticalArrows2
+            <VerticalArrows
                 :is-active="arrowController.date"
-                :direction="DATE_DIRECTION"
+                :direction="dateSortDirection"
             />
         </div>
         <div class="sort-header-container__item transaction">
@@ -21,9 +21,9 @@
             @click="sortFunction('amount')"
         >
             <p class="sort-header-container__item__name">AMOUNT(USD)</p>
-            <VerticalArrows2
+            <VerticalArrows
                 :is-active="arrowController.amount"
-                :direction="AMOUNT_DIRECTION"
+                :direction="amountSortDirection"
             />
         </div>
         <div
@@ -31,9 +31,9 @@
             @click="sortFunction('status')"
         >
             <p class="sort-header-container__item__name">STATUS</p>
-            <VerticalArrows2
+            <VerticalArrows
                 :is-active="arrowController.status"
-                :direction="STATUS_DIRECTION"
+                :direction="statusSortDirection"
             />
         </div>
         <div class="sort-header-container__item details">
@@ -45,12 +45,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VerticalArrows2 from '@/components/common/VerticalArrows2.vue';
+import VerticalArrows from '@/components/common/VerticalArrows.vue';
+
+import { SortDirection } from '@/types/common';
+
 
 // @vue/component
 @Component({
     components: {
-        VerticalArrows2,
+        VerticalArrows,
     },
 })
 export default class SortingHeader2 extends Vue {
@@ -58,6 +61,13 @@ export default class SortingHeader2 extends Vue {
     public DATE_DIRECTION = 'date-descending'
     public AMOUNT_DIRECTION = 'amount-descending'
     public STATUS_DIRECTION = 'status-descending'
+
+    public dateSortDirection: SortDirection = SortDirection.ASCENDING;
+    public amountSortDirection: SortDirection = SortDirection.ASCENDING;
+    public statusSortDirection: SortDirection = SortDirection.ASCENDING;
+
+
+
 
     public arrowController: {date: boolean, amount: boolean, status: boolean} = {date: false, amount: false, status: false}
 
@@ -70,20 +80,38 @@ export default class SortingHeader2 extends Vue {
             this.$emit('sortFunction', this.DATE_DIRECTION);
             this.DATE_DIRECTION = this.DATE_DIRECTION === 'date-ascending' ? 'date-descending' : 'date-ascending';
             this.arrowController = {date: true, amount: false, status: false};
+            this.dateSortDirection = this.dateSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
             break;
         case 'amount':
             this.$emit('sortFunction', this.AMOUNT_DIRECTION);
             this.AMOUNT_DIRECTION = this.AMOUNT_DIRECTION === 'amount-ascending' ? 'amount-descending' : 'amount-ascending';
             this.arrowController = {date: false, amount: true, status: false};
+            this.amountSortDirection = this.amountSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
             break
         case 'status':
             this.$emit('sortFunction', this.STATUS_DIRECTION);
             this.STATUS_DIRECTION = this.STATUS_DIRECTION === 'status-ascending' ? 'status-descending' : 'status-ascending';
             this.arrowController = {date: false, amount: false, status: true};
+            this.statusSortDirection = this.statusSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
             break;
         default:
             break;
         }
+    }
+
+    /**
+     * Used for arrow styling.
+     */
+    public get getDateSortDirection(): SortDirection {
+        return this.dateSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
+    }
+
+    public get getAmountSortDirection(): SortDirection {
+        return this.amountSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
+    }
+
+    public get getStatusSortDirection(): SortDirection {
+        return this.statusSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
     }
 }
 </script>
