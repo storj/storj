@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/blockchain"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/monetary"
 )
 
@@ -27,30 +28,20 @@ type PaymentsDB interface {
 	// ListWallet returns list of storjscan payments order by block number and log index desc.
 	ListWallet(ctx context.Context, wallet blockchain.Address, limit int, offset int64) ([]CachedPayment, error)
 	// LastBlock returns the highest block known to DB for specified payment status.
-	LastBlock(ctx context.Context, status PaymentStatus) (int64, error)
+	LastBlock(ctx context.Context, status payments.PaymentStatus) (int64, error)
 	// DeletePending removes all pending transactions from the DB.
 	DeletePending(ctx context.Context) error
 }
 
-// PaymentStatus indicates payment status.
-type PaymentStatus string
-
-const (
-	// PaymentStatusConfirmed indicates that payment has required number of confirmations.
-	PaymentStatusConfirmed = "confirmed"
-	// PaymentStatusPending indicates that payment has not meet confirmation requirements.
-	PaymentStatusPending = "pending"
-)
-
 // CachedPayment holds cached data of storjscan payment.
 type CachedPayment struct {
-	From        blockchain.Address
-	To          blockchain.Address
-	TokenValue  monetary.Amount
-	Status      PaymentStatus
-	BlockHash   blockchain.Hash
-	BlockNumber int64
-	Transaction blockchain.Hash
-	LogIndex    int
-	Timestamp   time.Time
+	From        blockchain.Address     `json:"from"`
+	To          blockchain.Address     `json:"to"`
+	TokenValue  monetary.Amount        `json:"tokenValue"`
+	Status      payments.PaymentStatus `json:"status"`
+	BlockHash   blockchain.Hash        `json:"blockHash"`
+	BlockNumber int64                  `json:"blockNumber"`
+	Transaction blockchain.Hash        `json:"transaction"`
+	LogIndex    int                    `json:"logIndex"`
+	Timestamp   time.Time              `json:"timestamp"`
 }

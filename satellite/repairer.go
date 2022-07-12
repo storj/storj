@@ -151,6 +151,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
+			Run:   peer.Overlay.Run,
 			Close: peer.Overlay.Close,
 		})
 	}
