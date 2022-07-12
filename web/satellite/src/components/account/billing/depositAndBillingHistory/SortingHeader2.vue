@@ -98,21 +98,6 @@ export default class SortingHeader2 extends Vue {
             break;
         }
     }
-
-    /**
-     * Used for arrow styling.
-     */
-    public get getDateSortDirection(): SortDirection {
-        return this.dateSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
-    }
-
-    public get getAmountSortDirection(): SortDirection {
-        return this.amountSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
-    }
-
-    public get getStatusSortDirection(): SortDirection {
-        return this.statusSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
-    }
 }
 </script>
 
