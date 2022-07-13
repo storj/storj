@@ -636,28 +636,28 @@ export default class CreateAccessModal extends Vue {
     private readonly defaultType: string;
 
     private accessGrantList = this.accessGrantsList;
-    private accessGrantStep: string = "create";
+    private accessGrantStep = "create";
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-    public areKeysVisible: boolean = false;
+    public areKeysVisible = false;
     private readonly FIRST_PAGE: number = 1;
 
     /**
      * Stores access type that is selected and text changes based on type.
      */
-    private checkedType: string = '';
-    private checkedText: {} = {access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.']};
-    private areCredentialsDownloaded: boolean = false;
-    private isAccessGrantCopied: boolean = false;
+    private checkedType = '';
+    private checkedText: Record<string, unknown> = {access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.']};
+    private areCredentialsDownloaded = false;
+    private isAccessGrantCopied = false;
 
     /**
      * Global isLoading Variable
      **/
-    private isLoading: boolean = false;
+    private isLoading = false;
 
     /**
      * Handles which tooltip is hovered over and set/clear timeout when leaving hover.
      */
-    public tooltipHover: string = '';
+    public tooltipHover = '';
     public tooltipVisibilityTimer;
 
     /**
@@ -667,33 +667,33 @@ export default class CreateAccessModal extends Vue {
     private permissionsList: string[] = ["Read","Write","List","Delete"];
     private checkedPermissions: {Read: boolean, Write: boolean, List: boolean, Delete: boolean} = {Read: false, Write: false, List: false, Delete: false};
     private selectedPermissions: string[] = [];
-    private allPermissionsClicked: boolean = false;
-    private acknowledgementCheck: boolean = false;
+    private allPermissionsClicked = false;
+    private acknowledgementCheck = false;
 
     /**
      * Handles business logic for options on each step after create access.
      */
-    private encryptSelect: string = "create";
-    private passphrase: string = "";
-    private isPassphraseCopied:boolean = false;
-    private isPassphraseDownloaded:boolean = false;
-    public isGenerateState:boolean = false;
+    private encryptSelect = "create";
+    private passphrase = "";
+    private isPassphraseCopied = false;
+    private isPassphraseDownloaded = false;
+    public isGenerateState = false;
 
-    private accessName:string = '';
-    public areBucketNamesFetching:boolean = true;
-    private addDateSelected:boolean = false;
+    private accessName = '';
+    public areBucketNamesFetching = true;
+    private addDateSelected = false;
 
     /**
      * Created Access Grant
      */
     private createdAccessGrant;
-    private createdAccessGrantName: string = "";
-    private createdAccessGrantSecret: string = "";
-    private access:string = "";
+    private createdAccessGrantName = "";
+    private createdAccessGrantSecret = "";
+    private access = "";
 
     public currentDate = new Date().toISOString();
     private worker: Worker;
-    private restrictedKey: string = '';
+    private restrictedKey = '';
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
     /**
@@ -1338,24 +1338,6 @@ export default class CreateAccessModal extends Vue {
                     display: grid;
                     font-family: 'font_regular', sans-serif;
                     font-size: 16px;
-                    margin-top: 15px;
-                    row-gap: 4ch;
-                    padding-top: 10px;
-
-                    p {
-                        font-style: normal;
-                        font-weight: 400;
-                        font-size: 14px;
-                        line-height: 20px;
-                        overflow-wrap: break-word;
-                        text-align: left;
-                    }
-                }
-
-                &__created {
-                    width: 100%;
-                    text-align: left;
-                    display: grid;
                     margin-top: 15px;
                     row-gap: 4ch;
                     padding-top: 10px;

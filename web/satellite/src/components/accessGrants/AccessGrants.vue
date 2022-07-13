@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 <template>
     <div class="access-grants">
-        <div v-if="isNewAccessGrantFlow" class="access-grants__title-area">
+        <div v-if="!isNewAccessGrantFlow" class="access-grants__title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Grants</h2>
             <div v-if="accessGrantsList.length" class="access-grants__title-area__right">
                 <VButton
@@ -23,7 +23,7 @@
                 />
             </div>
         </div>
-        <div v-if="!isNewAccessGrantFlow" class="access-grants__new-title-area">
+        <div v-if="isNewAccessGrantFlow" class="access-grants__new-title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Management</h2>
             <div class="access-grants__title-area__title-subtext" aria-roledescription="title">Create encryption keys to setup permissions to access your objects.</div>
         </div>
@@ -269,20 +269,18 @@ declare interface ResetPagination {
     },
 })
 export default class AccessGrants extends Vue {
-    private FIRST_PAGE: number = 1;
-    private isDeleteClicked: boolean = false;
-
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+    private FIRST_PAGE = 1;
+    private isDeleteClicked = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Indicates if the access modal should be shown and what the defaulted type of access should be defaulted.
      */
-    private showAccessModal: boolean = false;
-    private modalAccessType: string = '';
+    private showAccessModal = false;
+    private modalAccessType = '';
 
-    public areGrantsFetching: boolean = true;
+    public areGrantsFetching = true;
 
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
