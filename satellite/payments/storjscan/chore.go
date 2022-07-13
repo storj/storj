@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/monetary"
 )
 
@@ -46,7 +47,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	return chore.TransactionCycle.Run(ctx, func(ctx context.Context) error {
 		var from int64
 
-		blockNumber, err := chore.paymentsDB.LastBlock(ctx, PaymentStatusConfirmed)
+		blockNumber, err := chore.paymentsDB.LastBlock(ctx, payments.PaymentStatusConfirmed)
 		switch {
 		case err == nil:
 			from = blockNumber + 1
@@ -57,22 +58,22 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		payments, err := chore.client.Payments(ctx, from)
+		latestPayments, err := chore.client.Payments(ctx, from)
 		if err != nil {
 			chore.log.Error("error retrieving payments", zap.Error(ChoreErr.Wrap(err)))
 			return nil
 		}
-		if len(payments.Payments) == 0 {
+		if len(latestPayments.Payments) == 0 {
 			return nil
 		}
 
 		var cachedPayments []CachedPayment
-		for _, payment := range payments.Payments {
-			var status PaymentStatus
-			if payments.LatestBlock.Number-payment.BlockNumber >= int64(chore.confirmations) {
-				status = PaymentStatusConfirmed
+		for _, payment := range latestPayments.Payments {
+			var status payments.PaymentStatus
+			if latestPayments.LatestBlock.Number-payment.BlockNumber >= int64(chore.confirmations) {
+				status = payments.PaymentStatusConfirmed
 			} else {
-				status = PaymentStatusPending
+				status = payments.PaymentStatusPending
 			}
 
 			cachedPayments = append(cachedPayments, CachedPayment{

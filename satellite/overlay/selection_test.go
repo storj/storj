@@ -38,7 +38,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 			UniqueIPCount: 2,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
-				config.Overlay.NodeSelectionCache.Staleness = -time.Hour
+				config.Overlay.NodeSelectionCache.Staleness = lowStaleness
 				config.Overlay.NodeCheckInWaitPeriod = 0
 			},
 		},
