@@ -167,7 +167,6 @@ export default class CouponArea extends Vue {
     }
 }
 </script>
-<<<<<<< HEAD
 
 <style scoped lang="scss">
     .active-discount {
@@ -316,5 +315,3 @@ export default class CouponArea extends Vue {
         }
     }
 </style>
-=======
->>>>>>> 61649d28508131e1bdfdabf84f36b3cf702d2009
