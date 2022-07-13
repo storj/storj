@@ -11,8 +11,12 @@
         <slot name="icon" />
         <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
         <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
-        <div v-if="hasTrashIcon" class="trash-icon"><TrashIcon /></div>
-        <span class="label" :class="{uppercase: isUppercase}">{{ label }}</span>
+        <span class="label" :class="{uppercase: isUppercase}">
+            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
+            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
+            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
+            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
     </div>
 </template>
 
@@ -20,12 +24,19 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 
+import LockIcon from '@/../static/images/common/lockIcon.svg';
+import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
+import DocumentIcon from '@/../static/images/common/documentIcon.svg';
+
 /**
  * Custom button component with label.
  */
 // @vue/component
 @Component({
     components: {
+        LockIcon,
+        CreditCardIcon,
+        DocumentIcon,
         TrashIcon
     },
 })
@@ -40,6 +51,8 @@ export default class VButton extends Vue {
     private readonly fontSize: string;
     @Prop({default: '6px'})
     private readonly borderRadius: string;
+    @Prop({ default: 'none' })
+    private readonly icon: string;
     @Prop({default: false})
     private readonly isWhite: boolean;
     @Prop({default: false})
@@ -56,8 +69,6 @@ export default class VButton extends Vue {
     private readonly isWhiteGreen: boolean;
     @Prop({default: false})
     private readonly isGreenWhite: boolean;
-    @Prop({default: false})
-    private readonly hasTrashIcon: boolean;
     @Prop({default: false})
     private isDisabled: boolean;
     @Prop({default: false})
@@ -94,6 +105,11 @@ export default class VButton extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .label {
+        display: flex;
+        align-items: center;
+    }
+
     .transparent {
         background-color: transparent !important;
         border: 1px solid #afb7c1 !important;

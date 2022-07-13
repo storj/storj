@@ -164,6 +164,12 @@ func (dbc *satelliteDBCollection) getByName(name string) *satelliteDB {
 // should not be used outside of migration tests.
 func (db *satelliteDB) TestDBAccess() *dbx.DB { return db.DB }
 
+// TestDBAccess for raw database access,
+// should not be used outside of migration tests.
+func (dbc *satelliteDBCollection) TestDBAccess() *dbx.DB {
+	return dbc.getByName("").TestDBAccess()
+}
+
 // MigrationTestingDefaultDB assists in testing migrations themselves against
 // the default database.
 func (dbc *satelliteDBCollection) MigrationTestingDefaultDB() interface {

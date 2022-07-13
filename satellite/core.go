@@ -261,6 +261,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
+			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
 		})
 

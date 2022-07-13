@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
@@ -31,7 +32,7 @@ func TestChore(t *testing.T) {
 
 		const confirmations = 12
 
-		var payments []storjscan.Payment
+		var pmnts []storjscan.Payment
 		var cachedPayments []storjscan.CachedPayment
 
 		latestBlock := storjscan.Header{
@@ -41,7 +42,7 @@ func TestChore(t *testing.T) {
 		}
 
 		addPayments := func(count int) {
-			l := len(payments)
+			l := len(pmnts)
 			for i := l; i < l+count; i++ {
 				payment := storjscan.Payment{
 					From:        blockchaintest.NewAddress(),
@@ -53,13 +54,13 @@ func TestChore(t *testing.T) {
 					LogIndex:    i,
 					Timestamp:   now.Add(time.Duration(i) * time.Second),
 				}
-				payments = append(payments, payment)
+				pmnts = append(pmnts, payment)
 
 				cachedPayments = append(cachedPayments, storjscan.CachedPayment{
 					From:        payment.From,
 					To:          payment.To,
 					TokenValue:  monetary.AmountFromBaseUnits(payment.TokenValue.Int64(), monetary.StorjToken),
-					Status:      storjscan.PaymentStatusPending,
+					Status:      payments.PaymentStatusPending,
 					BlockHash:   payment.BlockHash,
 					BlockNumber: payment.BlockNumber,
 					Transaction: payment.Transaction,
@@ -69,15 +70,15 @@ func TestChore(t *testing.T) {
 			}
 
 			latestBlock = storjscan.Header{
-				Hash:      payments[len(payments)-1].BlockHash,
-				Number:    payments[len(payments)-1].BlockNumber,
-				Timestamp: payments[len(payments)-1].Timestamp,
+				Hash:      pmnts[len(pmnts)-1].BlockHash,
+				Number:    pmnts[len(pmnts)-1].BlockNumber,
+				Timestamp: pmnts[len(pmnts)-1].Timestamp,
 			}
 			for i := 0; i < len(cachedPayments); i++ {
 				if latestBlock.Number-cachedPayments[i].BlockNumber >= confirmations {
-					cachedPayments[i].Status = storjscan.PaymentStatusConfirmed
+					cachedPayments[i].Status = payments.PaymentStatusConfirmed
 				} else {
-					cachedPayments[i].Status = storjscan.PaymentStatusPending
+					cachedPayments[i].Status = payments.PaymentStatusPending
 				}
 			}
 		}
@@ -106,7 +107,7 @@ func TestChore(t *testing.T) {
 				}
 			}
 
-			storjscantest.ServePayments(t, w, from, latestBlock, payments)
+			storjscantest.ServePayments(t, w, from, latestBlock, pmnts)
 		}))
 		defer server.Close()
 
@@ -126,7 +127,7 @@ func TestChore(t *testing.T) {
 		addPayments(100)
 		chore.TransactionCycle.TriggerWait()
 
-		last, err := paymentsDB.LastBlock(ctx, storjscan.PaymentStatusPending)
+		last, err := paymentsDB.LastBlock(ctx, payments.PaymentStatusPending)
 		require.NoError(t, err)
 		require.EqualValues(t, 99, last)
 		actual, err := paymentsDB.List(ctx)
@@ -136,7 +137,7 @@ func TestChore(t *testing.T) {
 		addPayments(100)
 		chore.TransactionCycle.TriggerWait()
 
-		last, err = paymentsDB.LastBlock(ctx, storjscan.PaymentStatusPending)
+		last, err = paymentsDB.LastBlock(ctx, payments.PaymentStatusPending)
 		require.NoError(t, err)
 		require.EqualValues(t, 199, last)
 		actual, err = paymentsDB.List(ctx)
