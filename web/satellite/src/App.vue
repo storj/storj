@@ -32,9 +32,9 @@ export default class App extends Vue {
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
         const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
-        let partneredSatellitesJson = [];
+        let partneredSatellitesJSON = [];
         if (partneredSatellitesData) {
-            partneredSatellitesJson = JSON.parse(partneredSatellitesData);
+            partneredSatellitesJSON = JSON.parse(partneredSatellitesData);
         }
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
@@ -45,14 +45,12 @@ export default class App extends Vue {
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
 
-            if (partneredSatellitesJson) {
+            if (partneredSatellitesJSON.length) {
                 const partneredSatellites: PartneredSatellite[] = [];
-                partneredSatellitesJson.forEach((partner) => {
-                    const name = partner[0];
-                    const address = partner[1];
+                partneredSatellitesJSON.forEach((sat: PartneredSatellite) => {
                     // skip current satellite
-                    if (name !== satelliteName) {
-                        partneredSatellites.push(new PartneredSatellite(name, address));
+                    if (sat.name !== satelliteName) {
+                        partneredSatellites.push(sat);
                     }
                 });
                 this.$store.dispatch(APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
