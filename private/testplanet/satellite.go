@@ -448,6 +448,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.LiveAccounting.StorageBackend = "redis://" + redis.Addr() + "?db=0"
 	config.Mail.TemplatePath = filepath.Join(developmentRoot, "web/satellite/static/emails")
 	config.Console.StaticDir = filepath.Join(developmentRoot, "web/satellite")
+	config.Payments.Storjscan.DisableLoop = true
 
 	if planet.config.Reconfigure.Satellite != nil {
 		planet.config.Reconfigure.Satellite(log, index, &config)
