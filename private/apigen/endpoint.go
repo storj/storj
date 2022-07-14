@@ -17,7 +17,8 @@ type Endpoint struct {
 	NoAPIAuth    bool
 	Request      interface{}
 	Response     interface{}
-	Params       []Param
+	QueryParams  []Param
+	PathParams   []Param
 }
 
 // CookieAuth returns endpoint's cookie auth status.
