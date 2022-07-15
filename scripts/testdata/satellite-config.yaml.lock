@@ -206,7 +206,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.optional-signup-success-url: ""
 
 # names and addresses of partnered satellites in JSON list format
-# console.partnered-satellites: '[["US1","https://us1.storj.io"],["EU1","https://eu1.storj.io"],["AP1","https://ap1.storj.io"]]'
+# console.partnered-satellites: '[{"name":"US1","address":"https://us1.storj.io"},{"name":"EU1","address":"https://eu1.storj.io"},{"name":"AP1","address":"https://ap1.storj.io"}]'
 
 # password hashing cost (0=automatic)
 # console.password-cost: 0
@@ -251,7 +251,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.static-dir: ""
 
 # url link to terms and conditions page
-# console.terms-and-conditions-url: https://storj.io/storage-sla/
+# console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
 
 # the default free-tier bandwidth usage limit
 # console.usage-limits.bandwidth.free: 150.00 GB
@@ -679,8 +679,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # required number of following blocks in the chain to accept payment as confirmed
 # payments.storjscan.confirmations: 12
 
+# flag to disable querying new storjscan payments by storjscan chore
+# payments.storjscan.disable-loop: true
+
 # storjscan API endpoint
 # payments.storjscan.endpoint: ""
+
+# storjscan chore interval to query new payments for all satellite deposit wallets
+# payments.storjscan.interval: 1m0s
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 2m0s
@@ -780,6 +786,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the normalization weight used to calculate the audit SNs reputation
 # reputation.audit-weight: 1
+
+# the amount of time that should elapse before the cache retries failed database operations
+# reputation.error-retry-interval: 1m0s
+
+# the maximum amount of time that should elapse before cached reputation writes are flushed to the database (if 0, no reputation cache is used)
+# reputation.flush-interval: 2h0m0s
 
 # whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
 # reputation.suspension-dq-enabled: false

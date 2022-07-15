@@ -3,7 +3,9 @@
 
 <template>
     <div v-if="showMessage" class="validation-message__wrapper" :class="{'success-message__wrapper' : isValid, 'error-message__wrapper' : !isValid}">
-        <ErrorIcon v-if="!isValid" class="error-message__icon" />
+        <div class="error-message__icon-container">
+            <ErrorIcon v-if="!isValid" class="error-message__icon-container__icon" />
+        </div>
         <p v-if="isValid" class="success-message__text validation-message__text">{{ successMessage }}</p>
         <p v-if="!isValid" class="error-message__text validation-message__text">{{ errorMessage }}</p>
     </div>
@@ -39,7 +41,7 @@ export default class ValidationMessage extends Vue {
             box-sizing: border-box;
             border-radius: 6px;
             width: 100%;
-            padding: 12px 25px;
+            padding: 12px 20px;
         }
 
         &__text {
@@ -73,11 +75,15 @@ export default class ValidationMessage extends Vue {
 
         &__text {
             color: #e30011;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        &__icon {
-            position: relative;
-            top: 14px;
+        &__icon-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-right: 10px;
         }
     }
 </style>

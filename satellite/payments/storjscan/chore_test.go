@@ -114,7 +114,7 @@ func TestChore(t *testing.T) {
 		paymentsDB := db.StorjscanPayments()
 
 		client := storjscan.NewClient(server.URL, "eu", "secret")
-		chore := storjscan.NewChore(logger, client, paymentsDB, confirmations, time.Second)
+		chore := storjscan.NewChore(logger, client, paymentsDB, confirmations, time.Second, false)
 		ctx.Go(func() error {
 			return chore.Run(ctx)
 		})

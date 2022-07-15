@@ -27,16 +27,19 @@ type Chore struct {
 	paymentsDB       PaymentsDB
 	TransactionCycle *sync2.Cycle
 	confirmations    int
+
+	disableLoop bool
 }
 
 // NewChore creates new chore.
-func NewChore(log *zap.Logger, client *Client, paymentsDB PaymentsDB, confirmations int, interval time.Duration) *Chore {
+func NewChore(log *zap.Logger, client *Client, paymentsDB PaymentsDB, confirmations int, interval time.Duration, disableLoop bool) *Chore {
 	return &Chore{
 		log:              log,
 		client:           client,
 		paymentsDB:       paymentsDB,
 		TransactionCycle: sync2.NewCycle(interval),
 		confirmations:    confirmations,
+		disableLoop:      disableLoop,
 	}
 }
 
@@ -46,6 +49,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	return chore.TransactionCycle.Run(ctx, func(ctx context.Context) error {
 		var from int64
+
+		if chore.disableLoop {
+			chore.log.Debug("Skipping chore iteration as loop is disabled", zap.Bool("disableLoop", chore.disableLoop))
+			return nil
+		}
 
 		blockNumber, err := chore.paymentsDB.LastBlock(ctx, payments.PaymentStatusConfirmed)
 		switch {
