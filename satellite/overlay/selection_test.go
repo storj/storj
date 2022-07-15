@@ -159,6 +159,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 				config.Reputation.AuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.AuditCount = 1
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
 			},
 		},
@@ -194,6 +195,8 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			err := repService.ApplyAudit(ctx, node.ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
+		err := repService.TestFlushAllNodeInfo(ctx)
+		require.NoError(t, err)
 
 		t.Run("request 5, where 1 new", func(t *testing.T) {
 			requestedCount, newCount := 5, 1
@@ -627,6 +630,7 @@ func TestDistinctIPs(t *testing.T) {
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditCount = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -654,6 +658,7 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditCount = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

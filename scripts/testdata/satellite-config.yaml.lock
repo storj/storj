@@ -787,6 +787,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the normalization weight used to calculate the audit SNs reputation
 # reputation.audit-weight: 1
 
+# the amount of time that should elapse before the cache retries failed database operations
+# reputation.error-retry-interval: 1m0s
+
+# the maximum amount of time that should elapse before cached reputation writes are flushed to the database (if 0, no reputation cache is used)
+# reputation.flush-interval: 2h0m0s
+
 # whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
 # reputation.suspension-dq-enabled: false
 

@@ -26,6 +26,12 @@ type reputations struct {
 	db *satelliteDB
 }
 
+// Update updates a node's reputation stats as the result of a single audit
+// event. See ApplyUpdates for further information.
+//
+// If the node (as represented in the returned info) becomes newly vetted,
+// disqualified, or suspended as a result of this update, the caller is
+// responsible for updating the records in the overlay to match.
 func (reputations *reputations) Update(ctx context.Context, updateReq reputation.UpdateRequest, now time.Time) (_ *reputation.Info, err error) {
 	mutations, err := reputation.UpdateRequestToMutations(updateReq, now)
 	if err != nil {
@@ -36,12 +42,16 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 
 // ApplyUpdates updates a node's reputation stats.
 // The update is done in a loop to handle concurrent update calls and to avoid
-// the need for a explicit transaction.
+// the need for an explicit transaction.
 // There are three main steps go into the update process:
 // 1. Get existing row for the node
 //    a. if no row found, insert a new row.
 // 2. Evaluate what the new values for the row fields should be.
 // 3. Update row using compare-and-swap.
+//
+// If the node (as represented in the returned info) becomes newly vetted,
+// disqualified, or suspended as a result of these updates, the caller is
+// responsible for updating the records in the overlay to match.
 func (reputations *reputations) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, updates reputation.Mutations, reputationConfig reputation.Config, now time.Time) (_ *reputation.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -100,25 +110,33 @@ func (reputations *reputations) ApplyUpdates(ctx context.Context, nodeID storj.N
 			return &status, nil
 		}
 
-		auditHistoryResponse, err := mergeAuditHistory(ctx, dbNode.AuditHistory, updates.OnlineHistory.Windows, reputationConfig.AuditHistory)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
+		if updates.PositiveResults != 0 ||
+			updates.UnknownResults != 0 ||
+			updates.FailureResults != 0 ||
+			updates.OfflineResults != 0 ||
+			(updates.OnlineHistory != nil && len(updates.OnlineHistory.Windows) != 0) {
+			// there is something to change
 
-		update := reputations.populateUpdateNodeStats(dbNode, updates, reputationConfig, auditHistoryResponse, now)
+			auditHistoryResponse, err := mergeAuditHistory(ctx, dbNode.AuditHistory, updates.OnlineHistory.Windows, reputationConfig.AuditHistory)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
 
-		updateFields := reputations.populateUpdateFields(update, auditHistoryResponse.History)
-		oldAuditHistory := dbx.Reputation_AuditHistory(dbNode.AuditHistory)
-		dbNode, err = reputations.db.Update_Reputation_By_Id_And_AuditHistory(ctx, dbx.Reputation_Id(nodeID.Bytes()), oldAuditHistory, updateFields)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, Error.Wrap(err)
-		}
+			update := reputations.populateUpdateNodeStats(dbNode, updates, reputationConfig, auditHistoryResponse, now)
 
-		// if update failed due to concurrent audit_history updates, we will try
-		// again to get the latest data and update it
-		if dbNode == nil {
-			mon.Event("reputations_update_query_retry_update")
-			continue
+			updateFields := reputations.populateUpdateFields(update, auditHistoryResponse.History)
+			oldAuditHistory := dbx.Reputation_AuditHistory(dbNode.AuditHistory)
+			dbNode, err = reputations.db.Update_Reputation_By_Id_And_AuditHistory(ctx, dbx.Reputation_Id(nodeID.Bytes()), oldAuditHistory, updateFields)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, Error.Wrap(err)
+			}
+
+			// if update failed due to concurrent audit_history updates, we will try
+			// again to get the latest data and update it
+			if dbNode == nil {
+				mon.Event("reputations_update_query_retry_update")
+				continue
+			}
 		}
 
 		status, err := dbxToReputationInfo(dbNode)
