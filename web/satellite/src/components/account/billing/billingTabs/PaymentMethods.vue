@@ -231,6 +231,9 @@ const {
     GET_PAYMENTS_HISTORY,
 } = PAYMENTS_ACTIONS;
 
+const paginationStartNumber = 0;
+const paginationEndNumber = 10;
+
 // @vue/component
 @Component({
     components: {
@@ -255,14 +258,14 @@ const {
         AddTokenCard,
     },
 })
-export default class paymentsArea extends Vue {
+export default class PaymentMethods extends Vue {
     /**
      * controls token inputs and transaction table
      */
     public showTransactions = false;
     public showAddFunds = false;
     public mostRecentTransaction: Record<string, unknown>[] = [];
-    public paginationLocation: {start: number, end: number} = {start: 0, end: 10};
+    public paginationLocation: {start: number, end: number} = {start: paginationStartNumber, end: paginationEndNumber};
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
     public transactionCount = 0;
@@ -290,8 +293,8 @@ export default class paymentsArea extends Vue {
         this.fetchTokenHistory()
     }
 
-    public async fetchTokenHistory() {
-        let tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+    public fetchTokenHistory() {
+        const tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }));
         this.mostRecentTransaction = [tokenArray[0]]
@@ -321,7 +324,7 @@ export default class paymentsArea extends Vue {
         return TokenTransactionItem;
     }
 
-    public async updatePaymentMethod() {
+    public async updatePaymentMethod(): Promise<void> {
         try {
             await this.$store.dispatch(MAKE_CARD_DEFAULT, this.defaultCreditCardSelection);
             await this.$notify.success('Default payment card updated');
@@ -406,8 +409,7 @@ export default class paymentsArea extends Vue {
         this.isAddingPayment = true;
     }
 
-    public removePaymentMethodHandler(creditCard) {
-        
+    public removePaymentMethodHandler(creditCard) {   
         this.cardBeingEdited = creditCard;
         this.isRemovePaymentMethodsModalOpen = true;
     }
