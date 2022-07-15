@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -22,15 +23,24 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ocache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, overlay.Config{})
+	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, overlay.Config{
+		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
+			Staleness: 2 * time.Nanosecond,
+		},
+	})
 	require.NoError(t, err)
-	rcache := NewReliabilityCache(ocache, time.Millisecond)
+	cacheCtx, cacheCancel := context.WithCancel(ctx)
+	defer cacheCancel()
+	ctx.Go(func() error { return overlayCache.Run(cacheCtx) })
+	defer ctx.Check(overlayCache.Close)
 
+	cache := NewReliabilityCache(overlayCache, time.Millisecond)
+	var group errgroup.Group
 	for i := 0; i < 10; i++ {
-		ctx.Go(func() error {
+		group.Go(func() error {
 			for i := 0; i < 10000; i++ {
 				pieces := []metabase.Piece{{StorageNode: testrand.NodeID()}}
-				_, err := rcache.MissingPieces(ctx, time.Now(), pieces)
+				_, err := cache.MissingPieces(ctx, time.Now(), pieces)
 				if err != nil {
 					return err
 				}
@@ -38,8 +48,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 			return nil
 		})
 	}
-
-	ctx.Wait()
+	require.NoError(t, group.Wait())
 }
 
 type fakeOverlayDB struct{ overlay.DB }

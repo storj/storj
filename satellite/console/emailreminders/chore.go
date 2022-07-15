@@ -88,7 +88,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				chore.log.Error("error generating activation token", zap.Error(err))
 				return nil
 			}
-			authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, chore.address, "", "", "")
+			authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, "", chore.address, "", "", "", "")
 
 			link := authController.ActivateAccountURL + "?token=" + token
 			userName := u.ShortName

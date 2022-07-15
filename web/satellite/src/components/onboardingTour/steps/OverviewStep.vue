@@ -40,6 +40,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from "@/utils/meta";
+import { PartneredSatellite } from '@/types/common';
 
 // @vue/component
 @Component({
@@ -66,8 +67,8 @@ export default class OverviewStep extends Vue {
         }
 
         const partneredSatellitesJSON = JSON.parse(partneredSatellites);
-        const isPartnered = partneredSatellitesJSON.find(el => {
-            return el[0] === this.satelliteName;
+        const isPartnered = partneredSatellitesJSON.find((el: PartneredSatellite) => {
+            return el.name === this.satelliteName;
         })
         if (isPartnered) {
             this.titleLabel = 'DCS';

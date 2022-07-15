@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/metabase"
 )
@@ -300,7 +301,7 @@ type Service struct {
 func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	var geoIP geoip.IPToCountry = geoip.NewMockIPToCountry(config.GeoIP.MockCountries)
@@ -311,6 +312,21 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 		}
 	}
 
+	uploadSelectionCache, err := NewUploadSelectionCache(log, db,
+		config.NodeSelectionCache.Staleness, config.Node,
+	)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	downloadSelectionCache, err := NewDownloadSelectionCache(log, db, DownloadSelectionCacheConfig{
+		Staleness:      config.NodeSelectionCache.Staleness,
+		OnlineWindow:   config.Node.OnlineWindow,
+		AsOfSystemTime: config.Node.AsOfSystemTime,
+	})
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
 	return &Service{
 		log:    log,
 		db:     db,
@@ -318,16 +334,17 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 
 		GeoIP: geoIP,
 
-		UploadSelectionCache: NewUploadSelectionCache(log, db,
-			config.NodeSelectionCache.Staleness, config.Node,
-		),
-
-		DownloadSelectionCache: NewDownloadSelectionCache(log, db, DownloadSelectionCacheConfig{
-			Staleness:      config.NodeSelectionCache.Staleness,
-			OnlineWindow:   config.Node.OnlineWindow,
-			AsOfSystemTime: config.Node.AsOfSystemTime,
-		}),
+		UploadSelectionCache:   uploadSelectionCache,
+		DownloadSelectionCache: downloadSelectionCache,
 	}, nil
+}
+
+// Run runs the background processes needed for caches.
+func (service *Service) Run(ctx context.Context) error {
+	return errs.Combine(sync2.Concurrently(
+		func() error { return service.UploadSelectionCache.Run(ctx) },
+		func() error { return service.DownloadSelectionCache.Run(ctx) },
+	)...)
 }
 
 // Close closes resources.
@@ -349,6 +366,12 @@ func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs 
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.Node.AsOfSystemTime)
+}
+
+// CachedGetOnlineNodesForGet returns a map of nodes from the download selection cache from the suppliedIDs.
+func (service *Service) CachedGetOnlineNodesForGet(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
 }
 
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
