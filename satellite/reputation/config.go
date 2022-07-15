@@ -32,6 +32,8 @@ type Config struct {
 	SuspensionDQEnabled   bool          `help:"whether nodes will be disqualified if they have been suspended for longer than the suspended grace period" releaseDefault:"false" devDefault:"true"`
 	AuditCount            int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
 	AuditHistory          AuditHistoryConfig
+	FlushInterval         time.Duration `help:"the maximum amount of time that should elapse before cached reputation writes are flushed to the database (if 0, no reputation cache is used)" releaseDefault:"2h" devDefault:"2m"`
+	ErrorRetryInterval    time.Duration `help:"the amount of time that should elapse before the cache retries failed database operations" releaseDefault:"1m" devDefault:"5s"`
 }
 
 // UpdateRequest is used to update a node's reputation status.

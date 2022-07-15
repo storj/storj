@@ -537,7 +537,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 // createNewSystem makes a new Satellite System and exposes the same interface from
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
-// so it represents how the satellite will run when it is made up of many prrocesses.
+// so it represents how the satellite will run when it is made up of many processes.
 func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection) *Satellite {
 	system := &Satellite{
 		Name:     name,
