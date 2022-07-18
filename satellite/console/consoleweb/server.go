@@ -26,6 +26,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
@@ -238,6 +239,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	}
 
 	router := mux.NewRouter()
+	// N.B. This middleware has to be the first one because it has to be called
+	// the earliest in the HTTP chain.
+	router.Use(newTraceRequestMiddleware(logger, router))
 
 	if server.config.GeneratedAPIEnabled {
 		consoleapi.NewProjectManagement(logger, server.service, router, &apiAuth{&server})
@@ -955,4 +959,101 @@ func NewUserIDRateLimiter(config web.RateLimiterConfig) *web.RateLimiter {
 		}
 		return user.ID.String(), nil
 	})
+}
+
+// responseWriterStatusCode is a wrapper of an http.ResponseWriter to track the
+// response status code for having access to it after calling
+// http.ResponseWriter.WriteHeader.
+type responseWriterStatusCode struct {
+	http.ResponseWriter
+	code int
+}
+
+func (w *responseWriterStatusCode) WriteHeader(code int) {
+	w.code = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+// newTraceRequestMiddleware returns middleware for tracing each request to a
+// registered endpoint through Monkit.
+//
+// It also log in DEBUG level each request.
+func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.MiddlewareFunc {
+	log = log.Named("trace-request-middleware")
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			begin := time.Now()
+			ctx := r.Context()
+			respWCode := responseWriterStatusCode{ResponseWriter: w, code: 0}
+			defer func() {
+				// Preallocate the maximum fields that we are going to use for avoiding
+				// reallocations
+				fields := make([]zapcore.Field, 0, 6)
+				fields = append(fields,
+					zap.String("method", r.Method),
+					zap.String("URI", r.RequestURI),
+					zap.String("IP", getClientIP(r)),
+					zap.Int("response-code", respWCode.code),
+					zap.Duration("elapse", time.Since(begin)),
+				)
+
+				span := monkit.SpanFromCtx(ctx)
+				if span != nil {
+					fields = append(fields, zap.Int64("trace-id", span.Trace().Id()))
+				}
+
+				log.Debug("client HTTP request", fields...)
+			}()
+
+			match := mux.RouteMatch{}
+			root.Match(r, &match)
+
+			pathTpl, err := match.Route.GetPathTemplate()
+			if err != nil {
+				log.Warn("error when getting the route template path",
+					zap.Error(err), zap.String("request-uri", r.RequestURI),
+				)
+				next.ServeHTTP(&respWCode, r)
+				return
+			}
+
+			// Limit the values accepted as an HTTP method for avoiding to create an
+			// unbounded amount of metrics.
+			boundMethod := r.Method
+			switch r.Method {
+			case http.MethodDelete:
+			case http.MethodGet:
+			case http.MethodHead:
+			case http.MethodOptions:
+			case http.MethodPatch:
+			case http.MethodPost:
+			case http.MethodPut:
+			default:
+				boundMethod = "INVALID"
+			}
+
+			stop := mon.TaskNamed(pathTpl, monkit.NewSeriesTag("method", boundMethod))(&ctx)
+			r = r.WithContext(ctx)
+
+			defer func() {
+				var err error
+				if respWCode.code >= http.StatusBadRequest {
+					err = fmt.Errorf("%d", respWCode.code)
+				}
+
+				stop(&err)
+				// Count the status codes returned by each endpoint.
+				mon.Event(pathTpl,
+					monkit.NewSeriesTag("method", boundMethod),
+					monkit.NewSeriesTag("code", strconv.Itoa(respWCode.code)),
+				)
+			}()
+
+			// Count the requests to each endpoint.
+			mon.Event(pathTpl, monkit.NewSeriesTag("method", boundMethod))
+
+			next.ServeHTTP(&respWCode, r)
+		})
+	}
 }

@@ -5,6 +5,7 @@ import Vue from 'vue';
 import VueClipboard from 'vue-clipboard2';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
+import { Size } from "@/utils/bytesSize";
 
 import App from './App.vue';
 import { router } from './router';
@@ -72,6 +73,13 @@ Vue.directive('number', {
  */
 Vue.filter('centsToDollars', (cents: number): string => {
     return `$${(cents / 100).toFixed(2)}`;
+});
+
+/**
+ * Converts bytes to base-10 types.
+ */
+Vue.filter('bytesToBase10String', (amountInBytes: number): string => {
+    return `${Size.toBase10String(amountInBytes)}`;
 });
 
 new Vue({
