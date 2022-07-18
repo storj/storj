@@ -64,7 +64,8 @@ type StorageNodeUsage struct {
 	NodeID      storj.NodeID
 	StorageUsed float64
 
-	Timestamp time.Time
+	Timestamp       time.Time
+	IntervalEndTime time.Time
 }
 
 // ProjectUsage consist of period total storage, egress
