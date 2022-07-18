@@ -34,8 +34,13 @@ import (
 	"storj.io/uplink/private/piecestore"
 )
 
-// ErrPieceHashVerifyFailed is the errs class when a piece hash downloaded from storagenode fails to match the original hash.
-var ErrPieceHashVerifyFailed = errs.Class("piece hashes don't match")
+var (
+	// ErrPieceHashVerifyFailed is the errs class when a piece hash downloaded from storagenode fails to match the original hash.
+	ErrPieceHashVerifyFailed = errs.Class("piece hashes don't match")
+
+	// ErrDialFailed is the errs class when a failure happens during Dial.
+	ErrDialFailed = errs.Class("dial failure")
+)
 
 // ECRepairer allows the repairer to download, verify, and upload pieces from storagenodes.
 type ECRepairer struct {
@@ -58,7 +63,8 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
-	return piecestore.Dial(ctx, ec.dialer, n, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(ctx, ec.dialer, n, piecestore.DefaultConfig)
+	return client, ErrDialFailed.Wrap(err)
 }
 
 // Get downloads pieces from storagenodes using the provided order limits, and decodes those pieces into a segment.
@@ -134,7 +140,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 				pieceReadCloser, _, _, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, "", pieceSize)
 				// if piecestore dial with last ip:port failed try again with node address
-				if triedLastIPPort && piecestore.Error.Has(err) && !piecestore.CloseError.Has(err) {
+				if triedLastIPPort && ErrDialFailed.Has(err) {
 					if pieceReadCloser != nil {
 						_ = pieceReadCloser.Close()
 					}
