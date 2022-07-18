@@ -283,10 +283,14 @@
                             v-if="encryptSelect === 'create'"
                             v-model="passphrase"
                             type="text"
-                            placeholder="Input Your Passphrase" class="access-grant__modal-container__body-container__passphrase"
-                            :disabled="encryptSelect === 'generate'"
+                            placeholder="Input Your Passphrase"
+                            class="access-grant__modal-container__body-container__passphrase" :disabled="encryptSelect === 'generate'"
+                            @input="resetSavedStatus"
                         >
-                        <div class="access-grant__modal-container__footer-container" :class="{ 'in-middle': encryptSelect === 'generate' }">
+                        <div
+                            class="access-grant__modal-container__footer-container"
+                            :class="{ 'in-middle': encryptSelect === 'generate' }"
+                        >
                             <v-button
                                 :label="isPassphraseCopied ? 'Copied' : 'Copy to clipboard'"
                                 width="auto"
@@ -675,7 +679,6 @@ export default class CreateAccessModal extends Vue {
     private passphrase = "";
     private isPassphraseCopied = false;
     private isPassphraseDownloaded = false;
-    public isGenerateState = false;
 
     private accessName = '';
     public areBucketNamesFetching = true;
@@ -718,6 +721,13 @@ export default class CreateAccessModal extends Vue {
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
+    }
+
+    public resetSavedStatus(): void {
+        this.isPassphraseDownloaded = false;
+        this.isPassphraseCopied = false;
+        this.acknowledgementCheck = false;
+        this.encryptSelect = 'create';
     }
 
     /**
@@ -835,11 +845,10 @@ export default class CreateAccessModal extends Vue {
     public onRadioInput(): void {
         this.isPassphraseCopied = false;
         this.isPassphraseDownloaded = false;
+        this.passphrase = '';
+
         if (this.encryptSelect === "generate") {
             this.passphrase = generateMnemonic();
-        }
-        else {
-            this.passphrase = "";
         }
     }
 
@@ -871,7 +880,9 @@ export default class CreateAccessModal extends Vue {
     }
 
     public backAction(): void {
-        this.accessGrantStep = 'create'
+        this.accessGrantStep = 'create';
+        this.passphrase = '';
+        this.resetSavedStatus();
     }
 
     /**
