@@ -9,7 +9,7 @@
     "build": "vue-cli-service build",
     "wasm": "chmod +x ./scripts/build-wasm.sh && ./scripts/build-wasm.sh",
     "wasm-dev": "chmod +x ./scripts/build-wasm-dev.sh && ./scripts/build-wasm-dev.sh",
-    "dev": "vue-cli-service build --mode development --watch",
+    "dev": "vue-cli-service build --watch --no-module",
     "test": "vue-cli-service test:unit"
   },
   "dependencies": {
