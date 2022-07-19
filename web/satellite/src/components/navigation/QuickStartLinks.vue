@@ -17,6 +17,13 @@
                 <p class="dropdown-item__text__label">Start the wizard to create a new access grant.</p>
             </div>
         </div>
+        <div class="dropdown-item" aria-roledescription="create-s3-credentials-route" @click.stop="navigateToAccessGrantS3">
+            <S3Icon class="dropdown-item__icon" />
+            <div class="dropdown-item__text">
+                <h2 class="dropdown-item__text__title">Create S3 Gateway Credentials</h2>
+                <p class="dropdown-item__text__label">Start the wizard to generate S3 credentials.</p>
+            </div>
+        </div>
         <div class="dropdown-item" aria-roledescription="objects-route" @click.stop="navigateToBuckets">
             <UploadInWebIcon class="dropdown-item__icon" />
             <div class="dropdown-item__text">
@@ -45,6 +52,7 @@ import { User } from "@/types/users";
 
 import NewProjectIcon from '@/../static/images/navigation/newProject.svg';
 import CreateAGIcon from '@/../static/images/navigation/createAccessGrant.svg';
+import S3Icon from '@/../static/images/navigation/s3.svg';
 import UploadInCLIIcon from '@/../static/images/navigation/uploadInCLI.svg';
 import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
 
@@ -53,6 +61,7 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
     components: {
         NewProjectIcon,
         CreateAGIcon,
+        S3Icon,
         UploadInCLIIcon,
         UploadInWebIcon,
     },
@@ -69,8 +78,24 @@ export default class QuickStartLinks extends Vue {
     public navigateToCreateAG(): void {
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_AN_ACCESS_GRANT_CLICKED);
         this.closeDropdowns();
-        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
-        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).path).catch(() => {return;});
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+        this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
+            params: { accessType: 'access' },
+        }).catch(() => {return;});
+    }
+
+    /**
+     * Redirects to Create Access Modal with "s3" access type preselected
+     */
+    public navigateToAccessGrantS3(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
+        this.closeDropdowns();
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+        this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
+            params: { accessType: 's3' },
+        }).catch(() => {return;});
     }
 
     /**

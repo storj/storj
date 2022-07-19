@@ -5,6 +5,7 @@ import Vue from 'vue';
 import Router from 'vue-router';
 
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
+import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue'
 import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
 import CLIStep from '@/components/accessGrants/steps/CLIStep.vue';
 import CreatePassphraseStep from '@/components/accessGrants/steps/CreatePassphraseStep.vue';
@@ -106,6 +107,7 @@ export abstract class RouteConfig {
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
 
     // access grant child paths
+    public static CreateAccessModal = new NavigationLink('create-access-modal', 'Create Access Modal');
     public static CreateAccessGrant = new NavigationLink('create-grant', 'Create Access Grant');
     public static NameStep = new NavigationLink('name', 'Name Access Grant');
     public static PermissionsStep = new NavigationLink('permissions', 'Access Grant Permissions');
@@ -376,6 +378,11 @@ export const router = new Router({
                     name: RouteConfig.AccessGrants.name,
                     component: AccessGrants,
                     children: [
+                        {
+                            path: RouteConfig.CreateAccessModal.path,
+                            name: RouteConfig.CreateAccessModal.name,
+                            component: CreateAccessModal
+                        },
                         {
                             path: RouteConfig.CreateAccessGrant.path,
                             name: RouteConfig.CreateAccessGrant.name,

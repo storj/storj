@@ -590,6 +590,7 @@ import CopyIcon from '../../../static/images/common/copy.svg';
 import DownloadIcon from '../../../static/images/common/download.svg';
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
 import S3Icon from '@/../static/images/accessGrants/s3.svg';
+import { RouteConfig } from '@/router';
 
 // for future use when notes is implemented
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
@@ -708,7 +709,7 @@ export default class CreateAccessModal extends Vue {
      * Checks which type was selected and retrieves buckets on mount.
      */
     public async mounted(): Promise<void> {
-        this.checkedType = this.defaultType;
+        this.checkedType = this.$route.params.accessType;
         this.setWorker();
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
@@ -906,7 +907,7 @@ export default class CreateAccessModal extends Vue {
      */
     public onCloseClick(): void {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
-        this.$emit('close-modal')
+        this.$router.push(RouteConfig.AccessGrants.path);
     }
 
     /**
