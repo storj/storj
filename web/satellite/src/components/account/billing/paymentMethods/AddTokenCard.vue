@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
+<<<<<<< HEAD
     <div class="token">
         <div class="token__large-icon-container">
             <div class="token__large-icon">
@@ -226,3 +227,14 @@ export default class AddTokenCard extends Vue {
         }
     }
 </style>
+=======
+    <div class="token" />
+</template>
+
+<script lang="ts">
+import { Vue } from 'vue-property-decorator';
+
+export default class AddTokenCard extends Vue {
+}
+</script>
+>>>>>>> a9de5ce6c390924b1f9976dd833e0af3a22b7371

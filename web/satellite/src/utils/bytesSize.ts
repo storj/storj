@@ -8,6 +8,7 @@ export enum Memory {
     GB = 1e9,
     TB = 1e12,
     PB = 1e15,
+    EB = 1e18,
 }
 
 export enum Dimensions {
@@ -54,6 +55,33 @@ export class Size {
         default:
             this.formattedBytes = (bytes / Memory.PB).toFixed(this.precision);
             this.label = Dimensions.PB;
+        }
+    }
+
+    /**
+     * Base10String converts size to a string using base-10 prefixes.
+     * @param size in bytes
+     */
+    public static toBase10String(size: number): string {
+        const decimals = 2;
+
+        const _size = Math.abs(size);
+
+        switch (true) {
+        case _size >= Memory.EB * 2 / 3:
+            return `${parseFloat((size / Memory.EB).toFixed(decimals))}EB`;
+        case _size >= Memory.PB * 2 / 3:
+            return `${parseFloat((size / Memory.PB).toFixed(decimals))}PB`;
+        case _size >= Memory.TB * 2 / 3:
+            return `${parseFloat((size / Memory.TB).toFixed(decimals))}TB`;
+        case _size >= Memory.GB * 2 / 3:
+            return `${parseFloat((size / Memory.GB).toFixed(decimals))}GB`;
+        case _size >= Memory.MB * 2 / 3:
+            return `${parseFloat((size / Memory.MB).toFixed(decimals))}MB`;
+        case _size >= Memory.KB * 2 / 3:
+            return `${parseFloat((size / Memory.KB).toFixed(decimals))}KB`;
+        default:
+            return `${size}B`;
         }
     }
 }

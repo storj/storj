@@ -26,6 +26,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
@@ -68,37 +69,37 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL                  string  `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors                  string  `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
-	LetUsKnowURL                    string  `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                             string  `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                   string  `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator               string  `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL           string  `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	AccountActivationRedirectURL    string  `help:"url link for account activation redirect" default:""`
-	PartneredSatellites             SatList `help:"names and addresses of partnered satellites in JSON list format" default:"[[\"US1\",\"https://us1.storj.io\"],[\"EU1\",\"https://eu1.storj.io\"],[\"AP1\",\"https://ap1.storj.io\"]]"`
-	GeneralRequestURL               string  `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL string  `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string  `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:""`
-	IsBetaSatellite                 bool    `help:"indicates if satellite is in beta" default:"false"`
-	BetaSatelliteFeedbackURL        string  `help:"url link for for beta satellite feedback" default:""`
-	BetaSatelliteSupportURL         string  `help:"url link for for beta satellite support" default:""`
-	DocumentationURL                string  `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeBillingUIEnabled      bool    `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
-	CouponCodeSignupUIEnabled       bool    `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
-	FileBrowserFlowDisabled         bool    `help:"indicates if file browser flow is disabled" default:"false"`
-	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
-	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:""`
-	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewProjectDashboard             bool    `help:"indicates if new project dashboard should be used" default:"false"`
-	NewObjectsFlow                  bool    `help:"indicates if new objects flow should be used" default:"true"`
-	NewAccessGrantFlow              bool    `help:"indicates if new access grant flow should be used" default:"true"`
-	NewBillingScreen                bool    `help:"indicates if new billing screens should be used" default:"false"`
-	GeneratedAPIEnabled             bool    `help:"indicates if generated console api should be used" default:"false"`
-	InactivityTimerEnabled          bool    `help:"indicates if session can be timed out due inactivity" default:"false"`
-	InactivityTimerDelay            int     `help:"inactivity timer delay in seconds" default:"600"`
-	OptionalSignupSuccessURL        string  `help:"optional url to external registration success page" default:""`
-	HomepageURL                     string  `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	ContactInfoURL                  string             `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors                  string             `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
+	LetUsKnowURL                    string             `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                             string             `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                   string             `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator               string             `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL           string             `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
+	AccountActivationRedirectURL    string             `help:"url link for account activation redirect" default:""`
+	PartneredSatellites             console.Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
+	GeneralRequestURL               string             `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string             `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL    string             `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:""`
+	IsBetaSatellite                 bool               `help:"indicates if satellite is in beta" default:"false"`
+	BetaSatelliteFeedbackURL        string             `help:"url link for for beta satellite feedback" default:""`
+	BetaSatelliteSupportURL         string             `help:"url link for for beta satellite support" default:""`
+	DocumentationURL                string             `help:"url link to documentation" default:"https://docs.storj.io/"`
+	CouponCodeBillingUIEnabled      bool               `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
+	CouponCodeSignupUIEnabled       bool               `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
+	FileBrowserFlowDisabled         bool               `help:"indicates if file browser flow is disabled" default:"false"`
+	CSPEnabled                      bool               `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
+	LinksharingURL                  string             `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:""`
+	PathwayOverviewEnabled          bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
+	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"false"`
+	NewObjectsFlow                  bool               `help:"indicates if new objects flow should be used" default:"true"`
+	NewAccessGrantFlow              bool               `help:"indicates if new access grant flow should be used" default:"true"`
+	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"false"`
+	GeneratedAPIEnabled             bool               `help:"indicates if generated console api should be used" default:"false"`
+	InactivityTimerEnabled          bool               `help:"indicates if session can be timed out due inactivity" default:"false"`
+	InactivityTimerDelay            int                `help:"inactivity timer delay in seconds" default:"600"`
+	OptionalSignupSuccessURL        string             `help:"optional url to external registration success page" default:""`
+	HomepageURL                     string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -108,39 +109,6 @@ type Config struct {
 	RateLimit web.RateLimiterConfig
 
 	console.Config
-}
-
-// SatList is a configuration value that contains a list of satellite names and addresses.
-// Format should be [[name,address],[name,address],...] in valid JSON format.
-//
-// Can be used as a flag.
-type SatList string
-
-// Type implements pflag.Value.
-func (SatList) Type() string { return "consoleweb.SatList" }
-
-// String is required for pflag.Value.
-func (sl *SatList) String() string {
-	return string(*sl)
-}
-
-// Set does validation on the configured JSON, but does not actually transform it - it will be passed to the client as-is.
-func (sl *SatList) Set(s string) error {
-	satellites := make([][]string, 3)
-
-	err := json.Unmarshal([]byte(s), &satellites)
-	if err != nil {
-		return err
-	}
-
-	for _, sat := range satellites {
-		if len(sat) != 2 {
-			return errs.New("Could not parse satellite list config. Each satellite in the config must have two values: [name, address]")
-		}
-	}
-
-	*sl = SatList(s)
-	return nil
 }
 
 // Server represents console web server.
@@ -271,6 +239,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	}
 
 	router := mux.NewRouter()
+	// N.B. This middleware has to be the first one because it has to be called
+	// the earliest in the HTTP chain.
+	router.Use(newTraceRequestMiddleware(logger, router))
 
 	if server.config.GeneratedAPIEnabled {
 		consoleapi.NewProjectManagement(logger, server.service, router, &apiAuth{&server})
@@ -297,7 +268,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		server.withAuth(http.HandlerFunc(usageLimitsController.DailyUsage)),
 	).Methods(http.MethodGet)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.analytics, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
@@ -484,7 +455,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.SatelliteName = server.config.SatelliteName
 	data.SatelliteNodeURL = server.nodeURL.String()
 	data.StripePublicKey = server.stripePublicKey
-	data.PartneredSatellites = string(server.config.PartneredSatellites)
+	data.PartneredSatellites = server.config.PartneredSatellites.String()
 	data.DefaultProjectLimit = server.config.DefaultProjectLimit
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
@@ -988,4 +959,101 @@ func NewUserIDRateLimiter(config web.RateLimiterConfig) *web.RateLimiter {
 		}
 		return user.ID.String(), nil
 	})
+}
+
+// responseWriterStatusCode is a wrapper of an http.ResponseWriter to track the
+// response status code for having access to it after calling
+// http.ResponseWriter.WriteHeader.
+type responseWriterStatusCode struct {
+	http.ResponseWriter
+	code int
+}
+
+func (w *responseWriterStatusCode) WriteHeader(code int) {
+	w.code = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+// newTraceRequestMiddleware returns middleware for tracing each request to a
+// registered endpoint through Monkit.
+//
+// It also log in DEBUG level each request.
+func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.MiddlewareFunc {
+	log = log.Named("trace-request-middleware")
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			begin := time.Now()
+			ctx := r.Context()
+			respWCode := responseWriterStatusCode{ResponseWriter: w, code: 0}
+			defer func() {
+				// Preallocate the maximum fields that we are going to use for avoiding
+				// reallocations
+				fields := make([]zapcore.Field, 0, 6)
+				fields = append(fields,
+					zap.String("method", r.Method),
+					zap.String("URI", r.RequestURI),
+					zap.String("IP", getClientIP(r)),
+					zap.Int("response-code", respWCode.code),
+					zap.Duration("elapse", time.Since(begin)),
+				)
+
+				span := monkit.SpanFromCtx(ctx)
+				if span != nil {
+					fields = append(fields, zap.Int64("trace-id", span.Trace().Id()))
+				}
+
+				log.Debug("client HTTP request", fields...)
+			}()
+
+			match := mux.RouteMatch{}
+			root.Match(r, &match)
+
+			pathTpl, err := match.Route.GetPathTemplate()
+			if err != nil {
+				log.Warn("error when getting the route template path",
+					zap.Error(err), zap.String("request-uri", r.RequestURI),
+				)
+				next.ServeHTTP(&respWCode, r)
+				return
+			}
+
+			// Limit the values accepted as an HTTP method for avoiding to create an
+			// unbounded amount of metrics.
+			boundMethod := r.Method
+			switch r.Method {
+			case http.MethodDelete:
+			case http.MethodGet:
+			case http.MethodHead:
+			case http.MethodOptions:
+			case http.MethodPatch:
+			case http.MethodPost:
+			case http.MethodPut:
+			default:
+				boundMethod = "INVALID"
+			}
+
+			stop := mon.TaskNamed(pathTpl, monkit.NewSeriesTag("method", boundMethod))(&ctx)
+			r = r.WithContext(ctx)
+
+			defer func() {
+				var err error
+				if respWCode.code >= http.StatusBadRequest {
+					err = fmt.Errorf("%d", respWCode.code)
+				}
+
+				stop(&err)
+				// Count the status codes returned by each endpoint.
+				mon.Event(pathTpl,
+					monkit.NewSeriesTag("method", boundMethod),
+					monkit.NewSeriesTag("code", strconv.Itoa(respWCode.code)),
+				)
+			}()
+
+			// Count the requests to each endpoint.
+			mon.Event(pathTpl, monkit.NewSeriesTag("method", boundMethod))
+
+			next.ServeHTTP(&respWCode, r)
+		})
+	}
 }

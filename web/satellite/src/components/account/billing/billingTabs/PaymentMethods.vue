@@ -61,17 +61,13 @@
                         class="add-card-button"
                         @click="onConfirmAddStripe"
                     >
-                        <img
-                            v-if="isLoading"
-                            class="payment-loading-image"
-                            src="@/../static/images/account/billing/loading.gif"
-                            alt="loading gif"
-                        >
-                        <SuccessImage
-                            v-if="isLoaded"
-                            class="payment-loaded-image"
-                        />
-                        <span class="add_card_button_text">Add Credit Card</span>
+                        <v-loader v-if="isLoading" class="payment-loading-image">
+                            <SuccessImage
+                                v-if="isLoaded"
+                                class="payment-loaded-image"
+                            />
+                            <span class="add-card-button__text">Add Credit Card</span>
+                        </v-loader>
                     </div>
                 </div>
             </div>
@@ -127,6 +123,7 @@
                     @mouseleave="deleteHover = false"
                 >
                     <Trash v-if="deleteHover === false" />
+                    <Trash v-if="deleteHover === true" class="red-trash" />
                     Remove
                 </div>
             </div>
@@ -153,14 +150,10 @@
                             v-if="transactionCount > 0"
                             class="pagination__right-container__count"
                         >
-                            <span
-                                v-if="transactionCount > 10 && paginationLocation.end !== transactionCount"
-                            >
+                            <span v-if="transactionCount > 10 && paginationLocation.end !== transactionCount">
                                 {{ paginationLocation.start + 1 }} - {{ paginationLocation.end }} of {{ transactionCount }}
                             </span>
-                            <span
-                                v-else
-                            >
+                            <span v-else>
                                 {{ paginationLocation.start + 1 }} - {{ transactionCount }} of {{ transactionCount }}
                             </span>
                         </div>
@@ -170,7 +163,6 @@
                         >
                             <ArrowIcon
                                 class="pagination__right-container__buttons__left"
-                                
                                 @click="paginationController(-10)"
                             />
                             <ArrowIcon
@@ -190,6 +182,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
+import VLoader from '@/components/common/VLoader.vue';
 import ArrowIcon from '@/../static/images/common/arrowRight.svg'
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import SuccessImage from '@/../static/images/account/billing/success.svg';
@@ -230,6 +223,9 @@ const {
     GET_PAYMENTS_HISTORY,
 } = PAYMENTS_ACTIONS;
 
+const paginationStartNumber = 0;
+const paginationEndNumber = 10;
+
 // @vue/component
 @Component({
     components: {
@@ -252,16 +248,17 @@ const {
         CreditCardContainer,
         BalanceTokenCard,
         AddTokenCard,
+        VLoader,
     },
 })
-export default class paymentsArea extends Vue {
+export default class PaymentMethods extends Vue {
     /**
      * controls token inputs and transaction table
      */
     public showTransactions = false;
     public showAddFunds = false;
     public mostRecentTransaction: Record<string, unknown>[] = [];
-    public paginationLocation: {start: number, end: number} = {start: 0, end: 10};
+    public paginationLocation: {start: number, end: number} = {start: paginationStartNumber, end: paginationEndNumber};
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
     public transactionCount = 0;
@@ -289,8 +286,8 @@ export default class paymentsArea extends Vue {
         this.fetchTokenHistory()
     }
 
-    public async fetchTokenHistory() {
-        let tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+    public fetchTokenHistory() {
+        const tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }));
         this.mostRecentTransaction = [tokenArray[0]]
@@ -320,7 +317,7 @@ export default class paymentsArea extends Vue {
         return TokenTransactionItem;
     }
 
-    public async updatePaymentMethod() {
+    public async updatePaymentMethod(): Promise<void> {
         try {
             await this.$store.dispatch(MAKE_CARD_DEFAULT, this.defaultCreditCardSelection);
             await this.$notify.success('Default payment card updated');
@@ -330,7 +327,7 @@ export default class paymentsArea extends Vue {
         }
     }
 
-    public async removePaymentMethod() {
+    public async removePaymentMethod(): Promise<void> {
         if (!this.cardBeingEdited.isDefault) {
             try {
                 await this.$store.dispatch(REMOVE_CARD, this.cardBeingEdited.id);
@@ -405,8 +402,7 @@ export default class paymentsArea extends Vue {
         this.isAddingPayment = true;
     }
 
-    public removePaymentMethodHandler(creditCard) {
-        
+    public removePaymentMethodHandler(creditCard) {   
         this.cardBeingEdited = creditCard;
         this.isRemovePaymentMethodsModalOpen = true;
     }
@@ -536,6 +532,13 @@ $align: center;
 .edit-card-text {
     color: #0149ff;
     font-family: sans-serif;
+}
+
+.red-trash {
+
+    ::v-deep path {
+        fill: #ac1a00;
+    }
 }
 
 .change-default-input-container {
@@ -754,6 +757,19 @@ $align: center;
 
     &:hover {
         background-color: #0059d0;
+    }
+
+    &__text {
+        margin-top: 4px;
+        margin-left: 9px;
+        font-family: 'font-medium', sans-serif;
+        font-style: normal;
+        font-weight: 700;
+        font-size: 13px;
+        line-height: 29px;
+        display: $flex;
+        align-items: $align;
+        letter-spacing: -0.02em;
     }
 }
 

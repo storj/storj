@@ -48,6 +48,27 @@ type Info struct {
 	UnknownAuditReputationBeta  float64
 }
 
+// Copy creates a deep copy of the Info object.
+func (i *Info) Copy() *Info {
+	i2 := *i
+	i2.VettedAt = cloneTime(i.VettedAt)
+	i2.UnknownAuditSuspended = cloneTime(i.UnknownAuditSuspended)
+	i2.OfflineSuspended = cloneTime(i.OfflineSuspended)
+	i2.UnderReview = cloneTime(i.UnderReview)
+	i2.Disqualified = cloneTime(i.Disqualified)
+	if i.AuditHistory != nil {
+		i2.AuditHistory = &pb.AuditHistory{
+			Score:   i.AuditHistory.Score,
+			Windows: make([]*pb.AuditWindow, len(i.AuditHistory.Windows)),
+		}
+		for i, window := range i.AuditHistory.Windows {
+			w := *window
+			i2.AuditHistory.Windows[i] = &w
+		}
+	}
+	return &i2
+}
+
 // Mutations represents changes which should be made to a particular node's
 // reputation, in terms of counts and/or timestamps of events which have
 // occurred. A Mutations record can be applied to a reputations row without
@@ -173,6 +194,25 @@ func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeI
 	return service.overlay.TestUnsuspendNodeUnknownAudit(ctx, nodeID)
 }
 
+// TestFlushAllNodeInfo flushes any and all cached information about all
+// nodes to the backing store, if the attached reputationDB does any caching
+// at all.
+func (service *Service) TestFlushAllNodeInfo(ctx context.Context) (err error) {
+	if db, ok := service.db.(*CachingDB); ok {
+		return db.FlushAll(ctx)
+	}
+	return nil
+}
+
+// FlushNodeInfo flushes any cached information about the specified node to
+// the backing store, if the attached reputationDB does any caching at all.
+func (service *Service) FlushNodeInfo(ctx context.Context, nodeID storj.NodeID) (err error) {
+	if db, ok := service.db.(*CachingDB); ok {
+		return db.RequestSync(ctx, nodeID)
+	}
+	return nil
+}
+
 // Close closes resources.
 func (service *Service) Close() error { return nil }
 
@@ -220,4 +260,12 @@ func UpdateRequestToMutations(updateReq UpdateRequest, now time.Time) (Mutations
 	updates.OnlineHistory = &pb.AuditHistory{}
 	err := AddAuditToHistory(updates.OnlineHistory, updateReq.AuditOutcome != AuditOffline, now, updateReq.Config.AuditHistory)
 	return updates, err
+}
+
+func cloneTime(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	tCopy := *t
+	return &tCopy
 }

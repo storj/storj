@@ -249,12 +249,12 @@ func TestReportOfflineAudits(t *testing.T) {
 		node := planet.StorageNodes[0]
 		audits := satellite.Audit
 		audits.Worker.Loop.Pause()
-		reputationDB := satellite.DB.Reputation()
+		reputationService := satellite.Core.Reputation.Service
 
 		_, err := audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}})
 		require.NoError(t, err)
 
-		info, err := reputationDB.Get(ctx, node.ID())
+		info, err := reputationService.Get(ctx, node.ID())
 		require.NoError(t, err)
 		require.Equal(t, int64(1), info.TotalAuditCount)
 

@@ -408,6 +408,10 @@ func TestMinRequiredDataRepair(t *testing.T) {
 		}
 		require.Equal(t, 4, len(availableNodes))
 
+		// Here we use a different reputation service from the one the
+		// repairer is reporting to. To get correct results in a short
+		// amount of time, we have to flush all cached node info using
+		// TestFlushAllNodeInfo(), below.
 		reputationService := planet.Satellites[0].Reputation.Service
 
 		nodesReputation := make(map[storj.NodeID]reputation.Info)
@@ -424,6 +428,10 @@ func TestMinRequiredDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
+		err = satellite.Repairer.Reputation.TestFlushAllNodeInfo(ctx)
+		require.NoError(t, err)
+		err = reputationService.TestFlushAllNodeInfo(ctx)
+		require.NoError(t, err)
 
 		for _, nodeID := range availableNodes {
 			info, err := reputationService.Get(ctx, nodeID)
@@ -523,7 +531,7 @@ func TestFailedDataRepair(t *testing.T) {
 		badNodeDB := badNode.DB.(*testblobs.BadDB)
 		badNodeDB.SetError(errs.New("unknown error"))
 
-		reputationService := planet.Satellites[0].Reputation.Service
+		reputationService := satellite.Repairer.Reputation
 
 		nodesReputation := make(map[storj.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
@@ -633,7 +641,7 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 		require.NotNil(t, offlineNode)
 		require.NoError(t, planet.StopPeer(offlineNode))
 
-		reputationService := planet.Satellites[0].Reputation.Service
+		reputationService := satellite.Repairer.Reputation
 
 		nodesReputation := make(map[storj.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
@@ -754,7 +762,7 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 		badNodeDB := badNode.DB.(*testblobs.BadDB)
 		badNodeDB.SetError(errs.New("unknown error"))
 
-		reputationService := planet.Satellites[0].Reputation.Service
+		reputationService := satellite.Repairer.Reputation
 
 		nodesReputation := make(map[storj.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
@@ -871,7 +879,7 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 		err = missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
-		reputationService := planet.Satellites[0].Reputation.Service
+		reputationService := satellite.Repairer.Reputation
 
 		nodesReputation := make(map[storj.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
@@ -987,7 +995,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 		err = missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
-		reputationService := planet.Satellites[0].Reputation.Service
+		reputationService := satellite.Repairer.Reputation
 
 		nodesReputation := make(map[storj.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
@@ -1100,7 +1108,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
 		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
-		reputationService := planet.Satellites[0].Reputation.Service
+		reputationService := satellite.Repairer.Reputation
 
 		nodesReputation := make(map[storj.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
@@ -1215,7 +1223,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
 		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
-		reputationService := planet.Satellites[0].Reputation.Service
+		reputationService := satellite.Repairer.Reputation
 
 		nodesReputation := make(map[storj.NodeID]reputation.Info)
 		for _, piece := range availablePieces {
