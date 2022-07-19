@@ -333,6 +333,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		bucketItems[i] = &pb.BucketListItem{
 			Name:      []byte(item.Name),
 			CreatedAt: item.Created,
+			UserAgent: item.UserAgent,
 		}
 	}
 

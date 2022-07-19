@@ -77,9 +77,12 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
+import { RouteConfig } from "@/router";
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 
 // @vue/component
 @Component({
@@ -167,6 +170,16 @@ export default class ChangePasswordPopup extends Vue {
             await this.$notify.error(error.message);
 
             return;
+        }
+
+        try {
+            await this.auth.logout();
+
+            setTimeout(() => {
+                this.$router.push(RouteConfig.Login.path);
+            }, DELAY_BEFORE_REDIRECT);
+        } catch (error) {
+            await this.$notify.error(error.message);
         }
 
         this.analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
