@@ -31,6 +31,13 @@ export default class BaseChart extends Vue {
         chartContainer: HTMLElement;
     };
 
+    // fix issue (Storagenode dashboard: bandwidth graph disappears on click egress or ingress #4951)
+    mounted(){
+        this.chartHeight = this.height;
+        this.chartWidth = this.width;
+        this.chartKey += 1; 
+    }
+
     @Watch('width')
     @Watch('isDarkMode')
     public rebuildChart(): void {
