@@ -164,17 +164,19 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 				project_id = $5 AND
 				bucket_name = $6 AND
 				object_key = $7 AND
-				version = $8 AND
-				stream_id = $9
+				version = $8
 			RETURNING
-				segment_count, objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata;
+				segment_count, 
+				objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata,
+				stream_id
         `
 
 		var segmentsCount int
 		var hasMetadata bool
+		var streamID uuid.UUID
 
-		row := tx.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID)
-		if err = row.Scan(&segmentsCount, &hasMetadata); err != nil {
+		row := tx.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version)
+		if err = row.Scan(&segmentsCount, &hasMetadata, &streamID); err != nil {
 			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 				return Error.Wrap(ErrObjectAlreadyExists.New(""))
 			} else if errors.Is(err, sql.ErrNoRows) {
@@ -182,8 +184,11 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			}
 			return Error.New("unable to update object: %w", err)
 		}
+		if streamID != opts.StreamID {
+			return storj.ErrObjectNotFound.New("object was changed during move")
+		}
 		if segmentsCount != len(opts.NewSegmentKeys) {
-			return ErrInvalidRequest.New("wrong amount of segments keys received")
+			return ErrInvalidRequest.New("wrong number of segments keys received")
 		}
 		if hasMetadata {
 			switch {

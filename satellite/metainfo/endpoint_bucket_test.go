@@ -201,3 +201,59 @@ func TestDeleteBucket(t *testing.T) {
 		require.Len(t, buckets.GetItems(), 0)
 	})
 }
+
+func TestListBucketsWithAttribution(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		type testCase struct {
+			UserAgent string
+			Bucket    string
+		}
+
+		var testCases = []testCase{
+			{
+				Bucket: "bucket-without-user-agent",
+			},
+			{
+				UserAgent: "storj",
+				Bucket:    "bucket-with-user-agent",
+			},
+		}
+
+		bucketExists := func(tc testCase, buckets *pb.BucketListResponse) bool {
+			for _, bucket := range buckets.Items {
+				if string(bucket.Name) == tc.Bucket {
+					require.EqualValues(t, tc.UserAgent, string(bucket.UserAgent))
+					return true
+				}
+			}
+			t.Fatalf("bucket was not found in results:%s", tc.Bucket)
+			return false
+		}
+
+		for _, tc := range testCases {
+			config := uplink.Config{
+				UserAgent: tc.UserAgent,
+			}
+
+			project, err := config.OpenProject(ctx, planet.Uplinks[0].Access[satellite.ID()])
+			require.NoError(t, err)
+
+			_, err = project.CreateBucket(ctx, tc.Bucket)
+			require.NoError(t, err)
+
+			buckets, err := satellite.Metainfo.Endpoint.ListBuckets(ctx, &pb.BucketListRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Direction: int32(storj.Forward),
+			})
+			require.NoError(t, err)
+			require.True(t, bucketExists(tc, buckets))
+		}
+	})
+}

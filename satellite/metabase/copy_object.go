@@ -456,7 +456,10 @@ func getObjectAtCopySourceAndDestination(
 		return Object{}, uuid.UUID{}, nil, Error.New("unable to query object status: %w", err)
 	}
 	if sourceObject.BucketName != opts.BucketName || sourceObject.ObjectKey != opts.ObjectKey {
-		return Object{}, uuid.UUID{}, nil, Error.New("source object is gone")
+		return Object{}, uuid.UUID{}, nil, storj.ErrObjectNotFound.New("source object is gone")
+	}
+	if sourceObject.StreamID != opts.StreamID {
+		return Object{}, uuid.UUID{}, nil, storj.ErrObjectNotFound.New("object was changed during copy")
 	}
 
 	sourceObject.ProjectID = opts.ProjectID
