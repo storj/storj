@@ -42,7 +42,7 @@
                                     v-for="(sat, index) in partneredSatellites"
                                     :key="index"
                                     class="register-area__input-area__expand__dropdown__item"
-                                    :href="`${sat.address}/signup`"
+                                    :href="sat.address"
                                 >
                                     {{ sat.name }}
                                 </a>
@@ -321,10 +321,10 @@ export default class RegisterArea extends Vue {
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
-     * Lifecycle hook after initial render.
+     * Lifecycle hook before initial render.
      * Sets up variables from route params.
      */
-    public mounted(): void {
+    public beforeMount(): void {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
         }
@@ -433,7 +433,16 @@ export default class RegisterArea extends Vue {
      * Information about partnered satellites, including name and signup link.
      */
     public get partneredSatellites(): PartneredSatellite[] {
-        return this.$store.state.appStateModule.partneredSatellites;
+        const satellites = this.$store.state.appStateModule.partneredSatellites;
+        return satellites.map((s: PartneredSatellite) => {
+            s.address = `${s.address}/signup`;
+
+            if (this.user.partner) {
+                s.address = `${s.address}?partner=${this.user.partner}`;
+            }
+
+            return s;
+        })
     }
 
     /**
