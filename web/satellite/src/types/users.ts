@@ -105,3 +105,13 @@ export class DisableMFARequest {
         public recoveryCode: string = '',
     ) {}
 }
+
+/**
+ * TokenInfo represents an authentication token response.
+ */
+export class TokenInfo {
+    public constructor(
+        public token: string,
+        public expiresAt: Date,
+    ) {}
+}

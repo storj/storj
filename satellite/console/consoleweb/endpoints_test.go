@@ -868,10 +868,12 @@ func (test *test) login(email, password string) Response {
 	cookie := findCookie(resp, "_tokenKey")
 	require.NotNil(test.t, cookie)
 
-	var rawToken string
-	require.NoError(test.t, json.Unmarshal([]byte(body), &rawToken))
+	var tokenInfo struct {
+		Token string `json:"token"`
+	}
+	require.NoError(test.t, json.Unmarshal([]byte(body), &tokenInfo))
 	require.Equal(test.t, http.StatusOK, resp.StatusCode)
-	require.Equal(test.t, rawToken, cookie.Value)
+	require.Equal(test.t, tokenInfo.Token, cookie.Value)
 
 	return resp
 }

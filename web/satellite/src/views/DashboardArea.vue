@@ -27,6 +27,16 @@
                 </div>
             </div>
         </div>
+        <div v-if="debugTimerShown && !isLoading" class="dashboard__debug-timer">
+            <p>Remaining session time: <b class="dashboard__debug-timer__bold">{{ debugTimerText }}</b></p>
+        </div>
+        <InactivityModal
+            v-if="inactivityModalShown"
+            :on-continue="refreshSession"
+            :on-logout="handleInactive"
+            :on-close="closeInactivityModal"
+            :initial-seconds="inactivityModalTime/1000"
+        />
         <AllModals />
     </div>
 </template>
@@ -38,6 +48,7 @@ import AllModals from "@/components/modals/AllModals.vue";
 import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
+import InactivityModal from "@/components/modals/InactivityModal.vue";
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import BillingNotification from "@/components/notifications/BillingNotification.vue";
 import ProjectInfoBar from "@/components/infoBars/ProjectInfoBar.vue";
@@ -81,13 +92,28 @@ const {
         BetaSatBar,
         ProjectInfoBar,
         BillingNotification,
+        InactivityModal,
     },
 })
 export default class DashboardArea extends Vue {
-    // List of DOM events that resets inactivity timer.
-    private readonly resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
     private readonly auth: AuthHttpApi = new AuthHttpApi();
-    private inactivityTimerId: ReturnType<typeof setTimeout>;
+
+    // Properties concerning session refreshing, inactivity notification, and automatic logout
+    private readonly resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
+    private readonly sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
+    private inactivityTimerId: ReturnType<typeof setTimeout> | null;
+    private inactivityModalShown = false;
+    private inactivityModalTime = 60000;
+    private sessionRefreshInterval: number = this.sessionDuration/2;
+    private sessionRefreshTimerId: ReturnType<typeof setTimeout> | null;
+    private isSessionActive = false;
+    private isSessionRefreshing = false;
+
+    // Properties concerning the session timer popup used for debugging
+    private readonly debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') == 'true';
+    private debugTimerText = "";
+    private debugTimerId: ReturnType<typeof setTimeout> | null;
+
     // Minimum number of recovery codes before the recovery code warning bar is shown.
     public recoveryCodeWarningThreshold = 4;
 
@@ -98,7 +124,9 @@ export default class DashboardArea extends Vue {
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
-        this.setupInactivityTimers();
+        this.$store.subscribeAction((action) => {
+            if (action.type == USER_ACTIONS.CLEAR) this.clearSessionTimers();
+        });
 
         if (LocalData.getBillingNotificationAcknowledged()) {
             this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
@@ -113,7 +141,12 @@ export default class DashboardArea extends Vue {
 
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
+            this.setupSessionTimers();
         } catch (error) {
+            this.$store.subscribeAction((action) => {
+                if (action.type == USER_ACTIONS.LOGIN) this.setupSessionTimers();
+            })
+
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 await this.$notify.error(error.message);
@@ -202,6 +235,13 @@ export default class DashboardArea extends Vue {
      */
     public togglePMModal(): void {
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    }
+
+    /**
+     * Disables session inactivity modal visibility.
+     */
+    public closeInactivityModal(): void {
+        this.inactivityModalShown = false;
     }
 
     /**
@@ -296,52 +336,130 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Sets up timer id with given delay.
+     * Refreshes session and resets session timers.
      */
-    private startInactivityTimer(): void {
-        const inactivityTimerDelayInSeconds = MetaUtils.getMetaContent('inactivity-timer-delay');
+    private async refreshSession(): Promise<void> {
+        this.isSessionRefreshing = true;
+        
+        try {
+            LocalData.setSessionExpirationDate(await this.auth.refreshSession());
+        } catch (error) {
+            await this.$notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message);
+            await this.handleInactive();
+            this.isSessionRefreshing = false;
+            return;
+        }
 
-        this.inactivityTimerId = setTimeout(this.handleInactive, parseInt(inactivityTimerDelayInSeconds) * 1000);
+        this.clearSessionTimers();
+        this.restartSessionTimers();
+        this.inactivityModalShown = false;
+        this.isSessionActive = false;
+        this.isSessionRefreshing = false;
     }
 
     /**
-     * Performs logout and cleans event listeners.
+     * Performs logout and cleans event listeners and session timers.
      */
     private async handleInactive(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.Login.path);
+        await this.$router.push(RouteConfig.Login.path);
+
+        this.resetActivityEvents.forEach((eventName: string) => {
+            document.removeEventListener(eventName, this.onSessionActivity);
+        });
+        this.clearSessionTimers();
+        this.inactivityModalShown = false;
+
         try {
             await this.auth.logout();
-            this.resetActivityEvents.forEach((eventName: string) => {
-                document.removeEventListener(eventName, this.resetInactivityTimer);
-            });
-            this.analytics.pageVisit(RouteConfig.Login.path);
-            await this.$router.push(RouteConfig.Login.path);
-            await this.$notify.notify('Your session was timed out.');
         } catch (error) {
+            if (error instanceof ErrorUnauthorized) return;
+
             await this.$notify.error(error.message);
         }
     }
 
     /**
-     * Resets inactivity timer.
+     * Resets inactivity timer and refreshes session if necessary.
      */
-    private resetInactivityTimer(): void {
-        clearTimeout(this.inactivityTimerId);
-        this.startInactivityTimer();
+    private async onSessionActivity(): Promise<void> {
+        if (this.inactivityModalShown || this.isSessionActive) return;
+
+        if (this.sessionRefreshTimerId == null && !this.isSessionRefreshing) {
+            await this.refreshSession();
+        }
+        this.isSessionActive = true;
     }
 
     /**
-     * Adds DOM event listeners and starts timer.
+     * Adds DOM event listeners and starts session timers.
      */
-    private setupInactivityTimers(): void {
+    private setupSessionTimers(): void {
         const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
 
         if (isInactivityTimerEnabled === 'false') return;
 
-        this.resetActivityEvents.forEach((eventName: string) => {
-            document.addEventListener(eventName, this.resetInactivityTimer, false);
-        });
+        const expiresAt = LocalData.getSessionExpirationDate();
 
-        this.startInactivityTimer();
+        if (expiresAt) {
+            this.resetActivityEvents.forEach((eventName: string) => {
+                document.addEventListener(eventName, this.onSessionActivity, false);
+            });
+
+            if (expiresAt.getTime() - this.sessionDuration + this.sessionRefreshInterval < Date.now()) {
+                this.refreshSession();
+            }
+
+            this.restartSessionTimers();
+        }
+    }
+
+    /**
+     * Restarts timers associated with session refreshing and inactivity.
+     */
+    private restartSessionTimers(): void {
+        this.sessionRefreshTimerId = setTimeout(async () => {
+            this.sessionRefreshTimerId = null;
+            if (this.isSessionActive) {
+                await this.refreshSession();
+            }
+        }, this.sessionRefreshInterval);
+
+        this.inactivityTimerId = setTimeout(() => {
+            if (this.isSessionActive) return;
+            this.inactivityModalShown = true;
+            this.inactivityTimerId = setTimeout(async () => {
+                this.handleInactive();
+                await this.$notify.notify('Your session was timed out.');
+            }, this.inactivityModalTime);
+        }, this.sessionDuration - this.inactivityModalTime);
+
+        if (!this.debugTimerShown) return;
+
+        const debugTimer = () => {
+            const expiresAt = LocalData.getSessionExpirationDate();
+
+            if (expiresAt) {
+                const ms = Math.max(0, expiresAt.getTime() - Date.now());
+                const secs = Math.floor(ms/1000)%60;
+
+                this.debugTimerText = `${Math.floor(ms/60000)}:${(secs<10 ? '0' : '')+secs}`;
+
+                if (ms > 1000) {
+                    this.debugTimerId = setTimeout(debugTimer, 1000);
+                }
+            }
+        };
+        debugTimer();
+    }
+
+    /**
+     * Clears timers associated with session refreshing and inactivity.
+     */
+    private clearSessionTimers(): void {
+        [this.inactivityTimerId, this.sessionRefreshTimerId, this.debugTimerId].forEach(id => {
+            if (id != null) clearTimeout(id);
+        });
     }
 }
 </script>
@@ -408,6 +526,26 @@ export default class DashboardArea extends Vue {
                         }
                     }
                 }
+            }
+        }
+
+        &__debug-timer {
+            display: flex;
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px;
+            z-index: 10000;
+            background-color: #fec;
+            font-family: 'font_regular', sans-serif;
+            font-size: 14px;
+            border: 1px solid #ffd78a;
+            border-radius: 10px;
+            box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
+
+            &__bold {
+                font-family: 'font_medium', sans-serif;
             }
         }
     }

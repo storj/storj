@@ -117,7 +117,9 @@ func TestGraphqlMutation(t *testing.T) {
 			console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,
-				SessionDuration:     time.Hour,
+				Session: console.SessionConfig{
+					Duration: time.Hour,
+				},
 			},
 		)
 		require.NoError(t, err)
@@ -166,10 +168,10 @@ func TestGraphqlMutation(t *testing.T) {
 		_, err = service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
-		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		userCtx, err := service.TokenAuth(ctx, token, time.Now())
+		userCtx, err := service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
 
 		testQuery := func(t *testing.T, query string) (interface{}, error) {
@@ -190,10 +192,10 @@ func TestGraphqlMutation(t *testing.T) {
 			return result.Data, nil
 		}
 
-		token, err = service.Token(ctx, console.AuthUser{Email: rootUser.Email, Password: createUser.Password})
+		tokenInfo, err = service.Token(ctx, console.AuthUser{Email: rootUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		userCtx, err = service.TokenAuth(ctx, token, time.Now())
+		userCtx, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
 
 		var projectIDField string

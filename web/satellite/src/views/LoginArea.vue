@@ -185,6 +185,9 @@ import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from "@/api/errors/ErrorBadRequest";
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { TokenInfo } from '@/types/users';
+import { LocalData } from '@/utils/localData';
 
 interface ClearInput {
     clearInput(): void;
@@ -413,7 +416,8 @@ export default class Login extends Vue {
         }
 
         try {
-            await this.auth.token(this.email, this.password, this.captchaResponseToken, this.passcode, this.recoveryCode);
+            const tokenInfo: TokenInfo = await this.auth.token(this.email, this.password, this.captchaResponseToken, this.passcode, this.recoveryCode);
+            LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
         } catch (error) {
             if (this.$refs.recaptcha) {
                 this.$refs.recaptcha.reset();
@@ -453,6 +457,7 @@ export default class Login extends Vue {
             return;
         }
 
+        await this.$store.dispatch(USER_ACTIONS.LOGIN);
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 )
 
@@ -29,28 +30,30 @@ func NewCookieAuth(settings CookieSettings) *CookieAuth {
 }
 
 // GetToken retrieves token from request.
-func (auth *CookieAuth) GetToken(r *http.Request) (consoleauth.Token, error) {
+func (auth *CookieAuth) GetToken(r *http.Request) (console.TokenInfo, error) {
 	cookie, err := r.Cookie(auth.settings.Name)
 	if err != nil {
-		return consoleauth.Token{}, err
+		return console.TokenInfo{}, err
 	}
 
 	token, err := consoleauth.FromBase64URLString(cookie.Value)
 	if err != nil {
-		return consoleauth.Token{}, err
+		return console.TokenInfo{}, err
 	}
 
-	return token, nil
+	return console.TokenInfo{
+		Token:     token,
+		ExpiresAt: cookie.Expires,
+	}, nil
 }
 
 // SetTokenCookie sets parametrized token cookie that is not accessible from js.
-func (auth *CookieAuth) SetTokenCookie(w http.ResponseWriter, token consoleauth.Token) {
+func (auth *CookieAuth) SetTokenCookie(w http.ResponseWriter, tokenInfo console.TokenInfo) {
 	http.SetCookie(w, &http.Cookie{
-		Name:  auth.settings.Name,
-		Value: token.String(),
-		Path:  auth.settings.Path,
-		// TODO: get expiration from token
-		Expires:  time.Now().Add(time.Hour * 24),
+		Name:     auth.settings.Name,
+		Value:    tokenInfo.Token.String(),
+		Path:     auth.settings.Path,
+		Expires:  tokenInfo.ExpiresAt,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})

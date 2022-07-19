@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console/consoleauth"
 )
 
 // Users exposes methods to manage User table in database.
@@ -120,6 +121,12 @@ type AuthUser struct {
 	CaptchaResponse string `json:"captchaResponse"`
 	IP              string `json:"-"`
 	UserAgent       string `json:"-"`
+}
+
+// TokenInfo holds info for user authentication token responses.
+type TokenInfo struct {
+	consoleauth.Token `json:"token"`
+	ExpiresAt         time.Time `json:"expiresAt"`
 }
 
 // UserStatus - is used to indicate status of the users account.

@@ -187,12 +187,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to storj.io homepage
 # console.homepage-url: https://www.storj.io
 
-# inactivity timer delay in seconds
-# console.inactivity-timer-delay: 600
-
-# indicates if session can be timed out due inactivity
-# console.inactivity-timer-enabled: false
-
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
 
@@ -265,8 +259,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
-# duration a session is valid for
-# console.session-duration: 168h0m0s
+# duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)
+# console.session.duration: 168h0m0s
+
+# inactivity timer delay in seconds
+# console.session.inactivity-timer-duration: 600
+
+# indicates if session can be timed out due inactivity
+# console.session.inactivity-timer-enabled: false
+
+# indicates whether remaining session time is shown for debugging
+# console.session.inactivity-timer-viewer-enabled: false
 
 # path to static resources
 # console.static-dir: ""

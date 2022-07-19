@@ -5,7 +5,7 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { UpdatedUser, User, UsersApi } from '@/types/users';
+import { TokenInfo, UpdatedUser, User, UsersApi } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -47,7 +47,7 @@ export class AuthHttpApi implements UsersApi {
      * @param mfaRecoveryCode - MFA recovery code
      * @throws Error
      */
-    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<string> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<TokenInfo> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
@@ -60,11 +60,11 @@ export class AuthHttpApi implements UsersApi {
         const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             const result = await response.json();
-            if (typeof result !== 'string') {
+            if (result.error) {
                 throw new ErrorMFARequired();
             }
 
-            return result;
+            return new TokenInfo(result.token, new Date(result.expiresAt));
         }
 
         const result = await response.json();
@@ -420,5 +420,26 @@ export class AuthHttpApi implements UsersApi {
         default:
             throw new Error(errMsg);
         }
+    }
+
+    /**
+     * Used to refresh the expiration time of the current session.
+     * 
+     * @returns new expiration timestamp
+     * @throws Error
+     */
+    public async refreshSession(): Promise<Date> {
+        const path = `${this.ROOT_PATH}/refresh-session`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return new Date(await response.json());
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error("Unable to refresh session.")
     }
 }

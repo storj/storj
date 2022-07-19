@@ -11,6 +11,7 @@ export class LocalData {
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
     private static billingNotificationAcknowledged = 'billingNotificationAcknowledged';
+    private static sessionExpirationDate = 'sessionExpirationDate';
 
     public static getUserId(): string | null {
         return localStorage.getItem(LocalData.userId);
@@ -82,6 +83,19 @@ export class LocalData {
 
     public static setBillingNotificationAcknowledged(): void {
         localStorage.setItem(LocalData.billingNotificationAcknowledged, 'true');
+    }
+    
+    public static getSessionExpirationDate(): Date | null {
+        const data: string | null = localStorage.getItem(LocalData.sessionExpirationDate);
+        if (data) {
+            return new Date(data);
+        }
+
+        return null;
+    }
+
+    public static setSessionExpirationDate(date: Date): void {
+        localStorage.setItem(LocalData.sessionExpirationDate, date.toISOString());
     }
 }
 

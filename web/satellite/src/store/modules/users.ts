@@ -6,6 +6,7 @@ import { MetaUtils } from '@/utils/meta';
 import {StoreModule} from "@/types/store";
 
 export const USER_ACTIONS = {
+    LOGIN: 'loginUser',
     UPDATE: 'updateUser',
     GET: 'getUser',
     ENABLE_USER_MFA: 'enableUserMFA',

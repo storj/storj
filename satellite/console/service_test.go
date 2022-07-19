@@ -926,7 +926,7 @@ func TestSessionExpiration(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.SessionDuration = time.Hour
+				config.Console.Session.Duration = time.Hour
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -940,20 +940,20 @@ func TestSessionExpiration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Session should be added to DB after token request
-		token, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
-		_, err = service.TokenAuth(ctx, token, time.Now())
+		_, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
 
-		sessionID, err := uuid.FromBytes(token.Payload)
+		sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
 		require.NoError(t, err)
 
 		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
 		require.NoError(t, err)
 
 		// Session should be removed from DB after it has expired
-		_, err = service.TokenAuth(ctx, token, time.Now().Add(2*time.Hour))
+		_, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now().Add(2*time.Hour))
 		require.True(t, console.ErrTokenExpiration.Has(err))
 
 		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)

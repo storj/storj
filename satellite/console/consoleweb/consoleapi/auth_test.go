@@ -342,9 +342,9 @@ func TestMFAEndpoints(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
-		require.NotEmpty(t, token)
+		require.NotEmpty(t, tokenInfo.Token)
 
 		type data struct {
 			Passcode     string `json:"passcode"`
@@ -370,7 +370,7 @@ func TestMFAEndpoints(t *testing.T) {
 			req.AddCookie(&http.Cookie{
 				Name:    "_tokenKey",
 				Path:    "/",
-				Value:   token.String(),
+				Value:   tokenInfo.Token.String(),
 				Expires: time.Now().AddDate(0, 0, 1),
 			})
 

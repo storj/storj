@@ -157,9 +157,9 @@ type Config struct {
 	AsOfSystemTimeDuration      time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
 	LoginAttemptsWithoutPenalty int           `help:"number of times user can try to login without penalty" default:"3"`
 	FailedLoginPenalty          float64       `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
-	SessionDuration             time.Duration `help:"duration a session is valid for" default:"168h"`
 	UsageLimits                 UsageLimitsConfig
 	Captcha                     CaptchaConfig
+	Session                     SessionConfig
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.
@@ -179,6 +179,14 @@ type SingleCaptchaConfig struct {
 	Enabled   bool   `help:"whether or not captcha is enabled" default:"false"`
 	SiteKey   string `help:"captcha site key"`
 	SecretKey string `help:"captcha secret key"`
+}
+
+// SessionConfig contains configurations for session management.
+type SessionConfig struct {
+	InactivityTimerEnabled       bool          `help:"indicates if session can be timed out due inactivity" default:"false"`
+	InactivityTimerDuration      int           `help:"inactivity timer delay in seconds" default:"600"`
+	InactivityTimerViewerEnabled bool          `help:"indicates whether remaining session time is shown for debugging" default:"false"`
+	Duration                     time.Duration `help:"duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)" default:"168h"`
 }
 
 // Payments separates all payment related functionality.
@@ -800,24 +808,30 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUI
 }
 
 // GenerateSessionToken creates a new session and returns the string representation of its token.
-func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string) (_ consoleauth.Token, err error) {
+func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string) (_ *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sessionID, err := uuid.New()
 	if err != nil {
-		return consoleauth.Token{}, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.store.WebappSessions().Create(ctx, sessionID, userID, ip, userAgent, time.Now().Add(s.config.SessionDuration))
+	duration := s.config.Session.Duration
+	if s.config.Session.InactivityTimerEnabled {
+		duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+	}
+	expiresAt := time.Now().Add(duration)
+
+	_, err = s.store.WebappSessions().Create(ctx, sessionID, userID, ip, userAgent, expiresAt)
 	if err != nil {
-		return consoleauth.Token{}, err
+		return nil, err
 	}
 
 	token := consoleauth.Token{Payload: sessionID.Bytes()}
 
 	signature, err := s.tokens.SignToken(token)
 	if err != nil {
-		return consoleauth.Token{}, err
+		return nil, err
 	}
 	token.Signature = signature
 
@@ -825,7 +839,10 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 
 	s.analytics.TrackSignedIn(userID, email)
 
-	return token, nil
+	return &TokenInfo{
+		Token:     token,
+		ExpiresAt: expiresAt,
+	}, nil
 }
 
 // ActivateAccount - is a method for activating user account after registration.
@@ -977,7 +994,7 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 }
 
 // Token authenticates User by credentials and returns session token.
-func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleauth.Token, err error) {
+func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	mon.Counter("login_attempt").Inc(1) //mon:locked
@@ -986,11 +1003,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 		valid, _, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
 		if err != nil {
 			mon.Counter("login_user_captcha_error").Inc(1) //mon:locked
-			return consoleauth.Token{}, ErrCaptcha.Wrap(err)
+			return nil, ErrCaptcha.Wrap(err)
 		}
 		if !valid {
 			mon.Counter("login_user_captcha_unsuccessful").Inc(1) //mon:locked
-			return consoleauth.Token{}, ErrCaptcha.New("captcha validation unsuccessful")
+			return nil, ErrCaptcha.New("captcha validation unsuccessful")
 		}
 	}
 
@@ -1003,7 +1020,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 			mon.Counter("login_email_invalid").Inc(1) //mon:locked
 			s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
 		}
-		return consoleauth.Token{}, ErrLoginCredentials.New(credentialsErrMsg)
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
 	now := time.Now()
@@ -1011,7 +1028,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 	if user.LoginLockoutExpiration.After(now) {
 		mon.Counter("login_locked_out").Inc(1) //mon:locked
 		s.auditLog(ctx, "login: failed account locked out", &user.ID, request.Email)
-		return consoleauth.Token{}, ErrLoginCredentials.New(credentialsErrMsg)
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
 	handleLockAccount := func() error {
@@ -1040,18 +1057,18 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 	if err != nil {
 		err = handleLockAccount()
 		if err != nil {
-			return consoleauth.Token{}, err
+			return nil, err
 		}
 		mon.Counter("login_invalid_password").Inc(1) //mon:locked
 		s.auditLog(ctx, "login: failed password invalid", &user.ID, user.Email)
-		return consoleauth.Token{}, ErrLoginPassword.New(credentialsErrMsg)
+		return nil, ErrLoginPassword.New(credentialsErrMsg)
 	}
 
 	if user.MFAEnabled {
 		if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
 			mon.Counter("login_mfa_conflict").Inc(1) //mon:locked
 			s.auditLog(ctx, "login: failed mfa conflict", &user.ID, user.Email)
-			return consoleauth.Token{}, ErrMFAConflict.New(mfaConflictErrMsg)
+			return nil, ErrMFAConflict.New(mfaConflictErrMsg)
 		}
 
 		if request.MFARecoveryCode != "" {
@@ -1067,11 +1084,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 			if !found {
 				err = handleLockAccount()
 				if err != nil {
-					return consoleauth.Token{}, err
+					return nil, err
 				}
 				mon.Counter("login_mfa_recovery_failure").Inc(1) //mon:locked
 				s.auditLog(ctx, "login: failed mfa recovery", &user.ID, user.Email)
-				return consoleauth.Token{}, ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
+				return nil, ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
 			}
 
 			mon.Counter("login_mfa_recovery_success").Inc(1) //mon:locked
@@ -1082,32 +1099,32 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 				MFARecoveryCodes: &user.MFARecoveryCodes,
 			})
 			if err != nil {
-				return consoleauth.Token{}, err
+				return nil, err
 			}
 		} else if request.MFAPasscode != "" {
 			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, now)
 			if err != nil {
 				err = handleLockAccount()
 				if err != nil {
-					return consoleauth.Token{}, err
+					return nil, err
 				}
 
-				return consoleauth.Token{}, ErrMFAPasscode.Wrap(err)
+				return nil, ErrMFAPasscode.Wrap(err)
 			}
 			if !valid {
 				err = handleLockAccount()
 				if err != nil {
-					return consoleauth.Token{}, err
+					return nil, err
 				}
 				mon.Counter("login_mfa_passcode_failure").Inc(1) //mon:locked
 				s.auditLog(ctx, "login: failed mfa passcode invalid", &user.ID, user.Email)
-				return consoleauth.Token{}, ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
+				return nil, ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 			}
 			mon.Counter("login_mfa_passcode_success").Inc(1) //mon:locked
 		} else {
 			mon.Counter("login_mfa_missing").Inc(1) //mon:locked
 			s.auditLog(ctx, "login: failed mfa missing", &user.ID, user.Email)
-			return consoleauth.Token{}, ErrMFAMissing.New(mfaRequiredErrMsg)
+			return nil, ErrMFAMissing.New(mfaRequiredErrMsg)
 		}
 	}
 
@@ -1119,18 +1136,18 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 			LoginLockoutExpiration: &loginLockoutExpirationPtr,
 		})
 		if err != nil {
-			return consoleauth.Token{}, err
+			return nil, err
 		}
 	}
 
-	token, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent)
+	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent)
 	if err != nil {
-		return consoleauth.Token{}, err
+		return nil, err
 	}
 
 	mon.Counter("login_success").Inc(1) //mon:locked
 
-	return token, nil
+	return response, nil
 }
 
 // UpdateUsersFailedLoginState updates User's failed login state.
@@ -2853,22 +2870,28 @@ func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID)
 	return ProjectMember{}, false
 }
 
-// DeleteSessionByToken removes the session corresponding to the given token from the database.
-func (s *Service) DeleteSessionByToken(ctx context.Context, token consoleauth.Token) (err error) {
+// DeleteSession removes the session from the database.
+func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	valid, err := s.tokens.ValidateToken(token)
+	return Error.Wrap(s.store.WebappSessions().DeleteBySessionID(ctx, sessionID))
+}
+
+// RefreshSession resets the expiration time of the session.
+func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expiresAt time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = s.getUserAndAuditLog(ctx, "refresh session")
 	if err != nil {
-		return err
-	}
-	if !valid {
-		return ErrValidation.New("Invalid session token.")
+		return time.Time{}, Error.Wrap(err)
 	}
 
-	id, err := uuid.FromBytes(token.Payload)
+	expiresAt = time.Now().Add(time.Duration(s.config.Session.InactivityTimerDuration) * time.Second)
+
+	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
 	if err != nil {
-		return err
+		return time.Time{}, err
 	}
 
-	return s.store.WebappSessions().DeleteBySessionID(ctx, id)
+	return expiresAt, nil
 }

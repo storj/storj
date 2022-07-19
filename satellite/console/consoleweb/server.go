@@ -96,8 +96,6 @@ type Config struct {
 	NewAccessGrantFlow              bool               `help:"indicates if new access grant flow should be used" default:"true"`
 	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"false"`
 	GeneratedAPIEnabled             bool               `help:"indicates if generated console api should be used" default:"false"`
-	InactivityTimerEnabled          bool               `help:"indicates if session can be timed out due inactivity" default:"false"`
-	InactivityTimerDelay            int                `help:"inactivity timer delay in seconds" default:"600"`
 	OptionalSignupSuccessURL        string             `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled      bool               `help:"indicates if storj native token payments system is enabled" default:"false"`
@@ -179,12 +177,12 @@ func (a *apiAuth) IsAuthenticated(ctx context.Context, r *http.Request, isCookie
 
 // cookieAuth returns an authenticated context by session cookie.
 func (a *apiAuth) cookieAuth(ctx context.Context, r *http.Request) (context.Context, error) {
-	token, err := a.server.cookieAuth.GetToken(r)
+	tokenInfo, err := a.server.cookieAuth.GetToken(r)
 	if err != nil {
 		return nil, err
 	}
 
-	return a.server.service.TokenAuth(ctx, token, time.Now())
+	return a.server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 }
 
 // cookieAuth returns an authenticated context by api key.
@@ -280,12 +278,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/mfa/disable", server.withAuth(http.HandlerFunc(authController.DisableUserMFA))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost)
-	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
+	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost)
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/forgot-password/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
 	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost)
+	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost)
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -451,7 +450,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NewAccessGrantFlow              bool
 		NewBillingScreen                bool
 		InactivityTimerEnabled          bool
-		InactivityTimerDelay            int
+		InactivityTimerDuration         int
+		InactivityTimerViewerEnabled    bool
 		OptionalSignupSuccessURL        string
 		HomepageURL                     string
 		NativeTokenPaymentsEnabled      bool
@@ -492,8 +492,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
 	data.NewBillingScreen = server.config.NewBillingScreen
-	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
-	data.InactivityTimerDelay = server.config.InactivityTimerDelay
+	data.InactivityTimerEnabled = server.config.Session.InactivityTimerEnabled
+	data.InactivityTimerDuration = server.config.Session.InactivityTimerDuration
+	data.InactivityTimerViewerEnabled = server.config.Session.InactivityTimerViewerEnabled
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
 	data.HomepageURL = server.config.HomepageURL
 	data.NativeTokenPaymentsEnabled = server.config.NativeTokenPaymentsEnabled
@@ -526,12 +527,12 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 			}
 		}()
 
-		token, err := server.cookieAuth.GetToken(r)
+		tokenInfo, err := server.cookieAuth.GetToken(r)
 		if err != nil {
 			return
 		}
 
-		newCtx, err := server.service.TokenAuth(ctx, token, time.Now())
+		newCtx, err := server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		if err != nil {
 			return
 		}
@@ -554,13 +555,13 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	token, err := server.cookieAuth.GetToken(r)
+	tokenInfo, err := server.cookieAuth.GetToken(r)
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
 
-	ctx, err = server.service.TokenAuth(ctx, token, time.Now())
+	ctx, err = server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
@@ -708,13 +709,13 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	token, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
+	tokenInfo, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
 	if err != nil {
 		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
-	server.cookieAuth.SetTokenCookie(w, token)
+	server.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	http.Redirect(w, r, server.config.ExternalAddress, http.StatusTemporaryRedirect)
 }

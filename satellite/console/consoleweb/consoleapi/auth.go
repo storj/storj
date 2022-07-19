@@ -100,7 +100,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := a.service.Token(ctx, tokenRequest)
+	tokenInfo, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
 			serveCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
@@ -111,10 +111,13 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.cookieAuth.SetTokenCookie(w, token)
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(token.String())
+	err = json.NewEncoder(w).Encode(struct {
+		console.TokenInfo
+		Token string `json:"token"`
+	}{*tokenInfo, tokenInfo.Token.String()})
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -128,13 +131,19 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	token, err := a.cookieAuth.GetToken(r)
+	tokenInfo, err := a.cookieAuth.GetToken(r)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	err = a.service.DeleteSessionByToken(ctx, token)
+	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteSession(ctx, id)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -771,6 +780,39 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 	} else {
 		a.cookieAuth.RemoveTokenCookie(w)
+	}
+}
+
+// RefreshSession refreshes the user's session.
+func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenInfo, err := a.cookieAuth.GetToken(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	tokenInfo.ExpiresAt, err = a.service.RefreshSession(ctx, id)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, tokenInfo)
+
+	err = json.NewEncoder(w).Encode(tokenInfo.ExpiresAt)
+	if err != nil {
+		a.log.Error("could not encode refreshed session expiration date", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
 	}
 }
 
