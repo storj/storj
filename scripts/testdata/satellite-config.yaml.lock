@@ -817,6 +817,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
 
+# how many tallies to delete in a batch
+# rollup.delete-tallies-batch-size: 10000
+
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
 

@@ -519,11 +519,52 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time.
-func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) (err error) {
+func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time, batchSize int) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	deleteRawSQL := `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
-	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
-	return err
+
+	if batchSize <= 0 {
+		batchSize = 10000
+	}
+
+	var query string
+	switch db.db.impl {
+	case dbutil.Cockroach:
+		query = `
+			DELETE FROM storagenode_storage_tallies
+			WHERE interval_end_time < ?
+			LIMIT ?`
+	case dbutil.Postgres:
+		query = `
+			DELETE FROM storagenode_storage_tallies
+			WHERE ctid IN (
+				SELECT ctid
+				FROM storagenode_storage_tallies
+				WHERE interval_end_time < ?
+				ORDER BY interval_end_time
+				LIMIT ?
+			)`
+	default:
+		return Error.New("unsupported database: %v", db.db.impl)
+	}
+	query = db.db.Rebind(query)
+
+	for {
+		res, err := db.db.DB.ExecContext(ctx, query, latestRollup, batchSize)
+		if err != nil {
+			if errs.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return Error.Wrap(err)
+		}
+
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if affected == 0 {
+			return nil
+		}
+	}
 }
 
 // ArchiveRollupsBefore archives rollups older than a given time.
