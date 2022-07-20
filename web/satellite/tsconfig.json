@@ -13,6 +13,7 @@
     "sourceMap": true,
     "baseUrl": ".",
     "strictPropertyInitialization": false,
+    "resolveJsonModule": true,
     "useUnknownInCatchVariables": false, // TODO: reenable it later
     "types": [
       "webpack-env",
