@@ -8,12 +8,8 @@
                 <StorjLarge />
             </div>
         </div>
-        <div
-            class="token__add-funds"
-        >
-            <h3
-                class="token__add-funds__title"
-            >
+        <div class="token__add-funds">
+            <h3 class="token__add-funds__title">
                 STORJ Token
             </h3>
             <p class="token__add-funds__label">Deposit STORJ Tokens via Coin Payments:</p>
@@ -73,13 +69,13 @@ const {
 export default class AddTokenCard extends Vue {
     @Prop({default: 0})
     private readonly totalCount: number;
-    @Prop({default: false})
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public toggleShowAddFunds(): void {
-        this.$emit("showAddFunds")
+        this.$emit("fetchTokenHistory");
+        this.$emit("showAddFunds");
     }
 
     /**
@@ -108,7 +104,7 @@ export default class AddTokenCard extends Vue {
             if (depositWindow) {
                 depositWindow.focus();
             }
-            location.reload()
+            // location.reload()
             this.toggleShowAddFunds();
         } catch (error) {
             await this.$notify.error(error.message);

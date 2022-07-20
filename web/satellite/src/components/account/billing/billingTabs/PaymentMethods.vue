@@ -16,19 +16,25 @@
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
             <div v-if="transactionCount > 0 && !showAddFunds">
-                <balance-token-card
-                    v-for="item in mostRecentTransaction"
-                    :key="item.id"
-                    :billing-item="item"
-                    :show-add-funds="showAddFunds"
-                    @showTransactions="toggleTransactionsTable"
-                    @showAddFunds="toggleShowAddFunds"
-                />
+                <v-loader
+                    v-if="!tokensAreLoaded"
+                >
+                    <balance-token-card
+                        v-for="item in mostRecentTransaction"
+                        :key="item.id"
+                        :v-if="tokensAreLoaded"
+                        :billing-item="item"
+                        :show-add-funds="showAddFunds"
+                        @showTransactions="toggleTransactionsTable"
+                        @showAddFunds="toggleShowAddFunds"
+                    />
+                </v-loader>
             </div>
             <div v-else>
                 <add-token-card
                     :total-count="transactionCount"
                     @showAddFunds="toggleShowAddFunds"
+                    @fetchTokenHistory="fetchTokenHistory"
                 />
             </div>
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
@@ -262,6 +268,7 @@ export default class PaymentMethods extends Vue {
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
     public transactionCount = 0;
+    public tokensAreLoaded = false;
 
     /**
      * controls card inputs
@@ -286,18 +293,21 @@ export default class PaymentMethods extends Vue {
         this.fetchTokenHistory()
     }
 
-    public fetchTokenHistory() {
-        const tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+    public async fetchTokenHistory(): Promise<void> {
+        this.tokensAreLoaded = false;
+        console.log(this.tokensAreLoaded)
+        const tokenArray = await (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }));
-        this.mostRecentTransaction = [tokenArray[0]]
+        this.mostRecentTransaction = await [tokenArray[0]]
         this.tokenHistory = tokenArray;
         this.transactionCount = tokenArray.length;
         this.displayedHistory = tokenArray.slice(0,10);
+        this.tokensAreLoaded = await true;
     }
 
     public toggleShowAddFunds(): void {
-        this.showAddFunds = !this.showAddFunds ;
+        this.showAddFunds = !this.showAddFunds;
     }
 
 
