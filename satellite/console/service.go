@@ -55,8 +55,6 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
-	lockedAccountErrMsg                  = "Your account is locked, please try again later"
-	lockedAccountWithResultErrMsg        = "Your login credentials are incorrect, your account is locked again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
@@ -95,9 +93,6 @@ var (
 
 	// ErrLoginPassword occurs when provided invalid login password.
 	ErrLoginPassword = errs.Class("login password")
-
-	// ErrLockedAccount occurs when user's account is locked.
-	ErrLockedAccount = errs.Class("locked")
 
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
@@ -998,7 +993,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 	if user.LoginLockoutExpiration.After(now) {
 		mon.Counter("login_locked_out").Inc(1) //mon:locked
-		return consoleauth.Token{}, ErrLockedAccount.New(lockedAccountErrMsg)
+		return consoleauth.Token{}, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
 	handleLockAccount := func() error {
@@ -1012,12 +1007,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 		if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
 			mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
-			return ErrLockedAccount.New(lockedAccountErrMsg)
 		}
 
 		if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
 			mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
-			return ErrLockedAccount.New(lockedAccountWithResultErrMsg)
 		}
 
 		return nil
