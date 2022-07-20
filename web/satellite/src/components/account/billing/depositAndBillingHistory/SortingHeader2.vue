@@ -49,7 +49,6 @@ import VerticalArrows from '@/components/common/VerticalArrows.vue';
 
 import { SortDirection } from '@/types/common';
 
-
 // @vue/component
 @Component({
     components: {
@@ -65,9 +64,6 @@ export default class SortingHeader2 extends Vue {
     public dateSortDirection: SortDirection = SortDirection.ASCENDING;
     public amountSortDirection: SortDirection = SortDirection.ASCENDING;
     public statusSortDirection: SortDirection = SortDirection.ASCENDING;
-
-
-
 
     public arrowController: {date: boolean, amount: boolean, status: boolean} = {date: false, amount: false, status: false}
 
