@@ -17,7 +17,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/metabase"
@@ -30,7 +29,7 @@ func TestDeleteTalliesBefore(t *testing.T) {
 	}{
 		{
 			eraseBefore:  time.Now(),
-			expectedRaws: 1,
+			expectedRaws: 3,
 		},
 		{
 			eraseBefore:  time.Now().Add(24 * time.Hour),
@@ -43,14 +42,15 @@ func TestDeleteTalliesBefore(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			id := teststorj.NodeIDFromBytes([]byte{})
 			nodeData := make(map[storj.NodeID]float64)
-			nodeData[id] = float64(1000)
+			nodeData[storj.NodeID{1}] = float64(1000)
+			nodeData[storj.NodeID{2}] = float64(1000)
+			nodeData[storj.NodeID{3}] = float64(1000)
 
 			err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, time.Now(), nodeData)
 			require.NoError(t, err)
 
-			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, test.eraseBefore)
+			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, test.eraseBefore, 1)
 			require.NoError(t, err)
 
 			raws, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)

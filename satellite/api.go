@@ -419,7 +419,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Metainfo.PieceDeletion, err = piecedeletion.NewService(
 			peer.Log.Named("metainfo:piecedeletion"),
 			peer.Dialer,
-			peer.Overlay.Service,
+			// TODO use cache designed for deletion
+			peer.Overlay.Service.DownloadSelectionCache,
 			config.Metainfo.PieceDeletion,
 		)
 		if err != nil {

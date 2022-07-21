@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -23,6 +22,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -412,6 +412,6 @@ func TestService_DeletePieces_Timeout(t *testing.T) {
 
 type nodesDB struct{}
 
-func (n *nodesDB) KnownReliable(ctx context.Context, nodesID storj.NodeIDList) ([]*pb.Node, error) {
+func (n *nodesDB) GetNodes(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	return nil, nil
 }

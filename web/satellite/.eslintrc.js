@@ -49,5 +49,7 @@ module.exports = {
         'vue/no-unregistered-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
 
         'storj/vue/require-annotation': 'warn',
+
+        'vue/no-v-html': 0,
     },
 }
