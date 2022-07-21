@@ -30,181 +30,18 @@
             </div>
             <!-- ********* Create Form Modal ********* -->
             <form v-if="accessGrantStep === 'create'">
-                <div class="access-grant__modal-container__header-container">
-                    <h2 class="access-grant__modal-container__header-container__title">Create Access</h2>
-                    <div
-                        class="access-grant__modal-container__header-container__close-cross-container" @click="onCloseClick"
-                    >
-                        <CloseCrossIcon />
-                    </div>
-                </div>
-                <div class="access-grant__modal-container__body-container">
-                    <TypesIcon class="access-grant__modal-container__body-container__type-icon" />
-                    <div class="access-grant__modal-container__body-container__type">
-                        <p>Type</p>
-                        <div class="access-grant__modal-container__body-container__type__type-container">
-                            <input
-                                id="access-grant-check"
-                                v-model="checkedType"
-                                value="access"
-                                type="radio"
-                                name="type"
-                                :checked="checkedType === 'access'"
-                            >
-                            <label for="access-grant-check">
-                                Access Grant
-                            </label>
-                            <img
-                                class="tooltip-icon"
-                                src="../../../static/images/accessGrants/create-access_information.png"
-                                alt="tooltip icon"
-                                @mouseover="toggleTooltipHover('access','over')"
-                                @mouseleave="toggleTooltipHover('access','leave')"
-                            >
-                        </div>
-                        <div class="access-grant__modal-container__body-container__type__type-container">
-                            <input
-                                id="s3-check"
-                                v-model="checkedType"
-                                value="s3"
-                                type="radio"
-                                name="type"
-                                :checked="checkedType === 's3'"
-                            >
-                            <label for="s3-check">S3 Credentials</label>
-                            <img
-                                class="tooltip-icon"
-                                src="../../../static/images/accessGrants/create-access_information.png"
-                                alt="tooltip icon"
-                                @mouseover="toggleTooltipHover('s3','over')"
-                                @mouseleave="toggleTooltipHover('s3','leave')"
-                            >
-                        </div>
-                        <div class="access-grant__modal-container__body-container__type__type-container">
-                            <input
-                                id="api-check"
-                                v-model="checkedType"
-                                value="api"
-                                type="radio"
-                                name="type"
-                                :checked="checkedType === 'api'"
-                                @click="checkedType = 'api'"
-                            >
-                            <label for="api-check">API Access</label>
-                            <img
-                                class="tooltip-icon"
-                                src="../../../static/images/accessGrants/create-access_information.png"
-                                alt="tooltip icon"
-                                @mouseover="toggleTooltipHover('api','over')"
-                                @mouseleave="toggleTooltipHover('api','leave')"
-                            >
-                        </div>
-                    </div>
-                    <NameIcon class="access-grant__modal-container__body-container__name-icon" />
-                    <div class="access-grant__modal-container__body-container__name">
-                        <p>Name</p>
-                        <input
-                            v-model="accessName"
-                            type="text"
-                            placeholder="Input Access Name" class="access-grant__modal-container__body-container__name__input"
-                        >
-                    </div>
-                    <PermissionsIcon class="access-grant__modal-container__body-container__permissions-icon" />
-                    <div class="access-grant__modal-container__body-container__permissions">
-                        <p>Permissions</p>
-                        <div>
-                            <input
-                                id="permissions__all-check"
-                                type="checkbox"
-                                :checked="allPermissionsClicked"
-                                @click="toggleAllPermission('all')"
-                            >
-                            <label for="permissions__all-check">All</label>
-                            <Chevron :class="`permissions-chevron-${showAllPermissions.position}`" @click="togglePermissions" />
-                        </div>
-                        <div v-if="showAllPermissions.show">
-                            <div v-for="(item, key) in permissionsList" :key="key">
-                                <input
-                                    :id="`permissions__${item}-check`"
-                                    v-model="selectedPermissions"
-                                    :value="item"
-                                    type="checkbox"
-                                    :checked="checkedPermissions.item"
-                                    @click="toggleAllPermission(item)"
-                                >
-                                <label :for="`permissions__${item}-check`">{{ item }}</label>
-                            </div>
-                        </div>
-                    </div>
-                    <BucketsIcon class="access-grant__modal-container__body-container__buckets-icon" />
-                    <div class="access-grant__modal-container__body-container__buckets">
-                        <p>Buckets</p>
-                        <div>
-                            <BucketsSelection
-                                class="access-bucket-container"
-                                :show-scrollbar="true"
-                            />
-                        </div>
-                        <div class="access-grant__modal-container__body-container__buckets__bucket-bullets">
-                            <div
-                                v-for="(name, index) in selectedBucketNames"
-                                :key="index"
-                                class="access-grant__modal-container__body-container__buckets__bucket-bullets__container"
-                            >
-                                <BucketNameBullet :name="name" />
-                            </div>
-                        </div>
-                    </div>
-                    <DateIcon class="access-grant__modal-container__body-container__date-icon" />
-                    <div class="access-grant__modal-container__body-container__duration">
-                        <p>Duration</p>
-                        <div v-if="addDateSelected">
-                            <DurationSelection
-                                container-style="access-date-container"
-                                text-style="access-date-text"
-                                picker-style="__access-date-container"
-                            />
-                        </div>
-                        <div
-                            v-else
-                            class="access-grant__modal-container__body-container__duration__text"
-                            @click="addDateSelected = true"
-                        >
-                            Add Date (optional)
-                        </div>
-                    </div>
-
-                    <!-- for future use when notes feature is implemented -->
-                    <!-- <NotesIcon class="access-grant__modal-container__body-container__notes-icon"/>
-                    <div class="access-grant__modal-container__body-container__notes">
-                        <p>Notes</p>
-                        <div>--Notes Section Here--</div>
-                    </div> -->
-                </div>
-                <div class="access-grant__modal-container__footer-container">
-                    <a href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key/" target="_blank" rel="noopener noreferrer">
-                        <v-button
-                            label="Learn More"
-                            width="150px"
-                            height="50px"
-                            is-transparent="true"
-                            font-size="16px"
-                            class="access-grant__modal-container__footer-container__learn-more-button"
-                        />
-                    </a>
-                    <v-button
-                        :label="checkedType === 'api' ? 'Create Keys  ⟶' : 'Encrypt My Access  ⟶'"
-                        font-size="16px"
-                        width="auto"
-                        height="50px"
-                        class="access-grant__modal-container__footer-container__encrypt-button"
-                        :on-press="checkedType === 'api' ? createAccessGrant : encryptClickAction"
-                        :is-disabled="selectedPermissions.length === 0 || accessName === ''"
-                    />
-                </div>
+                <CreateFormModal 
+                    @toggleToolTip="toggleTooltipHover"
+                    @checked-type="checkedType"
+                    @close-modal="onCloseClick"
+                    @encrypt="encryptStep"
+                    @createGrant="createAccessGrantHelper"
+                    @input="inputHandler"
+                />
             </form>
             <!-- *********   Encrypt Form Modal  ********* -->
             <form v-if="accessGrantStep === 'encrypt'">
+                <EncryptFormModal />
                 <div class="access-grant__modal-container__header-container">
                     <h2 class="access-grant__modal-container__header-container__title">Select Encryption</h2>
                     <div
@@ -357,6 +194,7 @@
             </form>
             <!-- *********   Grant Created Modal  ********* -->
             <form v-if="accessGrantStep === 'grantCreated'">
+                <GrantCreatedModal />
                 <div class="access-grant__modal-container__header-container">
                     <AccessGrantsIcon v-if="checkedType === 'access'" />
                     <S3Icon v-if="checkedType === 's3'" />
@@ -590,6 +428,9 @@ import CopyIcon from '../../../static/images/common/copy.svg';
 import DownloadIcon from '../../../static/images/common/download.svg';
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
 import S3Icon from '@/../static/images/accessGrants/s3.svg';
+import CreateFormModal from '@/components/accessGrants/modals/CreateFormModal.vue';
+import EncryptFormModal from '@/components/accessGrants/modals/EncryptFormModal.vue';
+import GrantCreatedModal from '@/components/accessGrants/modals/GrantCreatedModal.vue';
 
 // for future use when notes is implemented
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
@@ -626,6 +467,9 @@ import { EdgeCredentials } from '@/types/accessGrants';
         DateIcon,
         CopyIcon,
         DownloadIcon,
+        CreateFormModal,
+        EncryptFormModal,
+        GrantCreatedModal,
         // for future use when notes is implemented
         // NotesIcon,
         Chevron,
@@ -665,11 +509,8 @@ export default class CreateAccessModal extends Vue {
     /**
      * Handles permission types, which have been selected, and determining if all have been selected.
      */
-    private showAllPermissions = {show: false, position: "up"};
-    private permissionsList = ["Read","Write","List","Delete"];
-    private checkedPermissions = {Read: false, Write: false, List: false, Delete: false};
+    // private showAllPermissions = {show: false, position: "up"};
     private selectedPermissions : string[] = [];
-    private allPermissionsClicked = false;
     private acknowledgementCheck = false;
 
     /**
@@ -712,6 +553,15 @@ export default class CreateAccessModal extends Vue {
         }
     }
 
+    public encryptStep(): void {
+        this.accessGrantStep = 'encrypt';
+    }
+
+    public inputHandler(e): void {
+        this.checkedType = e.target.value;
+        
+    }
+
     /**
      * Sets local worker with worker instantiated in store.
      * Also sets worker's onmessage and onerror logic.
@@ -728,6 +578,13 @@ export default class CreateAccessModal extends Vue {
         this.isPassphraseCopied = false;
         this.acknowledgementCheck = false;
         this.encryptSelect = 'create';
+    }
+     /**
+     * Grabs data from child for createAccessGrant
+     */
+    public createAccessGrantHelper(data): void {
+        //map data here
+        console.log('data');
     }
 
     /**
@@ -852,15 +709,6 @@ export default class CreateAccessModal extends Vue {
         }
     }
 
-    public encryptClickAction(): void {
-        let mappedList = this.accessGrantList.map((key) => (key.name))
-        if (mappedList.includes(this.accessName)) {
-            this.$notify.error(`validation: An API Key with this name already exists in this project, please use a different name`);
-            return
-        } else if (this.checkedType !== "api") {
-            this.accessGrantStep = 'encrypt';
-        }
-    }
 
     public onCopyClick(item): void {
         this.$copyText(item);
@@ -896,7 +744,7 @@ export default class CreateAccessModal extends Vue {
     /**
      * Toggles tooltip visibility.
      */
-    public toggleTooltipHover(type,action): void {
+    public toggleTooltipHover(type, action): void {
         if (this.tooltipHover === '' && action === 'over') {
             this.tooltipHover = type;
             return;
@@ -915,38 +763,9 @@ export default class CreateAccessModal extends Vue {
     }
 
     /**
-     * Toggles permissions list visibility.
-     */
-    public togglePermissions(): void {
-        this.showAllPermissions.show = !this.showAllPermissions.show;
-        this.showAllPermissions.position = this.showAllPermissions.show ? 'up' : 'down';
-    }
-
-    /**
      * Handles permissions All.
      */
-    public toggleAllPermission(type): void {
-        if (type === 'all' && !this.allPermissionsClicked) {
-            this.allPermissionsClicked = true;
-            this.selectedPermissions = this.permissionsList;
-            this.checkedPermissions = { Read: true, Write: true, List: true, Delete: true }
-            return
-        } else if(type === 'all' && this.allPermissionsClicked) {
-            this.allPermissionsClicked = false;
-            this.selectedPermissions = [];
-            this.checkedPermissions = { Read: false, Write: false, List: false, Delete: false };
-            return
-        } else if(this.checkedPermissions[type]) {
-            this.checkedPermissions[type] = false;
-            this.allPermissionsClicked = false;
-            return;
-        } else {
-            this.checkedPermissions[type] = true;
-            if(this.checkedPermissions.Read && this.checkedPermissions.Write && this.checkedPermissions.List && this.checkedPermissions.Delete) {
-                this.allPermissionsClicked = true;
-            }
-        }
-    }
+    
 
     /**
      * Retrieves selected buckets for bucket bullets.
@@ -1486,16 +1305,6 @@ export default class CreateAccessModal extends Vue {
 
     ::v-deep .buckets-selection__toggle-container {
         padding: 10px 20px;
-    }
-
-    .permissions-chevron-up {
-        @include chevron;
-
-        transform: rotate(-90deg);
-    }
-
-    .permissions-chevron-down {
-        @include chevron;
     }
 
     .tooltip-icon {
