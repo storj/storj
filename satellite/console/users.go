@@ -117,6 +117,7 @@ type AuthUser struct {
 	Password        string `json:"password"`
 	MFAPasscode     string `json:"mfaPasscode"`
 	MFARecoveryCode string `json:"mfaRecoveryCode"`
+	CaptchaResponse string `json:"captchaResponse"`
 	IP              string `json:"-"`
 	UserAgent       string `json:"-"`
 }

@@ -188,7 +188,7 @@
                         </p>
                     </div>
                     <div v-if="isProfessional" class="register-area__input-area__container__checkbox-area">
-                        <label class="container">
+                        <label class="checkmark-container">
                             <input id="sales" v-model="haveSalesContact" type="checkbox">
                             <span class="checkmark" />
                         </label>
@@ -199,7 +199,7 @@
                         </label>
                     </div>
                     <div class="register-area__input-area__container__checkbox-area">
-                        <label class="container">
+                        <label class="checkmark-container">
                             <input id="terms" v-model="isTermsAccepted" type="checkbox">
                             <span class="checkmark" :class="{'error': isTermsAcceptedError}" />
                         </label>
@@ -220,7 +220,7 @@
                         <VueRecaptcha
                             ref="recaptcha"
                             :sitekey="recaptchaSiteKey"
-                            load-recaptcha-script="true"
+                            :load-recaptcha-script="true"
                             size="invisible"
                             @verify="onCaptchaVerified"
                             @expired="onCaptchaError"
@@ -235,13 +235,24 @@
                         <VueHcaptcha
                             ref="hcaptcha"
                             :sitekey="hcaptchaSiteKey"
+                            :re-captcha-compat="false"
                             size="invisible"
                             @verify="onCaptchaVerified"
                             @expired="onCaptchaError"
                             @error="onCaptchaError"
                         />
                     </div>
-                    <p class="register-area__input-area__container__button" @click.prevent="onCreateClick">{{ viewConfig.signupButtonLabel }}</p>
+                    <v-button
+                        class="register-area__input-area__container__button"
+                        width="100%"
+                        height="48px"
+                        :label="viewConfig.signupButtonLabel"
+                        border-radius="50px"
+                        :is-disabled="isLoading"
+                        :on-press="onCreateClick"
+                    >
+                        Sign In
+                    </v-button>
                     <div class="register-area__input-area__login-container">
                         Already have an account? <router-link :to="loginPath" class="register-area__input-area__login-container__link">Login.</router-link>
                     </div>
@@ -258,6 +269,7 @@ import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import VInput from '@/components/common/VInput.vue';
+import VButton from '@/components/common/VButton.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import SelectInput from '@/components/common/SelectInput.vue';
 
@@ -275,7 +287,6 @@ import {PartneredSatellite} from '@/types/common';
 import {User} from '@/types/users';
 import {MetaUtils} from '@/utils/meta';
 import {Validator} from '@/utils/validation';
-
 import {AnalyticsHttpApi} from '@/api/analytics';
 
 type ViewConfig = {
@@ -293,6 +304,7 @@ type ViewConfig = {
 @Component({
     components: {
         VInput,
+        VButton,
         BottomArrowIcon,
         ErrorIcon,
         SelectedCheckIcon,
@@ -339,10 +351,10 @@ export default class RegisterArea extends Vue {
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
-    private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('recaptcha-enabled') === 'true';
-    private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('recaptcha-site-key');
-    private readonly hcaptchaEnabled: boolean = MetaUtils.getMetaContent('hcaptcha-enabled') === 'true';
-    private readonly hcaptchaSiteKey: string = MetaUtils.getMetaContent('hcaptcha-site-key');
+    private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('registration-recaptcha-enabled') === 'true';
+    private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('registration-recaptcha-site-key');
+    private readonly hcaptchaEnabled: boolean = MetaUtils.getMetaContent('registration-hcaptcha-enabled') === 'true';
+    private readonly hcaptchaSiteKey: string = MetaUtils.getMetaContent('registration-hcaptcha-site-key');
 
     public isPasswordStrengthShown = false;
 
@@ -418,6 +430,12 @@ export default class RegisterArea extends Vue {
      * Validates input fields and proceeds user creation.
      */
     public async onCreateClick(): Promise<void> {
+        if (this.isLoading) {
+            return;
+        }
+
+        this.isLoading = true;
+
         if (this.$refs.recaptcha && !this.captchaResponseToken) {
             this.$refs.recaptcha.execute();
             return;
@@ -639,15 +657,9 @@ export default class RegisterArea extends Vue {
      * Creates user and toggles successful registration area visibility.
      */
     private async createUser(): Promise<void> {
-        if (this.isLoading) {
-            return;
-        }
-
         if (!this.validateFields()) {
             return;
         }
-
-        this.isLoading = true;
 
         this.user.isProfessional = this.isProfessional;
         this.user.haveSalesContact = this.haveSalesContact;
@@ -676,6 +688,7 @@ export default class RegisterArea extends Vue {
             }
             await this.$notify.error(error.message);
         }
+
         this.isLoading = false;
     }
 }
@@ -1036,39 +1049,20 @@ export default class RegisterArea extends Vue {
                 }
 
                 &__button {
-                    font-family: 'font_regular', sans-serif;
-                    font-weight: 700;
                     margin-top: 30px;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background-color: #376fff;
-                    border-radius: 50px;
-                    color: #fff;
-                    cursor: pointer;
-                    width: 100%;
-                    min-height: 48px;
-
-                    &:hover {
-                        background-color: #0059d0;
-                    }
                 }
 
-                &__captcha-wrapper {
+                &__captcha-wrapper__label-container {
                     margin-top: 30px;
+                    display: flex;
+                    justify-content: flex-start;
+                    align-items: flex-end;
+                    padding-bottom: 8px;
 
-                    &__label-container {
-                        display: flex;
-                        justify-content: flex-start;
-                        align-items: flex-end;
-                        padding-bottom: 8px;
-                        flex-direction: row;
-
-                        &__error {
-                            font-size: 16px;
-                            margin-left: 10px;
-                            color: #ff5560;
-                        }
+                    &__error {
+                        font-size: 16px;
+                        margin-left: 10px;
+                        color: #ff5560;
                     }
                 }
             }
@@ -1125,7 +1119,11 @@ export default class RegisterArea extends Vue {
         width: 100%;
     }
 
-    .container {
+    .input-wrap {
+        margin-top: 10px;
+    }
+
+    .checkmark-container {
         display: block;
         position: relative;
         padding-left: 20px;
@@ -1137,7 +1135,7 @@ export default class RegisterArea extends Vue {
         outline: none;
     }
 
-    .container input {
+    .checkmark-container input {
         position: absolute;
         opacity: 0;
         cursor: pointer;
@@ -1155,11 +1153,11 @@ export default class RegisterArea extends Vue {
         border-radius: 4px;
     }
 
-    .container:hover input ~ .checkmark {
+    .checkmark-container:hover input ~ .checkmark {
         background-color: white;
     }
 
-    .container input:checked ~ .checkmark {
+    .checkmark-container input:checked ~ .checkmark {
         border: 2px solid #afb7c1;
         background-color: transparent;
     }
@@ -1174,7 +1172,7 @@ export default class RegisterArea extends Vue {
         border-color: red;
     }
 
-    .container .checkmark:after {
+    .checkmark-container .checkmark:after {
         left: 7px;
         top: 3px;
         width: 5px;
@@ -1184,8 +1182,12 @@ export default class RegisterArea extends Vue {
         transform: rotate(45deg);
     }
 
-    .container input:checked ~ .checkmark:after {
+    .checkmark-container input:checked ~ .checkmark:after {
         display: block;
+    }
+
+    ::v-deep .grecaptcha-badge {
+        visibility: hidden;
     }
 
     @media screen and (max-width: 1429px) {
@@ -1340,10 +1342,6 @@ export default class RegisterArea extends Vue {
                 }
             }
         }
-    }
-
-    ::v-deep .grecaptcha-badge {
-        z-index: 99;
     }
 
     @media screen and (max-width: 450px) {
