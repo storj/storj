@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"context"
 	"sort"
 	"strconv"
 	"testing"
@@ -1424,4 +1425,72 @@ func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
 		FixedSegmentSize:              m.FixedSegmentSize,
 		Encryption:                    m.Encryption,
 	}
+}
+
+func BenchmarkNonRecursiveListing(b *testing.B) {
+	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
+		baseObj := metabasetest.RandObjectStream()
+
+		for i := 0; i < 10; i++ {
+			baseObj.ObjectKey = metabase.ObjectKey("foo/" + strconv.Itoa(i))
+			err := CreateObject(ctx, db, baseObj)
+			require.NoError(b, err)
+			baseObj.ObjectKey = metabase.ObjectKey("foo/prefixA/" + strconv.Itoa(i))
+			err = CreateObject(ctx, db, baseObj)
+			require.NoError(b, err)
+			baseObj.ObjectKey = metabase.ObjectKey("foo/prefixB/" + strconv.Itoa(i))
+			err = CreateObject(ctx, db, baseObj)
+			require.NoError(b, err)
+		}
+
+		b.Run("listing no prefix", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+					ProjectID:  baseObj.ProjectID,
+					BucketName: baseObj.BucketName,
+					BatchSize:  5,
+					Status:     metabase.Committed,
+				}, func(ctx context.Context, oi metabase.ObjectsIterator) error {
+					entry := metabase.ObjectEntry{}
+					for oi.Next(ctx, &entry) {
+					}
+					return nil
+				})
+				require.NoError(b, err)
+			}
+		})
+
+		b.Run("listing with prefix", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+					ProjectID:  baseObj.ProjectID,
+					BucketName: baseObj.BucketName,
+					Prefix:     "foo/",
+					BatchSize:  5,
+					Status:     metabase.Committed,
+				}, func(ctx context.Context, oi metabase.ObjectsIterator) error {
+					entry := metabase.ObjectEntry{}
+					for oi.Next(ctx, &entry) {
+					}
+					return nil
+				})
+				require.NoError(b, err)
+			}
+		})
+	})
+}
+
+func CreateObject(ctx *testcontext.Context, db *metabase.DB, obj metabase.ObjectStream) error {
+	_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+		ObjectStream: obj,
+		Encryption:   metabasetest.DefaultEncryption,
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = db.CommitObject(ctx, metabase.CommitObject{
+		ObjectStream: obj,
+	})
+	return err
 }
