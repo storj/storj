@@ -53,6 +53,9 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { User } from "@/types/users";
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
     FETCH_OWNED,
@@ -107,8 +110,17 @@ export default class Projects extends Vue {
      * Redirects to create project page.
      */
     public onCreateClick(): void {
-        this.analytics.pageVisit(RouteConfig.CreateProject.path);
-        this.$router.push(RouteConfig.CreateProject.path);
+        this.analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
+
+        const user: User = this.$store.getters.user;
+        const ownProjectsCount: number = this.$store.getters.projectsCount;
+
+        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+            this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+        } else {
+            this.analytics.pageVisit(RouteConfig.CreateProject.path);
+            this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP);
+        }
     }
 
     /**

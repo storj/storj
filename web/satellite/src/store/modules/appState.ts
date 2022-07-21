@@ -30,6 +30,7 @@ class ViewsState {
         public isUploadCancelPopupVisible = false,
         public isSuccessfulPasswordResetShown = false,
         public isCreateProjectPromptModalShown = false,
+        public isCreateProjectModalShown = false,
         public isAddPMModalShown = false,
         public isOpenBucketModalShown = false,
 
@@ -120,6 +121,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP](state: State): void {
             state.appState.isCreateProjectPromptModalShown = !state.appState.isCreateProjectPromptModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP](state: State): void {
+            state.appState.isCreateProjectModalShown = !state.appState.isCreateProjectModalShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: State): void {
             state.appState.isAddPMModalShown = !state.appState.isAddPMModalShown;
