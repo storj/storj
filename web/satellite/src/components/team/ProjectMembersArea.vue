@@ -12,7 +12,40 @@
             />
         </div>
         <VLoader v-if="areMembersFetching" width="100px" height="100px" />
-        <template v-else>
+
+        <div v-if="isEmptySearchResultShown" class="team-area__empty-search-result-area">
+            <h1 class="team-area__empty-search-result-area__title">No results found</h1>
+            <EmptySearchResultIcon class="team-area__empty-search-result-area__image" />
+        </div>
+
+        <v-table
+            v-if="!areMembersFetching && !isEmptySearchResultShown"
+            :limit="projectMemberLimit"
+            :total-page-count="totalPageCount"
+            :items="projectMembers"
+            items-label="project members"
+            :on-page-click-callback="onPageClick"
+            :total-items-count="projectMembersTotalCount"
+            :selectable="true"
+        >
+            <template #head>
+                <th class="align-left">Name</th>
+                <th class="align-left">Date Added</th>
+                <th class="align-left">Email</th>
+            </template>
+            <template #body>
+                <ProjectMemberListItem
+                    v-for="(member, key) in projectMembers"
+                    :key="key"
+                    :item-data="member"
+                    :on-click="onMemberClick"
+                    :on-check="(value) => onItemCheckChanged({ member, value, key })"
+                />
+            </template>
+        </v-table>
+
+
+        <!--        <template>
             <div v-if="isTeamAreaShown" id="team-container" class="team-area__container">
                 <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback" />
                 <div class="team-area__container__content">
@@ -34,25 +67,26 @@
                 <h1 class="team-area__empty-search-result-area__title">No results found</h1>
                 <EmptySearchResultIcon class="team-area__empty-search-result-area__image" />
             </div>
-        </template>
+        </template>-->
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
-import VList from '@/components/common/VList.vue';
+import {Component, Vue} from 'vue-property-decorator';
 import VLoader from '@/components/common/VLoader.vue';
-import VPagination from '@/components/common/VPagination.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
 import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
-import SortingListHeader from '@/components/team/SortingListHeader.vue';
 
 import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
 
-import { SortDirection } from '@/types/common';
-import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import {SortDirection} from '@/types/common';
+import {
+    ProjectMember,
+    ProjectMemberHeaderState,
+    ProjectMemberOrderBy
+} from '@/types/projectMembers';
+import {PM_ACTIONS} from '@/utils/constants/actionNames';
+import VTable from "@/components/common/VTable.vue";
 
 const {
     FETCH,
@@ -68,12 +102,11 @@ declare interface ResetPagination {
 // @vue/component
 @Component({
     components: {
+        ProjectMemberListItem,
         HeaderArea,
-        VList,
-        VPagination,
-        SortingListHeader,
-        EmptySearchResultIcon,
         VLoader,
+        VTable,
+        EmptySearchResultIcon
     },
 })
 export default class ProjectMembersArea extends Vue {
@@ -103,10 +136,20 @@ export default class ProjectMembersArea extends Vue {
      * Selects team member if this user has no owner status.
      * @param member
      */
-    public onMemberClick(member: ProjectMember): void {
-        if (this.$store.getters.selectedProject.ownerId !== member.user.id) {
-            this.$store.dispatch(TOGGLE_SELECTION, member);
+    public async onMemberClick(member: ProjectMember) {
+        /*if (this.$store.getters.selectedProject.ownerId !== member.user.id) {
+            await this.$store.dispatch(TOGGLE_SELECTION, member);
+        }*/
+    }
+
+    public onItemCheckChanged({ member, key, value }:
+        { member: ProjectMember; key: number, value: boolean }) {
+        if (this.$store.getters.selectedProject.ownerId === member.user.id) {
+            this.$parent.$emit('checkItem', {value: false, index: key})
+            return;
         }
+        this.$store.dispatch(TOGGLE_SELECTION, member);
+        this.$parent.$emit('checkItem', {value: value, index: key})
     }
 
     /**
@@ -136,6 +179,13 @@ export default class ProjectMembersArea extends Vue {
     }
 
     /**
+     * Returns team members limit from store.
+     */
+    public get projectMemberLimit(): number {
+        return this.$store.state.projectMembersModule.page.totalCount;
+    }
+
+    /**
      * Returns team members count of current page from store.
      */
     public get projectMembersCount(): number {
@@ -148,6 +198,10 @@ export default class ProjectMembersArea extends Vue {
 
     public get selectedProjectMembersLength(): number {
         return this.$store.state.projectMembersModule.selectedProjectMembersEmails.length;
+    }
+
+    public get selectedProjectMembers(): string[] {
+        return this.$store.state.projectMembersModule.selectedProjectMembersEmails;
     }
 
     public get headerState(): number {

@@ -2,7 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="user-container" :class="{ 'owner': isProjectOwner }">
+    <table-item
+        :class="{ 'selected': itemData.isSelected, 'owner': isProjectOwner }"
+        :on-click="onClick"
+        :item="{ name: itemData.name, date: itemData.localDate(), email: itemData.email }"
+        :selectable="true"
+        @setSelected="onCheck"
+    />
+<!--    <div class="user-container" :class="{ 'owner': isProjectOwner }">
         <div class="user-container__base-info">
             <div v-if="!isProjectOwner" class="checkbox" />
             <div class="user-container__base-info__avatar" :class="{ 'extra-margin': isProjectOwner }" :style="avatarData.style">
@@ -15,7 +22,7 @@
         </div>
         <p class="user-container__date">{{ itemData.localDate() }}</p>
         <p class="user-container__user-email" :title="itemData.email">{{ itemData.email }}</p>
-    </div>
+    </div>-->
 </template>
 
 <script lang="ts">
@@ -23,12 +30,19 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { ProjectMember } from '@/types/projectMembers';
 import { getColor } from '@/utils/avatarColorManager';
+import TableItem from "@/components/common/TableItem.vue";
 
 // @vue/component
-@Component
+@Component({
+    components: {TableItem}
+})
 export default class ProjectMemberListItem extends Vue {
-    @Prop({default: new ProjectMember('', '', '', new Date(), '')})
+    @Prop({ default: new ProjectMember('', '', '', new Date(), '') })
     public itemData: ProjectMember;
+    @Prop({ default: () => (_: ProjectMember) => {}})
+    public readonly onClick: (member: ProjectMember) => void
+    @Prop({ default: () => (_: boolean) => {}})
+    public readonly onCheck: (value: boolean) => void
 
     public get avatarData(): Record<string, unknown> {
         const fullName: string = this.itemData.user.getFullName();
@@ -52,6 +66,11 @@ export default class ProjectMemberListItem extends Vue {
 </script>
 
 <style scoped lang="scss">
+
+    .selected {
+        background: #e6edf7;
+    }
+
     .user-container {
         display: flex;
         flex-direction: row;
@@ -151,7 +170,7 @@ export default class ProjectMemberListItem extends Vue {
     }
 
     .owner {
-        cursor: default;
+        cursor: not-allowed;
     }
 
     .extra-margin {
