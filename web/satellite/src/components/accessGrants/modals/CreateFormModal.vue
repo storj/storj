@@ -18,12 +18,11 @@
                 <div class="access-grant__modal-container__body-container__type__type-container">
                     <input
                         id="access-grant-check"
-                        v-model="checkedEvent"
+                        v-model="checkedType"
                         value="access"
                         type="radio"
-                        name="type"
-                        @input="typeInput"
                         :checked="checkedType === 'access'"
+                        name="type"
                     >
                     <label for="access-grant-check">
                         Access Grant
@@ -35,16 +34,23 @@
                         @mouseover="toggleTooltipHover('access','over')"
                         @mouseleave="toggleTooltipHover('access','leave')"
                     >
+                    <div
+                        v-if="tooltipHover === 'access'"
+                        class="access-tooltip"
+                        @mouseover="toggleTooltipHover('access','over')"
+                        @mouseleave="toggleTooltipHover('access','leave')"
+                    >
+                        <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                    </div>
                 </div>
                 <div class="access-grant__modal-container__body-container__type__type-container">
                     <input
                         id="s3-check"
-                        v-model="checkedEvent"
+                        v-model="checkedType"
                         value="s3"
                         type="radio"
                         name="type"
                         :checked="checkedType === 's3'"
-                        @input="typeInput"
                     >
                     <label for="s3-check">S3 Credentials</label>
                     <img
@@ -54,17 +60,24 @@
                         @mouseover="toggleTooltipHover('s3','over')"
                         @mouseleave="toggleTooltipHover('s3','leave')"
                     >
+                    <div
+                        v-if="tooltipHover === 's3'"
+                        class="s3-tooltip"
+                        @mouseover="toggleTooltipHover('s3','over')"
+                        @mouseleave="toggleTooltipHover('s3','leave')"
+                    >
+                        <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                    </div>
+
                 </div>
                 <div class="access-grant__modal-container__body-container__type__type-container">
                     <input
                         id="api-check"
-                        v-model="checkedEvent"
+                        v-model="checkedType"
                         value="api"
                         type="radio"
                         name="type"
                         :checked="checkedType === 'api'"
-                        @input="typeInput"
-                        @click="checkedType = 'api'"
                     >
                     <label for="api-check">API Access</label>
                     <img
@@ -74,6 +87,14 @@
                         @mouseover="toggleTooltipHover('api','over')"
                         @mouseleave="toggleTooltipHover('api','leave')"
                     >
+                    <div
+                        v-if="tooltipHover === 'api'"
+                        class="api-tooltip"
+                        @mouseover="toggleTooltipHover('api','over')"
+                        @mouseleave="toggleTooltipHover('api','leave')"
+                    >
+                        <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                    </div>
                 </div>
             </div>
             <NameIcon class="access-grant__modal-container__body-container__name-icon" />
@@ -98,7 +119,6 @@
                     <label for="permissions__all-check">All</label>
                     <Chevron :class="`permissions-chevron-${showAllPermissions.position}`" @click="togglePermissions" />
                 </div>
-                
                 <div v-if="showAllPermissions.show === true">
                     <div v-for="(item, key) in permissionsList" :key="key">
                         <input
@@ -169,15 +189,13 @@
                     class="access-grant__modal-container__footer-container__learn-more-button"
                 />
             </a>
-            <!-- Remove before committing -->
-            {{ checkedType }}
             <v-button
                 :label="checkedType === 'api' ? 'Create Keys  ⟶' : 'Encrypt My Access  ⟶'"
                 font-size="16px"
                 width="auto"
                 height="50px"
                 class="access-grant__modal-container__footer-container__encrypt-button"
-                :on-press="checkedType === 'api' ? createAccessGrant : encryptClickAction"
+                :on-press="checkedType === 'api' ? propogateInfo : encryptClickAction"
                 :is-disabled="selectedPermissions.length === 0 || accessName === ''"
             />
         </div>
@@ -232,6 +250,12 @@ export default class CreateFormModal extends Vue {
     private permissionsList = ["Read","Write","List","Delete"];
     private checkedPermissions = {Read: false, Write: false, List: false, Delete: false};
     private accessGrantList = this.accessGrantsList;
+    private addDateSelected: boolean = false;
+
+
+    public tooltipHover = '';
+    public tooltipVisibilityTimer;
+
 
     public mounted(): void {
         this.showAllPermissions = {show: false, position: "up"};
@@ -241,11 +265,6 @@ export default class CreateFormModal extends Vue {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
         this.$emit('close-modal');
     }
-    
-    public typeInput(e): void {
-        console.log(e, 'BOOM');
-        this.$emit('input', e);
-    }
 
     /**
      * Retrieves selected buckets for bucket bullets.
@@ -254,18 +273,17 @@ export default class CreateFormModal extends Vue {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
     }
 
-    public createAccessGrant(): void {
+    /**
+     * propogates selected info to parent on flow progression.
+     */
+    public propogateInfo(): void {
         const payloadObject  = {
-            'type': 'SetPermission',
-            'buckets': this.selectedBucketNames,
-            'isDownload': this.selectedPermissions.includes('Read'),
-            'isUpload': this.selectedPermissions.includes('Write'),
-            'isList': this.selectedPermissions.includes('List'),
-            'isDelete': this.selectedPermissions.includes('Delete'),
+            'checkedType': this.checkedType,
+            'accessName': this.accessName,
+            'selectedPermissions': this.selectedPermissions,
         }
 
-        this.$emit('createGrant', payloadObject)
-
+        this.$emit('propogateInfo', payloadObject, this.checkedType)
     }
 
     /**
@@ -274,10 +292,6 @@ export default class CreateFormModal extends Vue {
     public togglePermissions(): void {
         this.showAllPermissions.show = !this.showAllPermissions.show;
         this.showAllPermissions.position = this.showAllPermissions.show ? 'up' : 'down';
-    }
-
-    public toggleTooltipHover(type: string, action: string): void {
-        this.$emit('toggleToolTip', type, action)
     }
 
     public get accessGrantsList(): AccessGrant[] {
@@ -291,6 +305,7 @@ export default class CreateFormModal extends Vue {
             return
         } else if (this.checkedType !== "api") {
             // emit event here
+            this.propogateInfo()
             this.$emit('encrypt');
             // this.accessGrantStep = 'encrypt';
         }
@@ -318,6 +333,28 @@ export default class CreateFormModal extends Vue {
             }
         }
     }
+
+    /**
+     * Toggles tooltip visibility.
+     */
+    public toggleTooltipHover(type, action): void {
+        if (this.tooltipHover === '' && action === 'over') {
+            this.tooltipHover = type;
+            return;
+        } else if (this.tooltipHover === type && action === 'leave') {
+            this.tooltipVisibilityTimer = setTimeout(() => {
+                this.tooltipHover = '';
+            },750);
+            return;
+        } else if (this.tooltipHover === type && action === 'over') {
+            clearTimeout(this.tooltipVisibilityTimer);
+            return;
+        } else if(this.tooltipHover !== type) {
+            clearTimeout(this.tooltipVisibilityTimer)
+            this.tooltipHover = type;
+        }
+    }
+
 }
 </script>
 
@@ -328,6 +365,43 @@ export default class CreateFormModal extends Vue {
         transition: transform 0.3s;
     }
 
+    @mixin tooltip-container {
+        position: absolute;
+        background: #56606d;
+        border-radius: 6px;
+        width: 253px;
+        color: #fff;
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        padding: 8px;
+        z-index: 1;
+        transition: 250ms;
+    }
+
+    @mixin tooltip-arrow {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        width: 0;
+        height: 0;
+        border: 6px solid transparent;
+        border-top-color: #56606d;
+        border-bottom: 0;
+        margin-left: -20px;
+        margin-bottom: -20px;
+    }
+
+    p {
+        font-weight: bold;
+        padding-bottom: 10px;
+    }
+
+    label {
+        margin-left: 8px;
+        padding-right: 10px;
+    }
+
     .permissions-chevron-up {
         @include chevron;
         transform: rotate(-90deg);
@@ -336,6 +410,19 @@ export default class CreateFormModal extends Vue {
     .permissions-chevron-down {
         @include chevron;
     }
+
+    .tooltip-icon {
+        display: flex;
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+    }
+
+    .tooltip-text {
+        text-align: center;
+        font-weight: 500;
+    }
+
     .access-grant {
         position: fixed;
         top: 0;
@@ -424,103 +511,6 @@ export default class CreateFormModal extends Vue {
                         flex-direction: row;
                         align-items: center;
                         margin-bottom: 10px;
-                    }
-                }
-
-                &__encrypt {
-                    width: 100%;
-                    display: flex;
-                    flex-flow: column;
-                    align-items: center;
-                    justify-content: center;
-                    margin: 15px 0;
-
-                    &__item {
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        width: 100%;
-                        height: 40px;
-                        box-sizing: border-box;
-
-                        &__left-area {
-                            display: flex;
-                            align-items: center;
-                            justify-content: flex-start;
-                        }
-
-                        &__icon {
-                            margin-right: 8px;
-
-                            &.selected {
-
-                                ::v-deep circle {
-                                    fill: #e6edf7 !important;
-                                }
-
-                                ::v-deep path {
-                                    fill: #003dc1 !important;
-                                }
-                            }
-                        }
-
-                        &__text {
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: space-between;
-                            align-items: flex-start;
-                            font-family: 'font_regular', sans-serif;
-                            font-size: 12px;
-
-                            h3 {
-                                margin: 0 0 8px;
-                                font-family: 'font_bold', sans-serif;
-                                font-size: 14px;
-                            }
-
-                            p {
-                                padding: 0;
-                            }
-                        }
-
-                        &__radio {
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            width: 10px;
-                            height: 10px;
-                        }
-                    }
-
-                    &__divider {
-                        width: 100%;
-                        height: 1px;
-                        background: #ebeef1;
-                        margin: 16px 0;
-
-                        &.in-middle {
-                            order: 4;
-                        }
-                    }
-                }
-
-                &__created {
-                    width: 100%;
-                    text-align: left;
-                    display: grid;
-                    font-family: 'font_regular', sans-serif;
-                    font-size: 16px;
-                    margin-top: 15px;
-                    row-gap: 4ch;
-                    padding-top: 10px;
-
-                    p {
-                        font-style: normal;
-                        font-weight: 400;
-                        font-size: 14px;
-                        line-height: 20px;
-                        overflow-wrap: break-word;
-                        text-align: left;
                     }
                 }
 
@@ -637,25 +627,67 @@ export default class CreateFormModal extends Vue {
                     padding: 0 15px;
                 }
 
-                &__copy-button {
-                    width: 49% !important;
-                    margin-right: 10px;
-                }
-
-                &__download-button {
-                    width: 49% !important;
-                }
-
                 &__encrypt-button {
                     padding: 0 15px;
-                }
-
-                .in-middle {
-                    order: 3;
                 }
             }
         }
     }
+
+    ::v-deep .buckets-selection {
+        margin-left: 0;
+        height: 40px;
+        border: 1px solid #c8d3de;
+    }
+
+    ::v-deep .buckets-selection__toggle-container {
+        padding: 10px 20px;
+    }
+
+    .access-tooltip {
+        top: 68px;
+        left: 112px;
+
+        @include tooltip-container;
+
+        &:after {
+            left: 50%;
+            top: 100%;
+
+            @include tooltip-arrow;
+        }
+    }
+
+    .s3-tooltip {
+        top: 175px;
+        left: 121px;
+
+        @include tooltip-container;
+
+        &:after {
+            left: 50%;
+            top: -8%;
+            transform: rotate(180deg);
+
+            @include tooltip-arrow;
+        }
+    }
+
+    .api-tooltip {
+        top: 204px;
+        left: 96px;
+
+        @include tooltip-container;
+
+        &:after {
+            left: 50%;
+            top: -11%;
+            transform: rotate(180deg);
+
+            @include tooltip-arrow;
+        }
+    }
+
 
     @media screen and (max-width: 500px) {
 
@@ -670,7 +702,3 @@ export default class CreateFormModal extends Vue {
         }
     }
 </style>
-
-
-
-

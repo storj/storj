@@ -4,38 +4,13 @@
 <template>
     <div class="access-grant">
         <div class="access-grant__modal-container">
-            <div
-                v-if="tooltipHover === 'access'"
-                class="access-tooltip"
-                @mouseover="toggleTooltipHover('access','over')"
-                @mouseleave="toggleTooltipHover('access','leave')"
-            >
-                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
-            </div>
-            <div
-                v-if="tooltipHover === 's3'"
-                class="s3-tooltip"
-                @mouseover="toggleTooltipHover('s3','over')"
-                @mouseleave="toggleTooltipHover('s3','leave')"
-            >
-                <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener">Learn More</a></span>
-            </div>
-            <div
-                v-if="tooltipHover === 'api'"
-                class="api-tooltip"
-                @mouseover="toggleTooltipHover('api','over')"
-                @mouseleave="toggleTooltipHover('api','leave')"
-            >
-                <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener">Learn More</a></span>
-            </div>
             <!-- ********* Create Form Modal ********* -->
             <form v-if="accessGrantStep === 'create'">
-                <CreateFormModal 
-                    @toggleToolTip="toggleTooltipHover"
-                    @checked-type="checkedType"
+                <CreateFormModal
+                    :checked-type="checkedType"
                     @close-modal="onCloseClick"
                     @encrypt="encryptStep"
-                    @createGrant="createAccessGrantHelper"
+                    @propogateInfo="createAccessGrantHelper"
                     @input="inputHandler"
                 />
             </form>
@@ -412,16 +387,10 @@
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
-import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
-import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
-import BucketNameBullet from "@/components/accessGrants/permissions/BucketNameBullet.vue";
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-import TypesIcon from '@/../static/images/accessGrants/create-access_type.svg';
 import AccessKeyIcon from '@/../static/images/accessGrants/accessKeyIcon.svg';
 import ThumbPrintIcon from '@/../static/images/accessGrants/thumbPrintIcon.svg';
 import PermissionsIcon from '@/../static/images/accessGrants/create-access_permissions.svg';
-import NameIcon from '@/../static/images/accessGrants/create-access_name.svg';
-import BucketsIcon from '@/../static/images/accessGrants/create-access_buckets.svg';
 import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
 import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
 import CopyIcon from '../../../static/images/common/copy.svg';
@@ -456,14 +425,8 @@ import { EdgeCredentials } from '@/types/accessGrants';
         S3Icon,
         AccessKeyIcon,
         ThumbPrintIcon,
-        DurationSelection,
-        BucketsSelection,
-        BucketNameBullet,
         CloseCrossIcon,
-        TypesIcon,
         PermissionsIcon,
-        NameIcon,
-        BucketsIcon,
         DateIcon,
         CopyIcon,
         DownloadIcon,
@@ -499,12 +462,6 @@ export default class CreateAccessModal extends Vue {
      * Global isLoading Variable
      **/
     private isLoading = false;
-
-    /**
-     * Handles which tooltip is hovered over and set/clear timeout when leaving hover.
-     */
-    public tooltipHover = '';
-    public tooltipVisibilityTimer;
 
     /**
      * Handles permission types, which have been selected, and determining if all have been selected.
@@ -558,7 +515,7 @@ export default class CreateAccessModal extends Vue {
     }
 
     public inputHandler(e): void {
-        this.checkedType = e.target.value;
+        this.checkedType = e;
         
     }
 
@@ -582,9 +539,14 @@ export default class CreateAccessModal extends Vue {
      /**
      * Grabs data from child for createAccessGrant
      */
-    public createAccessGrantHelper(data): void {
-        //map data here
-        console.log('data');
+    public async createAccessGrantHelper(data, type): Promise<void> {
+        this.checkedType = await data.checkedType;
+        this.accessName = await data.accessName;
+        this.selectedPermissions = await data.selectedPermissions;
+        if(type === 'api') {
+            await this.createAccessGrant();
+        }
+        
     }
 
     /**
@@ -742,27 +704,6 @@ export default class CreateAccessModal extends Vue {
     }
 
     /**
-     * Toggles tooltip visibility.
-     */
-    public toggleTooltipHover(type, action): void {
-        if (this.tooltipHover === '' && action === 'over') {
-            this.tooltipHover = type;
-            return;
-        } else if (this.tooltipHover === type && action === 'leave') {
-            this.tooltipVisibilityTimer = setTimeout(() => {
-                this.tooltipHover = '';
-            },750);
-            return;
-        } else if (this.tooltipHover === type && action === 'over') {
-            clearTimeout(this.tooltipVisibilityTimer);
-            return;
-        } else if(this.tooltipHover !== type) {
-            clearTimeout(this.tooltipVisibilityTimer)
-            this.tooltipHover = type;
-        }
-    }
-
-    /**
      * Handles permissions All.
      */
     
@@ -810,38 +751,6 @@ export default class CreateAccessModal extends Vue {
     ::-webkit-scrollbar-thumb {
         margin: 0;
         width: 0;
-    }
-
-    @mixin chevron {
-        padding-left: 4px;
-        transition: transform 0.3s;
-    }
-
-    @mixin tooltip-container {
-        position: absolute;
-        background: #56606d;
-        border-radius: 6px;
-        width: 253px;
-        color: #fff;
-        display: flex;
-        flex-direction: row;
-        align-items: flex-start;
-        padding: 8px;
-        z-index: 1;
-        transition: 250ms;
-    }
-
-    @mixin tooltip-arrow {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        width: 0;
-        height: 0;
-        border: 6px solid transparent;
-        border-top-color: #56606d;
-        border-bottom: 0;
-        margin-left: -20px;
-        margin-bottom: -20px;
     }
 
     @mixin generated-text {
@@ -1036,11 +945,6 @@ export default class CreateAccessModal extends Vue {
                 padding-top: 10px;
                 margin-top: 24px;
 
-                &__type-icon {
-                    grid-column: 1;
-                    grid-row: 1;
-                }
-
                 &__passphrase {
                     margin-top: 20px;
                     width: 100%;
@@ -1051,20 +955,6 @@ export default class CreateAccessModal extends Vue {
                     height: 40px;
                     font-size: 17px;
                     padding: 10px;
-                }
-
-                &__type {
-                    grid-column: 2;
-                    grid-row: 1;
-                    display: flex;
-                    flex-direction: column;
-
-                    &__type-container {
-                        display: flex;
-                        flex-direction: row;
-                        align-items: center;
-                        margin-bottom: 10px;
-                    }
                 }
 
                 &__encrypt {
@@ -1163,104 +1053,6 @@ export default class CreateAccessModal extends Vue {
                         text-align: left;
                     }
                 }
-
-                &__name-icon {
-                    grid-column: 1;
-                    grid-row: 2;
-                }
-
-                &__name {
-                    grid-column: 2;
-                    grid-row: 2;
-                    display: flex;
-                    flex-direction: column;
-                    max-width: 238px;
-
-                    &__input {
-                        background: #fff;
-                        border: 1px solid #c8d3de;
-                        box-sizing: border-box;
-                        border-radius: 6px;
-                        height: 40px;
-                        font-size: 17px;
-                        padding: 10px;
-                    }
-
-                    &__input:focus {
-                        border-color: #2683ff;
-                    }
-                }
-
-                &__input:focus {
-                    border-color: #2683ff;
-                }
-
-                &__permissions-icon {
-                    grid-column: 1;
-                    grid-row: 3;
-                }
-
-                &__permissions {
-                    grid-column: 2;
-                    grid-row: 3;
-                    display: flex;
-                    flex-direction: column;
-                }
-
-                &__buckets-icon {
-                    grid-column: 1;
-                    grid-row: 4;
-                }
-
-                &__buckets {
-                    grid-column: 2;
-                    grid-row: 4;
-                    display: flex;
-                    flex-direction: column;
-
-                    &__bucket-bullets {
-                        display: flex;
-                        align-items: center;
-                        max-width: 100%;
-                        flex-wrap: wrap;
-
-                        &__container {
-                            display: flex;
-                            margin-top: 5px;
-                        }
-                    }
-                }
-
-                &__date-icon {
-                    grid-column: 1;
-                    grid-row: 5;
-                }
-
-                &__duration {
-                    grid-column: 2;
-                    grid-row: 5;
-                    display: flex;
-                    flex-direction: column;
-
-                    &__text {
-                        color: #929fb1;
-                        text-decoration: underline;
-                        font-family: sans-serif;
-                        cursor: pointer;
-                    }
-                }
-
-                &__notes-icon {
-                    grid-column: 1;
-                    grid-row: 6;
-                }
-
-                &__notes {
-                    grid-column: 2;
-                    grid-row: 6;
-                    display: flex;
-                    flex-direction: column;
-                }
             }
 
             &__footer-container {
@@ -1297,26 +1089,11 @@ export default class CreateAccessModal extends Vue {
         }
     }
 
-    ::v-deep .buckets-selection {
-        margin-left: 0;
-        height: 30px;
-        border: 1px solid #c8d3de;
-    }
-
-    ::v-deep .buckets-selection__toggle-container {
-        padding: 10px 20px;
-    }
-
     .tooltip-icon {
         display: flex;
         width: 14px;
         height: 14px;
         cursor: pointer;
-    }
-
-    .tooltip-text {
-        text-align: center;
-        font-weight: 500;
     }
 
     a {
@@ -1340,54 +1117,6 @@ export default class CreateAccessModal extends Vue {
                 stroke: #56606d;
             }
         }
-    }
-
-    .access-tooltip {
-        top: 52px;
-        left: 109px;
-
-        @include tooltip-container;
-
-        &:after {
-            left: 50%;
-            top: 100%;
-
-            @include tooltip-arrow;
-        }
-    }
-
-    .s3-tooltip {
-        top: 158px;
-        left: 118px;
-
-        @include tooltip-container;
-
-        &:after {
-            left: 50%;
-            top: -8%;
-            transform: rotate(180deg);
-
-            @include tooltip-arrow;
-        }
-    }
-
-    .api-tooltip {
-        top: 186px;
-        left: 94px;
-
-        @include tooltip-container;
-
-        &:after {
-            left: 50%;
-            top: -11%;
-            transform: rotate(180deg);
-
-            @include tooltip-arrow;
-        }
-    }
-
-    .access-bucket-container {
-        padding-bottom: 10px;
     }
 
     @media screen and (max-width: 500px) {
