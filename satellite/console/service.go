@@ -945,6 +945,11 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return Error.Wrap(err)
 	}
 
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -1297,6 +1302,11 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		PasswordHash: hash,
 	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
