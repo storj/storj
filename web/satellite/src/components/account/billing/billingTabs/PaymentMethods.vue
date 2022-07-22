@@ -63,7 +63,8 @@
                     >
                         <v-loader 
                             v-if="isLoading" 
-                            class="payment-loading-image" />
+                            class="payment-loading-image" 
+                        />
                         <SuccessImage
                             v-if="isLoaded"
                             class="payment-loaded-image"
