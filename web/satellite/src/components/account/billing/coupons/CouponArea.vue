@@ -96,7 +96,7 @@ export default class CouponArea extends Vue {
      */
     public onCreateClick(): void {
         this.analytics.pageVisit(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
-        this.$router.push(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
+        this.$router.push({ name: RouteConfig.AddCouponCode.name })
     }
 
     /**
