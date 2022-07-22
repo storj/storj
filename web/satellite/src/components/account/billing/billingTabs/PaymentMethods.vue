@@ -18,7 +18,7 @@
             <div v-if="transactionCount > 0 && !showAddFunds">
                 <v-loader
                     v-if="!tokensAreLoaded"
-                >
+                />
                 <balance-token-card
                     v-for="item in mostRecentTransaction"
                     :key="item.id"
