@@ -34,7 +34,6 @@
                 </div>      
             </div>
             <div class="account-billing-area__divider" />
-            <router-view />
         </div>
         <div v-if="!isNewBillingScreen">
             <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
@@ -84,6 +83,7 @@
             <SmallDepositHistory />
             <CouponArea />
         </div>
+        <router-view />
     </div>
 </template>
 

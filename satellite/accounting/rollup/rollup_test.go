@@ -46,7 +46,7 @@ func TestRollupNoDeletes(t *testing.T) {
 			storageNodes   = createNodes(ctx, t, db)
 		)
 
-		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, 120*time.Second, false, time.Hour)
+		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second}, time.Hour)
 
 		// disqualifying nodes is unrelated to this test, but it is added here
 		// to confirm the disqualification shows up in the accounting CSVRow
@@ -147,7 +147,7 @@ func TestRollupDeletes(t *testing.T) {
 			storageNodes   = createNodes(ctx, t, db)
 		)
 
-		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, 120*time.Second, true, time.Hour)
+		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second, DeleteTallies: true}, time.Hour)
 
 		// disqualifying nodes is unrelated to this test, but it is added here
 		// to confirm the disqualification shows up in the accounting CSVRow

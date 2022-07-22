@@ -382,6 +382,81 @@ func TestPaidTier(t *testing.T) {
 	})
 }
 
+// TestUpdateProjectExceedsLimits ensures that a project with limits manually set above the defaults can be updated.
+func TestUpdateProjectExceedsLimits(t *testing.T) {
+	usageConfig := console.UsageLimitsConfig{
+		Storage: console.StorageLimitConfig{
+			Free: memory.GB,
+			Paid: memory.TB,
+		},
+		Bandwidth: console.BandwidthLimitConfig{
+			Free: 2 * memory.GB,
+			Paid: 2 * memory.TB,
+		},
+		Segment: console.SegmentLimitConfig{
+			Free: 10,
+			Paid: 50,
+		},
+		Project: console.ProjectLimitConfig{
+			Free: 1,
+			Paid: 3,
+		},
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UsageLimits = usageConfig
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		updatedName := "newName"
+		updatedDescription := "newDescription"
+		updatedStorageLimit := memory.Size(100) + memory.TB
+		updatedBandwidthLimit := memory.Size(100) + memory.TB
+
+		proj, err := sat.API.DB.Console().Projects().Get(ctx, projectID)
+		require.NoError(t, err)
+
+		userCtx1, err := sat.UserContext(ctx, proj.OwnerID)
+		require.NoError(t, err)
+
+		// project should have free tier usage limits
+		require.Equal(t, usageConfig.Storage.Free, *proj.StorageLimit)
+		require.Equal(t, usageConfig.Bandwidth.Free, *proj.BandwidthLimit)
+		require.Equal(t, usageConfig.Segment.Free, *proj.SegmentLimit)
+
+		// update project name should succeed
+		_, err = service.UpdateProject(userCtx1, projectID, console.ProjectInfo{
+			Name:        updatedName,
+			Description: updatedDescription,
+		})
+		require.NoError(t, err)
+
+		// manually set project limits above defaults
+		proj1, err := sat.API.DB.Console().Projects().Get(ctx, projectID)
+		require.NoError(t, err)
+		proj1.StorageLimit = new(memory.Size)
+		*proj1.StorageLimit = updatedStorageLimit
+		proj1.BandwidthLimit = new(memory.Size)
+		*proj1.BandwidthLimit = updatedBandwidthLimit
+		err = sat.DB.Console().Projects().Update(ctx, proj1)
+		require.NoError(t, err)
+
+		// try to update project name should succeed
+		_, err = service.UpdateProject(userCtx1, projectID, console.ProjectInfo{
+			Name:        "updatedName",
+			Description: "updatedDescription",
+		})
+		require.NoError(t, err)
+	})
+}
+
 func TestMFA(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

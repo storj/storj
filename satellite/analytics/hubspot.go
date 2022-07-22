@@ -117,7 +117,7 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 				newField("email", fields.Email),
 				newField("firstname", firstName),
 				newField("lastname", lastName),
-				newField("lifecyclestage", "customer"),
+				newField("lifecyclestage", "other"),
 				newField("origin_header", fields.OriginHeader),
 				newField("signup_referrer", fields.Referrer),
 				newField("account_created", "true"),

@@ -237,7 +237,7 @@ export default class ProjectSelection extends Vue {
                 this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
             } else {
                 this.analytics.pageVisit(RouteConfig.CreateProject.path);
-                this.$router.push(RouteConfig.CreateProject.path);
+                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP);
             }
         }
 
