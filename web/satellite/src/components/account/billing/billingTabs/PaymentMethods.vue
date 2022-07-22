@@ -62,13 +62,13 @@
                         @click="onConfirmAddStripe"
                     >
                         <v-loader 
-                        v-if="isLoading" 
-                        class="payment-loading-image" />
-                            <SuccessImage
-                                v-if="isLoaded"
-                                class="payment-loaded-image"
-                            />
-                            <span class="add-card-button__text">Add Credit Card</span>
+                            v-if="isLoading" 
+                            class="payment-loading-image" />
+                        <SuccessImage
+                            v-if="isLoaded"
+                            class="payment-loaded-image"
+                        />
+                        <span class="add-card-button__text">Add Credit Card</span>
                     </div>
                 </div>
             </div>
