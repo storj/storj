@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -121,6 +122,7 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 				newField("origin_header", fields.OriginHeader),
 				newField("signup_referrer", fields.Referrer),
 				newField("account_created", "true"),
+				newField("have_sales_contact", strconv.FormatBool(fields.HaveSalesContact)),
 			},
 		},
 	}
@@ -139,7 +141,6 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 				"company_size":       fields.EmployeeCount,
 				"company_name":       fields.CompanyName,
 				"job_title":          fields.JobTitle,
-				"have_sales_contact": fields.HaveSalesContact,
 			},
 		},
 	}
