@@ -26,7 +26,6 @@ import (
 	"storj.io/storjscan"
 	"storj.io/storjscan/private/testeth"
 	"storj.io/storjscan/storjscandb/storjscandbtest"
-	"storj.io/storjscan/tokenprice/coinmarketcap"
 	"storj.io/uplink"
 )
 
@@ -123,7 +122,7 @@ func Run(t *testing.T, test Test) {
 				storjscanConfig.Tokens.Contract = stack.Token.Hex()
 				storjscanConfig.TokenPrice.PriceWindow = time.Minute
 				storjscanConfig.TokenPrice.Interval = time.Minute
-				storjscanConfig.TokenPrice.CoinmarketcapConfig = coinmarketcap.Config{} // TODO: disable
+				storjscanConfig.TokenPrice.UseTestPrices = true
 
 				stack.App, err = storjscan.NewApp(stack.Log.Named("app"), storjscanConfig, storjscanDB)
 				if err != nil {
@@ -152,6 +151,7 @@ func Run(t *testing.T, test Test) {
 					config.Payments.Storjscan.Auth.Secret = "eusecret"
 					config.Payments.Storjscan.Endpoint = "http://" + stack.App.API.Listener.Addr().String()
 					config.Payments.Storjscan.Confirmations = 1
+					config.Payments.Storjscan.DisableLoop = false
 				}}
 
 				planet, err := testplanet.NewCustom(ctx, log, planetConfig, satelliteDB)
