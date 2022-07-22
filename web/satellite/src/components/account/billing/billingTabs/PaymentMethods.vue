@@ -19,16 +19,15 @@
                 <v-loader
                     v-if="!tokensAreLoaded"
                 >
-                    <balance-token-card
-                        v-for="item in mostRecentTransaction"
-                        :key="item.id"
-                        :v-if="tokensAreLoaded"
-                        :billing-item="item"
-                        :show-add-funds="showAddFunds"
-                        @showTransactions="toggleTransactionsTable"
-                        @showAddFunds="toggleShowAddFunds"
-                    />
-                </v-loader>
+                <balance-token-card
+                    v-for="item in mostRecentTransaction"
+                    :key="item.id"
+                    :v-if="tokensAreLoaded"
+                    :billing-item="item"
+                    :show-add-funds="showAddFunds"
+                    @showTransactions="toggleTransactionsTable"
+                    @showAddFunds="toggleShowAddFunds"
+                />
             </div>
             <div v-else>
                 <add-token-card
