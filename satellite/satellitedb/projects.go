@@ -84,11 +84,27 @@ func (projects *projects) Get(ctx context.Context, id uuid.UUID) (_ *console.Pro
 	return projectFromDBX(ctx, project)
 }
 
+// GetByPublicID is a method for querying project from the database by public_id.
+func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID) (_ *console.Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	project, err := projects.db.Get_Project_By_PublicId(ctx, dbx.Project_PublicId(publicID[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return projectFromDBX(ctx, project)
+}
+
 // Insert is a method for inserting project into the database.
 func (projects *projects) Insert(ctx context.Context, project *console.Project) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	projectID, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+	publicID, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +127,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
+	createFields.PublicId = dbx.Project_PublicId(publicID[:])
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
@@ -272,7 +289,7 @@ func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, 
 	}
 
 	rows, err := projects.sdb.Query(ctx, projects.sdb.Rebind(`
-		SELECT id, name, description, owner_id, rate_limit, max_buckets, created_at,
+		SELECT id, public_id, name, description, owner_id, rate_limit, max_buckets, created_at,
 			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count
 			FROM projects
 			WHERE owner_id = ?
@@ -297,7 +314,7 @@ func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, 
 		}
 		var rateLimit, maxBuckets sql.NullInt32
 		nextProject := &console.Project{}
-		err = rows.Scan(&nextProject.ID, &nextProject.Name, &nextProject.Description, &nextProject.OwnerID, &rateLimit, &maxBuckets, &nextProject.CreatedAt, &nextProject.MemberCount)
+		err = rows.Scan(&nextProject.ID, &nextProject.PublicID, &nextProject.Name, &nextProject.Description, &nextProject.OwnerID, &rateLimit, &maxBuckets, &nextProject.CreatedAt, &nextProject.MemberCount)
 		if err != nil {
 			return console.ProjectsPage{}, err
 		}
@@ -329,6 +346,14 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, err
 	}
 
+	var publicID uuid.UUID
+	if len(project.PublicId) > 0 {
+		publicID, err = uuid.FromBytes(project.PublicId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var partnerID uuid.UUID
 	if len(project.PartnerId) > 0 {
 		partnerID, err = uuid.FromBytes(project.PartnerId)
@@ -349,6 +374,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 
 	return &console.Project{
 		ID:             id,
+		PublicID:       publicID,
 		Name:           project.Name,
 		Description:    project.Description,
 		PartnerID:      partnerID,

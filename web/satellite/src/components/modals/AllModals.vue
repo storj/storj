@@ -4,6 +4,7 @@
 <template>
     <div>
         <CreateProjectPromptModal v-if="isCreateProjectPromptModal" />
+        <CreateProjectModal v-if="isCreateProjectModal" />
         <AddPaymentMethodModal v-if="isAddPMModal" />
         <OpenBucketModal v-if="isOpenBucketModal" />
     </div>
@@ -13,6 +14,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CreateProjectPromptModal from '@/components/modals/CreateProjectPromptModal.vue';
+import CreateProjectModal from '@/components/modals/CreateProjectModal.vue'
 import AddPaymentMethodModal from "@/components/modals/AddPaymentMethodModal.vue";
 import OpenBucketModal from "@/components/modals/OpenBucketModal.vue";
 
@@ -20,6 +22,7 @@ import OpenBucketModal from "@/components/modals/OpenBucketModal.vue";
 @Component({
     components: {
         CreateProjectPromptModal,
+        CreateProjectModal,
         AddPaymentMethodModal,
         OpenBucketModal,
     },
@@ -30,6 +33,13 @@ export default class AllModals extends Vue {
      */
     public get isCreateProjectPromptModal(): boolean {
         return this.$store.state.appStateModule.appState.isCreateProjectPromptModalShown;
+    }
+
+    /**
+     * Indicates if create project prompt modal is shown.
+     */
+    public get isCreateProjectModal(): boolean {
+        return this.$store.state.appStateModule.appState.isCreateProjectModalShown;
     }
 
     /**

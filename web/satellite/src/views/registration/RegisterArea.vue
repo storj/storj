@@ -686,7 +686,6 @@ export default class RegisterArea extends Vue {
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
         font-family: 'font_regular', sans-serif;
         background-color: #f5f6fa;
         box-sizing: border-box;
