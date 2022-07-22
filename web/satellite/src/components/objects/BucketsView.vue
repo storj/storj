@@ -42,7 +42,6 @@
                     :open-dropdown="openDropdown"
                     :is-dropdown-open="activeDropdown === key"
                     :on-click="() => openBucket(bucket.name)"
-                    @checkItem="(value) => $parent.$emit('checkItem', { value, key })"
                 />
             </template>
         </v-table>
@@ -72,7 +71,7 @@
 </template>
 
 <script lang="ts">
-import {Component, Prop, Vue, Watch} from 'vue-property-decorator';
+import {Component, Vue, Watch} from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -82,7 +81,7 @@ import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 import { LocalData } from "@/utils/localData";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import {Bucket, BucketPage} from "@/types/buckets";
+import {BucketPage} from "@/types/buckets";
 import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 import VLoader from '@/components/common/VLoader.vue';
@@ -92,7 +91,7 @@ import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
 import BucketIcon from '@/../static/images/objects/bucket.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import VTable, { SelectableItem } from "@/components/common/VTable.vue";
+import VTable from "@/components/common/VTable.vue";
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
@@ -106,8 +105,6 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
     },
 })
 export default class BucketsView extends Vue {
-    @Prop({ default: () => [] })
-    public readonly selectableItems: SelectableItem<Bucket>[];
     private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
     private worker: Worker;
     private grantWithPermissions = '';
