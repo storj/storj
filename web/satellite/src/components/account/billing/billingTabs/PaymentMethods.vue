@@ -61,13 +61,15 @@
                         class="add-card-button"
                         @click="onConfirmAddStripe"
                     >
-                        <v-loader v-if="isLoading" class="payment-loading-image">
-                            <SuccessImage
-                                v-if="isLoaded"
-                                class="payment-loaded-image"
-                            />
-                            <span class="add-card-button__text">Add Credit Card</span>
-                        </v-loader>
+                        <v-loader 
+                            v-if="isLoading" 
+                            class="payment-loading-image" 
+                        />
+                        <SuccessImage
+                            v-if="isLoaded"
+                            class="payment-loaded-image"
+                        />
+                        <span class="add-card-button__text">Add Credit Card</span>
                     </div>
                 </div>
             </div>
@@ -776,19 +778,6 @@ $align: center;
 .active-discount {
     background: #dffff7;
     color: #00ac26;
-}
-
-.add_card_button_text {
-    margin-top: 4px;
-    margin-left: 9px;
-    font-family: 'font-medium', sans-serif;
-    font-style: normal;
-    font-weight: 700;
-    font-size: 13px;
-    line-height: 29px;
-    display: $flex;
-    align-items: $align;
-    letter-spacing: -0.02em;
 }
 
 .inactive-discount {
