@@ -809,7 +809,7 @@ export default class CreateAccessModal extends Vue {
                 await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
 
                 await this.$notify.success('Gateway credentials were generated successfully');
-
+                
                 await this.analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
 
                 this.areKeysVisible = true;
@@ -817,6 +817,13 @@ export default class CreateAccessModal extends Vue {
                 await this.$notify.error(error.message);
             }
         }
+        else if (this.checkedType === 'api') {
+                await this.analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
+        }
+        else if (this.checkedType === 'access') {
+                await this.analytics.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
+        }
+
 
         this.accessGrantStep = 'grantCreated';
     }

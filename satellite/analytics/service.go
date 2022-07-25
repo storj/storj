@@ -49,6 +49,7 @@ const (
 	eventBucketCreated              = "Bucket Created"
 	eventBucketDeleted              = "Bucket Deleted"
 	eventProjectLimitError          = "Project Limit Error"
+	eventApiAccessCreated 			= "API Access Created"
 )
 
 var (
@@ -93,7 +94,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventModalAddCard, eventModalAddTokens, eventSearchBuckets, eventNavigateProjects, eventManageProjectsClicked,
 		eventCreateNewClicked, eventViewDocsClicked, eventViewForumClicked, eventViewSupportClicked, eventCreateAnAccessGrantClicked,
 		eventUploadUsingCliClicked, eventUploadInWebClicked, eventNewProjectClicked, eventLogoutClicked, eventProfileUpdated,
-		eventPasswordChanged, eventMfaEnabled, eventBucketCreated, eventBucketDeleted} {
+		eventPasswordChanged, eventMfaEnabled, eventBucketCreated, eventBucketDeleted, eventAccessGrantCreated, eventApiAccessCreated} {
 		service.clientEvents[name] = true
 	}
 

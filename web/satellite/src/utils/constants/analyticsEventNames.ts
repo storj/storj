@@ -30,4 +30,6 @@ export enum AnalyticsEvent {
     MFA_ENABLED = 'MFA Enabled',
     BUCKET_CREATED = 'Bucket Created',
     BUCKET_DELETED = 'Bucket Deleted',
+    ACCESS_GRANT_CREATED = 'Access Grant Created',
+    API_ACCESS_CREATED  = 'API Access Created',
 }
