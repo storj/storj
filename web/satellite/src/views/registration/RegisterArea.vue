@@ -1112,6 +1112,8 @@ export default class RegisterArea extends Vue {
 
     .logo {
         cursor: pointer;
+        width: 207px;
+        height: 37px;
     }
 
     .register-input {

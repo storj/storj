@@ -342,7 +342,7 @@ export default class AccountArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 1280px) {
+    @media screen and (max-width: 1280px) and (min-width: 500px) {
 
         .account-area__wrap {
             padding: 10px 0;

@@ -639,6 +639,8 @@ export default class Login extends Vue {
     }
 
     .logo {
+        width: 207px;
+        height: 37px;
         cursor: pointer;
     }
 

@@ -91,7 +91,8 @@ export default class ProjectInfoBar extends Vue {
         justify-content: space-between;
         align-items: center;
         background-color: #2582ff;
-        width: calc(100% - 60px);
+        width: 100%;
+        box-sizing: border-box;
         padding: 5px 30px;
         font-family: 'font_regular', sans-serif;
         color: #fff;

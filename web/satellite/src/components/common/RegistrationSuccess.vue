@@ -178,6 +178,11 @@ export default class RegistrationSuccess extends Vue {
         &__logo-wrapper {
             text-align: center;
             margin-top: 60px;
+
+            svg {
+                width: 207px;
+                height: 37px;
+            }
         }
     }
 

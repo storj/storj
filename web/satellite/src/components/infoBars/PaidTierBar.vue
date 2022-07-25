@@ -35,6 +35,8 @@ export default class PaidTierBar extends Vue {
 
 <style scoped lang="scss">
     .pt-bar {
+        width: 100%;
+        box-sizing: border-box;
         font-family: 'font_regular', sans-serif;
         display: flex;
         align-items: center;
