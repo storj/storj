@@ -15,10 +15,14 @@
             />
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
+            <v-loader
+                v-if="!tokensAreLoaded"
+            />
             <div v-if="transactionCount > 0 && !showAddFunds">
                 <balance-token-card
                     v-for="item in mostRecentTransaction"
                     :key="item.id"
+                    :v-if="tokensAreLoaded"
                     :billing-item="item"
                     :show-add-funds="showAddFunds"
                     @showTransactions="toggleTransactionsTable"
@@ -29,6 +33,8 @@
                 <add-token-card
                     :total-count="transactionCount"
                     @showAddFunds="toggleShowAddFunds"
+                    @fetchTokenHistory="fetchTokenHistory"
+                    @addTokenHelper="addTokenHelper"
                 />
             </div>
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
@@ -264,6 +270,7 @@ export default class PaymentMethods extends Vue {
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
     public transactionCount = 0;
+    public tokensAreLoaded = false;
 
     /**
      * controls card inputs
@@ -288,7 +295,9 @@ export default class PaymentMethods extends Vue {
         this.fetchTokenHistory()
     }
 
-    public fetchTokenHistory() {
+    public fetchTokenHistory(): void {
+        this.tokensAreLoaded = false;
+        console.log(this.tokensAreLoaded)
         const tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }));
@@ -296,10 +305,17 @@ export default class PaymentMethods extends Vue {
         this.tokenHistory = tokenArray;
         this.transactionCount = tokenArray.length;
         this.displayedHistory = tokenArray.slice(0,10);
+        this.tokensAreLoaded = true;
+        console.log('hit')
     }
 
     public toggleShowAddFunds(): void {
-        this.showAddFunds = !this.showAddFunds ;
+        this.showAddFunds = !this.showAddFunds;
+    }
+
+    public async addTokenHelper(): Promise<void> {
+        await this.fetchTokenHistory()
+        await this.toggleShowAddFunds()
     }
 
 
