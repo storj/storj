@@ -15,10 +15,10 @@
             />
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
+            <v-loader
+                v-if="!tokensAreLoaded"
+            />
             <div v-if="transactionCount > 0 && !showAddFunds">
-                <v-loader
-                    v-if="!tokensAreLoaded"
-                />
                 <balance-token-card
                     v-for="item in mostRecentTransaction"
                     :key="item.id"
@@ -34,6 +34,7 @@
                     :total-count="transactionCount"
                     @showAddFunds="toggleShowAddFunds"
                     @fetchTokenHistory="fetchTokenHistory"
+                    @addTokenHelper="addTokenHelper"
                 />
             </div>
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
@@ -292,21 +293,27 @@ export default class PaymentMethods extends Vue {
         this.fetchTokenHistory()
     }
 
-    public async fetchTokenHistory(): Promise<void> {
+    public fetchTokenHistory(): void {
         this.tokensAreLoaded = false;
         console.log(this.tokensAreLoaded)
-        const tokenArray = await (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+        const tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }));
-        this.mostRecentTransaction = await [tokenArray[0]]
+        this.mostRecentTransaction = [tokenArray[0]]
         this.tokenHistory = tokenArray;
         this.transactionCount = tokenArray.length;
         this.displayedHistory = tokenArray.slice(0,10);
-        this.tokensAreLoaded = await true;
+        this.tokensAreLoaded = true;
+        console.log('hit')
     }
 
     public toggleShowAddFunds(): void {
         this.showAddFunds = !this.showAddFunds;
+    }
+
+    public async addTokenHelper(): Promise<void> {
+        await this.fetchTokenHistory()
+        await this.toggleShowAddFunds()
     }
 
 

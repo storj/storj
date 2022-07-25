@@ -8,7 +8,8 @@
                 <StorjLarge />
             </div>
         </div>
-        <div class="token__add-funds">
+        <v-loader v-if="!pageLoaded"/>
+        <div class="token__add-funds" v-else>
             <h3 class="token__add-funds__title">
                 STORJ Token
             </h3>
@@ -19,6 +20,7 @@
                 selection-style="new"
                 @onChangeTokenValue="onChangeTokenValue"
             />
+            
             <div class="token__add-funds__button-container">
                 <VButton
                     class="token__add-funds__button"
@@ -49,6 +51,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 import VButton from '@/components/common/VButton.vue';
 import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentAmountOption } from '@/types/payments';
@@ -63,6 +66,7 @@ const {
     components: {
         StorjLarge,
         VButton,
+        VLoader,
         TokenDepositSelection,
     },
 })
@@ -73,9 +77,10 @@ export default class AddTokenCard extends Vue {
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
+    private pageLoaded: boolean = true;
+
     public toggleShowAddFunds(): void {
-        this.$emit("fetchTokenHistory");
-        this.$emit("showAddFunds");
+        this.$emit("toggleShowAddFunds");
     }
 
     /**
@@ -98,17 +103,20 @@ export default class AddTokenCard extends Vue {
         if (!this.isDepositValueValid) return;
 
         try {
+            this.pageLoaded = false;
             const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
             await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
             const depositWindow = window.open(tokenResponse.link, '_blank');
             if (depositWindow) {
                 depositWindow.focus();
+                this.pageLoaded = true;
             }
             // location.reload()
             this.toggleShowAddFunds();
         } catch (error) {
             await this.$notify.error(error.message);
             this.$emit('toggleIsLoading');
+            this.pageLoaded = true;
         }
 
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
