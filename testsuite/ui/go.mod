@@ -6,13 +6,13 @@ replace storj.io/storj => ../../
 
 require (
 	github.com/go-rod/rod v0.101.8
-	github.com/spacemonkeygo/monkit/v3 v3.0.17
+	github.com/spacemonkeygo/monkit/v3 v3.0.19
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20220708152916-e2f08365ed65
+	storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0
 	storj.io/gateway-mt v1.18.1-0.20211210081136-cada9a567d31
-	storj.io/private v0.0.0-20220614154538-e18b72a55f43
+	storj.io/private v0.0.0-20220725143645-8515ce4e6b70
 	storj.io/storj v0.12.1-0.20220705102727-0f626a59c103
 )
 
@@ -184,6 +184,7 @@ require (
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	github.com/zeebo/errs v1.3.0 // indirect
+	github.com/zeebo/mwc v0.0.4 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b // indirect
 	go.opentelemetry.io/otel v0.18.0 // indirect
@@ -221,6 +222,6 @@ require (
 	storj.io/drpc v0.0.32 // indirect
 	storj.io/gateway v1.4.1 // indirect
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a // indirect
-	storj.io/monkit-jaeger v0.0.0-20220614151325-3ae4cae696b8 // indirect
+	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca // indirect
 	storj.io/uplink v1.9.1-0.20220623122820-25d79c31a876 // indirect
 )

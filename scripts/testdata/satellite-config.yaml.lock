@@ -884,7 +884,7 @@ server.private-address: 127.0.0.1:7778
 # tracing.buffer-size: 0
 
 # whether tracing collector is enabled
-# tracing.enabled: false
+# tracing.enabled: true
 
 # how frequently to flush traces to tracing agent
 # tracing.interval: 0s
