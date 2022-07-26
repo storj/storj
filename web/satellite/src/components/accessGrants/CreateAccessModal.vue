@@ -169,216 +169,12 @@
             </form>
             <!-- *********   Grant Created Modal  ********* -->
             <form v-if="accessGrantStep === 'grantCreated'">
-                <GrantCreatedModal />
-                <div class="access-grant__modal-container__header-container">
-                    <AccessGrantsIcon v-if="checkedType === 'access'" />
-                    <S3Icon v-if="checkedType === 's3'" />
-                    <CLIIcon v-if="checkedType === 'api'" />
-                    <div class="access-grant__modal-container__header-container__close-cross-container" @click="onCloseClick">
-                        <CloseCrossIcon />
-                    </div>
-                    <h2 class="access-grant__modal-container__header-container__title-complete">{{ accessName }} <br> Created</h2>
-                </div>
-                <div class="access-grant__modal-container__body-container__created">
-                    <p>Now copy and save the {{ checkedText[checkedType][0] }} will only appear once. Click on the {{ checkedText[checkedType][1] }}</p>
-                </div>
-                <div v-if="checkedType === 'access'">
-                    <div class="access-grant__modal-container__generated-credentials__label first">
-                        <span class="access-grant__modal-container__generated-credentials__label__text">
-                            Access Grant
-                        </span>
-                        <a
-                            href="https://docs.storj.io/dcs/concepts/access/access-grants/"
-                            target="_blank"
-                        >
-                            <img
-                                class="tooltip-icon"
-                                alt="tooltip icon"
-                                src="../../../static/images/accessGrants/create-access_information.png"
-                            >
-                        </a>
-                    </div>
-                    <div
-                        class="access-grant__modal-container__generated-credentials"
-                    >
-                        <span class="access-grant__modal-container__generated-credentials__text">
-                            {{ access }}
-                        </span>
-                        <img
-                            class="clickable-image"
-                            alt="copy icon"
-                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
-                            @click="onCopyClick(access)"
-                        >
-                    </div>
-                </div>
-                <div v-if="checkedType === 's3'">
-                    <div class="access-grant__modal-container__generated-credentials__label first">
-                        <span class="access-grant__modal-container__generated-credentials__label__text">
-                            Access Key
-                        </span>
-                    </div>
-                    <div
-                        class="access-grant__modal-container__generated-credentials"
-                    >
-                        <span class="access-grant__modal-container__generated-credentials__text">
-                            {{ gatewayCredentials.accessKeyId }}
-                        </span>
-                        <img
-                            class="clickable-image"
-                            alt="copy icon"
-                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
-                            @click="onCopyClick(gatewayCredentials.accessKeyId)"
-                        >
-                    </div>
-                    <div class="access-grant__modal-container__generated-credentials__label">
-                        <span class="access-grant__modal-container__generated-credentials__label__text">
-                            Secret Key
-                        </span>
-                    </div>
-                    <div
-                        class="access-grant__modal-container__generated-credentials"
-                    >
-                        <span class="access-grant__modal-container__generated-credentials__text">
-                            {{ gatewayCredentials.secretKey }}
-                        </span>
-                        <img
-                            class="clickable-image"
-                            alt="copy icon"
-                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
-                            @click="onCopyClick(gatewayCredentials.secretKey)"
-                        >
-                    </div>
-                    <div class="access-grant__modal-container__generated-credentials__label">
-                        <span class="access-grant__modal-container__generated-credentials__label__text">
-                            Endpoint
-                        </span>
-                    </div>
-                    <div
-                        class="access-grant__modal-container__generated-credentials"
-                    >
-                        <span class="access-grant__modal-container__generated-credentials__text">
-                            {{ gatewayCredentials.endpoint }}
-                        </span>
-                        <img
-                            class="clickable-image"
-                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
-                            target="_blank"
-                            href="https://docs.storj.io/dcs/concepts/satellite/"
-                            @click="onCopyClick(gatewayCredentials.endpoint)"
-                        >
-                    </div>
-                </div>
-                <div v-if="checkedType === 'api'">
-                    <div class="access-grant__modal-container__generated-credentials__label first">
-                        <span class="access-grant__modal-container__generated-credentials__label__text">
-                            Satellite Address
-                        </span>
-                        <a
-                            href="https://docs.storj.io/dcs/concepts/satellite/"
-                            target="_blank"
-                        >
-                            <img
-                                class="tooltip-icon"
-                                alt="tooltip icon"
-                                src="../../../static/images/accessGrants/create-access_information.png"
-                            >
-                        </a>
-                    </div>
-                    <div
-                        class="access-grant__modal-container__generated-credentials"
-                    >
-                        <span class="access-grant__modal-container__generated-credentials__text">
-                            {{ satelliteAddress }}
-                        </span>
-                        <img
-                            class="clickable-image"
-                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
-                            alt="copy icon"
-                            @click="onCopyClick(satelliteAddress)"
-                        >
-                    </div>
-                    <div class="access-grant__modal-container__generated-credentials__label">
-                        <span class="access-grant__modal-container__generated-credentials__label__text">
-                            API Key
-                        </span>
-                        <a
-                            href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key/"
-                            target="_blank"
-                        >
-                            <img
-                                class="tooltip-icon"
-                                alt="tooltip icon"
-                                src="../../../static/images/accessGrants/create-access_information.png"
-                            >
-                        </a>
-                    </div>
-                    <div
-                        class="access-grant__modal-container__generated-credentials"
-                    >
-                        <span class="access-grant__modal-container__generated-credentials__text">
-                            {{ restrictedKey }}
-                        </span>
-                        <img
-                            class="clickable-image"
-                            alt="copy icon"
-                            src="../../../static/images/accessGrants/create-access_copy-icon.png"
-                            @click="onCopyClick(restrictedKey)"
-                        >
-                    </div>
-                </div>
-                <div v-if="checkedType === 's3'" class="access-grant__modal-container__credential-buttons__container-s3">
-                    <a
-                        v-if="checkedType === 's3'"
-                        href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <v-button
-                            label="Learn More"
-                            width="150px"
-                            height="50px"
-                            is-transparent="true"
-                            font-size="16px"
-                            class="access-grant__modal-container__footer-container__learn-more-button"
-                        />
-                    </a>
-                    <v-button
-                        label="Download .txt"
-                        font-size="16px"
-                        width="182px"
-                        height="50px"
-                        class="access-grant__modal-container__credential-buttons__download-button"
-                        :is-green-white="areCredentialsDownloaded"
-                        :on-press="downloadCredentials"
-                    />
-                </div>
-                <div v-if="checkedType !== 's3'" class="access-grant__modal-container__credential-buttons__container">
-                    <v-button
-                        :label="isAccessGrantCopied ? 'Copied' : 'Copy to clipboard'"
-                        width="auto"
-                        height="50px"
-                        :is-transparent="!isAccessGrantCopied"
-                        :is-white-green="isAccessGrantCopied"
-                        class="access-grant__modal-container__footer-container__copy-button"
-                        font-size="16px"
-                        :on-press="onCopyAccessGrantClick"
-                        :is-disabled="restrictedKey.length < 1"
-                    >
-                        <template v-if="!isAccessGrantCopied" #icon>
-                            <copy-icon class="button-icon" :class="{ active: restrictedKey }" />
-                        </template>
-                    </v-button>
-                    <v-button
-                        label="Download .txt"
-                        font-size="16px"
-                        width="182px"
-                        height="50px"
-                        class="access-grant__modal-container__credential-buttons__download-button"
-                        :is-green-white="areCredentialsDownloaded"
-                        :on-press="downloadCredentials"
-                    />
-                </div>
+                <GrantCreatedModal
+                    :checked-type="checkedType"
+                    :restricted-key="restrictedKey"
+                    :access="access"
+                    @close-modal="onCloseClick"
+                />
             </form>
         </div>
     </div>
@@ -648,19 +444,6 @@ export default class CreateAccessModal extends Vue {
         Download.file(this.passphrase, `passphrase-${this.currentDate}.txt`)
     }
 
-    /**
-     * Downloads credentials to .txt file
-     */
-    public downloadCredentials(): void {
-        let credentialMap = {
-            access: [`access grant: ${this.access}`],
-            s3: [`access key: ${this.gatewayCredentials.accessKeyId}\nsecret key: ${this.gatewayCredentials.secretKey}\nendpoint: ${this.gatewayCredentials.endpoint}`],
-            api: [`satellite address: ${this.satelliteAddress}\nrestricted key: ${this.restrictedKey}`]
-        }
-        this.areCredentialsDownloaded = true;
-        Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`)
-    }
-
     public onRadioInput(): void {
         this.isPassphraseCopied = false;
         this.isPassphraseDownloaded = false;
@@ -671,22 +454,10 @@ export default class CreateAccessModal extends Vue {
         }
     }
 
-
-    public onCopyClick(item): void {
-        this.$copyText(item);
-        this.$notify.success(`credential was copied successfully`);
-    }
-
     public onCopyPassphraseClick(): void {
         this.$copyText(this.passphrase);
         this.isPassphraseCopied = true;
         this.$notify.success(`Passphrase was copied successfully`);
-    }
-
-    public onCopyAccessGrantClick(): void {
-        this.$copyText(this.restrictedKey);
-        this.isAccessGrantCopied = true;
-        this.$notify.success(`Access Grant was copied successfully`);
     }
 
     public backAction(): void {
