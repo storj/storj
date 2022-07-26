@@ -160,6 +160,7 @@ func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) (err error) {
 		if err != nil {
 			return err
 		}
+		go collector.Run(context.Background())
 		defer func() {
 			sendErr := collector.Send(context.Background())
 			closeErr := collector.Close()
