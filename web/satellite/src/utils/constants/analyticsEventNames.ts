@@ -32,4 +32,6 @@ export enum AnalyticsEvent {
     BUCKET_DELETED = 'Bucket Deleted',
     ACCESS_GRANT_CREATED = 'Access Grant Created',
     API_ACCESS_CREATED  = 'API Access Created',
+    UPLOAD_FILE_CLICKED = 'Upload File Clicked',
+    UPLOAD_FOLDER_CLICKED = 'Upload Folder Clicked',
 }

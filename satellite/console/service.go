@@ -509,6 +509,10 @@ func (payment Payments) TokenDeposit(ctx context.Context, amount int64) (_ *paym
 
 	tx, err := payment.service.accounts.StorjTokens().Deposit(ctx, user.ID, amount)
 
+	if err == nil {
+		payment.service.analytics.TrackStorjTokenAdded(user.ID, user.Email)
+	}
+
 	return tx, Error.Wrap(err)
 }
 
