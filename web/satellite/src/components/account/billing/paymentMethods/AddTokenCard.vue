@@ -8,7 +8,7 @@
                 <StorjLarge />
             </div>
         </div>
-        <v-loader v-if="!pageLoaded"/>
+        <v-loader v-if="!pageLoaded" class="token-loader"/>
         <div class="token__add-funds" v-else>
             <h3 class="token__add-funds__title">
                 STORJ Token
@@ -111,8 +111,7 @@ export default class AddTokenCard extends Vue {
                 depositWindow.focus();
                 this.pageLoaded = true;
             }
-            // location.reload()
-            this.toggleShowAddFunds();
+            this.$emit("fetchHistory");
         } catch (error) {
             await this.$notify.error(error.message);
             this.$emit('toggleIsLoading');
@@ -172,6 +171,12 @@ export default class AddTokenCard extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .token-loader { 
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 40px 0;
+    }
+
     .token {
         border-radius: 10px;
         width: 227px;

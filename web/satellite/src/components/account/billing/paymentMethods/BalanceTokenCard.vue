@@ -101,7 +101,7 @@ export default class BalanceTokenCard extends Vue {
     private readonly billingItem: PaymentsHistoryItem;
 
     public toggleShowAddFunds(): void {
-        this.$emit("showAddFunds")
+        this.$emit("toggleShowAddFunds")
     }
 
     public toggleTransactionsTable(): void {

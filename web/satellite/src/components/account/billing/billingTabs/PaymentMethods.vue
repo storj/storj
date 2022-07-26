@@ -4,21 +4,22 @@
 <template>
     <div class="payments-area">
         <div class="payments-area__top-container">
-            <h1 class="payments-area__title">Payment Methods{{ showTransactions? ' > Storj Tokens':null }}</h1>
+            <h1 class="payments-area__title"
+            >Payment Methods{{ showTransactions? ' > Storj Tokens':null }}</h1>
             <VButton
                 v-if="showTransactions"
                 label="Add Funds with CoinPayments"
                 font-size="13px"
                 height="40px"
                 width="220px"
-                :on-press="addFundsFromTable"
+                :on-press="showAddFundsCard"
             />
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
             <v-loader
                 v-if="!tokensAreLoaded"
             />
-            <div v-if="transactionCount > 0 && !showAddFunds">
+            <div v-else-if="!showAddFunds">
                 <balance-token-card
                     v-for="item in mostRecentTransaction"
                     :key="item.id"
@@ -26,15 +27,14 @@
                     :billing-item="item"
                     :show-add-funds="showAddFunds"
                     @showTransactions="toggleTransactionsTable"
-                    @showAddFunds="toggleShowAddFunds"
+                    @toggleShowAddFunds="toggleShowAddFunds"
                 />
             </div>
             <div v-else>
                 <add-token-card
                     :total-count="transactionCount"
-                    @showAddFunds="toggleShowAddFunds"
-                    @fetchTokenHistory="fetchTokenHistory"
-                    @addTokenHelper="addTokenHelper"
+                    @toggleShowAddFunds="toggleShowAddFunds"
+                    @fetchHistory="addTokenHelper"
                 />
             </div>
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
@@ -187,7 +187,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -264,13 +264,14 @@ export default class PaymentMethods extends Vue {
      * controls token inputs and transaction table
      */
     public showTransactions = false;
-    public showAddFunds = false;
+    public showAddFunds: boolean = false;
     public mostRecentTransaction: Record<string, unknown>[] = [];
     public paginationLocation: {start: number, end: number} = {start: paginationStartNumber, end: paginationEndNumber};
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
     public transactionCount = 0;
     public tokensAreLoaded = false;
+    public reloadKey: number = 0;
 
     /**
      * controls card inputs
@@ -286,45 +287,50 @@ export default class PaymentMethods extends Vue {
         stripeCardInput: StripeCardInput & StripeForm;
     };
 
-    public async beforeMount() {
+    public beforeMount() {
+        this.fetchHistory();
+    }
+
+    public addTokenHelper(): void {
+        this.fetchHistory();
+        this.toggleShowAddFunds();
+    }
+
+    public async fetchHistory(): Promise<void> {
+        this.tokensAreLoaded = false;
         try {
             await this.$store.dispatch(GET_PAYMENTS_HISTORY);
+            this.fetchHelper(this.depositHistoryItems);
+            this.reloadKey = this.reloadKey + 1;
         } catch (error) {
             await this.$notify.error(error.message);
         }
-        this.fetchTokenHistory()
     }
 
-    public fetchTokenHistory(): void {
-        this.tokensAreLoaded = false;
-        console.log(this.tokensAreLoaded)
-        const tokenArray = (this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
-        }));
-        this.mostRecentTransaction = [tokenArray[0]]
+    public fetchHelper(tokenArray): void {
+        this.mostRecentTransaction = [tokenArray[0]];
         this.tokenHistory = tokenArray;
         this.transactionCount = tokenArray.length;
         this.displayedHistory = tokenArray.slice(0,10);
         this.tokensAreLoaded = true;
-        console.log('hit')
+        if(this.transactionCount > 0){
+            this.showAddFunds = false;
+        } else {
+            this.showAddFunds = true;
+        }
     }
 
     public toggleShowAddFunds(): void {
         this.showAddFunds = !this.showAddFunds;
     }
 
-    public async addTokenHelper(): Promise<void> {
-        await this.fetchTokenHistory()
-        await this.toggleShowAddFunds()
-    }
-
-
-    public addFundsFromTable(): void {
+    public showAddFundsCard(): void {
         this.showTransactions = false;
         this.showAddFunds = true;
     }
 
     public toggleTransactionsTable(): void {
+        this.showAddFunds = true;
         this.showTransactions = !this.showTransactions;
     }
 
@@ -512,13 +518,17 @@ export default class PaymentMethods extends Vue {
             return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         });
     }
-
 }
 </script>
 
 <style scoped lang="scss">
 $flex: flex;
 $align: center;
+
+::v-deep .loader { 
+    width: auto;
+    padding: 63px 114px;
+}
 
 .divider {
     height: 1px;
