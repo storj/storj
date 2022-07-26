@@ -40,6 +40,12 @@ import (
 	"storj.io/uplink/private/testuplink"
 )
 
+func assertRPCStatusCode(t *testing.T, actualError error, expectedStatusCode rpcstatus.StatusCode) {
+	statusCode := rpcstatus.Code(actualError)
+	require.NotEqual(t, rpcstatus.Unknown, statusCode, "expected rpcstatus error, got \"%v\"", actualError)
+	require.Equal(t, expectedStatusCode, statusCode, "wrong %T, got %v", statusCode, actualError)
+}
+
 func TestObject_NoStorageNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
@@ -1240,7 +1246,7 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 
 func TestEndpoint_CopyObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 4,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		satelliteSys := planet.Satellites[0]
@@ -1331,6 +1337,124 @@ func TestEndpoint_CopyObject(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, originalSegment.EncryptedInlineData, copiedSegment.EncryptedInlineData)
+
+		{ // test copy respects project storage size limit
+			// set storage limit
+			err = planet.Satellites[0].DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[1].Projects[0].ID, 1000)
+			require.NoError(t, err)
+
+			// test object below the limit when copied
+			err = planet.Uplinks[1].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(100))
+			require.NoError(t, err)
+			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			_, err = satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: planet.Uplinks[1].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+				},
+				Bucket:                []byte("testbucket"),
+				EncryptedObjectKey:    []byte(objects[0].ObjectKey),
+				NewBucket:             []byte("testbucket"),
+				NewEncryptedObjectKey: []byte("newencryptedobjectkey"),
+			})
+			require.NoError(t, err)
+			err = satelliteSys.API.Metainfo.Metabase.TestingDeleteAll(ctx)
+			require.NoError(t, err)
+
+			// set storage limit
+			err = planet.Satellites[0].DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[2].Projects[0].ID, 1000)
+			require.NoError(t, err)
+
+			// test object exceeding the limit when copied
+			err = planet.Uplinks[2].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(400))
+			require.NoError(t, err)
+			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			err = planet.Uplinks[2].CopyObject(ctx, planet.Satellites[0], "testbucket", "testobject", "testbucket", "testobject1")
+			require.NoError(t, err)
+
+			_, err = satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: planet.Uplinks[2].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+				},
+				Bucket:                []byte("testbucket"),
+				EncryptedObjectKey:    []byte(objects[0].ObjectKey),
+				NewBucket:             []byte("testbucket"),
+				NewEncryptedObjectKey: []byte("newencryptedobjectkey"),
+			})
+			assertRPCStatusCode(t, err, rpcstatus.ResourceExhausted)
+			assert.EqualError(t, err, "Exceeded Storage Limit")
+
+			// metabaseObjects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			// require.NoError(t, err)
+			// metabaseObj := metabaseObjects[0]
+
+			// randomEncKey := testrand.Key()
+
+			// somehow triggers error "proto: can't skip unknown wire type 7" in endpoint.unmarshalSatStreamID
+
+			// _, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+			//	Header: &pb.RequestHeader{
+			//		ApiKey: planet.Uplinks[2].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+			//	},
+			//	StreamId:                     metabaseObj.ObjectStream.StreamID.Bytes(),
+			//	NewBucket:                    []byte("testbucket"),
+			//	NewEncryptedObjectKey:        []byte("newencryptedobjectkey"),
+			//	NewEncryptedMetadata:         testrand.Bytes(10),
+			//	NewEncryptedMetadataKey:      randomEncKey.Raw()[:],
+			//	NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+			//	NewSegmentKeys: []*pb.EncryptedKeyAndNonce{
+			//		{
+			//			Position: &pb.SegmentPosition{
+			//				PartNumber: 0,
+			//				Index:      0,
+			//			},
+			//			EncryptedKeyNonce: testrand.Nonce(),
+			//			EncryptedKey:      randomEncKey.Raw()[:],
+			//		},
+			//	},
+			// })
+			// assertRPCStatusCode(t, err, rpcstatus.ResourceExhausted)
+			// assert.EqualError(t, err, "Exceeded Storage Limit")
+
+			// test that a smaller object can still be uploaded and copied
+			err = planet.Uplinks[2].Upload(ctx, planet.Satellites[0], "testbucket", "testobject2", testrand.Bytes(10))
+			require.NoError(t, err)
+
+			err = planet.Uplinks[2].CopyObject(ctx, planet.Satellites[0], "testbucket", "testobject2", "testbucket", "testobject2copy")
+			require.NoError(t, err)
+
+			err = satelliteSys.API.Metainfo.Metabase.TestingDeleteAll(ctx)
+			require.NoError(t, err)
+		}
+
+		{ // test copy respects project segment limit
+			// set segment limit
+			err = planet.Satellites[0].DB.ProjectAccounting().UpdateProjectSegmentLimit(ctx, planet.Uplinks[3].Projects[0].ID, 2)
+			require.NoError(t, err)
+
+			err = planet.Uplinks[3].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(100))
+			require.NoError(t, err)
+			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			err = planet.Uplinks[3].CopyObject(ctx, planet.Satellites[0], "testbucket", "testobject", "testbucket", "testobject1")
+			require.NoError(t, err)
+
+			_, err = satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: planet.Uplinks[3].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+				},
+				Bucket:                []byte("testbucket"),
+				EncryptedObjectKey:    []byte(objects[0].ObjectKey),
+				NewBucket:             []byte("testbucket"),
+				NewEncryptedObjectKey: []byte("newencryptedobjectkey1"),
+			})
+			assertRPCStatusCode(t, err, rpcstatus.ResourceExhausted)
+			assert.EqualError(t, err, "Exceeded Segments Limit")
+		}
 	})
 }
 

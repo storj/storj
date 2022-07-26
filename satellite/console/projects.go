@@ -26,6 +26,8 @@ type Projects interface {
 	GetOwn(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
+	// GetByPublicID is a method for querying project from the database by public_id.
+	GetByPublicID(ctx context.Context, publicID uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.
 	Insert(ctx context.Context, project *Project) (*Project, error)
 	// Delete is a method for deleting project by Id from the database.
@@ -83,7 +85,8 @@ type ProjectLimitConfig struct {
 
 // Project is a database object that describes Project entity.
 type Project struct {
-	ID uuid.UUID `json:"id"`
+	ID       uuid.UUID `json:"id"`
+	PublicID uuid.UUID `json:"publicId"`
 
 	Name           string       `json:"name"`
 	Description    string       `json:"description"`

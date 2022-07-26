@@ -336,6 +336,20 @@ func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bu
 	return err
 }
 
+// CopyObject copies an object.
+func (client *Uplink) CopyObject(ctx context.Context, satellite *Satellite, oldBucket, oldKey, newBucket, newKey string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	project, err := client.GetProject(ctx, satellite)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	_, err = project.CopyObject(ctx, oldBucket, oldKey, newBucket, newKey, nil)
+	return err
+}
+
 // CreateBucket creates a new bucket.
 func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)

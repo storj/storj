@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -34,7 +34,6 @@
                 </div>      
             </div>
             <div class="account-billing-area__divider" />
-            <router-view />
         </div>
         <div v-if="!isNewBillingScreen">
             <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
@@ -84,6 +83,7 @@
             <SmallDepositHistory />
             <CouponArea />
         </div>
+        <router-view />
     </div>
 </template>
 

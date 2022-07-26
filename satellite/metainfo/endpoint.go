@@ -265,6 +265,11 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 
 // convertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
 func (endpoint *Endpoint) convertMetabaseErr(err error) error {
+	if rpcstatus.Code(err) != rpcstatus.Unknown {
+		// it's already RPC error
+		return err
+	}
+
 	switch {
 	case storj.ErrObjectNotFound.Has(err):
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())

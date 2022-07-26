@@ -22,6 +22,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/metabase"
@@ -332,9 +333,15 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 }
 
 func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.UUID) error {
+	return endpoint.checkUploadLimitsForNewObject(ctx, projectID, 1, 1)
+}
+
+func (endpoint *Endpoint) checkUploadLimitsForNewObject(
+	ctx context.Context, projectID uuid.UUID, newObjectSize int64, newObjectSegmentCount int64,
+) error {
 	validateSegments := endpoint.config.ProjectLimits.ValidateSegmentLimit
 
-	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, projectID, validateSegments); err != nil {
+	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, projectID, newObjectSize, newObjectSegmentCount, validateSegments); err != nil {
 		if errs2.IsCanceled(err) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
@@ -365,8 +372,12 @@ func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.
 	return nil
 }
 
-func (endpoint *Endpoint) updateUploadLimits(ctx context.Context, projectID uuid.UUID, segmentSize int64) error {
-	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, projectID, segmentSize); err != nil {
+func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, projectID uuid.UUID, segmentSize int64) error {
+	return endpoint.addToUploadLimits(ctx, projectID, segmentSize, 1)
+}
+
+func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.UUID, size int64, segmentCount int64) error {
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, projectID, size); err != nil {
 		// log it and continue. it's most likely our own fault that we couldn't
 		// track it, and the only thing that will be affected is our per-project
 		// bandwidth and storage limits.
@@ -377,8 +388,7 @@ func (endpoint *Endpoint) updateUploadLimits(ctx context.Context, projectID uuid
 	}
 
 	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
-		// Update the current segment cache value incrementing by 1 as we commit single segment.
-		err := endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, projectID, 1)
+		err := endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, projectID, segmentCount)
 		if err != nil {
 			if errs2.IsCanceled(err) {
 				return rpcstatus.Wrap(rpcstatus.Canceled, err)
@@ -388,11 +398,37 @@ func (endpoint *Endpoint) updateUploadLimits(ctx context.Context, projectID uuid
 			// track it, and the only thing that will be affected is our per-project
 			// segment limits.
 			endpoint.log.Error(
-				"Could not track the new project's segment usage when committing segment",
+				"Could not track the new project's segment usage when committing",
 				zap.Stringer("Project ID", projectID),
 				zap.Error(err),
 			)
 		}
+	}
+
+	return nil
+}
+
+func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, storage int64, segments int64) (err error) {
+	err = endpoint.projectUsage.AddProjectUsageUpToLimit(ctx, projectID, storage, segments)
+
+	if err != nil {
+		if accounting.ErrProjectLimitExceeded.Has(err) {
+			endpoint.log.Warn("Upload limit exceeded",
+				zap.Stringer("Project ID", projectID),
+				zap.Error(err),
+			)
+			return rpcstatus.Error(rpcstatus.ResourceExhausted, err.Error())
+		}
+
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+
+		endpoint.log.Error(
+			"Updating project upload limits failed; limits won't be enforced",
+			zap.Stringer("Project ID", projectID),
+			zap.Error(err),
+		)
 	}
 
 	return nil
