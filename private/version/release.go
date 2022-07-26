@@ -6,13 +6,13 @@ package version
 import _ "unsafe" // needed for go:linkname
 
 //go:linkname buildTimestamp storj.io/private/version.buildTimestamp
-var buildTimestamp string = "1658749982"
+var buildTimestamp string = "1658875240"
 
 //go:linkname buildCommitHash storj.io/private/version.buildCommitHash
-var buildCommitHash string = "b5561b1c3448a8d7134e9fa6973230eb0a6acb1d"
+var buildCommitHash string = "4bf2d1bc38381e617978badbda7238f37e828c42"
 
 //go:linkname buildVersion storj.io/private/version.buildVersion
-var buildVersion string = "v1.60.1"
+var buildVersion string = "v1.60.2"
 
 //go:linkname buildRelease storj.io/private/version.buildRelease
 var buildRelease string = "true"
