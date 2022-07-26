@@ -9,7 +9,7 @@
             <div class="access-grant__modal-container__header-container__close-cross-container" @click="onCloseClick">
                 <CloseCrossIcon />
             </div>
-            <h2 class="access-grant__modal-container__header-container__title-complete">{{ accessName }} <br> Created</h2>
+            <h2 class="access-grant__modal-container__header-container__title-complete">{{ accessName }}&nbsp;Created</h2>
         </div>
         <div class="access-grant__modal-container__body-container__created">
             <p>Now copy and save the {{ checkedText[checkedType][0] }} will only appear once. Click on the {{ checkedText[checkedType][1] }}</p>
@@ -251,11 +251,12 @@ export default class GrantCreatedModal extends Vue {
     @Prop({default: 'Default'})
     private readonly restrictedKey: string;
     @Prop({default: 'Default'})
+    private readonly accessName: string;
+    @Prop({default: 'Default'})
     private readonly access: string;
 
 
     public areKeysVisible = false;
-    private accessName = '';
     private areCredentialsDownloaded = false;
     private isAccessGrantCopied = false;
 
@@ -308,6 +309,9 @@ export default class GrantCreatedModal extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .button-icon {
+        margin-right: 5px;
+    }
 
     .clickable-image {
         cursor: pointer;
@@ -328,7 +332,6 @@ export default class GrantCreatedModal extends Vue {
         border: 1px solid #c8d3de;
         border-radius: 7px;
     }
-
 
     .access-grant {
         position: fixed;
@@ -625,7 +628,7 @@ export default class GrantCreatedModal extends Vue {
             }
         }
     }
-    
+
     @media screen and (max-width: 500px) {
 
         .access-grant__modal-container {

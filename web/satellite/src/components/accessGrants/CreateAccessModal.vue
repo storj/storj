@@ -173,6 +173,7 @@
                     :checked-type="checkedType"
                     :restricted-key="restrictedKey"
                     :access="access"
+                    :access-name="accessName"
                     @close-modal="onCloseClick"
                 />
             </form>
@@ -186,20 +187,14 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import AccessKeyIcon from '@/../static/images/accessGrants/accessKeyIcon.svg';
 import ThumbPrintIcon from '@/../static/images/accessGrants/thumbPrintIcon.svg';
-import PermissionsIcon from '@/../static/images/accessGrants/create-access_permissions.svg';
-import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
-import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
 import CopyIcon from '../../../static/images/common/copy.svg';
 import DownloadIcon from '../../../static/images/common/download.svg';
-import CLIIcon from '@/../static/images/accessGrants/cli.svg';
-import S3Icon from '@/../static/images/accessGrants/s3.svg';
 import CreateFormModal from '@/components/accessGrants/modals/CreateFormModal.vue';
 import EncryptFormModal from '@/components/accessGrants/modals/EncryptFormModal.vue';
 import GrantCreatedModal from '@/components/accessGrants/modals/GrantCreatedModal.vue';
 
 // for future use when notes is implemented
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
-import Chevron from '@/../static/images/accessGrants/chevron.svg';
 import { Download } from "@/utils/download";
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -216,14 +211,9 @@ import { EdgeCredentials } from '@/types/accessGrants';
 @Component({
     components: {
         VButton,
-        AccessGrantsIcon,
-        CLIIcon,
-        S3Icon,
         AccessKeyIcon,
         ThumbPrintIcon,
         CloseCrossIcon,
-        PermissionsIcon,
-        DateIcon,
         CopyIcon,
         DownloadIcon,
         CreateFormModal,
@@ -231,7 +221,6 @@ import { EdgeCredentials } from '@/types/accessGrants';
         GrantCreatedModal,
         // for future use when notes is implemented
         // NotesIcon,
-        Chevron,
     },
 })
 export default class CreateAccessModal extends Vue {
@@ -332,7 +321,7 @@ export default class CreateAccessModal extends Vue {
         this.acknowledgementCheck = false;
         this.encryptSelect = 'create';
     }
-     /**
+    /**
      * Grabs data from child for createAccessGrant
      */
     public async createAccessGrantHelper(data, type): Promise<void> {

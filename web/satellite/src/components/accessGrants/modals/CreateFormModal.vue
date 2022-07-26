@@ -68,7 +68,6 @@
                     >
                         <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener">Learn More</a></span>
                     </div>
-
                 </div>
                 <div class="access-grant__modal-container__body-container__type__type-container">
                     <input
@@ -243,14 +242,13 @@ export default class CreateFormModal extends Vue {
     private checkedType: string;
 
     public showAllPermissions = {show: false, position: "up"};
-    private readonly toggleToolTip: any[];
     private accessName = '';
     private selectedPermissions : string[] = [];
     private allPermissionsClicked = false;
     private permissionsList = ["Read","Write","List","Delete"];
     private checkedPermissions = {Read: false, Write: false, List: false, Delete: false};
     private accessGrantList = this.accessGrantsList;
-    private addDateSelected: boolean = false;
+    private addDateSelected = false;
 
 
     public tooltipHover = '';
@@ -359,7 +357,6 @@ export default class CreateFormModal extends Vue {
 </script>
 
 <style scoped lang="scss">
-
     @mixin chevron {
         padding-left: 4px;
         transition: transform 0.3s;
@@ -404,6 +401,7 @@ export default class CreateFormModal extends Vue {
 
     .permissions-chevron-up {
         @include chevron;
+
         transform: rotate(-90deg);
     }
 
@@ -498,7 +496,6 @@ export default class CreateFormModal extends Vue {
                     grid-column: 1;
                     grid-row: 1;
                 }
-
 
                 &__type {
                     grid-column: 2;
@@ -687,7 +684,6 @@ export default class CreateFormModal extends Vue {
             @include tooltip-arrow;
         }
     }
-
 
     @media screen and (max-width: 500px) {
 
