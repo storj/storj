@@ -416,7 +416,9 @@ export default class PaymentMethods extends Vue {
     }
 
     .extended {
-        height: 300px;
+        height: 200px; // TODO: should be based on whether storj payment is allowed or not
+        // see https://github.com/storj/storj-private/issues/43
+        // height: 300px;
     }
 
     .reduced {
