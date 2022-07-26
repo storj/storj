@@ -4,8 +4,9 @@
 <template>
     <div class="payments-area">
         <div class="payments-area__top-container">
-            <h1 class="payments-area__title"
-            >Payment Methods{{ showTransactions? ' > Storj Tokens':null }}</h1>
+            <h1 class="payments-area__title">
+                Payment Methods{{ showTransactions? ' > Storj Tokens':null }}
+            </h1>
             <VButton
                 v-if="showTransactions"
                 label="Add Funds with CoinPayments"
@@ -187,7 +188,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue, Prop } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -264,14 +265,14 @@ export default class PaymentMethods extends Vue {
      * controls token inputs and transaction table
      */
     public showTransactions = false;
-    public showAddFunds: boolean = false;
+    public showAddFunds = false;
     public mostRecentTransaction: Record<string, unknown>[] = [];
     public paginationLocation: {start: number, end: number} = {start: paginationStartNumber, end: paginationEndNumber};
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
     public transactionCount = 0;
     public tokensAreLoaded = false;
-    public reloadKey: number = 0;
+    public reloadKey = 0;
 
     /**
      * controls card inputs
@@ -525,7 +526,7 @@ export default class PaymentMethods extends Vue {
 $flex: flex;
 $align: center;
 
-::v-deep .loader { 
+::v-deep .loader {
     width: auto;
     padding: 63px 114px;
 }

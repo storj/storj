@@ -8,8 +8,8 @@
                 <StorjLarge />
             </div>
         </div>
-        <v-loader v-if="!pageLoaded" class="token-loader"/>
-        <div class="token__add-funds" v-else>
+        <v-loader v-if="!pageLoaded" class="token-loader" />
+        <div v-else class="token__add-funds">
             <h3 class="token__add-funds__title">
                 STORJ Token
             </h3>
@@ -77,7 +77,7 @@ export default class AddTokenCard extends Vue {
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
-    private pageLoaded: boolean = true;
+    private pageLoaded = true;
 
     public toggleShowAddFunds(): void {
         this.$emit("toggleShowAddFunds");
@@ -171,7 +171,7 @@ export default class AddTokenCard extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .token-loader { 
+    .token-loader {
         width: 100% !important;
         padding: 0 !important;
         margin: 40px 0;
