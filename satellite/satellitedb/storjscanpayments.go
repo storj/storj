@@ -159,7 +159,7 @@ func fromDBXPayment(dbxPmnt *dbx.StorjscanPayment) storjscan.CachedPayment {
 		Status:      payments.PaymentStatus(dbxPmnt.Status),
 		BlockNumber: dbxPmnt.BlockNumber,
 		LogIndex:    dbxPmnt.LogIndex,
-		Timestamp:   dbxPmnt.Timestamp,
+		Timestamp:   dbxPmnt.Timestamp.UTC(),
 	}
 	copy(payment.From[:], dbxPmnt.FromAddress)
 	copy(payment.To[:], dbxPmnt.ToAddress)

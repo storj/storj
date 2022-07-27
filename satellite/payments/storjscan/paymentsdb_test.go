@@ -308,6 +308,6 @@ func (block blockHeader) NewPayment(log paymentLog, usdValue monetary.Amount, st
 		BlockNumber: block.Number,
 		Transaction: log.Transaction,
 		LogIndex:    log.Index,
-		Timestamp:   block.Timestamp,
+		Timestamp:   block.Timestamp.UTC(),
 	}
 }
