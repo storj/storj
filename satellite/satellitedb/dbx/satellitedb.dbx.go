@@ -329,6 +329,7 @@ func (obj *pgxDB) Schema() string {
 	get_repair_total bigint NOT NULL,
 	put_repair_total bigint NOT NULL,
 	at_rest_total double precision NOT NULL,
+	interval_end_time timestamp with time zone,
 	PRIMARY KEY ( node_id, start_time )
 );
 CREATE TABLE accounting_timestamps (
@@ -997,6 +998,7 @@ func (obj *pgxcockroachDB) Schema() string {
 	get_repair_total bigint NOT NULL,
 	put_repair_total bigint NOT NULL,
 	at_rest_total double precision NOT NULL,
+	interval_end_time timestamp with time zone,
 	PRIMARY KEY ( node_id, start_time )
 );
 CREATE TABLE accounting_timestamps (
@@ -1621,19 +1623,25 @@ nextval:
 }
 
 type AccountingRollup struct {
-	NodeId         []byte
-	StartTime      time.Time
-	PutTotal       int64
-	GetTotal       int64
-	GetAuditTotal  int64
-	GetRepairTotal int64
-	PutRepairTotal int64
-	AtRestTotal    float64
+	NodeId          []byte
+	StartTime       time.Time
+	PutTotal        int64
+	GetTotal        int64
+	GetAuditTotal   int64
+	GetRepairTotal  int64
+	PutRepairTotal  int64
+	AtRestTotal     float64
+	IntervalEndTime *time.Time
 }
 
 func (AccountingRollup) _Table() string { return "accounting_rollups" }
 
+type AccountingRollup_Create_Fields struct {
+	IntervalEndTime AccountingRollup_IntervalEndTime_Field
+}
+
 type AccountingRollup_Update_Fields struct {
+	IntervalEndTime AccountingRollup_IntervalEndTime_Field
 }
 
 type AccountingRollup_NodeId_Field struct {
@@ -1787,6 +1795,40 @@ func (f AccountingRollup_AtRestTotal_Field) value() interface{} {
 }
 
 func (AccountingRollup_AtRestTotal_Field) _Column() string { return "at_rest_total" }
+
+type AccountingRollup_IntervalEndTime_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func AccountingRollup_IntervalEndTime(v time.Time) AccountingRollup_IntervalEndTime_Field {
+	return AccountingRollup_IntervalEndTime_Field{_set: true, _value: &v}
+}
+
+func AccountingRollup_IntervalEndTime_Raw(v *time.Time) AccountingRollup_IntervalEndTime_Field {
+	if v == nil {
+		return AccountingRollup_IntervalEndTime_Null()
+	}
+	return AccountingRollup_IntervalEndTime(*v)
+}
+
+func AccountingRollup_IntervalEndTime_Null() AccountingRollup_IntervalEndTime_Field {
+	return AccountingRollup_IntervalEndTime_Field{_set: true, _null: true}
+}
+
+func (f AccountingRollup_IntervalEndTime_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f AccountingRollup_IntervalEndTime_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountingRollup_IntervalEndTime_Field) _Column() string { return "interval_end_time" }
 
 type AccountingTimestamps struct {
 	Name  string

@@ -9,6 +9,7 @@ CREATE TABLE accounting_rollups (
 	get_repair_total bigint NOT NULL,
 	put_repair_total bigint NOT NULL,
 	at_rest_total double precision NOT NULL,
+	interval_end_time timestamp with time zone,
 	PRIMARY KEY ( node_id, start_time )
 );
 CREATE TABLE accounting_timestamps (

@@ -269,6 +269,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 		getRepairTotal := make([]int64, n)
 		putRepairTotal := make([]int64, n)
 		atRestTotal := make([]float64, n)
+		intervalEndTime := make([]time.Time, n)
 
 		for i, ar := range batch {
 			nodeID[i] = ar.NodeID
@@ -279,6 +280,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 			getRepairTotal[i] = ar.GetRepairTotal
 			putRepairTotal[i] = ar.PutRepairTotal
 			atRestTotal[i] = ar.AtRestTotal
+			intervalEndTime[i] = ar.IntervalEndTime
 		}
 
 		_, err = db.ExecContext(ctx, `
@@ -286,13 +288,15 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				node_id, start_time,
 				put_total, get_total,
 				get_audit_total, get_repair_total, put_repair_total,
-				at_rest_total
+				at_rest_total,
+				interval_end_time
 			)
 			SELECT * FROM unnest(
 				$1::bytea[], $2::timestamptz[],
 				$3::int8[], $4::int8[],
 				$5::int8[], $6::int8[], $7::int8[],
-				$8::float8[]
+				$8::float8[],
+				$9::timestamptz[]
 			)
 			ON CONFLICT ( node_id, start_time )
 			DO UPDATE SET
@@ -301,11 +305,13 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				get_audit_total = EXCLUDED.get_audit_total,
 				get_repair_total = EXCLUDED.get_repair_total,
 				put_repair_total = EXCLUDED.put_repair_total,
-				at_rest_total = EXCLUDED.at_rest_total
+				at_rest_total = EXCLUDED.at_rest_total,
+				interval_end_time = EXCLUDED.interval_end_time
 		`, pgutil.NodeIDArray(nodeID), pgutil.TimestampTZArray(startTime),
 			pgutil.Int8Array(putTotal), pgutil.Int8Array(getTotal),
 			pgutil.Int8Array(getAuditTotal), pgutil.Int8Array(getRepairTotal), pgutil.Int8Array(putRepairTotal),
-			pgutil.Float8Array(atRestTotal))
+			pgutil.Float8Array(atRestTotal),
+			pgutil.TimestampTZArray(intervalEndTime))
 
 		return Error.Wrap(err)
 	}
