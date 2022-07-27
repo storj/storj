@@ -476,13 +476,14 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	start, end = start.UTC(), end.UTC()
 
 	query := `
-		SELECT SUM(at_rest_total), (start_time at time zone 'UTC')::date as start_time
+		SELECT SUM(at_rest_total), (start_time at time zone 'UTC')::date as start_time, MAX(interval_end_time) AS interval_end_time
 		FROM accounting_rollups
 		WHERE node_id = $1
 		AND $2 <= start_time AND start_time <= $3
 		GROUP BY (start_time at time zone 'UTC')::date
 		UNION
-		SELECT SUM(data_total) AS at_rest_total, (interval_end_time at time zone 'UTC')::date AS start_time
+		SELECT SUM(data_total) AS at_rest_total, (interval_end_time at time zone 'UTC')::date AS start_time,
+				MAX(interval_end_time) AS interval_end_time
 				FROM storagenode_storage_tallies
 				WHERE node_id = $1
 				AND NOT EXISTS (
@@ -507,17 +508,18 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	var nodeStorageUsages []accounting.StorageNodeUsage
 	for rows.Next() {
 		var atRestTotal float64
-		var startTime dbutil.NullTime
+		var startTime, intervalEndTime dbutil.NullTime
 
-		err = rows.Scan(&atRestTotal, &startTime)
+		err = rows.Scan(&atRestTotal, &startTime, &intervalEndTime)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
 		nodeStorageUsages = append(nodeStorageUsages, accounting.StorageNodeUsage{
-			NodeID:      nodeID,
-			StorageUsed: atRestTotal,
-			Timestamp:   startTime.Time,
+			NodeID:          nodeID,
+			StorageUsed:     atRestTotal,
+			Timestamp:       startTime.Time,
+			IntervalEndTime: intervalEndTime.Time,
 		})
 	}
 
