@@ -46,7 +46,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 				UNNEST($5::BYTEA[]),
 				UNNEST($6::BYTEA[]),
 				UNNEST($7::INT8[]),
-				$8,
+				UNNEST($8::INT8[]),
 				UNNEST($9::TEXT[]),
 				UNNEST($10::TIMESTAMPTZ[]),
 				$11
@@ -59,6 +59,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 		fromAddresses = make([][]byte, 0, len(payments))
 		toAddresses   = make([][]byte, 0, len(payments))
 		tokenValues   = make([]int64, 0, len(payments))
+		usdValues     = make([]int64, 0, len(payments))
 		statuses      = make([]string, 0, len(payments))
 		timestamps    = make([]time.Time, 0, len(payments))
 
@@ -73,6 +74,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 		fromAddresses = append(fromAddresses, payment.From[:])
 		toAddresses = append(toAddresses, payment.To[:])
 		tokenValues = append(tokenValues, payment.TokenValue.BaseUnits())
+		usdValues = append(usdValues, payment.USDValue.BaseUnits())
 		statuses = append(statuses, string(payment.Status))
 		timestamps = append(timestamps, payment.Timestamp)
 	}
@@ -85,7 +87,7 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 		pgutil.ByteaArray(fromAddresses),
 		pgutil.ByteaArray(toAddresses),
 		pgutil.Int8Array(tokenValues),
-		0,
+		pgutil.Int8Array(usdValues),
 		pgutil.TextArray(statuses),
 		pgutil.TimestampTZArray(timestamps),
 		createdAt)
@@ -153,6 +155,7 @@ func (storjscanPayments storjscanPayments) DeletePending(ctx context.Context) er
 func fromDBXPayment(dbxPmnt *dbx.StorjscanPayment) storjscan.CachedPayment {
 	payment := storjscan.CachedPayment{
 		TokenValue:  monetary.AmountFromBaseUnits(dbxPmnt.TokenValue, monetary.StorjToken),
+		USDValue:    monetary.AmountFromBaseUnits(dbxPmnt.UsdValue, monetary.USDollars),
 		Status:      payments.PaymentStatus(dbxPmnt.Status),
 		BlockNumber: dbxPmnt.BlockNumber,
 		LogIndex:    dbxPmnt.LogIndex,

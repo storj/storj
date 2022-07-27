@@ -180,7 +180,6 @@ func TestProjectSegmentLimit(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
 				config.Metainfo.MaxSegmentSize = 20 * memory.KiB
 			},
 		},
@@ -206,13 +205,7 @@ func TestProjectSegmentLimit(t *testing.T) {
 
 func TestProjectSegmentLimitInline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		SatelliteCount: 1, UplinkCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		data := testrand.Bytes(1 * memory.KiB)
 
 		// set limit manually to 10 segments
@@ -269,13 +262,7 @@ func TestProjectBandwidthLimitWithoutCache(t *testing.T) {
 
 func TestProjectSegmentLimitMultipartUpload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		SatelliteCount: 1, UplinkCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		data := testrand.Bytes(1 * memory.KiB)
 
 		// set limit manually to 10 segments
@@ -515,7 +502,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit.Int64())
 		require.NoError(t, err)
 
-		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1, false)
+		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1)
 		require.NoError(t, err)
 		require.True(t, limit.ExceedsStorage)
 		require.Equal(t, expectedLimit.Int64(), limit.StorageLimit.Int64())
