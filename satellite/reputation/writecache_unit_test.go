@@ -23,22 +23,28 @@ func TestNextTimeForSync(t *testing.T) {
 	var quarterwayID storj.NodeID
 	binary.BigEndian.PutUint64(quarterwayID[:8], 1<<62)
 
+	const (
+		zeroOffset       = 0
+		halfwayOffset    = 1 << 63
+		quarterwayOffset = 1 << 62
+	)
+
 	startOfHour := time.Now().Truncate(time.Hour)
 	now := startOfHour.Add(15 * time.Minute)
 
-	nextTime := nextTimeForSync(zeroesID, halfwayID, now, time.Hour)
+	nextTime := nextTimeForSync(zeroOffset, halfwayID, now, time.Hour)
 	requireInDeltaTime(t, startOfHour.Add(30*time.Minute), nextTime, time.Second)
 
-	nextTime = nextTimeForSync(halfwayID, zeroesID, now, time.Hour)
+	nextTime = nextTimeForSync(halfwayOffset, zeroesID, now, time.Hour)
 	requireInDeltaTime(t, startOfHour.Add(30*time.Minute), nextTime, time.Second)
 
-	nextTime = nextTimeForSync(zeroesID, zeroesID, now, time.Hour)
+	nextTime = nextTimeForSync(zeroOffset, zeroesID, now, time.Hour)
 	requireInDeltaTime(t, startOfHour.Add(time.Hour), nextTime, time.Second)
 
-	nextTime = nextTimeForSync(halfwayID, halfwayID, now, time.Hour)
+	nextTime = nextTimeForSync(halfwayOffset, halfwayID, now, time.Hour)
 	requireInDeltaTime(t, startOfHour.Add(time.Hour), nextTime, time.Second)
 
-	nextTime = nextTimeForSync(quarterwayID, halfwayID, now, time.Hour)
+	nextTime = nextTimeForSync(quarterwayOffset, halfwayID, now, time.Hour)
 	requireInDeltaTime(t, startOfHour.Add(45*time.Minute), nextTime, time.Second)
 }
 
