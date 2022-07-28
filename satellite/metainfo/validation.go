@@ -339,9 +339,7 @@ func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.
 func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	ctx context.Context, projectID uuid.UUID, newObjectSize int64, newObjectSegmentCount int64,
 ) error {
-	validateSegments := endpoint.config.ProjectLimits.ValidateSegmentLimit
-
-	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, projectID, newObjectSize, newObjectSegmentCount, validateSegments); err != nil {
+	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, projectID, newObjectSize, newObjectSegmentCount); err != nil {
 		if errs2.IsCanceled(err) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
@@ -352,7 +350,7 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 			zap.Error(err),
 		)
 	} else {
-		if validateSegments && limit.ExceedsSegments {
+		if limit.ExceedsSegments {
 			endpoint.log.Warn("Segment limit exceeded",
 				zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
 				zap.Stringer("Project ID", projectID),
@@ -387,22 +385,20 @@ func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.
 		)
 	}
 
-	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
-		err := endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, projectID, segmentCount)
-		if err != nil {
-			if errs2.IsCanceled(err) {
-				return rpcstatus.Wrap(rpcstatus.Canceled, err)
-			}
-
-			// log it and continue. it's most likely our own fault that we couldn't
-			// track it, and the only thing that will be affected is our per-project
-			// segment limits.
-			endpoint.log.Error(
-				"Could not track the new project's segment usage when committing",
-				zap.Stringer("Project ID", projectID),
-				zap.Error(err),
-			)
+	err := endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, projectID, segmentCount)
+	if err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
+
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// segment limits.
+		endpoint.log.Error(
+			"Could not track the new project's segment usage when committing",
+			zap.Stringer("Project ID", projectID),
+			zap.Error(err),
+		)
 	}
 
 	return nil

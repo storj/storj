@@ -36,15 +36,16 @@ type StoragenodeBandwidthRollup struct {
 
 // Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx.
 type Rollup struct {
-	ID             int64
-	NodeID         storj.NodeID
-	StartTime      time.Time
-	PutTotal       int64
-	GetTotal       int64
-	GetAuditTotal  int64
-	GetRepairTotal int64
-	PutRepairTotal int64
-	AtRestTotal    float64
+	ID              int64
+	NodeID          storj.NodeID
+	StartTime       time.Time
+	PutTotal        int64
+	GetTotal        int64
+	GetAuditTotal   int64
+	GetRepairTotal  int64
+	PutRepairTotal  int64
+	AtRestTotal     float64
+	IntervalEndTime time.Time
 }
 
 // StorageNodePeriodUsage represents a statement for a node for a compensation period.
@@ -63,7 +64,8 @@ type StorageNodeUsage struct {
 	NodeID      storj.NodeID
 	StorageUsed float64
 
-	Timestamp time.Time
+	Timestamp       time.Time
+	IntervalEndTime time.Time
 }
 
 // ProjectUsage consist of period total storage, egress
