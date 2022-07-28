@@ -249,11 +249,8 @@ export default class CreateFormModal extends Vue {
     private checkedPermissions = {Read: false, Write: false, List: false, Delete: false};
     private accessGrantList = this.accessGrantsList;
     private addDateSelected = false;
-
-
     public tooltipHover = '';
     public tooltipVisibilityTimer;
-
 
     public mounted(): void {
         this.showAllPermissions = {show: false, position: "up"};
@@ -458,11 +455,6 @@ export default class CreateFormModal extends Vue {
 
                 &__title {
                     grid-column: 1;
-                }
-
-                &__title-complete {
-                    grid-column: 1;
-                    margin-top: 10px;
                 }
 
                 &__close-cross-container {
