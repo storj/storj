@@ -122,7 +122,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	// TODO this will work only with newsest uplink
+	// TODO this will work only with newest uplink
 	// figue out what to do with this
 	encryptionParameters := storj.EncryptionParameters{
 		CipherSuite: storj.CipherSuite(req.EncryptionParameters.CipherSuite),
@@ -1127,7 +1127,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:             []byte(object.BucketName),
 		EncryptedObjectKey: []byte(object.ObjectKey),
-		Version:            int32(object.Version), // TODO incomatible types
+		Version:            int32(object.Version), // TODO incompatible types
 		CreationDate:       object.CreatedAt,
 		ExpirationDate:     expires,
 		StreamId:           object.StreamID[:],
@@ -1182,7 +1182,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	result := &pb.Object{
 		Bucket:        []byte(object.BucketName),
 		EncryptedPath: []byte(object.ObjectKey),
-		Version:       int32(object.Version), // TODO incomatible types
+		Version:       int32(object.Version), // TODO incompatible types
 		StreamId:      streamID,
 		ExpiresAt:     expires,
 		CreatedAt:     object.CreatedAt,
@@ -1573,7 +1573,7 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 		}
 	}
 
-	// TODO we need this becase of an uplink issue with how we are storing key and nonce
+	// TODO we need this because of an uplink issue with how we are storing key and nonce
 	if result.EncryptedMetadataKey == nil {
 		streamMeta := &pb.StreamMeta{}
 		err := pb.Unmarshal(result.EncryptedMetadata, streamMeta)
@@ -1802,7 +1802,7 @@ func convertBeginCopyObjectResults(result metabase.BeginCopyObjectResult) (*pb.O
 		}
 	}
 
-	// TODO we need this becase of an uplink issue with how we are storing key and nonce
+	// TODO we need this because of an uplink issue with how we are storing key and nonce
 	if result.EncryptedMetadataKey == nil {
 		streamMeta := &pb.StreamMeta{}
 		err := pb.Unmarshal(result.EncryptedMetadata, streamMeta)
