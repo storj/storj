@@ -57,8 +57,8 @@ const (
 	eventDownloadTxtClicked         = "Download txt clicked"
 	eventEncryptMyAccessClicked     = "Encrypt My Access Clicked"
 	eventCopyToClipboardClicked     = "Copy to Clipboard Clicked"
-	eventCreateAccessGrantClicked	= "Create Access Grant Clicked"
-	eventCreateS3CredentialsClicked	= "Create S3 Credentials Clicked"
+	eventCreateAccessGrantClicked   = "Create Access Grant Clicked"
+	eventCreateS3CredentialsClicked = "Create S3 Credentials Clicked"
 	eventKeysForCLIClicked          = "Keys for CLI Clicked"
 )
 
