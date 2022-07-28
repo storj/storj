@@ -53,6 +53,13 @@ const (
 	eventUploadFileClicked          = "Upload File Clicked"
 	eventUploadFolderClicked        = "Upload Folder Clicked"
 	eventStorjTokenAdded            = "Storj Token Added"
+	eventCreateKeysClicked          = "Create Keys Clicked"
+	eventDownloadTxtClicked         = "Download txt clicked"
+	eventEncryptMyAccessClicked     = "Encrypt My Access Clicked"
+	eventCopyToClipboardClicked     = "Copy to Clipboard Clicked"
+	eventCreateAccessGrantClicked	= "Create Access Grant Clicked"
+	eventCreateS3CredentialsClicked	= "Create S3 Credentials Clicked"
+	eventKeysForCLIClicked          = "Keys for CLI Clicked"
 )
 
 var (
@@ -98,7 +105,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventCreateNewClicked, eventViewDocsClicked, eventViewForumClicked, eventViewSupportClicked, eventCreateAnAccessGrantClicked,
 		eventUploadUsingCliClicked, eventUploadInWebClicked, eventNewProjectClicked, eventLogoutClicked, eventProfileUpdated,
 		eventPasswordChanged, eventMfaEnabled, eventBucketCreated, eventBucketDeleted, eventAccessGrantCreated, eventApiAccessCreated,
-		eventUploadFileClicked, eventUploadFolderClicked} {
+		eventUploadFileClicked, eventUploadFolderClicked, eventCreateKeysClicked, eventDownloadTxtClicked, eventEncryptMyAccessClicked, 
+		eventCopyToClipboardClicked, eventCreateAccessGrantClicked, eventCreateS3CredentialsClicked, eventKeysForCLIClicked} {
 		service.clientEvents[name] = true
 	}
 

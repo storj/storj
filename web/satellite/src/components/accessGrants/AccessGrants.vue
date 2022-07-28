@@ -36,7 +36,7 @@
                 <div class="access-grants__flows-area__summary">Gives access through native clients such as uplink, libuplink, associate libraries, and bindings. </div>
                 <div class="access-grants__flows-area__button-container">
                     <a
-                        href="https://docs.storj.io/dcs/concepts/access/access-grants/"
+                        @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants/')"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
@@ -68,7 +68,7 @@
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <a
-                        href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway"
+                        @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
@@ -100,7 +100,7 @@
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <a
-                        href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/"
+                        @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/')"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
@@ -237,6 +237,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
     FETCH,
@@ -426,6 +427,7 @@ export default class AccessGrants extends Vue {
      */
     public accessGrantClick(): void {
         this.modalAccessType = 'access';
+        this.analytics.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
         this.toggleAccessModal();
     }
 
@@ -434,6 +436,7 @@ export default class AccessGrants extends Vue {
      */
     public s3Click(): void {
         this.modalAccessType = 's3';
+        this.analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
         this.toggleAccessModal();
     }
 
@@ -442,6 +445,7 @@ export default class AccessGrants extends Vue {
      */
     public cliClick(): void {
         this.modalAccessType = 'api';
+        this.analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
         this.toggleAccessModal();
     }
 
@@ -450,6 +454,14 @@ export default class AccessGrants extends Vue {
      */
     public toggleAccessModal(): void {
         this.showAccessModal = !this.showAccessModal;
+    }
+
+     /**
+     * Sends "trackPageVisit" event to segment and opens link.
+     */ 
+    public trackPageVisit(link: string): void {
+        this.analytics.pageVisit(link);
+        window.open(link)
     }
 }
 </script>
