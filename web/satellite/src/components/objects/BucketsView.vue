@@ -5,18 +5,31 @@
     <div class="buckets-view">
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title" aria-roledescription="title">Buckets</h1>
-            <div class="buckets-view__title-area__button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
-                <BucketIcon />
-                <p class="buckets-view__title-area__button__label">New Bucket</p>
+            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
+                <WhitePlusIcon class="new-bucket-button__icon" />
+                <p class="new-bucket-button__label">New Bucket</p>
             </div>
         </div>
+
+        <div class="buckets-view__divider" />
+
         <VLoader
             v-if="isLoading"
             width="100px"
             height="100px"
             class="buckets-view__loader"
         />
-        <p v-if="!(isLoading || (bucketsPage.buckets && bucketsPage.buckets.length))" class="buckets-view__no-buckets">No Buckets</p>
+
+        <div v-if="!(isLoading || (bucketsPage.buckets && bucketsPage.buckets.length))" class="buckets-view__no-buckets-area">
+            <EmptyBucketIcon class="buckets-view__no-buckets-area__image" />
+            <h4 class="buckets-view__no-buckets-area__title">There are no buckets in this project</h4>
+            <p class="buckets-view__no-buckets-area__body">Create a new bucket to upload files</p>
+            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
+                <WhitePlusIcon class="new-bucket-button__icon" />
+                <p class="new-bucket-button__label">New Bucket</p>
+            </div>
+        </div>
+
         <v-table
             v-if="!isLoading && bucketsPage.buckets && bucketsPage.buckets.length"
             class="buckets-view__list"
@@ -41,6 +54,7 @@
                     :dropdown-key="key"
                     :open-dropdown="openDropdown"
                     :is-dropdown-open="activeDropdown === key"
+                    :show-guide="key === 0"
                     :on-click="() => openBucket(bucket.name)"
                 />
             </template>
@@ -88,7 +102,8 @@ import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
 
-import BucketIcon from '@/../static/images/objects/bucket.svg';
+import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
+import EmptyBucketIcon from '@/../static/images/objects/emptyBucket.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import VTable from "@/components/common/VTable.vue";
@@ -98,7 +113,8 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 @Component({
     components: {
         VTable,
-        BucketIcon,
+        WhitePlusIcon,
+        EmptyBucketIcon,
         ObjectsPopup,
         BucketItem,
         VLoader,
@@ -466,12 +482,38 @@ export default class BucketsView extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .new-bucket-button {
+        padding: 0 15px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #0149ff;
+        border-radius: 8px;
+        cursor: pointer;
+
+        &__label {
+            font-family: 'font-medium', sans-serif;
+            font-weight: 700;
+            font-size: 13px;
+            line-height: 20px;
+            color: #fff;
+            margin: 0 0 0 5px;
+        }
+
+        &__icon {
+            color: #fff;
+        }
+
+        &:hover {
+            background-color: #0000c2;
+        }
+    }
+
     .buckets-view {
         display: flex;
         flex-direction: column;
         align-items: center;
-        font-family: 'font_regular', sans-serif;
-        font-style: normal;
         background-color: #f5f6fa;
 
         &__title-area {
@@ -482,49 +524,56 @@ export default class BucketsView extends Vue {
 
             &__title {
                 font-family: 'font_medium', sans-serif;
-                font-weight: bold;
-                font-size: 18px;
-                line-height: 26px;
+                font-weight: 600;
+                font-size: 28px;
+                line-height: 34px;
                 color: #232b34;
                 margin: 0;
-                width: 100%;
                 text-align: left;
             }
+        }
 
-            &__button {
-                width: 154px;
-                height: 46px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background-color: #0068dc;
-                border-radius: 4px;
-                cursor: pointer;
-
-                &__label {
-                    font-weight: normal;
-                    font-size: 12px;
-                    line-height: 17px;
-                    color: #fff;
-                    margin: 0 0 0 5px;
-                }
-
-                &:hover {
-                    background-color: #0000c2;
-                }
-            }
+        &__divider {
+            width: 100%;
+            height: 1px;
+            background: #dadfe7;
+            margin: 24px 0;
         }
 
         &__loader {
             margin-top: 100px;
         }
 
-        &__no-buckets {
+        &__no-buckets-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 0;
             width: 100%;
-            text-align: center;
-            font-size: 30px;
-            line-height: 42px;
-            margin: 100px 0 0;
+            box-shadow: 0 0 32px rgb(0 0 0 / 4%);
+            background-color: #fcfcfc;
+            border-radius: 20px;
+
+            &__image {
+                margin-bottom: 60px;
+            }
+
+            &__title {
+                font-family: 'font_medium', sans-serif;
+                font-weight: 800;
+                font-size: 18px;
+                line-height: 16px;
+                margin-bottom: 17px;
+            }
+
+            &__body {
+                font-family: 'font_regular', sans-serif;
+                font-weight: 400;
+                font-size: 16px;
+                line-height: 24px;
+                margin-bottom: 24px;
+            }
         }
 
         &__list {
