@@ -9,11 +9,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
 
 	_ "storj.io/common/rpc/quic" // include quic connector
 	"storj.io/storj/cmd/uplink/ulext"
 )
+
+var mon = monkit.Package()
 
 func main() {
 	ex := newExternal()

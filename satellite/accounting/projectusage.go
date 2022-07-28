@@ -120,29 +120,26 @@ type UploadLimit struct {
 // ExceedsUploadLimits returns combined checks for storage and segment limits.
 // Supply nonzero headroom parameters to check if there is room for a new object.
 func (usage *Service) ExceedsUploadLimits(
-	ctx context.Context, projectID uuid.UUID, storageSizeHeadroom int64, segmentCountHeadroom int64, checkSegmentsLimit bool,
-) (limit UploadLimit, err error) {
+	ctx context.Context, projectID uuid.UUID, storageSizeHeadroom int64, segmentCountHeadroom int64) (limit UploadLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
 	var segmentUsage, storageUsage int64
 
-	if checkSegmentsLimit {
-		group.Go(func() error {
-			var err error
-			limit.SegmentsLimit, err = usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
-			return err
-		})
-		group.Go(func() error {
-			var err error
-			segmentUsage, err = usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
-			// Verify If the cache key was not found
-			if err != nil && ErrKeyNotFound.Has(err) {
-				return nil
-			}
-			return err
-		})
-	}
+	group.Go(func() error {
+		var err error
+		limit.SegmentsLimit, err = usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
+		return err
+	})
+	group.Go(func() error {
+		var err error
+		segmentUsage, err = usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
+		// Verify If the cache key was not found
+		if err != nil && ErrKeyNotFound.Has(err) {
+			return nil
+		}
+		return err
+	})
 
 	group.Go(func() error {
 		var err error

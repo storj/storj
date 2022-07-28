@@ -113,8 +113,7 @@ type RateLimiterConfig struct {
 
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
-	MaxBuckets           int  `help:"max bucket count for a project." default:"100" testDefault:"10"`
-	ValidateSegmentLimit bool `help:"whether segment limit validation is enabled." default:"true"`
+	MaxBuckets int `help:"max bucket count for a project." default:"100" testDefault:"10"`
 }
 
 // Config is a configuration struct that is everything you need to start a metainfo.

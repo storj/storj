@@ -28,7 +28,7 @@ require (
 	github.com/oschwald/maxminddb-golang v1.8.0
 	github.com/pquerna/otp v1.3.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.17
+	github.com/spacemonkeygo/monkit/v3 v3.0.19
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
@@ -51,10 +51,10 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
-	storj.io/common v0.0.0-20220708152916-e2f08365ed65
+	storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0
 	storj.io/drpc v0.0.32
-	storj.io/monkit-jaeger v0.0.0-20220614151325-3ae4cae696b8
-	storj.io/private v0.0.0-20220614154538-e18b72a55f43
+	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca
+	storj.io/private v0.0.0-20220725143645-8515ce4e6b70
 	storj.io/uplink v1.9.1-0.20220623122820-25d79c31a876
 )
 
@@ -114,6 +114,7 @@ require (
 	github.com/zeebo/errs/v2 v2.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
+	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/structs v1.0.2 // indirect
 	go.opencensus.io v0.22.2 // indirect
 	go.opentelemetry.io/otel v0.18.0 // indirect

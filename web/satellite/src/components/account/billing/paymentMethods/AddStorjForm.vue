@@ -3,38 +3,41 @@
 
 <template>
     <div class="add-storj-area">
-        <div class="add-storj-area__selection-container">
-            <p class="add-storj-area__selection-container__label">Deposit STORJ Tokens via Coin Payments</p>
-            <TokenDepositSelection
-                class="add-storj-area__selection-container__form"
-                :payment-options="paymentOptions"
-                @onChangeTokenValue="onChangeTokenValue"
-            />
-        </div>
-        <div class="add-storj-area__submit-area">
-            <img
-                v-if="isLoading"
-                class="loading-image"
-                src="@/../static/images/account/billing/loading.gif"
-                alt="loading gif"
-            >
-            <VButton
-                class="confirm-add-storj-button"
-                label="Continue to Coin Payments"
-                width="251px"
-                height="48px"
-                :on-press="onConfirmAddSTORJ"
-                :is-disabled="isLoading"
-            />
-        </div>
+        <p class="add-storj-area__support-info">Please contact <a target="_blank" href="mailto:supportdcs@storj.io">supportdcs@storj.io</a> to deposit STORJ tokens into your account</p>
+        <!-- TODO: Introduce variable to toggle btn support-info and selection-container -->
+        <!-- see: https://github.com/storj/storj-private/issues/43 -->
+        <!-- <div class="add-storj-area__selection-container">
+          <p class="add-storj-area__selection-container__label">Deposit STORJ Tokens via Coin Payments</p>
+          <TokenDepositSelection
+              class="add-storj-area__selection-container__form"
+              :payment-options="paymentOptions"
+              @onChangeTokenValue="onChangeTokenValue"
+          />
+      </div>
+      <div class="add-storj-area__submit-area">
+          <img
+              v-if="isLoading"
+              class="loading-image"
+              src="@/../static/images/account/billing/loading.gif"
+              alt="loading gif"
+          >
+          <VButton
+              class="confirm-add-storj-button"
+              label="Continue to Coin Payments"
+              width="251px"
+              height="48px"
+              :on-press="onConfirmAddSTORJ"
+              :is-disabled="isLoading"
+          />
+      </div> -->
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
-import VButton from '@/components/common/VButton.vue';
+// import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
+// import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentAmountOption } from '@/types/payments';
@@ -47,8 +50,8 @@ const {
 // @vue/component
 @Component({
     components: {
-        TokenDepositSelection,
-        VButton,
+        // TokenDepositSelection,
+        // VButton,
     },
 })
 export default class AddStorjForm extends Vue {
@@ -154,7 +157,7 @@ export default class AddStorjForm extends Vue {
     }
 
     .add-storj-area {
-        margin-top: 44px;
+        margin: 20px 0;
         font-family: 'font_regular', sans-serif;
         display: flex;
         max-height: 52px;
@@ -179,6 +182,17 @@ export default class AddStorjForm extends Vue {
             display: flex;
             align-items: center;
             min-width: 135px;
+        }
+
+        &__support-info {
+            font-weight: 600;
+            font-size: 14px;
+            line-height: 20px;
+            color: #000;
+
+            a {
+                color: #0149ff;
+            }
         }
     }
 
