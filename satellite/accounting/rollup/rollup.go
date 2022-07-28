@@ -142,6 +142,11 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		}
 		// increment data at rest sum
 		rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
+
+		// update interval_end_time to the latest tally end time for the day
+		if rollupStats[iDay][node].IntervalEndTime.Before(tallyEndTime) {
+			rollupStats[iDay][node].IntervalEndTime = tallyEndTime
+		}
 	}
 
 	return latestTally, nil

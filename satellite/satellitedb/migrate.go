@@ -1983,6 +1983,24 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS projects_public_id_index ON projects ( public_id );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add accounting_rollups.interval_end_time column",
+				Version:     202,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE accounting_rollups ADD COLUMN interval_end_time TIMESTAMP WITH TIME ZONE;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Backfill accounting_rollups.interval_end_time with start_time",
+				Version:     203,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE accounting_rollups SET interval_end_time = start_time WHERE interval_end_time = NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

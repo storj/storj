@@ -22,7 +22,7 @@ import (
 func TestServicePayments(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		paymentsDB := db.StorjscanPayments()
-		now := time.Now().Truncate(time.Second)
+		now := time.Now().Truncate(time.Second).UTC()
 
 		wallet1 := blockchaintest.NewAddress()
 		wallet2 := blockchaintest.NewAddress()
