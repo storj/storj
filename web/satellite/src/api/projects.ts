@@ -231,7 +231,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             throw new ErrorUnauthorized();
         }
 
-        throw new Error('can not get project daily usage');
+        throw new Error('Can not get project daily usage');
     }
 
     /**
