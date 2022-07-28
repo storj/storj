@@ -49,7 +49,7 @@ const (
 	eventBucketCreated              = "Bucket Created"
 	eventBucketDeleted              = "Bucket Deleted"
 	eventProjectLimitError          = "Project Limit Error"
-	eventApiAccessCreated           = "API Access Created"
+	eventAPIAccessCreated           = "API Access Created"
 	eventUploadFileClicked          = "Upload File Clicked"
 	eventUploadFolderClicked        = "Upload Folder Clicked"
 	eventStorjTokenAdded            = "Storj Token Added"

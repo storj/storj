@@ -10,7 +10,7 @@
                 @mouseover="toggleTooltipHover('access','over')"
                 @mouseleave="toggleTooltipHover('access','leave')"
             >
-                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://storj-labs.gitbook.io/dcs/concepts/access/access-grants')" >Learn More</a></span>
+                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://storj-labs.gitbook.io/dcs/concepts/access/access-grants')">Learn More</a></span>
             </div>
             <div
                 v-if="tooltipHover === 's3'"
@@ -825,10 +825,10 @@ export default class CreateAccessModal extends Vue {
             }
         }
         else if (this.checkedType === 'api') {
-                await this.analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
+            await this.analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
         }
         else if (this.checkedType === 'access') {
-                await this.analytics.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
+            await this.analytics.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
         }
 
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_CLICKED); 

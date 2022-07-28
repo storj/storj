@@ -36,9 +36,9 @@
                 <div class="access-grants__flows-area__summary">Gives access through native clients such as uplink, libuplink, associate libraries, and bindings. </div>
                 <div class="access-grants__flows-area__button-container">
                     <a
-                        @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants/')"
                         target="_blank"
                         rel="noopener noreferrer"
+                        @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants/')"
                     >
                         <VButton
                             label="Learn More"
@@ -68,9 +68,9 @@
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <a
-                        @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')"
                         target="_blank"
                         rel="noopener noreferrer"
+                        @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')"
                     >
                         <VButton
                             label="Learn More"
@@ -100,9 +100,9 @@
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <a
-                        @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/')"
                         target="_blank"
                         rel="noopener noreferrer"
+                        @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/')"
                     >
                         <VButton
                             label="Learn More"
@@ -456,7 +456,7 @@ export default class AccessGrants extends Vue {
         this.showAccessModal = !this.showAccessModal;
     }
 
-     /**
+    /**
      * Sends "trackPageVisit" event to segment and opens link.
      */ 
     public trackPageVisit(link: string): void {
