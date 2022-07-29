@@ -74,14 +74,8 @@ describe('ProjectMembersArea.vue', () => {
         const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
         expect(emptySearchResultArea.length).toBe(0);
 
-        const teamContainer = wrapper.findAll('.team-area__container');
+        const teamContainer = wrapper.findAll('.team-area__table');
         expect(teamContainer.length).toBe(1);
-
-        const sortingListHeaderStub = wrapper.findAll('sortinglistheader-stub');
-        expect(sortingListHeaderStub.length).toBe(1);
-
-        const listStub = wrapper.findAll('vlist-stub');
-        expect(listStub.length).toBe(1);
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -94,7 +88,7 @@ describe('ProjectMembersArea.vue', () => {
             localVue,
         });
 
-        wrapper.vm.onMemberClick(projectMember1);
+        wrapper.vm.onMemberCheckChange(projectMember1);
 
         expect(store.getters.selectedProjectMembers.length).toBe(1);
     });
@@ -114,7 +108,7 @@ describe('ProjectMembersArea.vue', () => {
             localVue,
         });
 
-        wrapper.vm.onMemberClick(projectMember3);
+        wrapper.vm.onMemberCheckChange(projectMember3);
 
         expect(store.getters.selectedProjectMembers.length).toBe(0);
     });

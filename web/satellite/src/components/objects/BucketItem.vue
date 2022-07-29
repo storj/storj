@@ -5,7 +5,6 @@
     <table-item
         :item="{ name: itemData.name, date: formattedDate }"
         :on-click="onClick"
-        @setSelected="(value) => $parent.$emit('checkItem', value)"
     >
         <th slot="options" v-click-outside="closeDropdown" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
             <dots-icon />

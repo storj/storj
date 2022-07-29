@@ -11,7 +11,7 @@
                 </tr>
             </thead>
             <tbody>
-                <slot name="body" :selectable-items="selectableItems" @checkItem="checkItem" />
+                <slot name="body" />
             </tbody>
         </table>
         <div v-if="totalPageCount > 0" class="table-footer">
@@ -56,16 +56,6 @@ export default class VTable extends Vue {
     private readonly totalItemsCount: number;
     @Prop({default: () => () => new Promise(() => false)})
     private readonly onPageClickCallback: OnPageClickCallback;
-
-    public selectableItems: SelectableItem<object>[] = [];
-
-    public mounted(): void {
-        this.selectableItems = this.items.map(item => ({ isSelected: false, ...item }));
-    }
-
-    public checkItem({ value, index }: { value: boolean, index: number }): void {
-        this.selectableItems[index].isSelected = value;
-    }
 }
 </script>
 

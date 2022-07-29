@@ -29,7 +29,7 @@ import (
 func TestChore(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		logger := zaptest.NewLogger(t)
-		now := time.Now().Round(time.Second)
+		now := time.Now().Round(time.Second).UTC()
 
 		const confirmations = 12
 
