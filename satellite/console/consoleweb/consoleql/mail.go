@@ -88,3 +88,20 @@ func (*UnknownResetPasswordEmail) Template() string { return "UnknownReset" }
 func (*UnknownResetPasswordEmail) Subject() string {
 	return "You have requested to reset your password, but..."
 }
+
+// AccountAlreadyExistsEmail is mailservice template for email where user tries to create account, but one already exists.
+type AccountAlreadyExistsEmail struct {
+	Origin            string
+	SatelliteName     string
+	SignInLink        string
+	ResetPasswordLink string
+	CreateAccountLink string
+}
+
+// Template returns email template name.
+func (*AccountAlreadyExistsEmail) Template() string { return "AccountAlreadyExists" }
+
+// Subject gets email subject.
+func (*AccountAlreadyExistsEmail) Subject() string {
+	return "Are you trying to sign in?"
+}

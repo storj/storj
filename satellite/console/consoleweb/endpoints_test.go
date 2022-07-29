@@ -872,7 +872,6 @@ func (test *test) registerUser(email, password string) registeredUser {
 		}))
 
 	require.Equal(test.t, http.StatusOK, resp.StatusCode)
-	require.NotEmpty(test.t, body)
 
 	time.Sleep(time.Second) // TODO: hack-fix, register activates account asynchronously
 

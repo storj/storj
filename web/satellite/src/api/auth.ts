@@ -243,7 +243,7 @@ export class AuthHttpApi implements UsersApi {
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: Partial<User>, secret: string, captchaResponse: string): Promise<string> {
+    public async register(user: Partial<User>, secret: string, captchaResponse: string): Promise<void> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -263,8 +263,8 @@ export class AuthHttpApi implements UsersApi {
         };
 
         const response = await this.http.post(path, JSON.stringify(body));
-        const result = await response.json();
         if (!response.ok) {
+            const result = await response.json();
             const errMsg = result.error || 'Cannot register user';
             switch (response.status) {
             case 400:
@@ -277,7 +277,6 @@ export class AuthHttpApi implements UsersApi {
                 throw new Error(errMsg);
             }
         }
-        return result;
     }
 
     /**
