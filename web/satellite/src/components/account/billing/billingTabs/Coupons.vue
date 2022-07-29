@@ -11,24 +11,24 @@
                     v-if="coupon"
                     class="coupon-area__container__existing-coupons"
                 >
-                    <div class="coupon-area__container__existing-coupons__discount-top-container active">
-                        <span class="coupon-area__container__existing-coupons__discount-top-container active">
-                            ${{ coupon.getDescription() }}
+                    <div class="coupon-area__container__existing-coupons__discount-top-container ">
+                        <span class="coupon-area__container__existing-coupons__discount-top-container__discount active-discount">
+                            {{ coupon.getDescription().slice(0, coupon.getDescription().indexOf(' ')) }}
                         </span>
                     </div>
                     <div class="coupon-area__container__existing-coupons__status-container">
-                        <span class="coupon-area__container__existing-coupons__discount-top-container active">
+                        <span class="coupon-area__container__existing-coupons__status-container__status active-status">
                             Active
                         </span>
                     </div>
                     <div class="coupon-area__container__existing-coupons__discount-black-container">
                         <span class="coupon-area__container__existing-coupons__discount-black-container__discount">
-                            ${{ coupon.getDescription() }} off
+                            {{ coupon.getDescription().slice(0, coupon.getDescription().indexOf(' ')) }} off
                         </span>
                     </div>
                     <div class="coupon-area__container__existing-coupons__expiration-container">
-                        <span class="coupon-area__container__existing-coupons__expiration-container__text">
-                            Expiration in {{ expiration }}
+                        <span class="coupon-area__container__existing-coupons__expiration-container__expiration">
+                            {{coupon.getDescription().includes('forever')?'No Expiration' : expiration }}
                         </span>
                     </div>
                 </div>
@@ -85,6 +85,8 @@ export default class CouponArea extends Vue {
         } catch (error) {
             await this.$notify.error(error.message);
         }
+
+        console.log(this.coupon)
     }
 
     /**
@@ -223,7 +225,7 @@ export default class CouponArea extends Vue {
                     &__discount {
                         height: 60px;
                         width: fit-content;
-                        min-width: 60px;
+                        min-width: 50px;
                         border-radius: 10px;
                         display: flex;
                         align-items: center;
@@ -231,7 +233,7 @@ export default class CouponArea extends Vue {
                         padding: 0 8px;
                         font-family: sans-serif;
                         font-weight: 700;
-                        font-size: 18px;
+                        font-size: 16px;
                     }
                 }
 
@@ -262,7 +264,7 @@ export default class CouponArea extends Vue {
                     &__discount {
                         font-family: sans-serif;
                         font-weight: 1000;
-                        font-size: 28px;
+                        font-size: 22px;
                     }
                 }
 
