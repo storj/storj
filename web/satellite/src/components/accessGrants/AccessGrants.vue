@@ -36,6 +36,7 @@
                 <div class="access-grants__flows-area__summary">Gives access through native clients such as uplink, libuplink, associate libraries, and bindings. </div>
                 <div class="access-grants__flows-area__button-container">
                     <a
+                        href="https://docs.storj.io/dcs/concepts/access/access-grants/"
                         target="_blank"
                         rel="noopener noreferrer"
                         @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants/')"
@@ -68,6 +69,7 @@
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <a
+                        href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway"
                         target="_blank"
                         rel="noopener noreferrer"
                         @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')"
@@ -100,6 +102,7 @@
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <a
+                        href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/"
                         target="_blank"
                         rel="noopener noreferrer"
                         @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/')"
@@ -461,7 +464,6 @@ export default class AccessGrants extends Vue {
      */ 
     public trackPageVisit(link: string): void {
         this.analytics.pageVisit(link);
-        window.open(link)
     }
 }
 </script>

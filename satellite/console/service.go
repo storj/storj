@@ -509,11 +509,13 @@ func (payment Payments) TokenDeposit(ctx context.Context, amount int64) (_ *paym
 
 	tx, err := payment.service.accounts.StorjTokens().Deposit(ctx, user.ID, amount)
 
-	if err == nil {
-		payment.service.analytics.TrackStorjTokenAdded(user.ID, user.Email)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
-	return tx, Error.Wrap(err)
+	payment.service.analytics.TrackStorjTokenAdded(user.ID, user.Email)
+
+	return tx, nil
 }
 
 // checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.

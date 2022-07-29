@@ -10,7 +10,7 @@
                 @mouseover="toggleTooltipHover('access','over')"
                 @mouseleave="toggleTooltipHover('access','leave')"
             >
-                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://storj-labs.gitbook.io/dcs/concepts/access/access-grants')">Learn More</a></span>
+                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://storj-labs.gitbook.io/dcs/concepts/access/access-grants')">Learn More</a></span>
             </div>
             <div
                 v-if="tooltipHover === 's3'"
@@ -18,7 +18,7 @@
                 @mouseover="toggleTooltipHover('s3','over')"
                 @mouseleave="toggleTooltipHover('s3','leave')"
             >
-                <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')">Learn More</a></span>
+                <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')">Learn More</a></span>
             </div>
             <div
                 v-if="tooltipHover === 'api'"
@@ -26,7 +26,7 @@
                 @mouseover="toggleTooltipHover('api','over')"
                 @mouseleave="toggleTooltipHover('api','leave')"
             >
-                <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/')">Learn More</a></span>
+                <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/')">Learn More</a></span>
             </div>
             <!-- ********* Create Form Modal ********* -->
             <form v-if="accessGrantStep === 'create'">
@@ -702,7 +702,6 @@ export default class CreateAccessModal extends Vue {
      */ 
     public trackPageVisit(link: string): void {
         this.analytics.pageVisit(link);
-        window.open(link)
     }  
 
     /**
@@ -823,11 +822,9 @@ export default class CreateAccessModal extends Vue {
             } catch (error) {
                 await this.$notify.error(error.message);
             }
-        }
-        else if (this.checkedType === 'api') {
+        } else if (this.checkedType === 'api') {
             await this.analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
-        }
-        else if (this.checkedType === 'access') {
+        } else if (this.checkedType === 'access') {
             await this.analytics.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
         }
 
