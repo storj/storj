@@ -258,7 +258,43 @@ pipeline {
                 }
             }
         }
+    
     }
+
+    stage('UI') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch pattern: "release-.*", comparator: "REGEXP"
+                    changeset "testsuite/ui/**"
+                    changeset "web/**"
+                    changeset "satellite/console/**"
+                    changeset "storagenode/console/**"
+                    changeset "multinode/console/**"
+                }
+            }
+            environment {
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
+                STORJ_TEST_BROWSER  = '/usr/bin/chromium'
+                STORJ_TEST_SATELLITE_WEB = "${pwd()}/web/satellite"
+                STORJ_TEST_EDGE_HOST = '127.0.0.10'
+            }
+            steps {
+                sh 'psql -U postgres -c \'create database testui;\''
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'cd testsuite && go test -parallel 1 -p 1 -short -vet=off -timeout 5m -json -race ./... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: '.build/ui-tests.json'
+                    sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
+                    junit '.build/ui-tests.xml'
+                }
+            }
+        }
+
     post {
         success {
             withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
