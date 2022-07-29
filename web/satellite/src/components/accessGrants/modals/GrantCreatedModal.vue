@@ -243,10 +243,6 @@ import { EdgeCredentials } from '@/types/accessGrants';
 
 export default class GrantCreatedModal extends Vue {
     @Prop({default: 'Default'})
-    private readonly label: string;
-    @Prop({default: 'Default'})
-    private readonly defaultType: string;
-    @Prop({default: 'Default'})
     private readonly checkedType: string;
     @Prop({default: 'Default'})
     private readonly restrictedKey: string;
@@ -255,8 +251,6 @@ export default class GrantCreatedModal extends Vue {
     @Prop({default: 'Default'})
     private readonly access: string;
 
-
-    public areKeysVisible = false;
     private areCredentialsDownloaded = false;
     private isAccessGrantCopied = false;
 
@@ -264,10 +258,7 @@ export default class GrantCreatedModal extends Vue {
      * Global isLoading Variable
      **/
     private isLoading = false;
-    public areBucketNamesFetching = true;
     private checkedText = {access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.']};
-
-
     public currentDate = new Date().toISOString();
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
@@ -361,10 +352,6 @@ export default class GrantCreatedModal extends Vue {
             width: 410px;
             height: auto;
 
-            &__generated-passphrase {
-                @include generated-text;
-            }
-
             &__generated-credentials {
                 @include generated-text;
 
@@ -449,33 +436,6 @@ export default class GrantCreatedModal extends Vue {
                 }
             }
 
-            &__acknowledgement-container {
-                border: 1px solid #c8d3de;
-                border-radius: 6px;
-                display: grid;
-                grid-template-columns: 1fr 6fr;
-                padding: 10px;
-                margin-top: 25px;
-                height: 80px;
-                align-content: center;
-
-                &__check {
-                    margin: 0 auto auto;
-                    border-radius: 4px;
-                    height: 16px;
-                    width: 16px;
-                }
-
-                &__text {
-                    font-family: sans-serif;
-                }
-            }
-
-            &__acknowledgement-buttons {
-                display: flex;
-                padding-top: 25px;
-            }
-
             &__body-container {
                 display: grid;
                 grid-template-columns: 1fr 6fr;
@@ -484,95 +444,6 @@ export default class GrantCreatedModal extends Vue {
                 width: 100%;
                 padding-top: 10px;
                 margin-top: 24px;
-
-                &__passphrase {
-                    margin-top: 20px;
-                    width: 100%;
-                    background: #fff;
-                    border: 1px solid #c8d3de;
-                    box-sizing: border-box;
-                    border-radius: 4px;
-                    height: 40px;
-                    font-size: 17px;
-                    padding: 10px;
-                }
-
-                &__encrypt {
-                    width: 100%;
-                    display: flex;
-                    flex-flow: column;
-                    align-items: center;
-                    justify-content: center;
-                    margin: 15px 0;
-
-                    &__item {
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        width: 100%;
-                        height: 40px;
-                        box-sizing: border-box;
-
-                        &__left-area {
-                            display: flex;
-                            align-items: center;
-                            justify-content: flex-start;
-                        }
-
-                        &__icon {
-                            margin-right: 8px;
-
-                            &.selected {
-
-                                ::v-deep circle {
-                                    fill: #e6edf7 !important;
-                                }
-
-                                ::v-deep path {
-                                    fill: #003dc1 !important;
-                                }
-                            }
-                        }
-
-                        &__text {
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: space-between;
-                            align-items: flex-start;
-                            font-family: 'font_regular', sans-serif;
-                            font-size: 12px;
-
-                            h3 {
-                                margin: 0 0 8px;
-                                font-family: 'font_bold', sans-serif;
-                                font-size: 14px;
-                            }
-
-                            p {
-                                padding: 0;
-                            }
-                        }
-
-                        &__radio {
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            width: 10px;
-                            height: 10px;
-                        }
-                    }
-
-                    &__divider {
-                        width: 100%;
-                        height: 1px;
-                        background: #ebeef1;
-                        margin: 16px 0;
-
-                        &.in-middle {
-                            order: 4;
-                        }
-                    }
-                }
 
                 &__created {
                     width: 100%;
@@ -616,14 +487,6 @@ export default class GrantCreatedModal extends Vue {
 
                 &__download-button {
                     width: 49% !important;
-                }
-
-                &__encrypt-button {
-                    padding: 0 15px;
-                }
-
-                .in-middle {
-                    order: 3;
                 }
             }
         }
