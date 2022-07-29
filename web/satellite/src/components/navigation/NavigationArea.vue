@@ -75,6 +75,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { MetaUtils } from '@/utils/meta';
 
 import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
 import GuidesDropdown from '@/components/navigation/GuidesDropdown.vue';
@@ -149,6 +150,7 @@ export default class NavigationArea extends Vue {
     public mounted(): void {
         this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns)
         window.addEventListener('resize', this.onResize)
+        console.log(this.navigation[4].path)
     }
 
     /**
@@ -269,8 +271,29 @@ export default class NavigationArea extends Vue {
      * Sends new path click event to segment.
      */
     public trackClickEvent(path: string): void {
-        this.analytics.pageVisit(path);
+        if (this.isNewBillingScreen && path === '/account/billing') {
+            this.routeToOverview()
+            console.log('hit')
+        } else {
+            this.analytics.pageVisit(path);
+        }
     }
+
+    /**
+     * Routes for new billing screens.
+     */
+    public routeToOverview(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+    }
+
+    /**
+     * Indicates if tabs options are hidden.
+     */
+    public get isNewBillingScreen(): boolean {
+        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
+        return isNewBillingScreen === "true";
+    }
+
 }
 </script>
 
