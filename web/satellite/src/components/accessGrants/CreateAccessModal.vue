@@ -317,7 +317,7 @@ export default class CreateAccessModal extends Vue {
             padding: 25px 40px;
             margin-top: 40px;
             width: 410px;
-            height: auto; 
+            height: auto;
         }
     }
 
