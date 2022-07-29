@@ -303,7 +303,7 @@ func TestFinishMoveObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("less amount of segments", func(t *testing.T) {
+		t.Run("not enough segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
@@ -348,7 +348,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "wrong amount of segments keys received",
+				ErrText:  "wrong number of segments keys received",
 			}.Check(ctx, t, db)
 		})
 
@@ -398,6 +398,44 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 				ErrClass: &metabase.Error,
 				ErrText:  "segment is missing",
+			}.Check(ctx, t, db)
+		})
+
+		// Assert that an error occurs when  a new object is put at the key (different stream_id)
+		// between BeginMoveObject and FinishMoveObject,
+		t.Run("source object changed", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			newObj, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, obj, 2)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					NewBucket: newBucketName,
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  newObj.ProjectID,
+						BucketName: newObj.BucketName,
+						ObjectKey:  newObj.ObjectKey,
+						Version:    newObj.Version,
+						StreamID:   testrand.UUID(),
+					},
+					NewSegmentKeys: []metabase.EncryptedKeyAndNonce{
+						metabasetest.RandEncryptedKeyAndNonce(0),
+						metabasetest.RandEncryptedKeyAndNonce(1),
+					},
+					NewEncryptedObjectKey:        testrand.Bytes(32),
+					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+					NewEncryptedMetadataKey:      testrand.Bytes(32),
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "object was changed during move",
 			}.Check(ctx, t, db)
 		})
 

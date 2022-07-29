@@ -145,8 +145,9 @@ func toProtoDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyS
 
 	for _, usage := range usages {
 		pbUsages = append(pbUsages, &pb.DailyStorageUsageResponse_StorageUsage{
-			AtRestTotal: usage.StorageUsed,
-			Timestamp:   usage.Timestamp,
+			AtRestTotal:     usage.StorageUsed,
+			Timestamp:       usage.Timestamp,
+			IntervalEndTime: usage.IntervalEndTime,
 		})
 	}
 

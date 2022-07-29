@@ -64,7 +64,7 @@ const AuthorizeArea = () => import('@/views/AuthorizeArea.vue');
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
-const RegisterArea = () => import('@/views/RegisterArea.vue');
+const RegisterArea = () => import('@/views/registration/RegisterArea.vue');
 const ResetPassword = () => import('@/views/ResetPassword.vue');
 
 Vue.use(Router);

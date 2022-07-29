@@ -1,37 +1,36 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package satellitedb_test
 
 import (
-	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/common/testcontext"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestProjectFromDbx(t *testing.T) {
-	ctx := context.Background()
+func TestProjectsGetByPublicID(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		projects := db.Console().Projects()
 
-	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
-		project, err := projectFromDBX(ctx, nil)
+		prj, err := projects.Insert(ctx, &console.Project{
+			Name:        "ProjectName",
+			Description: "projects description",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, prj)
 
-		assert.Nil(t, project)
-		assert.NotNil(t, err)
-		assert.Error(t, err)
-	})
+		pubID := prj.PublicID
+		require.NotNil(t, pubID)
+		require.False(t, pubID.IsZero())
 
-	t.Run("can't create dbo from dbx model with invalid ID", func(t *testing.T) {
-		dbxProject := dbx.Project{
-			Id: []byte("qweqwe"),
-		}
-
-		project, err := projectFromDBX(ctx, &dbxProject)
-
-		assert.Nil(t, project)
-		assert.NotNil(t, err)
-		assert.Error(t, err)
+		prj, err = projects.GetByPublicID(ctx, pubID)
+		require.NoError(t, err)
+		require.Equal(t, pubID, prj.PublicID)
 	})
 }

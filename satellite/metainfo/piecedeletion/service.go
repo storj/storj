@@ -11,10 +11,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 
-	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/overlay"
 )
 
 // Config defines configuration options for Service.
@@ -64,7 +64,7 @@ func (config *Config) Verify() errs.Group {
 
 // Nodes stores reliable nodes information.
 type Nodes interface {
-	KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
+	GetNodes(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]*overlay.SelectedNode, err error)
 }
 
 // Service handles combining piece deletion requests.
@@ -190,18 +190,18 @@ func (service *Service) Delete(ctx context.Context, requests []Request, successT
 	}
 
 	if len(nodeIDs) > 0 {
-		nodes, err := service.nodesDB.KnownReliable(ctx, nodeIDs)
+		nodes, err := service.nodesDB.GetNodes(ctx, nodeIDs)
 		if err != nil {
 			// Pieces will be collected by garbage collector
 			return Error.Wrap(err)
 		}
 
 		for _, node := range nodes {
-			req := nodesReqs[node.Id]
+			req := nodesReqs[node.ID]
 
-			nodesReqs[node.Id] = Request{
+			nodesReqs[node.ID] = Request{
 				Node: storj.NodeURL{
-					ID:      node.Id,
+					ID:      node.ID,
 					Address: node.Address.Address,
 				},
 				Pieces: req.Pieces,

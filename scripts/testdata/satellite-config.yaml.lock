@@ -526,9 +526,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
 
-# whether segment limit validation is enabled.
-# metainfo.project-limits.validate-segment-limit: true
-
 # number of projects to cache.
 # metainfo.rate-limiter.cache-capacity: 10000
 
@@ -817,6 +814,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
 
+# how many tallies to delete in a batch
+# rollup.delete-tallies-batch-size: 10000
+
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
 
@@ -884,7 +884,7 @@ server.private-address: 127.0.0.1:7778
 # tracing.buffer-size: 0
 
 # whether tracing collector is enabled
-# tracing.enabled: false
+# tracing.enabled: true
 
 # how frequently to flush traces to tracing agent
 # tracing.interval: 0s

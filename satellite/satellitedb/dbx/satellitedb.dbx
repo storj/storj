@@ -65,14 +65,15 @@ model accounting_rollup (
 	key node_id start_time
 	index ( fields start_time )
 
-	field node_id          blob
-	field start_time       timestamp
-	field put_total        int64
-	field get_total        int64
-	field get_audit_total  int64
-	field get_repair_total int64
-	field put_repair_total int64
-	field at_rest_total    float64
+	field node_id          	blob
+	field start_time       	timestamp
+	field put_total        	int64
+	field get_total        	int64
+	field get_audit_total  	int64
+	field get_repair_total 	int64
+	field put_repair_total 	int64
+	field at_rest_total    	float64
+	field interval_end_time timestamp ( updatable, nullable )
 )
 
 //--- overlay cache ---//

@@ -38,7 +38,9 @@
                     <p class="add-modal__tokens__banner">
                         Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
                     </p>
-                    <TokenDepositSelection
+                    <p class="add-modal__tokens__support-info">Please contact <a target="_blank" href="mailto:supportdcs@storj.io">supportdcs@storj.io</a> to deposit STORJ tokens into your account</p>
+                    <!-- TODO: Introduce variable to toggle support-info -->
+                    <!-- <TokenDepositSelection
                         class="add-modal__tokens__selection"
                         :payment-options="paymentOptions"
                         @onChangeTokenValue="onChangeTokenValue"
@@ -75,7 +77,7 @@
                             Support
                         </a>
                         to assist you for accessing your higher limits!
-                    </p>
+                    </p> -->
                 </div>
                 <div class="add-modal__bullets">
                     <div class="add-modal__bullets__left">
@@ -165,7 +167,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
-import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -196,7 +197,7 @@ interface StripeForm {
         VButton,
         CheckMarkIcon,
         LockImage,
-        TokenDepositSelection,
+        // TokenDepositSelection,
         VLoader,
         VModal,
         BigCheckMarkIcon,
@@ -468,6 +469,17 @@ export default class AddPaymentMethodModal extends Vue {
                     &:visited {
                         color: #14142a;
                     }
+                }
+            }
+
+            &__support-info {
+                font-weight: 600;
+                font-size: 14px;
+                line-height: 20px;
+                color: #000;
+
+                a {
+                    color: #0149ff;
                 }
             }
         }

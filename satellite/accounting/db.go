@@ -36,15 +36,16 @@ type StoragenodeBandwidthRollup struct {
 
 // Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx.
 type Rollup struct {
-	ID             int64
-	NodeID         storj.NodeID
-	StartTime      time.Time
-	PutTotal       int64
-	GetTotal       int64
-	GetAuditTotal  int64
-	GetRepairTotal int64
-	PutRepairTotal int64
-	AtRestTotal    float64
+	ID              int64
+	NodeID          storj.NodeID
+	StartTime       time.Time
+	PutTotal        int64
+	GetTotal        int64
+	GetAuditTotal   int64
+	GetRepairTotal  int64
+	PutRepairTotal  int64
+	AtRestTotal     float64
+	IntervalEndTime time.Time
 }
 
 // StorageNodePeriodUsage represents a statement for a node for a compensation period.
@@ -63,7 +64,8 @@ type StorageNodeUsage struct {
 	NodeID      storj.NodeID
 	StorageUsed float64
 
-	Timestamp time.Time
+	Timestamp       time.Time
+	IntervalEndTime time.Time
 }
 
 // ProjectUsage consist of period total storage, egress
@@ -188,7 +190,7 @@ type StoragenodeAccounting interface {
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
 	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
-	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
+	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time, batchSize int) error
 	// ArchiveRollupsBefore archives rollups older than a given time and returns num storagenode and bucket bandwidth rollups archived.
 	ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (numArchivedNodeBW int, err error)
 	// GetRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
@@ -277,6 +279,9 @@ type Cache interface {
 	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
 	// GetProjectSegmentUsage returns the project's segment usage.
 	GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error)
+	// AddProjectSegmentUsageUpToLimit increases segment usage up to the limit.
+	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+	AddProjectSegmentUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, segmentLimit int64) error
 	// InsertProjectBandwidthUsage inserts a project bandwidth usage if it
 	// doesn't exist. It returns true if it's inserted, otherwise false.
 	InsertProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, value int64, ttl time.Duration, now time.Time) (inserted bool, _ error)
@@ -292,6 +297,9 @@ type Cache interface {
 	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
 	// this method will never return ErrKeyNotFound.
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
+	// AddProjectStorageUsageUpToLimit increases storage usage up to the limit.
+	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+	AddProjectStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, spaceLimit int64) error
 	// GetAllProjectTotals return the total projects' storage and segments used space.
 	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]Usage, error)
 	// Close the client, releasing any open resources. Once it's called any other

@@ -2,9 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <tr @click="onClick">
+    <tr
+        :class="{ 'selected': selected }"
+        @click="onClick"
+    >
         <th v-if="selectable" class="icon">
-            <v-checkbox @setData="onChange" />
+            <v-table-checkbox :disabled="selectDisabled" :value="selected" @checkChange="onChange" />
         </th>
         <th v-for="(val, key, index) in item" :key="index" class="align-left data">
             <p>{{ val }}</p>
@@ -15,13 +18,17 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import VCheckbox from "@/components/common/VCheckbox.vue";
+import VTableCheckbox from "@/components/common/VTableCheckbox.vue";
 
 // @vue/component
 @Component({
-    components: { VCheckbox }
+    components: { VTableCheckbox }
 })
 export default class TableItem extends Vue {
+    @Prop({ default: false })
+    public readonly selectDisabled: boolean;
+    @Prop({ default: false })
+    public readonly selected: boolean;
     @Prop({ default: false })
     public readonly selectable: boolean;
     @Prop({ default: () => {} })
@@ -29,11 +36,21 @@ export default class TableItem extends Vue {
     @Prop({ default: null })
     public readonly onClick: (data?: unknown) => void;
 
-    public isSelected = false;
-
     public onChange(value: boolean): void {
-        this.isSelected = value;
-        this.$emit('setSelected', value);
+        this.$emit('selectChange', value);
     }
 }
 </script>
+
+<style scoped lang="scss">
+    tr {
+
+        &:hover {
+            background-color: #e6e9ef;
+        }
+
+        &.selected {
+            background: #f0f3f8;
+        }
+    }
+</style>

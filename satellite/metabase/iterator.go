@@ -138,19 +138,35 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 	}
 
 	// TODO: implement this on the database side
+
+	// skip prefix to avoid listing all objects from prefixes
+	// inside listed prefix
+	if it.skipPrefix != "" {
+		// drop current results page
+		if rowsErr := it.curRows.Err(); rowsErr != nil {
+			it.failErr = rowsErr
+			return false
+		}
+
+		if closeErr := it.curRows.Close(); closeErr != nil {
+			it.failErr = closeErr
+			return false
+		}
+
+		// set new cursor after prefix we would like to skip
+		it.cursor.Key = it.prefix + prefixLimit(it.skipPrefix)
+		it.cursor.StreamID = uuid.UUID{}
+		it.cursor.Version = 0
+
+		// bump curIndex to not stop iteration because of no more results
+		it.curIndex = it.batchSize
+
+		it.skipPrefix = ""
+	}
+
 	ok := it.next(ctx, item)
 	if !ok {
 		return false
-	}
-
-	// skip until we are past the prefix we returned before.
-	if it.skipPrefix != "" {
-		for strings.HasPrefix(string(item.ObjectKey), string(it.skipPrefix)) {
-			if !it.next(ctx, item) {
-				return false
-			}
-		}
-		it.skipPrefix = ""
 	}
 
 	// should this be treated as a prefix?
@@ -286,7 +302,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 			AND (expires_at IS NULL OR expires_at > now())
 			ORDER BY (project_id, bucket_name, object_key, version) ASC
 		LIMIT $7
-	`, it.projectID, it.bucketName,
+		`, it.projectID, it.bucketName,
 		it.status,
 		[]byte(it.cursor.Key), int(it.cursor.Version),
 		[]byte(it.prefixLimit),
