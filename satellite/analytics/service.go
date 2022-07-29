@@ -140,6 +140,7 @@ type TrackCreateUserFields struct {
 	OriginHeader     string
 	Referrer         string
 	HubspotUTK       string
+	UserAgent        string
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -178,6 +179,9 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	traits.Set("account_created", true)
 	if fields.Type == Professional {
 		traits.Set("have_sales_contact", fields.HaveSalesContact)
+	}
+	if len(fields.UserAgent) > 0 {
+		traits.Set("signup_partner", fields.UserAgent)
 	}
 
 	service.enqueueMessage(segment.Identify{
