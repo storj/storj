@@ -71,5 +71,5 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 
 // serveJSONError writes JSON error to response output stream.
 func (keys *APIKeys) serveJSONError(w http.ResponseWriter, status int, err error) {
-	serveJSONError(keys.log, w, status, err)
+	ServeJSONError(keys.log, w, status, err)
 }
