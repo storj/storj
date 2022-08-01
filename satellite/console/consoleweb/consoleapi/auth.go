@@ -303,6 +303,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			OriginHeader: origin,
 			Referrer:     referrer,
 			HubspotUTK:   hubspotUTK,
+			UserAgent:    string(user.UserAgent),
 		}
 		if user.IsProfessional {
 			trackCreateUserFields.Type = analytics.Professional
