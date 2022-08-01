@@ -62,7 +62,6 @@ func (coupons *coupons) GetByUserID(ctx context.Context, userID uuid.UUID) (_ *p
 	defer mon.Task()(&ctx, userID)(&err)
 
 	customerID, err := coupons.service.db.Customers().GetCustomerID(ctx, userID)
-
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

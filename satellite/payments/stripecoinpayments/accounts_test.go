@@ -27,7 +27,6 @@ import (
 )
 
 func TestSignupCouponCodes(t *testing.T) {
-
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
