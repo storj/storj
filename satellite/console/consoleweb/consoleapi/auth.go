@@ -208,6 +208,16 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	registerData.FullName = replaceURLCharacters(registerData.FullName)
 	registerData.ShortName = replaceURLCharacters(registerData.ShortName)
 
+	if len([]rune(registerData.Partner)) > 100 {
+		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Partner must be less than or equal to 100 characters")))
+		return
+	}
+
+	if len([]rune(registerData.SignupPromoCode)) > 100 {
+		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Promo code must be less than or equal to 100 characters")))
+		return
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(w, err)
@@ -814,6 +824,8 @@ func (a *Auth) getUserErrorMessage(err error) string {
 	case console.ErrLoginPassword.Has(err):
 		return "Your login credentials are incorrect. You have just used up one of your login attempts"
 	case console.ErrLockedAccount.Has(err):
+		return err.Error()
+	case console.ErrValidation.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"
