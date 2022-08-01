@@ -604,7 +604,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 		for _, ref := range refs {
 			blob, err := cache.Create(ctx, ref, int64(4096))
 			require.NoError(t, err)
-			blobWriter, err := pieces.NewWriter(zaptest.NewLogger(t), blob, cache, satelliteID)
+			blobWriter, err := pieces.NewWriter(zaptest.NewLogger(t), blob, cache, satelliteID, pb.PieceHashAlgorithm_SHA256)
 			require.NoError(t, err)
 			_, err = blobWriter.Write(pieceContent)
 			require.NoError(t, err)

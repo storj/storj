@@ -39,6 +39,7 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 	"storj.io/uplink/private/eestream"
+	"storj.io/uplink/private/piecestore"
 )
 
 // TestDataRepair does the following:
@@ -49,14 +50,15 @@ import (
 //   - Shuts down several nodes, but keeping up a number equal to the minim
 //     threshold
 //   - Downloads the data from those left nodes and check that it's the same than the uploaded one.
-func TestDataRepairInMemory(t *testing.T) {
-	testDataRepair(t, true)
-}
-func TestDataRepairToDisk(t *testing.T) {
-	testDataRepair(t, false)
+func TestDataRepairInMemoryBlake(t *testing.T) {
+	testDataRepair(t, true, pb.PieceHashAlgorithm_BLAKE3)
 }
 
-func testDataRepair(t *testing.T, inMemoryRepair bool) {
+func TestDataRepairToDiskSHA256(t *testing.T) {
+	testDataRepair(t, false, pb.PieceHashAlgorithm_SHA256)
+}
+
+func testDataRepair(t *testing.T, inMemoryRepair bool, hashAlgo pb.PieceHashAlgorithm) {
 	const (
 		RepairMaxExcessRateOptimalThreshold = 0.05
 		minThreshold                        = 3
@@ -91,7 +93,8 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 		}
 
 		testData := testrand.Bytes(8 * memory.KiB)
-		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+
+		err := uplinkPeer.Upload(piecestore.WithPieceHashAlgo(ctx, hashAlgo), satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
