@@ -90,160 +90,150 @@
                             <bread-crumbs />
                         </div>
                     </div>
-
-                    <div>
-                        <table class="table table-fixed table-hover no-selection">
+                    <v-table class="file-browser-table">
+                        <template #head>
                             <file-browser-header />
-
-                            <tbody>
-                                <tr
-                                    v-for="file in formattedFilesUploading"
-                                    :key="file.ETag"
-                                    scope="row"
+                        </template>
+                        <template #body> 
+                            <tr
+                                v-for="file in formattedFilesUploading"
+                                :key="file.ETag"
+                                scope="row"
+                            >
+                                <td
+                                    class="upload-text"
+                                    aria-roledescription="file-uploading"
                                 >
-                                    <td
-                                        class="upload-text"
-                                        aria-roledescription="file-uploading"
-                                    >
-                                        <span>
-                                            <svg
-                                                width="21"
-                                                height="18"
-                                                viewBox="0 0 16 16"
-                                                fill="currentColor"
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                class="bi bi-file-earmark ml-2 mr-1"
-                                            >
-                                                <path
-                                                    d="M4 0h5.5v1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h1V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"
-                                                />
-                                                <path
-                                                    d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z"
-                                                />
-                                            </svg>
-                                            {{ filename(file) }}
-                                        </span>
-                                    </td>
-                                    <td aria-roledescription="progress-bar">
-                                        <div class="progress">
-                                            <div
-                                                class="progress-bar"
-                                                role="progressbar"
-                                                :style="{
-                                                    width: `${file.progress}%`
-                                                }"
-                                            >
-                                                {{ file.progress }}%
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <button
-                                            type="button"
-                                            class="btn btn-danger btn-sm"
-                                            @click="cancelUpload(file.Key)"
+                                    <span>
+                                        <svg
+                                            width="21"
+                                            height="18"
+                                            viewBox="0 0 16 16"
+                                            fill="currentColor"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="bi bi-file-earmark ml-2 mr-1"
                                         >
-                                            Cancel
-                                        </button>
-                                    </td>
-                                    <td />
-                                </tr>
-
-                                <tr v-if="filesUploadingLength">
-                                    <div class="files-uploading-count my-3">
+                                            <path
+                                                d="M4 0h5.5v1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h1V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"
+                                            />
+                                            <path
+                                                d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z"
+                                            />
+                                        </svg>
+                                        {{ filename(file) }}
+                                    </span>
+                                </td>
+                                <td aria-roledescription="progress-bar">
+                                    <div class="progress">
                                         <div
-                                            class="px-2"
-                                            aria-roledescription="files-uploading-count"
+                                            class="progress-bar"
+                                            role="progressbar"
+                                            :style="{
+                                                width: `${file.progress}%`
+                                            }"
                                         >
-                                            {{ formattedFilesWaitingToBeUploaded }}
-                                            waiting to be uploaded...
+                                            {{ file.progress }}%
                                         </div>
                                     </div>
-                                </tr>
+                                </td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="btn btn-danger btn-sm"
+                                        @click="cancelUpload(file.Key)"
+                                    >
+                                        Cancel
+                                    </button>
+                                </td>
+                                <td />
+                            </tr>
 
-                                <tr v-if="path.length > 0">
-                                    <td class="px-3">
-                                        <router-link to="../">
-                                            <a
-                                                id="navigate-back"
-                                                href="javascript:null"
-                                                class="px-2 font-weight-bold"
-                                                @click="back"
-                                            >..</a>
-                                        </router-link>
-                                    </td>
-                                </tr>
+                            <tr v-if="filesUploadingLength">
+                                <div class="files-uploading-count my-3">
+                                    <div
+                                        class="px-2"
+                                        aria-roledescription="files-uploading-count"
+                                    >
+                                        {{ formattedFilesWaitingToBeUploaded }}
+                                        waiting to be uploaded...
+                                    </div>
+                                </div>
+                            </tr>
 
-                                <tr
-                                    v-if="showCreateFolderInput"
-                                    class="new-folder-row"
-                                >
-                                    <td span="3">
-                                        <input
-                                            v-model="createFolderInput"
-                                            class="form-control input-folder"
-                                            :class="{
-                                                'folder-input':
-                                                    createFolderInput.length > 0 &&
-                                                    !createFolderEnabled
-                                            }"
-                                            type="text"
-                                            placeholder="Name of the folder"
-                                            @keypress.enter="createFolder"
-                                        >
-                                    </td>
-                                    <td span="3">
-                                        <button
-                                            type="button"
-                                            :disabled="!createFolderEnabled"
-                                            class="btn btn-primary btn-sm px-4"
-                                            @click="createFolder"
-                                        >
-                                            Save Folder
-                                        </button>
-                                        <span class="mx-1" />
-                                        <button
-                                            type="button"
-                                            class="btn btn-light btn-sm px-4"
-                                            @click="cancelFolderCreation"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </td>
-                                    <td span="3" />
-                                    <td span="3">
-                                        <div
-                                            v-if="creatingFolderSpinner"
-                                            class="spinner-border"
-                                            role="status"
-                                        />
-                                    </td>
-                                </tr>
+                            <tr v-if="path.length > 0">
+                                <td class="px-3">
+                                    <router-link to="../">
+                                        <a
+                                            id="navigate-back"
+                                            href="javascript:null"
+                                            class="px-2 font-weight-bold"
+                                            @click="back"
+                                        >..</a>
+                                    </router-link>
+                                </td>
+                            </tr>
 
-                                <file-entry
-                                    v-for="file in folders"
-                                    :key="file.Key"
-                                    :path="path"
-                                    :file="file"
-                                />
+                            <tr
+                                v-if="showCreateFolderInput"
+                                class="new-folder-row"
+                            >
+                                <td span="3">
+                                    <input
+                                        v-model="createFolderInput"
+                                        class="form-control input-folder"
+                                        :class="{
+                                            'folder-input':
+                                                createFolderInput.length > 0 &&
+                                                !createFolderEnabled
+                                        }"
+                                        type="text"
+                                        placeholder="Name of the folder"
+                                        @keypress.enter="createFolder"
+                                    >
+                                </td>
+                                <td span="3">
+                                    <button
+                                        type="button"
+                                        :disabled="!createFolderEnabled"
+                                        class="btn btn-primary btn-sm px-4"
+                                        @click="createFolder"
+                                    >
+                                        Save Folder
+                                    </button>
+                                    <span class="mx-1" />
+                                    <button
+                                        type="button"
+                                        class="btn btn-light btn-sm px-4"
+                                        @click="cancelFolderCreation"
+                                    >
+                                        Cancel
+                                    </button>
+                                </td>
+                                <td span="3" />
+                                <td span="3">
+                                    <div
+                                        v-if="creatingFolderSpinner"
+                                        class="spinner-border"
+                                        role="status"
+                                    />
+                                </td>
+                            </tr>
 
-                                <file-entry
-                                    v-for="file in singleFiles"
-                                    :key="file.Key"
-                                    :path="path"
-                                    :file="file"
-                                />
-                            </tbody>
-                        </table>
-                    </div>
+                            <file-entry
+                                v-for="file in folders"
+                                :key="file.Key"
+                                :path="path"
+                                :file="file"
+                            />
 
-                    <div
-                        v-if="fetchingFilesSpinner"
-                        class="d-flex justify-content-center"
-                    >
-                        <div class="spinner-border" />
-                    </div>
-
+                            <file-entry
+                                v-for="file in singleFiles"
+                                :key="file.Key"
+                                :path="path"
+                                :file="file"
+                            />
+                        </template>
+                    </v-table>
                     <div
                         v-if="displayUpload"
                         class="upload-help"
@@ -401,6 +391,12 @@
                             Drop Files Here to Upload
                         </p>
                     </div>
+                    <div
+                        v-if="fetchingFilesSpinner"
+                        class="d-flex justify-content-center"
+                    >
+                        <div class="spinner-border" />
+                    </div>
                 </div>
 
                 <file-modal v-if="showFileModal" />
@@ -426,6 +422,7 @@ import { BrowserFile } from "@/types/browser";
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from "@/router";
 import BucketSettingsNav from "@/components/objects/BucketSettingsNav.vue";
+import VTable from '@/components/common/VTable.vue';
 
 // @vue/component
 @Component({
@@ -433,6 +430,7 @@ import BucketSettingsNav from "@/components/objects/BucketSettingsNav.vue";
         BucketSettingsNav,
         FileEntry,
         BreadCrumbs,
+        VTable,
         FileBrowserHeader,
         FileModal,
         FileShareModal,
@@ -810,10 +808,6 @@ export default class FileBrowser extends Vue {
 <style scoped lang="scss">
 @import './scoped-bootstrap.css';
 
-.white-background {
-    background-color: #fff;
-}
-
 .file-browser {
     min-height: 500px;
 }
@@ -822,25 +816,13 @@ export default class FileBrowser extends Vue {
     user-select: none;
 }
 
-tbody {
-    user-select: none;
-}
-
-.table-fixed {
-    table-layout: fixed;
-}
-
-.table-heading {
-    color: #768394;
-    border-top: 0;
-    border-bottom: 1px solid #dee2e6;
-    padding-left: 0;
-    cursor: pointer;
-}
-
 .path {
     font-size: 18px;
     font-weight: 700;
+}
+
+.file-browser-table {
+    padding: 0 12px 24px;
 }
 
 .upload-help {
