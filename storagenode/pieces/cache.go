@@ -21,11 +21,11 @@ import (
 //
 // architecture: Chore
 type CacheService struct {
-	log          *zap.Logger
-	usageCache   *BlobsUsageCache
-	store        *Store
-	initialCheck bool
-	Loop         *sync2.Cycle
+	log              *zap.Logger
+	usageCache       *BlobsUsageCache
+	store            *Store
+	pieceScanOnStart bool
+	Loop             *sync2.Cycle
 
 	// InitFence is released once the cache's Run method returns or when it has
 	// completed its first loop. This is useful for testing.
@@ -34,13 +34,13 @@ type CacheService struct {
 
 // NewService creates a new cache service that updates the space usage cache on startup and syncs the cache values to
 // persistent storage on an interval.
-func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, interval time.Duration, initialCheck bool) *CacheService {
+func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, interval time.Duration, pieceScanOnStart bool) *CacheService {
 	return &CacheService{
-		log:          log,
-		usageCache:   usageCache,
-		store:        pieces,
-		initialCheck: initialCheck,
-		Loop:         sync2.NewCycle(interval),
+		log:              log,
+		usageCache:       usageCache,
+		store:            pieces,
+		pieceScanOnStart: pieceScanOnStart,
+		Loop:             sync2.NewCycle(interval),
 	}
 }
 
@@ -53,7 +53,7 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 	totalsAtStart := service.usageCache.copyCacheTotals()
 
 	// recalculate the cache once
-	if service.initialCheck {
+	if service.pieceScanOnStart {
 		piecesTotal, piecesContentSize, totalsBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
 		if err != nil {
 			service.log.Error("error getting current used space: ", zap.Error(err))
@@ -75,7 +75,7 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 			totalsAtStart.spaceUsedBySatellite,
 		)
 	} else {
-		service.log.Info("Initial piece scan omitted by configuration")
+		service.log.Info("Startup piece scan omitted by configuration")
 	}
 
 	if err = service.store.spaceUsedDB.Init(ctx); err != nil {
