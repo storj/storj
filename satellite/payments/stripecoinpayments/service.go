@@ -81,7 +81,6 @@ type Service struct {
 
 // NewService creates a Service instance.
 func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, segmentPrice string, bonusRate int64) (*Service, error) {
-
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
 			PublicKey:  config.CoinpaymentsPublicKey,
