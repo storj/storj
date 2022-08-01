@@ -37,11 +37,12 @@
 </template>
 
 <script lang="ts">
-import { Prop, Vue } from 'vue-property-decorator';
+import { Prop, Vue, Component } from 'vue-property-decorator';
 
 import { PaymentsHistoryItem } from '@/types/payments';
 
 // @vue/component
+@Component
 export default class TokenTransactionItem extends Vue {
     @Prop({default: () => new PaymentsHistoryItem()})
     private readonly billingItem: PaymentsHistoryItem;
