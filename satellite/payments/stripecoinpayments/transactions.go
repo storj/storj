@@ -71,7 +71,7 @@ type TransactionsPage struct {
 
 // IDList returns transaction id list of page's transactions.
 func (page *TransactionsPage) IDList() TransactionAndUserList {
-	var ids = make(TransactionAndUserList)
+	ids := make(TransactionAndUserList)
 	for _, tx := range page.Transactions {
 		ids[tx.ID] = tx.AccountID
 	}
