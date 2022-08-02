@@ -43,12 +43,16 @@ type Service interface {
 
 	// ExitCompleted updates the database when a graceful exit is completed. It also
 	// deletes all pieces and blobs for that satellite.
-	ExitCompleted(ctx context.Context, satelliteID storj.NodeID, completionReceipt []byte, wait func()) error
+	ExitCompleted(ctx context.Context, satelliteID storj.NodeID, completionReceipt []byte) error
 
 	// ExitNotPossible deletes the entry for the corresponding graceful exit operation.
 	// This is intended to be called when a graceful exit operation was initiated but
 	// the satellite rejected it.
 	ExitNotPossible(ctx context.Context, satelliteID storj.NodeID) error
+
+	// DeleteSatelliteData deletes all pieces and blobs stored for a satellite.
+	// Note: this should only ever be called after exit has finished.
+	DeleteSatelliteData(ctx context.Context, satelliteID storj.NodeID) error
 }
 
 // ensures that service implements Service.
@@ -156,21 +160,18 @@ func (c *service) DeleteSatellitePieces(ctx context.Context, satelliteID storj.N
 // ExitFailed updates the database when a graceful exit has failed.
 func (c *service) ExitFailed(ctx context.Context, satelliteID storj.NodeID, reason pb.ExitFailed_Reason, exitFailedBytes []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return c.satelliteDB.CompleteGracefulExit(ctx, satelliteID, c.nowFunc(), satellites.ExitFailed, exitFailedBytes)
+	return errs.Wrap(c.satelliteDB.CompleteGracefulExit(ctx, satelliteID, c.nowFunc(), satellites.ExitFailed, exitFailedBytes))
 }
 
-// ExitCompleted updates the database when a graceful exit is completed. It also
-// deletes all pieces and blobs for that satellite.
-func (c *service) ExitCompleted(ctx context.Context, satelliteID storj.NodeID, completionReceipt []byte, wait func()) (err error) {
+// ExitCompleted updates the database when a graceful exit is completed.
+func (c *service) ExitCompleted(ctx context.Context, satelliteID storj.NodeID, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	return errs.Wrap(c.satelliteDB.CompleteGracefulExit(ctx, satelliteID, c.nowFunc(), satellites.ExitSucceeded, completionReceipt))
+}
 
-	err = c.satelliteDB.CompleteGracefulExit(ctx, satelliteID, c.nowFunc(), satellites.ExitSucceeded, completionReceipt)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	// wait for deletes to complete
-	wait()
+// DeleteSatelliteData deletes all pieces and blobs for that satellite.
+func (c *service) DeleteSatelliteData(ctx context.Context, satelliteID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// delete all remaining pieces
 	err = c.DeleteSatellitePieces(ctx, satelliteID)

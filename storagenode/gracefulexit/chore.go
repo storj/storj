@@ -78,20 +78,13 @@ func (chore *Chore) AddMissing(ctx context.Context) (err error) {
 		}
 
 		started := chore.limiter.Go(ctx, func() {
-			err := worker.Run(ctx, func() {
-				chore.log.Debug("finished for satellite.", zap.Stringer("Satellite ID", satellite.SatelliteID))
-				chore.exitingMap.Delete(satellite.SatelliteID)
-			})
-
-			if err != nil {
+			defer chore.exitingMap.Delete(satellite.SatelliteID)
+			if err := worker.Run(ctx); err != nil {
 				chore.log.Error("worker failed", zap.Error(err))
-			}
-
-			if err := worker.Close(); err != nil {
-				chore.log.Error("closing worker failed", zap.Error(err))
 			}
 		})
 		if !started {
+			chore.exitingMap.Delete(satellite.SatelliteID)
 			return ctx.Err()
 		}
 	}
@@ -120,16 +113,5 @@ func (chore *Chore) TestWaitForNoWorkers(ctx context.Context) error {
 // Close closes chore.
 func (chore *Chore) Close() error {
 	chore.Loop.Close()
-
-	chore.exitingMap.Range(func(key interface{}, value interface{}) bool {
-		worker := value.(*Worker)
-		err := worker.Close()
-		if err != nil {
-			worker.log.Error("worker failed on close.", zap.Error(err))
-		}
-		chore.exitingMap.Delete(key)
-		return true
-	})
-
 	return nil
 }
