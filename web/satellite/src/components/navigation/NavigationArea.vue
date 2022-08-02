@@ -92,7 +92,6 @@ import AccessGrantsIcon from '@/../static/images/navigation/accessGrants.svg';
 import DashboardIcon from '@/../static/images/navigation/projectDashboard.svg';
 import BucketsIcon from '@/../static/images/navigation/buckets.svg';
 import UsersIcon from '@/../static/images/navigation/users.svg';
-import BillingIcon from '@/../static/images/navigation/billing.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
@@ -112,7 +111,6 @@ import QuickStartLinks from "@/components/navigation/QuickStartLinks.vue";
         DashboardIcon,
         AccessGrantsIcon,
         UsersIcon,
-        BillingIcon,
         BucketsIcon,
         ResourcesIcon,
         QuickStartIcon,
@@ -132,7 +130,6 @@ export default class NavigationArea extends Vue {
         RouteConfig.Buckets.withIcon(BucketsIcon),
         RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
         RouteConfig.Users.withIcon(UsersIcon),
-        RouteConfig.Account.with(RouteConfig.Billing).withIcon(BillingIcon),
     ];
 
     public $refs!: {

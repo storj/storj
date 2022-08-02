@@ -8,9 +8,9 @@ export class LocalData {
     private static userId = 'userId';
     private static selectedProjectId = 'selectedProjectId';
     private static userIdPassSalt = 'userIdPassSalt';
-    private static serverSideEncryptionAcknowledge = 'serverSideEncryptionAcknowledge';
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
+    private static billingNotificationAcknowledged = 'billingNotificationAcknowledged';
 
     public static getUserId(): string | null {
         return localStorage.getItem(LocalData.userId);
@@ -74,6 +74,14 @@ export class LocalData {
     public static getBucketGuideHidden(): boolean {
         const value = localStorage.getItem(LocalData.bucketGuideHidden);
         return value === "true";
+    }
+
+    public static getBillingNotificationAcknowledged(): boolean {
+        return Boolean(localStorage.getItem(LocalData.billingNotificationAcknowledged));
+    }
+
+    public static setBillingNotificationAcknowledged(): void {
+        localStorage.setItem(LocalData.billingNotificationAcknowledged, 'true');
     }
 }
 

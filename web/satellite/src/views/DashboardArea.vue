@@ -14,13 +14,16 @@
                     class="dashboard__wrap__main-area__content-wrap"
                     :class="{ 'no-nav': isNavigationHidden }"
                 >
-                    <div class="bars">
-                        <BetaSatBar v-if="isBetaSatellite" />
-                        <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
-                        <ProjectInfoBar v-if="isProjectListPage" />
-                        <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                    <div class="dashboard__wrap__main-area__content-wrap__container">
+                        <div class="bars">
+                            <BetaSatBar v-if="isBetaSatellite" />
+                            <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
+                            <ProjectInfoBar v-if="isProjectListPage" />
+                            <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                        </div>
+                        <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
                     </div>
-                    <router-view class="dashboard__wrap__main-area__content-wrap__content" />
+                    <BillingNotification v-if="isBillingNotificationShown" />
                 </div>
             </div>
         </div>
@@ -36,6 +39,7 @@ import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import BillingNotification from "@/components/notifications/BillingNotification.vue";
 import ProjectInfoBar from "@/components/infoBars/ProjectInfoBar.vue";
 
 import LoaderImage from '@/../static/images/common/loader.svg';
@@ -76,6 +80,7 @@ const {
         MFARecoveryCodeBar,
         BetaSatBar,
         ProjectInfoBar,
+        BillingNotification,
     },
 })
 export default class DashboardArea extends Vue {
@@ -94,6 +99,18 @@ export default class DashboardArea extends Vue {
      */
     public async mounted(): Promise<void> {
         this.setupInactivityTimers();
+
+        if (LocalData.getBillingNotificationAcknowledged()) {
+            this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
+        } else {
+            const unsub = this.$store.subscribe((action) => {
+                if (action.type == APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
+                    LocalData.setBillingNotificationAcknowledged();
+                    unsub();
+                }
+            })
+        }
+
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
@@ -265,6 +282,13 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Indicates whether the billing relocation notification should be shown.
+     */
+    public get isBillingNotificationShown(): boolean {
+        return this.$store.state.appStateModule.appState.isBillingNotificationShown;
+    }
+
+    /**
      * Indicates if current route is create project page.
      */
     private get isCreateProjectPage(): boolean {
@@ -370,15 +394,19 @@ export default class DashboardArea extends Vue {
 
                 &__content-wrap {
                     width: 100%;
-                    height: 95vh;
-                    box-sizing: border-box;
-                    overflow-y: auto;
-                    padding-bottom: 60px;
+                    height: 100%;
+                    min-width: 0;
 
-                    &__content {
-                        max-width: 1200px;
-                        margin: 0 auto;
-                        padding: 48px 48px 60px;
+                    &__container {
+                        height: calc(100% - 5vh);
+                        margin-bottom: 5vh;
+                        overflow-y: auto;
+
+                        &__content {
+                            max-width: 1200px;
+                            margin: 0 auto;
+                            padding: 48px 48px 60px;
+                        }
                     }
                 }
             }
@@ -410,7 +438,7 @@ export default class DashboardArea extends Vue {
 
     @media screen and (max-width: 800px) {
 
-        .dashboard__wrap__main-area__content-wrap__content {
+        .dashboard__wrap__main-area__content-wrap__container__content {
             padding: 32px 24px 50px;
         }
     }
@@ -421,8 +449,12 @@ export default class DashboardArea extends Vue {
             flex-direction: column;
 
             &__content-wrap {
-                box-sizing: border-box;
-                width: 100%;
+                height: calc(100% - 4rem);
+
+                &__container {
+                    height: 100%;
+                    margin-bottom: 0;
+                }
             }
 
             &__navigation {

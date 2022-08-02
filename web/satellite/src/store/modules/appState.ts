@@ -37,6 +37,7 @@ class ViewsState {
         public isEnableMFAModalShown = false,
         public isDisableMFAModalShown = false,
         public isAddTokenFundsModalShown = false,
+        public isBillingNotificationShown = true,
 
         public onbAGStepBackRoute = "",
         public onbAPIKeyStepBackRoute = "",
@@ -152,6 +153,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.deletePaymentMethodID = id;
+        },
+        [APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION](state: State): void {
+            state.appState.isBillingNotificationShown = false;
         },
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: State): void {
             state.appState.isAccountDropdownShown = false;

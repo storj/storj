@@ -31,6 +31,10 @@
                     </a>
                 </div>
             </div>
+            <div class="account-area__dropdown__item" @click="navigateToBilling">
+                <BillingIcon />
+                <p class="account-area__dropdown__item__label">Billing</p>
+            </div>
             <div class="account-area__dropdown__item" @click="navigateToSettings">
                 <SettingsIcon />
                 <p class="account-area__dropdown__item__label">Account Settings</p>
@@ -57,6 +61,7 @@ import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 import { OBJECTS_ACTIONS } from "@/store/modules/objects";
 
+import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
 import SatelliteIcon from '@/../static/images/navigation/satellite.svg';
 import AccountIcon from '@/../static/images/navigation/account.svg';
@@ -68,6 +73,7 @@ import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 // @vue/component
 @Component({
@@ -76,6 +82,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
         SatelliteIcon,
         AccountIcon,
         ArrowImage,
+        BillingIcon,
         SettingsIcon,
         LogoutIcon,
         TierBadgeFree,
@@ -91,6 +98,14 @@ export default class AccountArea extends Vue {
 
     public $refs!: {
         accountArea: HTMLDivElement,
+    }
+
+    /**
+     * Navigates user to billing page.
+     */
+    public navigateToBilling(): void {
+        this.closeDropdown();
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
     }
 
     /**
@@ -135,7 +150,7 @@ export default class AccountArea extends Vue {
      * Toggles account dropdown visibility.
      */
     public toggleDropdown(): void {
-        const DROPDOWN_HEIGHT = 158; // pixels
+        const DROPDOWN_HEIGHT = 224; // pixels
         const SIXTEEN_PIXELS = 16;
         const TWENTY_PIXELS = 20;
         const accountContainer = this.$refs.accountArea.getBoundingClientRect();
@@ -144,6 +159,7 @@ export default class AccountArea extends Vue {
         this.dropdownXPos = accountContainer.right - TWENTY_PIXELS;
 
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+        this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
     }
 
     /**
