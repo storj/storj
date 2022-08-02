@@ -24,7 +24,7 @@ type CacheService struct {
 	log                *zap.Logger
 	usageCache         *BlobsUsageCache
 	store              *Store
-	PieceScanOnStartup bool
+	pieceScanOnStartup bool
 	Loop               *sync2.Cycle
 
 	// InitFence is released once the cache's Run method returns or when it has
@@ -34,12 +34,12 @@ type CacheService struct {
 
 // NewService creates a new cache service that updates the space usage cache on startup and syncs the cache values to
 // persistent storage on an interval.
-func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, interval time.Duration, PieceScanOnStartup bool) *CacheService {
+func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, interval time.Duration, pieceScanOnStartup bool) *CacheService {
 	return &CacheService{
 		log:                log,
 		usageCache:         usageCache,
 		store:              pieces,
-		PieceScanOnStartup: PieceScanOnStartup,
+		pieceScanOnStartup: pieceScanOnStartup,
 		Loop:               sync2.NewCycle(interval),
 	}
 }
@@ -53,7 +53,7 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 	totalsAtStart := service.usageCache.copyCacheTotals()
 
 	// recalculate the cache once
-	if service.PieceScanOnStartup {
+	if service.pieceScanOnStartup {
 		piecesTotal, piecesContentSize, totalsBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
 		if err != nil {
 			service.log.Error("error getting current used space: ", zap.Error(err))
