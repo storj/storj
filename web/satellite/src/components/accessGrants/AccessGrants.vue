@@ -139,64 +139,77 @@
                 />
             </div>
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
-            <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items2">
-                <SortAccessGrantsHeader2
-                    :on-header-click-callback="onHeaderSectionClickCallback"
-                />
-                <div class="access-grants-items2__content">
-                    <VList
-                        :data-set="accessGrantsList"
-                        :item-component="itemComponent2"
-                        @openModal="onDeleteClick"
-                    />
-                </div>
-                <div class="access-grants-items2__footer">
-                    <span class="access-grants-items2__footer__total-accesses">
-                        {{ accessGrantsList.length }} Access Grants
+            <div class="access-grants-items2">
+                <v-table
+                    v-if="accessGrantsList.length && !areGrantsFetching"
+                    class="access-grants-items2__content"
+                    items-label="access grants"
+                    :limit="accessGrantLimit"
+                    :total-page-count="totalPageCount"
+                    :items="accessGrantsList"
+                    :total-items-count="accessGrantsTotalCount"
+                    :on-page-click-callback="onPageClick"
+                >
+                    <template #head>
+                        <th class="align-left">Name</th>
+                        <th class="align-left">Date Created</th>
+                    </template>
+                    <template #body>
+                        <AccessGrantsItem2
+                            v-for="(grant, key) in accessGrantsList"
+                            :key="key"
+                            :item-data="grant"
+                            :dropdown-key="key"
+                            :is-dropdown-open="activeDropdown === key"
+                            @openDropdown="openDropdown"
+                            @deleteClick="onDeleteClick"
+                        />
+                    </template>
+                </v-table>
+                <div
+                    v-if="!accessGrantsList.length && !areGrantsFetching"
+                    class="access-grants-items2__empty-state"
+                >
+                    <span class="access-grants-items2__empty-state__text">
+                        No Results Found
                     </span>
-                    <VPagination
-                        v-if="totalPageCount > 1"
-                        ref="pagination"
-                        class="access-grants-items2__footer__pagination-area"
-                        :total-page-count="totalPageCount"
-                        :on-page-click-callback="onPageClick"
-                    />
                 </div>
-            </div>
-            <div
-                v-if="!accessGrantsList.length && !areGrantsFetching"
-                class="access-grants-items2__empty-state"
-            >
-                <span class="access-grants-items2__empty-state__text">
-                    No Results Found
-                </span>
             </div>
         </div>
         <div v-if="!isNewAccessGrantFlow">
             <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
             <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
-                <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
-                <div class="access-grants-items__content">
-                    <VList
-                        :data-set="accessGrantsList"
-                        :item-component="itemComponent"
-                        :on-item-click="toggleSelection"
-                    />
-                </div>
-                <VPagination
-                    v-if="totalPageCount > 1"
-                    ref="pagination"
-                    class="pagination-area"
+                <v-table
+                    v-if="accessGrantsList.length && !areGrantsFetching"
+                    class="access-grants-items__content"
+                    items-label="access grants"
+                    :selectable="true"
+                    :limit="accessGrantLimit"
                     :total-page-count="totalPageCount"
+                    :items="accessGrantsList"
+                    :total-items-count="accessGrantsTotalCount"
                     :on-page-click-callback="onPageClick"
-                />
+                >
+                    <template #head>
+                        <th class="align-left">Name</th>
+                        <th class="align-left">Date Created</th>
+                    </template>
+                    <template #body>
+                        <AccessGrantsItem
+                            v-for="(grant, key) in accessGrantsList"
+                            :key="key"
+                            :item-data="grant"
+                            @accessGrantClick="toggleSelection"
+                            @selectChange="(_) => toggleSelection(grant)"
+                        />
+                    </template>
+                </v-table>
             </div>
         </div>
         <div v-if="!isNewAccessGrantFlow">
             <ConfirmDeletePopup
                 v-if="isDeleteClicked"
                 @close="onClearSelection"
-                @reset-pagination="resetPagination"
             />
             <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
         </div>
@@ -204,7 +217,6 @@
             <ConfirmDeletePopup2
                 v-if="isDeleteClicked"
                 @close="onClearSelection"
-                @resetPagination="resetPagination"
             />
         </div>
         <router-view />
@@ -219,13 +231,9 @@ import AccessGrantsItem2 from '@/components/accessGrants/AccessGrantsItem2.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import ConfirmDeletePopup2 from '@/components/accessGrants/ConfirmDeletePopup2.vue';
 import EmptyState from '@/components/accessGrants/EmptyState.vue';
-import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
-import SortAccessGrantsHeader2 from '@/components/accessGrants/SortingHeader2.vue';
 import VButton from '@/components/common/VButton.vue';
-import VList from '@/components/common/VList.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VHeader from '@/components/common/VHeader.vue';
-import VPagination from '@/components/common/VPagination.vue';
 import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
 import S3Icon from '@/../static/images/accessGrants/s3.svg';
@@ -235,6 +243,7 @@ import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import VTable from "@/components/common/VTable.vue";
 
 const {
     FETCH,
@@ -244,25 +253,22 @@ const {
     SET_SORT_DIRECTION,
     SET_SEARCH_QUERY,
 } = ACCESS_GRANTS_ACTIONS;
-declare interface ResetPagination {
-    resetPageIndex(): void;
-}
+
 // @vue/component
 @Component({
     components: {
+        AccessGrantsItem2,
+        AccessGrantsItem,
         AccessGrantsIcon,
         CLIIcon,
         EmptyState,
         S3Icon,
-        SortAccessGrantsHeader,
-        SortAccessGrantsHeader2,
-        VList,
-        VPagination,
         VButton,
         ConfirmDeletePopup,
         ConfirmDeletePopup2,
         VLoader,
         VHeader,
+        VTable,
     },
 })
 export default class AccessGrants extends Vue {
@@ -271,11 +277,14 @@ export default class AccessGrants extends Vue {
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public areGrantsFetching = true;
+    /**
+     * Indicates if the access modal should be shown and what the defaulted type of access should be defaulted.
+     */
+    private showAccessModal = false;
+    private modalAccessType = '';
+    public activeDropdown = -1;
 
-    public $refs!: {
-        pagination: HTMLElement & ResetPagination;
-    };
+    public areGrantsFetching = true;
 
     /**
      * Indicates if navigation side bar is hidden.
@@ -333,18 +342,8 @@ export default class AccessGrants extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
         }
-        if (this.totalPageCount > 1) {
-            this.resetPagination();
-        }
     }
-    /**
-     * Resets pagination to default state.
-     */
-    public resetPagination(): void {
-        if (this.totalPageCount > 1) {
-            this.$refs.pagination.resetPageIndex();
-        }
-    }
+
     /**
      * Starts create access grant flow.
      */
@@ -352,18 +351,33 @@ export default class AccessGrants extends Vue {
         this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
         this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
     }
+
+    /**
+     * Opens AccessGrantItem2 dropdown.
+     */
+    public openDropdown(key: number): void {
+        if (this.activeDropdown === key) {
+            this.activeDropdown = -1;
+
+            return;
+        }
+
+        this.activeDropdown = key;
+    }
+
     /**
      * Holds on button click login for deleting access grant process.
      */
-    public onDeleteClick(): void {
+    public async onDeleteClick(grant: AccessGrant): Promise<void> {
+        await this.$store.dispatch(TOGGLE_SELECTION, grant);
         this.isDeleteClicked = true;
     }
     /**
      * Clears access grants selection.
      */
     public async onClearSelection(): Promise<void> {
-        await this.$store.dispatch(CLEAR_SELECTION);
         this.isDeleteClicked = false;
+        await this.$store.dispatch(CLEAR_SELECTION);
     }
     /**
      * Fetches Access records by name depending on search query.
@@ -386,18 +400,21 @@ export default class AccessGrants extends Vue {
     public get totalPageCount(): number {
         return this.$store.state.accessGrantsModule.page.pageCount;
     }
+
     /**
-     * Returns AccessGrant item component.
+     * Returns access grants total page count from store.
      */
-    public get itemComponent(): typeof AccessGrantsItem {
-        return AccessGrantsItem;
+    public get accessGrantsTotalCount(): number {
+        return this.$store.state.accessGrantsModule.page.totalCount;
     }
+
     /**
-     * Returns AccessGrant2 item component.
+     * Returns access grants limit from store.
      */
-    public get itemComponent2(): typeof AccessGrantsItem2 {
-        return AccessGrantsItem2;
+    public get accessGrantLimit(): number {
+        return this.$store.state.accessGrantsModule.page.limit;
     }
+
     /**
      * Returns access grants from store.
      */
@@ -568,50 +585,16 @@ export default class AccessGrants extends Vue {
         }
 
         .access-grants-items {
-            position: relative;
 
             &__content {
-                background-color: #fff;
-                display: flex;
-                flex-direction: column;
-                width: calc(100% - 32px);
-                justify-content: flex-start;
-                padding: 16px;
-                border-radius: 0 0 8px 8px;
+                margin-top: 20px;
             }
         }
 
         .access-grants-items2 {
-            position: relative;
 
             &__content {
-                background-color: #fff;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-start;
-            }
-
-            &__footer {
-                background-color: #fff;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                height: 80px;
-                width: 100%;
-                border: 1px solid #e5e7eb;
-                border-radius: 0 0 8px 8px;
-
-                &__total-accesses {
-                    height: 20px;
-                    padding-left: 20px;
-                    margin-left: 18px;
-                    color: #2c353a;
-                }
-
-                &__pagination-area {
-                    padding-right: 20px;
-                    margin-bottom: 25px;
-                }
+                margin-top: 20px;
             }
 
             &__empty-state {

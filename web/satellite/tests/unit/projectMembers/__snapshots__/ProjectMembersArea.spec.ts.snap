@@ -21,7 +21,7 @@ exports[`ProjectMembersArea.vue renders correctly 1`] = `
   </div>
   <!---->
   <!---->
-  <v-table-stub selectable="true" totalpagecount="1" itemslabel="project members" limit="1" items="[object Object]" totalitemscount="1" onpageclickcallback="[Function]" class="team-area__table"></v-table-stub>
+  <v-table-stub selectable="true" totalpagecount="1" itemslabel="project members" limit="6" items="[object Object]" totalitemscount="1" onpageclickcallback="[Function]" class="team-area__table"></v-table-stub>
 </div>
 `;
 
@@ -32,6 +32,6 @@ exports[`ProjectMembersArea.vue team area renders correctly 1`] = `
   </div>
   <!---->
   <!---->
-  <v-table-stub selectable="true" totalpagecount="1" itemslabel="project members" limit="1" items="[object Object]" totalitemscount="1" onpageclickcallback="[Function]" class="team-area__table"></v-table-stub>
+  <v-table-stub selectable="true" totalpagecount="1" itemslabel="project members" limit="6" items="[object Object]" totalitemscount="1" onpageclickcallback="[Function]" class="team-area__table"></v-table-stub>
 </div>
 `;
