@@ -251,7 +251,7 @@ func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
 			SegmentsQuantity int64
 		}
 
-		var testCases = []TestCase{
+		testCases := []TestCase{
 			{}, // all zeros
 			{
 				Storage: 10000000000, // Byte-Hours

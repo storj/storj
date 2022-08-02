@@ -123,6 +123,7 @@ func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
 				newField("signup_referrer", fields.Referrer),
 				newField("account_created", "true"),
 				newField("have_sales_contact", strconv.FormatBool(fields.HaveSalesContact)),
+				newField("signup_partner", fields.UserAgent),
 			},
 		},
 	}

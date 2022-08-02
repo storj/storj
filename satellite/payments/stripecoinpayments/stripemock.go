@@ -259,7 +259,6 @@ func (m *mockCustomers) New(params *stripe.CustomerParams) (*stripe.Customer, er
 
 func (m *mockCustomers) Get(id string, params *stripe.CustomerParams) (*stripe.Customer, error) {
 	if err := m.repopulate(); err != nil {
-
 		return nil, err
 	}
 
@@ -331,6 +330,9 @@ func (c *listContainer) GetListMeta() *stripe.ListMeta {
 }
 
 func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *paymentmethod.Iter {
+	mocks.Lock()
+	defer mocks.Unlock()
+
 	listMeta := &stripe.ListMeta{
 		HasMore:    false,
 		TotalCount: uint32(len(m.attached)),
@@ -338,9 +340,6 @@ func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *p
 	lc := newListContainer(listMeta)
 
 	query := stripe.Query(func(*stripe.Params, *form.Values) ([]interface{}, stripe.ListContainer, error) {
-		mocks.Lock()
-		defer mocks.Unlock()
-
 		list, ok := m.attached[*listParams.Customer]
 		if !ok {
 			list = []*stripe.PaymentMethod{}
@@ -357,7 +356,6 @@ func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *p
 }
 
 func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
-
 	randID := testrand.BucketName()
 	newMethod := &stripe.PaymentMethod{
 		ID: fmt.Sprintf("pm_card_%s", randID),
@@ -380,11 +378,10 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 }
 
 func (m *mockPaymentMethods) Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error) {
-	var method *stripe.PaymentMethod
-
 	mocks.Lock()
 	defer mocks.Unlock()
 
+	var method *stripe.PaymentMethod
 	for _, candidate := range m.unattached {
 		if candidate.ID == id {
 			method = candidate
@@ -399,11 +396,10 @@ func (m *mockPaymentMethods) Attach(id string, params *stripe.PaymentMethodAttac
 }
 
 func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetachParams) (*stripe.PaymentMethod, error) {
-	var unattached *stripe.PaymentMethod
-
 	mocks.Lock()
 	defer mocks.Unlock()
 
+	var unattached *stripe.PaymentMethod
 	for user, userMethods := range m.attached {
 		var remaining []*stripe.PaymentMethod
 		for _, method := range userMethods {
