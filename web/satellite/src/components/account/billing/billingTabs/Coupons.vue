@@ -28,7 +28,7 @@
                     </div>
                     <div class="coupon-area__container__existing-coupons__expiration-container">
                         <span class="coupon-area__container__existing-coupons__expiration-container__expiration">
-                            {{coupon.getDescription().includes('forever')?'No Expiration' : expiration }}
+                            {{ coupon.getDescription().includes('forever')?'No Expiration' : expiration }}
                         </span>
                     </div>
                 </div>
