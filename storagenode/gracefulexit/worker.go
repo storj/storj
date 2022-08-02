@@ -23,7 +23,7 @@ import (
 type Worker struct {
 	log *zap.Logger
 
-	service         Service
+	service         *Service
 	transferService piecetransfer.Service
 
 	dialer              rpc.Dialer
@@ -32,7 +32,7 @@ type Worker struct {
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, service Service, transferService piecetransfer.Service, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
+func NewWorker(log *zap.Logger, service *Service, transferService piecetransfer.Service, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
 	return &Worker{
 		log:                 log.Named(satelliteURL.String()),
 		service:             service,
@@ -48,7 +48,7 @@ func NewWorker(log *zap.Logger, service Service, transferService piecetransfer.S
 func (worker *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	worker.log.Debug("worker")
+	worker.log.Debug("started")
 	defer worker.log.Debug("finished")
 
 	limiter := sync2.NewLimiter(worker.concurrentTransfers)

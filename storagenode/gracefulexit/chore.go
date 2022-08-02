@@ -23,7 +23,7 @@ type Chore struct {
 	dialer rpc.Dialer
 	config Config
 
-	service         Service
+	service         *Service
 	transferService piecetransfer.Service
 
 	exitingMap sync.Map
@@ -32,7 +32,7 @@ type Chore struct {
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, service Service, transferService piecetransfer.Service, dialer rpc.Dialer, config Config) *Chore {
+func NewChore(log *zap.Logger, service *Service, transferService piecetransfer.Service, dialer rpc.Dialer, config Config) *Chore {
 	return &Chore{
 		log:             log,
 		dialer:          dialer,
