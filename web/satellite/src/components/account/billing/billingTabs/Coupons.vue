@@ -4,7 +4,7 @@
 <template>
     <div class="coupon-area">
         <div class="coupon-area__top-container">
-            <h1 class="coupon-area__title">coupons</h1>
+            <h1 class="coupon-area__title">Coupon</h1>
             <VLoader v-if="isCouponFetching" />
             <div class="coupon-area__container">
                 <div
