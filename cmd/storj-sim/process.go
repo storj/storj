@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -50,6 +51,8 @@ func NewProcesses(dir string, failfast bool) *Processes {
 
 // Exec executes a command on all processes.
 func (processes *Processes) Exec(ctx context.Context, command string) error {
+	defer func() { _ = processes.Output.Flush() }()
+
 	var group *errgroup.Group
 	if processes.FailFast {
 		group, ctx = errgroup.WithContext(ctx)
@@ -65,7 +68,14 @@ func (processes *Processes) Start(ctx context.Context, group *errgroup.Group, co
 	for _, p := range processes.List {
 		process := p
 		group.Go(func() error {
-			return process.Exec(ctx, command)
+			err := process.Exec(ctx, command)
+			if errors.Is(err, context.Canceled) {
+				err = nil
+			}
+			if err != nil {
+				err = fmt.Errorf("%v failed: %w", process.Name, err)
+			}
+			return err
 		})
 	}
 }
@@ -81,6 +91,8 @@ func (processes *Processes) Env() []string {
 
 // Close closes all the processes and their resources.
 func (processes *Processes) Close() error {
+	defer func() { _ = processes.Output.Flush() }()
+
 	var errlist errs.Group
 	for _, process := range processes.List {
 		errlist.Add(process.Close())
@@ -168,8 +180,8 @@ type Process struct {
 	ExecBefore map[string]func(*Process) error
 	Arguments  Arguments
 
-	stdout io.Writer
-	stderr io.Writer
+	stdout WriterFlusher
+	stderr WriterFlusher
 }
 
 // New creates a process which can be run in the specified directory.
@@ -203,6 +215,9 @@ func (process *Process) WaitForExited(dependency *Process) {
 
 // Exec runs the process using the arguments for a given command.
 func (process *Process) Exec(ctx context.Context, command string) (err error) {
+	defer func() { _ = process.stdout.Flush() }()
+	defer func() { _ = process.stderr.Flush() }()
+
 	// ensure that we always release all status fences
 	defer process.Status.Started.Release()
 	defer process.Status.Exited.Release()
@@ -213,20 +228,20 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	// wait for dependencies to start
 	for _, fence := range process.Wait {
 		if !fence.Wait(ctx) {
-			return ctx.Err()
+			return fmt.Errorf("waiting dependencies: %w", ctx.Err())
 		}
 	}
 
 	// in case we have an explicit delay then sleep
 	if process.Delay > 0 {
 		if !sync2.Sleep(ctx, process.Delay) {
-			return ctx.Err()
+			return fmt.Errorf("waiting for delay: %w", ctx.Err())
 		}
 	}
 
 	if exec, ok := process.ExecBefore[command]; ok {
 		if err := exec(process); err != nil {
-			return err
+			return fmt.Errorf("executing pre-actions: %w", err)
 		}
 	}
 
@@ -275,7 +290,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	if printCommands {
 		fmt.Fprintf(process.processes.Output, "%s running: %v\n", process.Name, strings.Join(cmd.Args, " "))
 		defer func() {
-			fmt.Fprintf(process.processes.Output, "%s exited: %v\n", process.Name, err)
+			fmt.Fprintf(process.processes.Output, "%s exited (code:%d): %v\n", process.Name, cmd.ProcessState.ExitCode(), err)
 		}()
 	}
 
@@ -304,13 +319,17 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 
 	// wait for process completion
 	err = cmd.Wait()
-
+	if errors.Is(err, context.Canceled) && ctx.Err() != nil {
+		// Ignore error caused by context cancellation.
+		err = nil
+	}
 	// clear the error if the process was killed
 	if status, ok := cmd.ProcessState.Sys().(syscall.WaitStatus); ok {
 		if status.Signaled() && status.Signal() == os.Kill {
 			err = nil
 		}
 	}
+
 	return err
 }
 
