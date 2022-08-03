@@ -46,43 +46,7 @@
                     <p class="price">{{ item.segmentPrice | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="divider" />
             <div class="usage-charges-item-container__detailed-info-container__footer">
-                <div class="usage-charges-item-container__detailed-info-container__footer__payment-type">
-                    <p class="usage-charges-item-container__detailed-info-container__footer__payment-type__method">PAYMENT METHOD</p>
-                    <p class="usage-charges-item-container__detailed-info-container__footer__payment-type__type">{{ paymentMethod }}</p>
-                </div>
-                <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
-                    <v-button
-                        v-if="paymentMethod === 'None Assigned'"
-                        label="Add Payment Method"
-                        font-size="13px"
-                        width="auto"
-                        height="30px"
-                        icon="credit-card"
-                        class="usage-charges-item-container__detailed-info-container__footer__buttons__assigned"
-                    />
-                    <v-button
-                        v-if="paymentMethod !== 'None Assigned'"
-                        label="Edit Payment Method"
-                        font-size="13px"
-                        width="auto"
-                        height="30px"
-                        icon="lock"
-                        :is-transparent="true"
-                        class="usage-charges-item-container__detailed-info-container__footer__buttons__none-assigned"
-                    />
-                    <v-button
-                        v-if="paymentMethod !== 'None Assigned'"
-                        label="See Payment"
-                        font-size="13px"
-                        width="auto"
-                        height="30px"
-                        icon="document"
-                        :is-transparent="true"
-                        class="usage-charges-item-container__detailed-info-container__footer__buttons__none-assigned"
-                    />
-                </div>
             </div>
         </div>
     </div>
@@ -108,7 +72,7 @@ import { MetaUtils } from '@/utils/meta';
         VButton,
     },
 })
-export default class UsageAndChargesItem extends Vue {
+export default class UsageAndChargesItem2 extends Vue {
     /**
      * item represents usage and charges of current project by period.
      */
