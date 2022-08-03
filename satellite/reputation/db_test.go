@@ -223,7 +223,7 @@ func TestApplyUpdatesEquivalentToMultipleUpdatesCached(t *testing.T) {
 	}
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cachingDB := reputation.NewCachingDB(zaptest.NewLogger(t), testrand.NodeID(), db.Reputation(), config)
+		cachingDB := reputation.NewCachingDB(zaptest.NewLogger(t), db.Reputation(), config)
 		cancelCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		ctx.Go(func() error {
