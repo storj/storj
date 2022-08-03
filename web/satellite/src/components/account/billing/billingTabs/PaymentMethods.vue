@@ -45,14 +45,16 @@
                 />
             </div>
             <div class="payments-area__container__new-payments">
-                <div v-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
+                <v-loader v-if="isLoading" class="payments-area__container__new-payments__payment-loading-image" 
+                />
+                <div v-else-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
                     <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
                     <span 
                         class="payments-area__container__new-payments__text-area__text"
                         @click="addPaymentMethodHandler"
                     >Add New Payment Method</span>
                 </div>
-                <div v-if="isAddingPayment">
+                <div v-else-if="isAddingPayment">
                     <div class="close-add-payment" @click="closeAddPayment">
                         <CloseCrossIcon />
                     </div>
@@ -68,14 +70,6 @@
                         class="add-card-button"
                         @click="onConfirmAddStripe"
                     >
-                        <v-loader 
-                            v-if="isLoading" 
-                            class="payment-loading-image" 
-                        />
-                        <SuccessImage
-                            v-if="isLoaded"
-                            class="payment-loaded-image"
-                        />
                         <span class="add-card-button__text">Add Credit Card</span>
                     </div>
                 </div>
@@ -278,6 +272,7 @@ export default class PaymentMethods extends Vue {
      * controls card inputs
      */
     public deleteHover = false;
+    public isLoading = false;
     public cardBeingEdited: CardEdited = {};
     public isAddingPayment = false;
     public isChangeDefaultPaymentModalOpen = false;
@@ -420,7 +415,8 @@ export default class PaymentMethods extends Vue {
     }
 
     public async onConfirmAddStripe(): Promise<void> {
-        await this.$refs.stripeCardInput.onSubmit();
+        this.isLoading = true;
+        await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;})
     }
 
     public addPaymentMethodHandler() {
@@ -885,6 +881,10 @@ $align: center;
             border: 2px dashed #929fb1;
             border-radius: 10px;
             cursor: pointer;
+
+            &__payment-loading-image {
+                padding: 40px;
+            }
 
             &__text-area {
                 display: flex;
