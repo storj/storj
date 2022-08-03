@@ -85,7 +85,7 @@ func CreatePendingObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB
 }
 
 // CreateObject creates a new committed object with the specified number of segments.
-func CreateObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
+func CreateObject(ctx *testcontext.Context, t require.TestingT, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
 	BeginObjectExactVersion{
 		Opts: metabase.BeginObjectExactVersion{
 			ObjectStream: obj,

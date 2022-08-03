@@ -140,8 +140,6 @@ pipeline {
             }
         }
 
-        stage('Verification') {
-            parallel {
                 stage('Cross Compile') {
                     steps {
                         // verify most of the commands, we cannot check everything since some of them
@@ -295,8 +293,6 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
 
         stage('Post') {
             parallel {
