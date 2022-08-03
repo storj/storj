@@ -8,7 +8,7 @@ pipeline {
         }
     }
     options {
-        timeout(time: 40, unit: 'MINUTES')
+        timeout(time: 4, unit: 'HOURS')
         skipDefaultCheckout(true)
     }
     environment {
