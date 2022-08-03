@@ -38,7 +38,7 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 		return 0, Error.Wrap(err)
 	}
 	if balance+billingTX.Amount.BaseUnits() < 0 {
-		return 0, Error.New("Insufficient funds for this transaction")
+		return 0, billing.ErrInsufficientFunds
 	}
 
 	var dbxTX *dbx.BillingTransaction
@@ -73,10 +73,16 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 			dbx.BillingTransaction_Source(billingTX.Source),
 			dbx.BillingTransaction_Status(string(billingTX.Status)),
 			dbx.BillingTransaction_Type(string(billingTX.Type)),
-			dbx.BillingTransaction_Metadata(billingTX.Metadata),
+			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
 			dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
 		return err
 	})
+	if err != nil {
+		return 0, err
+	}
+	if dbxTX == nil {
+		return 0, err
+	}
 	return dbxTX.Id, err
 }
 
@@ -84,9 +90,9 @@ func (db billingDB) InsertBatch(ctx context.Context, billingTXs []billing.Transa
 	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
 		var batch pgx.Batch
 		for _, billingTX := range billingTXs {
-			statement := db.db.Rebind(`INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW() ) ON CONFLICT DO NOTHING`)
+			statement := db.db.Rebind(`INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW() )`)
 			batch.Queue(statement, billingTX.UserID.Bytes(), billingTX.Amount.BaseUnits(), monetary.USDollars.Symbol(), billingTX.Description, billingTX.Source,
-				billingTX.Status, billingTX.Type, billingTX.Metadata, billingTX.Timestamp)
+				billingTX.Status, billingTX.Type, handleMetaDataZeroValue(billingTX.Metadata), billingTX.Timestamp)
 			if err != nil {
 				db.db.log.Warn("invalid metadata skipped in query ", zap.String("statement query", statement))
 			}
@@ -106,40 +112,28 @@ func (db billingDB) InsertBatch(ctx context.Context, billingTXs []billing.Transa
 	})
 	return err
 }
-
-func (db billingDB) UpdateStatus(ctx context.Context, txID int64, status billing.TransactionStatus) error {
-	return db.update(ctx, txID, status, nil)
-}
-
-func (db billingDB) UpdateMetadata(ctx context.Context, txID int64, metadata []byte) error {
-	return db.update(ctx, txID, "", metadata)
-}
-
-// update the transaction for any provided fields that have non-zero value.
-func (db billingDB) update(ctx context.Context, txID int64, status billing.TransactionStatus, newMetadata []byte) (err error) {
+func (db billingDB) UpdateStatus(ctx context.Context, txID int64, status billing.TransactionStatus) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	return db.db.UpdateNoReturn_BillingTransaction_By_Id(ctx, dbx.BillingTransaction_Id(txID), dbx.BillingTransaction_Update_Fields{
+		Status: dbx.BillingTransaction_Status(string(status)),
+	})
+}
 
-	updateFields := dbx.BillingTransaction_Update_Fields{}
+func (db billingDB) UpdateMetadata(ctx context.Context, txID int64, newMetadata []byte) (err error) {
 
-	if status != "" {
-		updateFields.Status = dbx.BillingTransaction_Status(string(status))
+	dbxTX, err := db.db.Get_BillingTransaction_Metadata_By_Id(ctx, dbx.BillingTransaction_Id(txID))
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
-	if newMetadata != nil {
-		dbxTX, err := db.db.Get_BillingTransaction_Metadata_By_Id(ctx, dbx.BillingTransaction_Id(txID))
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		updatedMetadata, err := updateMetadata(dbxTX.Metadata, newMetadata)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		updateFields.Metadata = dbx.BillingTransaction_Metadata(updatedMetadata)
+	updatedMetadata, err := updateMetadata(dbxTX.Metadata, newMetadata)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
-	return db.db.UpdateNoReturn_BillingTransaction_By_Id(ctx, dbx.BillingTransaction_Id(txID), updateFields)
+	return db.db.UpdateNoReturn_BillingTransaction_By_Id(ctx, dbx.BillingTransaction_Id(txID), dbx.BillingTransaction_Update_Fields{
+		Metadata: dbx.BillingTransaction_Metadata(updatedMetadata),
+	})
 }
 
 func (db billingDB) LastTransaction(ctx context.Context, txSource string, txType billing.TransactionType) (_ time.Time, err error) {
@@ -217,10 +211,17 @@ func updateMetadata(oldMetaData []byte, newMetaData []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	err = json.Unmarshal(newMetaData, &updatedMetadata)
+	err = json.Unmarshal(handleMetaDataZeroValue(newMetaData), &updatedMetadata)
 	if err != nil {
 		return nil, err
 	}
 
 	return json.Marshal(updatedMetadata)
+}
+
+func handleMetaDataZeroValue(metaData []byte) []byte {
+	if metaData != nil {
+		return metaData
+	}
+	return []byte(`{}`)
 }

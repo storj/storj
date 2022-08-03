@@ -60,6 +60,8 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		stripeClient,
 		pc.StripeCoinPayments,
 		db.StripeCoinPayments(),
+		db.Wallets(),
+		db.Billing(),
 		db.Console().Projects(),
 		db.ProjectAccounting(),
 		pc.StorageTBPrice,

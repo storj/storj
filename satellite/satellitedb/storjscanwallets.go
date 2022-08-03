@@ -44,20 +44,24 @@ func (walletsDB storjscanWalletsDB) Get(ctx context.Context, userID uuid.UUID) (
 	return address, nil
 }
 
-// GetAllUsers returns with all the users which has associated wallet.
-func (walletsDB storjscanWalletsDB) GetAllUsers(ctx context.Context) (_ []uuid.UUID, err error) {
+// GetAll returns all saved wallet entries.
+func (walletsDB storjscanWalletsDB) GetAll(ctx context.Context) (_ []storjscan.Wallet, err error) {
 	defer mon.Task()(&ctx)(&err)
-	users, err := walletsDB.db.All_StorjscanWallet_UserId(ctx)
+	entries, err := walletsDB.db.All_StorjscanWallet(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	var userIDs []uuid.UUID
-	for _, user := range users {
-		userID, err := uuid.FromBytes(user.UserId)
+	var wallets []storjscan.Wallet
+	for _, entry := range entries {
+		userID, err := uuid.FromBytes(entry.UserId)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		userIDs = append(userIDs, userID)
+		address, err := blockchain.BytesToAddress(entry.WalletAddress)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		wallets = append(wallets, storjscan.Wallet{UserID: userID, Address: address})
 	}
-	return userIDs, nil
+	return wallets, nil
 }

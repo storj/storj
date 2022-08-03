@@ -200,12 +200,18 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdPrepareCustomerInvoiceRecords,
 	}
-	createCustomerInvoiceItemsCmd = &cobra.Command{
-		Use:   "create-invoice-items [period]",
-		Short: "Creates stripe invoice line items",
+	createCustomerProjectInvoiceItemsCmd = &cobra.Command{
+		Use:   "create-project-invoice-items [period]",
+		Short: "Creates stripe invoice line items for project charges",
 		Long:  "Creates stripe invoice line items for not consumed project records.",
 		Args:  cobra.ExactArgs(1),
-		RunE:  cmdCreateCustomerInvoiceItems,
+		RunE:  cmdCreateCustomerProjectInvoiceItems,
+	}
+	createCustomerTokenInvoiceItemsCmd = &cobra.Command{
+		Use:   "create-token-invoice-items [period]",
+		Short: "Creates stripe invoice line items for token payments",
+		Long:  "Creates stripe invoice line items for unapplied token balances.",
+		RunE:  cmdCreateCustomerTokenInvoiceItems,
 	}
 	createCustomerInvoicesCmd = &cobra.Command{
 		Use:   "create-invoices [period]",
@@ -331,7 +337,8 @@ func init() {
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
 	billingCmd.AddCommand(applyFreeTierCouponsCmd)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
-	billingCmd.AddCommand(createCustomerInvoiceItemsCmd)
+	billingCmd.AddCommand(createCustomerProjectInvoiceItemsCmd)
+	billingCmd.AddCommand(createCustomerTokenInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
@@ -356,7 +363,8 @@ func init() {
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(applyFreeTierCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(createCustomerInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerProjectInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerTokenInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -718,7 +726,7 @@ func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err er
 	})
 }
 
-func cmdCreateCustomerInvoiceItems(cmd *cobra.Command, args []string) (err error) {
+func cmdCreateCustomerProjectInvoiceItems(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	period, err := parseBillingPeriod(args[0])
@@ -728,6 +736,14 @@ func cmdCreateCustomerInvoiceItems(cmd *cobra.Command, args []string) (err error
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyProjectRecords(ctx, period)
+	})
+}
+
+func cmdCreateCustomerTokenInvoiceItems(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+		return payments.InvoiceApplyTokenBalance(ctx)
 	})
 }
 
