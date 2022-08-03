@@ -207,21 +207,10 @@ func WithUser(ctx context.Context, user *User) context.Context {
 	return context.WithValue(ctx, userKey, user)
 }
 
-// WithUserFailure creates new context with User failure.
-func WithUserFailure(ctx context.Context, err error) context.Context {
-	return context.WithValue(ctx, userKey, err)
-}
-
 // GetUser gets User from context.
 func GetUser(ctx context.Context) (*User, error) {
-	value := ctx.Value(userKey)
-
-	if user, ok := value.(*User); ok {
+	if user, ok := ctx.Value(userKey).(*User); ok {
 		return user, nil
-	}
-
-	if err, ok := value.(error); ok {
-		return nil, Error.Wrap(err)
 	}
 
 	return nil, Error.New("user is not in context")

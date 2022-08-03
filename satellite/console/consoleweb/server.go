@@ -500,29 +500,31 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// authMiddlewareHandler performs initial authorization before every request.
+// withAuth performs initial authorization before every request.
 func (server *Server) withAuth(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
-		var ctx context.Context
+		ctx := r.Context()
 
 		defer mon.Task()(&ctx)(&err)
 
-		ctxWithAuth := func(ctx context.Context) context.Context {
-			token, err := server.cookieAuth.GetToken(r)
+		defer func() {
 			if err != nil {
-				return console.WithUserFailure(ctx, console.ErrUnauthorized.Wrap(err))
+				consoleapi.ServeJSONError(server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
+				server.cookieAuth.RemoveTokenCookie(w)
 			}
+		}()
 
-			newCtx, err := server.service.TokenAuth(ctx, token, time.Now())
-			if err != nil {
-				return console.WithUserFailure(ctx, err)
-			}
-
-			return newCtx
+		token, err := server.cookieAuth.GetToken(r)
+		if err != nil {
+			return
 		}
 
-		ctx = ctxWithAuth(r.Context())
+		newCtx, err := server.service.TokenAuth(ctx, token, time.Now())
+		if err != nil {
+			return
+		}
+		ctx = newCtx
 
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})

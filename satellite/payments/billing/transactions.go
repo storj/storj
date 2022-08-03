@@ -5,43 +5,35 @@ package billing
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/monetary"
 )
 
-// TXType is a type wrapper for transaction types.
-type TXType int
+// TransactionStatus indicates transaction status.
+type TransactionStatus string
 
 const (
-	// Storjscan defines transactions which are originated from storjscan payment wallets.
-	Storjscan TXType = iota
-	// Stripe defines transactions which are Stripe processed credits and/or debits.
-	Stripe
-	// Coinpayments defines transactions which are originated from coinpayments.
-	Coinpayments
+	// TransactionStatusPending indicates that status of this transaction is pending.
+	TransactionStatusPending = "pending"
+	// TransactionStatusCancelled indicates that status of this transaction is cancelled.
+	TransactionStatusCancelled = "cancelled"
+	// TransactionStatusComplete indicates that status of this transaction is complete.
+	TransactionStatusComplete = "complete"
 )
 
-// Int returns int representation of transaction type.
-func (t TXType) Int() int {
-	return int(t)
-}
+// TransactionType indicates transaction type.
+type TransactionType string
 
-// String returns string representation of transaction type.
-func (t TXType) String() string {
-	switch t {
-	case Storjscan:
-		return "Storjscan"
-	case Stripe:
-		return "Stripe"
-	case Coinpayments:
-		return "Coinpayments"
-	default:
-		return fmt.Sprintf("%d", int(t))
-	}
-}
+const (
+	// TransactionTypeCredit indicates that type of this transaction is credit.
+	TransactionTypeCredit = "credit"
+	// TransactionTypeDebit indicates that type of this transaction is debit.
+	TransactionTypeDebit = "debit"
+	// TransactionTypeUnknown indicates that type of this transaction is unknown.
+	TransactionTypeUnknown = "unknown"
+)
 
 // TransactionsDB is an interface which defines functionality
 // of DB which stores billing transactions.
@@ -49,22 +41,32 @@ func (t TXType) String() string {
 // architecture: Database
 type TransactionsDB interface {
 	// Insert inserts the provided transaction.
-	Insert(ctx context.Context, tx Transaction) error
+	Insert(ctx context.Context, tx Transaction) (txID int64, err error)
+	// InsertBatch inserts the provided transactions.
+	// Only transactions that increase the user balance can be inserted using batching.
+	InsertBatch(ctx context.Context, billingTXs []Transaction) (err error)
+	// UpdateStatus updates the status of the transaction.
+	UpdateStatus(ctx context.Context, txID int64, status TransactionStatus) error
+	// UpdateMetadata updates the metadata of the transaction.
+	UpdateMetadata(ctx context.Context, txID int64, metadata []byte) error
+	// LastTransaction returns the timestamp of the last known transaction for given source and type.
+	LastTransaction(ctx context.Context, txSource string, txType TransactionType) (time.Time, error)
 	// List returns all transactions for the specified user.
 	List(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
-	// ListType returns all transactions of a given type for the specified user.
-	ListType(ctx context.Context, userID uuid.UUID, txType TXType) ([]Transaction, error)
-	// ComputeBalance returns the current usable balance for the specified user.
-	ComputeBalance(ctx context.Context, userID uuid.UUID) (monetary.Amount, error)
+	// GetBalance returns the current usable balance for the specified user.
+	GetBalance(ctx context.Context, userID uuid.UUID) (int64, error)
 }
 
 // Transaction defines billing related transaction info that is stored in the DB.
 type Transaction struct {
-	TXID        string
-	AccountID   uuid.UUID
+	ID          int64
+	UserID      uuid.UUID
 	Amount      monetary.Amount
 	Description string
-	TXType      TXType
+	Source      string
+	Status      TransactionStatus
+	Type        TransactionType
+	Metadata    []byte
 	Timestamp   time.Time
 	CreatedAt   time.Time
 }
