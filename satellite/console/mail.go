@@ -1,24 +1,9 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package consoleql
+package console
 
-const (
-	// ActivationPath is key for path which handles account activation.
-	ActivationPath = "activationPath"
-	// PasswordRecoveryPath is key for path which handles password recovery.
-	PasswordRecoveryPath = "passwordRecoveryPath"
-	// CancelPasswordRecoveryPath is key for path which handles let us know sequence.
-	CancelPasswordRecoveryPath = "cancelPasswordRecoveryPath"
-	// SignInPath is key for sign in server route.
-	SignInPath = "signInPath"
-	// LetUsKnowURL is key to store let us know URL.
-	LetUsKnowURL = "letUsKnowURL"
-	// ContactInfoURL is a key to store contact info URL.
-	ContactInfoURL = "contactInfoURL"
-	// TermsAndConditionsURL is a key to store terms and conditions URL.
-	TermsAndConditionsURL = "termsAndConditionsURL"
-)
+import "time"
 
 // AccountActivationEmail is mailservice template with activation data.
 type AccountActivationEmail struct {
@@ -105,3 +90,16 @@ func (*AccountAlreadyExistsEmail) Template() string { return "AccountAlreadyExis
 func (*AccountAlreadyExistsEmail) Subject() string {
 	return "Are you trying to sign in?"
 }
+
+// LockAccountEmail is mailservice template with lock account data.
+type LockAccountEmail struct {
+	Name              string
+	LockoutDuration   time.Duration
+	ResetPasswordLink string
+}
+
+// Template returns email template name.
+func (*LockAccountEmail) Template() string { return "LockAccount" }
+
+// Subject gets email subject.
+func (*LockAccountEmail) Subject() string { return "Account Lock" }

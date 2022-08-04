@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -838,9 +837,7 @@ func TestLockAccount(t *testing.T) {
 		require.True(t, lockedUser.LoginLockoutExpiration.After(now))
 
 		// lock account once again and check if lockout expiration time increased.
-		expDuration := time.Duration(math.Pow(consoleConfig.FailedLoginPenalty, float64(lockedUser.FailedLoginCount-1))) * time.Minute
-		lockoutExpDate := now.Add(expDuration)
-		err = service.UpdateUsersFailedLoginState(userCtx, lockedUser, &lockoutExpDate)
+		err = service.UpdateUsersFailedLoginState(userCtx, lockedUser)
 		require.NoError(t, err)
 
 		lockedUser, err = service.GetUser(userCtx, user.ID)

@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/rewards"
@@ -232,7 +231,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: verified.Email}},
-			&consoleql.AccountAlreadyExistsEmail{
+			&console.AccountAlreadyExistsEmail{
 				Origin:            satelliteAddress,
 				SatelliteName:     a.SatelliteName,
 				SignInLink:        satelliteAddress + "login",
@@ -340,7 +339,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
-		&consoleql.AccountActivationEmail{
+		&console.AccountActivationEmail{
 			ActivationLink: link,
 			Origin:         a.ExternalAddress,
 			UserName:       userName,
@@ -527,7 +526,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: email, Name: ""}},
-			&consoleql.UnknownResetPasswordEmail{
+			&console.UnknownResetPasswordEmail{
 				Satellite:           a.SatelliteName,
 				Email:               email,
 				DoubleCheckLink:     doubleCheckLink,
@@ -559,7 +558,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
-		&consoleql.ForgotPasswordEmail{
+		&console.ForgotPasswordEmail{
 			Origin:                     a.ExternalAddress,
 			UserName:                   userName,
 			ResetLink:                  passwordRecoveryLink,
@@ -604,7 +603,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: verified.Email, Name: userName}},
-			&consoleql.ForgotPasswordEmail{
+			&console.ForgotPasswordEmail{
 				Origin:                     a.ExternalAddress,
 				UserName:                   userName,
 				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
@@ -637,7 +636,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
-		&consoleql.AccountActivationEmail{
+		&console.AccountActivationEmail{
 			Origin:                a.ExternalAddress,
 			ActivationLink:        link,
 			TermsAndConditionsURL: termsAndConditionsURL,

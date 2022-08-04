@@ -112,6 +112,8 @@ func TestGraphqlMutation(t *testing.T) {
 			consoleauth.NewService(consoleauth.Config{
 				TokenExpirationTime: 24 * time.Hour,
 			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
+			nil,
+			"",
 			console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,
