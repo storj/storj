@@ -628,6 +628,16 @@ export default class RegisterArea extends Vue {
             isNoErrors = false;
         }
 
+        if (this.user.partner.length > 100) {
+            this.$notify.error('Partner must be less than or equal to 100 characters')
+            return false
+        }
+
+        if (this.user.signupPromoCode.length > 100) {
+            this.$notify.error('Promo code must be less than or equal to 100 characters')
+            return false
+        }
+
         return isNoErrors;
     }
 
