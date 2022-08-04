@@ -13,7 +13,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
           <!---->
           <!---->
         </div>
-        <router-view-stub name="default" class="dashboard__wrap__main-area__content-wrap__content with-one-bar"></router-view-stub>
+        <router-view-stub name="default" class="dashboard__wrap__main-area__content-wrap__content"></router-view-stub>
       </div>
     </div>
   </div>
