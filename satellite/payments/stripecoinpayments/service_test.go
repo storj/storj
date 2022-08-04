@@ -14,11 +14,15 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -171,6 +175,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 
 		err = payments.StripeService.CreateInvoices(ctx, period)
 		require.NoError(t, err)
+
 	})
 }
 
@@ -292,5 +297,48 @@ func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
 			require.Equal(t, tc.SegmentsQuantity, *items[2].Quantity)
 			require.Equal(t, expectedSegmentPrice, *items[2].UnitAmountDecimal)
 		}
+	})
+}
+
+func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 1)
+		require.NoError(t, err)
+
+		// setup storjscan wallet
+		address, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+		userID := user.ID
+		err = satellite.DB.Wallets().Add(ctx, userID, address)
+		require.NoError(t, err)
+		_, err = satellite.DB.Billing().Insert(ctx, billing.Transaction{
+			UserID:      userID,
+			Amount:      monetary.AmountFromBaseUnits(10, monetary.USDollars),
+			Description: "token payment credit",
+			Source:      "storjscan",
+			Status:      billing.TransactionStatusCompleted,
+			Type:        billing.TransactionTypeCredit,
+			Metadata:    nil,
+			Timestamp:   time.Now(),
+			CreatedAt:   time.Now(),
+		})
+		require.NoError(t, err)
+
+		// run apply token balance to see if there are no unexpected errors
+		err = payments.StripeService.InvoiceApplyTokenBalance(ctx)
+		require.NoError(t, err)
 	})
 }

@@ -62,6 +62,8 @@ storj.io/storj/satellite/console."login_mfa_passcode_success" Counter
 storj.io/storj/satellite/console."login_mfa_recovery_failure" Counter
 storj.io/storj/satellite/console."login_mfa_recovery_success" Counter
 storj.io/storj/satellite/console."login_success" Counter
+storj.io/storj/satellite/console."login_user_captcha_error" Counter
+storj.io/storj/satellite/console."login_user_captcha_unsuccessful" Counter
 storj.io/storj/satellite/console."login_user_failed_count" IntVal
 storj.io/storj/satellite/contact."failed_dial" Event
 storj.io/storj/satellite/contact."failed_ping_node" Event

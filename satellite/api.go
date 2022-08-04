@@ -288,7 +288,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup reputation
 		reputationDB := peer.DB.Reputation()
 		if config.Reputation.FlushInterval > 0 {
-			cachingDB := reputation.NewCachingDB(log.Named("reputation:writecache"), peer.Identity.ID, reputationDB, config.Reputation)
+			cachingDB := reputation.NewCachingDB(log.Named("reputation:writecache"), reputationDB, config.Reputation)
 			peer.Services.Add(lifecycle.Item{
 				Name: "reputation:writecache",
 				Run:  cachingDB.Manage,
@@ -506,6 +506,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			stripeClient,
 			pc.StripeCoinPayments,
 			peer.DB.StripeCoinPayments(),
+			peer.DB.Wallets(),
+			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,

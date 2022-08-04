@@ -109,6 +109,42 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for for beta satellite support
 # console.beta-satellite-support-url: ""
 
+# whether or not captcha is enabled
+# console.captcha.login.hcaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.login.hcaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.login.hcaptcha.site-key: ""
+
+# whether or not captcha is enabled
+# console.captcha.login.recaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.login.recaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.login.recaptcha.site-key: ""
+
+# whether or not captcha is enabled
+# console.captcha.registration.hcaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.registration.hcaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.registration.hcaptcha.site-key: ""
+
+# whether or not captcha is enabled
+# console.captcha.registration.recaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.registration.recaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.registration.recaptcha.site-key: ""
+
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
 
@@ -147,15 +183,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates if generated console api should be used
 # console.generated-api-enabled: false
-
-# whether or not hCaptcha is enabled for user registration
-# console.hcaptcha.enabled: false
-
-# hCaptcha secret key
-# console.hcaptcha.secret-key: ""
-
-# hCaptcha site key
-# console.hcaptcha.site-key: ""
 
 # url link to storj.io homepage
 # console.homepage-url: https://www.storj.io
@@ -225,15 +252,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # number of clients whose rate limits we store
 # console.rate-limit.num-limits: 1000
-
-# whether or not reCAPTCHA is enabled for user registration
-# console.recaptcha.enabled: false
-
-# reCAPTCHA secret key
-# console.recaptcha.secret-key: ""
-
-# reCAPTCHA site key
-# console.recaptcha.site-key: ""
 
 # used to display at web satellite console
 # console.satellite-name: Storj

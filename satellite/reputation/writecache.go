@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -22,10 +23,11 @@ import (
 var _ DB = (*CachingDB)(nil)
 
 // NewCachingDB creates a new CachingDB instance.
-func NewCachingDB(log *zap.Logger, peerID storj.NodeID, backingStore DB, reputationConfig Config) *CachingDB {
+func NewCachingDB(log *zap.Logger, backingStore DB, reputationConfig Config) *CachingDB {
+	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return &CachingDB{
 		log:                log,
-		peerID:             peerID,
+		instanceOffset:     randSource.Uint64(),
 		backingStore:       backingStore,
 		nowFunc:            time.Now,
 		reputationConfig:   reputationConfig,
@@ -43,7 +45,7 @@ type CachingDB struct {
 	// These fields must be populated before the cache starts being used.
 	// They are not expected to change.
 	log                *zap.Logger
-	peerID             storj.NodeID
+	instanceOffset     uint64
 	backingStore       DB
 	nowFunc            func() time.Time
 	reputationConfig   Config
@@ -558,7 +560,7 @@ func (cdb *CachingDB) getEntriesToSync(now time.Time, f func(entryToSync *cached
 }
 
 func (cdb *CachingDB) nextTimeForSync(nodeID storj.NodeID, now time.Time) time.Time {
-	return nextTimeForSync(cdb.peerID, nodeID, now, cdb.syncInterval)
+	return nextTimeForSync(cdb.instanceOffset, nodeID, now, cdb.syncInterval)
 }
 
 // nextTimeForSync decides the next time at which the given nodeID should next
@@ -566,15 +568,14 @@ func (cdb *CachingDB) nextTimeForSync(nodeID storj.NodeID, now time.Time) time.T
 //
 // We make an effort to distribute the nodes in time, so that the service
 // is not usually trying to retrieve or update many rows at the same time. We
-// also make an effort to offset this sync schedule by the instance ID of this
-// process so that in most cases, instances will not be trying to update the
-// same row at the same time, minimizing contention.
-func nextTimeForSync(peerID, nodeID storj.NodeID, now time.Time, syncInterval time.Duration) time.Time {
+// also make an effort to offset this sync schedule by a random value unique
+// to this process so that in most cases, instances will not be trying to
+// update the same row at the same time, minimizing contention.
+func nextTimeForSync(instanceOffset uint64, nodeID storj.NodeID, now time.Time, syncInterval time.Duration) time.Time {
 	// calculate the fraction into the FlushInterval at which this node
 	// should always be synchronized.
 	initialPosition := binary.BigEndian.Uint64(nodeID[:8])
-	offset := binary.BigEndian.Uint64(peerID[:8])
-	finalPosition := initialPosition + offset
+	finalPosition := initialPosition + instanceOffset
 	positionAsFraction := float64(finalPosition) / (1 << 64)
 	// and apply that fraction to the actual interval
 	periodStart := now.Truncate(syncInterval)

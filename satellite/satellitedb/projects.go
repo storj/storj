@@ -289,7 +289,7 @@ func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, 
 	}
 
 	rows, err := projects.sdb.Query(ctx, projects.sdb.Rebind(`
-		SELECT id, public_id, name, description, owner_id, rate_limit, max_buckets, created_at,
+		SELECT id, name, description, owner_id, rate_limit, max_buckets, created_at,
 			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count
 			FROM projects
 			WHERE owner_id = ?
@@ -314,7 +314,7 @@ func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, 
 		}
 		var rateLimit, maxBuckets sql.NullInt32
 		nextProject := &console.Project{}
-		err = rows.Scan(&nextProject.ID, &nextProject.PublicID, &nextProject.Name, &nextProject.Description, &nextProject.OwnerID, &rateLimit, &maxBuckets, &nextProject.CreatedAt, &nextProject.MemberCount)
+		err = rows.Scan(&nextProject.ID, &nextProject.Name, &nextProject.Description, &nextProject.OwnerID, &rateLimit, &maxBuckets, &nextProject.CreatedAt, &nextProject.MemberCount)
 		if err != nil {
 			return console.ProjectsPage{}, err
 		}

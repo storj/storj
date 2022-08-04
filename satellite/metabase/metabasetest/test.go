@@ -44,7 +44,7 @@ type BeginObjectExactVersion struct {
 }
 
 // Check runs the test.
-func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) {
 	got, err := db.BeginObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if step.ErrClass == nil {
@@ -72,7 +72,7 @@ type CommitObject struct {
 }
 
 // Check runs the test.
-func (step CommitObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.Object {
+func (step CommitObject) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) metabase.Object {
 	object, err := db.CommitObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
@@ -108,7 +108,7 @@ type BeginSegment struct {
 }
 
 // Check runs the test.
-func (step BeginSegment) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+func (step BeginSegment) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) {
 	err := db.BeginSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -121,7 +121,7 @@ type CommitSegment struct {
 }
 
 // Check runs the test.
-func (step CommitSegment) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+func (step CommitSegment) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) {
 	err := db.CommitSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }

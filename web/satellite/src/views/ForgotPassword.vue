@@ -190,6 +190,8 @@ export default class ForgotPassword extends Vue {
 
             &__logo {
                 cursor: pointer;
+                width: 207px;
+                height: 37px;
             }
         }
 

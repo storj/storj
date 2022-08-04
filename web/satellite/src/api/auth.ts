@@ -42,15 +42,17 @@ export class AuthHttpApi implements UsersApi {
      *
      * @param email - email of the user
      * @param password - password of the user
+     * @param captchaResponse - captcha response token
      * @param mfaPasscode - MFA passcode
      * @param mfaRecoveryCode - MFA recovery code
      * @throws Error
      */
-    public async token(email: string, password: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<string> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<string> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
             password,
+            captchaResponse,
             mfaPasscode: mfaPasscode || null,
             mfaRecoveryCode: mfaRecoveryCode || null,
         };
