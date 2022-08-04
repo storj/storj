@@ -22,7 +22,7 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 1`] =
       </div>
     </div>
     <div class="add-storj-area">
-      <p class="add-storj-area__support-info">Please contact <a target="_blank" href="mailto:supportdcs@storj.io">supportdcs@storj.io</a> to deposit STORJ tokens into your account</p>
+      <p class="add-storj-area__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
     </div>
     <!---->
     <!---->

@@ -150,6 +150,18 @@ export default class ProjectSelection extends Vue {
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
         }
 
+        if (this.$route.path === RouteConfig.NewProjectDashboard.path) {
+            const now = new Date()
+            const past = new Date()
+            past.setDate(past.getDate() - 30)
+
+            try {
+                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since: past, before: now});
+            } catch (error) {
+                await this.$notify.error(error.message)
+            }
+        }
+
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);

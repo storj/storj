@@ -75,9 +75,7 @@ func TestWorkerSuccess(t *testing.T) {
 
 		// run the SN chore again to start processing transfers.
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
-		defer ctx.Check(worker.Close)
-
-		err = worker.Run(ctx, func() {})
+		err = worker.Run(ctx)
 		require.NoError(t, err)
 
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
@@ -153,9 +151,7 @@ func TestWorkerTimeout(t *testing.T) {
 
 		// run the SN chore again to start processing transfers.
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
-		defer ctx.Check(worker.Close)
-
-		err = worker.Run(ctx, func() {})
+		err = worker.Run(ctx)
 		require.NoError(t, err)
 
 		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
@@ -211,9 +207,7 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 		require.NoError(t, err)
 
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
-		defer ctx.Check(worker.Close)
-
-		err = worker.Run(ctx, func() {})
+		err = worker.Run(ctx)
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
 
