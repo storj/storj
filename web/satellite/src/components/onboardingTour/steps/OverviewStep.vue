@@ -116,6 +116,13 @@ export default class OverviewStep extends Vue {
 </script>
 
 <style scoped lang="scss">
+
+    @media screen and (max-width: 760px) {
+        .overview-area {
+            width: 250px;
+            text-align: center;
+        }  
+    }
     .overview-area {
         display: flex;
         flex-direction: column;
