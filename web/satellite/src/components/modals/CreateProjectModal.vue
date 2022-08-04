@@ -186,7 +186,7 @@ export default class CreateProjectModal extends Vue {
 <style scoped lang="scss">
     .modal {
         width: 400px;
-        padding: 50px 65px 65px;
+        padding: 54px 48px 51px;
         display: flex;
         align-items: center;
         flex-direction: column;
