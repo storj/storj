@@ -987,7 +987,7 @@ func (w *responseWriterStatusCode) WriteHeader(code int) {
 // newTraceRequestMiddleware returns middleware for tracing each request to a
 // registered endpoint through Monkit.
 //
-// It also log in DEBUG level each request.
+// It also log in INFO level each request.
 func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.MiddlewareFunc {
 	log = log.Named("trace-request-middleware")
 
@@ -1013,7 +1013,7 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 					fields = append(fields, zap.Int64("trace-id", span.Trace().Id()))
 				}
 
-				log.Debug("client HTTP request", fields...)
+				log.Info("client HTTP request", fields...)
 			}()
 
 			match := mux.RouteMatch{}
