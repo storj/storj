@@ -45,7 +45,8 @@ export default class BetaSatBar extends Vue {
 
 <style scoped lang="scss">
     .beta-banner {
-        width: calc(100% - 60px);
+        width: 100%;
+        box-sizing: border-box;
         padding: 5px 30px;
         display: flex;
         align-items: center;

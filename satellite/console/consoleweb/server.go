@@ -435,10 +435,14 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		StorageTBPrice                  string
 		EgressTBPrice                   string
 		SegmentPrice                    string
-		RecaptchaEnabled                bool
-		RecaptchaSiteKey                string
-		HcaptchaEnabled                 bool
-		HcaptchaSiteKey                 string
+		RegistrationRecaptchaEnabled    bool
+		RegistrationRecaptchaSiteKey    string
+		RegistrationHcaptchaEnabled     bool
+		RegistrationHcaptchaSiteKey     string
+		LoginRecaptchaEnabled           bool
+		LoginRecaptchaSiteKey           string
+		LoginHcaptchaEnabled            bool
+		LoginHcaptchaSiteKey            string
 		NewProjectDashboard             bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
@@ -474,10 +478,14 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.StorageTBPrice = server.pricing.StorageTBPrice
 	data.EgressTBPrice = server.pricing.EgressTBPrice
 	data.SegmentPrice = server.pricing.SegmentPrice
-	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
-	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
-	data.HcaptchaEnabled = server.config.Hcaptcha.Enabled
-	data.HcaptchaSiteKey = server.config.Hcaptcha.SiteKey
+	data.RegistrationRecaptchaEnabled = server.config.Captcha.Registration.Recaptcha.Enabled
+	data.RegistrationRecaptchaSiteKey = server.config.Captcha.Registration.Recaptcha.SiteKey
+	data.RegistrationHcaptchaEnabled = server.config.Captcha.Registration.Hcaptcha.Enabled
+	data.RegistrationHcaptchaSiteKey = server.config.Captcha.Registration.Hcaptcha.SiteKey
+	data.LoginRecaptchaEnabled = server.config.Captcha.Login.Recaptcha.Enabled
+	data.LoginRecaptchaSiteKey = server.config.Captcha.Login.Recaptcha.SiteKey
+	data.LoginHcaptchaEnabled = server.config.Captcha.Login.Hcaptcha.Enabled
+	data.LoginHcaptchaSiteKey = server.config.Captcha.Login.Hcaptcha.SiteKey
 	data.NewProjectDashboard = server.config.NewProjectDashboard
 	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow

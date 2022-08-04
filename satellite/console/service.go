@@ -119,18 +119,19 @@ var (
 //
 // architecture: Service
 type Service struct {
-	log, auditLogger  *zap.Logger
-	store             DB
-	restKeys          RESTKeys
-	projectAccounting accounting.ProjectAccounting
-	projectUsage      *accounting.Service
-	buckets           Buckets
-	partners          *rewards.PartnersService
-	accounts          payments.Accounts
-	depositWallets    payments.DepositWallets
-	captchaHandler    CaptchaHandler
-	analytics         *analytics.Service
-	tokens            *consoleauth.Service
+	log, auditLogger           *zap.Logger
+	store                      DB
+	restKeys                   RESTKeys
+	projectAccounting          accounting.ProjectAccounting
+	projectUsage               *accounting.Service
+	buckets                    Buckets
+	partners                   *rewards.PartnersService
+	accounts                   payments.Accounts
+	depositWallets             payments.DepositWallets
+	registrationCaptchaHandler CaptchaHandler
+	loginCaptchaHandler        CaptchaHandler
+	analytics                  *analytics.Service
+	tokens                     *consoleauth.Service
 
 	config Config
 }
@@ -157,22 +158,26 @@ type Config struct {
 	FailedLoginPenalty          float64       `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
 	SessionDuration             time.Duration `help:"duration a session is valid for" default:"168h"`
 	UsageLimits                 UsageLimitsConfig
-	Recaptcha                   RecaptchaConfig
-	Hcaptcha                    HcaptchaConfig
+	Captcha                     CaptchaConfig
 }
 
-// RecaptchaConfig contains configurations for the reCAPTCHA system.
-type RecaptchaConfig struct {
-	Enabled   bool   `help:"whether or not reCAPTCHA is enabled for user registration" default:"false"`
-	SiteKey   string `help:"reCAPTCHA site key"`
-	SecretKey string `help:"reCAPTCHA secret key"`
+// CaptchaConfig contains configurations for login/registration captcha system.
+type CaptchaConfig struct {
+	Login        MultiCaptchaConfig
+	Registration MultiCaptchaConfig
 }
 
-// HcaptchaConfig contains configurations for the hCaptcha system.
-type HcaptchaConfig struct {
-	Enabled   bool   `help:"whether or not hCaptcha is enabled for user registration" default:"false"`
-	SiteKey   string `help:"hCaptcha site key" default:""`
-	SecretKey string `help:"hCaptcha secret key"`
+// MultiCaptchaConfig contains configurations for Recaptcha and Hcaptcha systems.
+type MultiCaptchaConfig struct {
+	Recaptcha SingleCaptchaConfig
+	Hcaptcha  SingleCaptchaConfig
+}
+
+// SingleCaptchaConfig contains configurations abstract captcha system.
+type SingleCaptchaConfig struct {
+	Enabled   bool   `help:"whether or not captcha is enabled" default:"false"`
+	SiteKey   string `help:"captcha site key"`
+	SecretKey string `help:"captcha secret key"`
 }
 
 // Payments separates all payment related functionality.
@@ -192,28 +197,39 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		config.PasswordCost = bcrypt.DefaultCost
 	}
 
-	var captchaHandler CaptchaHandler
-	if config.Recaptcha.Enabled {
-		captchaHandler = NewDefaultCaptcha(Recaptcha, config.Recaptcha.SecretKey)
-	} else if config.Hcaptcha.Enabled {
-		captchaHandler = NewDefaultCaptcha(Hcaptcha, config.Hcaptcha.SecretKey)
+	// We have two separate captcha handlers for login and registration.
+	// We want to easily swap between captchas independently.
+	// For example, google recaptcha for login screen and hcaptcha for registration screen.
+	var registrationCaptchaHandler CaptchaHandler
+	if config.Captcha.Registration.Recaptcha.Enabled {
+		registrationCaptchaHandler = NewDefaultCaptcha(Recaptcha, config.Captcha.Registration.Recaptcha.SecretKey)
+	} else if config.Captcha.Registration.Hcaptcha.Enabled {
+		registrationCaptchaHandler = NewDefaultCaptcha(Hcaptcha, config.Captcha.Registration.Hcaptcha.SecretKey)
+	}
+
+	var loginCaptchaHandler CaptchaHandler
+	if config.Captcha.Login.Recaptcha.Enabled {
+		loginCaptchaHandler = NewDefaultCaptcha(Recaptcha, config.Captcha.Login.Recaptcha.SecretKey)
+	} else if config.Captcha.Login.Hcaptcha.Enabled {
+		loginCaptchaHandler = NewDefaultCaptcha(Hcaptcha, config.Captcha.Login.Hcaptcha.SecretKey)
 	}
 
 	return &Service{
-		log:               log,
-		auditLogger:       log.Named("auditlog"),
-		store:             store,
-		restKeys:          restKeys,
-		projectAccounting: projectAccounting,
-		projectUsage:      projectUsage,
-		buckets:           buckets,
-		partners:          partners,
-		accounts:          accounts,
-		depositWallets:    depositWallets,
-		captchaHandler:    captchaHandler,
-		analytics:         analytics,
-		tokens:            tokens,
-		config:            config,
+		log:                        log,
+		auditLogger:                log.Named("auditlog"),
+		store:                      store,
+		restKeys:                   restKeys,
+		projectAccounting:          projectAccounting,
+		projectUsage:               projectUsage,
+		buckets:                    buckets,
+		partners:                   partners,
+		accounts:                   accounts,
+		depositWallets:             depositWallets,
+		registrationCaptchaHandler: registrationCaptchaHandler,
+		loginCaptchaHandler:        loginCaptchaHandler,
+		analytics:                  analytics,
+		tokens:                     tokens,
+		config:                     config,
 	}, nil
 }
 
@@ -631,8 +647,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	mon.Counter("create_user_attempt").Inc(1) //mon:locked
 
-	if s.config.Recaptcha.Enabled || s.config.Hcaptcha.Enabled {
-		valid, err := s.captchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
+	if s.config.Captcha.Registration.Recaptcha.Enabled || s.config.Captcha.Registration.Hcaptcha.Enabled {
+		valid, err := s.registrationCaptchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
 		if err != nil {
 			mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
 			s.log.Error("captcha authorization failed", zap.Error(err))
@@ -738,7 +754,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 // TestSwapCaptchaHandler replaces the existing handler for captchas with
 // the one specified for use in testing.
 func (s *Service) TestSwapCaptchaHandler(h CaptchaHandler) {
-	s.captchaHandler = h
+	s.registrationCaptchaHandler = h
+	s.loginCaptchaHandler = h
 }
 
 // GenerateActivationToken - is a method for generating activation token.
@@ -945,6 +962,19 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 	defer mon.Task()(&ctx)(&err)
 
 	mon.Counter("login_attempt").Inc(1) //mon:locked
+
+	if s.config.Captcha.Login.Recaptcha.Enabled || s.config.Captcha.Login.Hcaptcha.Enabled {
+		valid, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
+		if err != nil {
+			mon.Counter("login_user_captcha_error").Inc(1) //mon:locked
+			s.log.Error("captcha authorization failed", zap.Error(err))
+			return consoleauth.Token{}, ErrCaptcha.Wrap(err)
+		}
+		if !valid {
+			mon.Counter("login_user_captcha_unsuccessful").Inc(1) //mon:locked
+			return consoleauth.Token{}, ErrCaptcha.New("captcha validation unsuccessful")
+		}
+	}
 
 	user, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, request.Email)
 	if user == nil {

@@ -4,13 +4,16 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
 <div class="dashboard">
   <div class="dashboard__wrap">
     <div class="dashboard__wrap__main-area">
-      <navigationarea-stub></navigationarea-stub>
-      <div class="dashboard__wrap__main-area__content-wrap with-one-bar">
-        <!---->
-        <paidtierbar-stub openaddpmmodal="[Function]"></paidtierbar-stub>
-        <!---->
-        <!---->
-        <router-view-stub name="default" class="dashboard__wrap__main-area__content-wrap__content"></router-view-stub>
+      <navigationarea-stub class="dashboard__wrap__main-area__navigation"></navigationarea-stub>
+      <mobilenavigation-stub class="dashboard__wrap__main-area__mobile-navigation"></mobilenavigation-stub>
+      <div class="dashboard__wrap__main-area__content-wrap">
+        <div class="bars">
+          <!---->
+          <paidtierbar-stub openaddpmmodal="[Function]"></paidtierbar-stub>
+          <!---->
+          <!---->
+        </div>
+        <router-view-stub name="default" class="dashboard__wrap__main-area__content-wrap__content with-one-bar"></router-view-stub>
       </div>
     </div>
   </div>
