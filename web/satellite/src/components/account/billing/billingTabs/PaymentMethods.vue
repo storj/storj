@@ -45,8 +45,7 @@
                 />
             </div>
             <div class="payments-area__container__new-payments">
-                <v-loader v-if="isLoading" class="payments-area__container__new-payments__payment-loading-image" 
-                />
+                <v-loader v-if="isLoading" class="payments-area__container__new-payments__payment-loading-image" />
                 <div v-else-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
                     <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
                     <span 
@@ -188,7 +187,6 @@ import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import ArrowIcon from '@/../static/images/common/arrowRight.svg'
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-import SuccessImage from '@/../static/images/account/billing/success.svg';
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/smallamericanexpress.svg';
 import DinersIcon from '@/../static/images/payments/cardIcons/smalldinersclub.svg';
 import DiscoverIcon from '@/../static/images/payments/cardIcons/discover.svg';
@@ -246,7 +244,6 @@ const paginationEndNumber = 10;
         CreditCardImage,
         StripeCardInput,
         DinersIcon,
-        SuccessImage,
         Trash,
         CreditCardContainer,
         BalanceTokenCard,

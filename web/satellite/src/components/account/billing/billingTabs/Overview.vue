@@ -68,8 +68,7 @@
                     class="cost-by-project__buttons__none-assigned"
                 />
             </div>
-            <div class="usage-charges-item-container__detailed-info-container__footer__buttons"> 
-                
+            <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
                 <UsageAndChargesItem2
                     v-for="usageAndCharges in projectUsageAndCharges"
                     :key="usageAndCharges.projectId"
@@ -77,7 +76,8 @@
                     class="cost-by-project__item"
                 />
             </div>
-        <router-view />
+            <router-view />
+        </div>
     </div>
 </template>
 

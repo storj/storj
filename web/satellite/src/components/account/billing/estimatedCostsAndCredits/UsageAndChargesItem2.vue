@@ -46,16 +46,13 @@
                     <p class="price">{{ item.segmentPrice | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="usage-charges-item-container__detailed-info-container__footer">
-            </div>
+            <div class="usage-charges-item-container__detailed-info-container__footer" />
         </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-
-import VButton from '@/components/common/VButton.vue';
 
 import GreyChevron from '@/../static/images/common/greyChevron.svg';
 
@@ -69,7 +66,6 @@ import { MetaUtils } from '@/utils/meta';
 @Component({
     components: {
         GreyChevron,
-        VButton,
     },
 })
 export default class UsageAndChargesItem2 extends Vue {
