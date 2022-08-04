@@ -1433,14 +1433,13 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 
 		for i := 0; i < 10; i++ {
 			baseObj.ObjectKey = metabase.ObjectKey("foo/" + strconv.Itoa(i))
-			err := CreateObject(ctx, db, baseObj)
-			require.NoError(b, err)
+			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
+
 			baseObj.ObjectKey = metabase.ObjectKey("foo/prefixA/" + strconv.Itoa(i))
-			err = CreateObject(ctx, db, baseObj)
-			require.NoError(b, err)
+			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
+
 			baseObj.ObjectKey = metabase.ObjectKey("foo/prefixB/" + strconv.Itoa(i))
-			err = CreateObject(ctx, db, baseObj)
-			require.NoError(b, err)
+			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
 		}
 
 		b.Run("listing no prefix", func(b *testing.B) {
@@ -1478,19 +1477,4 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 			}
 		})
 	})
-}
-
-func CreateObject(ctx *testcontext.Context, db *metabase.DB, obj metabase.ObjectStream) error {
-	_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
-		ObjectStream: obj,
-		Encryption:   metabasetest.DefaultEncryption,
-	})
-	if err != nil {
-		return err
-	}
-
-	_, err = db.CommitObject(ctx, metabase.CommitObject{
-		ObjectStream: obj,
-	})
-	return err
 }

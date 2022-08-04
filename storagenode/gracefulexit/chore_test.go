@@ -107,7 +107,8 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	// run the SN chore again to start processing transfers.
 	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 	// wait for workers to finish
-	exitingNode.GracefulExit.Chore.TestWaitForWorkers()
+	err = exitingNode.GracefulExit.Chore.TestWaitForNoWorkers(ctx)
+	require.NoError(t, err)
 
 	// check that there are no more items to process
 	queueItems, err = satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)

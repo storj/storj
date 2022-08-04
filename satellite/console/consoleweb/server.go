@@ -435,10 +435,14 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		StorageTBPrice                  string
 		EgressTBPrice                   string
 		SegmentPrice                    string
-		RecaptchaEnabled                bool
-		RecaptchaSiteKey                string
-		HcaptchaEnabled                 bool
-		HcaptchaSiteKey                 string
+		RegistrationRecaptchaEnabled    bool
+		RegistrationRecaptchaSiteKey    string
+		RegistrationHcaptchaEnabled     bool
+		RegistrationHcaptchaSiteKey     string
+		LoginRecaptchaEnabled           bool
+		LoginRecaptchaSiteKey           string
+		LoginHcaptchaEnabled            bool
+		LoginHcaptchaSiteKey            string
 		NewProjectDashboard             bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
@@ -474,10 +478,14 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.StorageTBPrice = server.pricing.StorageTBPrice
 	data.EgressTBPrice = server.pricing.EgressTBPrice
 	data.SegmentPrice = server.pricing.SegmentPrice
-	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
-	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
-	data.HcaptchaEnabled = server.config.Hcaptcha.Enabled
-	data.HcaptchaSiteKey = server.config.Hcaptcha.SiteKey
+	data.RegistrationRecaptchaEnabled = server.config.Captcha.Registration.Recaptcha.Enabled
+	data.RegistrationRecaptchaSiteKey = server.config.Captcha.Registration.Recaptcha.SiteKey
+	data.RegistrationHcaptchaEnabled = server.config.Captcha.Registration.Hcaptcha.Enabled
+	data.RegistrationHcaptchaSiteKey = server.config.Captcha.Registration.Hcaptcha.SiteKey
+	data.LoginRecaptchaEnabled = server.config.Captcha.Login.Recaptcha.Enabled
+	data.LoginRecaptchaSiteKey = server.config.Captcha.Login.Recaptcha.SiteKey
+	data.LoginHcaptchaEnabled = server.config.Captcha.Login.Hcaptcha.Enabled
+	data.LoginHcaptchaSiteKey = server.config.Captcha.Login.Hcaptcha.SiteKey
 	data.NewProjectDashboard = server.config.NewProjectDashboard
 	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
@@ -500,29 +508,31 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// authMiddlewareHandler performs initial authorization before every request.
+// withAuth performs initial authorization before every request.
 func (server *Server) withAuth(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
-		var ctx context.Context
+		ctx := r.Context()
 
 		defer mon.Task()(&ctx)(&err)
 
-		ctxWithAuth := func(ctx context.Context) context.Context {
-			token, err := server.cookieAuth.GetToken(r)
+		defer func() {
 			if err != nil {
-				return console.WithUserFailure(ctx, console.ErrUnauthorized.Wrap(err))
+				consoleapi.ServeJSONError(server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
+				server.cookieAuth.RemoveTokenCookie(w)
 			}
+		}()
 
-			newCtx, err := server.service.TokenAuth(ctx, token, time.Now())
-			if err != nil {
-				return console.WithUserFailure(ctx, err)
-			}
-
-			return newCtx
+		token, err := server.cookieAuth.GetToken(r)
+		if err != nil {
+			return
 		}
 
-		ctx = ctxWithAuth(r.Context())
+		newCtx, err := server.service.TokenAuth(ctx, token, time.Now())
+		if err != nil {
+			return
+		}
+		ctx = newCtx
 
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})

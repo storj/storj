@@ -448,5 +448,5 @@ func (p *Payments) Transactions(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
-	serveJSONError(p.log, w, status, err)
+	ServeJSONError(p.log, w, status, err)
 }

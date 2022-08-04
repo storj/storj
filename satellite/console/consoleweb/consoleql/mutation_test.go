@@ -87,6 +87,8 @@ func TestGraphqlMutation(t *testing.T) {
 			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
+			db.Wallets(),
+			db.Billing(),
 			db.Console().Projects(),
 			db.ProjectAccounting(),
 			pc.StorageTBPrice,
@@ -110,6 +112,8 @@ func TestGraphqlMutation(t *testing.T) {
 			consoleauth.NewService(consoleauth.Config{
 				TokenExpirationTime: 24 * time.Hour,
 			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
+			nil,
+			"",
 			console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,

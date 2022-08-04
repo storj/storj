@@ -233,6 +233,8 @@ func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, err
 			},
 			ServerAddress: mailConfig.SMTPServerAddress,
 		}
+	case "nomail":
+		sender = simulate.NoMail{}
 	default:
 		sender = simulate.NewDefaultLinkClicker(log.Named("mail:linkclicker"))
 	}

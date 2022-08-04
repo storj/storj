@@ -56,8 +56,14 @@ type prefixWriter struct {
 	buffer []byte
 }
 
+// WriterFlusher implements io.Writer and flushing of pending content.
+type WriterFlusher interface {
+	io.Writer
+	Flush() error
+}
+
 // Prefixed returns a new writer that has writes with specified prefix.
-func (writer *PrefixWriter) Prefixed(prefix string) io.Writer {
+func (writer *PrefixWriter) Prefixed(prefix string) WriterFlusher {
 	writer.mu.Lock()
 	writer.prefixlen = max(writer.prefixlen, len(prefix))
 	writer.mu.Unlock()
@@ -73,6 +79,11 @@ func (writer *PrefixWriter) Prefixed(prefix string) io.Writer {
 // Write implements io.Writer that prefixes lines.
 func (writer *PrefixWriter) Write(data []byte) (int, error) {
 	return writer.root.Write(data)
+}
+
+// Flush any pending content.
+func (writer *PrefixWriter) Flush() error {
+	return writer.root.Flush()
 }
 
 // Write implements io.Writer that prefixes lines.
@@ -174,4 +185,71 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 	}
 
 	return len(data), nil
+}
+
+// Flush flushes any pending data.
+func (writer *prefixWriter) Flush() error {
+	writer.local.Lock()
+	defer writer.local.Unlock()
+
+	buffer := writer.buffer
+	writer.buffer = nil
+	if len(buffer) == 0 {
+		return nil
+	}
+
+	writer.mu.Lock()
+	defer writer.mu.Unlock()
+
+	prefix := writer.prefix
+	id := writer.id
+	timeText := writer.nowFunc().Format(timeFormat)
+	for len(buffer) > 0 {
+		pos := bytes.IndexByte(buffer, '\n')
+		insertbreak := false
+
+		// did not find a linebreak
+		if pos < 0 {
+			pos = len(buffer)
+		}
+
+		// try to find a nice place where to break the line
+		if pos < 0 || pos > writer.maxline {
+			pos = writer.maxline - 1
+			for p := pos; p >= writer.maxline*2/3; p-- {
+				// is there a space we can break on?
+				if buffer[p] == ' ' {
+					pos = p
+					break
+				}
+			}
+			insertbreak = true
+		}
+
+		_, err := fmt.Fprintf(writer.dst, "%-*s %-*s %s | ", writer.prefixlen, prefix, maxIDLength, id, timeText)
+		if err != nil {
+			return err
+		}
+
+		_, err = writer.dst.Write(buffer[:pos])
+		buffer = buffer[pos:]
+		if err != nil {
+			return err
+		}
+		_, err = writer.dst.Write([]byte{'\n'})
+		if err != nil {
+			return err
+		}
+
+		// remove the linebreak from buffer, if it's not an insert
+		if !insertbreak && len(buffer) > 0 {
+			buffer = buffer[1:]
+		}
+
+		prefix = ""
+		id = ""
+		timeText = emptyTimeField
+	}
+
+	return nil
 }

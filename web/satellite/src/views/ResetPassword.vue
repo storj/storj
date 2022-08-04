@@ -313,6 +313,8 @@ export default class ResetPassword extends Vue {
 
             &__logo {
                 cursor: pointer;
+                width: 207px;
+                height: 37px;
             }
         }
 

@@ -265,7 +265,7 @@ type Peer struct {
 	}
 
 	GracefulExit struct {
-		Service      gracefulexit.Service
+		Service      *gracefulexit.Service
 		Endpoint     *gracefulexit.Endpoint
 		Chore        *gracefulexit.Chore
 		BlobsCleaner *gracefulexit.BlobsCleaner

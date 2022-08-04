@@ -68,7 +68,7 @@ func TestHeavyLockContention(t *testing.T) {
 			ErrorRetryInterval: 0,
 		}
 		reputationDB := db.Reputation()
-		writecacheDB := reputation.NewCachingDB(zaptest.NewLogger(t), testrand.NodeID(), reputationDB, config)
+		writecacheDB := reputation.NewCachingDB(zaptest.NewLogger(t), reputationDB, config)
 		var group errgroup.Group
 
 		// Make room for results ahead of time, so we don't need to use any
@@ -148,7 +148,7 @@ func TestFetchingInfoWhileEntryIsSyncing(t *testing.T) {
 		}
 		logger := zaptest.NewLogger(t)
 		reputationDB := db.Reputation()
-		writecache := reputation.NewCachingDB(logger.Named("writecache"), testrand.NodeID(), reputationDB, config)
+		writecache := reputation.NewCachingDB(logger.Named("writecache"), reputationDB, config)
 		const positiveAudits = 123
 
 		for i := 0; i < numRounds; i++ {

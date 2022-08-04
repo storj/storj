@@ -38,7 +38,7 @@
     "compression-webpack-plugin": "9.2.0",
     "eslint": "8.14.0",
     "eslint-plugin-import": "2.25.4",
-    "eslint-plugin-storj": "git+https://git@github.com/storj/eslint-storj.git",
+    "eslint-plugin-storj": "0.0.2",
     "eslint-plugin-vue": "8.7.1",
     "jest": "27.5.1",
     "jest-fetch-mock": "3.0.3",

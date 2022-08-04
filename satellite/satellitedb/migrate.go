@@ -2001,6 +2001,41 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE accounting_rollups SET interval_end_time = start_time WHERE interval_end_time = NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop billing table to change primary key.",
+				Version:     204,
+				Action: migrate.SQL{
+					`DROP TABLE billing_transactions;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add billing tables for user balances and transactions",
+				Version:     205,
+				Action: migrate.SQL{
+					`CREATE TABLE billing_balances (
+						user_id bytea NOT NULL,
+						balance bigint NOT NULL,
+						last_updated timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id )
+                    ); `,
+					`CREATE TABLE billing_transactions (
+						id bigserial NOT NULL,
+						user_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						currency text NOT NULL,
+						description text NOT NULL,
+						source text NOT NULL,
+						status text NOT NULL,
+						type text NOT NULL,
+						metadata jsonb NOT NULL,
+						timestamp timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					); `,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

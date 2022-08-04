@@ -38,46 +38,7 @@
                     <p class="add-modal__tokens__banner">
                         Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
                     </p>
-                    <p class="add-modal__tokens__support-info">Please contact <a target="_blank" href="mailto:supportdcs@storj.io">supportdcs@storj.io</a> to deposit STORJ tokens into your account</p>
-                    <!-- TODO: Introduce variable to toggle support-info -->
-                    <!-- <TokenDepositSelection
-                        class="add-modal__tokens__selection"
-                        :payment-options="paymentOptions"
-                        @onChangeTokenValue="onChangeTokenValue"
-                    />
-                    <VButton
-                        width="100%"
-                        height="48px"
-                        border-radius="32px"
-                        label="Continue to Coin Payments"
-                        :on-press="onAddSTORJClick"
-                    />
-                    <div v-if="coinPaymentsCheckoutLink" class="add-modal__tokens__checkout-container">
-                        <a
-                            class="add-modal__tokens__checkout-container__link"
-                            :href="coinPaymentsCheckoutLink"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Checkout
-                        </a>
-                    </div>
-                    <p class="add-modal__tokens__note">
-                        Please Note: Your first deposit of $50 or more in STORJ Token is applied to your account after Coin
-                        Payments verifies payment.
-                    </p>
-                    <p class="add-modal__tokens__info">
-                        After depositing STORJ Tokens, please contact
-                        <a
-                            class="add-modal__tokens__info__link"
-                            :href="limitsIncreaseRequestURL"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Support
-                        </a>
-                        to assist you for accessing your higher limits!
-                    </p> -->
+                    <p class="add-modal__tokens__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
                 </div>
                 <div class="add-modal__bullets">
                     <div class="add-modal__bullets__left">
@@ -197,7 +158,6 @@ interface StripeForm {
         VButton,
         CheckMarkIcon,
         LockImage,
-        // TokenDepositSelection,
         VLoader,
         VModal,
         BigCheckMarkIcon,

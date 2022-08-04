@@ -288,7 +288,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup reputation
 		reputationDB := peer.DB.Reputation()
 		if config.Reputation.FlushInterval > 0 {
-			cachingDB := reputation.NewCachingDB(log.Named("reputation:writecache"), peer.Identity.ID, reputationDB, config.Reputation)
+			cachingDB := reputation.NewCachingDB(log.Named("reputation:writecache"), reputationDB, config.Reputation)
 			peer.Services.Add(lifecycle.Item{
 				Name: "reputation:writecache",
 				Run:  cachingDB.Manage,
@@ -506,6 +506,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			stripeClient,
 			pc.StripeCoinPayments,
 			peer.DB.StripeCoinPayments(),
+			peer.DB.Wallets(),
+			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,
@@ -562,6 +564,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
 
+		externalAddress := consoleConfig.ExternalAddress
+		if externalAddress == "" {
+			externalAddress = "http://" + peer.Console.Listener.Addr().String()
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
@@ -574,6 +581,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Payments.DepositWallets,
 			peer.Analytics.Service,
 			peer.Console.AuthTokens,
+			peer.Mail.Service,
+			externalAddress,
 			consoleConfig.Config,
 		)
 		if err != nil {

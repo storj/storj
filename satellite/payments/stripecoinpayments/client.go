@@ -51,7 +51,9 @@ type StripeInvoices interface {
 // StripeInvoiceItems Stripe InvoiceItems interface.
 type StripeInvoiceItems interface {
 	New(params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
+	Update(id string, params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
 	List(listParams *stripe.InvoiceItemListParams) *invoiceitem.Iter
+	Del(id string, params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
 }
 
 // StripeCharges Stripe Charges interface.

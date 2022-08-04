@@ -17,7 +17,9 @@ import (
 func TestPrefixWriter(t *testing.T) {
 	root := NewPrefixWriter("", storjSimMaxLineLen, ioutil.Discard)
 	alpha := root.Prefixed("alpha")
+	defer func() { _ = alpha.Flush() }()
 	beta := root.Prefixed("beta")
+	defer func() { _ = beta.Flush() }()
 
 	var group errgroup.Group
 	defer func() {
