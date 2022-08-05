@@ -85,8 +85,6 @@ export default class CouponArea extends Vue {
         } catch (error) {
             await this.$notify.error(error.message);
         }
-
-        console.log(this.coupon)
     }
 
     /**
