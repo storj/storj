@@ -122,7 +122,7 @@ func (client *Client) ClaimNewEthAddress(ctx context.Context) (_ blockchain.Addr
 
 	p := client.endpoint + "/api/v0/wallets/claim"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p, nil)
 	if err != nil {
 		return blockchain.Address{}, ClientErr.Wrap(err)
 	}
@@ -153,16 +153,11 @@ func (client *Client) ClaimNewEthAddress(ctx context.Context) (_ blockchain.Addr
 		}
 	}
 
-	var addressHex string
-
-	if err = json.NewDecoder(resp.Body).Decode(&addressHex); err != nil {
-		return blockchain.Address{}, ClientErr.Wrap(err)
-	}
-
 	var address blockchain.Address
 
-	if err = address.UnmarshalJSON([]byte(addressHex)); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&address); err != nil {
 		return blockchain.Address{}, ClientErr.Wrap(err)
 	}
+
 	return address, nil
 }
