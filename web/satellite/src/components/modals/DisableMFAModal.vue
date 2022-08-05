@@ -2,56 +2,55 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="disable-mfa">
-        <div class="disable-mfa__container">
-            <h1 class="disable-mfa__container__title">Two-Factor Authentication</h1>
-            <p class="disable-mfa__container__subtitle">
-                Enter code from your favorite TOTP app to disable 2FA.
-            </p>
-            <div class="disable-mfa__container__confirm">
-                <h2 class="disable-mfa__container__confirm__title">Confirm Authentication Code</h2>
-                <ConfirmMFAInput ref="mfaInput" :on-input="onConfirmInput" :is-error="isError" :is-recovery="isRecoveryCodeState" />
-                <span class="disable-mfa__container__confirm__toggle" @click="toggleRecoveryCodeState">
-                    Or use {{ isRecoveryCodeState ? '2FA code' : 'recovery code' }}
-                </span>
+    <VModal :on-close="closeModal">
+        <template #content>
+            <div class="disable-mfa">
+                <h1 class="disable-mfa__title">Two-Factor Authentication</h1>
+                <p class="disable-mfa__subtitle">
+                    Enter code from your favorite TOTP app to disable 2FA.
+                </p>
+                <div class="disable-mfa__confirm">
+                    <h2 class="disable-mfa__confirm__title">Confirm Authentication Code</h2>
+                    <ConfirmMFAInput ref="mfaInput" :on-input="onConfirmInput" :is-error="isError" :is-recovery="isRecoveryCodeState" />
+                    <span class="disable-mfa__confirm__toggle" @click="toggleRecoveryCodeState">
+                        Or use {{ isRecoveryCodeState ? '2FA code' : 'recovery code' }}
+                    </span>
+                </div>
+                <p class="disable-mfa__info">
+                    After disabling 2FA, remove the authentication code from your TOTP app.
+                </p>
+                <div class="disable-mfa__buttons">
+                    <VButton
+                        class="disable-mfa__buttons__cancel-button"
+                        label="Cancel"
+                        width="50%"
+                        height="44px"
+                        is-white="true"
+                        :on-press="closeModal"
+                    />
+                    <VButton
+                        label="Disable 2FA"
+                        width="50%"
+                        height="44px"
+                        :on-press="disable"
+                        :is-disabled="!(request.recoveryCode || request.passcode) || isLoading"
+                    />
+                </div>
             </div>
-            <p class="disable-mfa__container__info">
-                After disabling 2FA, remove the authentication code from your TOTP app.
-            </p>
-            <div class="disable-mfa__container__buttons">
-                <VButton
-                    class="cancel-button"
-                    label="Cancel"
-                    width="50%"
-                    height="44px"
-                    is-white="true"
-                    :on-press="toggleModal"
-                />
-                <VButton
-                    label="Disable 2FA"
-                    width="50%"
-                    height="44px"
-                    :on-press="disable"
-                    :is-disabled="!(request.recoveryCode || request.passcode) || isLoading"
-                />
-            </div>
-            <div class="disable-mfa__container__close-container" @click="toggleModal">
-                <CloseCrossIcon />
-            </div>
-        </div>
-    </div>
+        </template>
+    </VModal>
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
-import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
-import VButton from '@/components/common/VButton.vue';
-
-import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import { Component, Vue } from 'vue-property-decorator';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { DisableMFARequest } from '@/types/users';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+
+import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
+import VButton from '@/components/common/VButton.vue';
+import VModal from '@/components/common/VModal.vue';
 
 interface ClearInput {
     clearInput(): void;
@@ -61,14 +60,11 @@ interface ClearInput {
 @Component({
     components: {
         ConfirmMFAInput,
-        CloseCrossIcon,
         VButton,
+        VModal,
     },
 })
-export default class DisableMFAPopup extends Vue {
-    @Prop({default: () => () => {}})
-    public readonly toggleModal: () => void;
-
+export default class DisableMFAModal extends Vue {
     public isError = false;
     public isLoading = false;
     public request = new DisableMFARequest();
@@ -76,6 +72,13 @@ export default class DisableMFAPopup extends Vue {
 
     public $refs!: {
         mfaInput: ConfirmMFAInput & ClearInput;
+    }
+
+    /**
+     * Closes disable MFA modal.
+     */
+    public closeModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_DISABLE_MFA_MODAL_SHOWN);
     }
 
     /**
@@ -110,7 +113,7 @@ export default class DisableMFAPopup extends Vue {
 
             await this.$notify.success('MFA was disabled successfully');
 
-            this.toggleModal();
+            this.closeModal();
         } catch (error) {
             await this.$notify.error(error.message);
             this.isError = true;
@@ -122,22 +125,8 @@ export default class DisableMFAPopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-.disable-mfa {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    left: 0;
-    display: flex;
-    justify-content: center;
-    z-index: 1000;
-    background: rgb(27 37 51 / 75%);
-
-    &__container {
+    .disable-mfa {
         padding: 60px;
-        height: fit-content;
-        margin-top: 100px;
-        position: relative;
         background: #fff;
         border-radius: 6px;
         display: flex;
@@ -202,35 +191,10 @@ export default class DisableMFAPopup extends Vue {
             align-items: center;
             width: 100%;
             margin-top: 30px;
-        }
 
-        &__close-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: absolute;
-            right: 30px;
-            top: 30px;
-            height: 24px;
-            width: 24px;
-            cursor: pointer;
-
-            &:hover .close-cross-svg-path {
-                fill: #2683ff;
+            &__cancel-button {
+                margin-right: 15px;
             }
         }
     }
-}
-
-.cancel-button {
-    margin-right: 15px;
-}
-
-@media screen and (max-height: 750px) {
-
-    .disable-mfa {
-        padding-bottom: 20px;
-        overflow-y: scroll;
-    }
-}
 </style>

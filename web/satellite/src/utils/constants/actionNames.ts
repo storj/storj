@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 export const APP_STATE_ACTIONS = {
-    TOGGLE_TEAM_MEMBERS: 'toggleAddTeamMembersPopup',
     TOGGLE_ACCOUNT: 'toggleAccountDropdown',
     TOGGLE_SELECT_PROJECT_DROPDOWN: 'toggleSelectProjectDropdown',
     TOGGLE_RESOURCES_DROPDOWN: 'toggleResourcesDropdown',
@@ -18,8 +17,6 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_PERMISSIONS_DROPDOWN: 'togglePermissionsDropdown',
     TOGGLE_SUCCESSFUL_PASSWORD_RESET: 'TOGGLE_SUCCESSFUL_PASSWORD_RESET',
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
-    TOGGLE_EDIT_PROFILE_POPUP: 'toggleEditProfilePopup',
-    TOGGLE_CHANGE_PASSWORD_POPUP: 'toggleChangePasswordPopup',
     TOGGLE_UPLOAD_CANCEL_POPUP: 'toggleUploadCancelPopup',
     SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'showSetDefaultPaymentMethodPopup',
     CLOSE_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'closeSetDefaultPaymentMethodPopup',
