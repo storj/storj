@@ -10,7 +10,7 @@
                 @mouseover="toggleTooltipHover('access','over')"
                 @mouseleave="toggleTooltipHover('access','leave')"
             >
-                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://docs.storj.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
             </div>
             <div
                 v-if="tooltipHover === 's3'"
