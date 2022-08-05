@@ -32,7 +32,6 @@
                 </div>
             </div>
         </div>
-        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
         <AllModals />
     </div>
 </template>
@@ -44,7 +43,6 @@ import AllModals from "@/components/modals/AllModals.vue";
 import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
-import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import ProjectInfoBar from "@/components/infoBars/ProjectInfoBar.vue";
 
@@ -86,7 +84,6 @@ const {
         MFARecoveryCodeBar,
         BetaSatBar,
         ProjectInfoBar,
-        MFARecoveryCodesPopup,
     },
 })
 export default class DashboardArea extends Vue {
@@ -96,8 +93,6 @@ export default class DashboardArea extends Vue {
     private inactivityTimerId: ReturnType<typeof setTimeout>;
     // Minimum number of recovery codes before the recovery code warning bar is shown.
     public recoveryCodeWarningThreshold = 4;
-
-    public isMFACodesPopup = false;
 
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -180,10 +175,17 @@ export default class DashboardArea extends Vue {
     public async generateNewMFARecoveryCodes(): Promise<void> {
         try {
             await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
-            this.toggleMFACodesPopup();
+            this.toggleMFARecoveryModal();
         } catch (error) {
             await this.$notify.error(error.message);
         }
+    }
+
+    /**
+     * Toggles MFA recovery modal visibility.
+     */
+    public toggleMFARecoveryModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
     }
 
     /**
@@ -191,13 +193,6 @@ export default class DashboardArea extends Vue {
      */
     public togglePMModal(): void {
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
-    }
-
-    /**
-     * Toggles MFA recovery codes popup visibility.
-     */
-    public toggleMFACodesPopup(): void {
-        this.isMFACodesPopup = !this.isMFACodesPopup;
     }
 
     /**

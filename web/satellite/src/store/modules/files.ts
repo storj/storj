@@ -291,7 +291,7 @@ export const makeFilesModule = (): FilesModule => ({
     },
     actions: {
         async list({ commit, state }, path = state.path) {
-            if (listCache.has(path) === true) {
+            if (listCache.has(path)) {
                 commit("updateFiles", {
                     path,
                     files: listCache.get(path),
@@ -323,10 +323,10 @@ export const makeFilesModule = (): FilesModule => ({
             Contents.sort((a, b) => {
                 if (
                     a === undefined ||
-          a.LastModified === undefined ||
-          b === undefined ||
-          b.LastModified === undefined ||
-          a.LastModified === b.LastModified
+                    a.LastModified === undefined ||
+                    b === undefined ||
+                    b.LastModified === undefined ||
+                    a.LastModified === b.LastModified
                 ) {
                     return 0;
                 }
@@ -334,44 +334,44 @@ export const makeFilesModule = (): FilesModule => ({
                 return a.LastModified < b.LastModified ? -1 : 1;
             });
 
-      type DefinedCommonPrefix = CommonPrefix & {
-        Prefix: string;
-      };
+            type DefinedCommonPrefix = CommonPrefix & {
+              Prefix: string;
+            };
 
-      const isPrefixDefined = (
-          value: CommonPrefix
-      ): value is DefinedCommonPrefix => value.Prefix !== undefined;
+            const isPrefixDefined = (
+                value: CommonPrefix
+            ): value is DefinedCommonPrefix => value.Prefix !== undefined;
 
-      const prefixToFolder = ({
-          Prefix,
-      }: {
-        Prefix: string;
-      }): BrowserObject => ({
-          Key: Prefix.slice(path.length, -1),
-          LastModified: 0,
-          Size: 0,
-          type: "folder",
-      });
+            const prefixToFolder = ({
+                Prefix,
+            }: {
+              Prefix: string;
+            }): BrowserObject => ({
+                Key: Prefix.slice(path.length, -1),
+                LastModified: 0,
+                Size: 0,
+                type: "folder",
+            });
 
-      const makeFileRelative = (file) => ({
-          ...file,
-          Key: file.Key.slice(path.length),
-          type: "file",
-      });
+            const makeFileRelative = (file) => ({
+                ...file,
+                Key: file.Key.slice(path.length),
+                type: "file",
+            });
 
-      const isFileVisible = (file) =>
-          file.Key.length > 0 && file.Key !== ".file_placeholder";
+            const isFileVisible = (file) =>
+                file.Key.length > 0 && file.Key !== ".file_placeholder";
 
-      const files = [
-          ...CommonPrefixes.filter(isPrefixDefined).map(prefixToFolder),
-          ...Contents.map(makeFileRelative).filter(isFileVisible),
-      ];
+            const files = [
+                ...CommonPrefixes.filter(isPrefixDefined).map(prefixToFolder),
+                ...Contents.map(makeFileRelative).filter(isFileVisible),
+            ];
 
-      listCache.set(path, files);
-      commit("updateFiles", {
-          path,
-          files,
-      });
+            listCache.set(path, files);
+            commit("updateFiles", {
+                path,
+                files,
+            });
         },
 
         async back({ state, dispatch }) {
@@ -391,136 +391,139 @@ export const makeFilesModule = (): FilesModule => ({
         async upload({ commit, state, dispatch }, e: DragEvent) {
             assertIsInitialized(state);
 
-      type Item = DataTransferItem | FileSystemEntry;
+            type Item = DataTransferItem | FileSystemEntry;
 
-      const items: Item[] = e.dataTransfer
-          ? [...e.dataTransfer.items]
-          : e.target !== null
-              ? ((e.target as unknown) as { files: FileSystemEntry[] }).files
-              : [];
+            const items: Item[] = e.dataTransfer
+                ? [...e.dataTransfer.items]
+                : e.target !== null
+                    ? ((e.target as unknown) as { files: FileSystemEntry[] }).files
+                    : [];
 
-      async function* traverse(item: Item | Item[], path = "") {
-          if ('isFile' in item && item.isFile === true) {
-              const file = await new Promise(item.file.bind(item));
-              yield { path, file };
-          } else if (item instanceof File) {
-              let relativePath = item.webkitRelativePath
-                  .split("/")
-                  .slice(0, -1)
-                  .join("/");
+            async function* traverse(item: Item | Item[], path = "") {
+                if ('isFile' in item && item.isFile === true) {
+                    const file = await new Promise(item.file.bind(item));
+                    yield { path, file };
+                } else if (item instanceof File) {
+                    let relativePath = item.webkitRelativePath
+                        .split("/")
+                        .slice(0, -1)
+                        .join("/");
 
-              if (relativePath.length) {
-                  relativePath += "/";
-              }
+                    if (relativePath.length) {
+                        relativePath += "/";
+                    }
 
-              yield { path: relativePath, file: item };
-          } else if ('isFile' in item && item.isDirectory) {
-              const dirReader = item.createReader();
+                    yield { path: relativePath, file: item };
+                } else if ('isFile' in item && item.isDirectory) {
+                    const dirReader = item.createReader();
 
-              const entries = await new Promise(
-                  dirReader.readEntries.bind(dirReader)
-              );
+                    const entries = await new Promise(
+                        dirReader.readEntries.bind(dirReader)
+                    );
 
-              for (const entry of entries) {
-                  yield* traverse(
+                    for (const entry of entries) {
+                        yield* traverse(
               (entry as FileSystemEntry) as Item,
               path + item.name + "/"
-                  );
-              }
-          } else if ("length" in item && typeof item.length === "number") {
-              for (const i of item) {
-                  yield* traverse(i);
-              }
-          } else {
-              throw new Error("Item is not directory or file");
-          }
-      }
+                        );
+                    }
+                } else if ("length" in item && typeof item.length === "number") {
+                    for (const i of item) {
+                        yield* traverse(i);
+                    }
+                } else {
+                    throw new Error("Item is not directory or file");
+                }
+            }
 
-      const isFileSystemEntry = (
-          a: FileSystemEntry | null
-      ): a is FileSystemEntry => a !== null;
+            const isFileSystemEntry = (
+                a: FileSystemEntry | null
+            ): a is FileSystemEntry => a !== null;
 
-      const iterator = [...items]
-          .map((item) =>
-              "webkitGetAsEntry" in item ? item.webkitGetAsEntry() : item
-          )
-          .filter(isFileSystemEntry) as FileSystemEntry[];
+            const iterator = [...items]
+                .map((item) =>
+                    "webkitGetAsEntry" in item ? item.webkitGetAsEntry() : item
+                )
+                .filter(isFileSystemEntry) as FileSystemEntry[];
 
-      const fileNames = state.files.map((file) => file.Key);
+            const fileNames = state.files.map((file) => file.Key);
 
-      function getUniqueFileName(fileName) {
-          for (let count = 1; fileNames.includes(fileName); count++) {
-              if (count > 1) {
-                  fileName = fileName.replace(/\((\d+)\)(.*)/, `(${count})$2`);
-              } else {
-                  fileName = fileName.replace(/([^.]*)(.*)/, `$1 (${count})$2`);
-              }
-          }
+            function getUniqueFileName(fileName) {
+                for (let count = 1; fileNames.includes(fileName); count++) {
+                    if (count > 1) {
+                        fileName = fileName.replace(/\((\d+)\)(.*)/, `(${count})$2`);
+                    } else {
+                        fileName = fileName.replace(/([^.]*)(.*)/, `$1 (${count})$2`);
+                    }
+                }
 
-          return fileName;
-      }
+                return fileName;
+            }
 
-      for await (const { path, file } of traverse(iterator)) {
-          const directories = path.split("/");
-          const uniqueFirstDirectory = getUniqueFileName(directories[0]);
-          directories[0] = uniqueFirstDirectory;
+            for await (const { path, file } of traverse(iterator)) {
+                const directories = path.split("/");
+                directories[0] = getUniqueFileName(directories[0]);
 
-          const fileName = getUniqueFileName(directories.join("/") + file.name);
+                const fileName = getUniqueFileName(directories.join("/") + file.name);
 
-          const params = {
-              Bucket: state.bucket,
-              Key: state.path + fileName,
-              Body: file,
-          };
+                const params = {
+                    Bucket: state.bucket,
+                    Key: state.path + fileName,
+                    Body: file,
+                };
 
-          const upload = state.s3.upload(
-              { ...params },
-              { partSize: 64 * 1024 * 1024 }
-          );
+                const upload = state.s3.upload(
+                    { ...params },
+                    { partSize: 64 * 1024 * 1024 }
+                );
 
-          upload.on("httpUploadProgress", (progress) => {
-              commit("setProgress", {
-                  Key: params.Key,
-                  progress: Math.round((progress.loaded / progress.total) * 100),
-              });
-          });
+                upload.on("httpUploadProgress", (progress) => {
+                    commit("setProgress", {
+                        Key: params.Key,
+                        progress: Math.round((progress.loaded / progress.total) * 100),
+                    });
+                });
 
-          commit("pushUpload", {
-              ...params,
-              upload,
-              progress: 0,
-          });
+                commit("pushUpload", {
+                    ...params,
+                    upload,
+                    progress: 0,
+                });
 
-          commit("addUploadToChain", async () => {
-              if (
-                  state.uploading.findIndex((file) => file.Key === params.Key) === -1
-              ) {
-                  // upload cancelled or removed
-                  return -1;
-              }
+                commit("addUploadToChain", async () => {
+                    if (
+                        state.uploading.findIndex((file) => file.Key === params.Key) === -1
+                    ) {
+                        // upload cancelled or removed
+                        return -1;
+                    }
 
-              try {
-                  await upload.promise();
-              } catch (e) {
-                  // An error is raised if the upload is aborted by the user
-                  console.log(e);
-              }
+                    try {
+                        await upload.promise();
+                    } catch (error) {
+                        const limitExceededError = 'storage limit exceeded'
+                        if (error.message.includes(limitExceededError)) {
+                            dispatch('error', `Error: ${limitExceededError}`, {root:true})
+                        } else {
+                            dispatch('error', error.message, {root:true})
+                        }
+                    }
 
-              await dispatch("list");
+                    await dispatch("list");
 
-              const uploadedFiles = state.files.filter(
-                  (file) => file.type === "file"
-              );
+                    const uploadedFiles = state.files.filter(
+                        (file) => file.type === "file"
+                    );
 
-              if (uploadedFiles.length === 1) {
-                  if (state.openModalOnFirstUpload === true) {
-                      commit("openModal", params.Key);
-                  }
-              }
+                    if (uploadedFiles.length === 1) {
+                        if (state.openModalOnFirstUpload === true) {
+                            commit("openModal", params.Key);
+                        }
+                    }
 
-              commit("finishUpload", params.Key);
-          });
-      }
+                    commit("finishUpload", params.Key);
+                });
+            }
         },
 
         async createFolder({ state, dispatch }, name) {

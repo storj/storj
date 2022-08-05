@@ -179,7 +179,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						mailService.SendRenderedAsync(
 							p.Context,
 							[]post.Address{{Address: user.Email, Name: userName}},
-							&ProjectInvitationEmail{
+							&console.ProjectInvitationEmail{
 								Origin:                origin,
 								UserName:              userName,
 								ProjectName:           project.Name,

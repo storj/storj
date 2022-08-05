@@ -41,6 +41,7 @@ func TestAuth_Register(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
 				config.Console.RateLimit.Burst = 10
+				config.Mail.AuthType = "nomail"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -96,9 +97,11 @@ func TestAuth_Register(t *testing.T) {
 					require.NoError(t, err)
 				}()
 				require.Equal(t, http.StatusOK, result.StatusCode)
-
+				require.Len(t, planet.Satellites, 1)
+				// this works only because we configured 'nomail' above. Mail send simulator won't click to activation link.
 				_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 				require.NoError(t, err)
+				require.Len(t, users, 1)
 				require.Equal(t, []byte(test.Partner), users[0].UserAgent)
 			}()
 		}
@@ -112,6 +115,7 @@ func TestAuth_Register_CORS(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
 				config.Console.RateLimit.Burst = 10
+				config.Mail.AuthType = "nomail"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -192,8 +196,11 @@ func TestAuth_Register_CORS(t *testing.T) {
 			"Authorization",
 		})
 
+		require.Len(t, planet.Satellites, 1)
+		// this works only because we configured 'nomail' above. Mail send simulator won't click to activation link.
 		_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, email)
 		require.NoError(t, err)
+		require.Len(t, users, 1)
 		require.Equal(t, fullName, users[0].FullName)
 	})
 }
@@ -738,6 +745,11 @@ func TestResendActivationEmail(t *testing.T) {
 func TestAuth_Register_NameSpecialChars(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Mail.AuthType = "nomail"
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		inputName := "The website has been changed to https://evil.com/login.html - Enter Login Details,"
 		filteredName := "The website has been changed to https---evil-com-login-html - Enter Login Details,"
@@ -768,9 +780,11 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 			require.NoError(t, err)
 		}()
 		require.Equal(t, http.StatusOK, result.StatusCode)
-
+		require.Len(t, planet.Satellites, 1)
+		// this works only because we configured 'nomail' above. Mail send simulator won't click to activation link.
 		_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, email)
 		require.NoError(t, err)
+		require.Len(t, users, 1)
 		require.Equal(t, filteredName, users[0].FullName)
 		require.Equal(t, filteredName, users[0].ShortName)
 	})

@@ -17,7 +17,6 @@ exports[`Team HeaderArea renders correctly 1`] = `
     <!---->
     <!---->
   </div>
-  <!---->
 </div>
 `;
 
@@ -41,7 +40,6 @@ exports[`Team HeaderArea renders correctly with 1 selected user and delete click
     <div class="blur-content"></div>
     <div class="blur-search"></div>
   </div>
-  <adduserpopup-stub></adduserpopup-stub>
 </div>
 `;
 
@@ -65,7 +63,6 @@ exports[`Team HeaderArea renders correctly with 2 selected users and delete clic
     <div class="blur-content"></div>
     <div class="blur-search"></div>
   </div>
-  <!---->
 </div>
 `;
 
@@ -86,7 +83,6 @@ exports[`Team HeaderArea renders correctly with opened Add team member popup 1`]
     <!---->
     <!---->
   </div>
-  <adduserpopup-stub></adduserpopup-stub>
 </div>
 `;
 
@@ -108,6 +104,5 @@ exports[`Team HeaderArea renders correctly with selected users 1`] = `
     <!---->
     <!---->
   </div>
-  <adduserpopup-stub></adduserpopup-stub>
 </div>
 `;

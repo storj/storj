@@ -9,7 +9,7 @@ import { appStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMembersPage } from '@/types/projectMembers';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectMembersApiMock } from '../mock/api/projectMembers';
@@ -50,27 +50,24 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with opened Add team member popup', () => {
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
 
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
         });
 
-        const addNewTemMemberPopup = wrapper.findAll('adduserpopup-stub');
-
         expect(wrapper).toMatchSnapshot();
-        expect(addNewTemMemberPopup.length).toBe(1);
         expect(wrapper.findAll('.header-default-state').length).toBe(1);
         expect(wrapper.vm.isDeleteClicked).toBe(false);
         expect(wrapper.findAll('.blur-content').length).toBe(0);
         expect(wrapper.findAll('.blur-search').length).toBe(0);
 
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
     });
 
     it('renders correctly with selected users', () => {
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
 
         const selectedUsersCount = 2;
 
@@ -93,7 +90,7 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with 2 selected users and delete clicked once', async () => {
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
 
         const selectedUsersCount = 2;
 
@@ -120,7 +117,7 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with 1 selected user and delete clicked once', async () => {
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
 
         const selectedUsersCount = 1;
 

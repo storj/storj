@@ -4,6 +4,9 @@
 <template>
     <div ref="dashboard" class="project-dashboard">
         <h1 class="project-dashboard__title" aria-roledescription="title">Dashboard</h1>
+        <p class="project-dashboard__message">
+            Expect a delay of a few hours between network activity and the latest dashboard stats.
+        </p>
         <VLoader v-if="isDataFetching" class="project-dashboard__loader" width="100px" height="100px" />
         <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle" aria-roledescription="with-usage-title">
             Your
@@ -457,7 +460,13 @@ export default class NewProjectDashboard extends Vue {
             font-size: 16px;
             line-height: 24px;
             color: #000;
-            margin-bottom: 64px;
+        }
+
+        &__message {
+            font-size: 16px;
+            line-height: 20px;
+            color: #384b65;
+            margin: 10px 0 64px;
         }
 
         &__subtitle {

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/mail"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -27,9 +28,11 @@ import (
 	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/blockchain"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/rewards"
@@ -52,8 +55,6 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
-	lockedAccountErrMsg                  = "Your account is locked, please try again later"
-	lockedAccountWithResultErrMsg        = "Your login credentials are incorrect, your account is locked again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
@@ -93,9 +94,6 @@ var (
 	// ErrLoginPassword occurs when provided invalid login password.
 	ErrLoginPassword = errs.Class("login password")
 
-	// ErrLockedAccount occurs when user's account is locked.
-	ErrLockedAccount = errs.Class("locked")
-
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
 
@@ -132,6 +130,9 @@ type Service struct {
 	loginCaptchaHandler        CaptchaHandler
 	analytics                  *analytics.Service
 	tokens                     *consoleauth.Service
+	mailService                *mailservice.Service
+
+	satelliteAddress string
 
 	config Config
 }
@@ -186,7 +187,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, analytics *analytics.Service, tokens *consoleauth.Service, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -229,6 +230,8 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		loginCaptchaHandler:        loginCaptchaHandler,
 		analytics:                  analytics,
 		tokens:                     tokens,
+		mailService:                mailService,
+		satelliteAddress:           satelliteAddress,
 		config:                     config,
 	}, nil
 }
@@ -990,12 +993,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 	if user.LoginLockoutExpiration.After(now) {
 		mon.Counter("login_locked_out").Inc(1) //mon:locked
-		return consoleauth.Token{}, ErrLockedAccount.New(lockedAccountErrMsg)
+		return consoleauth.Token{}, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
-	lockoutExpDate := now.Add(time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute)
 	handleLockAccount := func() error {
-		err = s.UpdateUsersFailedLoginState(ctx, user, &lockoutExpDate)
+		err = s.UpdateUsersFailedLoginState(ctx, user)
 		if err != nil {
 			return err
 		}
@@ -1005,12 +1007,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 		if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
 			mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
-			return ErrLockedAccount.New(lockedAccountErrMsg)
 		}
 
 		if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
 			mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
-			return ErrLockedAccount.New(lockedAccountWithResultErrMsg)
 		}
 
 		return nil
@@ -1062,7 +1062,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 				return consoleauth.Token{}, err
 			}
 		} else if request.MFAPasscode != "" {
-			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, time.Now())
+			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, now)
 			if err != nil {
 				err = handleLockAccount()
 				if err != nil {
@@ -1109,10 +1109,29 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 }
 
 // UpdateUsersFailedLoginState updates User's failed login state.
-func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User, lockoutExpDate *time.Time) error {
+func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) error {
 	updateRequest := UpdateUserRequest{}
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
-		updateRequest.LoginLockoutExpiration = &lockoutExpDate
+		lockoutDuration := time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
+		lockoutExpTime := time.Now().Add(lockoutDuration)
+		lockoutExpTimePtr := &lockoutExpTime
+
+		updateRequest.LoginLockoutExpiration = &lockoutExpTimePtr
+
+		address := s.satelliteAddress
+		if !strings.HasSuffix(address, "/") {
+			address += "/"
+		}
+
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email, Name: user.FullName}},
+			&LockAccountEmail{
+				Name:              user.FullName,
+				LockoutDuration:   lockoutDuration,
+				ResetPasswordLink: address + "forgot-password",
+			},
+		)
 	}
 	user.FailedLoginCount++
 

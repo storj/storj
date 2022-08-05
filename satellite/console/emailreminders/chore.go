@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -101,7 +100,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				err = chore.mailService.SendRendered(
 					ctx,
 					[]post.Address{{Address: u.Email, Name: userName}},
-					&consoleql.AccountActivationEmail{
+					&console.AccountActivationEmail{
 						ActivationLink: link,
 						Origin:         authController.ExternalAddress,
 						UserName:       userName,
@@ -115,7 +114,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				chore.mailService.SendRenderedAsync(
 					ctx,
 					[]post.Address{{Address: u.Email, Name: userName}},
-					&consoleql.AccountActivationEmail{
+					&console.AccountActivationEmail{
 						ActivationLink: link,
 						Origin:         authController.ExternalAddress,
 						UserName:       userName,
