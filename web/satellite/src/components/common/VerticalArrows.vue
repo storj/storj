@@ -1,10 +1,10 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="container">
-        <TopArrowIcon :class="{ active: isActive && isTop }" />
-        <BottomArrowIcon :class="{ active: isActive && isBottom }" />
+        <TopArrowIcon :class="`${ isActive && isTop?'active':'inactive' }`" />
+        <BottomArrowIcon :class="`${ isActive && isBottom?'active':'inactive' }`" />
     </div>
 </template>
 
@@ -48,10 +48,16 @@ export default class VerticalArrows extends Vue {
         height: 17px;
     }
 
-    .active {
+    .inactive {
+        opacity: 0.5;
+    }
 
-        .arrow-svg-path {
+    .active {
+        opacity: 1;
+
+        ::v-deep path {
             fill: #2683ff !important;
         }
     }
+
 </style>
