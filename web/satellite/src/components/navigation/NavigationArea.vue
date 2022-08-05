@@ -150,7 +150,6 @@ export default class NavigationArea extends Vue {
     public mounted(): void {
         this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns)
         window.addEventListener('resize', this.onResize)
-        console.log(this.navigation[4].path)
     }
 
     /**
@@ -273,7 +272,6 @@ export default class NavigationArea extends Vue {
     public trackClickEvent(path: string): void {
         if (this.isNewBillingScreen && path === '/account/billing') {
             this.routeToOverview()
-            console.log('hit')
         } else {
             this.analytics.pageVisit(path);
         }
