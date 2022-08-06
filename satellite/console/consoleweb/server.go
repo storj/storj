@@ -91,7 +91,7 @@ type Config struct {
 	CSPEnabled                      bool               `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string             `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:""`
 	PathwayOverviewEnabled          bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"false"`
+	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"true"`
 	NewObjectsFlow                  bool               `help:"indicates if new objects flow should be used" default:"true"`
 	NewAccessGrantFlow              bool               `help:"indicates if new access grant flow should be used" default:"true"`
 	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"false"`
