@@ -28,7 +28,7 @@
                         label="+ Add"
                         width="122px"
                         height="48px"
-                        :on-press="onAddUsersClick"
+                        :on-press="toggleTeamMembersModal"
                         :is-disabled="isAddButtonDisabled"
                     />
                 </div>
@@ -74,7 +74,6 @@
             <div v-if="isDeleteClicked" class="blur-content" />
             <div v-if="isDeleteClicked" class="blur-search" />
         </div>
-        <AddUserPopup v-if="isAddTeamMembersPopupShown" />
     </div>
 </template>
 
@@ -84,7 +83,6 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
 import VHeader from '@/components/common/VHeader.vue';
 import VInfo from '@/components/common/VInfo.vue';
-import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
 import InfoIcon from '@/../static/images/team/infoTooltip.svg';
 
@@ -92,9 +90,9 @@ import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 declare interface ClearSearch {
     clearSearch(): void;
@@ -105,7 +103,6 @@ declare interface ClearSearch {
     components: {
         VButton,
         VHeader,
-        AddUserPopup,
         VInfo,
         InfoIcon,
     },
@@ -145,10 +142,10 @@ export default class HeaderArea extends Vue {
     }
 
     /**
-     * Opens add team members popup.
+     * Opens add team members modal.
      */
-    public onAddUsersClick(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+    public toggleTeamMembersModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
     }
 
     public onFirstDeleteClick(): void {
@@ -195,13 +192,6 @@ export default class HeaderArea extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
-    }
-
-    /**
-     * Indicates if add team member popup should be rendered.
-     */
-    public get isAddTeamMembersPopupShown(): boolean {
-        return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
     }
 
     public get isDefaultState(): boolean {

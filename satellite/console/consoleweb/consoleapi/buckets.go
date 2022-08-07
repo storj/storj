@@ -68,5 +68,5 @@ func (b *Buckets) AllBucketNames(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (b *Buckets) serveJSONError(w http.ResponseWriter, status int, err error) {
-	serveJSONError(b.log, w, status, err)
+	ServeJSONError(b.log, w, status, err)
 }

@@ -75,14 +75,26 @@ export default class UploadFile extends Vue {
      * Generates a URL for an object map.
      */
     public async fetchObjectMap(path: string): Promise<Blob | null> {
-        return await this.getObjectViewOrMapBySignedRequest(path, true)
+        try {
+            return await this.getObjectViewOrMapBySignedRequest(path, true)
+        } catch (error) {
+            await this.$notify.error('Failed to fetch object map. Bandwidth limit may be exceeded');
+
+            return null
+        }
     }
 
     /**
      * Generates a URL for an object map.
      */
     public async fetchObjectPreview(path: string): Promise<Blob | null> {
-        return await this.getObjectViewOrMapBySignedRequest(path, false)
+        try {
+            return await this.getObjectViewOrMapBySignedRequest(path, false)
+        } catch (error) {
+            await this.$notify.error('Failed to fetch object view. Bandwidth limit may be exceeded');
+
+            return null
+        }
     }
 
     /**
@@ -123,65 +135,64 @@ export default class UploadFile extends Vue {
      * Returns a URL for an object or a map.
      */
     private async getObjectViewOrMapBySignedRequest(path: string, isMap: boolean): Promise<Blob | null> {
+        path = `${this.bucket}/${path}`;
+        path = encodeURIComponent(path.trim());
+
+        const url = new URL(`${this.linksharingURL}/s/${this.credentials.accessKeyId}/${path}`)
+
+        let request: HttpRequest = {
+            method: 'GET',
+            protocol: url.protocol,
+            hostname: url.hostname,
+            port: parseFloat(url.port),
+            path: url.pathname,
+            headers: {
+                'host': url.host,
+            }
+        }
+
+        if (isMap) {
+            request = Object.assign(request, {query: { 'map': '1' }});
+        } else {
+            request = Object.assign(request, {query: { 'view': '1' }});
+        }
+
+        const signerCredentials: Credentials = {
+            accessKeyId: this.credentials.accessKeyId,
+            secretAccessKey: this.credentials.secretKey,
+        };
+
+        const signer = new SignatureV4({
+            applyChecksum: true,
+            uriEscapePath: false,
+            credentials: signerCredentials,
+            region: "eu1",
+            service: "linksharing",
+            sha256: Sha256,
+        });
+
+        let signedRequest: HttpRequest;
         try {
-            path = `${this.bucket}/${path}`;
-            path = encodeURIComponent(path.trim());
-
-            const url = new URL(`${this.linksharingURL}/s/${this.credentials.accessKeyId}/${path}`)
-
-            let request: HttpRequest = {
-                method: 'GET',
-                protocol: url.protocol,
-                hostname: url.hostname,
-                port: parseFloat(url.port),
-                path: url.pathname,
-                headers: {
-                    'host': url.host,
-                }
-            }
-
-            if (isMap) {
-                request = Object.assign(request, {query: { 'map': '1' }});
-            } else {
-                request = Object.assign(request, {query: { 'view': '1' }});
-            }
-
-            const signerCredentials: Credentials = {
-                accessKeyId: this.credentials.accessKeyId,
-                secretAccessKey: this.credentials.secretKey,
-            };
-
-            const signer = new SignatureV4({
-                applyChecksum: true,
-                uriEscapePath: false,
-                credentials: signerCredentials,
-                region: "eu1",
-                service: "linksharing",
-                sha256: Sha256,
-            });
-
-            const signedRequest: HttpRequest = await signer.sign(request);
-
-            let requestURL = `${this.linksharingURL}${signedRequest.path}`;
-            if (isMap) {
-                requestURL = `${requestURL}?map=1`;
-            } else {
-                requestURL = `${requestURL}?view=1`;
-            }
-
-            const response = await fetch(requestURL, signedRequest);
-            if (response.ok) {
-                return await response.blob();
-            }
-
-            await this.$notify.error(`${response.status}. Failed to fetch object view or map`);
-
-            return null;
+            signedRequest = await signer.sign(request);
         } catch (error) {
             await this.$notify.error(error.message);
 
             return null;
         }
+
+        let requestURL = `${this.linksharingURL}${signedRequest.path}`;
+        if (isMap) {
+            requestURL = `${requestURL}?map=1`;
+        } else {
+            requestURL = `${requestURL}?view=1`;
+        }
+
+        const response = await fetch(requestURL, signedRequest);
+        if (response.ok) {
+            return await response.blob();
+        }
+
+        return null;
     }
 
     /**

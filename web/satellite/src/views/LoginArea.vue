@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="login-area" @keyup.enter="onLogin">
+    <div class="login-area" @keyup.enter="onLoginClick">
         <div class="login-area__logo-wrapper">
             <LogoIcon class="logo" @click="onLogoClick" />
         </div>
@@ -38,7 +38,9 @@
                             <h2 class="info-box__header__label">Invalid Credentials</h2>
                         </div>
                         <p class="info-box__message">
-                            Your login credentials are incorrect. If you didn’t receive an activation email, click <router-link :to="activatePath" class="link">here</router-link>.
+                            Login failed. Please check if this is the correct satellite for your account. If you are
+                            sure your credentials are correct, please check your email inbox for a notification with
+                            further instructions.
                         </p>
                     </div>
                     <div class="login-area__input-wrapper">
@@ -80,7 +82,47 @@
                         Or use recovery code
                     </span>
                 </template>
-                <p class="login-area__content-area__container__button" :class="{ 'disabled-button': isLoading }" @click.prevent="onLogin">Sign In</p>
+                <div v-if="recaptchaEnabled" class="login-area__content-area__container__captcha-wrapper">
+                    <div v-if="captchaError" class="login-area__content-area__container__captcha-wrapper__label-container">
+                        <ErrorIcon />
+                        <p class="login-area__content-area__container__captcha-wrapper__label-container__error">reCAPTCHA is required</p>
+                    </div>
+                    <VueRecaptcha
+                        ref="recaptcha"
+                        :sitekey="recaptchaSiteKey"
+                        :load-recaptcha-script="true"
+                        size="invisible"
+                        @verify="onCaptchaVerified"
+                        @expired="onCaptchaError"
+                        @error="onCaptchaError"
+                    />
+                </div>
+                <div v-else-if="hcaptchaEnabled" class="login-area__content-area__container__captcha-wrapper">
+                    <div v-if="captchaError" class="login-area__content-area__container__captcha-wrapper__label-container">
+                        <ErrorIcon />
+                        <p class="login-area__content-area__container__captcha-wrapper__label-container__error">HCaptcha is required</p>
+                    </div>
+                    <VueHcaptcha
+                        ref="hcaptcha"
+                        :sitekey="hcaptchaSiteKey"
+                        :re-captcha-compat="false"
+                        size="invisible"
+                        @verify="onCaptchaVerified"
+                        @expired="onCaptchaError"
+                        @error="onCaptchaError"
+                    />
+                </div>
+                <v-button
+                    class="login-area__content-area__container__button"
+                    width="100%"
+                    height="48px"
+                    label="Sign In"
+                    border-radius="50px"
+                    :is-disabled="isLoading"
+                    :on-press="onLoginClick"
+                >
+                    Sign In
+                </v-button>
                 <span v-if="isMFARequired" class="login-area__content-area__container__cancel" :class="{ disabled: isLoading }" @click.prevent="onMFACancelClick">
                     Cancel
                 </span>
@@ -100,15 +142,19 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import VueRecaptcha from "vue-recaptcha";
+import VueHcaptcha from "@hcaptcha/vue-hcaptcha";
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VInput from '@/components/common/VInput.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/logo.svg';
+import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
@@ -120,7 +166,6 @@ import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from "@/api/errors/ErrorBadRequest";
 import { MetaUtils } from '@/utils/meta';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 
 interface ClearInput {
@@ -131,12 +176,16 @@ interface ClearInput {
 @Component({
     components: {
         VInput,
+        VButton,
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,
         WarningIcon,
         GreyWarningIcon,
+        ErrorIcon,
         ConfirmMFAInput,
+        VueRecaptcha,
+        VueHcaptcha,
     },
 })
 export default class Login extends Vue {
@@ -147,6 +196,13 @@ export default class Login extends Vue {
     private isLoading = false;
     private emailError = '';
     private passwordError = '';
+    private captchaError = false;
+    private captchaResponseToken = '';
+
+    private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('login-recaptcha-enabled') === 'true';
+    private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('login-recaptcha-site-key');
+    private readonly hcaptchaEnabled: boolean = MetaUtils.getMetaContent('login-hcaptcha-enabled') === 'true';
+    private readonly hcaptchaSiteKey: string = MetaUtils.getMetaContent('login-hcaptcha-site-key');
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
@@ -168,6 +224,8 @@ export default class Login extends Vue {
     public readonly activatePath: string = RouteConfig.Activate.path;
 
     public $refs!: {
+        recaptcha: VueRecaptcha;
+        hcaptcha: VueHcaptcha;
         mfaInput: ConfirmMFAInput & ClearInput;
     };
 
@@ -194,7 +252,7 @@ export default class Login extends Vue {
      */
     public onLogoClick(): void {
         const homepageURL = MetaUtils.getMetaContent('homepage-url');
-        window.location.href = homepageURL;
+        if (homepageURL) window.location.href = homepageURL;
     }
 
     /**
@@ -272,16 +330,48 @@ export default class Login extends Vue {
     }
 
     /**
-     * Performs login action.
-     * Then changes location to project dashboard page.
+     * Handles captcha verification response.
      */
-    public async onLogin(): Promise<void> {
+    public onCaptchaVerified(response: string): void {
+        this.captchaResponseToken = response;
+        this.captchaError = false;
+        this.login();
+    }
+
+    /**
+     * Handles captcha error and expiry.
+     */
+    public onCaptchaError(): void {
+        this.captchaResponseToken = '';
+        this.captchaError = true;
+    }
+
+    /**
+     * Holds on login button click logic.
+     */
+    public async onLoginClick(): Promise<void> {
         if (this.isLoading) {
             return;
         }
 
         this.isLoading = true;
 
+        if (this.$refs.recaptcha && !this.captchaResponseToken) {
+            this.$refs.recaptcha.execute();
+            return;
+        } if (this.$refs.hcaptcha && !this.captchaResponseToken) {
+            this.$refs.hcaptcha.execute();
+            return;
+        }
+
+        await this.login();
+    }
+
+    /**
+     * Performs login action.
+     * Then changes location to project dashboard page.
+     */
+    public async login(): Promise<void> {
         if (!this.validateFields()) {
             this.isLoading = false;
 
@@ -289,8 +379,17 @@ export default class Login extends Vue {
         }
 
         try {
-            await this.auth.token(this.email, this.password, this.passcode, this.recoveryCode);
+            await this.auth.token(this.email, this.password, this.captchaResponseToken, this.passcode, this.recoveryCode);
         } catch (error) {
+            if (this.$refs.recaptcha) {
+                this.$refs.recaptcha.reset();
+                this.captchaResponseToken = '';
+            }
+            if (this.$refs.hcaptcha) {
+                this.$refs.hcaptcha.reset();
+                this.captchaResponseToken = '';
+            }
+
             if (error instanceof ErrorMFARequired) {
                 if (this.isMFARequired) this.isMFAError = true;
 
@@ -310,7 +409,6 @@ export default class Login extends Vue {
             }
 
             if (error instanceof ErrorUnauthorized) {
-                await this.$notify.error(error.message);
                 this.isBadLoginMessageShown = true;
                 this.isLoading = false;
                 return;
@@ -495,23 +593,22 @@ export default class Login extends Vue {
                     }
                 }
 
-                &__button {
-                    font-family: 'font_regular', sans-serif;
-                    font-weight: 700;
-                    margin-top: 40px;
+                &__captcha-wrapper__label-container {
+                    margin-top: 30px;
                     display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background-color: #376fff;
-                    border-radius: 50px;
-                    color: #fff;
-                    cursor: pointer;
-                    width: 100%;
-                    height: 48px;
+                    justify-content: flex-start;
+                    align-items: flex-end;
+                    padding-bottom: 8px;
 
-                    &:hover {
-                        background-color: #0059d0;
+                    &__error {
+                        font-size: 16px;
+                        margin-left: 10px;
+                        color: #ff5560;
                     }
+                }
+
+                &__button {
+                    margin-top: 40px;
                 }
 
                 &__cancel {
@@ -543,18 +640,14 @@ export default class Login extends Vue {
     }
 
     .logo {
+        width: 207px;
+        height: 37px;
         cursor: pointer;
     }
 
-    .disabled,
-    .disabled-button {
+    .disabled {
         pointer-events: none;
         color: #acb0bc;
-    }
-
-    .disabled-button {
-        background-color: #dadde5;
-        border-color: #dadde5;
     }
 
     .link {
@@ -592,6 +685,10 @@ export default class Login extends Vue {
             color: #1b2533;
             margin-top: 10px;
         }
+    }
+
+    ::v-deep .grecaptcha-badge {
+        visibility: hidden;
     }
 
     @media screen and (max-width: 750px) {

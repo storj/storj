@@ -49,6 +49,8 @@ export default class Page404 extends Vue {}
         position: absolute;
         top: 87px;
         left: 100px;
+        width: 207px;
+        height: 37px;
     }
 
     .text {

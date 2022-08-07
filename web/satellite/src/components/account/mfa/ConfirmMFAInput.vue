@@ -13,6 +13,7 @@
             class="confirm-mfa__input"
             :placeholder="isRecovery ? 'Code' : '000000'"
             :type="isRecovery ? 'text' : 'number'"
+            autofocus
             @input="event => onInput(event.target.value)"
         >
     </div>

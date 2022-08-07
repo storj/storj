@@ -5,6 +5,7 @@ package stripecoinpayments
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -18,11 +19,14 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/monetary"
+	"storj.io/storj/satellite/payments/storjscan"
 )
 
 var (
@@ -53,8 +57,12 @@ type Config struct {
 //
 // architecture: Service
 type Service struct {
-	log          *zap.Logger
-	db           DB
+	log *zap.Logger
+
+	db        DB
+	walletsDB storjscan.WalletsDB
+	billingDB billing.TransactionsDB
+
 	projectsDB   console.Projects
 	usageDB      accounting.ProjectAccounting
 	stripeClient StripeClient
@@ -80,7 +88,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, segmentPrice string, bonusRate int64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, segmentPrice string, bonusRate int64) (*Service, error) {
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
 			PublicKey:  config.CoinpaymentsPublicKey,
@@ -109,6 +117,8 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 	return &Service{
 		log:                      log,
 		db:                       db,
+		walletsDB:                walletsDB,
+		billingDB:                billingDB,
 		projectsDB:               projectsDB,
 		usageDB:                  usageDB,
 		stripeClient:             stripeClient,
@@ -532,6 +542,155 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 	return nil
 }
 
+// InvoiceApplyTokenBalance iterates through customer storjscan wallets and creates invoice line items
+// for stripe customer.
+func (service *Service) InvoiceApplyTokenBalance(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// get all wallet entries
+	wallets, err := service.walletsDB.GetAll(ctx)
+	if err != nil {
+		return Error.New("unable to get users in the wallets table")
+	}
+
+	var errGrp errs.Group
+
+	for _, wallet := range wallets {
+		// get the user token balance, if it's not > 0, don't bother with the rest
+		tokenBalance, err := service.billingDB.GetBalance(ctx, wallet.UserID)
+		if err != nil {
+			errGrp.Add(Error.New("unable to compute balance for user ID %s", wallet.UserID.String()))
+			continue
+		}
+		if tokenBalance <= 0 {
+			continue
+		}
+		// get the stripe customer invoice balance
+		cusID, err := service.db.Customers().GetCustomerID(ctx, wallet.UserID)
+		if err != nil {
+			errGrp.Add(Error.New("unable to get stripe customer ID for user ID %s", wallet.UserID.String()))
+			continue
+		}
+		invoices, err := service.getInvoices(ctx, cusID)
+		if err != nil {
+			errGrp.Add(Error.New("unable to get invoice balance for stripe customer ID %s", cusID))
+			continue
+		}
+		for _, invoice := range invoices {
+			// if no balance due, do nothing
+			if invoice.AmountDue <= 0 {
+				continue
+			}
+
+			var tokenCreditAmount int64
+			if invoice.AmountDue >= tokenBalance {
+				tokenCreditAmount = -tokenBalance
+			} else {
+				tokenCreditAmount = -invoice.AmountDue
+			}
+
+			txID, err := service.createTokenPaymentBillingTransaction(ctx, wallet.UserID, invoice.ID, wallet.Address.Hex(), tokenCreditAmount)
+			if err != nil {
+				errGrp.Add(Error.New("unable to create token payment billing transaction for user %s", wallet.UserID.String()))
+				continue
+			}
+
+			invoiceItem, err := service.createTokenPaymentInvoiceItem(ctx, cusID, tokenCreditAmount, txID, wallet.Address.Hex())
+			if err != nil {
+				errGrp.Add(Error.New("unable to create token payment invoice item for user %s", wallet.UserID.String()))
+				continue
+			}
+
+			metadata, err := json.Marshal(map[string]interface{}{
+				"ItemID": invoiceItem.ID,
+			})
+
+			if err != nil {
+				errGrp.Add(Error.New("unable to marshall invoice item ID %s", invoiceItem.ID))
+				continue
+			}
+
+			err = service.billingDB.UpdateMetadata(ctx, txID, metadata)
+			if err != nil {
+				errGrp.Add(Error.New("unable to add invoice item ID to billing transaction for user %s", wallet.UserID.String()))
+				continue
+			}
+		}
+	}
+	return errGrp.Err()
+}
+
+// getInvoiceBalance returns the stripe customer's current invoices.
+func (service *Service) getInvoices(ctx context.Context, cusID string) (_ []stripe.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	params := &stripe.InvoiceListParams{
+		Customer: stripe.String(cusID),
+		Status:   stripe.String(string(stripe.InvoiceStatusDraft)),
+	}
+	invoicesIterator := service.stripeClient.Invoices().List(params)
+	var stripeInvoices []stripe.Invoice
+	for invoicesIterator.Next() {
+		stripeInvoice := invoicesIterator.Invoice()
+		if stripeInvoice != nil {
+			stripeInvoices = append(stripeInvoices, *stripeInvoice)
+		}
+	}
+	return stripeInvoices, nil
+}
+
+// createTokenPaymentInvoiceItem creates an invoice line item for the user token payment.
+func (service *Service) createTokenPaymentInvoiceItem(ctx context.Context, cusID string, amount int64, txID int64, wallet string) (invoiceItem *stripe.InvoiceItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// add an invoice item for the total invoice amount
+	tokenCredit := &stripe.InvoiceItemParams{
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Customer:    stripe.String(cusID),
+		Description: stripe.String("payment from tokens"),
+		UnitAmount:  stripe.Int64(amount),
+		Params: stripe.Params{
+			Metadata: map[string]string{
+				"transaction ID": strconv.FormatInt(txID, 10),
+				"wallet address": wallet,
+			},
+		},
+	}
+	invoiceItem, err = service.stripeClient.InvoiceItems().New(tokenCredit)
+	if err != nil {
+		service.log.Warn("unable to add invoice item for stripe customer", zap.String("Customer ID", cusID))
+		return nil, Error.Wrap(err)
+	}
+	return
+}
+
+// createTokenPaymentBillingTransaction creates a billing DB entry for the user token payment.
+func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context, userID uuid.UUID, invoiceID, wallet string, amount int64) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	metadata, err := json.Marshal(map[string]interface{}{
+		"InvoiceID": invoiceID,
+		"Wallet":    wallet,
+	})
+
+	transaction := billing.Transaction{
+		UserID:      userID,
+		Amount:      monetary.AmountFromBaseUnits(amount, monetary.USDollars),
+		Description: "Paid Stripe Invoice",
+		Source:      "stripe",
+		Status:      billing.TransactionStatusPending,
+		Type:        billing.TransactionTypeDebit,
+		Metadata:    metadata,
+		Timestamp:   time.Now(),
+	}
+	txID, err := service.billingDB.Insert(ctx, transaction)
+	if err != nil {
+		service.log.Warn("unable to add transaction to billing DB for user", zap.String("User ID", userID.String()))
+		return 0, Error.Wrap(err)
+	}
+	return txID, nil
+}
+
 // applyProjectRecords applies invoice intents as invoice line items to stripe customer.
 func (service *Service) applyProjectRecords(ctx context.Context, records []ProjectRecord) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -771,6 +930,16 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 		err := service.finalizeInvoice(ctx, stripeInvoice.ID)
 		if err != nil {
 			return Error.Wrap(err)
+		}
+		if transactionID, ok := stripeInvoice.Metadata["transaction ID"]; ok {
+			txID, err := strconv.ParseInt(transactionID, 10, 64)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			err = service.billingDB.UpdateStatus(ctx, txID, billing.TransactionStatusCompleted)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 	}
 

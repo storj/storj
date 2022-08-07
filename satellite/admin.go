@@ -150,6 +150,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			stripeClient,
 			pc.StripeCoinPayments,
 			peer.DB.StripeCoinPayments(),
+			peer.DB.Wallets(),
+			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,

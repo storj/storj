@@ -21,7 +21,7 @@
                 >
                     <div class="navigation-area__container__wrap__item-container__left">
                         <component :is="navItem.icon" class="navigation-area__container__wrap__item-container__left__image" />
-                        <p class="navigation-area__container__wrap__item-container__left__label">{{ isSmallWindow ? navItem.name.split(' ').pop(): navItem.name }}</p>
+                        <p class="navigation-area__container__wrap__item-container__left__label">{{ navItem.name }}</p>
                     </div>
                 </router-link>
                 <div class="navigation-area__container__wrap__border" />
@@ -43,45 +43,7 @@
                         :y-position="resourcesDropdownYPos"
                         :x-position="resourcesDropdownXPos"
                     >
-                        <a
-                            class="dropdown-item"
-                            href="https://docs.storj.io/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            @click.prevent="trackViewDocsEvent('https://docs.storj.io/')"
-                        >
-                            <DocsIcon class="dropdown-item__icon" />
-                            <div class="dropdown-item__text">
-                                <h2 class="dropdown-item__text__title">Docs</h2>
-                                <p class="dropdown-item__text__label">Documentation for Storj</p>
-                            </div>
-                        </a>
-                        <a
-                            class="dropdown-item"
-                            href="https://forum.storj.io/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            @click.prevent="trackViewForumEvent('https://forum.storj.io/')"
-                        >
-                            <ForumIcon class="dropdown-item__icon" />
-                            <div class="dropdown-item__text">
-                                <h2 class="dropdown-item__text__title">Forum</h2>
-                                <p class="dropdown-item__text__label">Join our global community</p>
-                            </div>
-                        </a>
-                        <a
-                            class="dropdown-item"
-                            href="https://supportdcs.storj.io/hc/en-us"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            @click.prevent="trackViewSupportEvent('https://supportdcs.storj.io/hc/en-us')"
-                        >
-                            <SupportIcon class="dropdown-item__icon" />
-                            <div class="dropdown-item__text">
-                                <h2 class="dropdown-item__text__title">Support</h2>
-                                <p class="dropdown-item__text__label">Get technical support</p>
-                            </div>
-                        </a>
+                        <ResourcesLinks />
                     </GuidesDropdown>
                 </div>
                 <div ref="quickStartContainer" class="container-wrapper">
@@ -102,34 +64,7 @@
                         :y-position="quickStartDropdownYPos"
                         :x-position="quickStartDropdownXPos"
                     >
-                        <div class="dropdown-item" aria-roledescription="create-project-route" @click.stop="navigateToNewProject">
-                            <NewProjectIcon class="dropdown-item__icon" />
-                            <div class="dropdown-item__text">
-                                <h2 class="dropdown-item__text__title">New Project</h2>
-                                <p class="dropdown-item__text__label">Create a new project.</p>
-                            </div>
-                        </div>
-                        <div class="dropdown-item" aria-roledescription="create-ag-route" @click.stop="navigateToCreateAG">
-                            <CreateAGIcon class="dropdown-item__icon" />
-                            <div class="dropdown-item__text">
-                                <h2 class="dropdown-item__text__title">Create an Access Grant</h2>
-                                <p class="dropdown-item__text__label">Start the wizard to create a new access grant.</p>
-                            </div>
-                        </div>
-                        <div class="dropdown-item" aria-roledescription="objects-route" @click.stop="navigateToBuckets">
-                            <UploadInWebIcon class="dropdown-item__icon" />
-                            <div class="dropdown-item__text">
-                                <h2 class="dropdown-item__text__title">Upload in Web</h2>
-                                <p class="dropdown-item__text__label">Start uploading files in the web browser.</p>
-                            </div>
-                        </div>
-                        <div class="dropdown-item" aria-roledescription="cli-flow-route" @click.stop="navigateToCLIFlow">
-                            <UploadInCLIIcon class="dropdown-item__icon" />
-                            <div class="dropdown-item__text">
-                                <h2 class="dropdown-item__text__title">Upload using CLI</h2>
-                                <p class="dropdown-item__text__label">Start guide for using the Uplink CLI.</p>
-                            </div>
-                        </div>
+                        <QuickStartLinks :close-dropdowns="closeDropdowns" />
                     </GuidesDropdown>
                 </div>
             </div>
@@ -149,9 +84,6 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { User } from "@/types/users";
 
 import LogoIcon from '@/../static/images/logo.svg';
 import SmallLogoIcon from '@/../static/images/smallLogo.svg';
@@ -163,17 +95,14 @@ import BillingIcon from '@/../static/images/navigation/billing.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
-import DocsIcon from '@/../static/images/navigation/docs.svg';
-import ForumIcon from '@/../static/images/navigation/forum.svg';
-import SupportIcon from '@/../static/images/navigation/support.svg';
-import NewProjectIcon from '@/../static/images/navigation/newProject.svg';
-import CreateAGIcon from '@/../static/images/navigation/createAccessGrant.svg';
-import UploadInCLIIcon from '@/../static/images/navigation/uploadInCLI.svg';
-import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
+import ResourcesLinks from "@/components/navigation/ResourcesLinks.vue";
+import QuickStartLinks from "@/components/navigation/QuickStartLinks.vue";
 
 // @vue/component
 @Component({
     components: {
+        QuickStartLinks,
+        ResourcesLinks,
         ProjectSelection,
         GuidesDropdown,
         AccountArea,
@@ -187,13 +116,6 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
         ResourcesIcon,
         QuickStartIcon,
         ArrowIcon,
-        DocsIcon,
-        ForumIcon,
-        SupportIcon,
-        NewProjectIcon,
-        CreateAGIcon,
-        UploadInCLIIcon,
-        UploadInWebIcon,
     },
 })
 export default class NavigationArea extends Vue {
@@ -243,58 +165,6 @@ export default class NavigationArea extends Vue {
      */
     public onResize(): void {
         this.windowWidth = window.innerWidth;
-        this.closeDropdowns();
-    }
-
-    /**
-     * Redirects to create project screen.
-     */
-    public navigateToCreateAG(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.CREATE_AN_ACCESS_GRANT_CLICKED);
-        this.closeDropdowns();
-        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
-        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).path).catch(() => {return;});
-    }
-
-    /**
-     * Redirects to objects screen.
-     */
-    public navigateToBuckets(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_IN_WEB_CLICKED);
-        this.closeDropdowns();
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-        this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
-    }
-
-    /**
-     * Redirects to onboarding CLI flow screen.
-     */
-    public navigateToCLIFlow(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_USING_CLI_CLICKED);
-        this.closeDropdowns();
-        this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
-        this.$router.push({name: RouteConfig.AGName.name});
-    }
-
-    /**
-     * Redirects to create access grant screen.
-     */
-    public navigateToNewProject(): void {
-        if (this.$route.name !== RouteConfig.CreateProject.name) {
-            this.analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
-
-            const user: User = this.$store.getters.user;
-            const ownProjectsCount: number = this.$store.getters.projectsCount;
-
-            if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
-            } else {
-                this.analytics.pageVisit(RouteConfig.CreateProject.path);
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP);
-            }
-        }
-
         this.closeDropdowns();
     }
 
@@ -396,40 +266,6 @@ export default class NavigationArea extends Vue {
     }
 
     /**
-     * Indicates if window is less or equal of 1280px.
-     */
-    public get isSmallWindow(): boolean {
-        return this.windowWidth <= 1280;
-    }
-
-    /**
-     * Sends "View Docs" event to segment and opens link.
-     */
-    public trackViewDocsEvent(link: string): void {
-        this.analytics.pageVisit(link);
-        this.analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
-        window.open(link)
-    }
-
-    /**
-     * Sends "View Forum" event to segment and opens link.
-     */
-    public trackViewForumEvent(link: string): void {
-        this.analytics.pageVisit(link);
-        this.analytics.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
-        window.open(link)
-    }
-
-    /**
-     * Sends "View Support" event to segment and opens link.
-     */
-    public trackViewSupportEvent(link: string): void {
-        this.analytics.pageVisit(link);
-        this.analytics.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
-        window.open(link)
-    }
-
-    /**
      * Sends new path click event to segment.
      */
     public trackClickEvent(path: string): void {
@@ -474,6 +310,8 @@ export default class NavigationArea extends Vue {
                 &__logo {
                     cursor: pointer;
                     min-height: 37px;
+                    width: 207px;
+                    height: 37px;
                 }
 
                 &__small-logo {
@@ -549,7 +387,7 @@ export default class NavigationArea extends Vue {
         }
     }
 
-    .dropdown-item {
+    ::v-deep .dropdown-item {
         display: flex;
         align-items: center;
         font-family: 'font_regular', sans-serif;

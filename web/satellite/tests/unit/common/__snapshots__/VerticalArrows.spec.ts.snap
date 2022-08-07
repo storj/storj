@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`VerticalArrows.vue should render with bottom arrow highlighted 1`] = `<div class="container"><svg class=""></svg> <svg class="active"></svg></div>`;
+exports[`VerticalArrows.vue should render with bottom arrow highlighted 1`] = `<div class="container"><svg class="inactive"></svg> <svg class="active"></svg></div>`;
 
-exports[`VerticalArrows.vue should render with top arrow highlighted 1`] = `<div class="container"><svg class="active"></svg> <svg class=""></svg></div>`;
+exports[`VerticalArrows.vue should render with top arrow highlighted 1`] = `<div class="container"><svg class="active"></svg> <svg class="inactive"></svg></div>`;
 
-exports[`VerticalArrows.vue should render without any highlighted arrows 1`] = `<div class="container"><svg class=""></svg> <svg class=""></svg></div>`;
+exports[`VerticalArrows.vue should render without any highlighted arrows 1`] = `<div class="container"><svg class="inactive"></svg> <svg class="inactive"></svg></div>`;

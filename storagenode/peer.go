@@ -265,7 +265,7 @@ type Peer struct {
 	}
 
 	GracefulExit struct {
-		Service      gracefulexit.Service
+		Service      *gracefulexit.Service
 		Endpoint     *gracefulexit.Endpoint
 		Chore        *gracefulexit.Chore
 		BlobsCleaner *gracefulexit.BlobsCleaner
@@ -462,6 +462,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.BlobsCache,
 			peer.Storage2.Store,
 			config.Storage2.CacheSyncInterval,
+			config.Storage2.PieceScanOnStartup,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "piecestore:cache",

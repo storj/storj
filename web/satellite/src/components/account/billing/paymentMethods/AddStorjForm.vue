@@ -3,42 +3,12 @@
 
 <template>
     <div class="add-storj-area">
-        <p class="add-storj-area__support-info">Please contact <a target="_blank" href="mailto:supportdcs@storj.io">supportdcs@storj.io</a> to deposit STORJ tokens into your account</p>
-        <!-- TODO: Introduce variable to toggle btn support-info and selection-container -->
-        <!-- see: https://github.com/storj/storj-private/issues/43 -->
-        <!-- <div class="add-storj-area__selection-container">
-          <p class="add-storj-area__selection-container__label">Deposit STORJ Tokens via Coin Payments</p>
-          <TokenDepositSelection
-              class="add-storj-area__selection-container__form"
-              :payment-options="paymentOptions"
-              @onChangeTokenValue="onChangeTokenValue"
-          />
-      </div>
-      <div class="add-storj-area__submit-area">
-          <img
-              v-if="isLoading"
-              class="loading-image"
-              src="@/../static/images/account/billing/loading.gif"
-              alt="loading gif"
-          >
-          <VButton
-              class="confirm-add-storj-button"
-              label="Continue to Coin Payments"
-              width="251px"
-              height="48px"
-              :on-press="onConfirmAddSTORJ"
-              :is-disabled="isLoading"
-          />
-      </div> -->
+        <p class="add-storj-area__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-
-// import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
-// import VButton from '@/components/common/VButton.vue';
-
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentAmountOption } from '@/types/payments';
 
@@ -48,12 +18,7 @@ const {
 } = PAYMENTS_ACTIONS;
 
 // @vue/component
-@Component({
-    components: {
-        // TokenDepositSelection,
-        // VButton,
-    },
-})
+@Component
 export default class AddStorjForm extends Vue {
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
