@@ -49,51 +49,40 @@ pipeline {
             }
         }
         stage('Build Web') {
-            options {
-                timeout(time: 6, unit: "MINUTES")
-            }
-
             // The build code depends on the following assets being loaded.
             parallel {
                 stage('web/satellite') {
                     steps {
-                        dir('web/satellite') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
-                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
-                            sh './scripts/build-wasm.sh'
-                            sh 'npm run build'
-                        }
+                        sh './web/satellite/build.sh'
                     }
                 }
+
+                stage('wasm') {
+                    steps {
+                        sh './scripts/test-wasm.sh'
+                    }
+                }
+
                 stage('web/storagenode') {
                     steps {
-                        dir('web/storagenode') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
-                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
-                            sh 'npm run build'
-                        }
+                        sh './web/storagenode/build.sh'
                     }
                 }
+
                 stage('web/multinode') {
                     steps {
-                        dir('web/multinode') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
-                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
-                            sh 'npm run build'
-                        }
+                        sh './web/multinode/build.sh'
                     }
                 }
+
                 stage('satellite/admin/ui') {
                     steps {
-                        dir('satellite/admin/ui') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
-                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
-                            sh 'npm run build'
-                        }
+                        sh './satellite/admin/ui/build.sh'
                     }
                 }
             }
         }
+
         stage('Build') {
             parallel {
                 stage('go') {
