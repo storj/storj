@@ -10,7 +10,7 @@
                 @mouseover="toggleTooltipHover('access','over')"
                 @mouseleave="toggleTooltipHover('access','leave')"
             >
-                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://docs.storj.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://docs.storj.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants')">Learn More</a></span>
             </div>
             <div
                 v-if="tooltipHover === 's3'"
@@ -18,7 +18,7 @@
                 @mouseover="toggleTooltipHover('s3','over')"
                 @mouseleave="toggleTooltipHover('s3','leave')"
             >
-                <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')">Learn More</a></span>
             </div>
             <div
                 v-if="tooltipHover === 'api'"
@@ -26,7 +26,7 @@
                 @mouseover="toggleTooltipHover('api','over')"
                 @mouseleave="toggleTooltipHover('api','leave')"
             >
-                <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/')">Learn More</a></span>
             </div>
             <!-- ********* Create Form Modal ********* -->
             <form v-if="accessGrantStep === 'create'">
@@ -697,6 +697,12 @@ export default class CreateAccessModal extends Vue {
     private restrictedKey = '';
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
+    /**
+     * Sends "trackPageVisit" event to segment and opens link.
+     */ 
+    public trackPageVisit(link: string): void {
+        this.analytics.pageVisit(link);
+    }  
 
     /**
      * Checks which type was selected and retrieves buckets on mount.
@@ -809,15 +815,20 @@ export default class CreateAccessModal extends Vue {
                 await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
 
                 await this.$notify.success('Gateway credentials were generated successfully');
-
+                
                 await this.analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
 
                 this.areKeysVisible = true;
             } catch (error) {
                 await this.$notify.error(error.message);
             }
+        } else if (this.checkedType === 'api') {
+            await this.analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
+        } else if (this.checkedType === 'access') {
+            await this.analytics.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
         }
 
+        this.analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_CLICKED); 
         this.accessGrantStep = 'grantCreated';
     }
 
@@ -827,6 +838,7 @@ export default class CreateAccessModal extends Vue {
     public downloadPassphrase(): void {
         this.isPassphraseDownloaded = true;
         Download.file(this.passphrase, `passphrase-${this.currentDate}.txt`)
+        this.analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);  
     }
 
     /**
@@ -839,6 +851,7 @@ export default class CreateAccessModal extends Vue {
             api: [`satellite address: ${this.satelliteAddress}\nrestricted key: ${this.restrictedKey}`]
         }
         this.areCredentialsDownloaded = true;
+        this.analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
         Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`)
     }
 
@@ -860,6 +873,7 @@ export default class CreateAccessModal extends Vue {
         } else if (this.checkedType !== "api") {
             this.accessGrantStep = 'encrypt';
         }
+        this.analytics.eventTriggered(AnalyticsEvent.ENCRYPT_MY_ACCESS_CLICKED);
     }
 
     public onCopyClick(item): void {
@@ -870,12 +884,14 @@ export default class CreateAccessModal extends Vue {
     public onCopyPassphraseClick(): void {
         this.$copyText(this.passphrase);
         this.isPassphraseCopied = true;
-        this.$notify.success(`Passphrase was copied successfully`);
+        this.analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED); 
+        this.$notify.success(`Passphrase was copied successfully`);    
     }
 
     public onCopyAccessGrantClick(): void {
         this.$copyText(this.restrictedKey);
         this.isAccessGrantCopied = true;
+        this.analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED); 
         this.$notify.success(`Access Grant was copied successfully`);
     }
 

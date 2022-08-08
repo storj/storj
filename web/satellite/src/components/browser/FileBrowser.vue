@@ -741,6 +741,7 @@ export default class FileBrowser extends Vue {
      * Open the operating system's file system for file upload.
      */
     public async buttonFileUpload(): Promise<void> {
+        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
         const fileInputElement = this.$refs.fileInput as HTMLInputElement;
         fileInputElement.click();
         this.closeUploadDropdown();
@@ -750,6 +751,7 @@ export default class FileBrowser extends Vue {
      * Open the operating system's file system for folder upload.
      */
     public async buttonFolderUpload(): Promise<void> {
+        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
         const folderInputElement = this.$refs.folderInput as HTMLInputElement;
         folderInputElement.click();
         this.closeUploadDropdown();
