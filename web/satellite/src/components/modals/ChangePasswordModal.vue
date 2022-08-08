@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="change-password-popup-container">
-        <div class="change-password-popup">
-            <div class="change-password-popup__form-container">
-                <div class="change-password-row-container">
-                    <ChangePasswordIcon class="change-password-popup__form-container__svg" />
-                    <h2 class="change-password-popup__form-container__main-label-text">Change Password</h2>
+    <VModal :on-close="closeModal">
+        <template #content>
+            <div class="change-password">
+                <div class="change-password__row">
+                    <ChangePasswordIcon />
+                    <h2 class="change-password__row__label">Change Password</h2>
                 </div>
                 <VInput
                     class="full-input"
@@ -41,12 +41,12 @@
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation"
                 />
-                <div class="change-password-popup__form-container__button-container">
+                <div class="change-password__buttons">
                     <VButton
                         label="Cancel"
                         width="205px"
                         height="48px"
-                        :on-press="onCloseClick"
+                        :on-press="closeModal"
                         is-transparent="true"
                     />
                     <VButton
@@ -57,30 +57,26 @@
                     />
                 </div>
             </div>
-            <div class="change-password-popup__close-cross-container" @click="onCloseClick">
-                <CloseCrossIcon />
-            </div>
-        </div>
-    </div>
+        </template>
+    </VModal>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInput from '@/components/common/VInput.vue';
-import PasswordStrength from '@/components/common/PasswordStrength.vue';
-import VButton from '@/components/common/VButton.vue';
-
-import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
-import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-
 import { AuthHttpApi } from '@/api/auth';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { RouteConfig } from "@/router";
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+
+import PasswordStrength from '@/components/common/PasswordStrength.vue';
+import VInput from '@/components/common/VInput.vue';
+import VButton from '@/components/common/VButton.vue';
+import VModal from '@/components/common/VModal.vue';
+
+import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
 
 const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 
@@ -88,13 +84,13 @@ const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 @Component({
     components: {
         ChangePasswordIcon,
-        CloseCrossIcon,
         VInput,
         VButton,
+        VModal,
         PasswordStrength,
     },
 })
-export default class ChangePasswordPopup extends Vue {
+export default class ChangePasswordModal extends Vue {
     private oldPassword = '';
     private newPassword = '';
     private confirmationPassword = '';
@@ -112,24 +108,39 @@ export default class ChangePasswordPopup extends Vue {
      */
     public isPasswordStrengthShown = false;
 
+    /**
+     * Enables password strength info container.
+     */
     public showPasswordStrength(): void {
         this.isPasswordStrengthShown = true;
     }
 
+    /**
+     * Disables password strength info container.
+     */
     public hidePasswordStrength(): void {
         this.isPasswordStrengthShown = false;
     }
 
+    /**
+     * Sets old password from input.
+     */
     public setOldPassword(value: string): void {
         this.oldPassword = value;
         this.oldPasswordError = '';
     }
 
+    /**
+     * Sets new password from input.
+     */
     public setNewPassword(value: string): void {
         this.newPassword = value;
         this.newPasswordError = '';
     }
 
+    /**
+     * Sets password confirmation from input.
+     */
     public setPasswordConfirmation(value: string): void {
         this.confirmationPassword = value;
         this.confirmationPasswordError = '';
@@ -184,106 +195,46 @@ export default class ChangePasswordPopup extends Vue {
 
         this.analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
         await this.$notify.success('Password successfully changed!');
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+        this.closeModal();
     }
 
     /**
      * Closes popup.
      */
-    public onCloseClick(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+    public closeModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_MODAL_SHOWN);
     }
 }
 </script>
 
 <style scoped lang="scss">
-    .change-password-popup-container {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgb(134 134 148 / 40%);
-        z-index: 1000;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-family: 'font_regular', sans-serif;
-    }
-
-    .full-input {
-        margin-bottom: 15px;
-    }
-
-    .change-password-row-container {
-        width: 100%;
-        display: flex;
-        flex-direction: row;
-        align-content: center;
-        justify-content: flex-start;
-        margin-bottom: 40px;
-    }
-
-    .change-password-popup {
-        width: 100%;
-        max-width: 440px;
-        max-height: 470px;
+    .change-password {
         background-color: #fff;
         border-radius: 6px;
         display: flex;
-        flex-direction: row;
-        align-items: flex-start;
-        position: relative;
-        justify-content: center;
-        padding: 80px;
+        flex-direction: column;
+        padding: 48px;
 
-        &__info-panel-container {
+        &__row {
             display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
             align-items: center;
-            margin-right: 100px;
-            margin-top: 20px;
-        }
+            margin-bottom: 20px;
 
-        &__form-container {
-            width: 100%;
-            max-width: 440px;
-
-            &__main-label-text {
+            &__label {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 60px;
                 color: #384b65;
-                margin-bottom: 0;
-                margin-top: 0;
-                margin-left: 32px;
-            }
-
-            &__button-container {
-                width: 100%;
-                display: flex;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 32px;
+                margin: 0 0 0 32px;
             }
         }
 
-        &__close-cross-container {
+        &__buttons {
+            width: 100%;
             display: flex;
-            justify-content: center;
             align-items: center;
-            position: absolute;
-            right: 30px;
-            top: 40px;
-            height: 24px;
-            width: 24px;
-            cursor: pointer;
-
-            &:hover .close-cross-svg-path {
-                fill: #2683ff;
-            }
+            margin-top: 32px;
+            column-gap: 20px;
         }
     }
 
@@ -292,20 +243,7 @@ export default class ChangePasswordPopup extends Vue {
         width: 100%;
     }
 
-    @media screen and (max-width: 720px) {
-
-        .change-password-popup {
-
-            &__info-panel-container {
-                display: none;
-            }
-
-            &__form-container {
-
-                &__button-container {
-                    width: 100%;
-                }
-            }
-        }
+    .full-input {
+        margin-bottom: 15px;
     }
 </style>

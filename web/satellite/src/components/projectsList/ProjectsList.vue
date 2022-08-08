@@ -13,23 +13,36 @@
                 :is-disabled="areProjectsFetching"
             />
         </div>
-        <VLoader v-if="areProjectsFetching" width="100px" height="100px" class="projects-loader" />
-        <div v-if="projectsPage.projects.length && !areProjectsFetching" class="projects-list-items">
-            <SortProjectsListHeader />
-            <div class="projects-list-items__content">
-                <VList
-                    :data-set="projectsPage.projects"
-                    :item-component="itemComponent"
-                    :on-item-click="onProjectSelected"
+        <VLoader
+            v-if="areProjectsFetching"
+            width="100px"
+            height="100px"
+            class="projects-loader"
+        />
+        <v-table
+            v-if="projectsPage.projects.length && !areProjectsFetching"
+            class="projects-list-items"
+            :limit="projectsPage.limit"
+            :total-page-count="projectsPage.pageCount"
+            :items="projectsPage.projects"
+            items-label="projects"
+            :on-page-click-callback="onPageClick"
+            :total-items-count="projectsPage.totalCount"
+        >
+            <template #head>
+                <th class="sort-header-container__name-item align-left">Name</th>
+                <th class="ort-header-container__users-item align-left"># Users</th>
+                <th class="sort-header-container__date-item align-left">Date Added</th>
+            </template>
+            <template #body>
+                <ProjectsListItem
+                    v-for="(project, key) in projectsPage.projects"
+                    :key="key"
+                    :item-data="project"
+                    :on-click="onProjectSelected"
                 />
-            </div>
-            <div v-if="projectsPage.pageCount > 1" class="projects-list-items__pagination-area">
-                <VPagination
-                    :total-page-count="projectsPage.pageCount"
-                    :on-page-click-callback="onPageClick"
-                />
-            </div>
-        </div>
+            </template>
+        </v-table>
     </div>
 </template>
 
@@ -37,11 +50,9 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
-import VList from '@/components/common/VList.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import VPagination from '@/components/common/VPagination.vue';
+import VTable from "@/components/common/VTable.vue";
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
-import SortProjectsListHeader from '@/components/projectsList/SortProjectsListHeader.vue';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -64,11 +75,10 @@ const {
 // @vue/component
 @Component({
     components: {
-        SortProjectsListHeader,
+        ProjectsListItem,
         VButton,
-        VList,
-        VPagination,
         VLoader,
+        VTable
     },
 })
 export default class Projects extends Vue {
@@ -166,6 +176,8 @@ export default class Projects extends Vue {
     public get projectsPage(): ProjectsPage {
         return this.$store.state.projectsModule.page;
     }
+
+
 }
 </script>
 
@@ -191,16 +203,7 @@ export default class Projects extends Vue {
         }
 
         .projects-list-items {
-
-            &__content {
-                background-color: #fff;
-                display: flex;
-                flex-direction: column;
-                width: calc(100% - 32px);
-                justify-content: flex-start;
-                padding: 16px;
-                border-radius: 0 0 8px 8px;
-            }
+            margin-top: 40px;
         }
     }
 

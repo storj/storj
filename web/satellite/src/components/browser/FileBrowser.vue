@@ -26,16 +26,16 @@
                                 <BlackArrowHide v-if="isUploadDropDownShown" class="arrow" />
                                 <BlackArrowExpand v-else class="arrow" />
                             </button>
+                            <input
+                                ref="fileInput"
+                                type="file"
+                                aria-roledescription="file-upload"
+                                hidden
+                                multiple
+                                @change="upload"
+                            >
                             <div v-if="isUploadDropDownShown" class="dropdown">
                                 <div class="dropdown__item">
-                                    <input
-                                        ref="fileInput"
-                                        type="file"
-                                        aria-roledescription="file-upload"
-                                        hidden
-                                        multiple
-                                        @change="upload"
-                                    >
                                     <div
                                         class="upload-option"
                                         @click="buttonFileUpload"

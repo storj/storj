@@ -101,5 +101,5 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (a *Analytics) serveJSONError(w http.ResponseWriter, status int, err error) {
-	serveJSONError(a.log, w, status, err)
+	ServeJSONError(a.log, w, status, err)
 }

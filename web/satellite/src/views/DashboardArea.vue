@@ -8,26 +8,30 @@
         </div>
         <div v-else class="dashboard__wrap">
             <div class="dashboard__wrap__main-area">
-                <NavigationArea v-if="!isNavigationHidden" />
+                <NavigationArea v-if="!isNavigationHidden" class="dashboard__wrap__main-area__navigation" />
+                <MobileNavigation v-if="!isNavigationHidden" class="dashboard__wrap__main-area__mobile-navigation" />
                 <div
                     class="dashboard__wrap__main-area__content-wrap"
-                    :class="{
-                        'with-one-bar': amountOfInfoBars === 1,
-                        'with-two-bars': amountOfInfoBars === 2,
-                        'with-three-bars': amountOfInfoBars === 3,
-                        'with-four-bars': amountOfInfoBars === 4,
-                        'no-nav': isNavigationHidden,
-                    }"
+                    :class="{ 'no-nav': isNavigationHidden }"
                 >
-                    <BetaSatBar v-if="isBetaSatellite" />
-                    <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
-                    <ProjectInfoBar v-if="isProjectListPage" />
-                    <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-                    <router-view class="dashboard__wrap__main-area__content-wrap__content" />
+                    <div class="bars">
+                        <BetaSatBar v-if="isBetaSatellite" />
+                        <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
+                        <ProjectInfoBar v-if="isProjectListPage" />
+                        <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                    </div>
+                    <router-view
+                        class="dashboard__wrap__main-area__content-wrap__content"
+                        :class="{
+                            'with-one-bar': amountOfInfoBars === 1,
+                            'with-two-bars': amountOfInfoBars === 2,
+                            'with-three-bars': amountOfInfoBars === 3,
+                            'with-four-bars': amountOfInfoBars === 4,
+                        }"
+                    />
                 </div>
             </div>
         </div>
-        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
         <AllModals />
     </div>
 </template>
@@ -39,7 +43,6 @@ import AllModals from "@/components/modals/AllModals.vue";
 import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
-import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import ProjectInfoBar from "@/components/infoBars/ProjectInfoBar.vue";
 
@@ -63,6 +66,7 @@ import { AuthHttpApi } from "@/api/auth";
 import { MetaUtils } from "@/utils/meta";
 
 import { AnalyticsHttpApi } from '@/api/analytics';
+import MobileNavigation from "@/components/navigation/MobileNavigation.vue";
 
 const {
     SETUP_ACCOUNT,
@@ -72,6 +76,7 @@ const {
 // @vue/component
 @Component({
     components: {
+        MobileNavigation,
         AllModals,
         NavigationArea,
         LoaderImage,
@@ -79,7 +84,6 @@ const {
         MFARecoveryCodeBar,
         BetaSatBar,
         ProjectInfoBar,
-        MFARecoveryCodesPopup,
     },
 })
 export default class DashboardArea extends Vue {
@@ -89,8 +93,6 @@ export default class DashboardArea extends Vue {
     private inactivityTimerId: ReturnType<typeof setTimeout>;
     // Minimum number of recovery codes before the recovery code warning bar is shown.
     public recoveryCodeWarningThreshold = 4;
-
-    public isMFACodesPopup = false;
 
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -173,10 +175,17 @@ export default class DashboardArea extends Vue {
     public async generateNewMFARecoveryCodes(): Promise<void> {
         try {
             await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
-            this.toggleMFACodesPopup();
+            this.toggleMFARecoveryModal();
         } catch (error) {
             await this.$notify.error(error.message);
         }
+    }
+
+    /**
+     * Toggles MFA recovery modal visibility.
+     */
+    public toggleMFARecoveryModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
     }
 
     /**
@@ -184,13 +193,6 @@ export default class DashboardArea extends Vue {
      */
     public togglePMModal(): void {
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
-    }
-
-    /**
-     * Toggles MFA recovery codes popup visibility.
-     */
-    public toggleMFACodesPopup(): void {
-        this.isMFACodesPopup = !this.isMFACodesPopup;
     }
 
     /**
@@ -385,11 +387,21 @@ export default class DashboardArea extends Vue {
                 width: 100%;
                 height: 100%;
 
+                &__mobile-navigation {
+                    display: none;
+                }
+
                 &__content-wrap {
-                    width: calc(100% - 280px);
+                    width: 100%;
+                    height: 95vh;
+                    box-sizing: border-box;
+                    overflow-y: auto;
+                    padding-bottom: 60px;
 
                     &__content {
-                        overflow-y: auto;
+                        max-width: 1200px;
+                        margin: 0 auto;
+                        padding: 48px 48px 60px;
                     }
                 }
             }
@@ -397,23 +409,30 @@ export default class DashboardArea extends Vue {
     }
 
     .with-one-bar {
-        height: calc(100% - 26px);
+        padding-top: 56px;
     }
 
     .with-two-bars {
-        height: calc(100% - 52px);
+        padding-top: 82px;
     }
 
     .with-three-bars {
-        height: calc(100% - 78px);
+        padding-top: 108px;
     }
 
     .with-four-bars {
-        height: calc(100% - 104px);
+        padding-top: 134px;
     }
 
     .no-nav {
         width: 100%;
+    }
+
+    .bars {
+        position: fixed;
+        width: 100%;
+        top: 0;
+        z-index: 1000;
     }
 
     @media screen and (max-width: 1280px) {
@@ -422,12 +441,35 @@ export default class DashboardArea extends Vue {
             display: none;
         }
 
-        .dashboard__wrap__main-area__content-wrap {
-            width: calc(100% - 86px);
-        }
-
         .no-nav {
             width: 100%;
+        }
+    }
+
+    @media screen and (max-width: 800px) {
+
+        .dashboard__wrap__main-area__content-wrap__content {
+            padding: 32px 24px 50px;
+        }
+    }
+
+    @media screen and (max-width: 500px) {
+
+        .dashboard__wrap__main-area {
+            flex-direction: column;
+
+            &__content-wrap {
+                box-sizing: border-box;
+                width: 100%;
+            }
+
+            &__navigation {
+                display: none;
+            }
+
+            &__mobile-navigation {
+                display: block;
+            }
         }
     }
 </style>

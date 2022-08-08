@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/rewards"
@@ -208,6 +207,16 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	registerData.FullName = replaceURLCharacters(registerData.FullName)
 	registerData.ShortName = replaceURLCharacters(registerData.ShortName)
 
+	if len([]rune(registerData.Partner)) > 100 {
+		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Partner must be less than or equal to 100 characters")))
+		return
+	}
+
+	if len([]rune(registerData.SignupPromoCode)) > 100 {
+		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Promo code must be less than or equal to 100 characters")))
+		return
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(w, err)
@@ -222,7 +231,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: verified.Email}},
-			&consoleql.AccountAlreadyExistsEmail{
+			&console.AccountAlreadyExistsEmail{
 				Origin:            satelliteAddress,
 				SatelliteName:     a.SatelliteName,
 				SignInLink:        satelliteAddress + "login",
@@ -330,7 +339,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
-		&consoleql.AccountActivationEmail{
+		&console.AccountActivationEmail{
 			ActivationLink: link,
 			Origin:         a.ExternalAddress,
 			UserName:       userName,
@@ -517,7 +526,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: email, Name: ""}},
-			&consoleql.UnknownResetPasswordEmail{
+			&console.UnknownResetPasswordEmail{
 				Satellite:           a.SatelliteName,
 				Email:               email,
 				DoubleCheckLink:     doubleCheckLink,
@@ -549,7 +558,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
-		&consoleql.ForgotPasswordEmail{
+		&console.ForgotPasswordEmail{
 			Origin:                     a.ExternalAddress,
 			UserName:                   userName,
 			ResetLink:                  passwordRecoveryLink,
@@ -594,7 +603,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: verified.Email, Name: userName}},
-			&consoleql.ForgotPasswordEmail{
+			&console.ForgotPasswordEmail{
 				Origin:                     a.ExternalAddress,
 				UserName:                   userName,
 				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
@@ -627,7 +636,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
-		&consoleql.AccountActivationEmail{
+		&console.AccountActivationEmail{
 			Origin:                a.ExternalAddress,
 			ActivationLink:        link,
 			TermsAndConditionsURL: termsAndConditionsURL,
@@ -760,6 +769,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		a.serveJSONError(w, err)
+	} else {
+		a.cookieAuth.RemoveTokenCookie(w)
 	}
 }
 
@@ -774,7 +785,7 @@ func (a *Auth) getStatusCode(err error) int {
 	switch {
 	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err), console.ErrLockedAccount.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
@@ -813,7 +824,7 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "Your login credentials are incorrect, please try again"
 	case console.ErrLoginPassword.Has(err):
 		return "Your login credentials are incorrect. You have just used up one of your login attempts"
-	case console.ErrLockedAccount.Has(err):
+	case console.ErrValidation.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"

@@ -150,6 +150,18 @@ export default class ProjectSelection extends Vue {
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
         }
 
+        if (this.$route.path === RouteConfig.NewProjectDashboard.path) {
+            const now = new Date()
+            const past = new Date()
+            past.setDate(past.getDate() - 30)
+
+            try {
+                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since: past, before: now});
+            } catch (error) {
+                await this.$notify.error(error.message)
+            }
+        }
+
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
@@ -437,7 +449,7 @@ export default class ProjectSelection extends Vue {
         }
     }
 
-    @media screen and (max-width: 1280px) {
+    @media screen and (max-width: 1280px) and (min-width: 500px) {
 
         .project-selection__selected {
             padding: 10px 0;
@@ -453,7 +465,7 @@ export default class ProjectSelection extends Vue {
                 }
 
                 &__placeholder {
-                    display: block;
+                    display: none;
                     margin: 10px 0 0;
                     font-family: 'font_medium', sans-serif;
                     font-size: 9px;

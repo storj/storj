@@ -650,6 +650,8 @@ function formatObjectPermissions(scope: string): string {
 
     .logo {
         cursor: pointer;
+        width: 207px;
+        height: 37px;
     }
 
     .disabled,

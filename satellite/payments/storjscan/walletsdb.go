@@ -19,6 +19,12 @@ type WalletsDB interface {
 	Add(ctx context.Context, userID uuid.UUID, walletAddress blockchain.Address) error
 	// Get returns the wallet address associated with the given user.
 	Get(ctx context.Context, userID uuid.UUID) (blockchain.Address, error)
-	// GetAllUsers returns all user IDs that have associated storjscan wallets.
-	GetAllUsers(ctx context.Context) (_ []uuid.UUID, err error)
+	// GetAll returns all saved wallet entries.
+	GetAll(ctx context.Context) (_ []Wallet, err error)
+}
+
+// Wallet associates a user ID and a wallet address.
+type Wallet struct {
+	UserID  uuid.UUID
+	Address blockchain.Address
 }
