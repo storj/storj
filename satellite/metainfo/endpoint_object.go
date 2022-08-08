@@ -1519,7 +1519,6 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
-		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -1652,7 +1651,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
-			Version:    metabase.DefaultVersion,
+			Version:    metabase.Version(streamID.Version),
 			StreamID:   streamUUID,
 		},
 		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
@@ -1751,7 +1750,6 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
-		Version: metabase.DefaultVersion,
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
 			return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo.ProjectID, encryptedObjectSize, nSegments)
 		},
@@ -1900,7 +1898,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
-			Version:    metabase.DefaultVersion,
+			Version:    metabase.Version(streamID.Version),
 			StreamID:   streamUUID,
 		},
 		NewStreamID:                  newStreamID,

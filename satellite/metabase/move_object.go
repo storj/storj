@@ -21,6 +21,7 @@ import (
 // BeginMoveObjectResult holds data needed to finish move object.
 type BeginMoveObjectResult struct {
 	StreamID uuid.UUID
+	Version  Version
 	// TODO we need metadata because of an uplink issue with how we are storing key and nonce
 	EncryptedMetadata         []byte
 	EncryptedMetadataKeyNonce []byte
@@ -38,7 +39,6 @@ type EncryptedKeyAndNonce struct {
 
 // BeginMoveObject holds all data needed begin move object method.
 type BeginMoveObject struct {
-	Version Version
 	ObjectLocation
 }
 
@@ -50,39 +50,19 @@ func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (result
 		return BeginMoveObjectResult{}, err
 	}
 
-	if opts.Version <= 0 {
-		return BeginMoveObjectResult{}, ErrInvalidRequest.New("Version invalid: %v", opts.Version)
-	}
-
-	var segmentCount int64
-
-	err = db.db.QueryRowContext(ctx, `
-		SELECT
-			stream_id, encryption, segment_count,
-			encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_metadata
-		FROM objects
-		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			version      = $4 AND
-			status       = `+committedStatus,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
-		Scan(
-			&result.StreamID,
-			encryptionParameters{&result.EncryptionParameters},
-			&segmentCount,
-			&result.EncryptedMetadataKey, &result.EncryptedMetadataKeyNonce, &result.EncryptedMetadata,
-		)
+	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
+		ObjectLocation: ObjectLocation{
+			ProjectID:  opts.ProjectID,
+			BucketName: opts.BucketName,
+			ObjectKey:  opts.ObjectKey,
+		},
+	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return BeginMoveObjectResult{}, storj.ErrObjectNotFound.Wrap(err)
-		}
-		return BeginMoveObjectResult{}, Error.New("unable to query object status: %w", err)
+		return BeginMoveObjectResult{}, err
 	}
 
-	if segmentCount > MoveSegmentLimit {
-		return BeginMoveObjectResult{}, Error.New("segment count of chosen object is beyond limit")
+	if int64(object.SegmentCount) > MoveSegmentLimit {
+		return BeginMoveObjectResult{}, ErrInvalidRequest.New("object to move has too many segments (%d). Limit is %d.", object.SegmentCount, MoveSegmentLimit)
 	}
 
 	err = withRows(db.db.QueryContext(ctx, `
@@ -91,7 +71,7 @@ func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (result
 		FROM segments
 		WHERE stream_id = $1
 		ORDER BY stream_id, position ASC
-	`, result.StreamID))(func(rows tagsql.Rows) error {
+	`, object.StreamID))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var keys EncryptedKeyAndNonce
 
@@ -108,6 +88,13 @@ func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (result
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return BeginMoveObjectResult{}, Error.New("unable to fetch object segments: %w", err)
 	}
+
+	result.StreamID = object.StreamID
+	result.Version = object.Version
+	result.EncryptionParameters = object.Encryption
+	result.EncryptedMetadata = object.EncryptedMetadata
+	result.EncryptedMetadataKey = object.EncryptedMetadataEncryptedKey
+	result.EncryptedMetadataKeyNonce = object.EncryptedMetadataNonce
 
 	return result, nil
 }

@@ -532,11 +532,11 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
@@ -718,11 +718,11 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
@@ -885,11 +885,11 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
@@ -1205,11 +1205,11 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
@@ -1369,11 +1369,11 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,

@@ -21,6 +21,7 @@ import (
 // BeginCopyObjectResult holds data needed to finish copy object.
 type BeginCopyObjectResult struct {
 	StreamID                  uuid.UUID
+	Version                   Version
 	EncryptedMetadata         []byte
 	EncryptedMetadataKeyNonce []byte
 	EncryptedMetadataKey      []byte
@@ -30,7 +31,6 @@ type BeginCopyObjectResult struct {
 
 // BeginCopyObject holds all data needed begin copy object method.
 type BeginCopyObject struct {
-	Version Version
 	ObjectLocation
 
 	// VerifyLimits holds a callback by which the caller can interrupt the copy
@@ -46,45 +46,23 @@ func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (result
 		return BeginCopyObjectResult{}, err
 	}
 
-	if opts.Version <= 0 {
-		return BeginCopyObjectResult{}, ErrInvalidRequest.New("Version invalid: %v", opts.Version)
-	}
-
-	var segmentCount int64
-	var encryptedObjectSize int64
-
-	err = db.db.QueryRowContext(ctx, `
-		SELECT
-			stream_id, encryption, total_encrypted_size, segment_count,
-			encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_metadata
-		FROM objects
-		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			version      = $4 AND
-			status       = `+committedStatus,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
-		Scan(
-			&result.StreamID,
-			encryptionParameters{&result.EncryptionParameters},
-			&encryptedObjectSize,
-			&segmentCount,
-			&result.EncryptedMetadataKey, &result.EncryptedMetadataKeyNonce, &result.EncryptedMetadata,
-		)
+	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
+		ObjectLocation: ObjectLocation{
+			ProjectID:  opts.ProjectID,
+			BucketName: opts.BucketName,
+			ObjectKey:  opts.ObjectKey,
+		},
+	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return BeginCopyObjectResult{}, storj.ErrObjectNotFound.Wrap(err)
-		}
-		return BeginCopyObjectResult{}, Error.New("unable to query object status: %w", err)
+		return BeginCopyObjectResult{}, err
 	}
 
-	if segmentCount > CopySegmentLimit {
-		return BeginCopyObjectResult{}, Error.New("object to copy has too many segments (%d). Limit is %d.", segmentCount, CopySegmentLimit)
+	if int64(object.SegmentCount) > CopySegmentLimit {
+		return BeginCopyObjectResult{}, ErrInvalidRequest.New("object to copy has too many segments (%d). Limit is %d.", object.SegmentCount, CopySegmentLimit)
 	}
 
 	if opts.VerifyLimits != nil {
-		err = opts.VerifyLimits(encryptedObjectSize, segmentCount)
+		err = opts.VerifyLimits(object.TotalEncryptedSize, int64(object.SegmentCount))
 		if err != nil {
 			return BeginCopyObjectResult{}, err
 		}
@@ -96,7 +74,7 @@ func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (result
 		FROM segments
 		WHERE stream_id = $1
 		ORDER BY stream_id, position ASC
-	`, result.StreamID))(func(rows tagsql.Rows) error {
+	`, object.StreamID))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var keys EncryptedKeyAndNonce
 
@@ -113,6 +91,13 @@ func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (result
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return BeginCopyObjectResult{}, Error.New("unable to fetch object segments: %w", err)
 	}
+
+	result.StreamID = object.StreamID
+	result.Version = object.Version
+	result.EncryptionParameters = object.Encryption
+	result.EncryptedMetadata = object.EncryptedMetadata
+	result.EncryptedMetadataKey = object.EncryptedMetadataEncryptedKey
+	result.EncryptedMetadataKeyNonce = object.EncryptedMetadataNonce
 
 	return result, nil
 }
