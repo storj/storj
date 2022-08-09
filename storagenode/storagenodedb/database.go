@@ -347,6 +347,13 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 	return migration.Run(ctx, db.log.Named("migration"))
 }
 
+// TestMigrateToLatest creates any necessary tables from snapshot.
+// it's faster for the testing but should be the same as MigrateToLatest.
+func (db *DB) TestMigrateToLatest(ctx context.Context) error {
+	migration := db.Snapshot(ctx)
+	return migration.Run(ctx, db.log.Named("migration"))
+}
+
 // Preflight conducts a pre-flight check to ensure correct schemas and minimal read+write functionality of the database tables.
 func (db *DB) Preflight(ctx context.Context) (err error) {
 	for dbName, dbContainer := range db.SQLDBs {
