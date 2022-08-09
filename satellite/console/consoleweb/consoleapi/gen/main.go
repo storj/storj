@@ -6,6 +6,7 @@ package main
 //go:generate go run ./
 
 import (
+	"fmt"
 	"time"
 
 	"storj.io/common/uuid"
@@ -29,6 +30,7 @@ func main() {
 			Name:        "Create new Project",
 			Description: "Creates new Project with given info",
 			MethodName:  "GenCreateProject",
+			RequestName: "createProject",
 			Response:    &console.Project{},
 			Request:     console.ProjectInfo{},
 		})
@@ -37,6 +39,7 @@ func main() {
 			Name:        "Update Project",
 			Description: "Updates project with given info",
 			MethodName:  "GenUpdateProject",
+			RequestName: "updateProject",
 			Response:    console.Project{},
 			Request:     console.ProjectInfo{},
 			PathParams: []apigen.Param{
@@ -48,6 +51,7 @@ func main() {
 			Name:        "Delete Project",
 			Description: "Deletes project by id",
 			MethodName:  "GenDeleteProject",
+			RequestName: "deleteProject",
 			PathParams: []apigen.Param{
 				apigen.NewParam("id", uuid.UUID{}),
 			},
@@ -57,6 +61,7 @@ func main() {
 			Name:        "Get Projects",
 			Description: "Gets all projects user has",
 			MethodName:  "GenGetUsersProjects",
+			RequestName: "getProjects",
 			Response:    []console.Project{},
 		})
 
@@ -64,6 +69,7 @@ func main() {
 			Name:        "Get Project's Single Bucket Usage",
 			Description: "Gets project's single bucket usage by bucket ID",
 			MethodName:  "GenGetSingleBucketUsageRollup",
+			RequestName: "getBucketRollup",
 			Response:    accounting.BucketUsageRollup{},
 			QueryParams: []apigen.Param{
 				apigen.NewParam("projectID", uuid.UUID{}),
@@ -77,6 +83,7 @@ func main() {
 			Name:        "Get Project's All Buckets Usage",
 			Description: "Gets project's all buckets usage",
 			MethodName:  "GenGetBucketUsageRollups",
+			RequestName: "getBucketRollups",
 			Response:    []accounting.BucketUsageRollup{},
 			QueryParams: []apigen.Param{
 				apigen.NewParam("projectID", uuid.UUID{}),
@@ -93,6 +100,7 @@ func main() {
 			Name:        "Create new macaroon API key",
 			Description: "Creates new macaroon API key with given info",
 			MethodName:  "GenCreateAPIKey",
+			RequestName: "createAPIKey",
 			Response:    console.CreateAPIKeyResponse{},
 			Request:     console.CreateAPIKeyRequest{},
 		})
@@ -105,9 +113,11 @@ func main() {
 			Name:        "Get User",
 			Description: "Gets User by request context",
 			MethodName:  "GenGetUser",
+			RequestName: "getUser",
 			Response:    console.ResponseUser{},
 		})
 	}
 
 	a.MustWriteGo("satellite/console/consoleweb/consoleapi/api.gen.go")
+	a.MustWriteTS(fmt.Sprintf("web/satellite/src/api/%s.gen.ts", a.Version))
 }
