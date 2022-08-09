@@ -282,7 +282,6 @@ export default class CreateAccessModal extends Vue {
     public backAction(): void {
         this.accessGrantStep = 'create';
         this.passphrase = '';
-        // this.resetSavedStatus();
     }
 
     /**
