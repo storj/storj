@@ -43,6 +43,7 @@
                 <EncryptFormModal 
                     @close-modal="onCloseClick"
                     @create-access="createAccessGrant"
+                    @backAction="backAction"
                 />
             </form>
             <!-- *********   Grant Created Modal  ********* -->
@@ -158,8 +159,7 @@ export default class CreateAccessModal extends Vue {
     }
 
     public inputHandler(e): void {
-        this.checkedType = e;
-        
+        this.checkedType = e; 
     }
 
     /**
@@ -281,73 +281,10 @@ export default class CreateAccessModal extends Vue {
         this.accessGrantStep = 'grantCreated';
     }
 
-    /**
-     * Downloads passphrase to .txt file
-     */
-    public downloadPassphrase(): void {
-        this.isPassphraseDownloaded = true;
-        Download.file(this.passphrase, `passphrase-${this.currentDate}.txt`)
-        this.analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);  
-    }
-
-    /**
-     * Downloads credentials to .txt file
-     */
-    public downloadCredentials(): void {
-        let credentialMap = {
-            access: [`access grant: ${this.access}`],
-            s3: [`access key: ${this.gatewayCredentials.accessKeyId}\nsecret key: ${this.gatewayCredentials.secretKey}\nendpoint: ${this.gatewayCredentials.endpoint}`],
-            api: [`satellite address: ${this.satelliteAddress}\nrestricted key: ${this.restrictedKey}`]
-        }
-        this.areCredentialsDownloaded = true;
-        this.analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
-        Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`)
-    }
-
-    public onRadioInput(): void {
-        this.isPassphraseCopied = false;
-        this.isPassphraseDownloaded = false;
-        this.passphrase = '';
-
-        if (this.encryptSelect === "generate") {
-            this.passphrase = generateMnemonic();
-        }
-    }
-
-    public encryptClickAction(): void {
-        let mappedList = this.accessGrantList.map((key) => (key.name))
-        if (mappedList.includes(this.accessName)) {
-            this.$notify.error(`validation: An API Key with this name already exists in this project, please use a different name`);
-            return
-        } else if (this.checkedType !== "api") {
-            this.accessGrantStep = 'encrypt';
-        }
-        this.analytics.eventTriggered(AnalyticsEvent.ENCRYPT_MY_ACCESS_CLICKED);
-    }
-
-    public onCopyClick(item): void {
-        this.$copyText(item);
-        this.$notify.success(`credential was copied successfully`);
-    }
-
-    public onCopyPassphraseClick(): void {
-        this.$copyText(this.passphrase);
-        this.isPassphraseCopied = true;
-        this.analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED); 
-        this.$notify.success(`Passphrase was copied successfully`);    
-    }
-
-    public onCopyAccessGrantClick(): void {
-        this.$copyText(this.restrictedKey);
-        this.isAccessGrantCopied = true;
-        this.analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED); 
-        this.$notify.success(`Access Grant was copied successfully`);
-    }
-
     public backAction(): void {
         this.accessGrantStep = 'create';
         this.passphrase = '';
-        this.resetSavedStatus();
+        // this.resetSavedStatus();
     }
 
     /**

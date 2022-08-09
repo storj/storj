@@ -209,16 +209,7 @@ export default class GrantCreatedModal extends Vue {
     }
 
     public backAction(): void {
-        this.accessGrantStep = 'create';
-        this.passphrase = '';
-        this.resetSavedStatus();
-    }
-
-    public resetSavedStatus(): void {
-        this.isPassphraseDownloaded = false;
-        this.isPassphraseCopied = false;
-        this.acknowledgementCheck = false;
-        this.encryptSelect = 'create';
+        this.$emit('backAction')
     }
     
     public onCopyPassphraseClick(): void {

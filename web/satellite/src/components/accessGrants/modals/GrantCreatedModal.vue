@@ -185,22 +185,7 @@
                 :on-press="downloadCredentials"
             />
         </div>
-        <div v-if="checkedType !== 's3'" class="access-grant__modal-container__credential-buttons__container">
-            <v-button
-                :label="isAccessGrantCopied ? 'Copied' : 'Copy to clipboard'"
-                width="auto"
-                height="50px"
-                :is-transparent="!isAccessGrantCopied"
-                :is-white-green="isAccessGrantCopied"
-                class="access-grant__modal-container__footer-container__copy-button"
-                font-size="16px"
-                :on-press="onCopyAccessGrantClick"
-                :is-disabled="restrictedKey.length < 1"
-            >
-                <template v-if="!isAccessGrantCopied" #icon>
-                    <copy-icon class="button-icon" :class="{ active: restrictedKey }" />
-                </template>
-            </v-button>
+        <div v-else class="access-grant__modal-container__credential-buttons__container">
             <v-button
                 label="Download .txt"
                 font-size="16px"
@@ -295,6 +280,13 @@ export default class GrantCreatedModal extends Vue {
         }
         this.areCredentialsDownloaded = true;
         Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`)
+    }
+
+    /**
+     * Opens S3 documentation in a new tab
+     */
+    public learnMore(): void{
+        window.open("https://docs.storj.io/dcs/api-reference/s3-compatible-gateway/", '_blank');
     }
 }
 </script>
@@ -397,7 +389,7 @@ export default class GrantCreatedModal extends Vue {
 
                 &__container {
                     display: flex;
-                    justify-content: space-between;
+                    justify-content: center;
                     margin: 15px 0;
                 }
             }
