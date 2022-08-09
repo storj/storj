@@ -33,6 +33,8 @@ func newCmdAccessSetup(ex ulext.External) *cmdAccessSetup {
 
 func (c *cmdAccessSetup) Setup(params clingy.Parameters) {
 	c.authService = params.Flag("auth-service", "If generating backwards-compatible S3 Gateway credentials, use this auth service", "https://auth.storjshare.io").(string)
+
+	c.am.Setup(params, c.ex)
 }
 
 func (c *cmdAccessSetup) Execute(ctx clingy.Context) (err error) {
