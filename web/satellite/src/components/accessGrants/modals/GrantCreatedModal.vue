@@ -207,7 +207,6 @@ import { Download } from "@/utils/download";
 import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-import CopyIcon from '../../../../static/images/common/copy.svg';
 import S3Icon from '@/../static/images/accessGrants/s3.svg';
 import VButton from '@/components/common/VButton.vue';
 
@@ -220,7 +219,6 @@ import { EdgeCredentials } from '@/types/accessGrants';
         AccessGrantsIcon,
         CLIIcon,
         CloseCrossIcon,
-        CopyIcon,
         S3Icon,
         VButton,
     },

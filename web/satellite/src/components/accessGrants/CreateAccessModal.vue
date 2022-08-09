@@ -75,8 +75,6 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
-import { Download } from "@/utils/download";
-import { generateMnemonic } from "bip39";
 
 
 // TODO: a lot of code can be refactored/reused/split into modules
