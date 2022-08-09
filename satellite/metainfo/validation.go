@@ -125,6 +125,12 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 		return nil, nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
+	endpoint.top.Project(keyInfo.ProjectID.String())
+	endpoint.top.Partner(keyInfo.PartnerID.String())
+	if keyInfo.UserAgent != nil {
+		endpoint.top.UserAgent(string(keyInfo.UserAgent))
+	}
+
 	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
 		endpoint.log.Debug("rate check failed", zap.Error(err))
 		return nil, nil, err
