@@ -4,15 +4,15 @@ exports[`SortingListHeader.vue should render correctly 1`] = `
 <div class="sort-header-container">
   <div class="sort-header-container__name-container">
     <p class="sort-header-container__name-container__title">Name</p>
-    <div class="container"><svg class=""></svg> <svg class="active"></svg></div>
+    <div class="container"><svg class="inactive"></svg> <svg class="active"></svg></div>
   </div>
   <div class="sort-header-container__added-container">
     <p class="sort-header-container__added-container__title">Added</p>
-    <div class="container"><svg class=""></svg> <svg class=""></svg></div>
+    <div class="container"><svg class="inactive"></svg> <svg class="inactive"></svg></div>
   </div>
   <div class="sort-header-container__email-container">
     <p class="sort-header-container__email-container__title">Email</p>
-    <div class="container"><svg class=""></svg> <svg class=""></svg></div>
+    <div class="container"><svg class="inactive"></svg> <svg class="inactive"></svg></div>
   </div>
 </div>
 `;

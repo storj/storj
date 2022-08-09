@@ -7,6 +7,12 @@
         <CreateProjectModal v-if="isCreateProjectModal" />
         <AddPaymentMethodModal v-if="isAddPMModal" />
         <OpenBucketModal v-if="isOpenBucketModal" />
+        <MFARecoveryCodesModal v-if="isMFARecoveryModal" />
+        <EnableMFAModal v-if="isEnableMFAModal" />
+        <DisableMFAModal v-if="isDisableMFAModal" />
+        <EditProfileModal v-if="isEditProfileModal" />
+        <ChangePasswordModal v-if="isChangePasswordModal" />
+        <AddTeamMemberModal v-if="isAddTeamMembersModal" />
     </div>
 </template>
 
@@ -17,6 +23,12 @@ import CreateProjectPromptModal from '@/components/modals/CreateProjectPromptMod
 import CreateProjectModal from '@/components/modals/CreateProjectModal.vue'
 import AddPaymentMethodModal from "@/components/modals/AddPaymentMethodModal.vue";
 import OpenBucketModal from "@/components/modals/OpenBucketModal.vue";
+import MFARecoveryCodesModal from "@/components/modals/MFARecoveryCodesModal.vue";
+import EnableMFAModal from "@/components/modals/EnableMFAModal.vue";
+import DisableMFAModal from "@/components/modals/DisableMFAModal.vue";
+import EditProfileModal from "@/components/modals/EditProfileModal.vue";
+import ChangePasswordModal from "@/components/modals/ChangePasswordModal.vue";
+import AddTeamMemberModal from "@/components/modals/AddTeamMemberModal.vue";
 
 // @vue/component
 @Component({
@@ -25,6 +37,12 @@ import OpenBucketModal from "@/components/modals/OpenBucketModal.vue";
         CreateProjectModal,
         AddPaymentMethodModal,
         OpenBucketModal,
+        MFARecoveryCodesModal,
+        EnableMFAModal,
+        DisableMFAModal,
+        EditProfileModal,
+        ChangePasswordModal,
+        AddTeamMemberModal,
     },
 })
 export default class AllModals extends Vue {
@@ -54,6 +72,48 @@ export default class AllModals extends Vue {
      */
     public get isOpenBucketModal(): boolean {
         return this.$store.state.appStateModule.appState.isOpenBucketModalShown;
+    }
+
+    /**
+     * Indicates if MFA recovery modal is shown.
+     */
+    public get isMFARecoveryModal(): boolean {
+        return this.$store.state.appStateModule.appState.isMFARecoveryModalShown;
+    }
+
+    /**
+     * Indicates if enable MFA modal is shown.
+     */
+    public get isEnableMFAModal(): boolean {
+        return this.$store.state.appStateModule.appState.isEnableMFAModalShown;
+    }
+
+    /**
+     * Indicates if disable MFA modal is shown.
+     */
+    public get isDisableMFAModal(): boolean {
+        return this.$store.state.appStateModule.appState.isDisableMFAModalShown;
+    }
+
+    /**
+     * Indicates if edit profile modal is shown.
+     */
+    public get isEditProfileModal(): boolean {
+        return this.$store.state.appStateModule.appState.isEditProfileModalShown;
+    }
+
+    /**
+     * Indicates if change password modal is shown.
+     */
+    public get isChangePasswordModal(): boolean {
+        return this.$store.state.appStateModule.appState.isChangePasswordModalShown;
+    }
+
+    /**
+     * Indicates if add team members modal is shown.
+     */
+    public get isAddTeamMembersModal(): boolean {
+        return this.$store.state.appStateModule.appState.isAddTeamMembersModalShown;
     }
 }
 </script>

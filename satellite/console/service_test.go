@@ -824,11 +824,7 @@ func TestLockAccount(t *testing.T) {
 		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
 			token, err = service.Token(ctx, authUser)
 			require.Empty(t, token)
-			if i < consoleConfig.LoginAttemptsWithoutPenalty {
-				require.True(t, console.ErrLoginPassword.Has(err))
-			} else {
-				require.True(t, console.ErrLockedAccount.Has(err))
-			}
+			require.True(t, console.ErrLoginPassword.Has(err))
 		}
 
 		lockedUser, err := service.GetUser(userCtx, user.ID)
@@ -869,11 +865,7 @@ func TestLockAccount(t *testing.T) {
 		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
 			token, err = service.Token(ctx, authUser)
 			require.Empty(t, token)
-			if i < consoleConfig.LoginAttemptsWithoutPenalty {
-				require.True(t, console.ErrMFAPasscode.Has(err))
-			} else {
-				require.True(t, console.ErrLockedAccount.Has(err))
-			}
+			require.True(t, console.ErrMFAPasscode.Has(err))
 		}
 
 		lockedUser, err = service.GetUser(userCtx, user.ID)
@@ -897,11 +889,7 @@ func TestLockAccount(t *testing.T) {
 		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
 			token, err = service.Token(ctx, authUser)
 			require.Empty(t, token)
-			if i < consoleConfig.LoginAttemptsWithoutPenalty {
-				require.True(t, console.ErrMFARecoveryCode.Has(err))
-			} else {
-				require.True(t, console.ErrLockedAccount.Has(err))
-			}
+			require.True(t, console.ErrMFARecoveryCode.Has(err))
 		}
 
 		lockedUser, err = service.GetUser(userCtx, user.ID)

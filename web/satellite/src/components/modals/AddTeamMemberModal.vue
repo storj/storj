@@ -1,112 +1,112 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <div class="add-user-container" @keyup.enter="onAddUsersClick" @keyup.esc="onClose">
-        <div id="addTeamMemberPopup" class="add-user">
-            <div class="add-user__main">
-                <div class="add-user__info-panel-container">
-                    <h2 class="add-user__info-panel-container__main-label-text">Add Team Member</h2>
-                    <img src="@/../static/images/team/addMember.jpg" alt="add team member image">
-                </div>
-                <div class="add-user__form-container">
-                    <p v-if="!formError" class="add-user__form-container__common-label">Email Address</p>
-                    <div v-if="formError" class="add-user__form-container__label">
-                        <ErrorIcon alt="Red error icon" />
-                        <p class="add-user__form-container__label__error">{{ formError }}</p>
+    <VModal :on-close="closeModal">
+        <template #content>
+            <div class="add-user">
+                <div class="add-user__main">
+                    <div class="add-user__info-panel-container">
+                        <h2 class="add-user__info-panel-container__main-label-text">Add Team Member</h2>
+                        <img src="@/../static/images/team/addMember.jpg" alt="add team member image">
                     </div>
-                    <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': isInputsGroupScrollable }">
-                        <div
-                            v-for="(input, index) in inputs"
-                            :key="index"
-                            class="add-user__form-container__inputs-group__item"
-                        >
-                            <input
-                                v-model="input.value"
-                                placeholder="email@example.com"
-                                class="no-error-input"
-                                :class="{ 'error-input': input.error }"
-                                @keyup="resetFormErrors(index)"
+                    <div class="add-user__form-container">
+                        <p v-if="!formError" class="add-user__form-container__common-label">Email Address</p>
+                        <div v-if="formError" class="add-user__form-container__label">
+                            <ErrorIcon alt="Red error icon" />
+                            <p class="add-user__form-container__label__error">{{ formError }}</p>
+                        </div>
+                        <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': isInputsGroupScrollable }">
+                            <div
+                                v-for="(input, index) in inputs"
+                                :key="index"
+                                class="add-user__form-container__inputs-group__item"
                             >
-                            <DeleteFieldIcon
-                                class="add-user__form-container__inputs-group__item__image"
-                                @click="deleteInput(index)"
+                                <input
+                                    v-model="input.value"
+                                    placeholder="email@example.com"
+                                    class="no-error-input"
+                                    :class="{ 'error-input': input.error }"
+                                    @keyup="resetFormErrors(index)"
+                                >
+                                <DeleteFieldIcon
+                                    class="add-user__form-container__inputs-group__item__image"
+                                    @click="deleteInput(index)"
+                                />
+                            </div>
+                        </div>
+                        <div class="add-user-row">
+                            <div id="add-user-button" class="add-user-row__item" @click="addInput">
+                                <div :class="{ 'inactive-image': isMaxInputsCount }">
+                                    <AddFieldIcon class="add-user-row__item__image" />
+                                </div>
+                                <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add More</p>
+                            </div>
+                        </div>
+                        <div class="add-user__form-container__button-container">
+                            <VButton
+                                label="Cancel"
+                                width="205px"
+                                height="48px"
+                                :on-press="closeModal"
+                                is-transparent="true"
+                            />
+                            <VButton
+                                label="Add Team Members"
+                                width="205px"
+                                height="48px"
+                                :on-press="onAddUsersClick"
+                                :is-disabled="!isButtonActive"
                             />
                         </div>
                     </div>
-                    <div class="add-user-row">
-                        <div id="add-user-button" class="add-user-row__item" @click="addInput">
-                            <div :class="{ 'inactive-image': isMaxInputsCount }">
-                                <AddFieldIcon class="add-user-row__item__image" />
-                            </div>
-                            <p class="add-user-row__item__label" :class="{ 'inactive-label': isMaxInputsCount }">Add More</p>
-                        </div>
-                    </div>
-                    <div class="add-user__form-container__button-container">
-                        <VButton
-                            label="Cancel"
-                            width="205px"
-                            height="48px"
-                            :on-press="onClose"
-                            is-transparent="true"
-                        />
-                        <VButton
-                            label="Add Team Members"
-                            width="205px"
-                            height="48px"
-                            :on-press="onAddUsersClick"
-                            :is-disabled="!isButtonActive"
-                        />
+                </div>
+                <div class="notification-wrap">
+                    <AddMemberNotificationIcon class="notification-wrap__image" />
+                    <div class="notification-wrap__text-area">
+                        <p class="notification-wrap__text-area__text">
+                            If the team member you want to invite to join the project is still not on this Satellite, please
+                            share this link to the signup page and ask them to register here:
+                            <router-link target="_blank" rel="noopener noreferrer" exact to="/signup">
+                                {{ registerPath }}
+                            </router-link>
+                        </p>
                     </div>
                 </div>
-                <div class="add-user__close-cross-container" @click="onClose">
-                    <CloseCrossIcon />
-                </div>
             </div>
-            <div class="notification-wrap">
-                <AddMemberNotificationIcon class="notification-wrap__image" />
-                <div class="notification-wrap__text-area">
-                    <p class="notification-wrap__text-area__text">
-                        If the team member you want to invite to join the project is still not on this Satellite, please
-                        share this link to the signup page and ask them to register here:
-                        <router-link target="_blank" rel="noopener noreferrer" exact to="/signup">
-                            {{ registerPath }}
-                        </router-link>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
+        </template>
+    </VModal>
 </template>
 
 <script lang='ts'>
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
+import { RouteConfig } from '@/router';
+import { EmailInput } from '@/types/EmailInput';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { Validator } from '@/utils/validation';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
-import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import VButton from '@/components/common/VButton.vue';
+import VModal from '@/components/common/VModal.vue';
+
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 import AddFieldIcon from '@/../static/images/team/addField.svg';
 import AddMemberNotificationIcon from '@/../static/images/team/addMemberNotification.svg';
 import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 
-import { RouteConfig } from '@/router';
-import { EmailInput } from '@/types/EmailInput';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { Validator } from '@/utils/validation';
-
 // @vue/component
 @Component({
     components: {
         VButton,
+        VModal,
         ErrorIcon,
         DeleteFieldIcon,
         AddFieldIcon,
-        CloseCrossIcon,
         AddMemberNotificationIcon,
     },
 })
-export default class AddUserPopup extends Vue {
+export default class AddTeamMemberModal extends Vue {
     /**
      * Initial empty inputs set.
      */
@@ -196,7 +196,7 @@ export default class AddUserPopup extends Vue {
             await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
 
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        this.closeModal();
 
         this.isLoading = false;
     }
@@ -224,10 +224,10 @@ export default class AddUserPopup extends Vue {
     }
 
     /**
-     * Closes popup.
+     * Closes modal.
      */
-    public onClose(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+    public closeModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
     }
 
     /**
@@ -284,100 +284,19 @@ export default class AddUserPopup extends Vue {
 </script>
 
 <style scoped lang='scss'>
-    .add-user-container {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgb(134 134 148 / 40%);
-        z-index: 1121;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        flex-direction: column;
-        font-family: 'font_regular', sans-serif;
-    }
-
-    .add-user-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 80px 0 50px;
-
-        &__item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            &__image {
-                margin-right: 20px;
-            }
-
-            &__label {
-                font-family: 'font_medium', sans-serif;
-                font-size: 16px;
-                margin-left: 0;
-                padding-left: 0;
-                margin-block-start: 0;
-                margin-block-end: 0;
-            }
-
-            &:first-child {
-                cursor: pointer;
-            }
-        }
-    }
-
-    .inactive-label {
-        cursor: default;
-        color: #dadde5;
-    }
-
-    .error-input {
-        border: 1px solid red !important;
-    }
-
-    .inactive-image {
-        cursor: default;
-
-        .add-user-row__item__image {
-
-            &__rect {
-                fill: #dadde5;
-            }
-
-            &__path {
-                fill: #acb0bc;
-            }
-        }
-    }
-
-    .input-container.full-input {
-        width: 100%;
-    }
-
-    .red {
-        background-color: #eb5757;
-    }
-
     .add-user {
         width: 100%;
         max-width: 1200px;
-        height: auto;
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
-        position: relative;
         justify-content: center;
+        font-family: 'font_regular', sans-serif;
 
         &__main {
             border-top-left-radius: 6px;
             border-top-right-radius: 6px;
             display: flex;
-            flex-direction: row;
             align-items: flex-start;
-            position: relative;
             justify-content: center;
             background-color: #fff;
             padding: 80px 20px 80px 30px;
@@ -475,6 +394,7 @@ export default class AddUserPopup extends Vue {
                 font-size: 16px;
                 line-height: 25px;
                 padding-left: 50px;
+                text-align: left;
             }
 
             &__button-container {
@@ -486,22 +406,68 @@ export default class AddUserPopup extends Vue {
                 padding: 0 80px 0 50px;
             }
         }
+    }
 
-        &__close-cross-container {
+    .add-user-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 80px 0 50px;
+
+        &__item {
             display: flex;
-            justify-content: center;
             align-items: center;
-            position: absolute;
-            right: 30px;
-            top: 40px;
-            height: 24px;
-            width: 24px;
-            cursor: pointer;
+            justify-content: space-between;
 
-            &:hover .close-cross-svg-path {
-                fill: #2683ff;
+            &__image {
+                margin-right: 20px;
+            }
+
+            &__label {
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                margin-left: 0;
+                padding-left: 0;
+                margin-block-start: 0;
+                margin-block-end: 0;
+            }
+
+            &:first-child {
+                cursor: pointer;
             }
         }
+    }
+
+    .inactive-label {
+        cursor: default;
+        color: #dadde5;
+    }
+
+    .error-input {
+        border: 1px solid red !important;
+    }
+
+    .inactive-image {
+        cursor: default;
+
+        .add-user-row__item__image {
+
+            &__rect {
+                fill: #dadde5;
+            }
+
+            &__path {
+                fill: #acb0bc;
+            }
+        }
+    }
+
+    .input-container.full-input {
+        width: 100%;
+    }
+
+    .red {
+        background-color: #eb5757;
     }
 
     .notification-wrap {
@@ -526,45 +492,12 @@ export default class AddUserPopup extends Vue {
             &__text {
                 font-family: 'font_medium', sans-serif;
                 font-size: 16px;
+                text-align: left;
             }
         }
     }
 
     .scrollable {
         overflow-y: scroll;
-    }
-
-    @media screen and (max-width: 1025px) {
-
-        .add-user {
-            padding: 10px;
-            max-width: 1000px;
-
-            &__main {
-                width: 100%;
-                padding-right: 0;
-                padding-left: 0;
-            }
-
-            &__info-panel-container {
-                display: none;
-            }
-
-            &__form-container {
-                max-width: 800px;
-            }
-
-            &-row__item {
-                width: 80%;
-            }
-        }
-
-        #add-user-button {
-            justify-content: flex-start;
-
-            .add-user-row__item__image {
-                padding-right: 20px;
-            }
-        }
     }
 </style>

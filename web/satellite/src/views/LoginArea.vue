@@ -38,7 +38,9 @@
                             <h2 class="info-box__header__label">Invalid Credentials</h2>
                         </div>
                         <p class="info-box__message">
-                            Your login credentials are incorrect. If you didn’t receive an activation email, click <router-link :to="activatePath" class="link">here</router-link>.
+                            Login failed. Please check if this is the correct satellite for your account. If you are
+                            sure your credentials are correct, please check your email inbox for a notification with
+                            further instructions.
                         </p>
                     </div>
                     <div class="login-area__input-wrapper">
@@ -250,7 +252,7 @@ export default class Login extends Vue {
      */
     public onLogoClick(): void {
         const homepageURL = MetaUtils.getMetaContent('homepage-url');
-        window.location.href = homepageURL;
+        if (homepageURL) window.location.href = homepageURL;
     }
 
     /**
@@ -407,7 +409,6 @@ export default class Login extends Vue {
             }
 
             if (error instanceof ErrorUnauthorized) {
-                await this.$notify.error(error.message);
                 this.isBadLoginMessageShown = true;
                 this.isLoading = false;
                 return;
