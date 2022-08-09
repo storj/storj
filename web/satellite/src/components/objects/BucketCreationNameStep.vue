@@ -145,6 +145,12 @@ export default class BucketCreationNameStep extends Vue {
 </script>
 
 <style scoped lang="scss">
+
+ @media screen and (max-width: 760px) {
+        .bucket-name-creation {
+            width: 200px;
+        }  
+    }
 .bucket-name-creation {
     font-family: 'font_regular', sans-serif;
     padding: 60px 65px 50px;
