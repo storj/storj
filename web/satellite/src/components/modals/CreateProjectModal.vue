@@ -14,9 +14,9 @@
                     Create a Project
                 </h1>
                 <VInput
-                    label="Project Name"
+                    label="Project Name*"
                     additional-label="Up To 20 Characters"
-                    placeholder="Enter Project Name"
+                    placeholder="Project Name"
                     class="full-input"
                     is-limit-shown="true"
                     :current-limit="projectName.length"
@@ -25,9 +25,8 @@
                     @setData="setProjectName"
                 />
                 <VInput
-                    label="Description"
-                    placeholder="Enter Project Description"
-                    additional-label="Optional"
+                    label="Description - Optional"
+                    placeholder="Project Description"
                     class="full-input"
                     is-multiline="true"
                     height="100px"
@@ -38,16 +37,15 @@
                 />
                 <div class="modal__button-container">
                     <VButton
-                        class="modal__button-container__cancel"
                         label="Cancel"
-                        width="210px"
+                        width="100%"
                         height="48px"
                         :on-press="closeModal"
                         is-transparent="true"
                     />
                     <VButton
-                        label="Create Project +"
-                        width="210px"
+                        label="Create Project"
+                        width="100%"
                         height="48px"
                         :on-press="onCreateProjectClick"
                         :is-disabled="!projectName"
@@ -192,9 +190,19 @@ export default class CreateProjectModal extends Vue {
         flex-direction: column;
         font-family: 'font_regular', sans-serif;
 
+        @media screen and (max-width: 550px) {
+            width: calc(100% - 48px);
+            padding: 54px 24px 32px;
+        }
+
         &__icon {
             max-height: 154px;
             max-width: 118px;
+
+            @media screen and (max-width: 550px) {
+                max-height: 77px;
+                max-width: 59px;
+            }
         }
 
         &__title {
@@ -204,6 +212,12 @@ export default class CreateProjectModal extends Vue {
             color: #1b2533;
             margin-top: 40px;
             text-align: center;
+
+            @media screen and (max-width: 550px) {
+                margin-top: 16px;
+                font-size: 24px;
+                line-height: 31px;
+            }
         }
 
         &__info {
@@ -221,9 +235,13 @@ export default class CreateProjectModal extends Vue {
             align-items: center;
             justify-content: space-between;
             margin-top: 30px;
+            column-gap: 20px;
 
-            &__cancel {
-                margin-right: 20px;
+            @media screen and (max-width: 550px) {
+                margin-top: 20px;
+                column-gap: unset;
+                row-gap: 8px;
+                flex-direction: column-reverse;
             }
         }
 
@@ -249,5 +267,12 @@ export default class CreateProjectModal extends Vue {
 
     .full-input {
         margin-top: 20px;
+    }
+
+    @media screen and (max-width: 550px) {
+
+        ::v-deep .add-label {
+            display: none;
+        }
     }
 </style>

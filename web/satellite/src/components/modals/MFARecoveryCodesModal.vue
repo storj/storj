@@ -71,6 +71,10 @@ export default class MFARecoveryCodesModal extends Vue {
         align-items: center;
         font-family: 'font_regular', sans-serif;
 
+        @media screen and (max-width: 550px) {
+            padding: 48px 24px;
+        }
+
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 28px;
@@ -78,6 +82,12 @@ export default class MFARecoveryCodesModal extends Vue {
             text-align: center;
             color: #000;
             margin: 0 0 30px;
+
+            @media screen and (max-width: 550px) {
+                font-size: 24px;
+                line-height: 28px;
+                margin-bottom: 15px;
+            }
         }
 
         &__codes {
@@ -96,6 +106,12 @@ export default class MFARecoveryCodesModal extends Vue {
                 color: #000;
                 margin: 0 0 30px;
                 max-width: 485px;
+
+                @media screen and (max-width: 550px) {
+                    font-size: 14px;
+                    line-height: 18px;
+                    margin-bottom: 15px;
+                }
             }
         }
 

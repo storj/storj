@@ -42,7 +42,6 @@
                 <div class="enable-mfa__buttons">
                     <VButton
                         v-if="!isCodes"
-                        class="cancel-button"
                         label="Cancel"
                         width="100%"
                         height="44px"
@@ -210,6 +209,10 @@ export default class EnableMFAModal extends Vue {
         align-items: center;
         font-family: 'font_regular', sans-serif;
 
+        @media screen and (max-width: 550px) {
+            padding: 48px 24px;
+        }
+
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 28px;
@@ -217,6 +220,12 @@ export default class EnableMFAModal extends Vue {
             text-align: center;
             color: #000;
             margin: 0 0 30px;
+
+            @media screen and (max-width: 550px) {
+                font-size: 24px;
+                line-height: 28px;
+                margin-bottom: 15px;
+            }
         }
 
         &__subtitle {
@@ -225,6 +234,12 @@ export default class EnableMFAModal extends Vue {
             text-align: center;
             color: #000;
             margin: 0 0 45px;
+
+            @media screen and (max-width: 550px) {
+                font-size: 14px;
+                line-height: 18px;
+                margin-bottom: 20px;
+            }
         }
 
         &__scan {
@@ -236,6 +251,11 @@ export default class EnableMFAModal extends Vue {
             align-items: center;
             width: calc(100% - 50px);
 
+            @media screen and (max-width: 550px) {
+                padding: 15px;
+                width: calc(100% - 30px);
+            }
+
             &__title {
                 font-family: 'font_bold', sans-serif;
                 font-size: 16px;
@@ -243,6 +263,10 @@ export default class EnableMFAModal extends Vue {
                 text-align: center;
                 color: #000;
                 margin: 0 0 30px;
+
+                @media screen and (max-width: 550px) {
+                    margin-bottom: 15px;
+                }
             }
 
             &__subtitle {
@@ -261,6 +285,11 @@ export default class EnableMFAModal extends Vue {
                 &__canvas {
                     height: 200px !important;
                     width: 200px !important;
+
+                    @media screen and (max-width: 550px) {
+                        height: unset !important;
+                        width: 100% !important;
+                    }
                 }
             }
 
@@ -271,6 +300,7 @@ export default class EnableMFAModal extends Vue {
                 line-height: 25px;
                 text-align: center;
                 color: #000;
+                overflow-wrap: anywhere;
             }
         }
 
@@ -298,11 +328,15 @@ export default class EnableMFAModal extends Vue {
             align-items: center;
             width: 100%;
             margin-top: 30px;
-        }
-    }
+            column-gap: 20px;
 
-    .cancel-button {
-        margin-right: 15px;
+            @media screen and (max-width: 550px) {
+                flex-direction: column-reverse;
+                column-gap: unset;
+                row-gap: 10px;
+                margin-top: 20px;
+            }
+        }
     }
 
     .max-width {
