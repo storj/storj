@@ -10,7 +10,7 @@ import { AppState } from '@/utils/constants/appStateEnum';
 class ViewsState {
     constructor(
         public fetchState = AppState.LOADING,
-        public isAddTeamMembersPopupShown = false,
+        public isAddTeamMembersModalShown = false,
         public isAccountDropdownShown = false,
         public isSelectProjectDropdownShown = false,
         public isResourcesDropdownShown = false,
@@ -24,8 +24,8 @@ class ViewsState {
         public isAGDatePickerShown = false,
         public isChartsDatePickerShown = false,
         public isPermissionsDropdownShown = false,
-        public isEditProfilePopupShown = false,
-        public isChangePasswordPopupShown = false,
+        public isEditProfileModalShown = false,
+        public isChangePasswordModalShown = false,
         public isPaymentSelectionShown = false,
         public isUploadCancelPopupVisible = false,
         public isSuccessfulPasswordResetShown = false,
@@ -33,6 +33,9 @@ class ViewsState {
         public isCreateProjectModalShown = false,
         public isAddPMModalShown = false,
         public isOpenBucketModalShown = false,
+        public isMFARecoveryModalShown = false,
+        public isEnableMFAModalShown = false,
+        public isDisableMFAModalShown = false,
 
         public onbAGStepBackRoute = "",
         public onbAPIKeyStepBackRoute = "",
@@ -65,8 +68,8 @@ interface AppContext {
 export const appStateModule = {
     state: new State(),
     mutations: {
-        [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: State): void {
-            state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
+        [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL](state: State): void {
+            state.appState.isAddTeamMembersModalShown = !state.appState.isAddTeamMembersModalShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_ACCOUNT_DROPDOWN](state: State): void {
             state.appState.isAccountDropdownShown = !state.appState.isAccountDropdownShown;
@@ -110,11 +113,11 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET](state: State): void {
             state.appState.isSuccessfulPasswordResetShown = !state.appState.isSuccessfulPasswordResetShown;
         },
-        [APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP](state: State): void {
-            state.appState.isChangePasswordPopupShown = !state.appState.isChangePasswordPopupShown;
+        [APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_MODAL_SHOWN](state: State): void {
+            state.appState.isChangePasswordModalShown = !state.appState.isChangePasswordModalShown;
         },
-        [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP](state: State): void {
-            state.appState.isEditProfilePopupShown = !state.appState.isEditProfilePopupShown;
+        [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_MODAL_SHOWN](state: State): void {
+            state.appState.isEditProfileModalShown = !state.appState.isEditProfileModalShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_UPLOAD_CANCEL_POPUP](state: State): void {
             state.appState.isUploadCancelPopupVisible = !state.appState.isUploadCancelPopupVisible;
@@ -130,6 +133,15 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN](state: State): void {
             state.appState.isOpenBucketModalShown = !state.appState.isOpenBucketModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN](state: State): void {
+            state.appState.isMFARecoveryModalShown = !state.appState.isMFARecoveryModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_ENABLE_MFA_MODAL_SHOWN](state: State): void {
+            state.appState.isEnableMFAModalShown = !state.appState.isEnableMFAModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_DISABLE_MFA_MODAL_SHOWN](state: State): void {
+            state.appState.isDisableMFAModalShown = !state.appState.isDisableMFAModalShown;
         },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;
@@ -197,13 +209,6 @@ export const appStateModule = {
         },
     },
     actions: {
-        [APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS]: function ({commit, state}: AppContext): void {
-            if (!state.appState.isAddTeamMembersPopupShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP);
-        },
         [APP_STATE_ACTIONS.TOGGLE_ACCOUNT]: function ({commit, state}: AppContext): void {
             if (!state.appState.isAccountDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
@@ -309,14 +314,8 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
         },
-        [APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP]: function ({commit}: AppContext): void {
-            commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-        },
         [APP_STATE_ACTIONS.TOGGLE_UPLOAD_CANCEL_POPUP]: function ({commit}: AppContext): void {
             commit(APP_STATE_MUTATIONS.TOGGLE_UPLOAD_CANCEL_POPUP);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP]: function ({commit}: AppContext): void {
-            commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP);
         },
         [APP_STATE_ACTIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP]: function ({commit, state}: AppContext, methodID: string): void {
             if (!state.appState.setDefaultPaymentMethodID) {

@@ -28,31 +28,40 @@
 										"
                                     >
                                         <img
-                                            v-if="previewIsImage"
-                                            ref="previewImage"
-                                            class="preview img-fluid"
-                                            src="/static/static/images/common/loader.svg"
-                                            aria-roledescription="image-preview"
+                                            v-if="previewFailed"
+                                            class="failed-preview"
+                                            src="/static/static/images/common/errorNotice.svg"
+                                            alt="failed preview"
                                         >
+                                        <template v-else>
+                                            <img
+                                                v-if="previewIsImage"
+                                                ref="previewImage"
+                                                class="preview img-fluid"
+                                                src="/static/static/images/common/loader.svg"
+                                                aria-roledescription="image-preview"
+                                                alt="preview"
+                                            >
 
-                                        <video
-                                            v-if="previewIsVideo"
-                                            ref="previewVideo"
-                                            class="preview"
-                                            controls
-                                            src=""
-                                            aria-roledescription="video-preview"
-                                        />
+                                            <video
+                                                v-if="previewIsVideo"
+                                                ref="previewVideo"
+                                                class="preview"
+                                                controls
+                                                src=""
+                                                aria-roledescription="video-preview"
+                                            />
 
-                                        <audio
-                                            v-if="previewIsAudio"
-                                            ref="previewAudio"
-                                            class="preview"
-                                            controls
-                                            src=""
-                                            aria-roledescription="audio-preview"
-                                        />
-                                        <PlaceholderImage v-if="placeHolderDisplayable" />
+                                            <audio
+                                                v-if="previewIsAudio"
+                                                ref="previewAudio"
+                                                class="preview"
+                                                controls
+                                                src=""
+                                                aria-roledescription="audio-preview"
+                                            />
+                                            <PlaceholderImage v-if="placeHolderDisplayable" />
+                                        </template>
                                     </div>
                                 </div>
                                 <div class="col-6 col-lg-4 pr-5">
@@ -176,8 +185,7 @@
                                             </svg>
                                         </span>
                                     </button>
-
-                                    <div class="mt-5">
+                                    <div v-if="!mapFailed" class="mt-5">
                                         <div class="storage-nodes">
                                             Nodes storing this file
                                         </div>
@@ -210,6 +218,8 @@ import PlaceholderImage from '@/../static/images/browser/placeholder.svg'
 export default class FileModal extends Vue {
     public objectLink = '';
     public copyText = 'Copy Link';
+    public previewFailed = false;
+    public mapFailed = false;
 
     public $refs!: {
         objectMap: HTMLImageElement;
@@ -328,23 +338,20 @@ export default class FileModal extends Vue {
      * Get the object map for the file being displayed.
      */
     private async fetchObjectMap(): Promise<void> {
-        try {
-            if (!this.$store.state.files.fetchObjectMap) {
-                return;
-            }
-
-            const objectMap: Blob | null = await this.$store.state.files.fetchObjectMap(
-                this.filePath
-            );
-
-            if (!objectMap) {
-                return;
-            }
-
-            this.$refs.objectMap.src = URL.createObjectURL(objectMap);
-        } catch (error) {
-            await this.$notify.error(error.message);
+        if (!this.$store.state.files.fetchObjectMap) {
+            return;
         }
+
+        const objectMap: Blob | null = await this.$store.state.files.fetchObjectMap(
+            this.filePath
+        );
+
+        if (!objectMap) {
+            this.mapFailed = true;
+            return;
+        }
+
+        this.$refs.objectMap.src = URL.createObjectURL(objectMap);
     }
 
     /**
@@ -363,33 +370,30 @@ export default class FileModal extends Vue {
      * Set preview object.
      */
     public async setPreview(): Promise<void> {
-        try {
-            if (!this.$store.state.files.fetchObjectPreview) {
-                return;
-            }
+        if (!this.$store.state.files.fetchObjectPreview) {
+            return;
+        }
 
-            const object: Blob | null = await this.$store.state.files.fetchObjectPreview(
-                this.filePath
-            );
+        const object: Blob | null = await this.$store.state.files.fetchObjectPreview(
+            this.filePath
+        );
 
-            if (!object) {
-                return;
-            }
+        if (!object) {
+            this.previewFailed = true
+            return;
+        }
 
-            const objectURL = URL.createObjectURL(object);
+        const objectURL = URL.createObjectURL(object);
 
-            switch (true) {
-            case this.previewIsImage:
-                this.$refs.previewImage.src = objectURL;
-                break;
-            case this.previewIsVideo:
-                this.$refs.previewVideo.src = objectURL;
-                break;
-            case this.previewIsAudio:
-                this.$refs.previewAudio.src = objectURL;
-            }
-        } catch (error) {
-            await this.$notify.error(error.message);
+        switch (true) {
+        case this.previewIsImage:
+            this.$refs.previewImage.src = objectURL;
+            break;
+        case this.previewIsVideo:
+            this.$refs.previewVideo.src = objectURL;
+            break;
+        case this.previewIsAudio:
+            this.$refs.previewAudio.src = objectURL;
         }
     }
 
@@ -404,7 +408,7 @@ export default class FileModal extends Vue {
      * Copy the current opened file.
      */
     public async copy(): Promise<void> {
-        await navigator.clipboard.writeText(this.objectLink);
+        await this.$copyText(this.objectLink);
         this.copyText = 'Copied!';
         setTimeout(() => {
             this.copyText = 'Copy Link';
@@ -528,5 +532,9 @@ export default class FileModal extends Vue {
     border-bottom-right-radius: 4px;
     font-size: 14px;
     padding: 0 16px;
+}
+
+.failed-preview {
+    width: 50%;
 }
 </style>

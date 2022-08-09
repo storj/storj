@@ -7,10 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -24,6 +27,12 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/monetary"
+	"storj.io/storj/satellite/payments/storjscan"
+	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 func TestService(t *testing.T) {
@@ -949,5 +958,103 @@ func TestSessionExpiration(t *testing.T) {
 
 		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
 		require.ErrorIs(t, sql.ErrNoRows, err)
+	})
+}
+
+func TestPaymentsWalletPayments(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		now := time.Now().Truncate(time.Second).UTC()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+			Password: "example",
+		}, 1)
+		require.NoError(t, err)
+
+		wallet := blockchaintest.NewAddress()
+		err = sat.DB.Wallets().Add(ctx, user.ID, wallet)
+		require.NoError(t, err)
+
+		var transactions []stripecoinpayments.Transaction
+		for i := 0; i < 5; i++ {
+			tx := stripecoinpayments.Transaction{
+				ID:        coinpayments.TransactionID(fmt.Sprintf("%d", i)),
+				AccountID: user.ID,
+				Address:   blockchaintest.NewAddress().Hex(),
+				Amount:    monetary.AmountFromBaseUnits(1000000000, monetary.StorjToken),
+				Received:  monetary.AmountFromBaseUnits(1000000000, monetary.StorjToken),
+				Status:    coinpayments.StatusCompleted,
+				Key:       "key",
+				Timeout:   0,
+			}
+
+			createdAt, err := sat.DB.StripeCoinPayments().Transactions().Insert(ctx, tx)
+			require.NoError(t, err)
+			err = sat.DB.StripeCoinPayments().Transactions().LockRate(ctx, tx.ID, decimal.NewFromInt(1))
+			require.NoError(t, err)
+
+			tx.CreatedAt = createdAt.UTC()
+			transactions = append(transactions, tx)
+		}
+
+		var cachedPayments []storjscan.CachedPayment
+		for i := 0; i < 10; i++ {
+			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
+				From:        blockchaintest.NewAddress(),
+				To:          wallet,
+				TokenValue:  monetary.AmountFromBaseUnits(1000, monetary.StorjToken),
+				USDValue:    monetary.AmountFromBaseUnits(1000, monetary.USDollars),
+				Status:      payments.PaymentStatusConfirmed,
+				BlockHash:   blockchaintest.NewHash(),
+				BlockNumber: int64(i),
+				Transaction: blockchaintest.NewHash(),
+				LogIndex:    0,
+				Timestamp:   now.Add(time.Duration(i) * 15 * time.Second),
+			})
+		}
+		err = sat.DB.StorjscanPayments().InsertBatch(ctx, cachedPayments)
+		require.NoError(t, err)
+
+		reqCtx := console.WithUser(ctx, user)
+
+		sort.Slice(cachedPayments, func(i, j int) bool {
+			return cachedPayments[i].BlockNumber > cachedPayments[j].BlockNumber
+		})
+		sort.Slice(transactions, func(i, j int) bool {
+			return transactions[i].CreatedAt.After(transactions[j].CreatedAt)
+		})
+
+		var expected []console.PaymentInfo
+		for _, pmnt := range cachedPayments {
+			expected = append(expected, console.PaymentInfo{
+				ID:        fmt.Sprintf("%s#%d", pmnt.Transaction.Hex(), pmnt.LogIndex),
+				Type:      "storjscan",
+				Wallet:    pmnt.To.Hex(),
+				Amount:    pmnt.USDValue,
+				Status:    string(pmnt.Status),
+				Link:      console.EtherscanURL(pmnt.Transaction.Hex()),
+				Timestamp: pmnt.Timestamp,
+			})
+		}
+		for _, tx := range transactions {
+			expected = append(expected, console.PaymentInfo{
+				ID:        tx.ID.String(),
+				Type:      "coinpayments",
+				Wallet:    tx.Address,
+				Amount:    monetary.AmountFromBaseUnits(1000, monetary.USDollars),
+				Received:  monetary.AmountFromBaseUnits(1000, monetary.USDollars),
+				Status:    tx.Status.String(),
+				Link:      coinpayments.GetCheckoutURL(tx.Key, tx.ID),
+				Timestamp: tx.CreatedAt,
+			})
+		}
+
+		walletPayments, err := sat.API.Console.Service.Payments().WalletPayments(reqCtx)
+		require.NoError(t, err)
+		require.Equal(t, expected, walletPayments.Payments)
 	})
 }

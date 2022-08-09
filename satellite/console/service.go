@@ -528,7 +528,13 @@ func (payment Payments) TokenDeposit(ctx context.Context, amount int64) (_ *paym
 
 	tx, err := payment.service.accounts.StorjTokens().Deposit(ctx, user.ID, amount)
 
-	return tx, Error.Wrap(err)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	payment.service.analytics.TrackStorjTokenAdded(user.ID, user.Email)
+
+	return tx, nil
 }
 
 // checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.
@@ -945,6 +951,11 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return Error.Wrap(err)
 	}
 
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -1297,6 +1308,11 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		PasswordHash: hash,
 	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -2698,19 +2714,26 @@ type WalletInfo struct {
 	Balance *big.Int           `json:"balance"`
 }
 
-// TokenTransactions represents the list of ERC-20 token payments.
-type TokenTransactions struct {
-	Transactions []TokenTransaction `json:"transactions"`
+// PaymentInfo includes token payment information required by GUI.
+type PaymentInfo struct {
+	ID        string
+	Type      string
+	Wallet    string
+	Amount    monetary.Amount
+	Received  monetary.Amount
+	Status    string
+	Link      string
+	Timestamp time.Time
 }
 
-// TokenTransaction contains the data of one single ERC-20 token payment.
-type TokenTransaction struct {
-	Origin  blockchain.Address `json:"origin"`
-	Address blockchain.Address `json:"address"`
-	TxHash  blockchain.Hash    `json:"tx_hash"`
-	Status  string             `json:"status"`
-	Date    time.Time          `json:"date"`
-	Amount  monetary.Amount    `json:"amount"`
+// WalletPayments represents the list of ERC-20 token payments.
+type WalletPayments struct {
+	Payments []PaymentInfo `json:"payments"`
+}
+
+// EtherscanURL creates etherscan transaction URI.
+func EtherscanURL(tx string) string {
+	return "https://etherscan.io/tx/" + tx
 }
 
 // ErrWalletNotClaimed shows that no address is claimed by the user.
@@ -2753,9 +2776,56 @@ func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error)
 	}, nil
 }
 
-// Transactions returns with all the native blockchain transactions.
-func (payment Payments) Transactions(ctx context.Context) (TokenTransactions, error) {
-	panic("Not yet implemented")
+// WalletPayments returns with all the native blockchain payments for a user's wallet.
+func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
+	address, err := payment.service.depositWallets.Get(ctx, user.ID)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
+
+	walletPayments, err := payment.service.depositWallets.Payments(ctx, address, 3000, 0)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
+	txInfos, err := payment.service.accounts.StorjTokens().ListTransactionInfos(ctx, user.ID)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
+
+	var paymentInfos []PaymentInfo
+	for _, walletPayment := range walletPayments {
+		paymentInfos = append(paymentInfos, PaymentInfo{
+			ID:        fmt.Sprintf("%s#%d", walletPayment.Transaction.Hex(), walletPayment.LogIndex),
+			Type:      "storjscan",
+			Wallet:    walletPayment.To.Hex(),
+			Amount:    walletPayment.USDValue,
+			Status:    string(walletPayment.Status),
+			Link:      EtherscanURL(walletPayment.Transaction.Hex()),
+			Timestamp: walletPayment.Timestamp,
+		})
+	}
+	for _, txInfo := range txInfos {
+		paymentInfos = append(paymentInfos, PaymentInfo{
+			ID:        txInfo.ID.String(),
+			Type:      "coinpayments",
+			Wallet:    txInfo.Address,
+			Amount:    monetary.AmountFromBaseUnits(txInfo.AmountCents, monetary.USDollars),
+			Received:  monetary.AmountFromBaseUnits(txInfo.ReceivedCents, monetary.USDollars),
+			Status:    txInfo.Status.String(),
+			Link:      txInfo.Link,
+			Timestamp: txInfo.CreatedAt.UTC(),
+		})
+	}
+
+	return WalletPayments{
+		Payments: paymentInfos,
+	}, nil
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {

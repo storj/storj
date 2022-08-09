@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="edit-profile-popup-container">
-        <div class="edit-profile-popup">
-            <div class="edit-profile-popup__form-container">
-                <div class="edit-profile-row-container">
-                    <div class="edit-profile-popup__form-container__avatar">
-                        <h1 class="edit-profile-popup__form-container__avatar__letter">{{ avatarLetter }}</h1>
+    <VModal :on-close="closeModal">
+        <template #content>
+            <div class="edit-profile">
+                <div class="edit-profile__row">
+                    <div class="edit-profile__row__avatar">
+                        <h1 class="edit-profile__row__avatar__letter">{{ avatarLetter }}</h1>
                     </div>
-                    <h2 class="edit-profile-popup__form-container__main-label-text">Edit Profile</h2>
+                    <h2 class="edit-profile__row__label">Edit Profile</h2>
                 </div>
                 <VInput
                     label="Full Name"
@@ -18,27 +18,24 @@
                     :init-value="userInfo.fullName"
                     @setData="setFullName"
                 />
-                <div class="edit-profile-popup__form-container__button-container">
+                <div class="edit-profile__buttons">
                     <VButton
                         label="Cancel"
-                        width="205px"
+                        width="100%"
                         height="48px"
-                        :on-press="onCloseClick"
+                        :on-press="closeModal"
                         is-transparent="true"
                     />
                     <VButton
                         label="Update"
-                        width="205px"
+                        width="100%"
                         height="48px"
                         :on-press="onUpdateClick"
                     />
                 </div>
             </div>
-            <div class="edit-profile-popup__close-cross-container" @click="onCloseClick">
-                <CloseCrossIcon />
-            </div>
-        </div>
-    </div>
+        </template>
+    </VModal>
 </template>
 
 <script lang="ts">
@@ -46,36 +43,37 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
-
-import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import VModal from '@/components/common/VModal.vue';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
 
 // @vue/component
 @Component({
     components: {
-        CloseCrossIcon,
         VInput,
         VButton,
+        VModal,
     },
 })
-export default class EditProfilePopup extends Vue {
+export default class EditProfileModal extends Vue {
     private fullNameError = '';
 
     private readonly userInfo: UpdatedUser =
         new UpdatedUser(this.$store.getters.user.fullName, this.$store.getters.user.shortName);
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+    /**
+     * Set full name value from input.
+     */
     public setFullName(value: string): void {
         this.userInfo.setFullName(value);
         this.fullNameError = '';
     }
-
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Validates name and tries to update user info and close popup.
@@ -99,14 +97,14 @@ export default class EditProfilePopup extends Vue {
 
         await this.$notify.success('Account info successfully updated!');
 
-        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+        this.closeModal();
     }
 
     /**
-     * Closes popup.
+     * Closes modal.
      */
-    public onCloseClick(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+    public closeModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_MODAL_SHOWN);
     }
 
     /**
@@ -119,54 +117,17 @@ export default class EditProfilePopup extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .edit-profile-row-container {
-        width: 100%;
-        display: flex;
-        flex-direction: row;
-        align-content: center;
-        justify-content: flex-start;
-        margin-bottom: 40px;
-    }
-
-    .edit-profile-popup-container {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgb(134 134 148 / 40%);
-        z-index: 1000;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-family: 'font_regular', sans-serif;
-    }
-
-    .edit-profile-popup {
-        width: 100%;
-        max-width: 440px;
+    .edit-profile {
         background-color: #fff;
         border-radius: 6px;
         display: flex;
-        flex-direction: row;
-        align-items: flex-start;
-        position: relative;
-        justify-content: center;
-        padding: 80px;
+        flex-direction: column;
+        padding: 48px;
 
-        &__info-panel-container {
+        &__row {
             display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
             align-items: center;
-            margin-right: 100px;
-            margin-top: 20px;
-        }
-
-        &__form-container {
-            width: 100%;
-            max-width: 440px;
-            margin-top: 10px;
+            margin-bottom: 30px;
 
             &__avatar {
                 width: 60px;
@@ -186,55 +147,21 @@ export default class EditProfilePopup extends Vue {
                 }
             }
 
-            &__main-label-text {
+            &__label {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 60px;
                 color: #384b65;
                 margin-top: 0;
             }
-
-            &__button-container {
-                width: 100%;
-                display: flex;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 40px;
-            }
         }
 
-        &__close-cross-container {
+        &__buttons {
+            width: 100%;
             display: flex;
-            justify-content: center;
             align-items: center;
-            position: absolute;
-            right: 30px;
-            top: 40px;
-            height: 24px;
-            width: 24px;
-            cursor: pointer;
-
-            &:hover .close-cross-svg-path {
-                fill: #2683ff;
-            }
-        }
-    }
-
-    @media screen and (max-width: 720px) {
-
-        .edit-profile-popup {
-
-            &__info-panel-container {
-                display: none;
-            }
-
-            &__form-container {
-
-                &__button-container {
-                    width: 100%;
-                }
-            }
+            margin-top: 40px;
+            column-gap: 20px;
         }
     }
 </style>

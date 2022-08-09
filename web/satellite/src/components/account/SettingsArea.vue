@@ -16,7 +16,7 @@
             </div>
             <EditIcon
                 class="edit-svg"
-                @click="toggleEditProfilePopup"
+                @click="toggleEditProfileModal"
             />
         </div>
         <div class="settings__secondary-container">
@@ -30,7 +30,7 @@
                 </div>
                 <EditIcon
                     class="edit-svg"
-                    @click="toggleChangePasswordPopup"
+                    @click="toggleChangePasswordModal"
                 />
             </div>
             <div class="settings__secondary-container__email-container">
@@ -65,7 +65,7 @@
                         label="Disable 2FA"
                         width="173px"
                         height="44px"
-                        :on-press="toggleDisableMFAPopup"
+                        :on-press="toggleDisableMFAModal"
                         is-deletion="true"
                     />
                     <VButton
@@ -79,31 +79,21 @@
                 </div>
             </div>
         </div>
-        <ChangePasswordPopup v-if="isChangePasswordPopupShown" />
-        <EditProfilePopup v-if="isEditProfilePopupShown" />
-        <EnableMFAPopup v-if="isEnableMFAPopup" :toggle-modal="toggleEnableMFAPopup" />
-        <DisableMFAPopup v-if="isDisableMFAPopup" :toggle-modal="toggleDisableMFAPopup" />
-        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
-import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
-import DisableMFAPopup from '@/components/account/mfa/DisableMFAPopup.vue';
-import EnableMFAPopup from '@/components/account/mfa/EnableMFAPopup.vue';
-import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { User } from '@/types/users';
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+
 import VButton from '@/components/common/VButton.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/profile/changePassword.svg';
 import EmailIcon from '@/../static/images/account/profile/email.svg';
 import EditIcon from '@/../static/images/common/edit.svg';
-
-import { USER_ACTIONS } from '@/store/modules/users';
-import { User } from '@/types/users';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 // @vue/component
 @Component({
@@ -112,18 +102,10 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         ChangePasswordIcon,
         EmailIcon,
         VButton,
-        ChangePasswordPopup,
-        EditProfilePopup,
-        EnableMFAPopup,
-        DisableMFAPopup,
-        MFARecoveryCodesPopup,
     },
 })
 export default class SettingsArea extends Vue {
     public isLoading = false;
-    public isEnableMFAPopup = false;
-    public isDisableMFAPopup = false;
-    public isMFACodesPopup = false;
 
     /**
      * Lifecycle hook after initial render where user info is fetching.
@@ -142,7 +124,7 @@ export default class SettingsArea extends Vue {
 
         try {
             await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
-            this.toggleEnableMFAPopup();
+            this.toggleEnableMFAModal();
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -160,7 +142,7 @@ export default class SettingsArea extends Vue {
 
         try {
             await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
-            this.toggleMFACodesPopup();
+            this.toggleMFACodesModal();
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -169,38 +151,38 @@ export default class SettingsArea extends Vue {
     }
 
     /**
-     * Toggles enable MFA popup visibility.
+     * Toggles enable MFA modal visibility.
      */
-    public toggleEnableMFAPopup(): void {
-        this.isEnableMFAPopup = !this.isEnableMFAPopup;
+    public toggleEnableMFAModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENABLE_MFA_MODAL_SHOWN);
     }
 
     /**
-     * Toggles disable MFA popup visibility.
+     * Toggles disable MFA modal visibility.
      */
-    public toggleDisableMFAPopup(): void {
-        this.isDisableMFAPopup = !this.isDisableMFAPopup;
+    public toggleDisableMFAModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_DISABLE_MFA_MODAL_SHOWN);
     }
 
     /**
-     * Toggles MFA recovery codes popup visibility.
+     * Toggles MFA recovery codes modal visibility.
      */
-    public toggleMFACodesPopup(): void {
-        this.isMFACodesPopup = !this.isMFACodesPopup;
+    public toggleMFACodesModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
     }
 
     /**
      * Opens change password popup.
      */
-    public toggleChangePasswordPopup(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+    public toggleChangePasswordModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_MODAL_SHOWN);
     }
 
     /**
-     * Opens edit account info popup.
+     * Opens edit account info modal.
      */
-    public toggleEditProfilePopup(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+    public toggleEditProfileModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_MODAL_SHOWN);
     }
 
     /**
@@ -208,20 +190,6 @@ export default class SettingsArea extends Vue {
      */
     public get user(): User {
         return this.$store.getters.user;
-    }
-
-    /**
-     * Indicates if edit user info popup is shown.
-     */
-    public get isEditProfilePopupShown(): boolean {
-        return this.$store.state.appStateModule.appState.isEditProfilePopupShown;
-    }
-
-    /**
-     * Indicates if change password popup is shown.
-     */
-    public get isChangePasswordPopupShown(): boolean {
-        return this.$store.state.appStateModule.appState.isChangePasswordPopupShown;
     }
 
     /**
