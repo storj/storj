@@ -51,6 +51,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
+import { RouteConfig } from '@/router';
 
 
 // TODO: a lot of code can be refactored/reused/split into modules
@@ -117,7 +118,7 @@ export default class CreateAccessModal extends Vue {
      * Checks which type was selected and retrieves buckets on mount.
      */
     public async mounted(): Promise<void> {
-        this.checkedType = this.defaultType;
+        this.checkedType = this.$route.params.accessType;
         this.setWorker();
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
@@ -264,7 +265,7 @@ export default class CreateAccessModal extends Vue {
      */
     public onCloseClick(): void {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
-        this.$emit('close-modal')
+        this.$router.push(RouteConfig.AccessGrants.path);
     }
 
     /**
