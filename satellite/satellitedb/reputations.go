@@ -44,10 +44,10 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 // The update is done in a loop to handle concurrent update calls and to avoid
 // the need for an explicit transaction.
 // There are three main steps go into the update process:
-// 1. Get existing row for the node
-//    a. if no row found, insert a new row.
-// 2. Evaluate what the new values for the row fields should be.
-// 3. Update row using compare-and-swap.
+//  1. Get existing row for the node
+//     (if no row found, insert a new row).
+//  2. Evaluate what the new values for the row fields should be.
+//  3. Update row using compare-and-swap.
 //
 // If the node (as represented in the returned info) becomes newly vetted,
 // disqualified, or suspended as a result of these updates, the caller is

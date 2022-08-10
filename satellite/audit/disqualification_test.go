@@ -27,7 +27,7 @@ import (
 // TestDisqualificationTooManyFailedAudits does the following:
 //   - Create a failed audit report for a storagenode
 //   - Record the audit report several times and check that the node isn't
-//	   disqualified until the audit reputation reaches the cut-off value.
+//     disqualified until the audit reputation reaches the cut-off value.
 func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	var (
 		auditDQCutOff = 0.4
