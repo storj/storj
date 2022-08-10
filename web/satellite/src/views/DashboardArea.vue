@@ -20,15 +20,7 @@
                         <ProjectInfoBar v-if="isProjectListPage" />
                         <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
                     </div>
-                    <router-view
-                        class="dashboard__wrap__main-area__content-wrap__content"
-                        :class="{
-                            'with-one-bar': amountOfInfoBars === 1,
-                            'with-two-bars': amountOfInfoBars === 2,
-                            'with-three-bars': amountOfInfoBars === 3,
-                            'with-four-bars': amountOfInfoBars === 4,
-                        }"
-                    />
+                    <router-view class="dashboard__wrap__main-area__content-wrap__content" />
                 </div>
             </div>
         </div>
@@ -223,21 +215,6 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Returns amount of rendered info bars.
-     * It is used to set height of content's container.
-     */
-    public get amountOfInfoBars(): number {
-        const conditions: boolean[] = [
-            this.isBetaSatellite,
-            !this.creditCards.length && !this.isOnboardingTour,
-            this.isProjectListPage,
-            this.showMFARecoveryCodeBar,
-        ]
-
-        return conditions.filter(c => c).length;
-    }
-
-    /**
      * Indicates if current route is projects list page.
      */
     public get isProjectListPage(): boolean {
@@ -408,27 +385,12 @@ export default class DashboardArea extends Vue {
         }
     }
 
-    .with-one-bar {
-        padding-top: 56px;
-    }
-
-    .with-two-bars {
-        padding-top: 82px;
-    }
-
-    .with-three-bars {
-        padding-top: 108px;
-    }
-
-    .with-four-bars {
-        padding-top: 134px;
-    }
-
     .no-nav {
         width: 100%;
     }
 
     .bars {
+        display: contents;
         position: fixed;
         width: 100%;
         top: 0;

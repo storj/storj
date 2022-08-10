@@ -106,6 +106,8 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 	defer mon.Task()(&ctx)(&err)
 
 	return db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
+		// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
+		// of that we need to get into account also object with zombie_deletion_deadline set to NULL
 		query := `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id
@@ -114,7 +116,7 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 			WHERE
 				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 				AND status = ` + pendingStatus + `
-				AND zombie_deletion_deadline < $5
+				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < $5)
 				ORDER BY project_id, bucket_name, object_key, version
 			LIMIT $6;`
 

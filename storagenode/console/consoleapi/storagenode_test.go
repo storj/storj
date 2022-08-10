@@ -151,10 +151,12 @@ func makeStorageUsageStamps(satellites []storj.NodeID) ([]storageusage.Stamp, ma
 
 	for _, satellite := range satellites {
 		for i := 0; i < currentDay; i++ {
+			intervalEndTime := now.Add(time.Hour * -24 * time.Duration(i))
 			stamp := storageusage.Stamp{
-				SatelliteID:   satellite,
-				AtRestTotal:   30000000000000,
-				IntervalStart: now.Add(time.Hour * -24 * time.Duration(i)),
+				SatelliteID:     satellite,
+				AtRestTotal:     30000000000000,
+				IntervalStart:   time.Date(intervalEndTime.Year(), intervalEndTime.Month(), intervalEndTime.Day(), 0, 0, 0, 0, intervalEndTime.Location()),
+				IntervalEndTime: intervalEndTime,
 			}
 
 			summary[satellite] += stamp.AtRestTotal
