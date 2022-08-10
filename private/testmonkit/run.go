@@ -5,13 +5,13 @@
 //
 // It allows to set an environment variable to get a trace per test.
 //
-//    STORJ_TEST_MONKIT=svg
-//    STORJ_TEST_MONKIT=json
+//	STORJ_TEST_MONKIT=svg
+//	STORJ_TEST_MONKIT=json
 //
 // By default, it saves the output the same folder as the test. However, if you wish
 // to specify a separate folder, you can specify an absolute directory:
 //
-//    STORJ_TEST_MONKIT=json,svg,dir=/home/user/debug/trace
+//	STORJ_TEST_MONKIT=json,svg,dir=/home/user/debug/trace
 //
 // Note, due to how go tests work, it's not possible to specify a relative directory.
 package testmonkit
