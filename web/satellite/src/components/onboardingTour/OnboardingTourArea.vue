@@ -17,12 +17,6 @@ export default class OnboardingTourArea extends Vue {}
 
 <style scoped lang="scss">
 
-    @media screen and (max-width: 760px) {
-
-        .tour-area {
-            width: 88% !important;
-        }
-    }
     .tour-area {
         padding: 30px 0;
         width: 100%;
@@ -30,5 +24,12 @@ export default class OnboardingTourArea extends Vue {}
         display: flex;
         flex-direction: column;
         align-items: center;
+    }
+
+    @media screen and (max-width: 760px) {
+
+        .tour-area {
+            width: 88% !important;
+        }
     }
 </style>

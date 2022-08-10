@@ -238,11 +238,7 @@ export default class GeneratePassphrase extends Vue {
 </script>
 
 <style scoped lang="scss">
-@media screen and (max-width: 760px) {
-        .encrypt-container {
-            width: 200px;
-        }  
-    }
+
 .encrypt-container {
     font-family: 'font_regular', sans-serif;
     padding: 60px 60px 50px;
@@ -401,4 +397,11 @@ export default class GeneratePassphrase extends Vue {
         }
     }
 }
+
+    @media screen and (max-width: 760px) {
+
+        .encrypt-container {
+            width: 200px;
+        }
+    }
 </style>

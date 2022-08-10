@@ -72,17 +72,7 @@ export default class OverviewContainer extends Vue {
 </script>
 
 <style scoped lang="scss">
-
-    @media screen and (max-width: 760px) {
-
-        .overview-container {
-            width: 250px;
-        }
-
-        .overview-container__title {
-            text-align: center;
-        }
-    }
+   
     .overview-container {
         background: #fcfcfc;
         box-shadow: 0 0 32px rgb(0 0 0 / 4%);
@@ -145,6 +135,17 @@ export default class OverviewContainer extends Vue {
                     color: #354049;
                 }
             }
+        }
+    }
+
+    @media screen and (max-width: 760px) {
+
+        .overview-container {
+            width: 250px;
+        }
+
+        .overview-container__title {
+            text-align: center;
         }
     }
 </style>
