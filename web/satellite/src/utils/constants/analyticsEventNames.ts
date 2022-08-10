@@ -30,4 +30,16 @@ export enum AnalyticsEvent {
     MFA_ENABLED = 'MFA Enabled',
     BUCKET_CREATED = 'Bucket Created',
     BUCKET_DELETED = 'Bucket Deleted',
+    ACCESS_GRANT_CREATED = 'Access Grant Created',
+    API_ACCESS_CREATED  = 'API Access Created',
+    UPLOAD_FILE_CLICKED = 'Upload File Clicked',
+    UPLOAD_FOLDER_CLICKED = 'Upload Folder Clicked',
+    CREATE_KEYS_CLICKED = 'Create Keys Clicked',
+    DOWNLOAD_TXT_CLICKED = 'Download txt clicked',
+    ENCRYPT_MY_ACCESS_CLICKED = 'Encrypt My Access Clicked',
+    COPY_TO_CLIPBOARD_CLICKED = 'Copy to Clipboard Clicked',
+    CREATE_ACCESS_GRANT_CLICKED = 'Create Access Grant Clicked',
+    CREATE_S3_CREDENTIALS_CLICKED = 'Create S3 Credentials Clicked',
+    CREATE_KEYS_FOR_CLI_CLICKED = 'Create Keys For CLI Clicked',
+
 }

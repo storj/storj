@@ -769,6 +769,8 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		a.serveJSONError(w, err)
+	} else {
+		a.cookieAuth.RemoveTokenCookie(w)
 	}
 }
 

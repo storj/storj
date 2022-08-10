@@ -18,6 +18,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
 
 func TestAuth(t *testing.T) {
@@ -172,6 +173,28 @@ func TestPayments(t *testing.T) {
 			require.Contains(t, body, "egress")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
+	})
+}
+
+func TestWalletPayments(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		test := newTest(t, ctx, planet)
+		sat := planet.Satellites[0]
+
+		userData := test.defaultUser()
+		test.login(userData.email, userData.password)
+
+		user, err := sat.DB.Console().Users().GetByEmail(ctx, userData.email)
+		require.NoError(t, err)
+
+		wallet := blockchaintest.NewAddress()
+		err = sat.DB.Wallets().Add(ctx, user.ID, wallet)
+		require.NoError(t, err)
+
+		resp, _ := test.request(http.MethodGet, "/payments/wallet/payments", nil)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 }
 

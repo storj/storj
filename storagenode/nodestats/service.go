@@ -168,9 +168,10 @@ func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID stor
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {
 		stamps = append(stamps, storageusage.Stamp{
-			SatelliteID:   satelliteID,
-			AtRestTotal:   pbUsage.AtRestTotal,
-			IntervalStart: pbUsage.Timestamp,
+			SatelliteID:     satelliteID,
+			AtRestTotal:     pbUsage.AtRestTotal,
+			IntervalStart:   pbUsage.Timestamp,
+			IntervalEndTime: pbUsage.IntervalEndTime,
 		})
 	}
 

@@ -5,7 +5,10 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"time"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/private/blockchain"
@@ -113,10 +116,13 @@ func (storjscanPayments *storjscanPayments) List(ctx context.Context) (_ []storj
 
 // ListWallet returns list of storjscan payments order by block number and log index desc.
 func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wallet blockchain.Address, limit int, offset int64) ([]storjscan.CachedPayment, error) {
-	dbxPmnts, err := storjscanPayments.db.Limited_StorjscanPayment_By_ToAddress_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx,
+	dbxPmnts, err := storjscanPayments.db.Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx,
 		dbx.StorjscanPayment_ToAddress(wallet[:]),
 		limit, offset)
 	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return []storjscan.CachedPayment{}, nil
+		}
 		return nil, Error.Wrap(err)
 	}
 

@@ -16249,13 +16249,13 @@ func (obj *pgxImpl) All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_LogIndex(ct
 
 }
 
-func (obj *pgxImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx context.Context,
+func (obj *pgxImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 	storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
 	limit int, offset int64) (
 	rows []*StorjscanPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.block_number, storjscan_payments.log_index LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, storjscan_payment_to_address.value())
@@ -23660,13 +23660,13 @@ func (obj *pgxcockroachImpl) All_StorjscanPayment_OrderBy_Asc_BlockNumber_Asc_Lo
 
 }
 
-func (obj *pgxcockroachImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx context.Context,
+func (obj *pgxcockroachImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 	storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
 	limit int, offset int64) (
 	rows []*StorjscanPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.block_number, storjscan_payments.log_index LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storjscan_payments.block_hash, storjscan_payments.block_number, storjscan_payments.transaction, storjscan_payments.log_index, storjscan_payments.from_address, storjscan_payments.to_address, storjscan_payments.token_value, storjscan_payments.usd_value, storjscan_payments.status, storjscan_payments.timestamp, storjscan_payments.created_at FROM storjscan_payments WHERE storjscan_payments.to_address = ? ORDER BY storjscan_payments.block_number DESC, storjscan_payments.log_index DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, storjscan_payment_to_address.value())
@@ -28211,7 +28211,7 @@ func (rx *Rx) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ct
 	return tx.Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx, storagenode_payment_node_id, storagenode_payment_period, limit, offset)
 }
 
-func (rx *Rx) Limited_StorjscanPayment_By_ToAddress_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx context.Context,
+func (rx *Rx) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 	storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
 	limit int, offset int64) (
 	rows []*StorjscanPayment, err error) {
@@ -28219,7 +28219,7 @@ func (rx *Rx) Limited_StorjscanPayment_By_ToAddress_OrderBy_Asc_BlockNumber_Asc_
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_StorjscanPayment_By_ToAddress_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx, storjscan_payment_to_address, limit, offset)
+	return tx.Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx, storjscan_payment_to_address, limit, offset)
 }
 
 func (rx *Rx) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
@@ -29312,7 +29312,7 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*StoragenodePayment, err error)
 
-	Limited_StorjscanPayment_By_ToAddress_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx context.Context,
+	Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 		storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
 		limit int, offset int64) (
 		rows []*StorjscanPayment, err error)

@@ -1439,7 +1439,7 @@ read all (
 read limitoffset (
     select storjscan_payment
     where storjscan_payment.to_address = ?
-    orderby ( asc storjscan_payment.block_number, asc storjscan_payment.log_index )
+    orderby ( desc storjscan_payment.block_number, desc storjscan_payment.log_index )
 )
 read first (
     select storjscan_payment.block_number
