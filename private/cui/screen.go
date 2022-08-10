@@ -18,8 +18,9 @@ var initialized = false
 const padding = 2
 
 // Point is a 2D coordinate in console.
-//   X is the column
-//   Y is the row
+//
+//	X is the column
+//	Y is the row
 type Point struct{ X, Y int }
 
 // Rect is a 2D rectangle in console, excluding Max edge.

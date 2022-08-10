@@ -728,11 +728,11 @@ func (db *ProjectAccounting) getSingleBucketRollup(ctx context.Context, projectI
 // bytes), returns false for ok.
 //
 // examples: prefixIncrement([]byte("abc"))          -> ([]byte("abd", true)
-//           prefixIncrement([]byte("ab\xff\xff"))   -> ([]byte("ac", true)
-//           prefixIncrement([]byte(""))             -> (nil, false)
-//           prefixIncrement([]byte("\x00"))         -> ([]byte("\x01", true)
-//           prefixIncrement([]byte("\xff\xff\xff")) -> (nil, false)
 //
+//	prefixIncrement([]byte("ab\xff\xff"))   -> ([]byte("ac", true)
+//	prefixIncrement([]byte(""))             -> (nil, false)
+//	prefixIncrement([]byte("\x00"))         -> ([]byte("\x01", true)
+//	prefixIncrement([]byte("\xff\xff\xff")) -> (nil, false)
 func prefixIncrement(origPrefix []byte) (incremented []byte, ok bool) {
 	incremented = make([]byte, len(origPrefix))
 	copy(incremented, origPrefix)

@@ -13,9 +13,10 @@ import (
 // TotalAmounts holds the amounts held and disposed.
 //
 // Invariants:
-//   TotalHeld >= TotalDisposed
-//   TotalPaid >= TotalDisposed
-//   TotalPaid >= TotalDistributed (we may distribute less due to minimum payout threshold)
+//
+//	TotalHeld >= TotalDisposed
+//	TotalPaid >= TotalDisposed
+//	TotalPaid >= TotalDistributed (we may distribute less due to minimum payout threshold)
 type TotalAmounts struct {
 	TotalHeld        currency.MicroUnit // portion from owed that was held back
 	TotalDisposed    currency.MicroUnit // portion from held back that went into paid
