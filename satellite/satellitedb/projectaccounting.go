@@ -219,16 +219,6 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 
 		expiredSince := nowBeginningOfDay.Add(time.Duration(-allocatedExpirationInDays) * time.Hour * 24)
 
-		batch.Queue(db.db.Rebind(`
-			SELECT interval_day, egress_settled,
-				CASE WHEN interval_day < $1
-					THEN egress_settled
-					ELSE egress_allocated-egress_dead 
-				END AS allocated
-			FROM project_bandwidth_daily_rollups
-			WHERE project_id = $2 AND (interval_day BETWEEN $3 AND $4)
-		`), expiredSince, projectID, fromBeginningOfDay, toEndOfDay)
-
 		storageQuery := db.db.Rebind(`
 			WITH project_usage AS (
 			SELECT
@@ -261,40 +251,18 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 		`)
 		batch.Queue(storageQuery, projectID, fromBeginningOfDay, toEndOfDay)
 
+		batch.Queue(db.db.Rebind(`
+			SELECT interval_day, egress_settled,
+				CASE WHEN interval_day < $1
+					THEN egress_settled
+					ELSE egress_allocated-egress_dead 
+				END AS allocated
+			FROM project_bandwidth_daily_rollups
+			WHERE project_id = $2 AND (interval_day BETWEEN $3 AND $4)
+		`), expiredSince, projectID, fromBeginningOfDay, toEndOfDay)
+
 		results := conn.SendBatch(ctx, &batch)
 		defer func() { err = errs.Combine(err, results.Close()) }()
-
-		bandwidthRows, err := results.Query()
-		if err != nil {
-			return err
-		}
-
-		for bandwidthRows.Next() {
-			var day time.Time
-			var settled int64
-			var allocated int64
-
-			err = bandwidthRows.Scan(&day, &settled, &allocated)
-			if err != nil {
-				return err
-			}
-
-			settledBandwidth = append(settledBandwidth, accounting.ProjectUsageByDay{
-				Date:  day.UTC(),
-				Value: settled,
-			})
-
-			allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
-				Date:  day.UTC(),
-				Value: allocated,
-			})
-		}
-
-		defer func() { bandwidthRows.Close() }()
-		err = bandwidthRows.Err()
-		if err != nil {
-			return err
-		}
 
 		storageRows, err := results.Query()
 		if err != nil {
@@ -338,6 +306,38 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 
 		defer func() { storageRows.Close() }()
 		err = storageRows.Err()
+		if err != nil {
+			return err
+		}
+
+		bandwidthRows, err := results.Query()
+		if err != nil {
+			return err
+		}
+
+		for bandwidthRows.Next() {
+			var day time.Time
+			var settled int64
+			var allocated int64
+
+			err = bandwidthRows.Scan(&day, &settled, &allocated)
+			if err != nil {
+				return err
+			}
+
+			settledBandwidth = append(settledBandwidth, accounting.ProjectUsageByDay{
+				Date:  day.UTC(),
+				Value: settled,
+			})
+
+			allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
+				Date:  day.UTC(),
+				Value: allocated,
+			})
+		}
+
+		defer func() { bandwidthRows.Close() }()
+		err = bandwidthRows.Err()
 		if err != nil {
 			return err
 		}
