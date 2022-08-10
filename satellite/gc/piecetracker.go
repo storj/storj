@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
-var remoteSegmentFunc = mon.Func()
+var remoteSegmentFunc = mon.Task()
 
 var _ segmentloop.Observer = (*PieceTracker)(nil)
 
@@ -55,7 +55,7 @@ func (pieceTracker *PieceTracker) LoopStarted(ctx context.Context, info segmentl
 
 // RemoteSegment takes a remote segment found in metabase and adds pieces to bloom filters.
 func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
-	defer remoteSegmentFunc.Task(&ctx)(nil) // method always returns nil
+	defer remoteSegmentFunc(&ctx)(nil) // method always returns nil
 
 	deriver := segment.RootPieceID.Deriver()
 	for _, piece := range segment.Pieces {

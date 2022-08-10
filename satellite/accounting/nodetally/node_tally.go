@@ -115,7 +115,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	return nil
 }
 
-var remoteSegmentFunc = mon.Func()
+var remoteSegmentFunc = mon.Task()
 
 var _ segmentloop.Observer = (*Observer)(nil)
 
@@ -144,7 +144,7 @@ func (observer *Observer) LoopStarted(context.Context, segmentloop.LoopInfo) (er
 
 // RemoteSegment is called for each remote segment.
 func (observer *Observer) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
-	defer remoteSegmentFunc.Task(&ctx)(nil) // method always returns nil
+	defer remoteSegmentFunc(&ctx)(nil) // method always returns nil
 
 	if segment.Expired(observer.now) {
 		return nil

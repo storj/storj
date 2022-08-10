@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	remoteSegmentFunc = mon.Func()
-	inlineSegmentFunc = mon.Func()
+	remoteSegmentFunc = mon.Task()
+	inlineSegmentFunc = mon.Task()
 )
 
 // Counter implements the segment loop observer interface for data science metrics collection.
@@ -50,7 +50,7 @@ func (counter *Counter) LoopStarted(context.Context, segmentloop.LoopInfo) (err 
 
 // RemoteSegment increments the count for objects with remote segments.
 func (counter *Counter) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
-	defer remoteSegmentFunc.Task(&ctx)(nil) // method always returns nil
+	defer remoteSegmentFunc(&ctx)(nil) // method always returns nil
 
 	counter.onlyInline = false
 
@@ -68,7 +68,7 @@ func (counter *Counter) RemoteSegment(ctx context.Context, segment *segmentloop.
 
 // InlineSegment increments the count for inline objects.
 func (counter *Counter) InlineSegment(ctx context.Context, segment *segmentloop.Segment) error {
-	defer inlineSegmentFunc.Task(&ctx)(nil) // method always returns nil
+	defer inlineSegmentFunc(&ctx)(nil) // method always returns nil
 
 	counter.TotalInlineBytes += int64(segment.EncryptedSize)
 	counter.TotalInlineSegments++
