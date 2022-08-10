@@ -4,30 +4,6 @@
 <template>
     <div class="access-grant">
         <div class="access-grant__modal-container">
-            <div
-                v-if="tooltipHover === 'access'"
-                class="access-tooltip"
-                @mouseover="toggleTooltipHover('access','over')"
-                @mouseleave="toggleTooltipHover('access','leave')"
-            >
-                <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://docs.storj.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants')">Learn More</a></span>
-            </div>
-            <div
-                v-if="tooltipHover === 's3'"
-                class="s3-tooltip"
-                @mouseover="toggleTooltipHover('s3','over')"
-                @mouseleave="toggleTooltipHover('s3','leave')"
-            >
-                <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')">Learn More</a></span>
-            </div>
-            <div
-                v-if="tooltipHover === 'api'"
-                class="api-tooltip"
-                @mouseover="toggleTooltipHover('api','over')"
-                @mouseleave="toggleTooltipHover('api','leave')"
-            >
-                <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/')">Learn More</a></span>
-            </div>
             <!-- ********* Create Form Modal ********* -->
             <form v-if="accessGrantStep === 'create'">
                 <CreateFormModal
