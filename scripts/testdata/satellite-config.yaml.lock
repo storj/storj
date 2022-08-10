@@ -215,7 +215,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.new-objects-flow: true
 
 # indicates if new project dashboard should be used
-# console.new-project-dashboard: false
+# console.new-project-dashboard: true
 
 # how long oauth access tokens are issued for
 # console.oauth-access-token-expiry: 24h0m0s

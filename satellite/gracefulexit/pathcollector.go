@@ -15,7 +15,7 @@ import (
 	"storj.io/uplink/private/eestream"
 )
 
-var remoteSegmentFunc = mon.Func()
+var remoteSegmentFunc = mon.Task()
 
 var _ segmentloop.Observer = (*PathCollector)(nil)
 
@@ -64,7 +64,7 @@ func (collector *PathCollector) Flush(ctx context.Context) (err error) {
 
 // RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already.
 func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer remoteSegmentFunc.Task(&ctx)(&err)
+	defer remoteSegmentFunc(&ctx)(&err)
 
 	if len(collector.nodeIDStorage) == 0 {
 		return nil

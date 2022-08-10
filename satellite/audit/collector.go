@@ -11,7 +11,7 @@ import (
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
-var remoteSegmentFunc = mon.Func()
+var remoteSegmentFunc = mon.Task()
 
 var _ segmentloop.Observer = (*Collector)(nil)
 
@@ -38,7 +38,7 @@ func (collector *Collector) LoopStarted(context.Context, segmentloop.LoopInfo) (
 
 // RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already.
 func (collector *Collector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
-	defer remoteSegmentFunc.Task(&ctx)(nil) // method always returns nil
+	defer remoteSegmentFunc(&ctx)(nil) // method always returns nil
 
 	for _, piece := range segment.Pieces {
 		res, ok := collector.Reservoirs[piece.StorageNode]

@@ -32,6 +32,7 @@ func TestServicePayments(t *testing.T) {
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
 				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
+				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
@@ -43,6 +44,7 @@ func TestServicePayments(t *testing.T) {
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
 				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
+				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
@@ -54,6 +56,7 @@ func TestServicePayments(t *testing.T) {
 				From:        blockchaintest.NewAddress(),
 				To:          wallet2,
 				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
+				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
@@ -65,6 +68,7 @@ func TestServicePayments(t *testing.T) {
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
 				TokenValue:  monetary.AmountFromBaseUnits(200, monetary.StorjToken),
+				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
 				Status:      payments.PaymentStatusPending,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 1,
@@ -80,6 +84,7 @@ func TestServicePayments(t *testing.T) {
 				From:        pmnt.From,
 				To:          pmnt.To,
 				TokenValue:  pmnt.TokenValue,
+				USDValue:    pmnt.USDValue,
 				Status:      pmnt.Status,
 				BlockHash:   pmnt.BlockHash,
 				BlockNumber: pmnt.BlockNumber,
@@ -94,21 +99,21 @@ func TestServicePayments(t *testing.T) {
 		service := storjscan.NewService(zaptest.NewLogger(t), db.Wallets(), paymentsDB, nil)
 
 		t.Run("wallet 1", func(t *testing.T) {
-			expected := []payments.WalletPayment{walletPayments[0], walletPayments[1], walletPayments[3]}
+			expected := []payments.WalletPayment{walletPayments[3], walletPayments[1], walletPayments[0]}
 
 			actual, err := service.Payments(ctx, wallet1, 5, 0)
 			require.NoError(t, err)
 			require.Equal(t, expected, actual)
 		})
 		t.Run("wallet 1 from offset", func(t *testing.T) {
-			expected := []payments.WalletPayment{walletPayments[1], walletPayments[3]}
+			expected := []payments.WalletPayment{walletPayments[1], walletPayments[0]}
 
 			actual, err := service.Payments(ctx, wallet1, 5, 1)
 			require.NoError(t, err)
 			require.Equal(t, expected, actual)
 		})
 		t.Run("wallet 1 with limit", func(t *testing.T) {
-			expected := []payments.WalletPayment{walletPayments[0], walletPayments[1]}
+			expected := []payments.WalletPayment{walletPayments[3], walletPayments[1]}
 
 			actual, err := service.Payments(ctx, wallet1, 2, 0)
 			require.NoError(t, err)

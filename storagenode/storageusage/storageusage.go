@@ -30,7 +30,12 @@ type DB interface {
 
 // Stamp is storage usage stamp for satellite from interval start till next interval.
 type Stamp struct {
-	SatelliteID   storj.NodeID `json:"-"`
-	AtRestTotal   float64      `json:"atRestTotal"`
-	IntervalStart time.Time    `json:"intervalStart"`
+	SatelliteID storj.NodeID `json:"-"`
+	AtRestTotal float64      `json:"atRestTotal"`
+	// IntervalStart represents one tally day
+	//  TODO: rename to timestamp to match DB
+	IntervalStart time.Time `json:"intervalStart"`
+	// IntervalEndTime represents the timestamp for the last tally run time
+	//  (i.e. last interval_end_time) for the day
+	IntervalEndTime time.Time `json:"-"`
 }

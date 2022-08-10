@@ -21,10 +21,11 @@ import (
 //
 // architecture: Chore
 type CacheService struct {
-	log        *zap.Logger
-	usageCache *BlobsUsageCache
-	store      *Store
-	Loop       *sync2.Cycle
+	log                *zap.Logger
+	usageCache         *BlobsUsageCache
+	store              *Store
+	pieceScanOnStartup bool
+	Loop               *sync2.Cycle
 
 	// InitFence is released once the cache's Run method returns or when it has
 	// completed its first loop. This is useful for testing.
@@ -33,12 +34,13 @@ type CacheService struct {
 
 // NewService creates a new cache service that updates the space usage cache on startup and syncs the cache values to
 // persistent storage on an interval.
-func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, interval time.Duration) *CacheService {
+func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, interval time.Duration, pieceScanOnStartup bool) *CacheService {
 	return &CacheService{
-		log:        log,
-		usageCache: usageCache,
-		store:      pieces,
-		Loop:       sync2.NewCycle(interval),
+		log:                log,
+		usageCache:         usageCache,
+		store:              pieces,
+		pieceScanOnStartup: pieceScanOnStartup,
+		Loop:               sync2.NewCycle(interval),
 	}
 }
 
@@ -51,26 +53,30 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 	totalsAtStart := service.usageCache.copyCacheTotals()
 
 	// recalculate the cache once
-	piecesTotal, piecesContentSize, totalsBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
-	if err != nil {
-		service.log.Error("error getting current used space: ", zap.Error(err))
-		return err
+	if service.pieceScanOnStartup {
+		piecesTotal, piecesContentSize, totalsBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
+		if err != nil {
+			service.log.Error("error getting current used space: ", zap.Error(err))
+			return err
+		}
+		trashTotal, err := service.usageCache.Blobs.SpaceUsedForTrash(ctx)
+		if err != nil {
+			service.log.Error("error getting current used space for trash: ", zap.Error(err))
+			return err
+		}
+		service.usageCache.Recalculate(
+			piecesTotal,
+			totalsAtStart.piecesTotal,
+			piecesContentSize,
+			totalsAtStart.piecesContentSize,
+			trashTotal,
+			totalsAtStart.trashTotal,
+			totalsBySatellite,
+			totalsAtStart.spaceUsedBySatellite,
+		)
+	} else {
+		service.log.Info("Startup piece scan omitted by configuration")
 	}
-	trashTotal, err := service.usageCache.Blobs.SpaceUsedForTrash(ctx)
-	if err != nil {
-		service.log.Error("error getting current used space for trash: ", zap.Error(err))
-		return err
-	}
-	service.usageCache.Recalculate(
-		piecesTotal,
-		totalsAtStart.piecesTotal,
-		piecesContentSize,
-		totalsAtStart.piecesContentSize,
-		trashTotal,
-		totalsAtStart.trashTotal,
-		totalsBySatellite,
-		totalsAtStart.spaceUsedBySatellite,
-	)
 
 	if err = service.store.spaceUsedDB.Init(ctx); err != nil {
 		service.log.Error("error during init space usage db: ", zap.Error(err))

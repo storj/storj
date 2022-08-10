@@ -170,6 +170,8 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 
 	// get current month edges
 	startDate, endDate := date.MonthBoundary(time.Now().UTC())
+	// start from last day of previous month
+	startDate = startDate.AddDate(0, 0, -1)
 
 	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
 		spaceUsages, err := cache.service.GetDailyStorageUsage(ctx, satellite, startDate, endDate)

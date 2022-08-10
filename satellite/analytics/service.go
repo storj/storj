@@ -49,6 +49,17 @@ const (
 	eventBucketCreated              = "Bucket Created"
 	eventBucketDeleted              = "Bucket Deleted"
 	eventProjectLimitError          = "Project Limit Error"
+	eventAPIAccessCreated           = "API Access Created"
+	eventUploadFileClicked          = "Upload File Clicked"
+	eventUploadFolderClicked        = "Upload Folder Clicked"
+	eventStorjTokenAdded            = "Storj Token Added"
+	eventCreateKeysClicked          = "Create Keys Clicked"
+	eventDownloadTxtClicked         = "Download txt clicked"
+	eventEncryptMyAccessClicked     = "Encrypt My Access Clicked"
+	eventCopyToClipboardClicked     = "Copy to Clipboard Clicked"
+	eventCreateAccessGrantClicked   = "Create Access Grant Clicked"
+	eventCreateS3CredentialsClicked = "Create S3 Credentials Clicked"
+	eventKeysForCLIClicked          = "Keys for CLI Clicked"
 )
 
 var (
@@ -93,7 +104,9 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventModalAddCard, eventModalAddTokens, eventSearchBuckets, eventNavigateProjects, eventManageProjectsClicked,
 		eventCreateNewClicked, eventViewDocsClicked, eventViewForumClicked, eventViewSupportClicked, eventCreateAnAccessGrantClicked,
 		eventUploadUsingCliClicked, eventUploadInWebClicked, eventNewProjectClicked, eventLogoutClicked, eventProfileUpdated,
-		eventPasswordChanged, eventMfaEnabled, eventBucketCreated, eventBucketDeleted} {
+		eventPasswordChanged, eventMfaEnabled, eventBucketCreated, eventBucketDeleted, eventAccessGrantCreated, eventAPIAccessCreated,
+		eventUploadFileClicked, eventUploadFolderClicked, eventCreateKeysClicked, eventDownloadTxtClicked, eventEncryptMyAccessClicked,
+		eventCopyToClipboardClicked, eventCreateAccessGrantClicked, eventCreateS3CredentialsClicked, eventKeysForCLIClicked} {
 		service.clientEvents[name] = true
 	}
 
@@ -421,6 +434,23 @@ func (service *Service) TrackProjectLimitError(userID uuid.UUID, email string) {
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventProjectLimitError,
+		Properties: props,
+	})
+
+}
+
+// TrackStorjTokenAdded sends an "Storj Token Added" event to Segment.
+func (service *Service) TrackStorjTokenAdded(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventStorjTokenAdded,
 		Properties: props,
 	})
 

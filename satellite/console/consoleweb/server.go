@@ -91,7 +91,7 @@ type Config struct {
 	CSPEnabled                      bool               `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string             `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:""`
 	PathwayOverviewEnabled          bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"false"`
+	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"true"`
 	NewObjectsFlow                  bool               `help:"indicates if new objects flow should be used" default:"true"`
 	NewAccessGrantFlow              bool               `help:"indicates if new access grant flow should be used" default:"true"`
 	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"false"`
@@ -298,7 +298,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost)
-	paymentsRouter.HandleFunc("/transactions", paymentController.Transactions).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/wallet/payments", paymentController.WalletPayments).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
 	paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch)
@@ -987,7 +987,7 @@ func (w *responseWriterStatusCode) WriteHeader(code int) {
 // newTraceRequestMiddleware returns middleware for tracing each request to a
 // registered endpoint through Monkit.
 //
-// It also log in DEBUG level each request.
+// It also log in INFO level each request.
 func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.MiddlewareFunc {
 	log = log.Named("trace-request-middleware")
 
@@ -1013,7 +1013,7 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 					fields = append(fields, zap.Int64("trace-id", span.Trace().Id()))
 				}
 
-				log.Debug("client HTTP request", fields...)
+				log.Info("client HTTP request", fields...)
 			}()
 
 			match := mux.RouteMatch{}

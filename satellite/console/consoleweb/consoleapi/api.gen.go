@@ -116,17 +116,18 @@ func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter,
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
-	projectInfo := &console.ProjectInfo{}
-	if err = json.NewDecoder(r.Body).Decode(&projectInfo); err != nil {
+	payload := console.ProjectInfo{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	retVal, httpErr := h.service.GenCreateProject(ctx, *projectInfo)
+	retVal, httpErr := h.service.GenCreateProject(ctx, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -164,13 +165,13 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 		return
 	}
 
-	projectInfo := &console.ProjectInfo{}
-	if err = json.NewDecoder(r.Body).Decode(&projectInfo); err != nil {
+	payload := console.ProjectInfo{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	retVal, httpErr := h.service.GenUpdateProject(ctx, id, *projectInfo)
+	retVal, httpErr := h.service.GenUpdateProject(ctx, id, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -223,6 +224,7 @@ func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWrit
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -253,7 +255,13 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 		return
 	}
 
-	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
+	projectIDParam := r.URL.Query().Get("projectID")
+	if projectIDParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'projectID' can't be empty"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -265,13 +273,25 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 		return
 	}
 
-	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
+	sinceParam := r.URL.Query().Get("since")
+	if sinceParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'since' can't be empty"))
+		return
+	}
+
+	since, err := time.Parse(dateLayout, sinceParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
+	beforeParam := r.URL.Query().Get("before")
+	if beforeParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'before' can't be empty"))
+		return
+	}
+
+	before, err := time.Parse(dateLayout, beforeParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -303,19 +323,37 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 		return
 	}
 
-	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
+	projectIDParam := r.URL.Query().Get("projectID")
+	if projectIDParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'projectID' can't be empty"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
+	sinceParam := r.URL.Query().Get("since")
+	if sinceParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'since' can't be empty"))
+		return
+	}
+
+	since, err := time.Parse(dateLayout, sinceParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
+	beforeParam := r.URL.Query().Get("before")
+	if beforeParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'before' can't be empty"))
+		return
+	}
+
+	before, err := time.Parse(dateLayout, beforeParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -347,13 +385,13 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 		return
 	}
 
-	apikeyInfo := &console.CreateAPIKeyRequest{}
-	if err = json.NewDecoder(r.Body).Decode(&apikeyInfo); err != nil {
+	payload := console.CreateAPIKeyRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	retVal, httpErr := h.service.GenCreateAPIKey(ctx, *apikeyInfo)
+	retVal, httpErr := h.service.GenCreateAPIKey(ctx, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
