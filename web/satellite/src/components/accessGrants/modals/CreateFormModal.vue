@@ -302,7 +302,6 @@ export default class CreateFormModal extends Vue {
             // emit event here
             this.propogateInfo()
             this.$emit('encrypt');
-            // this.accessGrantStep = 'encrypt';
         }
     }
 

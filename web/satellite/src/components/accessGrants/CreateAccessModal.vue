@@ -88,7 +88,6 @@ export default class CreateAccessModal extends Vue {
     /**
      * Handles permission types, which have been selected, and determining if all have been selected.
      */
-    // private showAllPermissions = {show: false, position: "up"};
     private selectedPermissions : string[] = [];
 
     /**
