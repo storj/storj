@@ -36,7 +36,6 @@ export default class MiddleTruncate extends Vue {
     &:hover {
         max-width: unset;
         min-width: auto;
-        background-color: #efefee;
     }
 }
 
