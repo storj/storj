@@ -26,10 +26,10 @@ export default class OnboardingTourArea extends Vue {}
         align-items: center;
     }
 
-    @media screen and (max-width: 760px) {
+@media screen and (max-width: 760px) {
 
-        .tour-area {
-            width: 88% !important;
-        }
+    .tour-area {
+        width: 88% !important;
     }
+}
 </style>

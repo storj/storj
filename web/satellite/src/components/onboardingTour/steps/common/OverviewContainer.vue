@@ -138,14 +138,14 @@ export default class OverviewContainer extends Vue {
         }
     }
 
-    @media screen and (max-width: 760px) {
+@media screen and (max-width: 760px) {
 
-        .overview-container {
-            width: 250px;
-        }
-
-        .overview-container__title {
-            text-align: center;
-        }
+    .overview-container {
+        width: 250px;
     }
+
+    .overview-container__title {
+        text-align: center;
+    }
+}
 </style>

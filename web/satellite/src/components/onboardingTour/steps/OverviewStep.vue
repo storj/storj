@@ -162,11 +162,11 @@ export default class OverviewStep extends Vue {
         }
     }
 
-    @media screen and (max-width: 760px) {
+@media screen and (max-width: 760px) {
 
-        .overview-area {
-            width: 250px;
-            text-align: center;
-        }
+    .overview-area {
+        width: 250px;
+        text-align: center;
     }
+}
 </style>

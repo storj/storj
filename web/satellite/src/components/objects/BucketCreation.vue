@@ -215,10 +215,10 @@ export default class BucketCreation extends Vue {
     }
 }
 
-    @media screen and (max-width: 760px) {
-        
-        .bucket-creation {
-            width: 300px;
-        }
+@media screen and (max-width: 760px) {
+
+    .bucket-creation {
+        width: 300px;
     }
+}
 </style>
