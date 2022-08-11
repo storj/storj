@@ -200,7 +200,6 @@ export default class BucketCreation extends Vue {
 </script>
 
 <style scoped lang="scss">
-
 .bucket-creation {
     display: flex;
     flex-direction: column;

@@ -56,7 +56,6 @@ export default class BucketCreationProgress extends Vue {
 </script>
 
 <style scoped lang="scss">
-
 .bucket-creation-progress {
     display: flex;
     align-items: flex-start;
