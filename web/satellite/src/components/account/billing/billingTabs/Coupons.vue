@@ -28,7 +28,7 @@
                     </div>
                     <div class="coupon-area__container__existing-coupons__expiration-container">
                         <span class="coupon-area__container__existing-coupons__expiration-container__expiration">
-                            {{ coupon.getDescription().includes('forever')?'No Expiration' : expiration }}
+                            {{ coupon.duration === 'forever'?'No Expiration' : expiration }}
                         </span>
                     </div>
                 </div>
@@ -106,42 +106,6 @@ export default class CouponArea extends Vue {
      */
     public get coupon(): Coupon | null {
         return this.$store.state.paymentsModule.coupon;
-    }
-
-    /**
-     * Indicates if coupon code ui is enabled on the billing page.
-     */
-    public get couponCodeBillingUIEnabled(): boolean {
-        return this.$store.state.appStateModule.couponCodeBillingUIEnabled;
-    }
-
-    /**
-     * Returns the start date of the coupon.
-     */
-    public get startDate(): string {
-        return this.coupon?.addedAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) || '';
-    }
-
-    /**
-     * Returns the expiration date of the coupon.
-     */
-    public get endDate(): string {
-        if (!this.coupon) {
-            return '';
-        }
-
-        let date: Date;
-
-        if (this.coupon.duration == CouponDuration.Once) {
-            // Last day of billing period is last day of the month
-            date = new Date(this.coupon.addedAt.getFullYear(), this.coupon.addedAt.getMonth() + 1, 0);
-        } else if (this.coupon.duration == CouponDuration.Repeating && this.coupon.expiresAt) {
-            date = this.coupon.expiresAt;
-        } else {
-            return '';
-        }
-        
-        return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     }
 
     /**
