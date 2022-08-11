@@ -12,13 +12,13 @@
                     class="coupon-area__container__existing-coupons"
                 >
                     <div class="coupon-area__container__existing-coupons__discount-top-container ">
-                        <span class="coupon-area__container__existing-coupons__discount-top-container__discount active-discount">
+                        <span :class="`coupon-area__container__existing-coupons__discount-top-container__discount ${status}-discount`">
                             {{ coupon.getDescription().slice(0, coupon.getDescription().indexOf(' ')) }}
                         </span>
                     </div>
                     <div class="coupon-area__container__existing-coupons__status-container">
-                        <span class="coupon-area__container__existing-coupons__status-container__status active-status">
-                            Active
+                        <span :class="`coupon-area__container__existing-coupons__status-container__status ${status}-status`">
+                            {{ status }}
                         </span>
                     </div>
                     <div class="coupon-area__container__existing-coupons__discount-black-container">
@@ -28,7 +28,7 @@
                     </div>
                     <div class="coupon-area__container__existing-coupons__expiration-container">
                         <span class="coupon-area__container__existing-coupons__expiration-container__expiration">
-                            {{ coupon.duration === 'forever'?'No Expiration' : expiration }}
+                            {{ expirationHelper }}
                         </span>
                     </div>
                 </div>
@@ -59,7 +59,7 @@ import AddCoupon2 from '@/components/account/billing/coupons/AddCouponCode2.vue'
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { Coupon, CouponDuration } from '@/types/payments';
+import { Coupon } from '@/types/payments';
 
 // @vue/component
 @Component({
@@ -68,11 +68,9 @@ import { Coupon, CouponDuration } from '@/types/payments';
         AddCoupon2,
     },
 })
-export default class CouponArea extends Vue {
+export default class Coupons extends Vue {
     public isCouponFetching = true;
     public showCreateCode = false;
-
-    public testData = [{index: 1, status: "Active", discount: 3.25, expiration: 'Jul 2023'},{index: 2, status: "Inactive", discount: 1000, expiration: 'Mar 2023'},{index: 3, status: "Inactive", discount: 28.95, expiration: 'Jan 2023'}]
 
     /**
      * Lifecycle hook after initial render.
@@ -82,8 +80,10 @@ export default class CouponArea extends Vue {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_COUPON);
             this.isCouponFetching = false;
+            console.log(this.coupon)
         } catch (error) {
             await this.$notify.error(error.message);
+            this.isCouponFetching = false;
         }
     }
 
@@ -119,35 +119,63 @@ export default class CouponArea extends Vue {
         if (this.coupon.expiresAt) {
             return 'Expires ' + this.coupon.expiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         } else {
-            switch (this.coupon.duration) {
-            case CouponDuration.Once:
-                return 'Expires after first use';
-            case CouponDuration.Forever:
-                return 'Never expires';
-            default:
-                return 'Unknown expiration';
-            }
+            return 'Unknown expiration';
         }
     }
+
+    /**
+     * Returns the whether the coupon is active or not.
+     */
+    public get status(): string {
+        if (!this.coupon) {
+            return '';
+        }
+
+        const today = new Date()
+        if ((this.coupon.duration === 'forever' || this.coupon.duration === 'once') || (this.coupon.expiresAt && today.getTime() < this.coupon.expiresAt.getTime())) {
+            return 'Active';
+        } else {
+            return 'Inactive';
+        }
+    }
+
+    /**
+     * Returns the whether the coupon is active or not.
+     */
+    public get expirationHelper(): string {
+        if (!this.coupon) {
+            return '';
+        }
+
+        switch (this.coupon.duration) {
+        case "once":
+            return 'Expires after first use';
+        case "forever":
+            return 'No expiration';
+        default:
+            return this.expiration;
+        }
+    }
+
 }
 </script>
 
 <style scoped lang="scss">
-    .active-discount {
+    .Active-discount {
         background: #dffff7;
         color: #00ac26;
     }
 
-    .inactive-discount {
+    .Inactive-discount {
         background: #ffe1df;
         color: #ac1a00;
     }
 
-    .active-status {
+    .Active-status {
         background: #00ac26;
     }
 
-    .inactive-status {
+    .Inactive-status {
         background: #ac1a00;
     }
 
