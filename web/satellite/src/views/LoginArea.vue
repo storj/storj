@@ -18,17 +18,35 @@
                     <h1 class="login-area__content-area__container__title-area__title" aria-roledescription="sign-in-title">Sign In</h1>
 
                     <div class="login-area__expand" @click.stop="toggleDropdown">
-                        <span class="login-area__expand__value">{{ satelliteName }}</span>
+                        <button 
+                            id="loginDropdown"
+                            type="button"
+                            aria-haspopup="listbox" 
+                            aria-roledescription="satellites-dropdown" 
+                            :aria-expanded="isDropdownShown"
+                            class="login-area__expand__value"
+                        >
+                            {{ satelliteName }}
+                        </button>
                         <BottomArrowIcon />
-                        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="login-area__expand__dropdown">
-                            <div class="login-area__expand__dropdown__item" @click.stop="closeDropdown">
+                        <ul v-if="isDropdownShown" v-click-outside="closeDropdown" tabindex="-1" role="listbox" class="login-area__expand__dropdown">
+                            <li key="0" tabindex="0" role="option" class="login-area__expand__dropdown__item" @click.stop="closeDropdown">
                                 <SelectedCheckIcon />
                                 <span class="login-area__expand__dropdown__item__name">{{ satelliteName }}</span>
-                            </div>
-                            <a v-for="sat in partneredSatellites" :key="sat.id" class="login-area__expand__dropdown__item" :href="sat.address + '/login'">
+                            </li>
+                            <li 
+                                v-for="(sat, index) in partneredSatellites" 
+                                :key="index + 1"
+                                role="option"
+                                tabindex="0"
+                                :data-value="sat.name"
+                                class="login-area__expand__dropdown__item"
+                                @click="clickSatellite(sat.address)" 
+                                @keypress.enter="clickSatellite(sat.address)"
+                            >
                                 {{ sat.name }}
-                            </a>
-                        </div>
+                            </li>
+                        </ul>
                     </div>
                 </div>
                 <template v-if="!isMFARequired">
@@ -316,6 +334,13 @@ export default class Login extends Vue {
     }
 
     /**
+     * Redirects to chosen satellite.
+     */
+    public clickSatellite(address): void {
+        window.location.href = address + '/login';
+    }
+
+    /**
      * Toggles satellite selection dropdown visibility (Tardigrade).
      */
     public toggleDropdown(): void {
@@ -350,12 +375,21 @@ export default class Login extends Vue {
      * Holds on login button click logic.
      */
     public async onLoginClick(): Promise<void> {
-        if (this.isLoading) {
+        if (this.isLoading && !this.isDropdownShown) {
+            return;
+        }
+
+        let activeElement = document.activeElement;
+
+        if (activeElement && activeElement.id === "loginDropdown") return;
+        
+        if (this.isDropdownShown) {
+            this.isDropdownShown = false;
             return;
         }
 
         this.isLoading = true;
-
+        
         if (this.$refs.recaptcha && !this.captchaResponseToken) {
             this.$refs.recaptcha.execute();
             return;
@@ -491,6 +525,9 @@ export default class Login extends Vue {
                 margin-right: 10px;
                 font-family: 'font_regular', sans-serif;
                 font-weight: 700;
+                border: none;
+                cursor: pointer;
+                background: transparent;
             }
 
             &__dropdown {

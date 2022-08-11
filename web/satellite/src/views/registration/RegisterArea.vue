@@ -50,33 +50,46 @@
                     class="register-area__input-area__container"
                     :class="{ 'professional-container': isProfessional }"
                 >
-                    <div class="register-area__input-area__container__title-area">
+                    <div class="register-area__input-area__container__title-area" @click.stop="toggleDropdown">
                         <div class="register-area__input-area__container__title-container">
                             <h1 class="register-area__input-area__container__title-area__title">Get 150 GB Free</h1>
                         </div>
-                        <div class="register-area__input-area__expand" aria-roledescription="satellites-dropdown" @click.stop="toggleDropdown">
+                        <div class="register-area__input-area__expand">
                             <div class="register-area__input-area__info-button">
                                 <InfoIcon />
                                 <p class="register-area__input-area__info-button__message">
                                     {{ viewConfig.tooltip }}
                                 </p>
                             </div>
-                            <span class="register-area__input-area__expand__value">{{ satelliteName }}</span>
+                            <button 
+                                id="registerDropdown"
+                                type="button" 
+                                aria-haspopup="listbox" 
+                                aria-roledescription="satellites-dropdown" 
+                                :aria-expanded="isDropdownShown"
+                                class="register-area__input-area__expand__value"
+                            >
+                                {{ satelliteName }}
+                            </button>
                             <BottomArrowIcon />
-                            <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="register-area__input-area__expand__dropdown">
-                                <div class="register-area__input-area__expand__dropdown__item" @click.stop="closeDropdown">
+                            <ul v-if="isDropdownShown" v-click-outside="closeDropdown" tabindex="-1" role="listbox" class="register-area__input-area__expand__dropdown">
+                                <li key="0" tabindex="0" role="option" class="register-area__input-area__expand__dropdown__item" @click.stop="closeDropdown">
                                     <SelectedCheckIcon />
                                     <span class="register-area__input-area__expand__dropdown__item__name">{{ satelliteName }}</span>
-                                </div>
-                                <a
+                                </li>
+                                <li
                                     v-for="(sat, index) in partneredSatellites"
-                                    :key="index"
+                                    :key="index + 1"
+                                    role="option"
+                                    tabindex="0"
+                                    :data-value="sat.name"
                                     class="register-area__input-area__expand__dropdown__item"
-                                    :href="sat.address"
+                                    @click="clickSatellite(sat.address)"
+                                    @keypress.enter="clickSatellite(sat.address)"
                                 >
                                     {{ sat.name }}
-                                </a>
-                            </div>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                     <div class="register-area__input-area__toggle__container">
@@ -416,6 +429,13 @@ export default class RegisterArea extends Vue {
     }
 
     /**
+     * Redirects to chosen satellite.
+     */
+    public clickSatellite(address): void {
+        window.location.href = address;
+    }
+
+    /**
      * Toggles satellite selection dropdown visibility (Tardigrade).
      */
     public toggleDropdown(): void {
@@ -447,7 +467,16 @@ export default class RegisterArea extends Vue {
      * Validates input fields and proceeds user creation.
      */
     public async onCreateClick(): Promise<void> {
-        if (this.isLoading) {
+        if (this.isLoading && !this.isDropdownShown) {
+            return;
+        }
+    
+        let activeElement = document.activeElement;
+
+        if (activeElement && activeElement.id === "registerDropdown") return;
+        
+        if (this.isDropdownShown) {
+            this.isDropdownShown = false;
             return;
         }
 
@@ -908,6 +937,9 @@ export default class RegisterArea extends Vue {
                     line-height: 21px;
                     color: #afb7c1;
                     margin-right: 10px;
+                    border: none;
+                    cursor: pointer;
+                    background: transparent;
                 }
 
                 &__dropdown {
