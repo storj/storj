@@ -2062,6 +2062,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS billing_transactions_timestamp_index ON billing_transactions ( timestamp );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "reset all non-DQ'd node audit reputations for new system",
+				Version:     209,
+				Action: migrate.SQL{
+					`UPDATE reputations SET audit_reputation_alpha = 1000, audit_reputation_beta = 0
+						WHERE disqualified IS NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

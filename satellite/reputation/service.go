@@ -149,7 +149,8 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Inf
 			// return default reputation values
 			info = &Info{
 				UnknownAuditReputationAlpha: 1,
-				AuditReputationAlpha:        1,
+				AuditReputationAlpha:        service.config.InitialAlpha,
+				AuditReputationBeta:         service.config.InitialBeta,
 				OnlineScore:                 1,
 			}
 

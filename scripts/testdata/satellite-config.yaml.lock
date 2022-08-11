@@ -779,7 +779,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # reputation.audit-count: 100
 
 # the reputation cut-off for disqualifying SNs based on audit history
-# reputation.audit-dq: 0.6
+# reputation.audit-dq: 0.96
 
 # The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification
 # reputation.audit-history.grace-period: 168h0m0s
@@ -799,8 +799,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # The length of time spanning a single audit window
 # reputation.audit-history.window-size: 12h0m0s
 
-# the forgetting factor used to calculate the audit SNs reputation
-# reputation.audit-lambda: 0.95
+# the forgetting factor used to update storage node reputation due to audits
+# reputation.audit-lambda: 0.999
 
 # weight to apply to audit reputation for total repair reputation calculation
 # reputation.audit-repair-weight: 1
@@ -817,11 +817,23 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the maximum amount of time that should elapse before cached reputation writes are flushed to the database (if 0, no reputation cache is used)
 # reputation.flush-interval: 2h0m0s
 
+# the value to which an alpha reputation value should be initialized
+# reputation.initial-alpha: 1000
+
+# the value to which a beta reputation value should be initialized
+# reputation.initial-beta: 0
+
 # whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
 # reputation.suspension-dq-enabled: false
 
 # the time period that must pass before suspended nodes will be disqualified
 # reputation.suspension-grace-period: 168h0m0s
+
+# the reputation cut-off for disqualifying SNs based on returning 'unknown' errors during audit
+# reputation.unknown-audit-dq: 0.6
+
+# the forgetting factor used to update storage node reputation due to returning 'unknown' errors during audit'
+# reputation.unknown-audit-lambda: 0.95
 
 # expiration to use if user does not specify an rest key expiration
 # rest-keys.default-expiration: 720h0m0s

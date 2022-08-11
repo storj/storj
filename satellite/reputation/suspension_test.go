@@ -63,8 +63,9 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeID := planet.StorageNodes[0].ID()
-		oc := planet.Satellites[0].Overlay.Service
-		repService := planet.Satellites[0].Reputation.Service
+		satellite := planet.Satellites[0]
+		oc := satellite.Overlay.Service
+		repService := satellite.Reputation.Service
 
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -83,8 +84,8 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 		require.NotNil(t, reputationInfo.UnknownAuditSuspended)
 		require.True(t, reputationInfo.UnknownAuditSuspended.After(testStartTime))
 		// expect normal audit alpha/beta remain unchanged
-		require.EqualValues(t, reputationInfo.AuditReputationAlpha, 1)
-		require.EqualValues(t, reputationInfo.AuditReputationBeta, 0)
+		require.EqualValues(t, reputationInfo.AuditReputationAlpha, satellite.Config.Reputation.InitialAlpha)
+		require.EqualValues(t, reputationInfo.AuditReputationBeta, satellite.Config.Reputation.InitialBeta)
 		// expect node is not disqualified
 		node, err = oc.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -105,6 +106,12 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 func TestAuditSuspendFailedAudit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.InitialAlpha = 1.0
+				config.Reputation.AuditLambda = 1.0
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeID := planet.StorageNodes[0].ID()
 		oc := planet.Satellites[0].Overlay.DB
@@ -138,6 +145,9 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.SuspensionGracePeriod = time.Hour
+				config.Reputation.InitialAlpha = 1
+				config.Reputation.AuditLambda = 0.95
+				config.Reputation.AuditDQ = 0.6
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -202,6 +212,7 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.SuspensionGracePeriod = time.Hour
 				config.Reputation.SuspensionDQEnabled = false
+				config.Reputation.InitialAlpha = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -384,6 +395,10 @@ func TestOfflineSuspend(t *testing.T) {
 				AuditLambda:           0.95,
 				AuditWeight:           1,
 				AuditDQ:               0.6,
+				InitialAlpha:          1000,
+				InitialBeta:           0,
+				UnknownAuditDQ:        0.6,
+				UnknownAuditLambda:    0.95,
 				SuspensionGracePeriod: time.Hour,
 				SuspensionDQEnabled:   true,
 				AuditCount:            0,

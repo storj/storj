@@ -73,7 +73,8 @@ func (reputations *reputations) ApplyUpdates(ctx context.Context, nodeID storj.N
 			newNode := dbx.Reputation{
 				Id:                          nodeID.Bytes(),
 				UnknownAuditReputationAlpha: 1,
-				AuditReputationAlpha:        1,
+				AuditReputationAlpha:        reputationConfig.InitialAlpha,
+				AuditReputationBeta:         reputationConfig.InitialBeta,
 				OnlineScore:                 1,
 				AuditHistory:                historyBytes,
 			}
@@ -468,7 +469,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		updates.UnknownResults,
 		unknownAuditBeta,
 		unknownAuditAlpha,
-		config.AuditLambda,
+		config.UnknownAuditLambda,
 		config.AuditWeight,
 	)
 
@@ -484,7 +485,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		updates.PositiveResults,
 		unknownAuditAlpha,
 		unknownAuditBeta,
-		config.AuditLambda,
+		config.UnknownAuditLambda,
 		config.AuditWeight,
 	)
 
@@ -526,7 +527,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 
 	// if unknown audit rep goes below threshold, suspend node. Otherwise unsuspend node.
 	unknownAuditRep := unknownAuditAlpha / (unknownAuditAlpha + unknownAuditBeta)
-	if unknownAuditRep <= config.AuditDQ {
+	if unknownAuditRep <= config.UnknownAuditDQ {
 		if dbNode.UnknownAuditSuspended == nil {
 			logger.Info("Suspended", zap.String("Category", "Unknown Audits"))
 			updateFields.UnknownAuditSuspended = timeField{set: true, value: now}

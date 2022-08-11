@@ -156,9 +156,12 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			UniqueIPCount: 5,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditCount = 1
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
 			},
@@ -383,9 +386,12 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
 				config.Reputation.AuditCount = 5 // need 5 audits to be vetted
 			},
@@ -626,9 +632,12 @@ func TestDistinctIPs(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			UniqueIPCount: 3,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
 				config.Reputation.AuditCount = 1
 			},
@@ -654,9 +663,12 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 			UniqueIPCount: 3, // creates 3 additional unique ip addresses, totaling to 4 IPs
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.UpdateStatsBatchSize = 1
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
 				config.Reputation.AuditCount = 1
 			},
