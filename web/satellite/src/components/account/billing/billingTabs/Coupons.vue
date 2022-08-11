@@ -80,7 +80,6 @@ export default class Coupons extends Vue {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_COUPON);
             this.isCouponFetching = false;
-            console.log(this.coupon)
         } catch (error) {
             await this.$notify.error(error.message);
             this.isCouponFetching = false;
@@ -133,9 +132,9 @@ export default class Coupons extends Vue {
 
         const today = new Date()
         if ((this.coupon.duration === 'forever' || this.coupon.duration === 'once') || (this.coupon.expiresAt && today.getTime() < this.coupon.expiresAt.getTime())) {
-            return 'Active';
+            return 'active';
         } else {
-            return 'Inactive';
+            return 'inactive';
         }
     }
 
@@ -161,21 +160,21 @@ export default class Coupons extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .Active-discount {
+    .active-discount {
         background: #dffff7;
         color: #00ac26;
     }
 
-    .Inactive-discount {
+    .inactive-discount {
         background: #ffe1df;
         color: #ac1a00;
     }
 
-    .Active-status {
+    .active-status {
         background: #00ac26;
     }
 
-    .Inactive-status {
+    .inactive-status {
         background: #ac1a00;
     }
 
@@ -244,6 +243,7 @@ export default class Coupons extends Vue {
                         font-weight: 700;
                         font-size: 14px;
                         color: #fff;
+                        text-transform: capitalize;
                     }
                 }
 
