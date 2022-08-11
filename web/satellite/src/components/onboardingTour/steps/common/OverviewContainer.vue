@@ -72,68 +72,79 @@ export default class OverviewContainer extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .overview-container {
-        background: #fcfcfc;
-        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
-        border-radius: 20px;
-        font-family: 'font_regular', sans-serif;
-        padding: 52px;
-        max-width: 394px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+.overview-container {
+    background: #fcfcfc;
+    box-shadow: 0 0 32px rgb(0 0 0 / 4%);
+    border-radius: 20px;
+    font-family: 'font_regular', sans-serif;
+    padding: 52px;
+    max-width: 394px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 
-        &__img {
-            min-height: 83px;
-        }
+    &__img {
+        min-height: 83px;
+    }
 
-        &__enc {
-            font-family: 'font_bold', sans-serif;
-            font-size: 14px;
-            line-height: 36px;
-            letter-spacing: 1px;
-            color: #14142a;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
+    &__enc {
+        font-family: 'font_bold', sans-serif;
+        font-size: 14px;
+        line-height: 36px;
+        letter-spacing: 1px;
+        color: #14142a;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
 
-        &__title {
-            font-family: 'font_bold', sans-serif;
-            font-size: 26px;
-            line-height: 31px;
-            letter-spacing: 1px;
-            color: #131621;
-            margin-bottom: 14px;
-        }
+    &__title {
+        font-family: 'font_bold', sans-serif;
+        font-size: 26px;
+        line-height: 31px;
+        letter-spacing: 1px;
+        color: #131621;
+        margin-bottom: 14px;
+    }
 
-        &__info {
-            margin-bottom: 25px;
-            font-size: 16px;
-            line-height: 21px;
-            text-align: center;
+    &__info {
+        margin-bottom: 25px;
+        font-size: 16px;
+        line-height: 21px;
+        text-align: center;
+        color: #354049;
+    }
+
+    &__encryption-container {
+        width: calc(100% - 48px);
+        padding: 12px 24px;
+        background: #fec;
+        border-radius: 8px;
+        margin-top: 37px;
+        font-size: 16px;
+        line-height: 24px;
+        color: #354049;
+        text-align: center;
+
+        &__link {
+            text-decoration: underline !important;
+            text-underline-position: under;
             color: #354049;
-        }
 
-        &__encryption-container {
-            width: calc(100% - 48px);
-            padding: 12px 24px;
-            background: #fec;
-            border-radius: 8px;
-            margin-top: 37px;
-            font-size: 16px;
-            line-height: 24px;
-            color: #354049;
-            text-align: center;
-
-            &__link {
-                text-decoration: underline !important;
-                text-underline-position: under;
+            &:visited {
                 color: #354049;
-
-                &:visited {
-                    color: #354049;
-                }
             }
         }
     }
+}
+
+@media screen and (max-width: 760px) {
+
+    .overview-container {
+        width: 250px;
+    }
+
+    .overview-container__title {
+        text-align: center;
+    }
+}
 </style>
