@@ -251,6 +251,7 @@ CREATE TABLE projects (
 	partner_id bytea,
 	user_agent bytea,
 	owner_id bytea NOT NULL,
+	salt bytea,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );

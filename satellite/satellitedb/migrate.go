@@ -2036,6 +2036,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					); `,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add projects.salt",
+				Version:     206,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN salt bytea;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

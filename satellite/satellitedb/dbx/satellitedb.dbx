@@ -396,6 +396,7 @@ model project (
     field partner_id      blob      ( nullable )
     field user_agent      blob      ( nullable )
     field owner_id        blob
+	field salt			  blob		( nullable )
 
     field created_at      timestamp ( autoinsert )
 )
