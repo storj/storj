@@ -981,7 +981,6 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 		valid, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
 		if err != nil {
 			mon.Counter("login_user_captcha_error").Inc(1) //mon:locked
-			s.log.Error("captcha authorization failed", zap.Error(err))
 			return consoleauth.Token{}, ErrCaptcha.Wrap(err)
 		}
 		if !valid {
@@ -994,8 +993,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 	if user == nil {
 		if len(unverified) > 0 {
 			mon.Counter("login_email_unverified").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed email unverified", nil, request.Email)
 		} else {
 			mon.Counter("login_email_invalid").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
 		}
 		return consoleauth.Token{}, ErrLoginCredentials.New(credentialsErrMsg)
 	}
@@ -1004,6 +1005,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 	if user.LoginLockoutExpiration.After(now) {
 		mon.Counter("login_locked_out").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed account locked out", &user.ID, request.Email)
 		return consoleauth.Token{}, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
@@ -1018,10 +1020,12 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 		if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
 			mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed login count reached maximum attempts", &user.ID, request.Email)
 		}
 
 		if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
 			mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed locked account", &user.ID, request.Email)
 		}
 
 		return nil
@@ -1034,12 +1038,14 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 			return consoleauth.Token{}, err
 		}
 		mon.Counter("login_invalid_password").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed password invalid", &user.ID, user.Email)
 		return consoleauth.Token{}, ErrLoginPassword.New(credentialsErrMsg)
 	}
 
 	if user.MFAEnabled {
 		if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
 			mon.Counter("login_mfa_conflict").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa conflict", &user.ID, user.Email)
 			return consoleauth.Token{}, ErrMFAConflict.New(mfaConflictErrMsg)
 		}
 
@@ -1059,6 +1065,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 					return consoleauth.Token{}, err
 				}
 				mon.Counter("login_mfa_recovery_failure").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed mfa recovery", &user.ID, user.Email)
 				return consoleauth.Token{}, ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
 			}
 
@@ -1088,11 +1095,13 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 					return consoleauth.Token{}, err
 				}
 				mon.Counter("login_mfa_passcode_failure").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed mfa passcode invalid", &user.ID, user.Email)
 				return consoleauth.Token{}, ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 			}
 			mon.Counter("login_mfa_passcode_success").Inc(1) //mon:locked
 		} else {
 			mon.Counter("login_mfa_missing").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa missing", &user.ID, user.Email)
 			return consoleauth.Token{}, ErrMFAMissing.New(mfaRequiredErrMsg)
 		}
 	}

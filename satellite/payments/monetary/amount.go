@@ -130,7 +130,7 @@ func AmountFromBaseUnits(units int64, currency *Currency) Amount {
 //
 // Example:
 //
-//     AmountFromDecimal(decimal.NewFromFloat(3.50), USDollars) == Amount{baseUnits: 350, currency: USDollars}
+//	AmountFromDecimal(decimal.NewFromFloat(3.50), USDollars) == Amount{baseUnits: 350, currency: USDollars}
 func AmountFromDecimal(d decimal.Decimal, currency *Currency) Amount {
 	return AmountFromBaseUnits(d.Shift(currency.decimalPlaces).Round(0).IntPart(), currency)
 }

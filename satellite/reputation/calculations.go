@@ -25,13 +25,12 @@ func UpdateReputation(isSuccess bool, alpha, beta, lambda, w float64) (newAlpha,
 // With the arguments as named, applies 'count' successful audits. To apply negative
 // audits, swap the alpha and beta parameters and return values.
 //
-//
 // WARNING: GREEK LETTER MATH AHEAD
 //
 // Applying n successful audit results to an initial alpha value of α₀ gives a
 // new α₁ value of:
 //
-//     α₁ = λⁿα₀ + λⁿ⁻¹w + λⁿ⁻²w + ... + λ²w + λw + w
+//	α₁ = λⁿα₀ + λⁿ⁻¹w + λⁿ⁻²w + ... + λ²w + λw + w
 //
 // The terms with w are the first n terms of a geometric series with coefficient
 // w and common ratio λ. The closed form formula for the sum of those first n
@@ -39,20 +38,19 @@ func UpdateReputation(isSuccess bool, alpha, beta, lambda, w float64) (newAlpha,
 // (https://en.wikipedia.org/wiki/Geometric_series#Closed-form_formula).
 // Adding the initial λⁿα₀ term, we get
 //
-//     α₁ = λⁿα₀ + w(1-λⁿ) / (1-λ)
+//	α₁ = λⁿα₀ + w(1-λⁿ) / (1-λ)
 //
 // The formula has the same structure for beta for n _failures_.
 //
-//     β₁ = λⁿβ₀ + w(1-λⁿ) / (1-λ)
+//	β₁ = λⁿβ₀ + w(1-λⁿ) / (1-λ)
 //
 // For n _failures_,
 //
-//     α₁ = λⁿα₀
+//	α₁ = λⁿα₀
 //
 // For n _successes_,
 //
-//     β₁ = λⁿβ₀
-//
+//	β₁ = λⁿβ₀
 func UpdateReputationMultiple(count int, alpha, beta, lambda, w float64) (newAlpha, newBeta float64) {
 	if lambda == 1 {
 		// special case: when the coefficient is 1, the closed-form formula is invalid

@@ -261,9 +261,10 @@ export default class NewProjectDashboard extends Vue {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
 
-            this.isDataFetching = false;
         } catch (error) {
             await this.$notify.error(error.message);
+        } finally {
+            this.isDataFetching = false;
         }
 
         const FIRST_PAGE = 1;

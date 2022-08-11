@@ -207,11 +207,6 @@
                 @resetPagination="resetPagination"
             />
         </div>
-        <CreateAccessModal
-            v-if="showAccessModal"
-            :default-type="modalAccessType"
-            @close-modal="toggleAccessModal"
-        />
         <router-view />
     </div>
 </template>
@@ -225,7 +220,6 @@ import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue
 import ConfirmDeletePopup2 from '@/components/accessGrants/ConfirmDeletePopup2.vue';
 import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
-import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
 import SortAccessGrantsHeader2 from '@/components/accessGrants/SortingHeader2.vue';
 import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
@@ -268,7 +262,6 @@ declare interface ResetPagination {
         ConfirmDeletePopup,
         ConfirmDeletePopup2,
         VLoader,
-        CreateAccessModal,
         VHeader,
     },
 })
@@ -277,12 +270,6 @@ export default class AccessGrants extends Vue {
     private isDeleteClicked = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
-    /**
-     * Indicates if the access modal should be shown and what the defaulted type of access should be defaulted.
-     */
-    private showAccessModal = false;
-    private modalAccessType = '';
 
     public areGrantsFetching = true;
 
@@ -429,39 +416,41 @@ export default class AccessGrants extends Vue {
      * Access grant button click.
      */
     public accessGrantClick(): void {
-        this.modalAccessType = 'access';
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
-        this.toggleAccessModal();
+        this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+        this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
+            params: { accessType: 'access' },
+        });
     }
 
     /**
      * S3 Access button click..
      */
     public s3Click(): void {
-        this.modalAccessType = 's3';
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
-        this.toggleAccessModal();
+        this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+        this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
+            params: { accessType: 's3' },
+        });
     }
 
     /**
      * CLI Access button click.
      */
     public cliClick(): void {
-        this.modalAccessType = 'api';
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
-        this.toggleAccessModal();
-    }
-
-    /**
-     * toggles Create Access Modal visibility.
-     */
-    public toggleAccessModal(): void {
-        this.showAccessModal = !this.showAccessModal;
+        this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
+        this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
+            params: { accessType: 'api' },
+        });
     }
 
     /**
      * Sends "trackPageVisit" event to segment and opens link.
-     */ 
+     */
     public trackPageVisit(link: string): void {
         this.analytics.pageVisit(link);
     }

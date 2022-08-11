@@ -18,9 +18,9 @@ import "math"
 // First, we calculate the expected number of iterations for a segment to
 // survive if we were to lose exactly one node every iteration:
 //
-//     r = numHealthy - minPieces + 1
-//     p = (totalNodes - numHealthy) / totalNodes
-//     X ~ NB(r, p)
+//	r = numHealthy - minPieces + 1
+//	p = (totalNodes - numHealthy) / totalNodes
+//	X ~ NB(r, p)
 //
 // Then we take the mean of that distribution to use as our expected value,
 // which is pr/(1-p).
