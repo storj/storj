@@ -1100,13 +1100,10 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	}
 
 	err = endpoint.metabase.UpdateObjectMetadata(ctx, metabase.UpdateObjectMetadata{
-		ObjectStream: metabase.ObjectStream{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-			Version:    metabase.Version(req.Version),
-			StreamID:   id,
-		},
+		ProjectID:                     keyInfo.ProjectID,
+		BucketName:                    string(req.Bucket),
+		ObjectKey:                     metabase.ObjectKey(req.EncryptedObjectKey),
+		StreamID:                      id,
 		EncryptedMetadata:             req.EncryptedMetadata,
 		EncryptedMetadataNonce:        encryptedMetadataNonce,
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,

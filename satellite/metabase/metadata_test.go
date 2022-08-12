@@ -10,6 +10,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
@@ -18,14 +19,17 @@ func TestUpdateObjectMetadata(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 
-		for _, test := range metabasetest.InvalidObjectStreams(obj) {
+		for _, test := range metabasetest.InvalidObjectLocations(obj.Location()) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 				metabasetest.UpdateObjectMetadata{
 					Opts: metabase.UpdateObjectMetadata{
-						ObjectStream: test.ObjectStream,
+						ProjectID:  test.ObjectLocation.ProjectID,
+						BucketName: test.ObjectLocation.BucketName,
+						ObjectKey:  test.ObjectLocation.ObjectKey,
 					},
 					ErrClass: test.ErrClass,
 					ErrText:  test.ErrText,
@@ -34,34 +38,33 @@ func TestUpdateObjectMetadata(t *testing.T) {
 			})
 		}
 
-		t.Run("Version invalid", func(t *testing.T) {
+		t.Run("StreamID missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
 			metabasetest.UpdateObjectMetadata{
 				Opts: metabase.UpdateObjectMetadata{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    0,
-						StreamID:   obj.StreamID,
-					},
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  obj.ObjectKey,
+					StreamID:   uuid.UUID{},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Version invalid: 0",
+				ErrText:  "StreamID missing",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Object missing", func(t *testing.T) {
+		t.Run("Metadata missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.UpdateObjectMetadata{
 				Opts: metabase.UpdateObjectMetadata{
-					ObjectStream: obj,
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  obj.ObjectKey,
+					StreamID:   obj.StreamID,
 				},
 				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "metabase: object with specified version and committed status is missing",
+				ErrText:  "object with specified version and committed status is missing",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -88,7 +91,10 @@ func TestUpdateObjectMetadata(t *testing.T) {
 
 			metabasetest.UpdateObjectMetadata{
 				Opts: metabase.UpdateObjectMetadata{
-					ObjectStream:                  obj,
+					ProjectID:                     obj.ProjectID,
+					BucketName:                    obj.BucketName,
+					ObjectKey:                     obj.ObjectKey,
+					StreamID:                      obj.StreamID,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
@@ -99,6 +105,73 @@ func TestUpdateObjectMetadata(t *testing.T) {
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						Encryption:   metabasetest.DefaultEncryption,
+
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Update metadata with version != 1", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			newObj := metabasetest.RandObjectStream()
+			metabasetest.CreatePendingObject(ctx, t, db, newObj, 0)
+
+			newObjDiffVersion := newObj
+			newObjDiffVersion.Version = 4
+			metabasetest.CreateTestObject{}.Run(ctx, t, db, newObjDiffVersion, 0)
+
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           newObj,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+					{
+						ObjectStream: newObjDiffVersion,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.UpdateObjectMetadata{
+				Opts: metabase.UpdateObjectMetadata{
+					ProjectID:                     newObj.ProjectID,
+					BucketName:                    newObj.BucketName,
+					ObjectKey:                     newObj.ObjectKey,
+					StreamID:                      newObj.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           newObj,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+					{
+						ObjectStream: newObjDiffVersion,
 						CreatedAt:    now,
 						Status:       metabase.Committed,
 						Encryption:   metabasetest.DefaultEncryption,
