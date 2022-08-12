@@ -385,10 +385,9 @@ func cmdInfo(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if nodeInfoCfg.JSON {
-
 		node := nodes.Node{
 			ID:            identity.ID,
-			APISecret:     apiKey.Secret[:],
+			APISecret:     apiKey.Secret,
 			PublicAddress: nodeInfoCfg.Contact.ExternalAddress,
 		}
 

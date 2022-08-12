@@ -154,13 +154,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return errs.Combine(runError, closeError)
 }
 
-type nodeInfo struct {
-	NodeID        storj.NodeID `json:"id"`
-	PublicAddress string       `json:"publicAddress"`
-	APISecret     string       `json:"apiSecret"`
-	Name          string       `json:"name"`
-}
-
 func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
@@ -187,7 +180,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	var nodeList []nodeInfo
+	var nodeList []nodes.Node
 
 	hasRequiredFlags := addCfg.NodeID != "" && addCfg.APISecret != "" && addCfg.PublicAddress != ""
 
@@ -200,54 +193,48 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		nodeList = []nodeInfo{
+		apiSecret, err := multinodeauth.SecretFromBase64(addCfg.APISecret)
+		if err != nil {
+			return err
+		}
+		nodeList = []nodes.Node{
 			{
-				NodeID:        nodeID,
+				ID:            nodeID,
 				PublicAddress: addCfg.PublicAddress,
-				APISecret:     addCfg.APISecret,
+				APISecret:     apiSecret,
 				Name:          addCfg.Name,
 			},
 		}
 	} else {
 		path := args[0]
-		var nodesData []byte
+		var nodesJSONData []byte
 		if path == "-" {
 			stdin := cmd.InOrStdin()
 			data, err := ioutil.ReadAll(stdin)
 			if err != nil {
 				return err
 			}
-			nodesData = data
+			nodesJSONData = data
 		} else {
-			nodesData, err = os.ReadFile(path)
+			nodesJSONData, err = os.ReadFile(path)
 			if err != nil {
 				return err
 			}
 		}
 
-		nodeList, err = unmarshalJSONNodes(nodesData)
+		nodeList, err = unmarshalJSONNodes(nodesJSONData)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, node := range nodeList {
-		if _, err := db.Nodes().Get(ctx, node.NodeID); err == nil {
-			return errs.New("Node with ID %s is already added to the multinode dashboard", node.NodeID)
-		}
-
-		apiSecret, err := multinodeauth.SecretFromBase64(node.APISecret)
-		if err != nil {
-			return err
+		if _, err := db.Nodes().Get(ctx, node.ID); err == nil {
+			return errs.New("Node with ID %s is already added to the multinode dashboard", node.ID)
 		}
 
 		service := nodes.NewService(log, dialer, db.Nodes())
-		err = service.Add(ctx, nodes.Node{
-			ID:            node.NodeID,
-			APISecret:     apiSecret[:],
-			PublicAddress: node.PublicAddress,
-			Name:          node.Name,
-		})
+		err = service.Add(ctx, node)
 		if err != nil {
 			return err
 		}
@@ -256,26 +243,26 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func unmarshalJSONNodes(nodesData []byte) ([]nodeInfo, error) {
-	var nodes []nodeInfo
-	nodesData = bytes.TrimLeft(nodesData, " \t\r\n")
+func unmarshalJSONNodes(nodesJSONData []byte) ([]nodes.Node, error) {
+	var nodesInfo []nodes.Node
+	nodesJSONData = bytes.TrimLeft(nodesJSONData, " \t\r\n")
 
 	switch {
-	case len(nodesData) > 0 && nodesData[0] == '[': // data is json array
-		err := json.Unmarshal(nodesData, &nodes)
+	case len(nodesJSONData) > 0 && nodesJSONData[0] == '[': // data is json array
+		err := json.Unmarshal(nodesJSONData, &nodesInfo)
 		if err != nil {
 			return nil, err
 		}
-	case len(nodesData) > 0 && nodesData[0] == '{': // data is json object
-		var singleNode nodeInfo
-		err := json.Unmarshal(nodesData, &singleNode)
+	case len(nodesJSONData) > 0 && nodesJSONData[0] == '{': // data is json object
+		var singleNode nodes.Node
+		err := json.Unmarshal(nodesJSONData, &singleNode)
 		if err != nil {
 			return nil, err
 		}
-		nodes = []nodeInfo{singleNode}
+		nodesInfo = []nodes.Node{singleNode}
 	default:
 		return nil, errs.New("invalid JSON format")
 	}
 
-	return nodes, nil
+	return nodesInfo, nil
 }

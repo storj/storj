@@ -65,7 +65,7 @@ func (service *Service) Add(ctx context.Context, node Node) (err error) {
 
 	nodeClient := multinodepb.NewDRPCNodeClient(conn)
 	header := &multinodepb.RequestHeader{
-		ApiKey: node.APISecret,
+		ApiKey: node.APISecret[:],
 	}
 
 	// making test request to check node api key.
@@ -154,7 +154,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 
 			header := &multinodepb.RequestHeader{
-				ApiKey: node.APISecret,
+				ApiKey: node.APISecret[:],
 			}
 
 			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
@@ -250,7 +250,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 
 			header := &multinodepb.RequestHeader{
-				ApiKey: node.APISecret,
+				ApiKey: node.APISecret[:],
 			}
 
 			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
@@ -349,7 +349,7 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 	nodeClient := multinodepb.NewDRPCNodeClient(conn)
 
 	header := &multinodepb.RequestHeader{
-		ApiKey: node.APISecret,
+		ApiKey: node.APISecret[:],
 	}
 
 	resp, err := nodeClient.TrustedSatellites(ctx, &multinodepb.TrustedSatellitesRequest{Header: header})

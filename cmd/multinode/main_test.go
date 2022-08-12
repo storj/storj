@@ -4,15 +4,21 @@
 package main
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
+	"storj.io/storj/multinode/nodes"
+	"storj.io/storj/private/multinodeauth"
 )
 
 func Test_unmarshalJSONNodes(t *testing.T) {
 	nodeID, err := storj.NodeIDFromString("1MJ7R1cqGrFnELPY3YKd62TBJ6vE8x9yPKPwUFHUx6G8oypezR")
+	require.NoError(t, err)
+
+	apiSecret, err := multinodeauth.SecretFromBase64("b_yeI0OBKBusBVN4_dHxpxlwdTyoFPwtEuHv9ACl9jI=")
 	require.NoError(t, err)
 
 	t.Run("valid json object", func(t *testing.T) {
@@ -24,11 +30,11 @@ func Test_unmarshalJSONNodes(t *testing.T) {
 	"apiSecret": "b_yeI0OBKBusBVN4_dHxpxlwdTyoFPwtEuHv9ACl9jI="
 }
 `
-		expectedNodeInfo := []nodeInfo{
+		expectedNodeInfo := []nodes.Node{
 			{
-				NodeID:        nodeID,
+				ID:            nodeID,
 				PublicAddress: "awn7k09ts6mxbgau.myfritz.net:13010",
-				APISecret:     "b_yeI0OBKBusBVN4_dHxpxlwdTyoFPwtEuHv9ACl9jI=",
+				APISecret:     apiSecret,
 				Name:          "Storagenode 1",
 			},
 		}
@@ -50,11 +56,11 @@ func Test_unmarshalJSONNodes(t *testing.T) {
 	}
 ]
 `
-		expectedNodeInfo := []nodeInfo{
+		expectedNodeInfo := []nodes.Node{
 			{
-				NodeID:        nodeID,
+				ID:            nodeID,
 				PublicAddress: "awn7k09ts6mxbgau.myfritz.net:13010",
-				APISecret:     "b_yeI0OBKBusBVN4_dHxpxlwdTyoFPwtEuHv9ACl9jI=",
+				APISecret:     apiSecret,
 				Name:          "Storagenode 1",
 			},
 		}
@@ -63,5 +69,35 @@ func Test_unmarshalJSONNodes(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, expectedNodeInfo, got)
+	})
+
+	t.Run("invalid base64 input, expects base64url", func(t *testing.T) {
+		nodesJSONData := `
+{
+	"name": "Storagenode 1",
+	"id":"1MJ7R1cqGrFnELPY3YKd62TBJ6vE8x9yPKPwUFHUx6G8oypezR",
+	"publicAddress": "awn7k09ts6mxbgau.myfritz.net:13010",
+	"apiSecret": "b/yeI0OBKBusBVN4/dHxpxlwdTyoFPwtEuHv9ACl9jI="
+}
+`
+		got, err := unmarshalJSONNodes([]byte(nodesJSONData))
+		require.Error(t, err)
+		require.ErrorIs(t, err, base64.CorruptInputError(1))
+		require.Nil(t, got)
+	})
+
+	t.Run("invalid secret", func(t *testing.T) {
+		nodesJSONData := `
+{
+	"name": "Storagenode 1",
+	"id":"1MJ7R1cqGrFnELPY3YKd62TBJ6vE8x9yPKPwUFHUx6G8oypezR",
+	"publicAddress": "awn7k09ts6mxbgau.myfritz.net:13010",
+	"apiSecret": "b_yeI0OBKBusBVN4_dHxpxlwdTyoFPwtEuHv9ACl9jI-"
+}
+`
+		got, err := unmarshalJSONNodes([]byte(nodesJSONData))
+		require.Error(t, err)
+		require.Equal(t, "invalid secret", err.Error())
+		require.Nil(t, got)
 	})
 }
